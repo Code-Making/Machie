@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const CodeEditorApp());
 
@@ -300,7 +301,18 @@ class _EditorScreenState extends State<EditorScreen> {
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
+  
+  Future<bool> _requestPermissions() async {
+    if (await Permission.storage.request().isGranted) {
+      return true;
+    }
+    return await Permission.manageExternalStorage.request().isGranted;
+  }
+  
   Future<String?> openFile() async {
+    if (!await _requestPermissions()) {
+      throw Exception('Storage permission denied');
+    }
     try {
       return await _channel.invokeMethod<String>('openFile');
     } on PlatformException catch (e) {
@@ -332,6 +344,9 @@ class AndroidFileHandler {
   }
 
   Future<String?> readFile(String uri) async {
+    if (!await _requestPermissions()) {
+      throw Exception('Storage permission denied');
+    }
     try {
       final bytes = await File(uri).readAsBytes();
       return utf8.decode(bytes);
