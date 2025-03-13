@@ -27,8 +27,8 @@ class EditorScreen extends StatefulWidget {
 class _EditorScreenState extends State<EditorScreen> {
   late CodeLineEditingController _controller;
   String? _currentFilePath;
-  final List<String> _undoStack = [];
-  final List<String> _redoStack = [];
+  final List<CodeLineEditingValue> _history = [];
+  int _historyIndex = -1;
 
   @override
   void initState() {
@@ -36,19 +36,15 @@ class _EditorScreenState extends State<EditorScreen> {
     _controller = CodeLineEditingController(
       codeLines: CodeLines.fromText('// Start coding...\n'),
     );
-    _controller.addListener(_saveState);
+    _controller.addListener(_saveHistory);
   }
 
-  void _saveState() {
-    _undoStack.add(_controller.text);
-    _redoStack.clear();
-  }
-
-  Future<void> _newFile() async {
-    setState(() {
-      _currentFilePath = null;
-      _controller = CodeLineEditingController(codeLines: CodeLines.empty);
-    });
+  void _saveHistory() {
+    if (_historyIndex < _history.length - 1) {
+      _history.removeRange(_historyIndex + 1, _history.length);
+    }
+    _history.add(_controller.value);
+    _historyIndex++;
   }
 
   Future<void> _openFile() async {
@@ -58,7 +54,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final content = await file.readAsString();
       setState(() {
         _currentFilePath = file.path;
-        _controller = CodeLineEditingController(codeLines: CodeLines.fromText(content));
+        _controller.value = CodeLineEditingValue(codeLines: CodeLines.fromText(content));
       });
     }
   }
@@ -68,7 +64,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final path = await getApplicationDocumentsDirectory();
       final newPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Save File',
-        fileName: 'untitled.dart',
+        fileName: 'untitled.txt',
       );
       if (newPath != null) _currentFilePath = newPath;
     }
@@ -82,20 +78,20 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _undo() {
-    if (_undoStack.isNotEmpty) {
-      _redoStack.add(_controller.text);
-      _controller.value = CodeLineEditingValue(
-        codeLines: CodeLines.fromText(_undoStack.removeLast()),
-      );
+    if (_historyIndex > 0) {
+      setState(() {
+        _historyIndex--;
+        _controller.value = _history[_historyIndex];
+      });
     }
   }
 
   void _redo() {
-    if (_redoStack.isNotEmpty) {
-      _undoStack.add(_controller.text);
-      _controller.value = CodeLineEditingValue(
-        codeLines: CodeLines.fromText(_redoStack.removeLast()),
-      );
+    if (_historyIndex < _history.length - 1) {
+      setState(() {
+        _historyIndex++;
+        _controller.value = _history[_historyIndex];
+      });
     }
   }
 
@@ -111,24 +107,19 @@ class _EditorScreenState extends State<EditorScreen> {
           IconButton(icon: const Icon(Icons.redo), onPressed: _redo),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: CodeEditor(
-              controller: _controller,
-              style: const CodeEditorStyle(
-                fontSize: 14,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-          if (_currentFilePath != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text('File: $_currentFilePath'),
-            ),
-        ],
+      body: CodeEditor(
+        controller: _controller,
+        style: const CodeEditorStyle(
+          fontSize: 14,
+          fontFamily: 'monospace',
+        ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
