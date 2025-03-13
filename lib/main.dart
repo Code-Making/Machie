@@ -214,25 +214,21 @@ class _EditorScreenState extends State<EditorScreen> {
               } : null,
               tooltip: 'Copy',
             ),
-            IconButton(
-              icon: const Icon(Icons.content_cut),
-              onPressed: hasSelection ? () async {
-                final text = _controller.selectedText;
-                _controller.deleteSelection();
-                await Clipboard.setData(ClipboardData(text: text));
-              } : null,
-              tooltip: 'Cut',
-            ),
-            IconButton(
-              icon: const Icon(Icons.content_paste),
-              onPressed: () async {
-                final data = await Clipboard.getData(Clipboard.kTextPlain);
-                if (data != null && data.text != null) {
-                  _controller.replaceSelection(data.text!);
-                }
-              },
-              tooltip: 'Paste',
-            ),
+              IconButton(
+                icon: const Icon(Icons.content_cut),
+                onPressed: hasSelection ? () => _controller.cut() : null,
+                tooltip: 'Cut',
+              ),
+              IconButton(
+                icon: const Icon(Icons.content_paste),
+                onPressed: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data != null && data.text != null) {
+                 _controller.replaceSelection(data.text!);
+                  }
+                },
+                tooltip: 'Paste',
+              ),
             IconButton(
               icon: const Icon(Icons.arrow_upward),
               onPressed: hasSelection ? () => _controller.moveSelectionLinesUp() : null,
