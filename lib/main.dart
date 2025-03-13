@@ -49,61 +49,52 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _openFile() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final content = await file.readAsString();
-      setState(() {
-        _currentFilePath = file.path;
-        _controller.value = CodeLineEditingValue(codeLines: CodeLines.fromText(content));
-      });
+  final status = await Permission.storage.request();
+  if (!status.isGranted) return;
+
+  final result = await FilePicker.platform.pickFiles();
+  if (result != null && result.files.isNotEmpty) {
+    final file = result.files.first;
+    final originalPath = file.path!;
+    
+    // Get real external path
+    final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
+      ExternalPath.DIRECTORY_DOWNLOADS
+    );
+    
+    // Check if file is in cache
+    if (originalPath.contains('cache/file_picker')) {
+      // Move from cache to permanent location
+      final newPath = '$downloadsDir/${file.name}';
+      await File(originalPath).copy(newPath);
+      setState(() => _currentFilePath = newPath);
+    } else {
+      // Use original path directly
+      setState(() => _currentFilePath = originalPath);
     }
+
+    final content = await File(_currentFilePath!).readAsString();
+    _controller.value = CodeLineEditingValue(codeLines: CodeLines.fromText(content));
   }
+}
 
 Future<void> _saveFile() async {
-  try {
-    // Request storage permissions
-    final status = await Permission.storage.request();
-    if (!status.isGranted) {
-      throw Exception('Storage permission denied');
-    }
+  final status = await Permission.storage.request();
+  if (!status.isGranted) return;
 
-    String? savePath = _currentFilePath;
-    
-    if (savePath == null) {
-      // Get external storage directory
-      final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-        ExternalPath.DIRECTORY_DOWNLOAD
-      );
-      
-      final fileName = 'code_${DateTime.now().millisecondsSinceEpoch}.dart';
-      savePath = '$downloadsDir/$fileName';
-    }
-
-    final file = File(savePath);
-    await file.writeAsString(_controller.text);
-    
-    // Update state after successful write
-    setState(() {
-      _currentFilePath = savePath;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully saved to $savePath'),
-        duration: const Duration(seconds: 3),
-      )
+  if (_currentFilePath == null) {
+    final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
+      ExternalPath.DIRECTORY_DOWNLOADS
     );
-    
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Save failed: ${e.toString()}'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-    )
-    );
+    _currentFilePath = '$downloadsDir/code_${DateTime.now().millisecondsSinceEpoch}.dart';
   }
+
+  final file = File(_currentFilePath!);
+  await file.writeAsString(_controller.text);
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Saved to ${file.path}'))
+  );
 }
 
   void _undo() {
