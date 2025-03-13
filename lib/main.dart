@@ -103,26 +103,34 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _handleKeyEvent(RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return;
-    
-    final selection = _controller.selection;
-    final basePosition = selection.base;
+  if (event is! RawKeyDownEvent) return;
+  
+  final selection = _controller.selection;
+  final isShiftPressed = event.isShiftPressed;
 
-    switch (event.logicalKey) {
-      case LogicalKeyboardKey.arrowLeft:
-        _controller.moveCursor(AxisDirection.left);
-        break;
-      case LogicalKeyboardKey.arrowRight:
-        _controller.moveCursor(AxisDirection.right);
-        break;
-      case LogicalKeyboardKey.arrowUp:
-        _controller.moveCursor(AxisDirection.up);
-        break;
-      case LogicalKeyboardKey.arrowDown:
-        _controller.moveCursor(AxisDirection.down);
-        break;
+  void handleMove(AxisDirection direction) {
+    if (isShiftPressed) {
+      _controller.extendSelection(direction);
+    } else {
+      _controller.moveCursor(direction);
     }
   }
+
+  switch (event.logicalKey) {
+    case LogicalKeyboardKey.arrowLeft:
+      handleMove(AxisDirection.left);
+      break;
+    case LogicalKeyboardKey.arrowRight:
+      handleMove(AxisDirection.right);
+      break;
+    case LogicalKeyboardKey.arrowUp:
+      handleMove(AxisDirection.up);
+      break;
+    case LogicalKeyboardKey.arrowDown:
+      handleMove(AxisDirection.down);
+      break;
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +158,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   fontSize: 14,
                   fontFamily: 'FiraCode',
                   codeTheme: CodeHighlightTheme(
-                    languages: {'json': CodeHighlightThemeMode(mode: langJson)},
+                    languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
                     theme: atomOneDarkTheme,
                   ),
                 ),
@@ -191,12 +199,20 @@ class _EditorScreenState extends State<EditorScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.content_copy),
-              onPressed: hasSelection ? () => _controller.copy() : null,
+              onPressed: hasSelection ? () async {
+                await Clipboard.setData(ClipboardData(
+                  text: _controller.selectedText
+                ));
+              } : null,
               tooltip: 'Copy',
             ),
             IconButton(
               icon: const Icon(Icons.content_cut),
-              onPressed: hasSelection ? () => _controller.cut() : null,
+              onPressed: hasSelection ? () async {
+                final text = _controller.selectedText;
+                await Clipboard.setData(ClipboardData(text: text));
+                _controller.deleteSelection();
+              } : null,
               tooltip: 'Cut',
             ),
             IconButton(
