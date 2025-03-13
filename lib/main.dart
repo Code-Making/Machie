@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
 void main() => runApp(const CodeEditorApp());
