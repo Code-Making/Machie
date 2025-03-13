@@ -45,6 +45,10 @@ class _EditorScreenState extends State<EditorScreen> {
   int _currentTabIndex = 0;
   String? _currentDirUri;
   List<Map<String, dynamic>> _directoryContents = [];
+  bool _isSidebarVisible = true;
+  final double _sidebarWidth = 300;
+  double _sidebarPosition = 0;
+
 
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -122,7 +126,12 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         title: Text(_tabs.isEmpty 
             ? 'No File Open' 
             : _tabs[_currentTabIndex].uri.split('/').last),
@@ -144,96 +153,107 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
         ],
       ),
-      body: Row(
+      drawer: _buildDrawer(),
+      body: _buildEditorArea(),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
         children: [
-          // File Explorer Panel
-          if (_currentDirUri != null)
-            Container(
-              width: 300,
-              color: Colors.grey[900],
-              child: ListView.builder(
-                itemCount: _directoryContents.length,
-                itemBuilder: (context, index) {
-                  final item = _directoryContents[index];
-                  return ListTile(
-                    leading: Icon(item['type'] == 'dir' 
-                        ? Icons.folder 
-                        : Icons.insert_drive_file),
-                    title: Text(item['name']),
-                    onTap: () {
-                      if (item['type'] == 'dir') {
-                        _loadDirectoryContents(item['uri']);
-                      } else {
-                        _openFileTab(item['uri']);
-                      }
-                    },
-                  );
-                },
+          AppBar(
+            title: const Text('Explorer'),
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
               ),
-            ),
-          // Editor Area
+            ],
+          ),
           Expanded(
-            child: Column(
-              children: [
-                // Tab Bar
-                if (_tabs.isNotEmpty)
-                  Container(
-                    height: 40,
-                    color: Colors.grey[850],
-                    child: Row(
-                      children: [
-                        ..._tabs.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final tab = entry.value;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: _currentTabIndex == index 
-                                  ? Colors.grey[800] 
-                                  : Colors.grey[900],
-                              border: Border(
-                                right: BorderSide(color: Colors.grey[700]!),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.close, size: 18),
-                                  onPressed: () => _closeTab(index),
-                                ),
-                                Text(
-                                  tab.uri.split('/').last,
-                                  style: TextStyle(
-                                    color: tab.isDirty ? Colors.orange : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    ),
+            child: _currentDirUri == null
+                ? const Center(child: Text('Open a folder to browse'))
+                : ListView.builder(
+                    itemCount: _directoryContents.length,
+                    itemBuilder: (context, index) {
+                      final item = _directoryContents[index];
+                      return ListTile(
+                        leading: Icon(item['type'] == 'dir' 
+                            ? Icons.folder 
+                            : Icons.insert_drive_file),
+                        title: Text(item['name']),
+                        onTap: () {
+                          if (item['type'] == 'dir') {
+                            _loadDirectoryContents(item['uri']);
+                          } else {
+                            _openFileTab(item['uri']);
+                            Navigator.pop(context);
+                          }
+                        },
+                      );
+                    },
                   ),
-                // Editor
-                Expanded(
-                  child: _tabs.isEmpty
-                      ? const Center(child: Text('Open a file to start editing'))
-                      : CodeEditor(
-                          controller: _tabs[_currentTabIndex].controller,
-                          style: CodeEditorStyle(
-                            fontSize: 14,
-                            fontFamily: 'FiraCode',
-                            codeTheme: CodeHighlightTheme(
-                              languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                              theme: atomOneDarkTheme,
-                            ),
-                          ),
-                        ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEditorArea() {
+    return Column(
+      children: [
+        if (_tabs.isNotEmpty)
+          Container(
+            height: 40,
+            color: Colors.grey[850],
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _tabs.length,
+              itemBuilder: (context, index) {
+                final tab = _tabs[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: _currentTabIndex == index 
+                        ? Colors.grey[800] 
+                        : Colors.grey[900],
+                    border: Border(right: BorderSide(color: Colors.grey[700]!)),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => _closeTab(index),
+                      ),
+                      Text(
+                        tab.uri.split('/').last,
+                        style: TextStyle(
+                          color: tab.isDirty ? Colors.orange : Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        Expanded(
+          child: _tabs.isEmpty
+              ? const Center(child: Text('Open a file to start editing'))
+              : CodeEditor(
+                  controller: _tabs[_currentTabIndex].controller,
+                  style: CodeEditorStyle(
+                    fontSize: 14,
+                    fontFamily: 'FiraCode',
+                    codeTheme: CodeHighlightTheme(
+                      languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
+                      theme: atomOneDarkTheme,
+                    ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -291,4 +311,4 @@ class AndroidFileHandler {
       return false;
     }
   }
-}
+}8
