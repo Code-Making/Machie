@@ -75,31 +75,38 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  Future<void> _openFileTab(String uri) async {
-    if (_tabs.any((tab) => tab.uri == uri)) {
-      setState(() {
-        _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri);
-      });
-      return;
-    }
+ Future<void> _openFileTab(String uri) async {
+    try {
+      // Check if file is already open
+      final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
+      if (existingIndex != -1) {
+        setState(() => _currentTabIndex = existingIndex);
+        return;
+      }
 
-    final content = await _fileHandler.readFile(uri);
-    if (content != null) {
+      // Read file content
+      final content = await _fileHandler.readFile(uri);
+      if (content == null) {
+        _showError('Failed to read file');
+        return;
+      }
+
+      // Create new editor tab
       final controller = CodeLineEditingController(
         codeLines: CodeLines.fromText(content),
-      )..addListener(() {
-          setState(() {
+      )..addListener(() => setState(() {
             _tabs[_currentTabIndex].isDirty = true;
-          });
-        });
+          }));
 
       setState(() {
         _tabs.add(EditorTab(uri: uri, controller: controller));
         _currentTabIndex = _tabs.length - 1;
       });
+    } catch (e) {
+      _showError('Error opening file: ${e.toString()}');
     }
   }
-
+  
   Future<void> _saveFile() async {
     final tab = _tabs[_currentTabIndex];
     final success = await _fileHandler.writeFile(
@@ -202,38 +209,41 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-  Widget _buildEditorArea() {
+    Widget _buildEditorArea() {
     return Column(
       children: [
         if (_tabs.isNotEmpty)
-          Container(
+          SizedBox(
             height: 40,
-            color: Colors.grey[850],
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _tabs.length,
               itemBuilder: (context, index) {
                 final tab = _tabs[index];
-                return Container(
-                  decoration: BoxDecoration(
-                    color: _currentTabIndex == index 
-                        ? Colors.grey[800] 
-                        : Colors.grey[900],
-                    border: Border(right: BorderSide(color: Colors.grey[700]!)),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => _closeTab(index),
-                      ),
-                      Text(
-                        tab.uri.split('/').last,
-                        style: TextStyle(
-                          color: tab.isDirty ? Colors.orange : Colors.white,
+                return GestureDetector(
+                  onTap: () => setState(() => _currentTabIndex = index),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _currentTabIndex == index
+                          ? Colors.grey[800]
+                          : Colors.grey[900],
+                      border: Border(right: BorderSide(color: Colors.grey[700]!)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => _closeTab(index),
                         ),
-                      ),
-                    ],
+                        Text(
+                          tab.uri.split('/').last,
+                          style: TextStyle(
+                            color: tab.isDirty ? Colors.orange : Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -242,16 +252,19 @@ class _EditorScreenState extends State<EditorScreen> {
         Expanded(
           child: _tabs.isEmpty
               ? const Center(child: Text('Open a file to start editing'))
-              : CodeEditor(
-                  controller: _tabs[_currentTabIndex].controller,
-                  style: CodeEditorStyle(
-                    fontSize: 14,
-                    fontFamily: 'FiraCode',
-                    codeTheme: CodeHighlightTheme(
-                      languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                      theme: atomOneDarkTheme,
+              : IndexedStack(
+                  index: _currentTabIndex,
+                  children: _tabs.map((tab) => CodeEditor(
+                    controller: tab.controller,
+                    style: CodeEditorStyle(
+                      fontSize: 14,
+                      fontFamily: 'FiraCode',
+                      codeTheme: CodeHighlightTheme(
+                        languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
+                        theme: atomOneDarkTheme,
+                      ),
                     ),
-                  ),
+                  )).toList(),
                 ),
         ),
       ],
