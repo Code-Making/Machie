@@ -44,6 +44,7 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
   bool _isSidebarVisible = true;
   final double _sidebarWidth = 300;
