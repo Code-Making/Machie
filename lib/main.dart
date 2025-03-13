@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/json.dart';
-import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
 void main() => runApp(const CodeEditorApp());
@@ -29,7 +30,7 @@ class EditorScreen extends StatefulWidget {
 }
 
 class _EditorScreenState extends State<EditorScreen> {
-late CodeLineEditingController _controller;
+  late CodeLineEditingController _controller;
   final FocusNode _keyboardFocusNode = FocusNode();
   final CodeScrollController _scrollController = CodeScrollController();
   String? _currentFilePath;
@@ -101,31 +102,24 @@ late CodeLineEditingController _controller;
     }
   }
 
-void _handleKeyEvent(RawKeyEvent event) {
+  void _handleKeyEvent(RawKeyEvent event) {
     if (event is! RawKeyDownEvent) return;
     
     final selection = _controller.selection;
-    final codeLines = _controller.codeLines;
-    final cursor = selection.baseOffset;
+    final basePosition = selection.base;
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowLeft:
-        _controller.selection = selection.copyWith(
-          baseOffset: max(cursor.offset - 1, 0),
-          extentOffset: max(cursor.offset - 1, 0),
-        );
+        _controller.moveCursor(AxisDirection.left);
         break;
       case LogicalKeyboardKey.arrowRight:
-        _controller.selection = selection.copyWith(
-          baseOffset: min(cursor.offset + 1, codeLines.length),
-          extentOffset: min(cursor.offset + 1, codeLines.length),
-        );
+        _controller.moveCursor(AxisDirection.right);
         break;
       case LogicalKeyboardKey.arrowUp:
-        _controller.moveCursor(LineMove.up);
+        _controller.moveCursor(AxisDirection.up);
         break;
       case LogicalKeyboardKey.arrowDown:
-        _controller.moveCursor(LineMove.down);
+        _controller.moveCursor(AxisDirection.down);
         break;
     }
   }
@@ -208,9 +202,9 @@ void _handleKeyEvent(RawKeyEvent event) {
               IconButton(
                 icon: const Icon(Icons.content_paste),
                 onPressed: () async {
-                  final data = await Clipboard.getData('text/plain');
-                  if (data != null) {
-                    _controller.paste(data.text!);
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data != null && data.text != null) {
+                    _controller.insert(data.text!);
                   }
                 },
                 tooltip: 'Paste',
