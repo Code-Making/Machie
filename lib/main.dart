@@ -73,7 +73,7 @@ Future<void> _saveFile() async {
     if (savePath == null) {
       // Get external storage directory
       final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-        ExternalPath.DIRECTORY_DOWNLOADS
+        ExternalPath.DIRECTORY_DOWNLOAD
       );
       
       final fileName = 'code_${DateTime.now().millisecondsSinceEpoch}.dart';
