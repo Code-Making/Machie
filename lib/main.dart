@@ -311,4 +311,4 @@ class AndroidFileHandler {
       return false;
     }
   }
-}8
+}
