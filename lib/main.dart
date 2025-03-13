@@ -39,7 +39,6 @@ class _EditorScreenState extends State<EditorScreen> {
   late CodeLineEditingController _controller;
   final FocusNode _keyboardFocusNode = FocusNode();
   final CodeScrollController _scrollController = CodeScrollController();
-  String? _currentFilePath;
   final List<CodeLineEditingValue> _history = [];
   int _historyIndex = -1;
 
