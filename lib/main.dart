@@ -59,7 +59,7 @@ class _EditorScreenState extends State<EditorScreen> {
     
     // Get real external path
     final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOADS
+      ExternalPath.DIRECTORY_DOWNLOAD
     );
     
     // Check if file is in cache
@@ -84,7 +84,7 @@ Future<void> _saveFile() async {
 
   if (_currentFilePath == null) {
     final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOADS
+      ExternalPath.DIRECTORY_DOWNLOAD
     );
     _currentFilePath = '$downloadsDir/code_${DateTime.now().millisecondsSinceEpoch}.dart';
   }
