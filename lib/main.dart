@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:flutter_slider_drawer/flutter_slider_drawer.dart';
 
 void main() => runApp(const CodeEditorApp());
 
@@ -46,7 +45,6 @@ class _EditorScreenState extends State<EditorScreen> {
   int _currentTabIndex = 0;
   String? _currentDirUri;
   List<Map<String, dynamic>> _directoryContents = [];
-  final GlobalKey<SliderDrawerState> _drawerKey = GlobalKey<SliderDrawerState>();
 
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -62,9 +60,21 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-Future<void> _openFileTab(String uri) async {
+  Future<void> _loadDirectoryContents(String uri) async {
+    final contents = await _fileHandler.listDirectory(uri);
+    if (contents != null) {
+      setState(() {
+        _currentDirUri = uri;
+        _directoryContents = contents;
+      });
+    }
+  }
+
+  Future<void> _openFileTab(String uri) async {
     if (_tabs.any((tab) => tab.uri == uri)) {
-      setState(() => _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri));
+      setState(() {
+        _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri);
+      });
       return;
     }
 
@@ -72,25 +82,15 @@ Future<void> _openFileTab(String uri) async {
     if (content != null) {
       final controller = CodeLineEditingController(
         codeLines: CodeLines.fromText(content),
-      )..addListener(() => setState(() => _tabs[_currentTabIndex].isDirty = true));
+      )..addListener(() {
+          setState(() {
+            _tabs[_currentTabIndex].isDirty = true;
+          });
+        });
 
       setState(() {
         _tabs.add(EditorTab(uri: uri, controller: controller));
         _currentTabIndex = _tabs.length - 1;
-      });
-    }
-  }
-
-  Future<void> _loadDirectoryContents(String uri) async {
-    final contents = await _fileHandler.listDirectory(uri);
-    if (contents != null) {
-      setState(() {
-        _currentDirUri = uri;
-        _directoryContents = contents.where((item) => 
-          item['type'] == 'dir' || 
-          item['name'].endsWith('.dart') || 
-          item['name'].endsWith('.txt')
-        ).toList();
       });
     }
   }
@@ -121,158 +121,126 @@ Future<void> _openFileTab(String uri) async {
 
   @override
   Widget build(BuildContext context) {
-    return SliderDrawer(
-      key: _drawerKey,
-      sliderOpenSize: 300,
-      slider: _buildFileExplorer(),
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => _drawerKey.currentState?.toggle(),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_tabs.isEmpty 
+            ? 'No File Open' 
+            : _tabs[_currentTabIndex].uri.split('/').last),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            onPressed: _openFolder,
+            tooltip: 'Open Folder',
           ),
-          title: Text(_tabs.isEmpty 
-              ? 'No File Open' 
-              : _tabs[_currentTabIndex].uri.split('/').last),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.folder_open),
-              onPressed: _openFolder,
-              tooltip: 'Open Folder',
+          IconButton(
+            icon: const Icon(Icons.file_open),
+            onPressed: _openFile,
+            tooltip: 'Open File',
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _tabs.isNotEmpty ? _saveFile : null,
+            tooltip: 'Save File',
+          ),
+        ],
+      ),
+      body: Row(
+        children: [
+          // File Explorer Panel
+          if (_currentDirUri != null)
+            Container(
+              width: 300,
+              color: Colors.grey[900],
+              child: ListView.builder(
+                itemCount: _directoryContents.length,
+                itemBuilder: (context, index) {
+                  final item = _directoryContents[index];
+                  return ListTile(
+                    leading: Icon(item['type'] == 'dir' 
+                        ? Icons.folder 
+                        : Icons.insert_drive_file),
+                    title: Text(item['name']),
+                    onTap: () {
+                      if (item['type'] == 'dir') {
+                        _loadDirectoryContents(item['uri']);
+                      } else {
+                        _openFileTab(item['uri']);
+                      }
+                    },
+                  );
+                },
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.file_open),
-              onPressed: _openFile,
-              tooltip: 'Open File',
-            ),
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _tabs.isNotEmpty ? _saveFile : null,
-              tooltip: 'Save File',
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            // Tab Bar
-            if (_tabs.isNotEmpty)
-              Container(
-                height: 40,
-                color: Colors.grey[850],
-                child: Row(
-                  children: [
-                    ..._tabs.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final tab = entry.value;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: _currentTabIndex == index 
-                              ? Colors.grey[800] 
-                              : Colors.grey[900],
-                          border: Border(
-                            right: BorderSide(color: Colors.grey[700]!),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.close, size: 18),
-                              onPressed: () => _closeTab(index),
-                            ),
-                            Text(
-                              tab.uri.split('/').last,
-                              style: TextStyle(
-                                color: tab.isDirty ? Colors.orange : null,
+          // Editor Area
+          Expanded(
+            child: Column(
+              children: [
+                // Tab Bar
+                if (_tabs.isNotEmpty)
+                  Container(
+                    height: 40,
+                    color: Colors.grey[850],
+                    child: Row(
+                      children: [
+                        ..._tabs.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final tab = entry.value;
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: _currentTabIndex == index 
+                                  ? Colors.grey[800] 
+                                  : Colors.grey[900],
+                              border: Border(
+                                right: BorderSide(color: Colors.grey[700]!),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                ),
-              ),
-            // Editor
-            Expanded(
-              child: _tabs.isEmpty
-                  ? const Center(child: Text('Open a file to start editing'))
-                  : CodeEditor(
-                      controller: _tabs[_currentTabIndex].controller,
-                      style: CodeEditorStyle(
-                        fontSize: 14,
-                        fontFamily: 'FiraCode',
-                        codeTheme: CodeHighlightTheme(
-                          languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                          theme: atomOneDarkTheme,
-                        ),
-                      ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.close, size: 18),
+                                  onPressed: () => _closeTab(index),
+                                ),
+                                Text(
+                                  tab.uri.split('/').last,
+                                  style: TextStyle(
+                                    color: tab.isDirty ? Colors.orange : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
                     ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFileExplorer() {
-    return Container(
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                const Text('File Explorer', style: TextStyle(fontSize: 18)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _currentDirUri != null 
-                      ? () => _loadParentDirectory()
-                      : null,
+                  ),
+                // Editor
+                Expanded(
+                  child: _tabs.isEmpty
+                      ? const Center(child: Text('Open a file to start editing'))
+                      : CodeEditor(
+                          controller: _tabs[_currentTabIndex].controller,
+                          style: CodeEditorStyle(
+                            fontSize: 14,
+                            fontFamily: 'FiraCode',
+                            codeTheme: CodeHighlightTheme(
+                              languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
+                              theme: atomOneDarkTheme,
+                            ),
+                          ),
+                        ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: _currentDirUri == null
-                ? const Center(child: Text('No folder open'))
-                : ListView.builder(
-                    itemCount: _directoryContents.length,
-                    itemBuilder: (context, index) {
-                      final item = _directoryContents[index];
-                      return ListTile(
-                        leading: Icon(item['type'] == 'dir' 
-                            ? Icons.folder 
-                            : Icons.insert_drive_file),
-                        title: Text(item['name']),
-                        onTap: () {
-                          if (item['type'] == 'dir') {
-                            _loadDirectoryContents(item['uri']);
-                          } else {
-                            _openFileTab(item['uri']);
-                            _drawerKey.currentState?.closeSlider();
-                          }
-                        },
-                      );
-                    },
-                  ),
           ),
         ],
       ),
     );
   }
-
-  Future<void> _loadParentDirectory() async {
-    if (_currentDirUri == null) return;
-    final parentUri = Directory(_currentDirUri!).parent.path;
-    await _loadDirectoryContents(parentUri);
-  }
 }
 
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
-
+  
   Future<String?> openFile() async {
     try {
       return await _channel.invokeMethod<String>('openFile');
@@ -306,21 +274,20 @@ class AndroidFileHandler {
 
   Future<String?> readFile(String uri) async {
     try {
-      return await _channel.invokeMethod<String>('readFile', {'uri': uri});
-    } on PlatformException catch (e) {
-      print("Error reading file: ${e.message}");
+      final bytes = await File(uri).readAsBytes();
+      return utf8.decode(bytes);
+    } catch (e) {
+      print("Error reading file: $e");
       return null;
     }
   }
 
   Future<bool> writeFile(String uri, String content) async {
     try {
-      return await _channel.invokeMethod<bool>(
-        'writeFile',
-        {'uri': uri, 'content': content}
-      ) ?? false;
-    } on PlatformException catch (e) {
-      print("Error writing file: ${e.message}");
+      await File(uri).writeAsString(content);
+      return true;
+    } catch (e) {
+      print("Error writing file: $e");
       return false;
     }
   }
