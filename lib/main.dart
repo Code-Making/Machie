@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
 
 void main() => runApp(const CodeEditorApp());
 
@@ -13,9 +11,8 @@ class CodeEditorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData.dark(),
-      home: const EditorScreen(),
+    return const MaterialApp(
+      home: EditorScreen(),
     );
   }
 }
@@ -37,7 +34,7 @@ class _EditorScreenState extends State<EditorScreen> {
   void initState() {
     super.initState();
     _controller = CodeLineEditingController(
-      codeLines: CodeLines.fromText('// Start coding...\n{\n  // Code block\n}'),
+      codeLines: CodeLines.fromText('// Start coding...\n'),
     );
     _controller.addListener(_saveHistory);
   }
@@ -67,7 +64,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final path = await getApplicationDocumentsDirectory();
       final newPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Save File',
-        fileName: 'untitled.dart',
+        fileName: 'untitled.txt',
       );
       if (newPath != null) _currentFilePath = newPath;
     }
@@ -112,40 +109,10 @@ class _EditorScreenState extends State<EditorScreen> {
       ),
       body: CodeEditor(
         controller: _controller,
-        style: CodeEditorStyle(
+        style: const CodeEditorStyle(
           fontSize: 14,
-          fontFamily: 'FiraCode',
-          codeTheme: CodeHighlightTheme(
-            languages: {
-              'dart': CodeHighlightThemeMode(mode: langDart)
-            },
-            theme: atomOneDarkTheme,
-          ),
-          chunkIndicatorStyle: const CodeChunkIndicatorStyle(
-            color: Colors.blueGrey,
-            hoverColor: Colors.blue,
-          ),
+          fontFamily: 'monospace',
         ),
-        indicatorBuilder: (context, editingController, chunkController, notifier) {
-          return Row(
-            children: [
-              DefaultCodeLineNumber(
-                controller: editingController,
-                notifier: notifier,
-                textStyle: const TextStyle(color: Colors.grey),
-              ),
-              Container(
-                width: 1,
-                color: Colors.grey.withOpacity(0.5),
-              ),
-              DefaultCodeChunkIndicator(
-                controller: chunkController,
-                notifier: notifier,
-                iconSize: 14,
-              ),
-            ],
-          );
-        },
       ),
     );
   }
