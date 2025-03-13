@@ -172,65 +172,60 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildBottomToolbar() {
-    return ValueListenableBuilder<CodeLineEditingValue>(
-      valueListenable: _controller,
-      builder: (context, value, child) {
-        final hasSelection = value.selection != const CodeLineSelection.zero();
-        return Container(
-          color: Colors.grey[900],
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.content_copy),
-                onPressed: hasSelection ? () {
-                  Clipboard.setData(ClipboardData(
-                    text: _controller.selectedText
-                  ));
-                } : null,
-                tooltip: 'Copy',
-              ),
-              IconButton(
-                icon: const Icon(Icons.content_cut),
-                onPressed: hasSelection ? () {
-                  _controller.runRevocableOp(() {
-                    final text = _controller.selectedText;
-                    Clipboard.setData(ClipboardData(text: text));
-                    _controller.deleteSelection();
-                  });
-                } : null,
-                tooltip: 'Cut',
-              ),
-              IconButton(
-                icon: const Icon(Icons.content_paste),
-                onPressed: () {
-                  _controller.runRevocableOp(() async {
-                    final data = await Clipboard.getData(Clipboard.kTextPlain);
-                    if (data != null && data.text != null) {
-                      _controller.replaceSelection(data.text!);
-                    }
-                  });
-                },
-                tooltip: 'Paste',
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_upward),
-                onPressed: _controller.canUndo ? _undo : null,
-                tooltip: 'Undo',
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_downward),
-                onPressed: _controller.canRedo ? _redo : null,
-                tooltip: 'Redo',
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
+  return ValueListenableBuilder<CodeLineEditingValue>(
+    valueListenable: _controller,
+    builder: (context, value, child) {
+      final hasSelection = value.selection != const CodeLineSelection.zero();
+      return Container(
+        color: Colors.grey[900],
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.content_copy),
+              onPressed: hasSelection ? () async {
+                await Clipboard.setData(ClipboardData(
+                  text: _controller.selectedText
+                ));
+              } : null,
+              tooltip: 'Copy',
+            ),
+            IconButton(
+              icon: const Icon(Icons.content_cut),
+              onPressed: hasSelection ? () async {
+                final text = _controller.selectedText;
+                await Clipboard.setData(ClipboardData(text: text));
+                _controller.deleteSelection();
+              } : null,
+              tooltip: 'Cut',
+            ),
+            IconButton(
+              icon: const Icon(Icons.content_paste),
+              onPressed: () async {
+                final data = await Clipboard.getData(Clipboard.kTextPlain);
+                if (data != null && data.text != null) {
+                  _controller.replaceSelection(data.text!);
+                }
+              },
+              tooltip: 'Paste',
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_upward),
+              onPressed: hasSelection ? () => _controller.moveSelectionLinesUp() : null,
+              tooltip: 'Move Up',
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_downward),
+              onPressed: hasSelection ? () => _controller.moveSelectionLinesDown() : null,
+              tooltip: 'Move Down',
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   @override
   void dispose() {
