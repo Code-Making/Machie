@@ -357,6 +357,9 @@ class AndroidFileHandler {
   }
 
   Future<bool> writeFile(String uri, String content) async {
+    if (!await _requestPermissions()) {
+      throw Exception('Storage permission denied');
+    }
     try {
       await File(uri).writeAsString(content);
       return true;
