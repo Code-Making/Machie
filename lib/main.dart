@@ -198,17 +198,16 @@ class _EditorScreenState extends State<EditorScreen> {
                 icon: const Icon(Icons.content_cut),
                 onPressed: hasSelection ? () => _controller.cut() : null,
                 tooltip: 'Cut',
-              ),
-              IconButton(
-                icon: const Icon(Icons.content_paste),
-                onPressed: () async {
-                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                  if (data != null && data.text != null) {
-                    _controller.insert(data.text!);
-                  }
-                },
-                tooltip: 'Paste',
-              ),
+IconButton(
+  icon: const Icon(Icons.content_paste),
+  onPressed: () async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      _controller.replaceSelection(data.text!);
+    }
+  },
+  tooltip: 'Paste',
+),
             ],
           ),
         );
