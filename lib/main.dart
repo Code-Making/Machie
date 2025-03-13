@@ -129,7 +129,6 @@ class _EditorScreenState extends State<EditorScreen> {
             },
             theme: atomOneDarkTheme,
           ),
-          textStyle: TextStyle(color: Colors.grey[200]),
         ),
         indicatorBuilder: (context, editingController, chunkController, notifier) {
           return Row(
