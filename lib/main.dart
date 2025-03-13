@@ -101,8 +101,8 @@ Future<void> _saveFile() async {
         content: Text('Save failed: ${e.toString()}'),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
-    );
     )
+    );
   }
 }
 
