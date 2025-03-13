@@ -270,7 +270,7 @@ class _EditorScreenState extends State<EditorScreen> {
             },
           ),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
-          _buildBottomToolbar;
+          _buildBottomToolbar,
         ],
       ),
     );
