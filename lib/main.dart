@@ -95,25 +95,39 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-Future<void> _openFileTab(String uri) async {
-    if (_tabs.any((tab) => tab.uri == uri)) {
-      setState(() => _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri));
-      return;
-    }
+   Future<void> _openFileTab(String uri) async {
+    try {
+      // Check if file is already open
+      final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
+      if (existingIndex != -1) {
+        setState(() => _currentTabIndex = existingIndex);
+        return;
+      }
 
-    final content = await _fileHandler.readFile(uri);
-    if (content != null) {
+      // Read file content
+      final content = await _fileHandler.readFile(uri);
+      if (content == null) {
+        _showError('Failed to read file content');
+        return;
+      }
+
+      // Create new editor tab
       final controller = CodeLineEditingController(
         codeLines: CodeLines.fromText(content),
-      )..addListener(() => setState(() => _tabs[_currentTabIndex].isDirty = true));
+      )..addListener(() => setState(() {
+            _tabs[_currentTabIndex].isDirty = true;
+          }));
 
       setState(() {
         _tabs.add(EditorTab(uri: uri, controller: controller));
         _currentTabIndex = _tabs.length - 1;
       });
+      
+      _showSuccess('File opened successfully');
+    } catch (e) {
+      _showError('Error opening file: ${e.toString()}');
     }
   }
-
   
   Future<void> _saveFile() async {
     if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
