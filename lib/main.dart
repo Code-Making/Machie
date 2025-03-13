@@ -120,7 +120,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _saveAs() async {
     final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOADS
+      ExternalPath.DIRECTORY_DOWNLOAD
     );
     
     final path = await FilePicker.platform.saveFile(
