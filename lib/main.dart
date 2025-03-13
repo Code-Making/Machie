@@ -58,22 +58,45 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _saveFile() async {
-    if (_currentFilePath == null) {
-      final path = await getApplicationDocumentsDirectory();
+  try {
+    String? savePath = _currentFilePath;
+    
+    if (savePath == null) {
+      final String fileName = _currentFilePath?.split('/').last ?? 'untitled.dart';
+      final initialDir = await getApplicationDocumentsDirectory();
+      
       final newPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Save File',
-        fileName: 'untitled.json',
+        fileName: fileName,
+        initialDirectory: initialDir.path,
       );
-      if (newPath != null) _currentFilePath = newPath;
+      
+      if (newPath == null) return; // User cancelled
+      savePath = newPath;
     }
 
-    if (_currentFilePath != null) {
-      await File(_currentFilePath!).writeAsString(_controller.text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to $_currentFilePath')),
-      );
-    }
+    final file = File(savePath);
+    await file.writeAsString(_controller.text);
+    
+    setState(() => _currentFilePath = savePath);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Saved to ${file.path}'),
+        duration: const Duration(seconds: 2),
+      )
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Save failed: ${e.toString()}'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      )
+    );
   }
+}
 
   void _undo() {
     if (_controller.canUndo) {
