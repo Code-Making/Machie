@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -27,7 +28,9 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
-
+  String? _currentFilePath;
+  String? _originalFileHash;
+  
   @override
   State<EditorScreen> createState() => _EditorScreenState();
 }
@@ -48,54 +51,121 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-  Future<void> _openFile() async {
-  final status = await Permission.storage.request();
-  if (!status.isGranted) return;
+    Future<void> _openFile() async {
+    final status = await Permission.storage.request();
+    if (!status.isGranted) return;
 
-  final result = await FilePicker.platform.pickFiles();
-  if (result != null && result.files.isNotEmpty) {
+    final result = await FilePicker.platform.pickFiles();
+    if (result == null || result.files.isEmpty) return;
+
     final file = result.files.first;
-    final originalPath = file.path!;
+    final content = await File(file.path!).readAsString();
     
-    // Get real external path
-    final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOAD
-    );
-    
-    // Check if file is in cache
-    if (originalPath.contains('cache/file_picker')) {
-      // Move from cache to permanent location
-      final newPath = '$downloadsDir/${file.name}';
-      await File(originalPath).copy(newPath);
-      setState(() => _currentFilePath = newPath);
-    } else {
-      // Use original path directly
-      setState(() => _currentFilePath = originalPath);
-    }
+    setState(() {
+      _currentFilePath = file.path;
+      _originalFileHash = _calculateHash(content);
+    });
 
-    final content = await File(_currentFilePath!).readAsString();
     _controller.value = CodeLineEditingValue(codeLines: CodeLines.fromText(content));
   }
-}
 
-Future<void> _saveFile() async {
-  final status = await Permission.storage.request();
-  if (!status.isGranted) return;
+  Future<void> _saveFile() async {
+    final status = await Permission.storage.request();
+    if (!status.isGranted) return;
 
-  if (_currentFilePath == null) {
-    final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOAD
-    );
-    _currentFilePath = '$downloadsDir/code_${DateTime.now().millisecondsSinceEpoch}.dart';
+    if (_currentFilePath == null) {
+      return _saveAs();
+    }
+
+    final currentContent = _controller.text;
+    final currentHash = _calculateHash(currentContent);
+    
+    try {
+      final existingFile = File(_currentFilePath!);
+      final exists = await existingFile.exists();
+      
+      if (exists) {
+        final diskContent = await existingFile.readAsString();
+        final diskHash = _calculateHash(diskContent);
+        
+        if (diskHash != _originalFileHash) {
+          final choice = await showDialog<FileConflictChoice>(
+            context: context,
+            builder: (context) => _buildFileConflictDialog(),
+          );
+          
+          switch (choice) {
+            case FileConflictChoice.overwrite:
+              break;
+            case FileConflictChoice.saveAs:
+              return _saveAs();
+            case FileConflictChoice.cancel:
+            default:
+              return;
+          }
+        }
+      }
+
+      await existingFile.writeAsString(currentContent);
+      setState(() => _originalFileHash = currentHash);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully saved to $_currentFilePath'))
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Save failed: ${e.toString()}'))
+      );
+    }
   }
 
-  final file = File(_currentFilePath!);
-  await file.writeAsString(_controller.text);
-  
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Saved to ${file.path}'))
-  );
-}
+  Future<void> _saveAs() async {
+    final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
+      ExternalPath.DIRECTORY_DOWNLOADS
+    );
+    
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save As',
+      initialDirectory: downloadsDir,
+      fileName: _currentFilePath?.split('/').last ?? 'new_file.dart',
+    );
+    
+    if (path == null) return;
+    
+    final file = File(path);
+    await file.writeAsString(_controller.text);
+    
+    setState(() {
+      _currentFilePath = path;
+      _originalFileHash = _calculateHash(_controller.text);
+    });
+  }
+
+  String _calculateHash(String content) {
+    return md5.convert(utf8.encode(content)).toString();
+  }
+
+  Widget _buildFileConflictDialog() {
+    return AlertDialog(
+      title: const Text('File Modified'),
+      content: const Text('This file has been modified by another application. '
+          'How would you like to proceed?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, FileConflictChoice.cancel),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, FileConflictChoice.saveAs),
+          child: const Text('Save As'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, FileConflictChoice.overwrite),
+          child: const Text('Overwrite'),
+        ),
+      ],
+    );
+  }
 
   void _undo() {
     if (_controller.canUndo) {
@@ -253,3 +323,5 @@ Future<void> _saveFile() async {
     super.dispose();
   }
 }
+
+enum FileConflictChoice { cancel, overwrite, saveAs }
