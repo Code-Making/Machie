@@ -142,7 +142,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 width: 20,
                 controller: chunkController,
                 notifier: notifier,
-                color: Colors.blueAccent,
+                //color: Colors.blueAccent,
               )
             ],
           );
