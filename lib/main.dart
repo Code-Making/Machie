@@ -251,7 +251,7 @@ Future<void> _openFileTab(String uri) async {
                             _loadDirectoryContents(item['uri']);
                           } else {
                             _openFileTab(item['uri']);
-                            _drawerKey.currentState?.close();
+                            _drawerKey.currentState?.closeDrawer();
                           }
                         },
                       );
