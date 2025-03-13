@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
 
 void main() => runApp(const CodeEditorApp());
 
@@ -11,8 +14,9 @@ class CodeEditorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: EditorScreen(),
+    return MaterialApp(
+      theme: ThemeData.dark(),
+      home: const EditorScreen(),
     );
   }
 }
@@ -26,6 +30,10 @@ class EditorScreen extends StatefulWidget {
 
 class _EditorScreenState extends State<EditorScreen> {
   late CodeLineEditingController _controller;
+  final CodeScrollController _scrollController = CodeScrollController(
+    verticalScroller: ScrollController(),
+    horizontalScroller: ScrollController(),
+  );
   String? _currentFilePath;
   final List<CodeLineEditingValue> _history = [];
   int _historyIndex = -1;
@@ -64,7 +72,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final path = await getApplicationDocumentsDirectory();
       final newPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Save File',
-        fileName: 'untitled.txt',
+        fileName: 'untitled.json',
       );
       if (newPath != null) _currentFilePath = newPath;
     }
@@ -109,10 +117,37 @@ class _EditorScreenState extends State<EditorScreen> {
       ),
       body: CodeEditor(
         controller: _controller,
-        style: const CodeEditorStyle(
+        scrollController: _scrollController,
+        chunkAnalyzer: DefaultCodeChunkAnalyzer(),
+        style: CodeEditorStyle(
           fontSize: 14,
-          fontFamily: 'monospace',
+          fontFamily: 'FiraCode',
+          codeTheme: CodeHighlightTheme(
+            languages: {
+              'json': CodeHighlightThemeMode(mode: langJson),
+              'dart': CodeHighlightThemeMode(mode: langDart),
+            },
+            theme: atomOneDarkTheme,
+          ),
+          textStyle: TextStyle(color: Colors.grey[200]),
         ),
+        indicatorBuilder: (context, editingController, chunkController, notifier) {
+          return Row(
+            children: [
+              DefaultCodeLineNumber(
+                controller: editingController,
+                notifier: notifier,
+                textStyle: TextStyle(color: Colors.grey[500]),
+              ),
+              DefaultCodeChunkIndicator(
+                width: 20,
+                controller: chunkController,
+                notifier: notifier,
+                color: Colors.blueAccent,
+              )
+            ],
+          );
+        },
       ),
     );
   }
@@ -120,6 +155,7 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
