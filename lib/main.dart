@@ -133,7 +133,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<String?> _getSavePath() async {
     final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOADS
+      ExternalPath.DIRECTORY_DOWNLOAD
     );
     
     return await FilePicker.platform.saveFile(
@@ -270,7 +270,7 @@ class _EditorScreenState extends State<EditorScreen> {
             },
           ),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
-          _buildBottomToolbar,
+          _buildBottomToolbar(),
         ],
       ),
     );
