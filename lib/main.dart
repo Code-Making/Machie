@@ -368,7 +368,6 @@ class _EditorScreenState extends State<EditorScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    _keyboardFocusNode.dispose();
     super.dispose();
   }
 }
