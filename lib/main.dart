@@ -7,6 +7,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
+import 'package:external_path/external_path.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 void main() => runApp(const CodeEditorApp());
 
@@ -57,33 +60,38 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  Future<void> _saveFile() async {
+Future<void> _saveFile() async {
   try {
+    // Request storage permissions
+    final status = await Permission.storage.request();
+    if (!status.isGranted) {
+      throw Exception('Storage permission denied');
+    }
+
     String? savePath = _currentFilePath;
     
     if (savePath == null) {
-      final String fileName = _currentFilePath?.split('/').last ?? 'untitled.dart';
-      final initialDir = await getApplicationDocumentsDirectory();
-      
-      final newPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save File',
-        fileName: fileName,
-        initialDirectory: initialDir.path,
+      // Get external storage directory
+      final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
+        ExternalPath.DIRECTORY_DOWNLOADS
       );
       
-      if (newPath == null) return; // User cancelled
-      savePath = newPath;
+      final fileName = 'code_${DateTime.now().millisecondsSinceEpoch}.dart';
+      savePath = '$downloadsDir/$fileName';
     }
 
     final file = File(savePath);
     await file.writeAsString(_controller.text);
     
-    setState(() => _currentFilePath = savePath);
-    
+    // Update state after successful write
+    setState(() {
+      _currentFilePath = savePath;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Saved to ${file.path}'),
-        duration: const Duration(seconds: 2),
+        content: Text('Successfully saved to $savePath'),
+        duration: const Duration(seconds: 3),
       )
     );
     
@@ -93,7 +101,6 @@ class _EditorScreenState extends State<EditorScreen> {
         content: Text('Save failed: ${e.toString()}'),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
-      )
     );
   }
 }
