@@ -28,14 +28,14 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
-  String? _currentFilePath;
-  String? _originalFileHash;
   
   @override
   State<EditorScreen> createState() => _EditorScreenState();
 }
 
 class _EditorScreenState extends State<EditorScreen> {
+  String? _currentFilePath;
+  String? _originalFileHash;
   late CodeLineEditingController _controller;
   final FocusNode _keyboardFocusNode = FocusNode();
   final CodeScrollController _scrollController = CodeScrollController();
