@@ -97,38 +97,70 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
    Future<void> _openFileTab(String uri) async {
-    try {
-      // Check if file is already open
-      final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
-      if (existingIndex != -1) {
-        setState(() => _currentTabIndex = existingIndex);
-        return;
-      }
-
-      // Read file content
-      final content = await _fileHandler.readFile(uri);
-      if (content == null) {
-        _showError('Failed to read file content');
-        return;
-      }
-
-      // Create new editor tab
-      final controller = CodeLineEditingController(
-        codeLines: CodeLines.fromText(content),
-      )..addListener(() => setState(() {
-            _tabs[_currentTabIndex].isDirty = true;
-          }));
-
-      setState(() {
-        _tabs.add(EditorTab(uri: uri, controller: controller));
-        _currentTabIndex = _tabs.length - 1;
-      });
-      
-      _showSuccess('File opened successfully');
-    } catch (e) {
-      _showError('Error opening file: ${e.toString()}');
+  try {
+    // Verify URI format first
+    if (!uri.startsWith('content://') && !uri.startsWith('file://')) {
+      _showError('Invalid file URI format');
+      return;
     }
+
+    // Check if file is already open
+    final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
+    if (existingIndex != -1) {
+      setState(() => _currentTabIndex = existingIndex);
+      return;
+    }
+
+    // Request storage permissions
+    final status = await Permission.storage.status;
+    if (!status.isGranted) {
+      final result = await Permission.storage.request();
+      if (!result.isGranted) {
+        _showError('Storage permission required to read files');
+        return;
+      }
+    }
+
+    // Read file content with error context
+    final content = await _fileHandler.readFile(uri).catchError((e) {
+      throw Exception('File read failed: ${e?.message ?? 'Unknown error'}');
+    });
+
+    if (content == null) {
+      throw Exception('Received empty file content');
+    }
+
+    // Create new editor tab
+    final controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(content),
+    )..addListener(() {
+        setState(() {
+          final currentTab = _tabs[_currentTabIndex];
+          if (!currentTab.isDirty) {
+            currentTab.isDirty = true;
+          }
+        });
+      });
+
+    setState(() {
+      _tabs.add(EditorTab(uri: uri, controller: controller));
+      _currentTabIndex = _tabs.length - 1;
+    });
+
+    _showSuccess('Successfully opened: ${uri.split('/').last}');
+    
+    // Debug output
+    print('File content length: ${content.length} characters');
+    print('File encoding: ${content.codeUnits}');
+
+  } on PlatformException catch (e) {
+    _showError('System error: ${e.message}\nDetails: ${e.details}');
+  } on Exception catch (e) {
+    _showError(e.toString());
+  } catch (e) {
+    _showError('Unexpected error: ${e.toString()}');
   }
+}
   
   Future<void> _saveFile() async {
     if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
