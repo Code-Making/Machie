@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
+import 'package:flutter_slider_drawer/flutter_slider_drawer.dart';
 
 void main() => runApp(const CodeEditorApp());
 
@@ -45,6 +46,7 @@ class _EditorScreenState extends State<EditorScreen> {
   int _currentTabIndex = 0;
   String? _currentDirUri;
   List<Map<String, dynamic>> _directoryContents = [];
+  final GlobalKey<SliderDrawerState> _drawerKey = GlobalKey<SliderDrawerState>();
 
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -119,120 +121,152 @@ Future<void> _openFileTab(String uri) async {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_tabs.isEmpty 
-            ? 'No File Open' 
-            : _tabs[_currentTabIndex].uri.split('/').last),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            onPressed: _openFolder,
-            tooltip: 'Open Folder',
+    return SliderDrawer(
+      key: _drawerKey,
+      sliderOpenSize: 300,
+      slider: _buildFileExplorer(),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => _drawerKey.currentState?.toggle(),
           ),
-          IconButton(
-            icon: const Icon(Icons.file_open),
-            onPressed: _openFile,
-            tooltip: 'Open File',
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _tabs.isNotEmpty ? _saveFile : null,
-            tooltip: 'Save File',
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // File Explorer Panel
-          if (_currentDirUri != null)
-            Container(
-              width: 300,
-              color: Colors.grey[900],
-              child: ListView.builder(
-                itemCount: _directoryContents.length,
-                itemBuilder: (context, index) {
-                  final item = _directoryContents[index];
-                  return ListTile(
-                    leading: Icon(item['type'] == 'dir' 
-                        ? Icons.folder 
-                        : Icons.insert_drive_file),
-                    title: Text(item['name']),
-                    onTap: () {
-                      if (item['type'] == 'dir') {
-                        _loadDirectoryContents(item['uri']);
-                      } else {
-                        _openFileTab(item['uri']);
-                      }
-                    },
-                  );
-                },
-              ),
+          title: Text(_tabs.isEmpty 
+              ? 'No File Open' 
+              : _tabs[_currentTabIndex].uri.split('/').last),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.folder_open),
+              onPressed: _openFolder,
+              tooltip: 'Open Folder',
             ),
-          // Editor Area
-          Expanded(
-            child: Column(
-              children: [
-                // Tab Bar
-                if (_tabs.isNotEmpty)
-                  Container(
-                    height: 40,
-                    color: Colors.grey[850],
-                    child: Row(
-                      children: [
-                        ..._tabs.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final tab = entry.value;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: _currentTabIndex == index 
-                                  ? Colors.grey[800] 
-                                  : Colors.grey[900],
-                              border: Border(
-                                right: BorderSide(color: Colors.grey[700]!),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.close, size: 18),
-                                  onPressed: () => _closeTab(index),
-                                ),
-                                Text(
-                                  tab.uri.split('/').last,
-                                  style: TextStyle(
-                                    color: tab.isDirty ? Colors.orange : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  ),
-                // Editor
-                Expanded(
-                  child: _tabs.isEmpty
-                      ? const Center(child: Text('Open a file to start editing'))
-                      : CodeEditor(
-                          controller: _tabs[_currentTabIndex].controller,
-                          style: CodeEditorStyle(
-                            fontSize: 14,
-                            fontFamily: 'FiraCode',
-                            codeTheme: CodeHighlightTheme(
-                              languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                              theme: atomOneDarkTheme,
-                            ),
+            IconButton(
+              icon: const Icon(Icons.file_open),
+              onPressed: _openFile,
+              tooltip: 'Open File',
+            ),
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _tabs.isNotEmpty ? _saveFile : null,
+              tooltip: 'Save File',
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            // Tab Bar
+            if (_tabs.isNotEmpty)
+              Container(
+                height: 40,
+                color: Colors.grey[850],
+                child: Row(
+                  children: [
+                    ..._tabs.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final tab = entry.value;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: _currentTabIndex == index 
+                              ? Colors.grey[800] 
+                              : Colors.grey[900],
+                          border: Border(
+                            right: BorderSide(color: Colors.grey[700]!),
                           ),
                         ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.close, size: 18),
+                              onPressed: () => _closeTab(index),
+                            ),
+                            Text(
+                              tab.uri.split('/').last,
+                              style: TextStyle(
+                                color: tab.isDirty ? Colors.orange : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            // Editor
+            Expanded(
+              child: _tabs.isEmpty
+                  ? const Center(child: Text('Open a file to start editing'))
+                  : CodeEditor(
+                      controller: _tabs[_currentTabIndex].controller,
+                      style: CodeEditorStyle(
+                        fontSize: 14,
+                        fontFamily: 'FiraCode',
+                        codeTheme: CodeHighlightTheme(
+                          languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
+                          theme: atomOneDarkTheme,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileExplorer() {
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                const Text('File Explorer', style: TextStyle(fontSize: 18)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _currentDirUri != null 
+                      ? () => _loadParentDirectory()
+                      : null,
                 ),
               ],
             ),
           ),
+          Expanded(
+            child: _currentDirUri == null
+                ? const Center(child: Text('No folder open'))
+                : ListView.builder(
+                    itemCount: _directoryContents.length,
+                    itemBuilder: (context, index) {
+                      final item = _directoryContents[index];
+                      return ListTile(
+                        leading: Icon(item['type'] == 'dir' 
+                            ? Icons.folder 
+                            : Icons.insert_drive_file),
+                        title: Text(item['name']),
+                        onTap: () {
+                          if (item['type'] == 'dir') {
+                            _loadDirectoryContents(item['uri']);
+                          } else {
+                            _openFileTab(item['uri']);
+                            _drawerKey.currentState?.close();
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _loadParentDirectory() async {
+    if (_currentDirUri == null) return;
+    final parentUri = Directory(_currentDirUri!).parent.path;
+    await _loadDirectoryContents(parentUri);
   }
 }
 
