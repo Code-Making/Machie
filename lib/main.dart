@@ -44,6 +44,8 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void initState() {
     super.initState();
+    final directory = await getTemporaryDirectory();
+directory.delete(recursive: true);
     _controller = CodeLineEditingController(
       codeLines: CodeLines.fromText('// Start coding...\n'),
     );
