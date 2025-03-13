@@ -35,13 +35,18 @@ class EditorScreen extends StatefulWidget {
 }
 
 class _EditorScreenState extends State<EditorScreen> {
+  late CodeLineEditingController _controller;
+  final CodeScrollController _scrollController = CodeScrollController();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldKey = GlobalKey();
+  
   String? _currentFilePath;
   String? _originalFileHash;
-  late CodeLineEditingController _controller;
-  final FocusNode _keyboardFocusNode = FocusNode();
-  final CodeScrollController _scrollController = CodeScrollController();
-  final List<CodeLineEditingValue> _history = [];
-  int _historyIndex = -1;
+  bool _isLoading = false;
+  FileType _pickingType = FileType.any;
+  String? _extension;
+  bool _lockParentWindow = false;
+  bool _multiPick = false;
+
 
   @override
   void initState() {
@@ -51,119 +56,127 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-    Future<void> _openFile() async {
-    final status = await Permission.storage.request();
-    if (!status.isGranted) return;
+    Future<void> _pickFiles() async {
+    setState(() => _isLoading = true);
+    try {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) return;
 
-    final result = await FilePicker.platform.pickFiles();
-    if (result == null || result.files.isEmpty) return;
+      final result = await FilePicker.platform.pickFiles(
+        type: _pickingType,
+        allowedExtensions: (_extension?.isNotEmpty ?? false) 
+            ? _extension!.replaceAll(' ', '').split(',') 
+            : null,
+        allowMultiple: _multiPick,
+        lockParentWindow: _lockParentWindow,
+      );
 
-    final file = result.files.first;
-    final content = await File(file.path!).readAsString();
-    
-    setState(() {
-      _currentFilePath = file.path;
-      _originalFileHash = _calculateHash(content);
-    });
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final content = await File(file.path!).readAsString();
+        
+        setState(() {
+          _currentFilePath = file.path;
+          _originalFileHash = _calculateHash(content);
+        });
 
-    _controller.value = CodeLineEditingValue(codeLines: CodeLines.fromText(content));
+        _controller.value = CodeLineEditingValue(
+          codeLines: CodeLines.fromText(content)
+        );
+      }
+    } on PlatformException catch (e) {
+      _showError('Error: ${e.message}');
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _saveFile() async {
-    final status = await Permission.storage.request();
-    if (!status.isGranted) return;
-
-    if (_currentFilePath == null) {
-      return _saveAs();
-    }
-
-    final currentContent = _controller.text;
-    final currentHash = _calculateHash(currentContent);
-    
     try {
-      final existingFile = File(_currentFilePath!);
-      final exists = await existingFile.exists();
-      
-      if (exists) {
-        final diskContent = await existingFile.readAsString();
-        final diskHash = _calculateHash(diskContent);
-        
-        if (diskHash != _originalFileHash) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) return;
+
+      String? savePath = _currentFilePath;
+      final currentContent = _controller.text;
+      final currentHash = _calculateHash(currentContent);
+
+      if (savePath == null) {
+        savePath = await _getSavePath();
+        if (savePath == null) return;
+      }
+
+      final file = File(savePath);
+      if (await file.exists()) {
+        final diskContent = await file.readAsString();
+        if (_calculateHash(diskContent) != _originalFileHash) {
           final choice = await showDialog<FileConflictChoice>(
             context: context,
-            builder: (context) => _buildFileConflictDialog(),
+            builder: (_) => _buildConflictDialog(),
           );
-          
-          switch (choice) {
-            case FileConflictChoice.overwrite:
-              break;
-            case FileConflictChoice.saveAs:
-              return _saveAs();
-            case FileConflictChoice.cancel:
-            default:
-              return;
-          }
+          if (choice != FileConflictChoice.overwrite) return;
         }
       }
 
-      await existingFile.writeAsString(currentContent);
-      setState(() => _originalFileHash = currentHash);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully saved to $_currentFilePath'))
-      );
+      await file.writeAsString(currentContent);
+      setState(() {
+        _currentFilePath = savePath;
+        _originalFileHash = currentHash;
+      });
+
+      _showSuccess('File saved successfully');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: ${e.toString()}'))
-      );
+      _showError('Save failed: $e');
     }
   }
 
-  Future<void> _saveAs() async {
+  Future<String?> _getSavePath() async {
     final downloadsDir = await ExternalPath.getExternalStoragePublicDirectory(
-      ExternalPath.DIRECTORY_DOWNLOAD
+      ExternalPath.DIRECTORY_DOWNLOADS
     );
     
-    final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save As',
+    return await FilePicker.platform.saveFile(
+      dialogTitle: 'Save File',
+      fileName: 'code_${DateTime.now().millisecondsSinceEpoch}.dart',
       initialDirectory: downloadsDir,
-      fileName: _currentFilePath?.split('/').last ?? 'new_file.dart',
+      lockParentWindow: _lockParentWindow,
     );
-    
-    if (path == null) return;
-    
-    final file = File(path);
-    await file.writeAsString(_controller.text);
-    
-    setState(() {
-      _currentFilePath = path;
-      _originalFileHash = _calculateHash(_controller.text);
-    });
   }
 
   String _calculateHash(String content) {
     return md5.convert(utf8.encode(content)).toString();
   }
 
-  Widget _buildFileConflictDialog() {
+  Widget _buildConflictDialog() {
     return AlertDialog(
       title: const Text('File Modified'),
-      content: const Text('This file has been modified by another application. '
-          'How would you like to proceed?'),
+      content: const Text('This file has been modified externally. Overwrite?'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, FileConflictChoice.cancel),
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, FileConflictChoice.saveAs),
-          child: const Text('Save As'),
-        ),
-        TextButton(
           onPressed: () => Navigator.pop(context, FileConflictChoice.overwrite),
           child: const Text('Overwrite'),
         ),
       ],
+    );
+  }
+
+  void _showError(String message) {
+    _scaffoldKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      )
+    );
+  }
+
+  void _showSuccess(String message) {
+    _scaffoldKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message))
     );
   }
 
@@ -213,53 +226,89 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentFilePath ?? 'Untitled'),
+        title: Text(_currentFilePath?.split('/').last ?? 'New File'),
         actions: [
-          IconButton(icon: const Icon(Icons.file_open), onPressed: _openFile),
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveFile),
-          IconButton(icon: const Icon(Icons.undo), onPressed: _undo),
-          IconButton(icon: const Icon(Icons.redo), onPressed: _redo),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: RawKeyboardListener(
-              focusNode: _keyboardFocusNode,
-              onKey: _handleKeyEvent,
-              child: CodeEditor(
-                controller: _controller,
-                scrollController: _scrollController,
-                chunkAnalyzer: DefaultCodeChunkAnalyzer(),
-                style: CodeEditorStyle(
-                  fontSize: 14,
-                  fontFamily: 'FiraCode',
-                  codeTheme: CodeHighlightTheme(
-                    languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                    theme: atomOneDarkTheme,
-                  ),
-                ),
-                indicatorBuilder: (context, editingController, chunkController, notifier) {
-                  return Row(
-                    children: [
-                      DefaultCodeLineNumber(
-                        controller: editingController,
-                        notifier: notifier,
-                      ),
-                      DefaultCodeChunkIndicator(
-                        width: 20,
-                        controller: chunkController,
-                        notifier: notifier,
-                      )
-                    ],
-                  );
-                },
-              ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => _buildSettingsDialog(),
             ),
           ),
-          _buildBottomToolbar(),
+          IconButton(icon: const Icon(Icons.file_open), onPressed: _pickFiles),
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveFile),
         ],
       ),
+      body: Stack(
+        children: [
+          CodeEditor(
+            controller: _controller,
+            scrollController: _scrollController,
+            chunkAnalyzer: DefaultCodeChunkAnalyzer(),
+            style: CodeEditorStyle(
+              fontSize: 14,
+              fontFamily: 'FiraCode',
+              codeTheme: CodeHighlightTheme(
+                languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
+                theme: atomOneDarkTheme,
+              ),
+            ),
+            indicatorBuilder: (context, editingController, chunkController, notifier) {
+              return Row(
+                children: [
+                  DefaultCodeLineNumber(
+                    controller: editingController,
+                    notifier: notifier,
+                  ),
+                  DefaultCodeChunkIndicator(
+                    width: 20,
+                    controller: chunkController,
+                    notifier: notifier,
+                  )
+                ],
+              );
+            },
+          ),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          _buildBottomToolbar;
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsDialog() {
+    return AlertDialog(
+      title: const Text('File Picker Settings'),
+      content: SingleChildScrollView(
+        child: Column(
+          children: [
+            DropdownButtonFormField<FileType>(
+              value: _pickingType,
+              items: FileType.values.map((type) => DropdownMenuItem(
+                value: type,
+                child: Text(type.toString().split('.').last),
+              )).toList(),
+              onChanged: (value) => setState(() => _pickingType = value!),
+            ),
+            SwitchListTile(
+              title: const Text('Multiple Files'),
+              value: _multiPick,
+              onChanged: (v) => setState(() => _multiPick = v!),
+            ),
+            SwitchListTile(
+              title: const Text('Lock Parent Window'),
+              value: _lockParentWindow,
+              onChanged: (v) => setState(() => _lockParentWindow = v!),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 
