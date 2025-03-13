@@ -42,7 +42,7 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _isLoading = false;
 
   @override
-  void initState() {
+  void initState() async{
     super.initState();
     final directory = await getTemporaryDirectory();
     directory.delete(recursive: true);
