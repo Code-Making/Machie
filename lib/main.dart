@@ -60,21 +60,9 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  Future<void> _loadDirectoryContents(String uri) async {
-    final contents = await _fileHandler.listDirectory(uri);
-    if (contents != null) {
-      setState(() {
-        _currentDirUri = uri;
-        _directoryContents = contents;
-      });
-    }
-  }
-
-  Future<void> _openFileTab(String uri) async {
+Future<void> _openFileTab(String uri) async {
     if (_tabs.any((tab) => tab.uri == uri)) {
-      setState(() {
-        _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri);
-      });
+      setState(() => _currentTabIndex = _tabs.indexWhere((tab) => tab.uri == uri));
       return;
     }
 
@@ -82,15 +70,25 @@ class _EditorScreenState extends State<EditorScreen> {
     if (content != null) {
       final controller = CodeLineEditingController(
         codeLines: CodeLines.fromText(content),
-      )..addListener(() {
-          setState(() {
-            _tabs[_currentTabIndex].isDirty = true;
-          });
-        });
+      )..addListener(() => setState(() => _tabs[_currentTabIndex].isDirty = true));
 
       setState(() {
         _tabs.add(EditorTab(uri: uri, controller: controller));
         _currentTabIndex = _tabs.length - 1;
+      });
+    }
+  }
+
+  Future<void> _loadDirectoryContents(String uri) async {
+    final contents = await _fileHandler.listDirectory(uri);
+    if (contents != null) {
+      setState(() {
+        _currentDirUri = uri;
+        _directoryContents = contents.where((item) => 
+          item['type'] == 'dir' || 
+          item['name'].endsWith('.dart') || 
+          item['name'].endsWith('.txt')
+        ).toList();
       });
     }
   }
@@ -240,7 +238,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
-  
+
   Future<String?> openFile() async {
     try {
       return await _channel.invokeMethod<String>('openFile');
@@ -274,20 +272,21 @@ class AndroidFileHandler {
 
   Future<String?> readFile(String uri) async {
     try {
-      final bytes = await File(uri).readAsBytes();
-      return utf8.decode(bytes);
-    } catch (e) {
-      print("Error reading file: $e");
+      return await _channel.invokeMethod<String>('readFile', {'uri': uri});
+    } on PlatformException catch (e) {
+      print("Error reading file: ${e.message}");
       return null;
     }
   }
 
   Future<bool> writeFile(String uri, String content) async {
     try {
-      await File(uri).writeAsString(content);
-      return true;
-    } catch (e) {
-      print("Error writing file: $e");
+      return await _channel.invokeMethod<bool>(
+        'writeFile',
+        {'uri': uri, 'content': content}
+      ) ?? false;
+    } on PlatformException catch (e) {
+      print("Error writing file: ${e.message}");
       return false;
     }
   }
