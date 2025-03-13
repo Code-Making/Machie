@@ -29,11 +29,9 @@ class EditorScreen extends StatefulWidget {
 }
 
 class _EditorScreenState extends State<EditorScreen> {
-  late CodeLineEditingController _controller;
-  final CodeScrollController _scrollController = CodeScrollController(
-    verticalScroller: ScrollController(),
-    horizontalScroller: ScrollController(),
-  );
+late CodeLineEditingController _controller;
+  final FocusNode _keyboardFocusNode = FocusNode();
+  final CodeScrollController _scrollController = CodeScrollController();
   String? _currentFilePath;
   final List<CodeLineEditingValue> _history = [];
   int _historyIndex = -1;
@@ -103,6 +101,35 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
+void _handleKeyEvent(RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return;
+    
+    final selection = _controller.selection;
+    final codeLines = _controller.codeLines;
+    final cursor = selection.baseOffset;
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft:
+        _controller.selection = selection.copyWith(
+          baseOffset: max(cursor.offset - 1, 0),
+          extentOffset: max(cursor.offset - 1, 0),
+        );
+        break;
+      case LogicalKeyboardKey.arrowRight:
+        _controller.selection = selection.copyWith(
+          baseOffset: min(cursor.offset + 1, codeLines.length),
+          extentOffset: min(cursor.offset + 1, codeLines.length),
+        );
+        break;
+      case LogicalKeyboardKey.arrowUp:
+        _controller.moveCursor(LineMove.up);
+        break;
+      case LogicalKeyboardKey.arrowDown:
+        _controller.moveCursor(LineMove.down);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,39 +142,83 @@ class _EditorScreenState extends State<EditorScreen> {
           IconButton(icon: const Icon(Icons.redo), onPressed: _redo),
         ],
       ),
-      body: CodeEditor(
-        controller: _controller,
-        scrollController: _scrollController,
-        chunkAnalyzer: DefaultCodeChunkAnalyzer(),
-        style: CodeEditorStyle(
-          fontSize: 14,
-          fontFamily: 'FiraCode',
-          codeTheme: CodeHighlightTheme(
-            languages: {
-              'json': CodeHighlightThemeMode(mode: langJson),
-              'dart': CodeHighlightThemeMode(mode: langDart),
-            },
-            theme: atomOneDarkTheme,
-          ),
-        ),
-        indicatorBuilder: (context, editingController, chunkController, notifier) {
-          return Row(
-            children: [
-              DefaultCodeLineNumber(
-                controller: editingController,
-                notifier: notifier,
-                textStyle: TextStyle(color: Colors.grey[500]),
+      body: Column(
+        children: [
+          Expanded(
+            child: RawKeyboardListener(
+              focusNode: _keyboardFocusNode,
+              onKey: _handleKeyEvent,
+              child: CodeEditor(
+                controller: _controller,
+                scrollController: _scrollController,
+                chunkAnalyzer: DefaultCodeChunkAnalyzer(),
+                style: CodeEditorStyle(
+                  fontSize: 14,
+                  fontFamily: 'FiraCode',
+                  codeTheme: CodeHighlightTheme(
+                    languages: {'json': CodeHighlightThemeMode(mode: langJson)},
+                    theme: atomOneDarkTheme,
+                  ),
+                ),
+                indicatorBuilder: (context, editingController, chunkController, notifier) {
+                  return Row(
+                    children: [
+                      DefaultCodeLineNumber(
+                        controller: editingController,
+                        notifier: notifier,
+                      ),
+                      DefaultCodeChunkIndicator(
+                        width: 20,
+                        controller: chunkController,
+                        notifier: notifier,
+                      )
+                    ],
+                  );
+                },
               ),
-              DefaultCodeChunkIndicator(
-                width: 20,
-                controller: chunkController,
-                notifier: notifier,
-                //color: Colors.blueAccent,
-              )
-            ],
-          );
-        },
+            ),
+          ),
+          _buildBottomToolbar(),
+        ],
       ),
+    );
+  }
+
+  Widget _buildBottomToolbar() {
+    return ValueListenableBuilder<CodeLineEditingValue>(
+      valueListenable: _controller,
+      builder: (context, value, child) {
+        final hasSelection = value.selection != const CodeLineSelection.zero();
+        return Container(
+          color: Colors.grey[900],
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.content_copy),
+                onPressed: hasSelection ? () => _controller.copy() : null,
+                tooltip: 'Copy',
+              ),
+              IconButton(
+                icon: const Icon(Icons.content_cut),
+                onPressed: hasSelection ? () => _controller.cut() : null,
+                tooltip: 'Cut',
+              ),
+              IconButton(
+                icon: const Icon(Icons.content_paste),
+                onPressed: () async {
+                  final data = await Clipboard.getData('text/plain');
+                  if (data != null) {
+                    _controller.paste(data.text!);
+                  }
+                },
+                tooltip: 'Paste',
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -155,6 +226,7 @@ class _EditorScreenState extends State<EditorScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 }
