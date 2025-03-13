@@ -34,6 +34,8 @@ class _EditorScreenState extends State<EditorScreen> {
   late CodeLineEditingController _controller;
   final CodeScrollController _scrollController = CodeScrollController();
   final GlobalKey<ScaffoldMessengerState> _scaffoldKey = GlobalKey();
+  final List<String> _logs = [];
+  bool _showConsole = false;
   
   String? _currentFilePath;
   String? _originalFileHash;
@@ -45,15 +47,20 @@ class _EditorScreenState extends State<EditorScreen> {
     _controller = CodeLineEditingController(
       codeLines: CodeLines.fromText('// Start coding...\n'),
     );
+    _addLog('Application started');
   }
 
   Future<void> _openFile() async {
     setState(() => _isLoading = true);
     try {
       final result = await FilePicker.platform.pickFiles();
-      if (result == null || result.files.isEmpty) return;
+      if (result == null || result.files.isEmpty) {
+        _addLog('File open canceled by user');
+        return;
+      }
 
       final file = result.files.first;
+      _addLog('Opening file: ${file.path}');
       final content = await File(file.path!).readAsString();
       
       setState(() {
@@ -64,8 +71,9 @@ class _EditorScreenState extends State<EditorScreen> {
       _controller.value = CodeLineEditingValue(
         codeLines: CodeLines.fromText(content)
       );
+      _addLog('Successfully opened file');
     } catch (e) {
-      _showError('Open failed: $e');
+      _handleError('Open failed', e);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -75,18 +83,28 @@ class _EditorScreenState extends State<EditorScreen> {
     try {
       String? savePath = _currentFilePath;
       final currentContent = _controller.text;
-      
+      _addLog('Initiating save process...');
+
       if (forceDialog || savePath == null) {
+        _addLog('Showing save dialog');
         savePath = await FilePicker.platform.saveFile(
           dialogTitle: 'Save File',
           fileName: _currentFilePath?.split('/').last,
         );
-        if (savePath == null) return;
+        if (savePath == null) {
+          _addLog('Save canceled by user');
+          return;
+        }
       }
 
-      if (await File(savePath).exists() && !forceDialog) {
-        final diskContent = await File(savePath).readAsString();
+      _addLog('Saving to: $savePath');
+      final file = File(savePath);
+      
+      if (await file.exists() && !forceDialog) {
+        _addLog('Checking file modifications...');
+        final diskContent = await file.readAsString();
         if (_calculateHash(diskContent) != _originalFileHash) {
+          _addLog('File modified externally, showing dialog');
           final choice = await showDialog<bool>(
             context: context,
             builder: (_) => AlertDialog(
@@ -104,18 +122,25 @@ class _EditorScreenState extends State<EditorScreen> {
               ],
             ),
           );
-          if (choice != true) return;
+          if (choice != true) {
+            _addLog('User canceled overwrite');
+            return;
+          }
         }
       }
 
-      await File(savePath).writeAsString(currentContent);
+      _addLog('Writing file content...');
+      await file.writeAsString(currentContent);
+      _addLog('Content written successfully');
+      
       setState(() {
         _currentFilePath = savePath;
         _originalFileHash = _calculateHash(currentContent);
       });
       _showSuccess('Saved successfully');
+      _addLog('File saved successfully');
     } catch (e) {
-      _showError('Save failed: $e');
+      _handleError('Save failed', e);
     }
   }
 
@@ -123,12 +148,23 @@ class _EditorScreenState extends State<EditorScreen> {
     return md5.convert(utf8.encode(content)).toString();
   }
 
+  void _addLog(String message) {
+    final timestamp = DateTime.now().toIso8601String();
+    setState(() {
+      _logs.add('[$timestamp] $message');
+    });
+  }
+
+  void _handleError(String context, dynamic error) {
+    final message = '$context: ${error.toString()}';
+    _addLog('ERROR: $message');
+    _showError(message);
+  }
+
   Widget _buildBottomToolbar() {
-    return ValueListenableBuilder<CodeLineEditingValue>(
-      valueListenable: _controller,
-      builder: (context, value, child) {
-        final hasSelection = value.selection != const CodeLineSelection.zero();
-        return Container(
+    return Column(
+      children: [
+        Container(
           color: Colors.grey[900],
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
@@ -145,39 +181,59 @@ class _EditorScreenState extends State<EditorScreen> {
                 tooltip: 'Redo',
               ),
               IconButton(
-                icon: const Icon(Icons.content_copy),
-                onPressed: hasSelection ? () => _controller.copy() : null,
-                tooltip: 'Copy',
+                icon: const Icon(Icons.bug_report),
+                onPressed: () => setState(() => _showConsole = !_showConsole),
+                tooltip: 'Toggle Console',
+                color: _showConsole ? Colors.orange : null,
               ),
-              IconButton(
-                icon: const Icon(Icons.content_cut),
-                onPressed: hasSelection ? () => _controller.cut() : null,
-                tooltip: 'Cut',
-              ),
-              IconButton(
-                icon: const Icon(Icons.content_paste),
-                onPressed: () async {
-                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                  if (data?.text != null) {
-                    _controller.replaceSelection(data!.text!);
-                  }
-                },
-                tooltip: 'Paste',
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_upward),
-                onPressed: hasSelection ? _controller.moveSelectionLinesUp : null,
-                tooltip: 'Move Up',
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_downward),
-                onPressed: hasSelection ? _controller.moveSelectionLinesDown : null,
-                tooltip: 'Move Down',
-              ),
+              // ... other toolbar buttons
             ],
           ),
-        );
-      },
+        ),
+        if (_showConsole) _buildConsole(),
+      ],
+    );
+  }
+
+  Widget _buildConsole() {
+    return Container(
+      height: 150,
+      color: Colors.black.withOpacity(0.8),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Console:', style: TextStyle(color: Colors.white)),
+                IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.white),
+                  onPressed: () => setState(() => _logs.clear()),
+                  tooltip: 'Clear logs',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _logs.length,
+              reverse: true,
+              itemBuilder: (context, index) {
+                final log = _logs[_logs.length - 1 - index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Text(
+                    log,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
