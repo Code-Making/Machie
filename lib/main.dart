@@ -74,8 +74,28 @@ class _EditorScreenState extends State<EditorScreen> {
       });
     }
   }
+  
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red[800],
+        duration: const Duration(seconds: 3),
+      )
+    );
+  }
+  
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green[800],
+        duration: const Duration(seconds: 2),
+      )
+    );
+  }
 
- Future<void> _openFileTab(String uri) async {
+   Future<void> _openFileTab(String uri) async {
     try {
       // Check if file is already open
       final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
@@ -87,7 +107,7 @@ class _EditorScreenState extends State<EditorScreen> {
       // Read file content
       final content = await _fileHandler.readFile(uri);
       if (content == null) {
-        _showError('Failed to read file');
+        _showError('Failed to read file content');
         return;
       }
 
@@ -102,23 +122,28 @@ class _EditorScreenState extends State<EditorScreen> {
         _tabs.add(EditorTab(uri: uri, controller: controller));
         _currentTabIndex = _tabs.length - 1;
       });
+      
+      _showSuccess('File opened successfully');
     } catch (e) {
       _showError('Error opening file: ${e.toString()}');
     }
   }
   
   Future<void> _saveFile() async {
+    if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+
     final tab = _tabs[_currentTabIndex];
-    final success = await _fileHandler.writeFile(
-      tab.uri,
-      tab.controller.text,
-    );
-    
-    if (success) {
-      setState(() => tab.isDirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File saved successfully')),
-      );
+    try {
+      final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
+      
+      if (success) {
+        setState(() => tab.isDirty = false);
+        _showSuccess('File saved successfully');
+      } else {
+        _showError('Failed to save file');
+      }
+    } catch (e) {
+      _showError('Error saving file: ${e.toString()}');
     }
   }
 
