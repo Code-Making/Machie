@@ -218,8 +218,8 @@ class _EditorScreenState extends State<EditorScreen> {
               icon: const Icon(Icons.content_cut),
               onPressed: hasSelection ? () async {
                 final text = _controller.selectedText;
-                await Clipboard.setData(ClipboardData(text: text));
                 _controller.deleteSelection();
+                await Clipboard.setData(ClipboardData(text: text));
               } : null,
               tooltip: 'Cut',
             ),
