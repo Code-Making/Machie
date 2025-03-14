@@ -128,7 +128,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final verifiedUri = await _fileHandler.handleIntentUri(uri);
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].uri == uri) {
+      if (_tabs[i].uri == verifiedUri) {
         setState(() {
           _currentTabIndex = i;
         });
@@ -137,7 +137,7 @@ class _EditorScreenState extends State<EditorScreen> {
       }
     }
 
-    final content = await _fileHandler.readFile(uri);
+    final content = await _fileHandler.readFile(verifiedUri);
     if (content == null) {
       _showError('Failed to read file');
       return;
@@ -566,14 +566,13 @@ class AndroidFileHandler {
     });
   }
   
-  Future<void> handleIntentUri(String uri) async {
+Future<String> handleIntentUri(String uri) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    // Add additional permission checks if needed
     final hasAccess = await checkPermissions(uri);
     if (!hasAccess) {
       throw Exception('No persistent access to file');
     }
-    return uri;
+    return uri; // Now properly returns String
   }
   
   Future<bool> _requestPermissions() async {
