@@ -54,6 +54,9 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _isSidebarVisible = true;
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
+  
+    final FocusNode _keyboardFocusNode = FocusNode();
+
 
 
   Future<void> _openFile() async {
@@ -280,6 +283,35 @@ Future<bool> _checkFileModified(String uri) async {
       ),
     );
   }
+  
+    void _handleKeyEvent(RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return;
+    
+    final selection = _controller.selection;
+    final codeLines = _controller.codeLines;
+    final cursor = selection.baseOffset;
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft:
+        _controller.selection = selection.copyWith(
+          baseOffset: max(cursor.offset - 1, 0),
+          extentOffset: max(cursor.offset - 1, 0),
+        );
+        break;
+      case LogicalKeyboardKey.arrowRight:
+        _controller.selection = selection.copyWith(
+          baseOffset: min(cursor.offset + 1, codeLines.length),
+          extentOffset: min(cursor.offset + 1, codeLines.length),
+        );
+        break;
+      case LogicalKeyboardKey.arrowUp:
+        _controller.moveCursor(LineMove.up);
+        break;
+      case LogicalKeyboardKey.arrowDown:
+        _controller.moveCursor(LineMove.down);
+        break;
+    }
+  }
 
     Widget _buildEditorArea() {
     return Column(
@@ -321,6 +353,10 @@ Future<bool> _checkFileModified(String uri) async {
               },
             ),
           ),
+        RawKeyboardListener(
+              focusNode: _keyboardFocusNode,
+              onKey: _handleKeyEvent,
+              child: 
         Expanded(
           child: _tabs.isEmpty
               ? const Center(child: Text('Open a file to start editing'))
@@ -338,6 +374,7 @@ Future<bool> _checkFileModified(String uri) async {
                     ),
                   )).toList(),
                 ),
+        ),
         ),
       ],
     );
