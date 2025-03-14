@@ -152,7 +152,7 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
-        name: fileName,
+        fileName: fileName,
         controller: controller,
         isDirty: isEmpty,
       ));
