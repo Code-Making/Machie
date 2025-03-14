@@ -26,13 +26,11 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorTab {
   final String uri;
-  final String fileName;
   final CodeLineEditingController controller;
   bool isDirty;
 
   EditorTab({
     required this.uri,
-    required this.fileName,
     required this.controller,
     this.isDirty = false,
   });
@@ -70,10 +68,10 @@ class _EditorScreenState extends State<EditorScreen> {
     if (call.method == 'openFileFromIntent') {
       final data = Map<String,dynamic>.from(call.arguments);
       final uri = data['uri'] as String;
-      final fileName = data['fileName'] as String;
+  //    final fileName = data['fileName'] as String;
       
       if (uri.isNotEmpty) {
-        _openFileTab(uri, fileName);
+        _openFileTab(uri);
       }
     }
   });
@@ -124,7 +122,7 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-   Future<void> _openFileTab(String uri, String fileName) async {
+   Future<void> _openFileTab(String uri) async {
   try {
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
@@ -152,7 +150,6 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
-        fileName: fileName,
         controller: controller,
         isDirty: isEmpty,
       ));
@@ -384,7 +381,7 @@ Future<bool> _checkFileModified(String uri) async {
                           onPressed: () => _closeTab(index),
                         ),
                         Text(
-                          tab.fileName,
+                          _getFileName(tab.uri),
                           style: TextStyle(
                             color: tab.isDirty ? Colors.orange : Colors.white,
                           ),
@@ -622,19 +619,19 @@ Future<String?> readFile(String uri) async {
 }
 
   Future<bool> writeFile(String uri, String content) async {
-  try {
-    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-      'writeFile',
-      {
-        'uri': uri,
-        'content': content,
-        'flags': 3 // Use direct value for FLAG_GRANT_WRITE_URI_PERMISSION
-      }
-    );
-    return response?['success'] == true;
-  } on PlatformException catch (e) {
-    print("Write error: ${e.message}");
-    return false;
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'writeFile',
+        {
+          'uri': uri,
+          'content': content,
+          'flags': Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        }
+      );
+      return response?['success'] == true;
+    } on PlatformException catch (e) {
+      print("Write error: ${e.message}");
+      return false;
+    }
   }
-}
 }
