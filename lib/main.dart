@@ -215,6 +215,33 @@ Future<bool> _checkFileModified(String uri) async {
       }
     });
   }
+  
+  Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: contents.length,
+    itemBuilder: (context, index) {
+      final item = contents[index];
+      if (item['type'] == 'dir') {
+        return _DirectoryExpansionTile(
+          uri: item['uri'],
+          name: item['name'],
+          fileHandler: _fileHandler,
+          onFileTap: (uri) => _openFileTab(uri),
+        );
+      }
+      return ListTile(
+        leading: const Icon(Icons.insert_drive_file),
+        title: Text(item['name']),
+        onTap: () {
+          _openFileTab(item['uri']);
+          Navigator.pop(context);
+        },
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -252,47 +279,28 @@ Future<bool> _checkFileModified(String uri) async {
   }
 
   Widget _buildDrawer() {
-    return Drawer(
-      child: Column(
-        children: [
-          AppBar(
+  return Drawer(
+    child: Column(
+      children: [
+        AppBar(
             title: Text(_currentDirUri!=null ? _getFileName(_currentDirUri!):"Explorer"),
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          Expanded(
-            child: _currentDirUri == null
-                ? const Center(child: Text('Open a folder to browse'))
-                : ListView.builder(
-                    itemCount: _directoryContents.length,
-                    itemBuilder: (context, index) {
-                      final item = _directoryContents[index];
-                      return ListTile(
-                        leading: Icon(item['type'] == 'dir' 
-                            ? Icons.folder 
-                            : Icons.insert_drive_file),
-                        title: Text(item['name']),
-                        onTap: () {
-                          if (item['type'] == 'dir') {
-                            _loadDirectoryContents(item['uri']);
-                          } else {
-                            _openFileTab(item['uri']);
-                            Navigator.pop(context);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+        Expanded(
+          child: _currentDirUri == null
+              ? const Center(child: Text('Open a folder to browse'))
+              : _buildDirectoryTree(_directoryContents),
+        ),
+      ],
+    ),
+  );
+}
 
     Widget _buildEditorArea() {
     return Column(
@@ -410,6 +418,69 @@ String _getFileName(String uri) {
   // Fallback for unusual URI formats
   return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
 }
+}
+
+class _DirectoryExpansionTile extends StatefulWidget {
+  final String uri;
+  final String name;
+  final AndroidFileHandler fileHandler;
+  final Function(String) onFileTap;
+
+  const _DirectoryExpansionTile({
+    required this.uri,
+    required this.name,
+    required this.fileHandler,
+    required this.onFileTap,
+  });
+
+  @override
+  State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+}
+
+class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
+  bool _isExpanded = false;
+  List<Map<String, dynamic>> _children = [];
+  bool _isLoading = false;
+
+  Future<void> _loadChildren() async {
+    setState(() => _isLoading = true);
+    try {
+      final contents = await widget.fileHandler.listDirectory(widget.uri);
+      if (contents != null) {
+        setState(() => _children = contents);
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
+      title: Text(widget.name),
+      trailing: _isLoading 
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      onExpansionChanged: (expanded) async {
+        setState(() => _isExpanded = expanded);
+        if (expanded && _children.isEmpty) {
+          await _loadChildren();
+        }
+      },
+      children: [
+        if (_children.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: _buildDirectoryTree(_children),
+          ),
+      ],
+    );
+  }
 }
 
 class AndroidFileHandler {
