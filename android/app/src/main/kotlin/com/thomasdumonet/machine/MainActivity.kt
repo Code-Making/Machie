@@ -102,26 +102,33 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-    private fun handleIntent(intent: Intent) {
+private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
             try {
+                var isWritable = false
+                
                 if (DocumentsContract.isDocumentUri(this, uri)) {
+                    // Take permissions first
                     contentResolver.takePersistableUriPermission(
                         uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION or 
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     )
                     
-                    // Correct document flags access
-                    val flags = DocumentsContract.getDocumentFlags(
-                        contentResolver, 
-                        uri
-                    )
-                    val isWritable = flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE != 0
+                    // Get document flags correctly
+                    val flags = DocumentsContract.getDocumentFlags(contentResolver, uri)
+                    isWritable = (flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE) != 0
+                } else {
+                    // Fallback for non-document URIs
+                    isWritable = try {
+                        contentResolver.openOutputStream(uri)?.close()
+                        true
+                    } catch (e: Exception) {
+                        false
+                    }
                 }
-                
-                // Add non-null assertion for FlutterEngine
+
                 MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
                     .invokeMethod("onIntentFileOpened", mapOf(
                         "uri" to uri.toString(),
@@ -139,7 +146,6 @@ class MainActivity: FlutterActivity() {
         }
     }
 }
-
 private fun writeContentUri(uri: Uri, content: String): FileWriteResult {
     return try {
         contentResolver.openOutputStream(uri, "wt")?.use { stream ->
