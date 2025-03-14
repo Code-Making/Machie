@@ -375,18 +375,25 @@ class AndroidFileHandler {
     }
   }
 
-  Future<String?> readFile(String uri) async {
-    if (!await _requestPermissions()) {
-      throw Exception('Storage permission denied');
-    }
-    try {
-      final bytes = await File(uri).readAsBytes();
-      return utf8.decode(bytes);
-    } catch (e) {
-      print("Error reading file: $e");
-      return null;
-    }
+Future<String?> readFile(String uri) async {
+  try {
+    final content = await _channel.invokeMethod<String>(
+      'readFile',
+      {'uri': uri}
+    );
+    
+    if (content == null) throw Exception('Null content from platform');
+    if (content.isEmpty) throw Exception('Empty file content');
+    
+    return content;
+  } on PlatformException catch (e) {
+    throw Exception('''File read error: 
+URI: $uri
+Code: ${e.code}
+Message: ${e.message}
+Details: ${e.details}''');
   }
+}
 
   Future<bool> writeFile(String uri, String content) async {
     if (!await _requestPermissions()) {
