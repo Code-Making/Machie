@@ -85,6 +85,24 @@ class _EditorScreenState extends State<EditorScreen> {
   });
 }
 
+void _handleIntentFile(Map<String, dynamic> data) {
+  final uri = data['uri'] as String;
+  final writable = data['writable'] as bool;
+  
+  if (!writable) {
+    _showWarningDialog(
+      title: 'Read-Only Mode',
+      content: 'You can edit this file but will need to save a copy',
+    );
+  }
+  
+  _openFileTab(
+    uri: uri,
+    fileName: _getFileName(uri),
+    isWritable: writable,
+  );
+}
+
 Future<void> _saveIntentFile() async {
     if (_tabs.isEmpty) return;
     
