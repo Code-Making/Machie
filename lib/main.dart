@@ -425,14 +425,12 @@ class _DirectoryExpansionTile extends StatefulWidget {
   final String name;
   final AndroidFileHandler fileHandler;
   final Function(String) onFileTap;
-  final int depth;  // Add depth tracking
 
   const _DirectoryExpansionTile({
     required this.uri,
     required this.name,
     required this.fileHandler,
     required this.onFileTap,
-    this.depth = 0,
   });
 
   @override
@@ -454,16 +452,14 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
         final item = contents[index];
         if (item['type'] == 'dir') {
           return _DirectoryExpansionTile(
-            uri: item['uri'],  // Pass the CHILD URI
+            uri: item['uri'],  // Pass the SUBFOLDER's URI here
             name: item['name'],
             fileHandler: widget.fileHandler,
             onFileTap: widget.onFileTap,
-            depth: widget.depth + 1,  // Track nesting level
           );
         }
         return ListTile(
-          contentPadding: EdgeInsets.only(left: 16.0 * (widget.depth + 1)),
-          leading: const Icon(Icons.insert_drive_file, size: 20),
+          leading: const Icon(Icons.insert_drive_file),
           title: Text(item['name']),
           onTap: () => widget.onFileTap(item['uri']),
         );
