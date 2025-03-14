@@ -49,13 +49,13 @@ class MainActivity: FlutterActivity() {
                     "error" to result.error,
                     "isEmpty" to result.isEmpty
                 )
-                callResult.success(response)
+                result.success(response)
             }
             "writeFile" -> {
                 val uri = Uri.parse(call.argument<String>("uri"))
                 val content = call.argument<String>("content")!!
                 val result = writeFileContent(uri, content)
-                callResult.success(mapOf(
+                result.success(mapOf(
                     "success" to result.success,
                     "error" to result.error,
                     "checksum" to result.checksum
