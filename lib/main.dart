@@ -552,49 +552,7 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   );
 }
 
-// Add this method in _EditorScreenState class
-void _copyToClipboard(String text, String successMessage) {
-  Clipboard.setData(ClipboardData(text: text));
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(successMessage),
-      duration: const Duration(seconds: 2),
-    )
-  );
-}
 
-
-
-// Add file context menu
-void _showFileContextMenu(BuildContext context, String uri) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('File Actions'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('URI: ${uri}'),
-          const SizedBox(height: 16),
-        ],
-      ),
-      actions: [
-        TextButton(
-          child: const Text('Copy URI'),
-          onPressed: () {
-            Navigator.pop(context);
-            _copyToClipboard(uri, 'File URI copied to clipboard');
-          },
-        ),
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ],
-    ),
-  );
-}
 
   @override
   Widget build(BuildContext context) {
