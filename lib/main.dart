@@ -70,15 +70,15 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  Future<void> _loadDirectoryContents(String uri) async {
-    final contents = await _fileHandler.listDirectory(uri);
+  Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
+    final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
     if (contents != null) {
-      setState(() {
-        _currentDirUri = uri;
-        _directoryContents = contents;
-      });
+        setState(() {
+            _currentDirUri = uri;
+            _directoryContents = contents;
+        });
     }
-  }
+}
   
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -543,18 +543,17 @@ class AndroidFileHandler {
     }
   }
 
-Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
-  try {
-    final result = await _channel.invokeMethod<List<dynamic>>(
-      'listDirectory',
-      {'uri': uri}
-    );
-    debugPrint('Listed $uri: ${result?.length} items');
-    return result?.map((e) => Map<String, dynamic>.from(e)).toList();
-  } on PlatformException catch (e) {
-    debugPrint("Error listing directory: ${e.message}");
-    return null;
-  }
+Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
+    try {
+        final result = await _channel.invokeMethod<List<dynamic>>(
+            'listDirectory',
+            {'uri': uri, 'isRoot': isRoot}
+        );
+        return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+    } on PlatformException catch (e) {
+        print("Error listing directory: ${e.message}");
+        return null;
+    }
 }
 
 Future<String?> readFile(String uri) async {
