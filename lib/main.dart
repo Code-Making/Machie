@@ -26,11 +26,13 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorTab {
   final String uri;
+  final String fileName;
   final CodeLineEditingController controller;
   bool isDirty;
 
   EditorTab({
     required this.uri,
+    require this.fileName,
     required this.controller,
     this.isDirty = false,
   });
@@ -69,9 +71,8 @@ class _EditorScreenState extends State<EditorScreen> {
       final data = Map<String,dynamic>.from(call.arguments);
       final uri = data['uri'] as String;
       final fileName = data['fileName'] as String;
-      _showError(fileName);
       if (uri.isNotEmpty) {
-        _openFileTab(uri);
+        _openFileTab(uri, fileName: fileName);
       }
     }
   });
@@ -122,7 +123,7 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-   Future<void> _openFileTab(String uri) async {
+   Future<void> _openFileTab(String uri, {String fileName:""}) async {
   try {
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
@@ -146,10 +147,11 @@ class _EditorScreenState extends State<EditorScreen> {
     final controller = CodeLineEditingController(
       codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
     );
-
+    final theFileName = fileName.isEmpty ? _getFileName(uri):fileName;
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
+        fileName: theFileName,
         controller: controller,
         isDirty: isEmpty,
       ));
@@ -381,7 +383,7 @@ Future<bool> _checkFileModified(String uri) async {
                           onPressed: () => _closeTab(index),
                         ),
                         Text(
-                          _getFileName(tab.uri),
+                          tab.fileName,
                           style: TextStyle(
                             color: tab.isDirty ? Colors.orange : Colors.white,
                           ),
