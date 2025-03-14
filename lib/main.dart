@@ -534,17 +534,19 @@ class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
   
+  final Function(String)? onFileIntent;
+  
+  AndroidFileHandler({this.onFileIntent});
+
   Future<void> _setupIntentHandler() async {
-  const channel = MethodChannel('com.example/file_handler');
-  channel.setMethodCallHandler((call) async {
-    if (call.method == 'openFileFromIntent') {
-      final uri = call.arguments as String;
-      if (uri.isNotEmpty) {
-        _openFileTab(uri);
+    const channel = MethodChannel('com.example/file_handler');
+    channel.setMethodCallHandler((call) async {
+      if (call.method == 'openFileFromIntent' && onFileIntent != null) {
+        final uri = call.arguments as String;
+        onFileIntent!(uri);
       }
-    }
-  });
-}
+    });
+  }
   
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
