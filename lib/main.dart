@@ -125,6 +125,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
    Future<void> _openFileTab(String uri) async {
   try {
+    final verifiedUri = await _fileHandler.handleIntentUri(uri);
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
       if (_tabs[i].uri == uri) {
