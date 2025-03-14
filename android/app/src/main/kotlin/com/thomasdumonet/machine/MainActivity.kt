@@ -41,26 +41,26 @@ class MainActivity: FlutterActivity() {
                     val children = listDirectory(uri)
                     result.success(children)
                 }
-            "readFile" -> {
-                val uri = Uri.parse(call.argument<String>("uri"))
-                val result = readFileContent(uri)
-                val response = mapOf(
-                    "content" to result.content,
-                    "error" to result.error,
-                    "isEmpty" to result.isEmpty
-                )
-                result.success(response)
-            }
-            "writeFile" -> {
-                val uri = Uri.parse(call.argument<String>("uri"))
-                val content = call.argument<String>("content")!!
-                val result = writeFileContent(uri, content)
-                result.success(mapOf(
-                    "success" to result.success,
-                    "error" to result.error,
-                    "checksum" to result.checksum
-                ))
-            }
+        "readFile" -> {
+            val uri = Uri.parse(call.argument<String>("uri"))
+            val readResult = readFileContent(uri) // Renamed variable
+            val response = mapOf(
+                "content" to readResult.content,
+                "error" to readResult.error,
+                "isEmpty" to readResult.isEmpty
+            )
+            result.success(response) // Use method channel result
+        }
+        "writeFile" -> {
+            val uri = Uri.parse(call.argument<String>("uri"))
+            val content = call.argument<String>("content")!!
+            val writeResult = writeFileContent(uri, content) // Renamed variable
+            result.success(mapOf(
+                "success" to writeResult.success,
+                "error" to writeResult.error,
+                "checksum" to writeResult.checksum
+            ))
+        }
                 else -> result.notImplemented()
             }
         }
@@ -167,20 +167,19 @@ private fun readFileContent(uri: Uri): FileReadResult {
 
 
 
-    private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
+private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
     return try {
         contentResolver.openOutputStream(uri)?.use { outputStream ->
             BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
                 writer.write(content)
-                writer.flush()
             }
-            
-            // Calculate new checksum
+
+            // Calculate checksum AFTER writing
             val inputStream = contentResolver.openInputStream(uri)!!
             val md5 = MessageDigest.getInstance("MD5")
             val digest = md5.digest(inputStream.readBytes())
-            val checksum = digest.fold("") { str, it -> str + "%02x".format(it) }
-            
+            val checksum = digest.joinToString("") { "%02x".format(it) }
+
             FileWriteResult(true, null, checksum)
         } ?: FileWriteResult(false, "Failed to open output stream", null)
     } catch (e: Exception) {
