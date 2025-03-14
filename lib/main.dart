@@ -66,7 +66,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _openFolder() async {
     final uri = await _fileHandler.openFolder();
     if (uri != null) {
-      _loadDirectoryContents(uri, isroot: true);
+      _loadDirectoryContents(uri, isRoot: true);
     }
   }
 
