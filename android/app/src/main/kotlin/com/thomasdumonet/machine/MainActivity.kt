@@ -112,18 +112,21 @@ fun persistUriPermission(uri: Uri) {
 private fun listDirectory(uri: Uri): List<Map<String, String>> {
     val children = mutableListOf<Map<String, String>>()
     try {
-        // Always use the original tree URI
-        val treeUri = if (DocumentsContract.isTreeUri(uri)) uri 
-            else DocumentsContract.buildTreeDocumentUri(uri.authority, DocumentsContract.getDocumentId(uri))
-        
-        // Get the ACTUAL document ID from the input URI
-        val targetDocId = if (DocumentsContract.isTreeUri(uri)) 
-            DocumentsContract.getTreeDocumentId(uri)
-            else DocumentsContract.getDocumentId(uri)
+        // Always preserve the original tree context
+        val (treeUri, currentDocId) = if (DocumentsContract.isTreeUri(uri)) {
+            Pair(uri, DocumentsContract.getTreeDocumentId(uri))
+        } else {
+            val docId = DocumentsContract.getDocumentId(uri)
+            val treeId = docId.substringBefore("/") // Extract root tree ID
+            Pair(
+                DocumentsContract.buildTreeDocumentUri(uri.authority, treeId),
+                docId // Full document ID for subfolder
+            )
+        }
 
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
             treeUri,
-            targetDocId // Use the SUBFOLDER's document ID here
+            currentDocId // Critical: Use SUBFOLDER'S document ID here
         )
 
         contentResolver.query(
@@ -142,7 +145,6 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
                 val name = cursor.getString(1)
                 val mime = cursor.getString(2)
                 
-                // Build child URI using the ORIGINAL tree URI
                 val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                 children.add(mapOf(
                     "uri" to childUri.toString(),
@@ -152,7 +154,7 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
             }
         }
     } catch (e: Exception) {
-        Log.e("DIR_LIST", "Error listing directory: ${e.message}")
+        Log.e("DIR_LIST", "Error listing $uri: ${e.message}")
     }
     return children
 }
