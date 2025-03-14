@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'dart:math';
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,9 +54,6 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _isSidebarVisible = true;
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
-  
-    final FocusNode _keyboardFocusNode = FocusNode();
-
 
 
   Future<void> _openFile() async {
@@ -283,39 +280,6 @@ Future<bool> _checkFileModified(String uri) async {
       ),
     );
   }
-  
-    void _handleKeyEvent(RawKeyEvent event) {
-        if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
-
-    final tab = _tabs[_currentTabIndex];
-    if (event is! RawKeyDownEvent) return;
-
-  final selection = tab.controller.selection;
-  final isShiftPressed = event.isShiftPressed;
-
-  void handleMove(AxisDirection direction) {
-    if (isShiftPressed) {
-      tab.controller.extendSelection(direction);
-    } else {
-      tab.controller.moveCursor(direction);
-    }
-  }
-
-  switch (event.logicalKey) {
-    case LogicalKeyboardKey.arrowLeft:
-      handleMove(AxisDirection.left);
-      break;
-    case LogicalKeyboardKey.arrowRight:
-      handleMove(AxisDirection.right);
-      break;
-    case LogicalKeyboardKey.arrowUp:
-      handleMove(AxisDirection.up);
-      break;
-    case LogicalKeyboardKey.arrowDown:
-      handleMove(AxisDirection.down);
-      break;
-  }
-    }
 
     Widget _buildEditorArea() {
     return Column(
@@ -357,10 +321,6 @@ Future<bool> _checkFileModified(String uri) async {
               },
             ),
           ),
-        RawKeyboardListener(
-              focusNode: _keyboardFocusNode,
-              onKey: _handleKeyEvent,
-              child: 
         Expanded(
           child: _tabs.isEmpty
               ? const Center(child: Text('Open a file to start editing'))
@@ -378,7 +338,6 @@ Future<bool> _checkFileModified(String uri) async {
                     ),
                   )).toList(),
                 ),
-        ),
         ),
       ],
     );
