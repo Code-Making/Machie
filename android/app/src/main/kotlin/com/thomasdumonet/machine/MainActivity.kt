@@ -63,8 +63,7 @@ class MainActivity: FlutterActivity() {
                 "writeFile" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
                     val content = call.argument<String>("content")!!
-                    val flags = call.argument<Int>("flags") ?: 0
-                    val result = writeFileContent(uri, content, flags)
+                    val result = writeFileContent(uri, content)
                     result.success(mapOf(
                         "success" to result.success,
                         "error" to result.error,
