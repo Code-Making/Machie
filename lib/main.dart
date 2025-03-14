@@ -32,7 +32,7 @@ class EditorTab {
 
   EditorTab({
     required this.uri,
-    require this.fileName,
+    required this.fileName,
     required this.controller,
     this.isDirty = false,
   });
