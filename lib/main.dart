@@ -546,9 +546,10 @@ Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
       'listDirectory',
       {'uri': uri}
     );
+    debugPrint('Listed $uri: ${result?.length} items');
     return result?.map((e) => Map<String, dynamic>.from(e)).toList();
   } on PlatformException catch (e) {
-    print("Error listing directory: ${e.message}");
+    debugPrint("Error listing directory: ${e.message}");
     return null;
   }
 }
