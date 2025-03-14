@@ -9,6 +9,9 @@ import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:flutter_slider_drawer/flutter_slider_drawer.dart';
+
+
 void main() => runApp(const CodeEditorApp());
 
 class CodeEditorApp extends StatelessWidget {
@@ -47,8 +50,9 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
-    String? _originalFileHash; // Add this line
-
+  String? _originalFileHash; // Add this line
+  
+  final GlobalKey<SliderDrawerState> _drawerKey = GlobalKey<SliderDrawerState>();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
   bool _isSidebarVisible = true;
@@ -239,7 +243,7 @@ Future<bool> _checkFileModified(String uri) async {
   }
 
   Widget _buildDrawer() {
-    return Drawer(
+    return SliderDrawer(
       child: Column(
         children: [
           AppBar(
