@@ -106,7 +106,7 @@ class _EditorScreenState extends State<EditorScreen> {
     
     // Allow empty files but handle them differently
     final isEmpty = content?.isEmpty ?? true;
-    _originalFileHash = _calculateHash(content);
+    _originalFileHash = _calculateHash(content!);
     final controller = CodeLineEditingController(
       codeLines: isEmpty ? CodeLines.empty : CodeLines.fromText(content!),
     );
