@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +47,8 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
+    String? _originalFileHash; // Add this line
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
   bool _isSidebarVisible = true;
@@ -102,7 +106,7 @@ class _EditorScreenState extends State<EditorScreen> {
     
     // Allow empty files but handle them differently
     final isEmpty = content?.isEmpty ?? true;
-    
+    _originalFileHash = _calculateHash(content);
     final controller = CodeLineEditingController(
       codeLines: isEmpty ? CodeLines.empty : CodeLines.fromText(content!),
     );
