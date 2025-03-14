@@ -51,8 +51,12 @@ class MainActivity: FlutterActivity() {
                 "writeFile" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
                     val content = call.argument<String>("content")!!
-                    writeFileContent(uri, content)
-                    result.success(true)
+                    val result = writeFileContent(uri, content)
+                    result.success(mapOf(
+                        "success" to result.success,
+                        "error" to result.error,
+                        "checksum" to result.checksum
+                    ))
                 }
                 else -> result.notImplemented()
             }
@@ -160,15 +164,26 @@ private fun readFileContent(uri: Uri): FileReadResult {
 
 }
 
-    private fun writeFileContent(uri: Uri, content: String) {
-        try {
-            contentResolver.openOutputStream(uri)?.use { stream ->
-                stream.write(content.toByteArray())
+    private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
+    return try {
+        contentResolver.openOutputStream(uri)?.use { outputStream ->
+            BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                writer.write(content)
+                writer.flush()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            
+            // Calculate new checksum
+            val inputStream = contentResolver.openInputStream(uri)!!
+            val md5 = MessageDigest.getInstance("MD5")
+            val digest = md5.digest(inputStream.readBytes())
+            val checksum = digest.fold("") { str, it -> str + "%02x".format(it) }
+            
+            FileWriteResult(true, null, checksum)
+        } ?: FileWriteResult(false, "Failed to open output stream", null)
+    } catch (e: Exception) {
+        FileWriteResult(false, "Write error: ${e.message}", null)
     }
+}
     
     private fun detectCharset(inputStream: InputStream): Charset {
      val bytes = inputStream.readBytes()
@@ -188,4 +203,10 @@ data class FileReadResult(
     val content: String?,
     val error: String?,
     val isEmpty: Boolean
+)
+
+data class FileWriteResult(
+    val success: Boolean,
+    val error: String?,
+    val checksum: String?
 )
