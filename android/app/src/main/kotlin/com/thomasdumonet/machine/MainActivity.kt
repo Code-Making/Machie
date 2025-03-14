@@ -93,13 +93,31 @@ class MainActivity: FlutterActivity() {
     }
     
     private fun handleIntent(intent: Intent) {
-      if (intent.action == Intent.ACTION_VIEW) {
+    if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-          MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
-            .invokeMethod("openFileFromIntent", uri.toString())
+            // Take persistent permissions
+            persistUriPermission(uri)
+            
+            // Get real filename
+            val fileName = getFileNameFromUri(uri)
+            
+            // Send both URI and filename to Flutter
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
+                .invokeMethod("openFileFromIntent", mapOf(
+                    "uri" to uri.toString(),
+                    "fileName" to fileName
+                ))
         }
-      }
     }
+}
+
+private fun getFileNameFromUri(uri: Uri): String {
+    return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        cursor.moveToFirst()
+        cursor.getString(nameIndex)
+    } ?: uri.lastPathSegment ?: "untitled"
+}
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
