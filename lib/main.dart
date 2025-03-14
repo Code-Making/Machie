@@ -625,7 +625,6 @@ Future<String?> readFile(String uri) async {
       {
         'uri': uri,
         'content': content,
-        'flags': 3 // Use direct value for FLAG_GRANT_WRITE_URI_PERMISSION
       }
     );
     return response?['success'] == true;
