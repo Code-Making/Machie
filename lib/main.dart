@@ -705,7 +705,7 @@ Future<String?> readFile(String uri) async {
   void _requestPersistentAccess(String uri) async {
     final success = await _channel.invokeMethod('requestPersistentAccess', uri);
     if (success != true) {
-      showErrorDialog('Permanent access required for saving');
+      _showError('Permanent access required for saving');
     }
   }
 }
