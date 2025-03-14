@@ -315,6 +315,7 @@ Future<bool> _checkFileModified(String uri) async {
       handleMove(AxisDirection.down);
       break;
   }
+    }
 
     Widget _buildEditorArea() {
     return Column(
