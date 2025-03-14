@@ -164,12 +164,11 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _saveFile() async {
   if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+  final tab = _tabs[_currentTabIndex];
   if (!await _checkPermissions(tab.uri)) {
     _showError('No write permissions for this file');
     return;
   }
-  
-  final tab = _tabs[_currentTabIndex];
   try {
     // Check external modifications
     final currentContent = await _fileHandler.readFile(tab.uri);
