@@ -115,11 +115,22 @@ private fun handleIntent(intent: Intent) {
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     )
 
-                    // Add version check for newer APIs
-                    isWritable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        val flags = DocumentsContract.getDocumentFlags(contentResolver, uri)
-                        (flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE) != 0
-                    } else {
+val isWritable = if (DocumentsContract.isDocumentUri(this, uri)) {
+    contentResolver.query(
+        uri, 
+        arrayOf(DocumentsContract.Document.COLUMN_FLAGS), 
+        null, 
+        null, 
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val flags = cursor.getInt(0)
+            (flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE) != 0
+        } else {
+            false
+        }
+    } ?: false
+} else {
                         // Fallback for older APIs
                         val file = File(uri.path?.substringAfterLast(":") ?: "")
                         file.canWrite()
@@ -150,6 +161,7 @@ private fun handleIntent(intent: Intent) {
         }
     }
 }
+
 private fun writeContentUri(uri: Uri, content: String): FileWriteResult {
     return try {
         contentResolver.openOutputStream(uri, "wt")?.use { stream ->
