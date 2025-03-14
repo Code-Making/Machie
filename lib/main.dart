@@ -330,7 +330,7 @@ Future<bool> _checkFileModified(String uri) async {
                     controller: tab.controller,
                     style: CodeEditorStyle(
                       fontSize: 14,
-                      fontFamily: 'FiraCode',
+                      fontFamily: 'FiraMono',
                       codeTheme: CodeHighlightTheme(
                         languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
                         theme: atomOneDarkTheme,
