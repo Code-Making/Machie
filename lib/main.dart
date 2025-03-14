@@ -14,11 +14,6 @@ void main() => runApp(const CodeEditorApp());
 class CodeEditorApp extends StatelessWidget {
   const CodeEditorApp({super.key});
 
-  @override
-    void initState() {
-      super.initState();
-      _setupIntentHandler();
-    }
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +56,24 @@ class _EditorScreenState extends State<EditorScreen> {
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
 
+    @override
+  void initState() {
+    super.initState();
+    _setupIntentHandler();
+  }
+
+  void _setupIntentHandler() {
+    const channel = MethodChannel('com.example/file_handler');
+    channel.setMethodCallHandler((call) async {
+      if (call.method == 'openFileFromIntent') {
+        final uri = call.arguments as String;
+        if (uri.isNotEmpty) {
+          _openFileTab(uri); // Now accessible in the same class
+        }
+      }
+    });
+  }
+  
 
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -521,17 +534,19 @@ class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
   
+  final Function(String)? onFileIntent;
+  
+  AndroidFileHandler({this.onFileIntent});
+
   Future<void> _setupIntentHandler() async {
-  const channel = MethodChannel('com.example/file_handler');
-  channel.setMethodCallHandler((call) async {
-    if (call.method == 'openFileFromIntent') {
-      final uri = call.arguments as String;
-      if (uri.isNotEmpty) {
-        _openFileTab(uri);
+    const channel = MethodChannel('com.example/file_handler');
+    channel.setMethodCallHandler((call) async {
+      if (call.method == 'openFileFromIntent' && onFileIntent != null) {
+        final uri = call.arguments as String;
+        onFileIntent!(uri);
       }
-    }
-  });
-}
+    });
+  }
   
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
