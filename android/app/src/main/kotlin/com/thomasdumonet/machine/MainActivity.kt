@@ -112,16 +112,19 @@ fun persistUriPermission(uri: Uri) {
 private fun listDirectory(uri: Uri): List<Map<String, String>> {
     val children = mutableListOf<Map<String, String>>()
     try {
-        val isTreeUri = DocumentsContract.isTreeUri(uri)
-        val baseUri = if (isTreeUri) uri else DocumentsContract.buildTreeDocumentUri(uri.authority, DocumentsContract.getDocumentId(uri))
+        // Always use the original tree URI
+        val treeUri = if (DocumentsContract.isTreeUri(uri)) uri 
+            else DocumentsContract.buildTreeDocumentUri(uri.authority, DocumentsContract.getDocumentId(uri))
         
-        val docId = if (isTreeUri) {
+        // Get the ACTUAL document ID from the input URI
+        val targetDocId = if (DocumentsContract.isTreeUri(uri)) 
             DocumentsContract.getTreeDocumentId(uri)
-        } else {
-            DocumentsContract.getDocumentId(uri)
-        }
+            else DocumentsContract.getDocumentId(uri)
 
-        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(baseUri, docId)
+        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri,
+            targetDocId // Use the SUBFOLDER's document ID here
+        )
 
         contentResolver.query(
             childUris,
@@ -139,9 +142,8 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
                 val name = cursor.getString(1)
                 val mime = cursor.getString(2)
                 
-                val childUri = DocumentsContract.buildDocumentUriUsingTree(baseUri, id)
-                persistUriPermission(childUri)
-                
+                // Build child URI using the ORIGINAL tree URI
+                val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                 children.add(mapOf(
                     "uri" to childUri.toString(),
                     "name" to name,
@@ -150,11 +152,10 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
             }
         }
     } catch (e: Exception) {
-        Log.e("DIR_LIST", "Error listing $uri: ${e.message}")
+        Log.e("DIR_LIST", "Error listing directory: ${e.message}")
     }
     return children
 }
-
 
 private fun readFileContent(uri: Uri): FileReadResult {
     return try {
