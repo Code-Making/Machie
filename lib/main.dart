@@ -167,22 +167,68 @@ class _EditorScreenState extends State<EditorScreen> {
 }
   
   Future<void> _saveFile() async {
-    if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+  if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
 
-    final tab = _tabs[_currentTabIndex];
-    try {
-      final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
+  final tab = _tabs[_currentTabIndex];
+  try {
+    // Check external modifications
+    final currentContent = await _fileHandler.readFile(tab.uri);
+    final currentHash = _calculateHash(currentContent ?? '');
+    
+    if (currentHash != _originalFileHash) {
+      final choice = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('File Modified'),
+          content: const Text('This file has been modified externally. Overwrite?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Overwrite'),
+            ),
+          ],
+        ),
+      );
       
-      if (success) {
-        setState(() => tab.isDirty = false);
-        _showSuccess('File saved successfully');
-      } else {
-        _showError('Failed to save file');
-      }
-    } catch (e) {
-      _showError('Error saving file: ${e.toString()}');
+      if (choice != true) return;
     }
+
+    // Perform save
+    final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
+    
+    if (success) {
+      // Update checksum after successful save
+      final newContent = await _fileHandler.readFile(tab.uri);
+      setState(() {
+        tab.isDirty = false;
+        _originalFileHash = _calculateHash(newContent ?? '');
+      });
+      _showSuccess('File saved successfully');
+    } else {
+      _showError('Failed to save file');
+    }
+  } catch (e) {
+    _showError('Save error: ${e.toString()}');
   }
+}
+
+String _calculateHash(String content) {
+  return md5.convert(utf8.encode(content)).toString();
+}
+
+Future<bool> _checkFileModified(String uri) async {
+  try {
+    final currentContent = await _fileHandler.readFile(uri);
+    return _calculateHash(currentContent ?? '') != _originalFileHash;
+  } catch (e) {
+    _showError('Modification check failed: ${e.toString()}');
+    return false;
+  }
+}
 
   void _closeTab(int index) {
     setState(() {
@@ -406,15 +452,19 @@ Future<String?> readFile(String uri) async {
 }
 
   Future<bool> writeFile(String uri, String content) async {
-    if (!await _requestPermissions()) {
-      throw Exception('Storage permission denied');
-    }
-    try {
-      await File(uri).writeAsString(content);
+  try {
+    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      'writeFile',
+      {'uri': uri, 'content': content}
+    );
+
+    if (response?['success'] == true) {
       return true;
-    } catch (e) {
-      print("Error writing file: $e");
-      return false;
     }
+    
+    throw Exception(response?['error'] ?? 'Unknown write error');
+  } on PlatformException catch (e) {
+    throw Exception('Platform error: ${e.message}');
   }
+}
 }
