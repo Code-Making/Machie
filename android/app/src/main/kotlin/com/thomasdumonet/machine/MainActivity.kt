@@ -108,39 +108,38 @@ fun persistUriPermission(uri: Uri) {
      }
    }
    
-    private fun listDirectory(uri: Uri): List<Map<String, String>> {
-        val children = mutableListOf<Map<String, String>>()
-        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            uri, 
-            DocumentsContract.getTreeDocumentId(uri)
-        )
+private fun listDirectory(uri: Uri): List<Map<String, String>> {
+    val children = mutableListOf<Map<String, String>>()
+    // Get the CURRENT directory's document ID (not the tree root)
+    val docId = DocumentsContract.getDocumentId(uri)
+    // Build child URI using the current directory's ID
+    val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
 
-        contentResolver.query(
-            childUris,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE
-            ),
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val id = cursor.getString(0)
-                val name = cursor.getString(1)
-                val mime = cursor.getString(2)
-                
-                children.add(mapOf(
-                    "uri" to DocumentsContract.buildDocumentUriUsingTree(uri, id).toString(),
-                    "name" to name,
-                    "type" to if (mime == DocumentsContract.Document.MIME_TYPE_DIR) "dir" else "file"
-                ))
-            }
+    contentResolver.query(
+        childUris,
+        arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE
+        ),
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        while (cursor.moveToNext()) {
+            val id = cursor.getString(0)
+            val name = cursor.getString(1)
+            val mime = cursor.getString(2)
+            
+            children.add(mapOf(
+                "uri" to DocumentsContract.buildDocumentUriUsingTree(uri, id).toString(),
+                "name" to name,
+                "type" to if (mime == DocumentsContract.Document.MIME_TYPE_DIR) "dir" else "file"
+            ))
         }
-        return children
     }
-
+    return children
+}
 
 private fun readFileContent(uri: Uri): FileReadResult {
     return try {
