@@ -635,4 +635,27 @@ Future<String?> readFile(String uri) async {
     return false;
   }
 }
+}class IntentFileHandler {
+  static const _channel = MethodChannel('com.example/intent_files');
+
+  Future<bool> saveContentUri(String uri, String content) async {
+    try {
+      return await _channel.invokeMethod('writeContentUri', {
+        'uri': uri,
+        'content': content,
+      }) ?? false;
+    } on PlatformException catch (e) {
+      if (e.code == 'permission_denied') {
+        _requestPersistentAccess(uri);
+      }
+      return false;
+    }
+  }
+
+  void _requestPersistentAccess(String uri) async {
+    final success = await _channel.invokeMethod('requestPersistentAccess', uri);
+    if (success != true) {
+      showErrorDialog('Permanent access required for saving');
+    }
+  }
 }
