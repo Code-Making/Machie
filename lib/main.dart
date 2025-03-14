@@ -256,7 +256,7 @@ Future<bool> _checkFileModified(String uri) async {
       child: Column(
         children: [
           AppBar(
-            title: Text(_cur_getFileNa.isNotEmpty?_getFileName(_currentDirUri!):"Explorer"),
+            title: Text(_currentDirUri.isNotEmpty?_getFileName(_currentDirUri!):"Explorer"),
             automaticallyImplyLeading: false,
             actions: [
               IconButton(
