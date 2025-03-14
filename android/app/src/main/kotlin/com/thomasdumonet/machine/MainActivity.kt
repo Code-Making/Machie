@@ -37,6 +37,17 @@ class MainActivity: FlutterActivity() {
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                     startActivityForResult(intent, 103)
                 }
+                "checkPermissions" -> {
+                    val uri = Uri.parse(call.argument<String>("uri"))
+                    val hasWrite = try {
+                        contentResolver.persistedUriPermissions.any { 
+                            it.uri == uri && it.isWritePermission 
+                        }
+                    } catch (e: Exception) {
+                        false
+                    }
+                    result.success(hasWrite)
+                }
                 "listDirectory" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
                     val isRoot = call.argument<Boolean>("isRoot") ?: false
