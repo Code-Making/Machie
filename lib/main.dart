@@ -124,7 +124,7 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-   Future<void> _openFileTab(String uri) async {
+   Future<void> _openFileTab(String uri, String fileName) async {
   try {
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
