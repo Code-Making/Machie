@@ -444,6 +444,7 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   bool _isLoading = false;
 
   Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+    
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -470,6 +471,8 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   Future<void> _loadChildren() async {
     setState(() => _isLoading = true);
     try {
+        // In _loadChildren()
+      debugPrint('Loading children for: ${widget.uri}');
       // Use the current directory's URI to load its contents
       final contents = await widget.fileHandler.listDirectory(widget.uri);
       if (contents != null) {
