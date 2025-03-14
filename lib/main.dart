@@ -563,16 +563,7 @@ void _copyToClipboard(String text, String successMessage) {
   );
 }
 
-// Update files ListTile to support copying too
-// In _buildChildItems method:
-return ListTile(
-  leading: const Icon(Icons.insert_drive_file),
-  title: GestureDetector(
-    onLongPress: () => _showFileContextMenu(context, item['uri']),
-    child: Text(item['name']),
-  ),
-  onTap: () => widget.onFileTap(item['uri']),
-);
+
 
 // Add file context menu
 void _showFileContextMenu(BuildContext context, String uri) {
