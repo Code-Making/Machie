@@ -69,16 +69,6 @@ class _EditorScreenState extends State<EditorScreen> {
       _loadDirectoryContents(uri);
     }
   }
-  
-  void _copyToClipboard(String text, String successMessage) {
-  Clipboard.setData(ClipboardData(text: text));
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(successMessage),
-      duration: const Duration(seconds: 2),
-    )
-  );
-}
 
   Future<void> _loadDirectoryContents(String uri) async {
     final contents = await _fileHandler.listDirectory(uri);
@@ -477,6 +467,16 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
       },
     );
   }
+  
+  void _copyToClipboard(String text, String successMessage) {
+  Clipboard.setData(ClipboardData(text: text));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(successMessage),
+      duration: const Duration(seconds: 2),
+    )
+  );
+}
 
   Future<void> _loadChildren() async {
     setState(() => _isLoading = true);
