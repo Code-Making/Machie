@@ -40,8 +40,13 @@ class MainActivity: FlutterActivity() {
                 }
                 "readFile" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
-                    val content = readFileContent(uri)
-                    result.success(content)
+                    val result = readFileContent(uri)
+                    val response = mapOf(
+                        "content" to result.content,
+                        "error" to result.error,
+                        "isEmpty" to result.isEmpty
+                    )
+                    result.success(response)
                 }
                 "writeFile" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
@@ -84,14 +89,18 @@ class MainActivity: FlutterActivity() {
         openFolderResult?.success(null)
     }
 
-    private fun persistUriPermission(uri: Uri) {
-        contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or
-            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-    }
-
+fun persistUriPermission(uri: Uri) {
+     try {
+       contentResolver.takePersistableUriPermission(
+         uri,
+         Intent.FLAG_GRANT_READ_URI_PERMISSION or
+         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+       )
+     } catch (e: SecurityException) {
+       Log.e("SAF", "Permission error: ${e.message}")
+     }
+   }
+   
     private fun listDirectory(uri: Uri): List<Map<String, String>> {
         val children = mutableListOf<Map<String, String>>()
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
@@ -125,15 +134,31 @@ class MainActivity: FlutterActivity() {
         return children
     }
 
-    private fun readFileContent(uri: Uri): String? {
-        return try {
-            contentResolver.openInputStream(uri)?.use { stream ->
-                stream.bufferedReader().use { it.readText() }
-            }
-        } catch (e: Exception) {
-            null
-        }
+
+private fun readFileContent(uri: Uri): FileReadResult {
+    return try {
+        contentResolver.openInputStream(uri)?.use { inputStream ->
+            val content = inputStream.bufferedReader().use { it.readText() }
+            FileReadResult(
+                content = content,
+                error = null,
+                isEmpty = content.isEmpty()
+            )
+        } ?: FileReadResult(
+            content = null,
+            error = "Failed to open input stream",
+            isEmpty = false
+        )
+    } catch (e: Exception) {
+        FileReadResult(
+            content = null,
+            error = "Error reading file: ${e.message}",
+            isEmpty = false
+        )
     }
+}
+
+}
 
     private fun writeFileContent(uri: Uri, content: String) {
         try {
@@ -144,4 +169,23 @@ class MainActivity: FlutterActivity() {
             e.printStackTrace()
         }
     }
+    
+    private fun detectCharset(inputStream: InputStream): Charset {
+     val bytes = inputStream.readBytes()
+     return when {
+       bytes.size >= 3 && bytes[0] == 0xEF.toByte() 
+         && bytes[1] == 0xBB.toByte() 
+         && bytes[2] == 0xBF.toByte() -> Charsets.UTF_8
+       bytes.size >= 2 && bytes[0] == 0xFE.toByte() 
+         && bytes[1] == 0xFF.toByte() -> Charsets.UTF_16BE
+       // Add other encodings as needed
+       else -> Charset.defaultCharset()
+     }
+   }
 }
+
+data class FileReadResult(
+    val content: String?,
+    val error: String?,
+    val isEmpty: Boolean
+)
