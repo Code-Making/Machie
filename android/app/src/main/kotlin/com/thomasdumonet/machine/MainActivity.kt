@@ -24,12 +24,6 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "initialized" -> {
-                        pendingIntentUri?.let { uri ->
-                            handlePendingUri(uri)
-                            pendingIntentUri = null
-                        }
-                    }
                 "openFile" -> {
                     openFileResult = result
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -42,17 +36,6 @@ class MainActivity: FlutterActivity() {
                     openFolderResult = result
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                     startActivityForResult(intent, 103)
-                }
-                "checkPermissions" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val hasWrite = try {
-                        contentResolver.persistedUriPermissions.any { 
-                            it.uri == uri && it.isWritePermission 
-                        }
-                    } catch (e: Exception) {
-                        false
-                    }
-                    result.success(hasWrite)
                 }
                 "listDirectory" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
@@ -99,37 +82,23 @@ class MainActivity: FlutterActivity() {
         }
     }
     
-override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        handleIntent(intent)
+    override fun onCreate(savedInstanceState: Bundle?) {
+      super.onCreate(savedInstanceState)
+      handleIntent(intent)
     }
-
+    
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleIntent(intent)
+      super.onNewIntent(intent)
+      handleIntent(intent)
     }
-
+    
     private fun handleIntent(intent: Intent) {
-        if (intent.action == Intent.ACTION_VIEW) {
-            intent.data?.let { uri ->
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-                
-                if (flutterEngine != null) {
-                    handlePendingUri(uri)
-                } else {
-                    pendingIntentUri = uri
-                }
-            }
-        }
-    }
-
-    private fun handlePendingUri(uri: Uri) {
-        MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
+      if (intent.action == Intent.ACTION_VIEW) {
+        intent.data?.let { uri ->
+          MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
             .invokeMethod("openFileFromIntent", uri.toString())
+        }
+      }
     }
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
