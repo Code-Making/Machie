@@ -112,21 +112,18 @@ fun persistUriPermission(uri: Uri) {
 private fun listDirectory(uri: Uri): List<Map<String, String>> {
     val children = mutableListOf<Map<String, String>>()
     try {
-        // Always preserve the original tree context
-        val (treeUri, currentDocId) = if (DocumentsContract.isTreeUri(uri)) {
-            Pair(uri, DocumentsContract.getTreeDocumentId(uri))
-        } else {
-            val docId = DocumentsContract.getDocumentId(uri)
-            val treeId = docId.substringBefore("/") // Extract root tree ID
-            Pair(
-                DocumentsContract.buildTreeDocumentUri(uri.authority, treeId),
-                docId // Full document ID for subfolder
-            )
-        }
-
+        val authority = uri.authority ?: return emptyList()
+        val baseTreeUri = DocumentsContract.buildTreeDocumentUri(
+            authority, 
+            DocumentsContract.getTreeDocumentId(uri)
+        )
+        
+        // Get the FULL document ID for the current folder
+        val parentDocId = DocumentsContract.getDocumentId(uri)
+        
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            uri,
-            currentDocId // Critical: Use SUBFOLDER'S document ID here
+            baseTreeUri,
+            parentDocId // Use current folder's full document ID
         )
 
         contentResolver.query(
@@ -141,11 +138,15 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
             null
         )?.use { cursor ->
             while (cursor.moveToNext()) {
-                val id = cursor.getString(0)
+                val childDocId = cursor.getString(0)
                 val name = cursor.getString(1)
                 val mime = cursor.getString(2)
                 
-                val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                val childUri = DocumentsContract.buildDocumentUriUsingTree(
+                    baseTreeUri,
+                    childDocId
+                )
+                
                 children.add(mapOf(
                     "uri" to childUri.toString(),
                     "name" to name,
@@ -158,7 +159,6 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
     }
     return children
 }
-
 private fun readFileContent(uri: Uri): FileReadResult {
     return try {
         contentResolver.openInputStream(uri)?.use { inputStream ->
