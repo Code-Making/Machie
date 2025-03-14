@@ -109,18 +109,22 @@ private fun handleIntent(intent: Intent) {
                 var isWritable = false
                 
                 if (DocumentsContract.isDocumentUri(this, uri)) {
-                    // Take permissions first
                     contentResolver.takePersistableUriPermission(
                         uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION or 
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     )
-                    
-                    // Get document flags correctly
-                    val flags = DocumentsContract.getDocumentFlags(contentResolver, uri)
-                    isWritable = (flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE) != 0
+
+                    // Add version check for newer APIs
+                    isWritable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        val flags = DocumentsContract.getDocumentFlags(contentResolver, uri)
+                        (flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE) != 0
+                    } else {
+                        // Fallback for older APIs
+                        val file = File(uri.path?.substringAfterLast(":") ?: "")
+                        file.canWrite()
+                    }
                 } else {
-                    // Fallback for non-document URIs
                     isWritable = try {
                         contentResolver.openOutputStream(uri)?.close()
                         true
@@ -135,8 +139,8 @@ private fun handleIntent(intent: Intent) {
                         "writable" to isWritable
                     ))
                 
-            } catch (e: SecurityException) {
-                Log.e("SAF", "Permission error: ${e.message}")
+            } catch (e: Exception) {
+                Log.e("SAF", "Error handling intent: ${e.message}")
                 MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
                     .invokeMethod("onIntentFileOpened", mapOf(
                         "uri" to uri.toString(),
