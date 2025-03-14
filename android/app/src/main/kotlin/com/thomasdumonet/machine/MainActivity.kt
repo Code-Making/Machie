@@ -126,7 +126,7 @@ private fun handleIntent(intent: Intent) {
                     } ?: false
                 }
 
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
                     .invokeMethod("onIntentFileOpened", mapOf(
                         "uri" to uri.toString(),
                         "writable" to isWritable
