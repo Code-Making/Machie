@@ -57,11 +57,6 @@
         <data android:pathPattern=".*\\.xml" />
         <data android:pathPattern=".*\\.yaml" />
         <data android:pathPattern=".*\\.yml" />
-          <data android:scheme="content" />
-    <data android:scheme="file" />
-    <data android:host="*" />
-    <data android:mimeType="*/*" />
-        <data android:pathSuffix=".dart" />
       </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
