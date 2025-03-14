@@ -80,6 +80,25 @@ class MainActivity: FlutterActivity() {
             103 -> handleOpenFolderResult(resultCode, data)
         }
     }
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+      super.onCreate(savedInstanceState)
+      handleIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+      super.onNewIntent(intent)
+      handleIntent(intent)
+    }
+    
+    private fun handleIntent(intent: Intent) {
+      if (intent.action == Intent.ACTION_VIEW) {
+        intent.data?.let { uri ->
+          MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example/file_handler")
+            .invokeMethod("openFileFromIntent", uri.toString())
+        }
+      }
+    }
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
