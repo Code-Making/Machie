@@ -9,6 +9,8 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
 import android.provider.DocumentsContract
+import androidx.annotation.RequiresApi
+import android.os.Build
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -103,18 +105,37 @@ class MainActivity: FlutterActivity() {
     private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-            // Take persistent permissions
-            persistUriPermission(uri)
-            
-            // Get real filename
-            val fileName = getFileNameFromUri(uri)
-            
-            // Send both URI and filename to Flutter
-            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
-                .invokeMethod("openFileFromIntent", mapOf(
-                    "uri" to uri.toString(),
-                    "fileName" to fileName
-                ))
+            try {
+                if (DocumentsContract.isDocumentUri(this, uri)) {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or 
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    
+                    // Correct document flags access
+                    val flags = DocumentsContract.getDocumentFlags(
+                        contentResolver, 
+                        uri
+                    )
+                    val isWritable = flags and DocumentsContract.Document.FLAG_SUPPORTS_WRITE != 0
+                }
+                
+                // Add non-null assertion for FlutterEngine
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
+                    .invokeMethod("onIntentFileOpened", mapOf(
+                        "uri" to uri.toString(),
+                        "writable" to isWritable
+                    ))
+                
+            } catch (e: SecurityException) {
+                Log.e("SAF", "Permission error: ${e.message}")
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
+                    .invokeMethod("onIntentFileOpened", mapOf(
+                        "uri" to uri.toString(),
+                        "writable" to false
+                    ))
+            }
         }
     }
 }
