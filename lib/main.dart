@@ -102,28 +102,41 @@ class _EditorScreenState extends State<EditorScreen> {
 
    Future<void> _openFileTab(String uri) async {
   try {
+    // Check if file is already open in a tab
+    for (int i = 0; i < _tabs.length; i++) {
+      if (_tabs[i].uri == uri) {
+        setState(() {
+          _currentTabIndex = i;
+        });
+        _showSuccess('Switched to existing tab');
+        return;
+      }
+    }
+
     final content = await _fileHandler.readFile(uri);
-    
-    // Allow empty files but handle them differently
-    final isEmpty = content?.isEmpty ?? true;
-    _originalFileHash = _calculateHash(content!);
+    if (content == null) {
+      _showError('Failed to read file');
+      return;
+    }
+
+    final isEmpty = content.isEmpty;
+    _originalFileHash = _calculateHash(content);
     final controller = CodeLineEditingController(
-      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content!),
+      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
     );
 
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
         controller: controller,
-        isDirty: isEmpty // Mark empty files as dirty initially
+        isDirty: isEmpty,
       ));
       _currentTabIndex = _tabs.length - 1;
     });
 
     _showSuccess(isEmpty 
         ? 'Opened empty file' 
-        : 'Successfully opened file (${content!.length} chars)');
-
+        : 'Successfully opened file (${content.length} chars)');
   } on Exception catch (e) {
     _showError('Failed to open file: ${e.toString()}');
   }
@@ -294,12 +307,41 @@ Future<bool> _checkFileModified(String uri) async {
                 final tab = _tabs[index];
                 return GestureDetector(
                   onTap: () => setState(() => _currentTabIndex = index),
+                  onLongPress: () {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(tab.uri.split('/').last),
+      actions: [
+        TextButton(
+          child: const Text('Close'),
+          onPressed: () {
+            _closeTab(index);
+            Navigator.pop(context);
+          },
+        ),
+        TextButton(
+          child: const Text('Close Others'),
+          onPressed: () {
+            _closeOtherTabs(index);
+            Navigator.pop(context);
+          },
+        ),
+      ],
+    ),
+  );
+},
                   child: Container(
                     decoration: BoxDecoration(
                       color: _currentTabIndex == index
                           ? Colors.grey[800]
                           : Colors.grey[900],
-                      border: Border(right: BorderSide(color: Colors.grey[700]!)),
+                    border: Border(
+                      right: BorderSide(color: Colors.grey[700]!),
+                      bottom: _currentTabIndex == index
+                          ? BorderSide(color: Colors.blueAccent, width: 2)
+                          : BorderSide.none,
+                          ),                    
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
@@ -342,6 +384,12 @@ Future<bool> _checkFileModified(String uri) async {
       ],
     );
   }
+  void _closeOtherTabs(int keepIndex) {
+  setState(() {
+    _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
+    _currentTabIndex = 0;
+  });
+}
 }
 
 class AndroidFileHandler {
