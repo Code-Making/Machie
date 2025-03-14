@@ -60,16 +60,21 @@ class MainActivity: FlutterActivity() {
                     result.success(response) // Use method channel result
                 }
                 // In MainActivity.kt
-                "writeFile" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val content = call.argument<String>("content")!!
-                    val result = writeFileContent(uri, content)
-                    result.success(mapOf(
-                        "success" to result.success,
-                        "error" to result.error,
-                        "checksum" to result.checksum
-                    ))
-                }
+// Update the writeFile handler block
+"writeFile" -> {
+    val uri = Uri.parse(call.argument<String>("uri"))
+    val content = call.argument<String>("content")!!
+    
+    // Rename local variable to avoid shadowing
+    val writeResult = writeFileContent(uri, content)
+    
+    // Use the method channel's result parameter
+    result.success(mapOf(
+        "success" to writeResult.success,
+        "error" to writeResult.error,
+        "checksum" to writeResult.checksum
+    ))
+}
                 else -> result.notImplemented()
             }
         }
