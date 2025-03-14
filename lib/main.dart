@@ -168,6 +168,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _showError('No write permissions for this file');
     return;
   }
+  
   final tab = _tabs[_currentTabIndex];
   try {
     // Check external modifications
@@ -634,14 +635,4 @@ Future<String?> readFile(String uri) async {
     throw Exception('Platform error: ${e.message}');
   }
 }
-}
-
-Future<bool> _checkPermissions(String uri) async {
-  try {
-    final result = await _channel.invokeMethod<bool>('checkPermissions', {'uri': uri});
-    return result ?? false;
-  } on PlatformException catch (e) {
-    print("Permission check error: ${e.message}");
-    return false;
-  }
 }
