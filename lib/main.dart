@@ -26,11 +26,13 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorTab {
   final String uri;
+  final String fileName;
   final CodeLineEditingController controller;
   bool isDirty;
 
   EditorTab({
     required this.uri,
+    required this.fileName,
     required this.controller,
     this.isDirty = false,
   });
@@ -382,7 +384,7 @@ Future<bool> _checkFileModified(String uri) async {
                           onPressed: () => _closeTab(index),
                         ),
                         Text(
-                          _getFileName(tab.uri),
+                          tab.fileName,
                           style: TextStyle(
                             color: tab.isDirty ? Colors.orange : Colors.white,
                           ),
