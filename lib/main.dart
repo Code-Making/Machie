@@ -289,31 +289,31 @@ Future<bool> _checkFileModified(String uri) async {
 
     final tab = _tabs[_currentTabIndex];
     if (event is! RawKeyDownEvent) return;
-    
-    final selection = tab.controller.selection;
-    final codeLines = tab.controller.codeLines;
-    final cursor = selection.baseOffset;
 
-    switch (event.logicalKey) {
-      case LogicalKeyboardKey.arrowLeft:
-        tab.controller.selection = selection.copyWith(
-          baseOffset: max(cursor.offset - 1, 0),
-          extentOffset: max(cursor.offset - 1, 0),
-        );
-        break;
-      case LogicalKeyboardKey.arrowRight:
-        tab.controller.selection = selection.copyWith(
-          baseOffset: min(cursor.offset + 1, codeLines.length),
-          extentOffset: min(cursor.offset + 1, codeLines.length),
-        );
-        break;
-      case LogicalKeyboardKey.arrowUp:
-        tab.controller.moveCursor(LineMove.up);
-        break;
-      case LogicalKeyboardKey.arrowDown:
-        tab.controller.moveCursor(LineMove.down);
-        break;
+  final selection = tab.controller.selection;
+  final isShiftPressed = event.isShiftPressed;
+
+  void handleMove(AxisDirection direction) {
+    if (isShiftPressed) {
+      _controller.extendSelection(direction);
+    } else {
+      _controller.moveCursor(direction);
     }
+  }
+
+  switch (event.logicalKey) {
+    case LogicalKeyboardKey.arrowLeft:
+      handleMove(AxisDirection.left);
+      break;
+    case LogicalKeyboardKey.arrowRight:
+      handleMove(AxisDirection.right);
+      break;
+    case LogicalKeyboardKey.arrowUp:
+      handleMove(AxisDirection.up);
+      break;
+    case LogicalKeyboardKey.arrowDown:
+      handleMove(AxisDirection.down);
+      break;
   }
 
     Widget _buildEditorArea() {
