@@ -69,6 +69,16 @@ class _EditorScreenState extends State<EditorScreen> {
       _loadDirectoryContents(uri);
     }
   }
+  
+  void _copyToClipboard(String text, String successMessage) {
+  Clipboard.setData(ClipboardData(text: text));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(successMessage),
+      duration: const Duration(seconds: 2),
+    )
+  );
+}
 
   Future<void> _loadDirectoryContents(String uri) async {
     final contents = await _fileHandler.listDirectory(uri);
@@ -487,8 +497,11 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   Widget build(BuildContext context) {
     return ExpansionTile(
       leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
-      title: Text(widget.name),
-      trailing: _isLoading 
+    title: GestureDetector(
+      onLongPress: () => _showFolderContextMenu(context, widget.uri),
+      child: Text(widget.name),
+    ),
+    trailing: _isLoading 
           ? const SizedBox(
               width: 20,
               height: 20,
@@ -510,6 +523,36 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
       ],
     );
   }
+  
+  void _showFolderContextMenu(BuildContext context, String uri) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Folder Actions'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('URI: ${uri}'),
+          const SizedBox(height: 16),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Copy URI'),
+          onPressed: () {
+            Navigator.pop(context);
+            _copyToClipboard(uri, 'Folder URI copied to clipboard');
+          },
+        ),
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+    ),
+  );
+}
 }
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
