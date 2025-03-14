@@ -622,19 +622,19 @@ Future<String?> readFile(String uri) async {
 }
 
   Future<bool> writeFile(String uri, String content) async {
-    try {
-      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'writeFile',
-        {
-          'uri': uri,
-          'content': content,
-          'flags': Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        }
-      );
-      return response?['success'] == true;
-    } on PlatformException catch (e) {
-      print("Write error: ${e.message}");
-      return false;
-    }
+  try {
+    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      'writeFile',
+      {
+        'uri': uri,
+        'content': content,
+        'flags': 3 // Use direct value for FLAG_GRANT_WRITE_URI_PERMISSION
+      }
+    );
+    return response?['success'] == true;
+  } on PlatformException catch (e) {
+    print("Write error: ${e.message}");
+    return false;
   }
+}
 }
