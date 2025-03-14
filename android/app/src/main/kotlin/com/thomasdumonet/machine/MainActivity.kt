@@ -100,25 +100,20 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-private fun handleIntent(intent: Intent) {
+    private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-            // Take persistent permissions immediately
-            contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or 
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
+            // Take persistent permissions
+            persistUriPermission(uri)
             
-            // Verify write capability
-            val writeAllowed = contentResolver.persistedUriPermissions.any {
-                it.uri == uri && it.isWritePermission
-            }
+            // Get real filename
+            val fileName = getFileNameFromUri(uri)
             
-            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
-                .invokeMethod("onIntentFileOpened", mapOf(
+            // Send both URI and filename to Flutter
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
+                .invokeMethod("openFileFromIntent", mapOf(
                     "uri" to uri.toString(),
-                    "writable" to writeAllowed
+                    "fileName" to fileName
                 ))
         }
     }
