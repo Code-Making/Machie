@@ -117,6 +117,26 @@ class MainActivity: FlutterActivity() {
     }
 }
 
+private fun writeContentUri(uri: Uri, content: String): FileWriteResult {
+    return try {
+        contentResolver.openOutputStream(uri, "wt")?.use { stream ->
+            stream.write(content.toByteArray())
+            
+            // Verify through direct content provider
+            val written = contentResolver.openInputStream(uri)!!
+                .bufferedReader().use { it.readText() }
+                
+            if (content == written) {
+                FileWriteResult(true, null, content.md5())
+            } else {
+                FileWriteResult(false, "Write verification failed", null)
+            }
+        } ?: FileWriteResult(false, "Failed to open stream", null)
+    } catch (e: Exception) {
+        FileWriteResult(false, "SAF Write Error: ${e.message}", null)
+    }
+}
+
 private fun getFileNameFromUri(uri: Uri): String {
     return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
