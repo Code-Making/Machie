@@ -161,15 +161,6 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 }
 
-Future<bool> _checkPermissions(String uri) async {
-  try {
-    final result = await _channel.invokeMethod<bool>('checkPermissions', {'uri': uri});
-    return result ?? false;
-  } on PlatformException catch (e) {
-    print("Permission check error: ${e.message}");
-    return false;
-  }
-}
 
   Future<void> _saveFile() async {
   if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
@@ -567,6 +558,16 @@ class AndroidFileHandler {
     }
     return await Permission.manageExternalStorage.request().isGranted;
   }
+  
+  Future<bool> _checkPermissions(String uri) async {
+  try {
+    final result = await _channel.invokeMethod<bool>('checkPermissions', {'uri': uri});
+    return result ?? false;
+  } on PlatformException catch (e) {
+    print("Permission check error: ${e.message}");
+    return false;
+  }
+}
   
   Future<String?> openFile() async {
     if (!await _requestPermissions()) {
