@@ -515,18 +515,18 @@ class AndroidFileHandler {
     }
   }
 
-  Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
-    try {
-      final result = await _channel.invokeMethod<List<dynamic>>(
-        'listDirectory',
-        {'uri': uri}
-      );
-      return result?.map((e) => Map<String, dynamic>.from(e)).toList();
-    } on PlatformException catch (e) {
-      print("Error listing directory: ${e.message}");
-      return null;
-    }
+Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
+  try {
+    final result = await _channel.invokeMethod<List<dynamic>>(
+      'listDirectory',
+      {'uri': uri}
+    );
+    return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+  } on PlatformException catch (e) {
+    print("Error listing directory: ${e.message}");
+    return null;
   }
+}
 
 Future<String?> readFile(String uri) async {
   try {
