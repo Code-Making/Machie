@@ -114,7 +114,7 @@ private fun handleIntent(intent: Intent) {
                 it.uri == uri && it.isWritePermission
             }
             
-            MethodChannel(flutterEngine.dartExecutor!!.binaryMessenger, CHANNEL)
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
                 .invokeMethod("onIntentFileOpened", mapOf(
                     "uri" to uri.toString(),
                     "writable" to writeAllowed
