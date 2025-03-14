@@ -395,7 +395,7 @@ String _getFileName(String uri) {
   final parsed = Uri.parse(uri);
   if (parsed.pathSegments.isNotEmpty) {
     // Handle content URIs and normal file paths
-    return parsed.pathSegments.last;
+    return parsed.pathSegments.last.split('/').last;
   }
   // Fallback for unusual URI formats
   return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
