@@ -595,6 +595,89 @@ title: GestureDetector(
       ],
     );
   }
+  
+  void _showFolderContextMenu(BuildContext context, String uri) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Folder Actions'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('URI: ${uri}'),
+          const SizedBox(height: 16),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Copy URI'),
+          onPressed: () {
+            Navigator.pop(context);
+            _copyToClipboard(uri, 'Folder URI copied to clipboard');
+          },
+        ),
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+    ),
+  );
+}
+
+// Add this method in _EditorScreenState class
+void _copyToClipboard(String text, String successMessage) {
+  Clipboard.setData(ClipboardData(text: text));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(successMessage),
+      duration: const Duration(seconds: 2),
+    )
+  );
+}
+
+// Update files ListTile to support copying too
+// In _buildChildItems method:
+return ListTile(
+  leading: const Icon(Icons.insert_drive_file),
+  title: GestureDetector(
+    onLongPress: () => _showFileContextMenu(context, item['uri']),
+    child: Text(item['name']),
+  ),
+  onTap: () => widget.onFileTap(item['uri']),
+);
+
+// Add file context menu
+void _showFileContextMenu(BuildContext context, String uri) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('File Actions'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('URI: ${uri}'),
+          const SizedBox(height: 16),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Copy URI'),
+          onPressed: () {
+            Navigator.pop(context);
+            _copyToClipboard(uri, 'File URI copied to clipboard');
+          },
+        ),
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+    ),
+  );
+}
 }
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
