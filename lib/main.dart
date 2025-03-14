@@ -68,8 +68,8 @@ class _EditorScreenState extends State<EditorScreen> {
     if (call.method == 'openFileFromIntent') {
       final data = Map<String,dynamic>.from(call.arguments);
       final uri = data['uri'] as String;
-  //    final fileName = data['fileName'] as String;
-      
+      final fileName = data['fileName'] as String;
+      _showError(fileName);
       if (uri.isNotEmpty) {
         _openFileTab(uri);
       }
