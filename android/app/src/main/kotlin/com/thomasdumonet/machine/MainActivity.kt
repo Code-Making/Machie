@@ -3,6 +3,9 @@ package com.thomasdumonet.machine
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import java.security.MessageDigest
+import java.nio.charset.Charset
 import android.provider.DocumentsContract
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -38,26 +41,26 @@ class MainActivity: FlutterActivity() {
                     val children = listDirectory(uri)
                     result.success(children)
                 }
-                "readFile" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val result = readFileContent(uri)
-                    val response = mapOf(
-                        "content" to result.content,
-                        "error" to result.error,
-                        "isEmpty" to result.isEmpty
-                    )
-                    result.success(response)
-                }
-                "writeFile" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val content = call.argument<String>("content")!!
-                    val result = writeFileContent(uri, content)
-                    result.success(mapOf(
-                        "success" to result.success,
-                        "error" to result.error,
-                        "checksum" to result.checksum
-                    ))
-                }
+            "readFile" -> {
+                val uri = Uri.parse(call.argument<String>("uri"))
+                val result = readFileContent(uri)
+                val response = mapOf(
+                    "content" to result.content,
+                    "error" to result.error,
+                    "isEmpty" to result.isEmpty
+                )
+                callResult.success(response)
+            }
+            "writeFile" -> {
+                val uri = Uri.parse(call.argument<String>("uri"))
+                val content = call.argument<String>("content")!!
+                val result = writeFileContent(uri, content)
+                callResult.success(mapOf(
+                    "success" to result.success,
+                    "error" to result.error,
+                    "checksum" to result.checksum
+                ))
+            }
                 else -> result.notImplemented()
             }
         }
