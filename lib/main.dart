@@ -343,7 +343,7 @@ Future<bool> _checkFileModified(String uri) async {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(_getFormattedPath(tab.uri)),
+      title: Text(tab.uri),
       actions: [
         TextButton(
           child: const Text('Close'),
