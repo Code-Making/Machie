@@ -285,6 +285,8 @@ Future<bool> _checkFileModified(String uri) async {
   }
   
     void _handleKeyEvent(RawKeyEvent event) {
+        if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+
     final tab = _tabs[_currentTabIndex];
     if (event is! RawKeyDownEvent) return;
     
