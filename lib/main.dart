@@ -98,28 +98,32 @@ class _EditorScreenState extends State<EditorScreen> {
 
    Future<void> _openFileTab(String uri) async {
   try {
-    // Verify URI format first
-    if (!uri.startsWith('content://') && !uri.startsWith('file://')) {
-      _showError('Invalid file URI format');
-      return;
-    }
+    final content = await _fileHandler.readFile(uri);
+    
+    // Allow empty files but handle them differently
+    final isEmpty = content?.isEmpty ?? true;
+    
+    final controller = CodeLineEditingController(
+      codeLines: isEmpty ? CodeLines.empty : CodeLines.fromText(content!),
+    );
 
-    // Check if file is already open
-    final existingIndex = _tabs.indexWhere((tab) => tab.uri == uri);
-    if (existingIndex != -1) {
-      setState(() => _currentTabIndex = existingIndex);
-      return;
-    }
+    setState(() {
+      _tabs.add(EditorTab(
+        uri: uri,
+        controller: controller,
+        isDirty: isEmpty // Mark empty files as dirty initially
+      ));
+      _currentTabIndex = _tabs.length - 1;
+    });
 
-    // Request storage permissions
-    final status = await Permission.storage.status;
-    if (!status.isGranted) {
-      final result = await Permission.storage.request();
-      if (!result.isGranted) {
-        _showError('Storage permission required to read files');
-        return;
-      }
-    }
+    _showSuccess(isEmpty 
+        ? 'Opened empty file' 
+        : 'Successfully opened file (${content!.length} chars)');
+
+  } on Exception catch (e) {
+    _showError('Failed to open file: ${e.toString()}');
+  }
+}
 
     // Read file content with error context
     final content = await _fileHandler.readFile(uri).catchError((e) {
@@ -377,21 +381,27 @@ class AndroidFileHandler {
 
 Future<String?> readFile(String uri) async {
   try {
-    final content = await _channel.invokeMethod<String>(
+    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
       'readFile',
       {'uri': uri}
     );
+
+    final error = response?['error'];
+    final isEmpty = response?['isEmpty'] ?? false;
+    final content = response?['content'] as String?;
+
+    if (error != null) {
+      throw Exception(error);
+    }
     
-    if (content == null) throw Exception('Null content from platform');
-    if (content.isEmpty) throw Exception('Empty file content');
-    
+    if (isEmpty) {
+      print('File is empty but opened successfully');
+      return '';
+    }
+
     return content;
   } on PlatformException catch (e) {
-    throw Exception('''File read error: 
-URI: $uri
-Code: ${e.code}
-Message: ${e.message}
-Details: ${e.details}''');
+    throw Exception('Platform error: ${e.message}');
   }
 }
 
