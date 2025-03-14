@@ -437,10 +437,35 @@ class _DirectoryExpansionTile extends StatefulWidget {
   State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
 }
 
+// Update the _DirectoryExpansionTileState class
 class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   bool _isExpanded = false;
   List<Map<String, dynamic>> _children = [];
   bool _isLoading = false;
+
+  Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: contents.length,
+      itemBuilder: (context, index) {
+        final item = contents[index];
+        if (item['type'] == 'dir') {
+          return _DirectoryExpansionTile(
+            uri: item['uri'],
+            name: item['name'],
+            fileHandler: widget.fileHandler,
+            onFileTap: widget.onFileTap,
+          );
+        }
+        return ListTile(
+          leading: const Icon(Icons.insert_drive_file),
+          title: Text(item['name']),
+          onTap: () => widget.onFileTap(item['uri']),
+        );
+      },
+    );
+  }
 
   Future<void> _loadChildren() async {
     setState(() => _isLoading = true);
@@ -476,13 +501,12 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
         if (_children.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 16.0),
-            child: _buildDirectoryTree(_children),
+            child: _buildChildItems(_children),
           ),
       ],
     );
   }
 }
-
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
