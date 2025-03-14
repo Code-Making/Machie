@@ -95,7 +95,7 @@ class MainActivity: FlutterActivity() {
     private fun handleIntent(intent: Intent) {
       if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-          MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example/file_handler")
+          MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
             .invokeMethod("openFileFromIntent", uri.toString())
         }
       }
