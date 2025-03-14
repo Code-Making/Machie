@@ -657,6 +657,19 @@ Future<String?> readFile(String uri) async {
   }
 }
 
+  Future<bool> writeIntentFile(String uri, String content) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'writeContentUri',
+        {'uri': uri, 'content': content}
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      print('Intent file save error: ${e.message}');
+      return false;
+    }
+  }
+
   Future<bool> writeFile(String uri, String content) async {
   try {
     final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
