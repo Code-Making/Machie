@@ -256,7 +256,7 @@ Future<bool> _checkFileModified(String uri) async {
       child: Column(
         children: [
           AppBar(
-            title: const Text('Explorer'),
+            title: const Text(_getFileName(_currentDirUri)),
             automaticallyImplyLeading: false,
             actions: [
               IconButton(
