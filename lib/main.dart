@@ -164,11 +164,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _saveFile() async {
   if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
-  if (!await _checkPermissions(tab.uri)) {
-    _showError('No write permissions for this file');
-    return;
-  }
-  
+
   final tab = _tabs[_currentTabIndex];
   try {
     // Check external modifications
@@ -538,19 +534,17 @@ class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
   
-  final Function(String)? onFileIntent;
-  
-  AndroidFileHandler({this.onFileIntent});
-
   Future<void> _setupIntentHandler() async {
-    const channel = MethodChannel('com.example/file_handler');
-    channel.setMethodCallHandler((call) async {
-      if (call.method == 'openFileFromIntent' && onFileIntent != null) {
-        final uri = call.arguments as String;
-        onFileIntent!(uri);
+  const channel = MethodChannel('com.example/file_handler');
+  channel.setMethodCallHandler((call) async {
+    if (call.method == 'openFileFromIntent') {
+      final uri = call.arguments as String;
+      if (uri.isNotEmpty) {
+        _openFileTab(uri);
       }
-    });
-  }
+    }
+  });
+}
   
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
