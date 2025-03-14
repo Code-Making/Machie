@@ -267,22 +267,30 @@ private fun readFileContent(uri: Uri): FileReadResult {
 
 private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
     return try {
-        contentResolver.openOutputStream(uri)?.use { outputStream ->
+        contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
             BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
                 writer.write(content)
             }
-
-            // Calculate checksum AFTER writing
+            
+            // Verify write by reading back
             val inputStream = contentResolver.openInputStream(uri)!!
-            val md5 = MessageDigest.getInstance("MD5")
-            val digest = md5.digest(inputStream.readBytes())
-            val checksum = digest.joinToString("") { "%02x".format(it) }
-
-            FileWriteResult(true, null, checksum)
+            val writtenContent = inputStream.bufferedReader().readText()
+            
+            if (writtenContent == content) {
+                FileWriteResult(true, null, _calculateChecksum(content))
+            } else {
+                FileWriteResult(false, "Write verification failed", null)
+            }
         } ?: FileWriteResult(false, "Failed to open output stream", null)
     } catch (e: Exception) {
         FileWriteResult(false, "Write error: ${e.message}", null)
     }
+}
+
+private fun _calculateChecksum(content: String): String {
+    return MessageDigest.getInstance("MD5")
+        .digest(content.toByteArray())
+        .joinToString("") { "%02x".format(it) }
 }
     
     private fun detectCharset(inputStream: InputStream): Charset {
