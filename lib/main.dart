@@ -285,30 +285,31 @@ Future<bool> _checkFileModified(String uri) async {
   }
   
     void _handleKeyEvent(RawKeyEvent event) {
+    final tab = _tabs[_currentTabIndex];
     if (event is! RawKeyDownEvent) return;
     
-    final selection = _controller.selection;
-    final codeLines = _controller.codeLines;
+    final selection = tab.controller.selection;
+    final codeLines = tab.controller.codeLines;
     final cursor = selection.baseOffset;
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowLeft:
-        _controller.selection = selection.copyWith(
+        tab.controller.selection = selection.copyWith(
           baseOffset: max(cursor.offset - 1, 0),
           extentOffset: max(cursor.offset - 1, 0),
         );
         break;
       case LogicalKeyboardKey.arrowRight:
-        _controller.selection = selection.copyWith(
+        tab.controller.selection = selection.copyWith(
           baseOffset: min(cursor.offset + 1, codeLines.length),
           extentOffset: min(cursor.offset + 1, codeLines.length),
         );
         break;
       case LogicalKeyboardKey.arrowUp:
-        _controller.moveCursor(LineMove.up);
+        tab.controller.moveCursor(LineMove.up);
         break;
       case LogicalKeyboardKey.arrowDown:
-        _controller.moveCursor(LineMove.down);
+        tab.controller.moveCursor(LineMove.down);
         break;
     }
   }
