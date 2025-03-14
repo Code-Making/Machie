@@ -108,11 +108,14 @@ fun persistUriPermission(uri: Uri) {
      }
    }
    
-    private fun listDirectory(uri: Uri): List<Map<String, String>> {
-        val children = mutableListOf<Map<String, String>>()
+   
+   private fun listDirectory(uri: Uri): List<Map<String, String>> {
+    val children = mutableListOf<Map<String, String>>()
+    try {
+        // Use the provided URI directly for subfolders
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            uri, 
-            DocumentsContract.getTreeDocumentId(uri)
+            uri,
+            DocumentsContract.getDocumentId(uri)
         )
 
         contentResolver.query(
@@ -138,8 +141,11 @@ fun persistUriPermission(uri: Uri) {
                 ))
             }
         }
-        return children
+    } catch (e: Exception) {
+        Log.e("DIR_LIST", "Error listing directory: ${e.message}")
     }
+    return children
+}
 
 
 private fun readFileContent(uri: Uri): FileReadResult {
