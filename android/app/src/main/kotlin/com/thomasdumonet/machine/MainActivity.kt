@@ -92,14 +92,22 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-    private fun handleIntent(intent: Intent) {
-      if (intent.action == Intent.ACTION_VIEW) {
+private fun handleIntent(intent: Intent) {
+    if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-          MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
-            .invokeMethod("openFileFromIntent", uri.toString())
+            // Take persistent permissions
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            
+            // Pass to Flutter
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
+                .invokeMethod("openFileFromIntent", uri.toString())
         }
-      }
     }
+}
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
