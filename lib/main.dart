@@ -50,7 +50,9 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
-    String? _originalFileHash; // Add this line
+  String? _originalFileHash; // Add this line
+  bool openedWithIntent = false;
+
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
@@ -71,12 +73,34 @@ class _EditorScreenState extends State<EditorScreen> {
       final data = Map<String,dynamic>.from(call.arguments);
       final uri = data['uri'] as String;
       final fileName = data['fileName'] as String;
+      
+      setState(() {
+          openedWithIntent = true;
+        });
+      
       if (uri.isNotEmpty) {
         _openFileTab(uri, fileName: fileName);
       }
     }
   });
 }
+
+Future<void> _saveIntentFile() async {
+    if (_tabs.isEmpty) return;
+    
+    final tab = _tabs[_currentTabIndex];
+    final success = await _fileHandler.writeIntentFile(
+      tab.uri,
+      tab.controller.text,
+    );
+
+    if (success) {
+      _showSuccess('File saved successfully');
+      setState(() => tab.isDirty = false);
+    } else {
+      _showError('Failed to save file');
+    }
+  }
   
 
   Future<void> _openFile() async {
@@ -271,33 +295,46 @@ Future<bool> _checkFileModified(String uri) async {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
+      drawer: openedWithIntent ? null : _buildDrawer(),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
+        leading: openedWithIntent 
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
         title: Text(_tabs.isEmpty 
             ? 'No File Open' 
-            : _getFormattedPath(_tabs[_currentTabIndex].uri)),
+            : _tabs[_currentTabIndex].fileName),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            onPressed: _openFolder,
-            tooltip: 'Open Folder',
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_open),
-            onPressed: _openFile,
-            tooltip: 'Open File',
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _tabs.isNotEmpty ? _saveFile : null,
-            tooltip: 'Save File',
-          ),
+          if (openedWithIntent)
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _saveIntentFile,
+              tooltip: 'Save File',
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.folder_open),
+              onPressed: _openFolder,
+              tooltip: 'Open Folder',
+            ),
+            IconButton(
+              icon: const Icon(Icons.file_open),
+              onPressed: _openFile,
+              tooltip: 'Open File',
+            ),
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _saveFile,
+              tooltip: 'Save File',
+            ),
+          ]
         ],
       ),
-      drawer: _buildDrawer(),
       body: _buildEditorArea(),
     );
   }
