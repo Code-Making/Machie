@@ -6,6 +6,8 @@ import android.net.Uri
 import android.util.Log
 import java.security.MessageDigest
 import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
+
 import android.provider.DocumentsContract
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -338,3 +340,9 @@ data class FileWriteResult(
     val error: String?,
     val checksum: String?
 )
+
+fun String.md5(): String {
+    val md = MessageDigest.getInstance("MD5")
+    val digest = md.digest(this.toByteArray(StandardCharsets.UTF_8))
+    return digest.joinToString("") { "%02x".format(it) }
+}
