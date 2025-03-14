@@ -49,26 +49,28 @@ class MainActivity: FlutterActivity() {
                     
                     result.success(children)
                 }
-        "readFile" -> {
-            val uri = Uri.parse(call.argument<String>("uri"))
-            val readResult = readFileContent(uri) // Renamed variable
-            val response = mapOf(
-                "content" to readResult.content,
-                "error" to readResult.error,
-                "isEmpty" to readResult.isEmpty
-            )
-            result.success(response) // Use method channel result
-        }
-        "writeFile" -> {
-            val uri = Uri.parse(call.argument<String>("uri"))
-            val content = call.argument<String>("content")!!
-            val writeResult = writeFileContent(uri, content) // Renamed variable
-            result.success(mapOf(
-                "success" to writeResult.success,
-                "error" to writeResult.error,
-                "checksum" to writeResult.checksum
-            ))
-        }
+                "readFile" -> {
+                    val uri = Uri.parse(call.argument<String>("uri"))
+                    val readResult = readFileContent(uri) // Renamed variable
+                    val response = mapOf(
+                        "content" to readResult.content,
+                        "error" to readResult.error,
+                        "isEmpty" to readResult.isEmpty
+                    )
+                    result.success(response) // Use method channel result
+                }
+                // In MainActivity.kt
+                "writeFile" -> {
+                    val uri = Uri.parse(call.argument<String>("uri"))
+                    val content = call.argument<String>("content")!!
+                    val flags = call.argument<Int>("flags") ?: 0
+                    val result = writeFileContent(uri, content, flags)
+                    result.success(mapOf(
+                        "success" to result.success,
+                        "error" to result.error,
+                        "checksum" to result.checksum
+                    ))
+                }
                 else -> result.notImplemented()
             }
         }
