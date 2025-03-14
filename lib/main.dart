@@ -108,7 +108,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final isEmpty = content?.isEmpty ?? true;
     _originalFileHash = _calculateHash(content!);
     final controller = CodeLineEditingController(
-      codeLines: isEmpty ? CodeLines.empty : CodeLines.fromText(content!),
+      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content!),
     );
 
     setState(() {
