@@ -63,16 +63,19 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _setupIntentHandler() {
-    const channel = MethodChannel('com.example/file_handler');
-    channel.setMethodCallHandler((call) async {
-      if (call.method == 'openFileFromIntent') {
-        final uri = call.arguments as String;
-        if (uri.isNotEmpty) {
-          _openFileTab(uri); // Now accessible in the same class
-        }
+  const channel = MethodChannel('com.example/file_handler');
+  channel.setMethodCallHandler((call) async {
+    if (call.method == 'openFileFromIntent') {
+      final data = Map<String,dynamic>.from(call.arguments);
+      final uri = data['uri'] as String;
+      final fileName = data['fileName'] as String;
+      
+      if (uri.isNotEmpty) {
+        _openFileTab(uri, fileName);
       }
-    });
-  }
+    }
+  });
+}
   
 
   Future<void> _openFile() async {
@@ -147,6 +150,7 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
+        name: fileName,
         controller: controller,
         isDirty: isEmpty,
       ));
@@ -616,19 +620,20 @@ Future<String?> readFile(String uri) async {
 }
 
   Future<bool> writeFile(String uri, String content) async {
-  try {
-    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-      'writeFile',
-      {'uri': uri, 'content': content}
-    );
-
-    if (response?['success'] == true) {
-      return true;
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'writeFile',
+        {
+          'uri': uri,
+          'content': content,
+          'flags': Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        }
+      );
+      return response?['success'] == true;
+    } on PlatformException catch (e) {
+      print("Write error: ${e.message}");
+      return false;
     }
-    
-    throw Exception(response?['error'] ?? 'Unknown write error');
-  } on PlatformException catch (e) {
-    throw Exception('Platform error: ${e.message}');
   }
 }
 }
