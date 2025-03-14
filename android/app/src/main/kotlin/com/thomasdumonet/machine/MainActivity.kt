@@ -112,25 +112,25 @@ fun persistUriPermission(uri: Uri) {
 private fun listDirectory(uri: Uri): List<Map<String, String>> {
     val children = mutableListOf<Map<String, String>>()
     try {
-        // Always preserve the original tree context
-        val (treeUri, currentDocId) = if (DocumentsContract.isTreeUri(uri)) {
-            Pair(uri, DocumentsContract.getTreeDocumentId(uri))
+        // Separate tree URI handling
+        val treeUri = if (DocumentsContract.isTreeUri(uri)) {
+            uri
         } else {
-            val docId = DocumentsContract.getDocumentId(uri)
-            val treeId = docId.substringBefore("/") // Extract root tree ID
-            Pair(
-                DocumentsContract.buildTreeDocumentUri(uri.authority, treeId),
-                docId // Full document ID for subfolder
-            )
+            DocumentsContract.buildTreeDocumentUri(uri.authority, DocumentsContract.getDocumentId(uri))
         }
 
-        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            treeUri,
-            currentDocId // Critical: Use SUBFOLDER'S document ID here
-        )
+        // Get the actual document ID for the current folder
+        val docId = if (DocumentsContract.isTreeUri(uri)) {
+            DocumentsContract.getTreeDocumentId(uri)
+        } else {
+            DocumentsContract.getDocumentId(uri)
+        }
+
+        // Build proper child URI using original tree URI and current doc ID
+        val childUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
 
         contentResolver.query(
-            childUris,
+            childUri,
             arrayOf(
                 DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -141,20 +141,22 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
             null
         )?.use { cursor ->
             while (cursor.moveToNext()) {
-                val id = cursor.getString(0)
+                val childDocId = cursor.getString(0)
                 val name = cursor.getString(1)
                 val mime = cursor.getString(2)
+
+                // Build document URI using original tree URI
+                val documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
                 
-                val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                 children.add(mapOf(
-                    "uri" to childUri.toString(),
+                    "uri" to documentUri.toString(),
                     "name" to name,
                     "type" to if (mime == DocumentsContract.Document.MIME_TYPE_DIR) "dir" else "file"
                 ))
             }
         }
     } catch (e: Exception) {
-        Log.e("DIR_LIST", "Error listing $uri: ${e.message}")
+        Log.e("DIR_LIST", "Error listing directory: ${e.message}")
     }
     return children
 }
