@@ -432,6 +432,7 @@ class _DirectoryExpansionTile extends StatefulWidget {
     required this.name,
     required this.fileHandler,
     required this.onFileTap,
+    this.depth = 0,
   });
 
   @override
