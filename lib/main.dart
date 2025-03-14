@@ -59,10 +59,6 @@ class _EditorScreenState extends State<EditorScreen> {
     @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Notify Android that Flutter is ready
-      const MethodChannel('com.example/file_handler').invokeMethod('initialized');
-    });
     _setupIntentHandler();
   }
 
@@ -125,10 +121,9 @@ class _EditorScreenState extends State<EditorScreen> {
 
    Future<void> _openFileTab(String uri) async {
   try {
-    final verifiedUri = await _fileHandler.handleIntentUri(uri);
     // Check if file is already open in a tab
     for (int i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].uri == verifiedUri) {
+      if (_tabs[i].uri == uri) {
         setState(() {
           _currentTabIndex = i;
         });
@@ -137,7 +132,7 @@ class _EditorScreenState extends State<EditorScreen> {
       }
     }
 
-    final content = await _fileHandler.readFile(verifiedUri);
+    final content = await _fileHandler.readFile(uri);
     if (content == null) {
       _showError('Failed to read file');
       return;
@@ -166,24 +161,15 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 }
 
-  Future<bool> _checkPermissions(String uri) async {
-    try {
-      final result = await _fileHandler.checkPermissions(uri);
-      return result ?? false;
-    } on PlatformException catch (e) {
-      _showError('Permission check failed: ${e.message}');
-      return false;
-    }
-  }
-
 
   Future<void> _saveFile() async {
   if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
-  final tab = _tabs[_currentTabIndex];
   if (!await _checkPermissions(tab.uri)) {
     _showError('No write permissions for this file');
     return;
   }
+  
+  final tab = _tabs[_currentTabIndex];
   try {
     // Check external modifications
     final currentContent = await _fileHandler.readFile(tab.uri);
@@ -566,30 +552,11 @@ class AndroidFileHandler {
     });
   }
   
-Future<String> handleIntentUri(String uri) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final hasAccess = await checkPermissions(uri);
-    if (!hasAccess) {
-      throw Exception('No persistent access to file');
-    }
-    return uri; // Now properly returns String
-  }
-  
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
       return true;
     }
     return await Permission.manageExternalStorage.request().isGranted;
-  }
-  
-Future<bool> checkPermissions(String uri) async {
-    try {
-      final result = await _channel.invokeMethod<bool>('checkPermissions', {'uri': uri});
-      return result ?? false;
-    } on PlatformException catch (e) {
-      print("Permission check error: ${e.message}");
-      return false;
-    }
   }
   
   Future<String?> openFile() async {
