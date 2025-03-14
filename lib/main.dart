@@ -15,6 +15,12 @@ class CodeEditorApp extends StatelessWidget {
   const CodeEditorApp({super.key});
 
   @override
+    void initState() {
+      super.initState();
+      _setupIntentHandler();
+    }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData.dark(),
@@ -514,6 +520,18 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
+  
+  Future<void> _setupIntentHandler() async {
+  const channel = MethodChannel('com.example/file_handler');
+  channel.setMethodCallHandler((call) async {
+    if (call.method == 'openFileFromIntent') {
+      final uri = call.arguments as String;
+      if (uri.isNotEmpty) {
+        _openFileTab(uri);
+      }
+    }
+  });
+}
   
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
