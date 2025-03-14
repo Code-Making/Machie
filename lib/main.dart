@@ -225,9 +225,9 @@ Future<bool> _checkFileModified(String uri) async {
           icon: const Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        /*title: Text(_tabs.isEmpty 
+        title: Text(_tabs.isEmpty 
             ? 'No File Open' 
-            : _tabs[_currentTabIndex].uri.split('/').last),*/
+            : _getFormattedPath(_tabs[_currentTabIndex].uri),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
@@ -311,7 +311,7 @@ Future<bool> _checkFileModified(String uri) async {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(tab.uri.split('/').last),
+      title: Text(_getFormattedPath(tab.uri)),
       actions: [
         TextButton(
           child: const Text('Close'),
@@ -389,6 +389,16 @@ Future<bool> _checkFileModified(String uri) async {
     _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
     _currentTabIndex = 0;
   });
+}
+
+String _getFormattedPath(String uri){
+    final parsed = Uri.parse(uri);
+  if (parsed.pathSegments.isNotEmpty) {
+    // Handle content URIs and normal file paths
+    return parsed.pathSegments.last.split(':').last;
+  }
+  // Fallback for unusual URI formats
+  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
 }
 
 String _getFileName(String uri) {
