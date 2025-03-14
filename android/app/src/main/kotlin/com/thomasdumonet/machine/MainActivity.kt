@@ -38,7 +38,14 @@ class MainActivity: FlutterActivity() {
                 }
                 "listDirectory" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
-                    val children = listDirectory(uri)
+                    val isRoot = call.argument<Boolean>("isRoot") ?: false
+                    
+                    val children = if (isRoot) {
+                        listRootDirectory(uri)
+                    } else {
+                        listDirectory(uri)
+                    }
+                    
                     result.success(children)
                 }
         "readFile" -> {
@@ -108,11 +115,16 @@ fun persistUriPermission(uri: Uri) {
      }
    }
    
-    private fun listDirectory(uri: Uri): List<Map<String, String>> {
-        val children = mutableListOf<Map<String, String>>()
+private fun listDirectory(uri: Uri): List<Map<String, String>> {
+    val children = mutableListOf<Map<String, String>>()
+    try {
+        // Get the document ID from the provided URI
+        val docId = DocumentsContract.getDocumentId(uri)
+        
+        // Build the correct child URI for this specific directory
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
             uri, 
-            DocumentsContract.getTreeDocumentId(uri)
+            docId
         )
 
         contentResolver.query(
@@ -138,9 +150,51 @@ fun persistUriPermission(uri: Uri) {
                 ))
             }
         }
-        return children
+    } catch (e: Exception) {
+        Log.e("SAF", "Error listing directory: ${e.message}")
     }
+    return children
+}
 
+private fun listRootDirectory(uri: Uri): List<Map<String, String>> {
+    val children = mutableListOf<Map<String, String>>()
+    try {
+        // Get root document ID from tree URI
+        val rootId = DocumentsContract.getTreeDocumentId(uri)
+        
+        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
+            uri, 
+            rootId
+        )
+
+        contentResolver.query(
+            childUris,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            ),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                val name = cursor.getString(1)
+                val mime = cursor.getString(2)
+                
+                children.add(mapOf(
+                    "uri" to DocumentsContract.buildDocumentUriUsingTree(uri, id).toString(),
+                    "name" to name,
+                    "type" to if (mime == DocumentsContract.Document.MIME_TYPE_DIR) "dir" else "file"
+                ))
+            }
+        }
+    } catch (e: Exception) {
+        Log.e("SAF", "Error listing root directory: ${e.message}")
+    }
+    return children
+}
 
 private fun readFileContent(uri: Uri): FileReadResult {
     return try {
