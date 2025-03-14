@@ -125,7 +125,7 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
         }
 
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            treeUri,
+            uri,
             currentDocId // Critical: Use SUBFOLDER'S document ID here
         )
 
