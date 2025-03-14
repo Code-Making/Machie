@@ -452,7 +452,7 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
         final item = contents[index];
         if (item['type'] == 'dir') {
           return _DirectoryExpansionTile(
-            uri: item['uri'],
+            uri: item['uri'],  // Pass the SUBFOLDER's URI here
             name: item['name'],
             fileHandler: widget.fileHandler,
             onFileTap: widget.onFileTap,
@@ -470,6 +470,7 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
   Future<void> _loadChildren() async {
     setState(() => _isLoading = true);
     try {
+      // Use the current directory's URI to load its contents
       final contents = await widget.fileHandler.listDirectory(widget.uri);
       if (contents != null) {
         setState(() => _children = contents);
