@@ -216,33 +216,7 @@ Future<bool> _checkFileModified(String uri) async {
     });
   }
   
-  Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: contents.length,
-    itemBuilder: (context, index) {
-      final item = contents[index];
-      if (item['type'] == 'dir') {
-        return _DirectoryExpansionTile(
-          uri: item['uri'],
-          name: item['name'],
-          fileHandler: _fileHandler,
-          onFileTap: (uri) => _openFileTab(uri),
-        );
-      }
-      return ListTile(
-        leading: const Icon(Icons.insert_drive_file),
-        title: Text(item['name']),
-        onTap: () {
-          _openFileTab(item['uri']);
-          Navigator.pop(context);
-        },
-      );
-    },
-  );
-}
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -453,6 +427,34 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
       setState(() => _isLoading = false);
     }
   }
+  
+  Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: contents.length,
+    itemBuilder: (context, index) {
+      final item = contents[index];
+      if (item['type'] == 'dir') {
+        return _DirectoryExpansionTile(
+          uri: item['uri'],
+          name: item['name'],
+          fileHandler: _fileHandler,
+          onFileTap: (uri) => _openFileTab(uri),
+        );
+      }
+      return ListTile(
+        leading: const Icon(Icons.insert_drive_file),
+        title: Text(item['name']),
+        onTap: () {
+          _openFileTab(item['uri']);
+          Navigator.pop(context);
+        },
+      );
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
