@@ -295,9 +295,9 @@ Future<bool> _checkFileModified(String uri) async {
 
   void handleMove(AxisDirection direction) {
     if (isShiftPressed) {
-      _controller.extendSelection(direction);
+      tab.controller.extendSelection(direction);
     } else {
-      _controller.moveCursor(direction);
+      tab.controller.moveCursor(direction);
     }
   }
 
