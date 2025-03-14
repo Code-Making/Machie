@@ -59,6 +59,10 @@ class _EditorScreenState extends State<EditorScreen> {
     @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Notify Android that Flutter is ready
+      const MethodChannel('com.example/file_handler').invokeMethod('initialized');
+    });
     _setupIntentHandler();
   }
 
@@ -559,6 +563,16 @@ class AndroidFileHandler {
         onFileIntent!(uri);
       }
     });
+  }
+  
+  Future<void> handleIntentUri(String uri) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    // Add additional permission checks if needed
+    final hasAccess = await checkPermissions(uri);
+    if (!hasAccess) {
+      throw Exception('No persistent access to file');
+    }
+    return uri;
   }
   
   Future<bool> _requestPermissions() async {
