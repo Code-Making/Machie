@@ -103,45 +103,18 @@ class MainActivity: FlutterActivity() {
     private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-            try {
-                // Check if URI supports persistable permissions
-                if (DocumentsContract.isDocumentUri(this, uri)) {
-                    contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or 
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    )
-                }
-                
-                // Verify actual write capability
-                val isWritable = when {
-                    DocumentsContract.isDocumentUri(this, uri) -> {
-                        val flags = DocumentsContract.getDocumentFlags(
-                            contentResolver, 
-                            uri
-                        )
-                        flags and DocumentsContract.FLAG_SUPPORTS_WRITE != 0
-                    }
-                    else -> uri.path?.let { path ->
-                        File(path).canWrite()
-                    } ?: false
-                }
-
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-                    .invokeMethod("onIntentFileOpened", mapOf(
-                        "uri" to uri.toString(),
-                        "writable" to isWritable
-                    ))
-                
-            } catch (e: SecurityException) {
-                Log.e("SAF", "Permission error: ${e.message}")
-                // Fallback to read-only mode
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-                    .invokeMethod("onIntentFileOpened", mapOf(
-                        "uri" to uri.toString(),
-                        "writable" to false
-                    ))
-            }
+            // Take persistent permissions
+            persistUriPermission(uri)
+            
+            // Get real filename
+            val fileName = getFileNameFromUri(uri)
+            
+            // Send both URI and filename to Flutter
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
+                .invokeMethod("openFileFromIntent", mapOf(
+                    "uri" to uri.toString(),
+                    "fileName" to fileName
+                ))
         }
     }
 }
