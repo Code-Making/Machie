@@ -227,7 +227,7 @@ Future<bool> _checkFileModified(String uri) async {
         ),
         title: Text(_tabs.isEmpty 
             ? 'No File Open' 
-            : _getFormattedPath(_tabs[_currentTabIndex].uri),
+            : _getFormattedPath(_tabs[_currentTabIndex].uri)),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
