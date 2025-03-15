@@ -145,7 +145,7 @@ private fun handleIntent(intent: Intent) {
                 filePath?.let { path ->
                     val fileUri = Uri.fromFile(File(path))
                     // Check if we can write to the file path
-                    persistUriPermission(fileUri)
+                    contentResolver.takePersistableUriPermission(fileUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     writable = true
                     uri = fileUri
                 }
