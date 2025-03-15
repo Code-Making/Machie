@@ -618,7 +618,7 @@ Future<String?> readFile(String uri) async {
 
 // Add this extension-to-language mapper in your _EditorScreenState class
 // Update the language mapping logic
-Map<String, CodeHighlightThemeMode> _getLanguageThemes(String uri) {
+Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
   final extension = uri.split('.').last.toLowerCase();
   final language = switch (extension) {
     'dart' => {'lang': 'dart', 'mode': langDart},
