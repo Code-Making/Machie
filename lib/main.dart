@@ -115,97 +115,139 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
    Future<void> _openFileTab(String uri) async {
-  try {
-    // Check if file is already open in a tab
-    for (int i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].uri == uri) {
-        setState(() {
-          _currentTabIndex = i;
-        });
-        _showSuccess('Switched to existing tab');
-        return;
-      }
-    }
+          try {
+            // Check if file is already open in a tab
+            for (int i = 0; i < _tabs.length; i++) {
+              if (_tabs[i].uri == uri) {
+                setState(() {
+                  _currentTabIndex = i;
+                });
+                _showSuccess('Switched to existing tab');
+                return;
+              }
+            }
+        
+            final content = await _fileHandler.readFile(uri);
+            if (content == null) {
+              _showError('Failed to read file');
+              return;
+            }
+        
+            final isEmpty = content.isEmpty;
+            _originalFileHash = _calculateHash(content);
+            final controller = CodeLineEditingController(
+              codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
+            );
+        
+            setState(() {
+              _tabs.add(EditorTab(
+                uri: uri,
+                controller: controller,
+                isDirty: isEmpty,
+              ));
+              _currentTabIndex = _tabs.length - 1;
+            });
+        
+            _showSuccess(isEmpty 
+                ? 'Opened empty file' 
+                : 'Successfully opened file (${content.length} chars)');
+          } on Exception catch (e) {
+            _showError('Failed to open file: ${e.toString()}');
+          }
+        }
 
-    final content = await _fileHandler.readFile(uri);
-    if (content == null) {
-      _showError('Failed to read file');
-      return;
-    }
+Widget _buildBottomToolbar() {
+    final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
+    final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
 
-    final isEmpty = content.isEmpty;
-    _originalFileHash = _calculateHash(content);
-    final controller = CodeLineEditingController(
-      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
-    );
-
-    setState(() {
-      _tabs.add(EditorTab(
-        uri: uri,
-        controller: controller,
-        isDirty: isEmpty,
-      ));
-      _currentTabIndex = _tabs.length - 1;
-    });
-
-    _showSuccess(isEmpty 
-        ? 'Opened empty file' 
-        : 'Successfully opened file (${content.length} chars)');
-  } on Exception catch (e) {
-    _showError('Failed to open file: ${e.toString()}');
-  }
-}
-
-
-  Future<void> _saveFile() async {
-  if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
-
-  final tab = _tabs[_currentTabIndex];
-  try {
-    // Check external modifications
-    final currentContent = await _fileHandler.readFile(tab.uri);
-    final currentHash = _calculateHash(currentContent ?? '');
-    
-    if (currentHash != _originalFileHash) {
-      final choice = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('File Modified'),
-          content: const Text('This file has been modified externally. Overwrite?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+    return CodeEditorTapRegion(
+      child: Container(
+        height: 48,
+        color: Colors.grey[900],
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.content_copy, size: 20),
+              onPressed: hasActiveTab ? () => controller!.copy() : null,
+              tooltip: 'Copy',
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Overwrite'),
+            IconButton(
+              icon: const Icon(Icons.content_cut, size: 20),
+              onPressed: hasActiveTab ? () => controller!.cut() : null,
+              tooltip: 'Cut',
+            ),
+            IconButton(
+              icon: const Icon(Icons.content_paste, size: 20),
+              onPressed: hasActiveTab ? () => controller!.paste() : null,
+              tooltip: 'Paste',
+            ),
+            const VerticalDivider(width: 20),
+            IconButton(
+              icon: const Icon(Icons.arrow_upward, size: 20),
+              onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+              tooltip: 'Move Line Up',
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_downward, size: 20),
+              onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+              tooltip: 'Move Line Down',
             ),
           ],
         ),
-      );
-      
-      if (choice != true) return;
-    }
-
-    // Perform save
-    final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
-    
-    if (success) {
-      // Update checksum after successful save
-      final newContent = await _fileHandler.readFile(tab.uri);
-      setState(() {
-        tab.isDirty = false;
-        _originalFileHash = _calculateHash(newContent ?? '');
-      });
-      _showSuccess('File saved successfully');
-    } else {
-      _showError('Failed to save file');
-    }
-  } catch (e) {
-    _showError('Save error: ${e.toString()}');
+      ),
+    );
   }
-}
+
+
+  Future<void> _saveFile() async {
+          if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+        
+          final tab = _tabs[_currentTabIndex];
+          try {
+            // Check external modifications
+            final currentContent = await _fileHandler.readFile(tab.uri);
+            final currentHash = _calculateHash(currentContent ?? '');
+            
+            if (currentHash != _originalFileHash) {
+              final choice = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('File Modified'),
+                  content: const Text('This file has been modified externally. Overwrite?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Overwrite'),
+                    ),
+                  ],
+                ),
+              );
+              
+              if (choice != true) return;
+            }
+        
+            // Perform save
+            final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
+            
+            if (success) {
+              // Update checksum after successful save
+              final newContent = await _fileHandler.readFile(tab.uri);
+              setState(() {
+                tab.isDirty = false;
+                _originalFileHash = _calculateHash(newContent ?? '');
+              });
+              _showSuccess('File saved successfully');
+            } else {
+              _showError('Failed to save file');
+            }
+          } catch (e) {
+            _showError('Save error: ${e.toString()}');
+          }
+        }
 
 String _calculateHash(String content) {
   return md5.convert(utf8.encode(content)).toString();
@@ -330,29 +372,29 @@ Future<bool> _checkFileModified(String uri) async {
                 return GestureDetector(
                   onTap: () => setState(() => _currentTabIndex = index),
                   onLongPress: () {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(_getFormattedPath(tab.uri)),
-      actions: [
-        TextButton(
-          child: const Text('Close'),
-          onPressed: () {
-            _closeTab(index);
-            Navigator.pop(context);
-          },
-        ),
-        TextButton(
-          child: const Text('Close Others'),
-          onPressed: () {
-            _closeOtherTabs(index);
-            Navigator.pop(context);
-          },
-        ),
-      ],
-    ),
-  );
-},
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(_getFormattedPath(tab.uri)),
+                              actions: [
+                                TextButton(
+                                  child: const Text('Close'),
+                                  onPressed: () {
+                                    _closeTab(index);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                                TextButton(
+                                  child: const Text('Close Others'),
+                                  onPressed: () {
+                                    _closeOtherTabs(index);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                   child: Container(
                     decoration: BoxDecoration(
                       color: _currentTabIndex == index
@@ -388,7 +430,10 @@ Future<bool> _checkFileModified(String uri) async {
         Expanded(
           child: _tabs.isEmpty
               ? const Center(child: Text('Open a file to start editing'))
-              : IndexedStack(
+              : CodeEditorTapRegion(
+                    child: Stack(
+                      children: [
+                          IndexedStack(
                   index: _currentTabIndex,
                   children: _tabs.map((tab) => CodeEditor(
                     controller: tab.controller,
@@ -416,6 +461,15 @@ Future<bool> _checkFileModified(String uri) async {
                       ),
                     ),
                   )).toList(),
+                ),
+                Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: _buildBottomToolbar(),
+                        ),
+                ],
+                ),
                 ),
         ),
       ],
