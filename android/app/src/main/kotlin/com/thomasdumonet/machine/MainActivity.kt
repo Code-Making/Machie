@@ -165,7 +165,6 @@ private fun handleIntent(intent: Intent) {
     }
 }
 
-@SuppressLint("Range")
 private fun getRealPathFromURI(uri: Uri): String? {
     return when {
         // Handle document URIs (SAF)
