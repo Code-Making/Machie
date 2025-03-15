@@ -19,7 +19,7 @@ import 'package:re_highlight/styles/languages/html.dart';
 import 'package:re_highlight/styles/languages/json.dart';
 import 'package:re_highlight/styles/languages/yaml.dart';
 import 'package:re_highlight/styles/languages/markdown.dart';
-
+import 'package:re_highlight/styles/languages/kotlin.dart';
 
 
 
@@ -648,6 +648,8 @@ CodeHighlightThemeMode _getLanguageMode(String uri) {
       return CodeHighlightThemeMode(mode: langYaml);
     case 'md':
       return CodeHighlightThemeMode(mode: langMarkdown);
+    case 'kt':
+      return CodeHighlightThemeMode(mode: langKotlin);
     default:
       return CodeHighlightThemeMode(mode: langPlainText);
   }
