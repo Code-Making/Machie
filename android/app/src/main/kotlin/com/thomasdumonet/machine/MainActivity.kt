@@ -6,15 +6,12 @@ import android.net.Uri
 import android.util.Log
 import java.security.MessageDigest
 import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
-
 import android.provider.DocumentsContract
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.*
-import android.os.Bundle
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example/file_handler"
@@ -41,56 +38,29 @@ class MainActivity: FlutterActivity() {
                 }
                 "listDirectory" -> {
                     val uri = Uri.parse(call.argument<String>("uri"))
-                    val isRoot = call.argument<Boolean>("isRoot") ?: false
-                    
-                    val children = if (isRoot) {
-                        listRootDirectory(uri)
-                    } else {
-                        listDirectory(uri)
-                    }
-                    
+                    val children = listDirectory(uri)
                     result.success(children)
                 }
-                "readFile" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val readResult = readFileContent(uri) // Renamed variable
-                    val response = mapOf(
-                        "content" to readResult.content,
-                        "error" to readResult.error,
-                        "isEmpty" to readResult.isEmpty
-                    )
-                    result.success(response) // Use method channel result
-                }
-                                // In MainActivity.kt
-                // Update the writeFile handler block
-                "writeFile" -> {
-                    val uri = Uri.parse(call.argument<String>("uri"))
-                    val content = call.argument<String>("content")!!
-                    
-                    // Rename local variable to avoid shadowing
-                    val writeResult = writeFileContent(uri, content)
-                    
-                    // Use the method channel's result parameter
-                    result.success(mapOf(
-                        "success" to writeResult.success,
-                        "error" to writeResult.error,
-                        "checksum" to writeResult.checksum
-                    ))
-                }
-                "writeIntentFile" -> {
-                    try {
-                        val uri = Uri.parse(call.argument<String>("uri"))
-                        val content = call.argument<String>("content")!!
-                        val success = writeIntentFile(uri, content)
-                        result.success(success)
-                    } catch (e: Exception) {
-                        result.error(
-                            "WRITE_ERROR", 
-                            "Failed to write intent file: ${e.localizedMessage}", 
-                            null
-                        )
-                    }
-                }
+        "readFile" -> {
+            val uri = Uri.parse(call.argument<String>("uri"))
+            val readResult = readFileContent(uri) // Renamed variable
+            val response = mapOf(
+                "content" to readResult.content,
+                "error" to readResult.error,
+                "isEmpty" to readResult.isEmpty
+            )
+            result.success(response) // Use method channel result
+        }
+        "writeFile" -> {
+            val uri = Uri.parse(call.argument<String>("uri"))
+            val content = call.argument<String>("content")!!
+            val writeResult = writeFileContent(uri, content) // Renamed variable
+            result.success(mapOf(
+                "success" to writeResult.success,
+                "error" to writeResult.error,
+                "checksum" to writeResult.checksum
+            ))
+        }
                 else -> result.notImplemented()
             }
         }
@@ -103,71 +73,6 @@ class MainActivity: FlutterActivity() {
             103 -> handleOpenFolderResult(resultCode, data)
         }
     }
-    
-    override fun onCreate(savedInstanceState: Bundle?) {
-      super.onCreate(savedInstanceState)
-      handleIntent(intent)
-    }
-    
-    override fun onNewIntent(intent: Intent) {
-      super.onNewIntent(intent)
-      handleIntent(intent)
-    }
-    
-private fun writeIntentFile(uri: Uri, content: String): Boolean {
-    return try {
-        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-            FileOutputStream(pfd.fileDescriptor).use { fos ->
-                fos.write(content.toByteArray())
-                true
-            }
-        } ?: false
-    } catch (e: Exception) {
-        Log.e("SAF", "Intent write failed", e)
-        false
-    }
-}
-
-private fun handleIntent(intent: Intent) {
-    if (intent.action == Intent.ACTION_VIEW) {
-        intent.data?.let { uri ->
-            val writable = try {
-                contentResolver.openFileDescriptor(uri, "rw")?.close()
-                true
-            } catch (e: SecurityException) {
-                false
-            }
-            
-            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
-                "onIntentFile",
-                mapOf("uri" to uri.toString(), "writable" to writable)
-            )
-        }
-    }
-}
-
-private fun writeContentUri(uri: Uri, content: String): Boolean {
-    return try {
-        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-            FileOutputStream(pfd.fileDescriptor).use { stream ->
-                stream.write(content.toByteArray())
-                stream.flush()
-                true
-            }
-        } ?: false
-    } catch (e: Exception) {
-        Log.e("SAF", "Write error: ${e.message}")
-        false
-    }
-}
-
-private fun getFileNameFromUri(uri: Uri): String {
-    return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-        val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-        cursor.moveToFirst()
-        cursor.getString(nameIndex)
-    } ?: uri.lastPathSegment ?: "untitled"
-}
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
@@ -203,16 +108,11 @@ fun persistUriPermission(uri: Uri) {
      }
    }
    
-private fun listDirectory(uri: Uri): List<Map<String, String>> {
-    val children = mutableListOf<Map<String, String>>()
-    try {
-        // Get the document ID from the provided URI
-        val docId = DocumentsContract.getDocumentId(uri)
-        
-        // Build the correct child URI for this specific directory
+    private fun listDirectory(uri: Uri): List<Map<String, String>> {
+        val children = mutableListOf<Map<String, String>>()
         val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
             uri, 
-            docId
+            DocumentsContract.getTreeDocumentId(uri)
         )
 
         contentResolver.query(
@@ -238,51 +138,9 @@ private fun listDirectory(uri: Uri): List<Map<String, String>> {
                 ))
             }
         }
-    } catch (e: Exception) {
-        Log.e("SAF", "Error listing directory: ${e.message}")
+        return children
     }
-    return children
-}
 
-private fun listRootDirectory(uri: Uri): List<Map<String, String>> {
-    val children = mutableListOf<Map<String, String>>()
-    try {
-        // Get root document ID from tree URI
-        val rootId = DocumentsContract.getTreeDocumentId(uri)
-        
-        val childUris = DocumentsContract.buildChildDocumentsUriUsingTree(
-            uri, 
-            rootId
-        )
-
-        contentResolver.query(
-            childUris,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE
-            ),
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val id = cursor.getString(0)
-                val name = cursor.getString(1)
-                val mime = cursor.getString(2)
-                
-                children.add(mapOf(
-                    "uri" to DocumentsContract.buildDocumentUriUsingTree(uri, id).toString(),
-                    "name" to name,
-                    "type" to if (mime == DocumentsContract.Document.MIME_TYPE_DIR) "dir" else "file"
-                ))
-            }
-        }
-    } catch (e: Exception) {
-        Log.e("SAF", "Error listing root directory: ${e.message}")
-    }
-    return children
-}
 
 private fun readFileContent(uri: Uri): FileReadResult {
     return try {
@@ -311,30 +169,22 @@ private fun readFileContent(uri: Uri): FileReadResult {
 
 private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
     return try {
-        contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
+        contentResolver.openOutputStream(uri)?.use { outputStream ->
             BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
                 writer.write(content)
             }
-            
-            // Verify write by reading back
+
+            // Calculate checksum AFTER writing
             val inputStream = contentResolver.openInputStream(uri)!!
-            val writtenContent = inputStream.bufferedReader().readText()
-            
-            if (writtenContent == content) {
-                FileWriteResult(true, null, _calculateChecksum(content))
-            } else {
-                FileWriteResult(false, "Write verification failed", null)
-            }
+            val md5 = MessageDigest.getInstance("MD5")
+            val digest = md5.digest(inputStream.readBytes())
+            val checksum = digest.joinToString("") { "%02x".format(it) }
+
+            FileWriteResult(true, null, checksum)
         } ?: FileWriteResult(false, "Failed to open output stream", null)
     } catch (e: Exception) {
         FileWriteResult(false, "Write error: ${e.message}", null)
     }
-}
-
-private fun _calculateChecksum(content: String): String {
-    return MessageDigest.getInstance("MD5")
-        .digest(content.toByteArray())
-        .joinToString("") { "%02x".format(it) }
 }
     
     private fun detectCharset(inputStream: InputStream): Charset {
@@ -362,9 +212,3 @@ data class FileWriteResult(
     val error: String?,
     val checksum: String?
 )
-
-fun String.md5(): String {
-    val md = MessageDigest.getInstance("MD5")
-    val digest = md.digest(this.toByteArray(StandardCharsets.UTF_8))
-    return digest.joinToString("") { "%02x".format(it) }
-}
