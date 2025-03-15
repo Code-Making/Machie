@@ -51,8 +51,9 @@ class _EditorScreenState extends State<EditorScreen> {
   int _currentTabIndex = 0;
   String? _currentDirUri;
   String? _originalFileHash; // Add this line
-  bool openedWithIntent = false;
-
+  bool _openedWithIntent = false;
+  String? _intentFileUri;
+  bool _intentFileWritable = false;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
@@ -66,41 +67,55 @@ class _EditorScreenState extends State<EditorScreen> {
     _setupIntentHandler();
   }
 
-  void _setupIntentHandler() {
-  const channel = MethodChannel('com.example/file_handler');
-  channel.setMethodCallHandler((call) async {
-    if (call.method == 'openFileFromIntent') {
-      final data = Map<String,dynamic>.from(call.arguments);
-      final uri = data['uri'] as String;
-      final fileName = data['fileName'] as String;
-      
-      setState(() {
-          openedWithIntent = true;
-        });
-      
-      if (uri.isNotEmpty) {
-        _openFileTab(uri, fileName: fileName);
+    void _setupIntentHandler() {
+    const channel = MethodChannel('com.example/file_handler');
+    channel.setMethodCallHandler((call) async {
+      if (call.method == 'onIntentFile') {
+        final data = Map<String, dynamic>.from(call.arguments);
+        _handleIncomingIntent(
+          uri: data['uri'] as String,
+          writable: data['writable'] as bool,
+        );
       }
+    });
+  }
+
+  void _handleIncomingIntent({required String uri, required bool writable}) {
+    if (!mounted) return;
+    
+    setState(() {
+      _openedWithIntent = true;
+      _intentFileUri = uri;
+      _intentFileWritable = writable;
+    });
+
+    if (!writable) {
+      _showError('File opened in read-only mode');
     }
-  });
-}
+
+    _openFileTab(uri, _getFileName(uri));
+  }
 
 Future<void> _saveIntentFile() async {
-    if (_tabs.isEmpty) return;
-    
-    final tab = _tabs[_currentTabIndex];
+  if (_intentFileUri == null || !_intentFileWritable) return;
+
+  try {
+    final content = _tabs[_currentTabIndex].controller.text;
     final success = await _fileHandler.writeIntentFile(
-      tab.uri,
-      tab.controller.text,
+      _intentFileUri!,
+      content,
     );
 
     if (success) {
-      _showSuccess('File saved successfully');
-      setState(() => tab.isDirty = false);
+      _showSuccess('Saved successfully');
+      setState(() => _tabs[_currentTabIndex].isDirty = false);
     } else {
-      _showError('Failed to save file');
+      _showError('Save failed');
     }
+  } catch (e) {
+    _showError('Save error: ${e.toString()}');
   }
+}
   
 
   Future<void> _openFile() async {
@@ -295,9 +310,9 @@ Future<bool> _checkFileModified(String uri) async {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: openedWithIntent ? null : _buildDrawer(),
+      drawer: _openedWithIntent ? null : _buildDrawer(),
       appBar: AppBar(
-        leading: openedWithIntent 
+        leading: _openedWithIntent 
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
@@ -310,10 +325,10 @@ Future<bool> _checkFileModified(String uri) async {
             ? 'No File Open' 
             : _tabs[_currentTabIndex].fileName),
         actions: [
-          if (openedWithIntent)
+          if (_openedWithIntent)
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _saveIntentFile,
+              onPressed: _intentFileWritable ? _saveIntentFile : null,
               tooltip: 'Save File',
             )
           else ...[
@@ -657,15 +672,14 @@ Future<String?> readFile(String uri) async {
   }
 }
 
-  Future<bool> writeIntentFile(String uri, String content) async {
+    Future<bool> writeIntentFile(String uri, String content) async {
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'writeContentUri',
-        {'uri': uri, 'content': content}
-      );
-      return result ?? false;
+      return await _channel.invokeMethod<bool>(
+        'writeIntentFile',
+        {'uri': uri, 'content': content},
+      ) ?? false;
     } on PlatformException catch (e) {
-      print('Intent file save error: ${e.message}');
+      print('Intent write error: ${e.message}');
       return false;
     }
   }
@@ -685,7 +699,9 @@ Future<String?> readFile(String uri) async {
     return false;
   }
 }
-}class IntentFileHandler {
+}
+
+class IntentFileHandler {
   static const _channel = MethodChannel('com.example/intent_files');
 
   Future<bool> saveContentUri(String uri, String content) async {
