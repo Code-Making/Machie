@@ -16,6 +16,11 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.*
 import android.os.Bundle
 
+// At the top of MainActivity.kt
+import android.provider.OpenableColumns
+import android.os.Build
+import androidx.annotation.RequiresApi
+
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example/file_handler"
     private var openFileResult: MethodChannel.Result? = null
