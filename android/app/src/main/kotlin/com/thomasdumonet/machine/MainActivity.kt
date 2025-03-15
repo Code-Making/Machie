@@ -203,13 +203,7 @@ private fun writeIntentFile(uri: Uri, content: String): Boolean {
 
 
 
-private fun getFileNameFromUri(uri: Uri): String {
-    return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-        val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-        cursor.moveToFirst()
-        cursor.getString(nameIndex)
-    } ?: uri.lastPathSegment ?: "untitled"
-}
+
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
