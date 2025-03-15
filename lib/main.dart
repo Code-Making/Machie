@@ -398,6 +398,21 @@ Future<bool> _checkFileModified(String uri) async {
                       codeTheme: CodeHighlightTheme(
                       languages: _getLanguageMode(tab.uri),         
                       theme: atomOneDarkTheme,
+                      indicatorBuilder: (context, editingController, chunkController, notifier) {
+                            return Row(
+                              children: [
+                                DefaultCodeLineNumber(
+                                  controller: editingController,
+                                  notifier: notifier,
+                                ),
+                                DefaultCodeChunkIndicator(
+                                  width: 20,
+                                  controller: chunkController,
+                                  notifier: notifier,
+                                ),
+                              ],
+                            );
+                          },
                       ),
                     ),
                   )).toList(),
