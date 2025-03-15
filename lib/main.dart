@@ -4,10 +4,25 @@ import 'package:crypto/crypto.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
+
+import 'package:re_highlight/styles/languages/dart.dart';
+import 'package:re_highlight/styles/languages/python.dart';
+import 'package:re_highlight/styles/languages/javascript.dart';
+import 'package:re_highlight/styles/languages/java.dart';
+import 'package:re_highlight/styles/languages/cpp.dart';
+import 'package:re_highlight/styles/languages/css.dart';
+import 'package:re_highlight/styles/languages/html.dart';
+import 'package:re_highlight/styles/languages/json.dart';
+import 'package:re_highlight/styles/languages/yaml.dart';
+import 'package:re_highlight/styles/languages/markdown.dart';
+
+
+
+
 
 void main() => runApp(const CodeEditorApp());
 
@@ -382,8 +397,9 @@ Future<bool> _checkFileModified(String uri) async {
                       fontSize: 14,
                       fontFamily: 'FiraMono',
                       codeTheme: CodeHighlightTheme(
-                        languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
-                        theme: atomOneDarkTheme,
+                     languages: {
+                                _getLanguageMode(tab.uri).mode.language: _getLanguageMode(tab.uri)
+                              },                        theme: atomOneDarkTheme,
                       ),
                     ),
                   )).toList(),
@@ -598,4 +614,41 @@ Future<String?> readFile(String uri) async {
     throw Exception('Platform error: ${e.message}');
   }
 }
+}
+
+// Add this extension-to-language mapper in your _EditorScreenState class
+CodeHighlightThemeMode _getLanguageMode(String uri) {
+  final extension = uri.split('.').last.toLowerCase();
+  switch (extension) {
+    case 'dart':
+      return CodeHighlightThemeMode(mode: langDart);
+    case 'js':
+    case 'jsx':
+      return CodeHighlightThemeMode(mode: langJavaScript);
+    case 'ts':
+    case 'tsx':
+      return CodeHighlightThemeMode(mode: langTypeScript);
+    case 'py':
+      return CodeHighlightThemeMode(mode: langPython);
+    case 'java':
+      return CodeHighlightThemeMode(mode: langJava);
+    case 'cpp':
+    case 'cc':
+    case 'h':
+      return CodeHighlightThemeMode(mode: langCpp);
+    case 'css':
+      return CodeHighlightThemeMode(mode: langCss);
+    case 'html':
+    case 'htm':
+      return CodeHighlightThemeMode(mode: langHtml);
+    case 'json':
+      return CodeHighlightThemeMode(mode: langJson);
+    case 'yaml':
+    case 'yml':
+      return CodeHighlightThemeMode(mode: langYaml);
+    case 'md':
+      return CodeHighlightThemeMode(mode: langMarkdown);
+    default:
+      return CodeHighlightThemeMode(mode: langPlainText);
+  }
 }
