@@ -93,7 +93,7 @@ class _EditorScreenState extends State<EditorScreen> {
       _showError('File opened in read-only mode');
     }
 
-    _openFileTab(uri, _getFileName(uri));
+    _openFileTab(uri);
   }
 
 Future<void> _saveIntentFile() async {
