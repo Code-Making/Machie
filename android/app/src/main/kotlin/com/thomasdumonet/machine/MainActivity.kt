@@ -145,11 +145,7 @@ private fun handleIntent(intent: Intent) {
                 filePath?.let { path ->
                     val fileUri = Uri.fromFile(File(path))
                     // Check if we can write to the file path
-                    writable = try {
-                        File(path).canWrite()
-                    } catch (e: SecurityException) {
-                        false
-                    }
+                    writable = true
                     uri = fileUri
                 }
             }
