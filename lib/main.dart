@@ -66,19 +66,19 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _openFolder() async {
     final uri = await _fileHandler.openFolder();
     if (uri != null) {
-      _loadDirectoryContents(uri);
+      _loadDirectoryContents(uri, isRoot: true);
     }
   }
 
-  Future<void> _loadDirectoryContents(String uri) async {
-    final contents = await _fileHandler.listDirectory(uri);
+  Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
+    final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
     if (contents != null) {
-      setState(() {
-        _currentDirUri = uri;
-        _directoryContents = contents;
-      });
+        setState(() {
+            _currentDirUri = uri;
+            _directoryContents = contents;
+        });
     }
-  }
+}
   
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -102,28 +102,41 @@ class _EditorScreenState extends State<EditorScreen> {
 
    Future<void> _openFileTab(String uri) async {
   try {
+    // Check if file is already open in a tab
+    for (int i = 0; i < _tabs.length; i++) {
+      if (_tabs[i].uri == uri) {
+        setState(() {
+          _currentTabIndex = i;
+        });
+        _showSuccess('Switched to existing tab');
+        return;
+      }
+    }
+
     final content = await _fileHandler.readFile(uri);
-    
-    // Allow empty files but handle them differently
-    final isEmpty = content?.isEmpty ?? true;
-    _originalFileHash = _calculateHash(content!);
+    if (content == null) {
+      _showError('Failed to read file');
+      return;
+    }
+
+    final isEmpty = content.isEmpty;
+    _originalFileHash = _calculateHash(content);
     final controller = CodeLineEditingController(
-      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content!),
+      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
     );
 
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
         controller: controller,
-        isDirty: isEmpty // Mark empty files as dirty initially
+        isDirty: isEmpty,
       ));
       _currentTabIndex = _tabs.length - 1;
     });
 
     _showSuccess(isEmpty 
         ? 'Opened empty file' 
-        : 'Successfully opened file (${content!.length} chars)');
-
+        : 'Successfully opened file (${content.length} chars)');
   } on Exception catch (e) {
     _showError('Failed to open file: ${e.toString()}');
   }
@@ -202,6 +215,33 @@ Future<bool> _checkFileModified(String uri) async {
       }
     });
   }
+  
+  Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: contents.length,
+    itemBuilder: (context, index) {
+      final item = contents[index];
+      if (item['type'] == 'dir') {
+        return _DirectoryExpansionTile(
+          uri: item['uri'],
+          name: item['name'],
+          fileHandler: _fileHandler,
+          onFileTap: (uri) => _openFileTab(uri),
+        );
+      }
+      return ListTile(
+        leading: const Icon(Icons.insert_drive_file),
+        title: Text(item['name']),
+        onTap: () {
+          _openFileTab(item['uri']);
+          Navigator.pop(context);
+        },
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +254,7 @@ Future<bool> _checkFileModified(String uri) async {
         ),
         title: Text(_tabs.isEmpty 
             ? 'No File Open' 
-            : _tabs[_currentTabIndex].uri.split('/').last),
+            : _getFormattedPath(_tabs[_currentTabIndex].uri)),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
@@ -239,47 +279,28 @@ Future<bool> _checkFileModified(String uri) async {
   }
 
   Widget _buildDrawer() {
-    return Drawer(
-      child: Column(
-        children: [
-          AppBar(
-            title: const Text('Explorer'),
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          Expanded(
-            child: _currentDirUri == null
-                ? const Center(child: Text('Open a folder to browse'))
-                : ListView.builder(
-                    itemCount: _directoryContents.length,
-                    itemBuilder: (context, index) {
-                      final item = _directoryContents[index];
-                      return ListTile(
-                        leading: Icon(item['type'] == 'dir' 
-                            ? Icons.folder 
-                            : Icons.insert_drive_file),
-                        title: Text(item['name']),
-                        onTap: () {
-                          if (item['type'] == 'dir') {
-                            _loadDirectoryContents(item['uri']);
-                          } else {
-                            _openFileTab(item['uri']);
-                            Navigator.pop(context);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
+  return Drawer(
+    child: Column(
+      children: [
+        AppBar(
+            title: Text(_currentDirUri!=null ? _getFileName(_currentDirUri!):"Explorer"),
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+        Expanded(
+          child: _currentDirUri == null
+              ? const Center(child: Text('Open a folder to browse'))
+              : _buildDirectoryTree(_directoryContents),
+        ),
+      ],
+    ),
+  );
+}
 
     Widget _buildEditorArea() {
     return Column(
@@ -294,12 +315,41 @@ Future<bool> _checkFileModified(String uri) async {
                 final tab = _tabs[index];
                 return GestureDetector(
                   onTap: () => setState(() => _currentTabIndex = index),
+                  onLongPress: () {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(_getFormattedPath(tab.uri)),
+      actions: [
+        TextButton(
+          child: const Text('Close'),
+          onPressed: () {
+            _closeTab(index);
+            Navigator.pop(context);
+          },
+        ),
+        TextButton(
+          child: const Text('Close Others'),
+          onPressed: () {
+            _closeOtherTabs(index);
+            Navigator.pop(context);
+          },
+        ),
+      ],
+    ),
+  );
+},
                   child: Container(
                     decoration: BoxDecoration(
                       color: _currentTabIndex == index
                           ? Colors.grey[800]
                           : Colors.grey[900],
-                      border: Border(right: BorderSide(color: Colors.grey[700]!)),
+                    border: Border(
+                      right: BorderSide(color: Colors.grey[700]!),
+                      bottom: _currentTabIndex == index
+                          ? BorderSide(color: Colors.blueAccent, width: 2)
+                          : BorderSide.none,
+                          ),                    
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
@@ -309,7 +359,7 @@ Future<bool> _checkFileModified(String uri) async {
                           onPressed: () => _closeTab(index),
                         ),
                         Text(
-                          tab.uri.split('/').last,
+                          _getFileName(tab.uri),
                           style: TextStyle(
                             color: tab.isDirty ? Colors.orange : Colors.white,
                           ),
@@ -330,7 +380,7 @@ Future<bool> _checkFileModified(String uri) async {
                     controller: tab.controller,
                     style: CodeEditorStyle(
                       fontSize: 14,
-                      fontFamily: 'FiraCode',
+                      fontFamily: 'FiraMono',
                       codeTheme: CodeHighlightTheme(
                         languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
                         theme: atomOneDarkTheme,
@@ -342,8 +392,125 @@ Future<bool> _checkFileModified(String uri) async {
       ],
     );
   }
+  void _closeOtherTabs(int keepIndex) {
+  setState(() {
+    _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
+    _currentTabIndex = 0;
+  });
 }
 
+String _getFormattedPath(String uri){
+    final parsed = Uri.parse(uri);
+  if (parsed.pathSegments.isNotEmpty) {
+    // Handle content URIs and normal file paths
+    return parsed.pathSegments.last.split(':').last;
+  }
+  // Fallback for unusual URI formats
+  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+}
+
+String _getFileName(String uri) {
+  final parsed = Uri.parse(uri);
+  if (parsed.pathSegments.isNotEmpty) {
+    // Handle content URIs and normal file paths
+    return parsed.pathSegments.last.split('/').last;
+  }
+  // Fallback for unusual URI formats
+  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+}
+}
+
+class _DirectoryExpansionTile extends StatefulWidget {
+  final String uri;
+  final String name;
+  final AndroidFileHandler fileHandler;
+  final Function(String) onFileTap;
+
+  const _DirectoryExpansionTile({
+    required this.uri,
+    required this.name,
+    required this.fileHandler,
+    required this.onFileTap,
+  });
+
+  @override
+  State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+}
+
+// Update the _DirectoryExpansionTileState class
+class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
+  bool _isExpanded = false;
+  List<Map<String, dynamic>> _children = [];
+  bool _isLoading = false;
+
+  Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+    
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: contents.length,
+      itemBuilder: (context, index) {
+        final item = contents[index];
+        if (item['type'] == 'dir') {
+          return _DirectoryExpansionTile(
+            uri: item['uri'],  // Pass the SUBFOLDER's URI here
+            name: item['name'],
+            fileHandler: widget.fileHandler,
+            onFileTap: widget.onFileTap,
+          );
+        }
+        return ListTile(
+          leading: const Icon(Icons.insert_drive_file),
+          title: Text(item['name']),
+          onTap: () => widget.onFileTap(item['uri']),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadChildren() async {
+    setState(() => _isLoading = true);
+    try {
+        // In _loadChildren()
+      debugPrint('Loading children for: ${widget.uri}');
+      // Use the current directory's URI to load its contents
+      final contents = await widget.fileHandler.listDirectory(widget.uri);
+      if (contents != null) {
+        setState(() => _children = contents);
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
+      title: Text(widget.name),
+      trailing: _isLoading 
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      onExpansionChanged: (expanded) async {
+        setState(() => _isExpanded = expanded);
+        if (expanded && _children.isEmpty) {
+          await _loadChildren();
+        }
+      },
+      children: [
+        if (_children.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: _buildChildItems(_children),
+          ),
+      ],
+    );
+  }
+}
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
@@ -376,18 +543,18 @@ class AndroidFileHandler {
     }
   }
 
-  Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
+Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
     try {
-      final result = await _channel.invokeMethod<List<dynamic>>(
-        'listDirectory',
-        {'uri': uri}
-      );
-      return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+        final result = await _channel.invokeMethod<List<dynamic>>(
+            'listDirectory',
+            {'uri': uri, 'isRoot': isRoot}
+        );
+        return result?.map((e) => Map<String, dynamic>.from(e)).toList();
     } on PlatformException catch (e) {
-      print("Error listing directory: ${e.message}");
-      return null;
+        print("Error listing directory: ${e.message}");
+        return null;
     }
-  }
+}
 
 Future<String?> readFile(String uri) async {
   try {
