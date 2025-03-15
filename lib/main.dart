@@ -186,7 +186,7 @@ Future<void> _saveIntentFile() async {
     final controller = CodeLineEditingController(
       codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
     );
-    final theFileName = fileName.isEmpty ? _getFileName(uri):fileName;
+    final theFileName = fileName.isEmpty ? uri:fileName;
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
