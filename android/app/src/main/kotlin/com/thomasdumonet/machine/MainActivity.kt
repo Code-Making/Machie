@@ -137,12 +137,27 @@ private fun handleIntent(intent: Intent) {
             } catch (e: SecurityException) {
                 false
             }
-            
+            val sendableUri = uri
+            if(writable == false){
+                val filePath = getRealPathFromURI(uri)
+                if (filePath != null) {
+                    uri = (Uri.fromFile(File(filePath)), true)
+                }
             MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                 "onIntentFile",
                 mapOf("uri" to uri.toString(), "writable" to writable)
             )
         }
+    }
+}
+
+private fun getRealPathFromURI(uri: Uri): String? {
+    val projection = arrayOf(MediaStore.MediaColumns.DATA)
+    return contentResolver.query(uri, projection, null, null, null)?.use {
+        if (it.moveToFirst()) {
+            val columnIndex = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+            it.getString(columnIndex)
+        } else null
     }
 }
 
