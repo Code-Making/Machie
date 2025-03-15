@@ -618,19 +618,37 @@ Future<String?> readFile(String uri) async {
 // Update the language mapping logic
 Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
   final extension = uri.split('.').last.toLowerCase();
-  final language = switch (extension) {
-    'dart' => {'lang': 'dart', 'mode': langDart},
-    'js' => {'lang': 'javascript', 'mode': langJavascript},
-    'py' => {'lang': 'python', 'mode': langPython},
-    'java' => {'lang': 'java', 'mode': langJava},
-    'cpp' => {'lang': 'cpp', 'mode': langCpp},
-    'css' => {'lang': 'css', 'mode': langCss},
-    'kt' => {'lang': 'kt', 'mode': langKotlin},
-    'json' => {'lang': 'json', 'mode': langJson},
-    'yaml' => {'lang': 'yaml', 'mode': langYaml},
-    'md' => {'lang': 'markdown', 'mode': langMarkdown},
-    _ => {'lang': 'plaintext', 'mode': langPlaintext},
-  };
   
-  return {extension!: CodeHighlightThemeMode(mode: language['mode']!)};
+  // Explicitly handle each case with proper typing
+  switch (extension) {
+    case 'dart':
+      return {'dart': CodeHighlightThemeMode(mode: langDart)};
+    case 'js':
+    case 'jsx':
+      return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
+    case 'ts':
+    case 'tsx':
+      return {'typescript': CodeHighlightThemeMode(mode: langTypescript)};
+    case 'py':
+      return {'python': CodeHighlightThemeMode(mode: langPython)};
+    case 'java':
+      return {'java': CodeHighlightThemeMode(mode: langJava)};
+    case 'cpp':
+    case 'cc':
+    case 'h':
+      return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
+    case 'css':
+      return {'css': CodeHighlightThemeMode(mode: langCss)};
+    case 'kt':
+      return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
+    case 'json':
+      return {'json': CodeHighlightThemeMode(mode: langJson)};
+    case 'yaml':
+    case 'yml':
+      return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
+    case 'md':
+      return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
+    default:
+      return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+  }
 }
