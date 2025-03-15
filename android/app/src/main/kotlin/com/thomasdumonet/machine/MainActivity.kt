@@ -130,23 +130,35 @@ private fun writeIntentFile(uri: Uri, content: String): Boolean {
 
 private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
-        intent.data?.let { uri ->
-            val writable = try {
+        intent.data?.let { originalUri ->
+            var uri = originalUri
+            var writable = try {
                 contentResolver.openFileDescriptor(uri, "rw")?.close()
                 true
             } catch (e: SecurityException) {
                 false
             }
-            val sendableUri = uri
-            if(writable == false){
+
+            if (!writable) {
                 val filePath = getRealPathFromURI(uri)
-                if (filePath != null) {
-                    uri = (Uri.fromFile(File(filePath)), true)
+                filePath?.let { path ->
+                    val fileUri = Uri.fromFile(File(path))
+                    // Check if we can write to the file path
+                    writable = try {
+                        File(path).canWrite()
+                    } catch (e: SecurityException) {
+                        false
+                    }
+                    uri = fileUri
                 }
             }
+
             MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                 "onIntentFile",
-                mapOf("uri" to uri.toString(), "writable" to writable)
+                mapOf(
+                    "uri" to uri.toString(),
+                    "writable" to writable
+                )
             )
         }
     }
