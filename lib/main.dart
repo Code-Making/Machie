@@ -328,7 +328,7 @@ Future<bool> _checkFileModified(String uri) async {
           if (_openedWithIntent)
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _intentFileWritable _saveIntentFile,
+              onPressed: _saveIntentFile,
               tooltip: 'Save File',
             )
           else ...[
