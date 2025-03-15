@@ -128,31 +128,34 @@ private fun writeIntentFile(uri: Uri, content: String): Boolean {
     }
 }
 
-// In MainActivity.kt
+// In MainActivity class
+private companion object {
+    const val REQUEST_CODE_SAVE_AS = 1024
+}
+
 private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
             try {
-                // Take persistent permissions first
                 contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
                 
-                // Check write capability using modern API
                 val writable = isUriWritable(uri)
                 
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                     "onIntentFile",
                     mapOf(
                         "uri" to uri.toString(),
                         "writable" to writable,
                         "filename" to getFileName(uri)
-                    )
+                    ) // Added missing closing parenthesis
+                )
             } catch (e: SecurityException) {
                 Log.e("SAF", "Permission error: ${e.message}")
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                     "onIntentFile",
                     mapOf(
                         "uri" to uri.toString(),
