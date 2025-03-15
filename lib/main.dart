@@ -14,7 +14,6 @@ void main() => runApp(const CodeEditorApp());
 class CodeEditorApp extends StatelessWidget {
   const CodeEditorApp({super.key});
 
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -26,13 +25,11 @@ class CodeEditorApp extends StatelessWidget {
 
 class EditorTab {
   final String uri;
-  final String fileName;
   final CodeLineEditingController controller;
   bool isDirty;
 
   EditorTab({
     required this.uri,
-    required this.fileName,
     required this.controller,
     this.isDirty = false,
   });
@@ -50,10 +47,7 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
-  String? _originalFileHash; // Add this line
-  bool _openedWithIntent = false;
-  String? _intentFileUri;
-  bool _intentFileWritable = false;
+    String? _originalFileHash; // Add this line
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
@@ -61,62 +55,6 @@ class _EditorScreenState extends State<EditorScreen> {
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
 
-    @override
-  void initState() {
-    super.initState();
-    _setupIntentHandler();
-  }
-
-    void _setupIntentHandler() {
-    const channel = MethodChannel('com.example/file_handler');
-    channel.setMethodCallHandler((call) async {
-      if (call.method == 'onIntentFile') {
-        final data = Map<String, dynamic>.from(call.arguments);
-        _handleIncomingIntent(
-          uri: data['uri'] as String,
-          writable: data['writable'] as bool,
-        );
-      }
-    });
-  }
-
-  void _handleIncomingIntent({required String uri, required bool writable}) {
-    if (!mounted) return;
-    
-    setState(() {
-      _openedWithIntent = true;
-      _intentFileUri = uri;
-      _intentFileWritable = writable;
-    });
-
-    if (!writable) {
-      _showError('File opened in read-only mode');
-    }
-
-    _openFileTab(uri);
-  }
-
-Future<void> _saveIntentFile() async {
-  if (_intentFileUri == null || !_intentFileWritable) return;
-
-  try {
-    final content = _tabs[_currentTabIndex].controller.text;
-    final success = await _fileHandler.writeIntentFile(
-      _intentFileUri!,
-      content,
-    );
-
-    if (success) {
-      _showSuccess('Saved successfully');
-      setState(() => _tabs[_currentTabIndex].isDirty = false);
-    } else {
-      _showError('Save failed');
-    }
-  } catch (e) {
-    _showError('Save error: ${e.toString()}');
-  }
-}
-  
 
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -128,19 +66,19 @@ Future<void> _saveIntentFile() async {
   Future<void> _openFolder() async {
     final uri = await _fileHandler.openFolder();
     if (uri != null) {
-      _loadDirectoryContents(uri, isRoot: true);
+      _loadDirectoryContents(uri);
     }
   }
 
-  Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
-    final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
+  Future<void> _loadDirectoryContents(String uri) async {
+    final contents = await _fileHandler.listDirectory(uri);
     if (contents != null) {
-        setState(() {
-            _currentDirUri = uri;
-            _directoryContents = contents;
-        });
+      setState(() {
+        _currentDirUri = uri;
+        _directoryContents = contents;
+      });
     }
-}
+  }
   
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -162,44 +100,30 @@ Future<void> _saveIntentFile() async {
     );
   }
 
-   Future<void> _openFileTab(String uri, {String fileName=""}) async {
+   Future<void> _openFileTab(String uri) async {
   try {
-    // Check if file is already open in a tab
-    for (int i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].uri == uri) {
-        setState(() {
-          _currentTabIndex = i;
-        });
-        _showSuccess('Switched to existing tab');
-        return;
-      }
-    }
-
     final content = await _fileHandler.readFile(uri);
-    if (content == null) {
-      _showError('Failed to read file');
-      return;
-    }
-
-    final isEmpty = content.isEmpty;
-    _originalFileHash = _calculateHash(content);
+    
+    // Allow empty files but handle them differently
+    final isEmpty = content?.isEmpty ?? true;
+    _originalFileHash = _calculateHash(content!);
     final controller = CodeLineEditingController(
-      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
+      codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content!),
     );
-    final theFileName = fileName.isEmpty ? uri:fileName;
+
     setState(() {
       _tabs.add(EditorTab(
         uri: uri,
-        fileName: theFileName,
         controller: controller,
-        isDirty: isEmpty,
+        isDirty: isEmpty // Mark empty files as dirty initially
       ));
       _currentTabIndex = _tabs.length - 1;
     });
 
     _showSuccess(isEmpty 
         ? 'Opened empty file' 
-        : 'Successfully opened file (${content.length} chars)');
+        : 'Successfully opened file (${content!.length} chars)');
+
   } on Exception catch (e) {
     _showError('Failed to open file: ${e.toString()}');
   }
@@ -278,105 +202,84 @@ Future<bool> _checkFileModified(String uri) async {
       }
     });
   }
-  
-  Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: contents.length,
-    itemBuilder: (context, index) {
-      final item = contents[index];
-      if (item['type'] == 'dir') {
-        return _DirectoryExpansionTile(
-          uri: item['uri'],
-          name: item['name'],
-          fileHandler: _fileHandler,
-          onFileTap: (uri) => _openFileTab(uri),
-        );
-      }
-      return ListTile(
-        leading: const Icon(Icons.insert_drive_file),
-        title: Text(item['name']),
-        onTap: () {
-          _openFileTab(item['uri']);
-          Navigator.pop(context);
-        },
-      );
-    },
-  );
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: _openedWithIntent ? null : _buildDrawer(),
       appBar: AppBar(
-        leading: _openedWithIntent 
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => exit(0),
-              )
-            : IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         title: Text(_tabs.isEmpty 
             ? 'No File Open' 
-            : _tabs[_currentTabIndex].fileName),
+            : _tabs[_currentTabIndex].uri.split('/').last),
         actions: [
-          if (_openedWithIntent)
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _intentFileWritable ? _saveIntentFile : null,
-              tooltip: 'Save File',
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.folder_open),
-              onPressed: _openFolder,
-              tooltip: 'Open Folder',
-            ),
-            IconButton(
-              icon: const Icon(Icons.file_open),
-              onPressed: _openFile,
-              tooltip: 'Open File',
-            ),
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _saveFile,
-              tooltip: 'Save File',
-            ),
-          ]
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            onPressed: _openFolder,
+            tooltip: 'Open Folder',
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_open),
+            onPressed: _openFile,
+            tooltip: 'Open File',
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _tabs.isNotEmpty ? _saveFile : null,
+            tooltip: 'Save File',
+          ),
         ],
       ),
+      drawer: _buildDrawer(),
       body: _buildEditorArea(),
     );
   }
 
   Widget _buildDrawer() {
-  return Drawer(
-    child: Column(
-      children: [
-        AppBar(
-            title: Text(_currentDirUri!=null ? _getFileName(_currentDirUri!):"Explorer"),
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-        Expanded(
-          child: _currentDirUri == null
-              ? const Center(child: Text('Open a folder to browse'))
-              : _buildDirectoryTree(_directoryContents),
-        ),
-      ],
-    ),
-  );
-}
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
+            title: const Text('Explorer'),
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          Expanded(
+            child: _currentDirUri == null
+                ? const Center(child: Text('Open a folder to browse'))
+                : ListView.builder(
+                    itemCount: _directoryContents.length,
+                    itemBuilder: (context, index) {
+                      final item = _directoryContents[index];
+                      return ListTile(
+                        leading: Icon(item['type'] == 'dir' 
+                            ? Icons.folder 
+                            : Icons.insert_drive_file),
+                        title: Text(item['name']),
+                        onTap: () {
+                          if (item['type'] == 'dir') {
+                            _loadDirectoryContents(item['uri']);
+                          } else {
+                            _openFileTab(item['uri']);
+                            Navigator.pop(context);
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 
     Widget _buildEditorArea() {
     return Column(
@@ -391,41 +294,12 @@ Future<bool> _checkFileModified(String uri) async {
                 final tab = _tabs[index];
                 return GestureDetector(
                   onTap: () => setState(() => _currentTabIndex = index),
-                  onLongPress: () {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(tab.uri),
-      actions: [
-        TextButton(
-          child: const Text('Close'),
-          onPressed: () {
-            _closeTab(index);
-            Navigator.pop(context);
-          },
-        ),
-        TextButton(
-          child: const Text('Close Others'),
-          onPressed: () {
-            _closeOtherTabs(index);
-            Navigator.pop(context);
-          },
-        ),
-      ],
-    ),
-  );
-},
                   child: Container(
                     decoration: BoxDecoration(
                       color: _currentTabIndex == index
                           ? Colors.grey[800]
                           : Colors.grey[900],
-                    border: Border(
-                      right: BorderSide(color: Colors.grey[700]!),
-                      bottom: _currentTabIndex == index
-                          ? BorderSide(color: Colors.blueAccent, width: 2)
-                          : BorderSide.none,
-                          ),                    
+                      border: Border(right: BorderSide(color: Colors.grey[700]!)),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
@@ -435,7 +309,7 @@ Future<bool> _checkFileModified(String uri) async {
                           onPressed: () => _closeTab(index),
                         ),
                         Text(
-                          tab.fileName,
+                          tab.uri.split('/').last,
                           style: TextStyle(
                             color: tab.isDirty ? Colors.orange : Colors.white,
                           ),
@@ -456,7 +330,7 @@ Future<bool> _checkFileModified(String uri) async {
                     controller: tab.controller,
                     style: CodeEditorStyle(
                       fontSize: 14,
-                      fontFamily: 'FiraMono',
+                      fontFamily: 'FiraCode',
                       codeTheme: CodeHighlightTheme(
                         languages: {'dart': CodeHighlightThemeMode(mode: langDart)},
                         theme: atomOneDarkTheme,
@@ -468,142 +342,11 @@ Future<bool> _checkFileModified(String uri) async {
       ],
     );
   }
-  void _closeOtherTabs(int keepIndex) {
-  setState(() {
-    _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
-    _currentTabIndex = 0;
-  });
 }
 
-String _getFormattedPath(String uri){
-    final parsed = Uri.parse(uri);
-  if (parsed.pathSegments.isNotEmpty) {
-    // Handle content URIs and normal file paths
-    return parsed.pathSegments.last.split(':').last;
-  }
-  // Fallback for unusual URI formats
-  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-}
-
-String _getFileName(String uri) {
-  final parsed = Uri.parse(uri);
-  if (parsed.pathSegments.isNotEmpty) {
-    // Handle content URIs and normal file paths
-    return parsed.pathSegments.last.split('/').last;
-  }
-  // Fallback for unusual URI formats
-  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-}
-}
-
-class _DirectoryExpansionTile extends StatefulWidget {
-  final String uri;
-  final String name;
-  final AndroidFileHandler fileHandler;
-  final Function(String) onFileTap;
-
-  const _DirectoryExpansionTile({
-    required this.uri,
-    required this.name,
-    required this.fileHandler,
-    required this.onFileTap,
-  });
-
-  @override
-  State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
-}
-
-// Update the _DirectoryExpansionTileState class
-class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
-  bool _isExpanded = false;
-  List<Map<String, dynamic>> _children = [];
-  bool _isLoading = false;
-
-  Widget _buildChildItems(List<Map<String, dynamic>> contents) {
-    
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: contents.length,
-      itemBuilder: (context, index) {
-        final item = contents[index];
-        if (item['type'] == 'dir') {
-          return _DirectoryExpansionTile(
-            uri: item['uri'],  // Pass the SUBFOLDER's URI here
-            name: item['name'],
-            fileHandler: widget.fileHandler,
-            onFileTap: widget.onFileTap,
-          );
-        }
-        return ListTile(
-          leading: const Icon(Icons.insert_drive_file),
-          title: Text(item['name']),
-          onTap: () => widget.onFileTap(item['uri']),
-        );
-      },
-    );
-  }
-
-  Future<void> _loadChildren() async {
-    setState(() => _isLoading = true);
-    try {
-        // In _loadChildren()
-      debugPrint('Loading children for: ${widget.uri}');
-      // Use the current directory's URI to load its contents
-      final contents = await widget.fileHandler.listDirectory(widget.uri);
-      if (contents != null) {
-        setState(() => _children = contents);
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ExpansionTile(
-      leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
-      title: Text(widget.name),
-      trailing: _isLoading 
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
-      onExpansionChanged: (expanded) async {
-        setState(() => _isExpanded = expanded);
-        if (expanded && _children.isEmpty) {
-          await _loadChildren();
-        }
-      },
-      children: [
-        if (_children.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: _buildChildItems(_children),
-          ),
-      ],
-    );
-  }
-}
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
-  
-  final Function(String)? onFileIntent;
-  
-  AndroidFileHandler({this.onFileIntent});
-
-  Future<void> _setupIntentHandler() async {
-    const channel = MethodChannel('com.example/file_handler');
-    channel.setMethodCallHandler((call) async {
-      if (call.method == 'openFileFromIntent' && onFileIntent != null) {
-        final uri = call.arguments as String;
-        onFileIntent!(uri);
-      }
-    });
-  }
   
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
@@ -633,18 +376,18 @@ class AndroidFileHandler {
     }
   }
 
-Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
+  Future<List<Map<String, dynamic>>?> listDirectory(String uri) async {
     try {
-        final result = await _channel.invokeMethod<List<dynamic>>(
-            'listDirectory',
-            {'uri': uri, 'isRoot': isRoot}
-        );
-        return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+      final result = await _channel.invokeMethod<List<dynamic>>(
+        'listDirectory',
+        {'uri': uri}
+      );
+      return result?.map((e) => Map<String, dynamic>.from(e)).toList();
     } on PlatformException catch (e) {
-        print("Error listing directory: ${e.message}");
-        return null;
+      print("Error listing directory: ${e.message}");
+      return null;
     }
-}
+  }
 
 Future<String?> readFile(String uri) async {
   try {
@@ -672,31 +415,20 @@ Future<String?> readFile(String uri) async {
   }
 }
 
-    Future<bool> writeIntentFile(String uri, String content) async {
-    try {
-      return await _channel.invokeMethod<bool>(
-        'writeIntentFile',
-        {'uri': uri, 'content': content},
-      ) ?? false;
-    } on PlatformException catch (e) {
-      print('Intent write error: ${e.message}');
-      return false;
-    }
-  }
-
   Future<bool> writeFile(String uri, String content) async {
   try {
     final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
       'writeFile',
-      {
-        'uri': uri,
-        'content': content,
-      }
+      {'uri': uri, 'content': content}
     );
-    return response?['success'] == true;
+
+    if (response?['success'] == true) {
+      return true;
+    }
+    
+    throw Exception(response?['error'] ?? 'Unknown write error');
   } on PlatformException catch (e) {
-    print("Write error: ${e.message}");
-    return false;
+    throw Exception('Platform error: ${e.message}');
   }
 }
 }
