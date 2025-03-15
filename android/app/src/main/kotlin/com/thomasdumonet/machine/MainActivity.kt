@@ -119,20 +119,6 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-private fun writeIntentFile(uri: Uri, content: String): Boolean {
-    return try {
-        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-            FileOutputStream(pfd.fileDescriptor).use { fos ->
-                fos.write(content.toByteArray())
-                true
-            }
-        } ?: false
-    } catch (e: Exception) {
-        Log.e("SAF", "Intent write failed", e)
-        false
-    }
-}
-
 // In MainActivity class
 private companion object {
     const val REQUEST_CODE_SAVE_AS = 1024
