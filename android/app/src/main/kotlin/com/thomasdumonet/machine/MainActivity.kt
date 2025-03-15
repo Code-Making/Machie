@@ -143,6 +143,7 @@ private fun handleIntent(intent: Intent) {
                 if (filePath != null) {
                     uri = (Uri.fromFile(File(filePath)), true);
                 }
+            }
             MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                 "onIntentFile",
                 mapOf("uri" to uri.toString(), "writable" to writable)
