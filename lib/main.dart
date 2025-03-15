@@ -315,7 +315,7 @@ Future<bool> _checkFileModified(String uri) async {
         leading: _openedWithIntent 
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => {Navigator.pop(context); exit(0)},
               )
             : IconButton(
                 icon: const Icon(Icons.menu),
