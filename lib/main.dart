@@ -620,7 +620,7 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
   final extension = uri.split('.').last.toLowerCase();
   final language = switch (extension) {
     'dart' => {'lang': 'dart', 'mode': langDart},
-    'js' => {'lang': 'javascript', 'mode': langJavaScript},
+    'js' => {'lang': 'javascript', 'mode': langJavascript},
     'py' => {'lang': 'python', 'mode': langPython},
     'java' => {'lang': 'java', 'mode': langJava},
     'cpp' => {'lang': 'cpp', 'mode': langCpp},
@@ -629,7 +629,7 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     'json' => {'lang': 'json', 'mode': langJson},
     'yaml' => {'lang': 'yaml', 'mode': langYaml},
     'md' => {'lang': 'markdown', 'mode': langMarkdown},
-    _ => {'lang': 'plaintext', 'mode': langPlainText},
+    _ => {'lang': 'plaintext', 'mode': langPlaintext},
   };
   
   return {language['lang']!: CodeHighlightThemeMode(mode: language['mode']!)};
