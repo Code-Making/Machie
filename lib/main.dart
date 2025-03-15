@@ -84,7 +84,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (!mounted) return;
     
     setState(() {
-      _openedWithIntent = true;
+      _openedWithIntent = false;
       _intentFileUri = uri;
       _intentFileWritable = writable;
     });
