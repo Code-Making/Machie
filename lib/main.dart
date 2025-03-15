@@ -15,7 +15,6 @@ import 'package:re_highlight/languages/javascript.dart';
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/css.dart';
-import 'package:re_highlight/languages/html.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/languages/markdown.dart';
@@ -638,9 +637,6 @@ CodeHighlightThemeMode _getLanguageMode(String uri) {
       return CodeHighlightThemeMode(mode: langCpp);
     case 'css':
       return CodeHighlightThemeMode(mode: langCss);
-    case 'html':
-    case 'htm':
-      return CodeHighlightThemeMode(mode: langHtml);
     case 'json':
       return CodeHighlightThemeMode(mode: langJson);
     case 'yaml':
