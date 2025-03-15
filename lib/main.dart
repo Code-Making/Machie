@@ -396,9 +396,7 @@ Future<bool> _checkFileModified(String uri) async {
                       fontSize: 14,
                       fontFamily: 'FiraMono',
                       codeTheme: CodeHighlightTheme(
-                      languages: {
-                        _getLanguageMode(tab.uri)
-                      },         
+                      languages: _getLanguageMode(tab.uri),         
                       theme: atomOneDarkTheme,
                       ),
                     ),
