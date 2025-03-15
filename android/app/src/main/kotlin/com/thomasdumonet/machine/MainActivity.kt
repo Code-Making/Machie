@@ -132,7 +132,7 @@ private fun handleIntent(intent: Intent) {
                 // Check write capability using modern SAF methods
                 val writable = isUriWritable(uri)
                 
-                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                     "onIntentFile",
                     mapOf(
                         "uri" to uri.toString(),
