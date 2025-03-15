@@ -632,5 +632,5 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     _ => {'lang': 'plaintext', 'mode': langPlaintext},
   };
   
-  return {extension: CodeHighlightThemeMode(mode: language['mode']!)};
+  return {extension!: CodeHighlightThemeMode(mode: language['mode']!)};
 }
