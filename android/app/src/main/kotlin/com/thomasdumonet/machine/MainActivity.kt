@@ -116,7 +116,7 @@ class MainActivity: FlutterActivity() {
     
 private fun writeIntentFile(uri: Uri, content: String): Boolean {
     return try {
-        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+        contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
             FileOutputStream(pfd.fileDescriptor).use { fos ->
                 fos.write(content.toByteArray())
                 true
