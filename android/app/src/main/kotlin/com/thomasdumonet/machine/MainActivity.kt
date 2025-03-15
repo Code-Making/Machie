@@ -137,11 +137,11 @@ private fun handleIntent(intent: Intent) {
             } catch (e: SecurityException) {
                 false
             }
-            val sendableUri = uri
+            val sendableUri = uri;
             if(writable == false){
                 val filePath = getRealPathFromURI(uri)
                 if (filePath != null) {
-                    uri = (Uri.fromFile(File(filePath)), true)
+                    uri = (Uri.fromFile(File(filePath)), true);
                 }
             MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                 "onIntentFile",
