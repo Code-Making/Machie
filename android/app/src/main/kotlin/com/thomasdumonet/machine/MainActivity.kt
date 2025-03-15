@@ -82,7 +82,7 @@ class MainActivity: FlutterActivity() {
                         val uri = Uri.parse(call.argument<String>("uri"))
                         val content = call.argument<String>("content")!!
                         val success = writeIntentFile(uri, content)
-                        result.success(mapOf("success" to success))
+                        result.success(success)
                     } catch (e: Exception) {
                         result.error(
                             "WRITE_ERROR", 
