@@ -626,7 +626,7 @@ CodeHighlightThemeMode _getLanguageMode(String uri) {
     'java' => langJava,
     'cpp' => langCpp,
     'css' => langCss,
-    'html' => langHtml,
+    'kt' => langKotlin,
     'json' => langJson,
     'yaml' => langYaml,
     'md' => langMarkdown,
