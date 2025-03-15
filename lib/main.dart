@@ -617,21 +617,22 @@ Future<String?> readFile(String uri) async {
 }
 
 // Add this extension-to-language mapper in your _EditorScreenState class
-CodeHighlightThemeMode _getLanguageMode(String uri) {
+// Update the language mapping logic
+Map<String, CodeHighlightThemeMode> _getLanguageThemes(String uri) {
   final extension = uri.split('.').last.toLowerCase();
   final language = switch (extension) {
-    'dart' => langDart,
-    'js' => langJavaScript,
-    'py' => langPython,
-    'java' => langJava,
-    'cpp' => langCpp,
-    'css' => langCss,
-    'kt' => langKotlin,
-    'json' => langJson,
-    'yaml' => langYaml,
-    'md' => langMarkdown,
-    _ => langPlainText,
+    'dart' => {'lang': 'dart', 'mode': langDart},
+    'js' => {'lang': 'javascript', 'mode': langJavaScript},
+    'py' => {'lang': 'python', 'mode': langPython},
+    'java' => {'lang': 'java', 'mode': langJava},
+    'cpp' => {'lang': 'cpp', 'mode': langCpp},
+    'css' => {'lang': 'css', 'mode': langCss},
+    'kt' => {'lang': 'kt', 'mode': langKotlin},
+    'json' => {'lang': 'json', 'mode': langJson},
+    'yaml' => {'lang': 'yaml', 'mode': langYaml},
+    'md' => {'lang': 'markdown', 'mode': langMarkdown},
+    _ => {'lang': 'plaintext', 'mode': langPlainText},
   };
   
-  return CodeHighlightThemeMode(mode: language);
+  return {language['lang']!: CodeHighlightThemeMode(mode: language['mode']!)};
 }
