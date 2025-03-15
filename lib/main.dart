@@ -392,13 +392,7 @@ Future<bool> _checkFileModified(String uri) async {
                   index: _currentTabIndex,
                   children: _tabs.map((tab) => CodeEditor(
                     controller: tab.controller,
-                    style: CodeEditorStyle(
-                      fontSize: 14,
-                      fontFamily: 'FiraMono',
-                      codeTheme: CodeHighlightTheme(
-                      languages: _getLanguageMode(tab.uri),         
-                      theme: atomOneDarkTheme,
-                      indicatorBuilder: (context, editingController, chunkController, notifier) {
+                    indicatorBuilder: (context, editingController, chunkController, notifier) {
                             return Row(
                               children: [
                                 DefaultCodeLineNumber(
@@ -413,6 +407,12 @@ Future<bool> _checkFileModified(String uri) async {
                               ],
                             );
                           },
+                    style: CodeEditorStyle(
+                      fontSize: 14,
+                      fontFamily: 'FiraMono',
+                      codeTheme: CodeHighlightTheme(
+                      languages: _getLanguageMode(tab.uri),         
+                      theme: atomOneDarkTheme,
                       ),
                     ),
                   )).toList(),
