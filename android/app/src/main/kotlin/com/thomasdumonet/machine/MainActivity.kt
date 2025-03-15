@@ -15,7 +15,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.*
 import android.os.Bundle
-
+// Add at top of file
+import android.content.ContentResolver
 // At the top of MainActivity.kt
 import android.provider.OpenableColumns
 import android.os.Build
@@ -137,7 +138,7 @@ private fun handleIntent(intent: Intent) {
                         "uri" to uri.toString(),
                         "writable" to writable,
                         "fileName" to getFileNameFromUri(uri)
-                    )
+                    ))
             } catch (e: Exception) {
                 Log.e("SAF", "Intent handling error", e)
             }
