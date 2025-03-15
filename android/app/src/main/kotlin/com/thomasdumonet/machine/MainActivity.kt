@@ -100,42 +100,51 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-    private fun handleIntent(intent: Intent) {
+@SuppressLint("Recycle")
+private fun writeIntentFile(uri: Uri, content: String): Boolean {
+    return try {
+        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+            FileOutputStream(pfd.fileDescriptor).use { fos ->
+                fos.write(content.toByteArray())
+                true
+            }
+        } ?: false
+    } catch (e: Exception) {
+        Log.e("SAF", "Intent write failed", e)
+        false
+    }
+}
+
+private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
-            // Take persistent permissions
-            persistUriPermission(uri)
+            val writable = try {
+                contentResolver.openFileDescriptor(uri, "wt")?.close()
+                true
+            } catch (e: SecurityException) {
+                false
+            }
             
-            // Get real filename
-            val fileName = getFileNameFromUri(uri)
-            
-            // Send both URI and filename to Flutter
-            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example/file_handler")
-                .invokeMethod("openFileFromIntent", mapOf(
-                    "uri" to uri.toString(),
-                    "fileName" to fileName
-                ))
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                "onIntentFile",
+                mapOf("uri" to uri.toString(), "writable" to writable)
+            )
         }
     }
 }
 
-private fun writeContentUri(uri: Uri, content: String): FileWriteResult {
+private fun writeContentUri(uri: Uri, content: String): Boolean {
     return try {
-        contentResolver.openOutputStream(uri, "wt")?.use { stream ->
-            stream.write(content.toByteArray())
-            
-            // Verify through direct content provider
-            val written = contentResolver.openInputStream(uri)!!
-                .bufferedReader().use { it.readText() }
-                
-            if (content == written) {
-                FileWriteResult(true, null, content.md5())
-            } else {
-                FileWriteResult(false, "Write verification failed", null)
+        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+            FileOutputStream(pfd.fileDescriptor).use { stream ->
+                stream.write(content.toByteArray())
+                stream.flush()
+                true
             }
-        } ?: FileWriteResult(false, "Failed to open stream", null)
+        } ?: false
     } catch (e: Exception) {
-        FileWriteResult(false, "SAF Write Error: ${e.message}", null)
+        Log.e("SAF", "Write error: ${e.message}")
+        false
     }
 }
 
