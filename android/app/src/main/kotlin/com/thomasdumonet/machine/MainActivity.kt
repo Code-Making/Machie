@@ -118,7 +118,7 @@ private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
             val writable = try {
-                contentResolver.openFileDescriptor(uri, "wt")?.close()
+                contentResolver.openFileDescriptor(uri, "w")?.close()
                 true
             } catch (e: SecurityException) {
                 false
