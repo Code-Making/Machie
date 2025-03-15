@@ -7,7 +7,7 @@ import android.util.Log
 import java.security.MessageDigest
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
-import android.provider.MediaStore
+
 import android.provider.DocumentsContract
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -15,7 +15,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.*
 import android.os.Bundle
-import android.os.Environment
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example/file_handler"
@@ -131,88 +130,22 @@ private fun writeIntentFile(uri: Uri, content: String): Boolean {
 
 private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
-        intent.data?.let { originalUri ->
-            var uri = originalUri
-            var writable = try {
+        intent.data?.let { uri ->
+            val writable = try {
                 contentResolver.openFileDescriptor(uri, "rw")?.close()
                 true
             } catch (e: SecurityException) {
                 false
             }
-
-            if (!writable) {
-                val filePath = getRealPathFromURI(uri)
-                filePath?.let { path ->
-                    val fileUri = Uri.fromFile(File(path))
-                    // Check if we can write to the file path
-                    contentResolver.takePersistableUriPermission(fileUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                    writable = true
-                    uri = fileUri
-                }
-            }
-
+            
             MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                 "onIntentFile",
-                mapOf(
-                    "uri" to uri.toString(),
-                    "writable" to writable
-                )
+                mapOf("uri" to uri.toString(), "writable" to writable)
             )
         }
     }
 }
 
-private fun getRealPathFromURI(uri: Uri): String? {
-    return when {
-        // Handle document URIs (SAF)
-        DocumentsContract.isDocumentUri(context, uri) -> {
-            val docId = DocumentsContract.getDocumentId(uri)
-            when {
-                // MediaProvider
-                docId.startsWith("raw:") -> docId.substringAfter("raw:")
-                docId.startsWith("msf:") -> null // Microsoft files
-                else -> {
-                    val split = docId.split(":")
-                    val type = split[0]
-                    
-                    val contentUri = when (type) {
-                        "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                        "video" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                        "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                        else -> MediaStore.Files.getContentUri("external")
-                    }
-                    
-                    val selection = "_id=?"
-                    val selectionArgs = arrayOf(split[1])
-                    
-                    contentResolver.query(
-                        contentUri,
-                        arrayOf(MediaStore.MediaColumns.DATA),
-                        selection,
-                        selectionArgs,
-                        null
-                    )?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA))
-                        } else null
-                    }
-                }
-            }
-        }
-        // MediaStore (non-document URIs)
-        "content".equals(uri.scheme, ignoreCase = true) -> {
-            contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA))
-                    } else null
-                }
-        }
-        // File URIs
-        "file".equals(uri.scheme, ignoreCase = true) -> uri.path
-        else -> null
-    }
-}
 private fun writeContentUri(uri: Uri, content: String): Boolean {
     return try {
         contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
