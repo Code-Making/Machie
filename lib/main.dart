@@ -19,7 +19,7 @@ import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/kotlin.dart';
-
+import 'package:re_highlight/languages/plaintext.dart';
 
 
 
