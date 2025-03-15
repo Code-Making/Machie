@@ -15,12 +15,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.*
 import android.os.Bundle
-// Add at top of file
-import android.content.ContentResolver
-// At the top of MainActivity.kt
-import android.provider.OpenableColumns
-import android.os.Build
-import androidx.annotation.RequiresApi
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example/file_handler"
@@ -120,59 +114,6 @@ class MainActivity: FlutterActivity() {
       handleIntent(intent)
     }
     
-// In MainActivity class
-private companion object {
-    const val REQUEST_CODE_SAVE_AS = 1024
-}
-
-private fun handleIntent(intent: Intent) {
-    if (intent.action == Intent.ACTION_VIEW) {
-        intent.data?.let { uri ->
-            try {
-                // Check write capability using modern SAF methods
-                val writable = isUriWritable(uri)
-                
-                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
-                    "onIntentFile",
-                    mapOf(
-                        "uri" to uri.toString(),
-                        "writable" to writable,
-                        "fileName" to getFileNameFromUri(uri)
-                    ))
-            } catch (e: Exception) {
-                Log.e("SAF", "Intent handling error", e)
-            }
-        }
-    }
-}
-
-private fun isUriWritable(uri: Uri): Boolean {
-    return try {
-        // Try to open in write-truncate mode
-        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-            // Immediately close if successful
-            true
-        } ?: false
-    } catch (e: SecurityException) {
-        false
-    } catch (e: FileNotFoundException) {
-        false
-    }
-}
-
-private fun getFileNameFromUri(uri: Uri): String {
-    return when (uri.scheme) {
-        ContentResolver.SCHEME_CONTENT -> {
-            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                cursor.moveToFirst()
-                cursor.getString(nameIndex) ?: "unnamed"
-            } ?: "unnamed"
-        }
-        else -> uri.lastPathSegment ?: "unnamed"
-    }
-}
-
 private fun writeIntentFile(uri: Uri, content: String): Boolean {
     return try {
         contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
@@ -182,15 +123,51 @@ private fun writeIntentFile(uri: Uri, content: String): Boolean {
             }
         } ?: false
     } catch (e: Exception) {
-        Log.e("SAF", "Intent file write failed", e)
+        Log.e("SAF", "Intent write failed", e)
         false
     }
 }
 
+private fun handleIntent(intent: Intent) {
+    if (intent.action == Intent.ACTION_VIEW) {
+        intent.data?.let { uri ->
+            val writable = try {
+                contentResolver.openFileDescriptor(uri, "rw")?.close()
+                true
+            } catch (e: SecurityException) {
+                false
+            }
+            
+            MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                "onIntentFile",
+                mapOf("uri" to uri.toString(), "writable" to writable)
+            )
+        }
+    }
+}
 
+private fun writeContentUri(uri: Uri, content: String): Boolean {
+    return try {
+        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+            FileOutputStream(pfd.fileDescriptor).use { stream ->
+                stream.write(content.toByteArray())
+                stream.flush()
+                true
+            }
+        } ?: false
+    } catch (e: Exception) {
+        Log.e("SAF", "Write error: ${e.message}")
+        false
+    }
+}
 
-
-
+private fun getFileNameFromUri(uri: Uri): String {
+    return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        cursor.moveToFirst()
+        cursor.getString(nameIndex)
+    } ?: uri.lastPathSegment ?: "untitled"
+}
 
     private fun handleOpenFileResult(resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && data != null) {
