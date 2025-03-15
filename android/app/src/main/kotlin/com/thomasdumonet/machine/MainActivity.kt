@@ -142,32 +142,18 @@ private fun handleIntent(intent: Intent) {
     if (intent.action == Intent.ACTION_VIEW) {
         intent.data?.let { uri ->
             try {
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-                
+                // Check write capability using modern SAF methods
                 val writable = isUriWritable(uri)
                 
-                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
+                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
                     "onIntentFile",
                     mapOf(
                         "uri" to uri.toString(),
                         "writable" to writable,
-                        "filename" to getFileName(uri)
-                    ) // Added missing closing parenthesis
-                )
-            } catch (e: SecurityException) {
-                Log.e("SAF", "Permission error: ${e.message}")
-                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod(
-                    "onIntentFile",
-                    mapOf(
-                        "uri" to uri.toString(),
-                        "writable" to false,
-                        "error" to "Missing write permission"
+                        "fileName" to getFileNameFromUri(uri)
                     )
-                )
+            } catch (e: Exception) {
+                Log.e("SAF", "Intent handling error", e)
             }
         }
     }
@@ -175,57 +161,47 @@ private fun handleIntent(intent: Intent) {
 
 private fun isUriWritable(uri: Uri): Boolean {
     return try {
-        contentResolver.openFileDescriptor(uri, "wa")?.use { 
-            // "wa" = write/append mode
-            it.close()
+        // Try to open in write-truncate mode
+        contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+            // Immediately close if successful
             true
         } ?: false
-    } catch (e: FileNotFoundException) {
-        false
     } catch (e: SecurityException) {
+        false
+    } catch (e: FileNotFoundException) {
         false
     }
 }
 
-private fun getFileName(uri: Uri): String {
+private fun getFileNameFromUri(uri: Uri): String {
     return when (uri.scheme) {
-        "content" -> {
+        ContentResolver.SCHEME_CONTENT -> {
             contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 cursor.moveToFirst()
                 cursor.getString(nameIndex) ?: "unnamed"
             } ?: "unnamed"
         }
-        else -> uri.path?.substringAfterLast('/') ?: "unnamed"
+        else -> uri.lastPathSegment ?: "unnamed"
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-private fun saveWithSAF(originalUri: Uri, content: String): Boolean {
-    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-        addCategory(Intent.CATEGORY_OPENABLE)
-        type = contentResolver.getType(originalUri) ?: "*/*"
-        putExtra(Intent.EXTRA_TITLE, getFileName(originalUri))
-    }
-
-    startActivityForResult(intent, REQUEST_CODE_SAVE_AS)
-    return true
-}
-
-private fun writeContentUri(uri: Uri, content: String): Boolean {
+private fun writeIntentFile(uri: Uri, content: String): Boolean {
     return try {
         contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-            FileOutputStream(pfd.fileDescriptor).use { stream ->
-                stream.write(content.toByteArray())
-                stream.flush()
+            FileOutputStream(pfd.fileDescriptor).use { fos ->
+                fos.write(content.toByteArray())
                 true
             }
         } ?: false
     } catch (e: Exception) {
-        Log.e("SAF", "Write error: ${e.message}")
+        Log.e("SAF", "Intent file write failed", e)
         false
     }
 }
+
+
+
 
 private fun getFileNameFromUri(uri: Uri): String {
     return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
