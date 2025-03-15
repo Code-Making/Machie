@@ -605,32 +605,6 @@ class AndroidFileHandler {
     });
   }
   
-    Future<bool> saveContentUri(String uri, String content) async {
-    try {
-      return await _channel.invokeMethod<bool>('saveContentUri', {
-        'uri': uri,
-        'content': content,
-      }) ?? false;
-    } on PlatformException catch (e) {
-      if (e.code == 'permission_denied') {
-        return await _saveWithSAFFallback(uri, content);
-      }
-      return false;
-    }
-  }
-
-  Future<bool> _saveWithSAFFallback(String uri, String content) async {
-    try {
-      final newUri = await _channel.invokeMethod<String>('saveWithSAF', {
-        'originalUri': uri,
-        'content': content,
-      });
-      return newUri != null;
-    } catch (e) {
-      return false;
-    }
-  }
-  
   Future<bool> _requestPermissions() async {
     if (await Permission.storage.request().isGranted) {
       return true;
