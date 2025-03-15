@@ -9,17 +9,17 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
-import 'package:re_highlight/styles/languages/dart.dart';
-import 'package:re_highlight/styles/languages/python.dart';
-import 'package:re_highlight/styles/languages/javascript.dart';
-import 'package:re_highlight/styles/languages/java.dart';
-import 'package:re_highlight/styles/languages/cpp.dart';
-import 'package:re_highlight/styles/languages/css.dart';
-import 'package:re_highlight/styles/languages/html.dart';
-import 'package:re_highlight/styles/languages/json.dart';
-import 'package:re_highlight/styles/languages/yaml.dart';
-import 'package:re_highlight/styles/languages/markdown.dart';
-import 'package:re_highlight/styles/languages/kotlin.dart';
+import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/javascript.dart';
+import 'package:re_highlight/languages/java.dart';
+import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/css.dart';
+import 'package:re_highlight/languages/html.dart';
+import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/yaml.dart';
+import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/kotlin.dart';
 
 
 
