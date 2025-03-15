@@ -61,22 +61,36 @@ class MainActivity: FlutterActivity() {
                     )
                     result.success(response) // Use method channel result
                 }
-                // In MainActivity.kt
-// Update the writeFile handler block
-"writeFile" -> {
-    val uri = Uri.parse(call.argument<String>("uri"))
-    val content = call.argument<String>("content")!!
-    
-    // Rename local variable to avoid shadowing
-    val writeResult = writeFileContent(uri, content)
-    
-    // Use the method channel's result parameter
-    result.success(mapOf(
-        "success" to writeResult.success,
-        "error" to writeResult.error,
-        "checksum" to writeResult.checksum
-    ))
-}
+                                // In MainActivity.kt
+                // Update the writeFile handler block
+                "writeFile" -> {
+                    val uri = Uri.parse(call.argument<String>("uri"))
+                    val content = call.argument<String>("content")!!
+                    
+                    // Rename local variable to avoid shadowing
+                    val writeResult = writeFileContent(uri, content)
+                    
+                    // Use the method channel's result parameter
+                    result.success(mapOf(
+                        "success" to writeResult.success,
+                        "error" to writeResult.error,
+                        "checksum" to writeResult.checksum
+                    ))
+                }
+                "writeIntentFile" -> {
+                    try {
+                        val uri = Uri.parse(call.argument<String>("uri"))
+                        val content = call.argument<String>("content")!!
+                        val success = writeIntentFile(uri, content)
+                        result.success(mapOf("success" to success))
+                    } catch (e: Exception) {
+                        result.error(
+                            "WRITE_ERROR", 
+                            "Failed to write intent file: ${e.localizedMessage}", 
+                            null
+                        )
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
