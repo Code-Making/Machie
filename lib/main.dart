@@ -396,7 +396,9 @@ Future<bool> _checkFileModified(String uri) async {
                       fontSize: 14,
                       fontFamily: 'FiraMono',
                       codeTheme: CodeHighlightTheme(
-                      languages: _getLanguageMode(tab.uri),
+                      languages: {
+                        _getLanguageMode(tab.uri).mode.language: _getLanguageMode(tab.uri)
+                      },         
                       theme: atomOneDarkTheme,
                       ),
                     ),
@@ -617,35 +619,19 @@ Future<String?> readFile(String uri) async {
 // Add this extension-to-language mapper in your _EditorScreenState class
 CodeHighlightThemeMode _getLanguageMode(String uri) {
   final extension = uri.split('.').last.toLowerCase();
-  switch (extension) {
-    case 'dart':
-      return CodeHighlightThemeMode(mode: langDart);
-    case 'js':
-    case 'jsx':
-      return CodeHighlightThemeMode(mode: langJavaScript);
-    case 'ts':
-    case 'tsx':
-      return CodeHighlightThemeMode(mode: langTypeScript);
-    case 'py':
-      return CodeHighlightThemeMode(mode: langPython);
-    case 'java':
-      return CodeHighlightThemeMode(mode: langJava);
-    case 'cpp':
-    case 'cc':
-    case 'h':
-      return CodeHighlightThemeMode(mode: langCpp);
-    case 'css':
-      return CodeHighlightThemeMode(mode: langCss);
-    case 'json':
-      return CodeHighlightThemeMode(mode: langJson);
-    case 'yaml':
-    case 'yml':
-      return CodeHighlightThemeMode(mode: langYaml);
-    case 'md':
-      return CodeHighlightThemeMode(mode: langMarkdown);
-    case 'kt':
-      return CodeHighlightThemeMode(mode: langKotlin);
-    default:
-      return CodeHighlightThemeMode(mode: langPlainText);
-  }
+  final language = switch (extension) {
+    'dart' => langDart,
+    'js' => langJavaScript,
+    'py' => langPython,
+    'java' => langJava,
+    'cpp' => langCpp,
+    'css' => langCss,
+    'html' => langHtml,
+    'json' => langJson,
+    'yaml' => langYaml,
+    'md' => langMarkdown,
+    _ => langPlainText,
+  };
+  
+  return CodeHighlightThemeMode(mode: language);
 }
