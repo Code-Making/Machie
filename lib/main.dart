@@ -157,46 +157,61 @@ class _EditorScreenState extends State<EditorScreen> {
         }
 
 Widget _buildBottomToolbar() {
-    final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
-    final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
+  final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
+  final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
 
-    return CodeEditorTapRegion(
-      child: Container(
-        height: 48,
-        color: Colors.grey[900],
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.content_copy, size: 20),
-              onPressed: hasActiveTab ? () => controller!.copy() : null,
-              tooltip: 'Copy',
-            ),
-            IconButton(
-              icon: const Icon(Icons.content_cut, size: 20),
-              onPressed: hasActiveTab ? () => controller!.cut() : null,
-              tooltip: 'Cut',
-            ),
-            IconButton(
-              icon: const Icon(Icons.content_paste, size: 20),
-              onPressed: hasActiveTab ? () => controller!.paste() : null,
-              tooltip: 'Paste',
-            ),
-            const VerticalDivider(width: 20),
-            IconButton(
-              icon: const Icon(Icons.arrow_upward, size: 20),
-              onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
-              tooltip: 'Move Line Up',
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_downward, size: 20),
-              onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
-              tooltip: 'Move Line Down',
-            ),
-          ],
-        ),
+  return CodeEditorTapRegion(
+    child: Container(
+      height: 48,
+      color: Colors.grey[900],
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.content_copy, size: 20),
+            onPressed: hasActiveTab ? () => controller!.copy() : null,
+            tooltip: 'Copy',
+          ),
+          IconButton(
+            icon: const Icon(Icons.content_cut, size: 20),
+            onPressed: hasActiveTab ? () => controller!.cut() : null,
+            tooltip: 'Cut',
+          ),
+          IconButton(
+            icon: const Icon(Icons.content_paste, size: 20),
+            onPressed: hasActiveTab ? () => controller!.paste() : null,
+            tooltip: 'Paste',
+          ),
+          const VerticalDivider(width: 20),
+          IconButton(
+            icon: const Icon(Icons.arrow_upward, size: 20),
+            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+            tooltip: 'Move Line Up',
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_downward, size: 20),
+            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+            tooltip: 'Move Line Down',
+          ),
+          const VerticalDivider(width: 20),
+          IconButton(
+            icon: const Icon(Icons.undo, size: 20),
+            onPressed: (hasActiveTab && controller!.canUndo) 
+              ? () => controller!.undo() 
+              : null,
+            tooltip: 'Undo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo, size: 20),
+            onPressed: (hasActiveTab && controller!.canRedo)
+              ? () => controller!.redo()
+              : null,
+            tooltip: 'Redo',
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
 
   Future<void> _saveFile() async {
