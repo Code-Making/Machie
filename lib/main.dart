@@ -626,9 +626,6 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     case 'js':
     case 'jsx':
       return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
-    case 'ts':
-    case 'tsx':
-      return {'typescript': CodeHighlightThemeMode(mode: langTypescript)};
     case 'py':
       return {'python': CodeHighlightThemeMode(mode: langPython)};
     case 'java':
