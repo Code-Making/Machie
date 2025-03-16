@@ -564,25 +564,24 @@ Future<bool> _checkFileModified(String uri) async {
           child: CodeEditor(
                     controller: tab.controller,
                     indicatorBuilder: (context, editingController, chunkController, notifier) {
-  return Row(
-    children: [
-      // Custom line number widget that absorbs taps
-      GestureDetector(
+                            return Row(
+                              children: [GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {}, // Absorb taps
-        child: CustomLineNumberWidget(
-          controller: editingController,
-          notifier: notifier,
-        ),
-      ),
-      DefaultCodeChunkIndicator(
-        width: 20,
-        controller: chunkController,
-        notifier: notifier,
-      ),
-    ],
-  );
-},
+        child:
+                                DefaultCodeLineNumber(
+                                  controller: editingController,
+                                  notifier: notifier,
+                                ),
+                                ),
+                                DefaultCodeChunkIndicator(
+                                  width: 20,
+                                  controller: chunkController,
+                                  notifier: notifier,
+                                ),
+                              ],
+                            );
+                          },
                     style: CodeEditorStyle(
                       fontSize: 12,
                       fontFamily: 'JetBrainsMono',
@@ -655,48 +654,6 @@ String _getFileName(String uri) {
   // Fallback for unusual URI formats
   return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
 }
-}
-
-class CustomLineNumberWidget extends StatelessWidget {
-  final CodeLineEditingController controller;
-  final CodeLineEditingNotifier notifier;
-
-  const CustomLineNumberWidget({
-    super.key,
-    required this.controller,
-    required this.notifier,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<CodeLineEditingValue>(
-      valueListenable: controller,
-      builder: (context, value, child) {
-        return Container(
-          color: Colors.grey[900],
-          padding: const EdgeInsets.only(right: 8),
-          child: ListView.builder(
-            itemCount: value.codeLines.length,
-            itemBuilder: (context, index) {
-              return SizedBox(
-                height: notifier.lineHeight,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _DirectoryExpansionTile extends StatefulWidget {
