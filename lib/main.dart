@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:async';
 import 'package:crypto/crypto.dart';
 
 import 'dart:io';
@@ -74,8 +73,7 @@ class _EditorScreenState extends State<EditorScreen> {
   
     late FocusNode _editorFocusNode;
   late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
-  Timer? _tapTimer;
-  bool _isDoubleTap = false;
+
   
     @override
   void initState() {
@@ -92,7 +90,6 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     _editorFocusNode.dispose();
-        _tapTimer?.cancel();
     super.dispose();
   }
 
@@ -556,13 +553,7 @@ Future<bool> _checkFileModified(String uri) async {
     return Focus(
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
-      child:  GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTapDown: (_) => _handleTapDown(),
-      onDoubleTap: _handleDoubleTap,
-        child: Listener(
-          onPointerDown: (_) => _handleSelectionStart(tab.controller),
-          child: CodeEditor(
+      child: CodeEditor(
                     controller: tab.controller,
                     indicatorBuilder: (context, editingController, chunkController, notifier) {
                             return GestureDetector(
@@ -595,24 +586,10 @@ Future<bool> _checkFileModified(String uri) async {
 
                   ),
         ),
-      ),
     );
   }
   
-  void _handleTapDown() {
-  _tapTimer?.cancel();
-  _isDoubleTap = false;
-  _tapTimer = Timer(const Duration(milliseconds: 300), () {
-    if (!_isDoubleTap && !_editorFocusNode.hasFocus) {
-      _editorFocusNode.requestFocus();
-    }
-  });
-}
-
-void _handleDoubleTap() {
-  _isDoubleTap = true;
-  _tapTimer?.cancel();
-}
+    
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
     if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
