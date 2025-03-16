@@ -946,7 +946,7 @@ CodeCommentFormatter _getCommentFormatter(String uri) {
   final extension = uri.split('.').last.toLowerCase();
   switch (extension) {
     case 'dart':
-      return const DefaultCodeCommentFormatter(
+      return DefaultCodeCommentFormatter(
         singleLinePrefix: '//',
         multiLinePrefix: '/*', 
         multiLineSuffix: '*/',
