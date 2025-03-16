@@ -70,6 +70,27 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _isSidebarVisible = true;
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
+  
+    late FocusNode _editorFocusNode;
+  late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
+
+    @override
+  void initState() {
+    super.initState();
+    _editorFocusNode = FocusNode();
+    _arrowKeyDirections = {
+      LogicalKeyboardKey.arrowUp: AxisDirection.up,
+      LogicalKeyboardKey.arrowDown: AxisDirection.down,
+      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+      LogicalKeyboardKey.arrowRight: AxisDirection.right,
+    };
+  }
+
+  @override
+  void dispose() {
+    _editorFocusNode.dispose();
+    super.dispose();
+  }
 
 
   Future<void> _openFile() async {
