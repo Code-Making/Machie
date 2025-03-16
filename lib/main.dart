@@ -289,12 +289,12 @@ Widget _buildBottomToolbar() {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.flag, size: 20),
+                    icon: const Icon(Icons.bookmark_add_outlined, size: 20),
                     onPressed: hasActiveTab ? () => _setMarkPosition() : null,
                     tooltip: 'Set Mark',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.bookmark_add, size: 20),
+                    icon: const Icon(Icons.bookmark_added_outlined, size: 20),
                     onPressed: hasActiveTab ? () => _selectToMark() : null,
                     tooltip: 'Select to Mark',
                   ),
