@@ -949,9 +949,9 @@ CodeCommentFormatter _getCommentFormatter(String uri) {
       return const DefaultCodeCommentFormatter(
         singleLinePrefix: '//',
         multiLinePrefix: '/*', 
-        end: '*/',
+        multiLineSuffix: '*/',
       );
     default:
-      return const DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', end: '*/');
+      return const DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', multiLineSuffix: '*/');
   }
 }
