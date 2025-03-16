@@ -179,188 +179,56 @@ void _selectCurrentChunk(CodeLineEditingController controller) {
 Widget _buildBottomToolbar() {
   final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
   final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
-  final isWrapped = hasActiveTab ? _tabs[_currentTabIndex].wordWrap : false;
 
   return CodeEditorTapRegion(
     child: Container(
       height: 48,
       color: Colors.grey[900],
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      child: Row(
         children: [
-          // Clipboard section
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 150),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.content_copy, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.copy() : null,
-                  tooltip: 'Copy',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.content_cut, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.cut() : null,
-                  tooltip: 'Cut',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.content_paste, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.paste() : null,
-                  tooltip: 'Paste',
-                ),
-                const VerticalDivider(width: 20),
-              ],
-            ),
+          IconButton(
+            icon: const Icon(Icons.content_copy, size: 20),
+            onPressed: hasActiveTab ? () => controller!.copy() : null,
+            tooltip: 'Copy',
           ),
-          
-          // Line operations
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 150),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_upward, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
-                  tooltip: 'Move Line Up',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_downward, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
-                  tooltip: 'Move Line Down',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.select_all, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.selectAll() : null,
-                  tooltip: 'Select All',
-                ),
-                const VerticalDivider(width: 20),
-              ],
-            ),
+          IconButton(
+            icon: const Icon(Icons.content_cut, size: 20),
+            onPressed: hasActiveTab ? () => controller!.cut() : null,
+            tooltip: 'Cut',
           ),
-          
-          // Code structure
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 120),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.horizontal_rule, size: 20),
-                  onPressed: hasActiveTab ? () => _selectCurrentChunk(controller!) : null,
-                  tooltip: 'Select Current Chunk',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.wrap_text, size: 20),
-                  onPressed: hasActiveTab ? () => _toggleWordWrap(_currentTabIndex) : null,
-                  tooltip: 'Toggle Word Wrap',
-                  color: isWrapped ? Colors.blue : null,
-                ),
-                const VerticalDivider(width: 20),
-              ],
-            ),
+          IconButton(
+            icon: const Icon(Icons.content_paste, size: 20),
+            onPressed: hasActiveTab ? () => controller!.paste() : null,
+            tooltip: 'Paste',
           ),
-          
-          // History
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 100),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.undo, size: 20),
-                  onPressed: (hasActiveTab && controller!.canUndo) 
-                    ? () => controller!.undo() 
-                    : null,
-                  tooltip: 'Undo',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.redo, size: 20),
-                  onPressed: (hasActiveTab && controller!.canRedo)
-                    ? () => controller!.redo()
-                    : null,
-                  tooltip: 'Redo',
-                ),
-              ],
-            ),
+          const VerticalDivider(width: 20),
+          IconButton(
+            icon: const Icon(Icons.arrow_upward, size: 20),
+            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+            tooltip: 'Move Line Up',
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_downward, size: 20),
+            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+            tooltip: 'Move Line Down',
+          ),
+          const VerticalDivider(width: 20),
+          IconButton(
+            icon: const Icon(Icons.undo, size: 20),
+            onPressed: (hasActiveTab && controller!.canUndo) 
+              ? () => controller!.undo() 
+              : null,
+            tooltip: 'Undo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo, size: 20),
+            onPressed: (hasActiveTab && controller!.canRedo)
+              ? () => controller!.redo()
+              : null,
+            tooltip: 'Redo',
           ),
         ],
       ),
-    ),
-  );
-}
-}
-
-// Add to EditorTab class
-class EditorTab {
-  final String uri;
-  final CodeLineEditingController controller;
-  bool isDirty;
-  bool wordWrap;
-
-  EditorTab({
-    required this.uri,
-    required this.controller,
-    this.isDirty = false,
-    this.wordWrap = false,
-  });
-}
-
-// Add to _EditorScreenState class
-void _toggleWordWrap(int tabIndex) {
-  setState(() {
-    _tabs[tabIndex].wordWrap = !_tabs[tabIndex].wordWrap;
-  });
-}
-
-void _selectCurrentChunk(CodeLineEditingController controller) {
-  final selection = controller.selection;
-  if (selection.isCollapsed) {
-    final line = controller.codeLines[selection.baseIndex];
-    if (line.isChunk) {
-      controller.selectLines(selection.baseIndex, selection.baseIndex + line.chunkParent!.lines.length);
-    } else {
-      controller.selectLine(selection.baseIndex);
-    }
-  }
-}
-
-// Update build method to prevent overlap
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    key: _scaffoldKey,
-    appBar: AppBar(
-      // ... existing app bar code ...
-    ),
-    drawer: _buildDrawer(),
-    body: Column(
-      children: [
-        if (_tabs.isNotEmpty)
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              // ... existing tab bar code ...
-            ),
-          ),
-        Expanded(
-          child: _tabs.isEmpty
-              ? const Center(child: Text('Open a file to start editing'))
-              : IndexedStack(
-                  index: _currentTabIndex,
-                  children: _tabs.map((tab) => CodeEditor(
-                    controller: tab.controller,
-                    style: CodeEditorStyle(
-                      fontSize: 14,
-                      fontFamily: 'FiraCode',
-                      codeTheme: CodeHighlightTheme(
-                        languages: _getLanguageThemes(tab.uri),
-                        theme: atomOneDarkTheme,
-                      ),
-                      wordWrap: tab.wordWrap,
-                    ),
-                  )).toList(),
-                ),
-        ),
-        _buildBottomToolbar(),
-      ],
     ),
   );
 }
