@@ -40,12 +40,14 @@ class CodeEditorApp extends StatelessWidget {
 class EditorTab {
   final String uri;
   final CodeLineEditingController controller;
+  final CodeCommentFormatter commentFormatter;
   bool isDirty;
   bool wordWrap;
 
   EditorTab({
     required this.uri,
     required this.controller,
+    required this.commentFormatter,
     this.isDirty = false,
     this.wordWrap = false,
   });
@@ -170,11 +172,14 @@ class _EditorScreenState extends State<EditorScreen> {
             final controller = CodeLineEditingController(
               codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
             );
+                final commentFormatter = _getCommentFormatter(uri);
+
         
             setState(() {
               _tabs.add(EditorTab(
                 uri: uri,
                 controller: controller,
+                commentFormatter: commentFormatter,
                 isDirty: isEmpty,
               ));
               _currentTabIndex = _tabs.length - 1;
@@ -245,7 +250,7 @@ Widget _buildBottomToolbar() {
                 ),
                 IconButton(
                   icon: const Icon(Icons.comment, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.commentLines() : null,
+                  onPressed: hasActiveTab ? () => _toggleComments : null,
                   tooltip: 'Toggle Comment',
                 ),
                 const VerticalDivider(width: 20),
@@ -325,6 +330,40 @@ Widget _buildBottomToolbar() {
       ),
     ),
   );
+}
+
+// 4. Add comment button handler
+void _toggleComments() {
+  final tab = _tabs[_currentTabIndex];
+  final controller = tab.controller;
+  final formatter = tab.commentFormatter;
+  
+  final selection = controller.selection;
+  if (selection.isCollapsed) {
+    return;
+  }
+
+  final value = controller.value;
+  final indent = controller.options.indent;
+  
+  try {
+    final formatted = formatter.format(
+      value,
+      indent,
+      _shouldUseLineComments(tab.uri),
+    );
+    
+    controller.runRevocableOp(() {
+      controller.value = formatted;
+    });
+  } catch (e) {
+    _showError('Comment error: ${e.toString()}');
+  }
+}
+
+bool _shouldUseLineComments(String uri) {
+  final ext = uri.split('.').last.toLowerCase();
+  return !{'html', 'htm', 'css'}.contains(ext);
 }
 
 
@@ -592,6 +631,7 @@ Future<bool> _checkFileModified(String uri) async {
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
                     controller: tab.controller,
+                    commentFormatter: tab.commentFormatter,
                     indicatorBuilder: (context, editingController, chunkController, notifier) {
                             return GestureDetector(
                                 behavior: HitTestBehavior.opaque,
@@ -899,5 +939,30 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
       return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
     default:
       return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+  }
+}
+
+CodeCommentFormatter _getCommentFormatter(String uri) {
+  final extension = uri.split('.').last.toLowerCase();
+  switch (extension) {
+    case 'dart':
+      return const CodeCommentFormatter(
+        line: '//',
+        block: CodeBlockComment(start: '/*', end: '*/'),
+      );
+    case 'py':
+      return const CodeCommentFormatter(line: '#');
+    case 'html':
+    case 'htm':
+      return const CodeCommentFormatter(
+        block: CodeBlockComment(start: '<!--', end: '-->'),
+      );
+    case 'css':
+      return const CodeCommentFormatter(
+        line: '/*', // CSS uses block comments for both
+        block: CodeBlockComment(start: '/*', end: '*/'),
+      );
+    default:
+      return const CodeCommentFormatter(line: '//');
   }
 }
