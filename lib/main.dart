@@ -733,22 +733,56 @@ Future<bool> _checkFileModified(String uri) async {
     
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-    
-    final controller = _tabs[_currentTabIndex].controller;
-    final direction = _arrowKeyDirections[event.logicalKey];
-    final shiftPressed = event.isShiftPressed;
+  if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+  
+  final controller = _tabs[_currentTabIndex].controller;
+  final selection = controller.selection;
+  final direction = _arrowKeyDirections[event.logicalKey];
+  final shiftPressed = event.isShiftPressed;
 
-    if (direction != null) {
+  if (direction != null) {
+    controller.runRevocableOp(() {
+      // Handle right arrow at line end
+      if (direction == AxisDirection.right) {
+        final line = controller.codeLines[selection.extentIndex];
+        if (selection.extentOffset >= line.text.length) {
+          // Move to next line start if not last line
+          if (selection.extentIndex < controller.codeLines.length - 1) {
+            controller.selection = CodeLineSelection.collapsed(
+              index: selection.extentIndex + 1,
+              offset: 0,
+            );
+            return;
+          }
+        }
+      }
+
+      // Handle down arrow in chunks
+      if (direction == AxisDirection.down) {
+        final currentLine = controller.codeLines[selection.extentIndex];
+        if (currentLine.isChunk && !currentLine.isChunkStart) {
+          // Jump to parent chunk end
+          final parent = currentLine.chunkParent!;
+          controller.selection = CodeLineSelection.collapsed(
+            index: parent.lineIndex + parent.lines.length,
+            offset: controller.codeLines[parent.lineIndex + parent.lines.length].text.length,
+          );
+          return;
+        }
+      }
+
+      // Default behavior with shift support
       if (shiftPressed) {
         controller.extendSelection(direction);
       } else {
         controller.moveCursor(direction);
       }
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+    });
+    
+    return KeyEventResult.handled;
   }
+  return KeyEventResult.ignored;
+}
 
   void _handleSelectionStart(CodeLineEditingController controller) {
     controller.addListener(_handleSelectionChange);
