@@ -732,115 +732,24 @@ Future<bool> _checkFileModified(String uri) async {
   
     
 
-KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-  if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-  
-  final controller = _tabs[_currentTabIndex].controller;
-  final selection = controller.selection;
-  final direction = _arrowKeyDirections[event.logicalKey];
-  final shiftPressed = event.isShiftPressed;
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+    
+    final controller = _tabs[_currentTabIndex].controller;
+    final direction = _arrowKeyDirections[event.logicalKey];
+    final shiftPressed = event.isShiftPressed;
 
-  if (direction != null) {
-    controller.runRevocableOp(() {
-      final currentIndex = selection.extentIndex;
-      final currentLine = controller.codeLines[currentIndex];
-      final currentOffset = selection.extentOffset;
-
-      // Handle right arrow at line end
-      if (direction == AxisDirection.right && currentOffset >= currentLine.text.length) {
-        if (currentIndex < controller.codeLines.length - 1) {
-          // Check if next line is hidden in a folded chunk
-          CodeLine? parentChunk;
-          int parentIndex = currentIndex;
-          
-          while (parentIndex >= 0) {
-            final line = controller.codeLines[parentIndex];
-            if (line.chunks.isNotEmpty && line.chunks.contains(controller.codeLines[currentIndex + 1])) {
-              parentChunk = line;
-              break;
-            }
-            parentIndex--;
-          }
-
-          if (parentChunk != null && parentChunk.chunks.isNotEmpty) {
-            // Jump to end of folded chunk
-            final chunkEnd = parentIndex + parentChunk.chunks.length;
-            controller.selection = CodeLineSelection.collapsed(
-              index: chunkEnd,
-              offset: controller.codeLines[chunkEnd].text.length,
-            );
-          } else {
-            // Normal line wrap
-            controller.selection = CodeLineSelection.collapsed(
-              index: currentIndex + 1,
-              offset: 0,
-            );
-          }
-          return;
-        }
-      }
-
-      // Handle down arrow navigation
-      if (direction == AxisDirection.down) {
-        // Check if current line is parent of a folded chunk
-        if (currentLine.chunks.isNotEmpty) {
-          final nextIndex = currentIndex + 1;
-          if (nextIndex < controller.codeLines.length) {
-            final nextLine = controller.codeLines[nextIndex];
-            // If next line isn't first child, chunk is folded
-            if (!currentLine.chunks.contains(nextLine)) {
-              final chunkEnd = currentIndex + currentLine.chunks.length;
-              if (chunkEnd < controller.codeLines.length) {
-                controller.selection = CodeLineSelection.collapsed(
-                  index: chunkEnd,
-                  offset: controller.codeLines[chunkEnd].text.length,
-                );
-                return;
-              }
-            }
-          }
-        }
-
-        // Check if we're inside a folded parent chunk
-        CodeLine? parentChunk;
-        int parentIndex = currentIndex;
-        while (parentIndex >= 0) {
-          final line = controller.codeLines[parentIndex];
-          if (line.chunks.isNotEmpty && line.chunks.contains(currentLine)) {
-            parentChunk = line;
-            break;
-          }
-          parentIndex--;
-        }
-
-        if (parentChunk != null) {
-          final chunkEnd = parentIndex + parentChunk.chunks.length;
-          if (currentIndex <= chunkEnd) {
-            // Jump out of folded parent chunk
-            final targetIndex = chunkEnd + 1;
-            if (targetIndex < controller.codeLines.length) {
-              controller.selection = CodeLineSelection.collapsed(
-                index: targetIndex,
-                offset: 0,
-              );
-              return;
-            }
-          }
-        }
-      }
-
-      // Default behavior for unfolded content
+    if (direction != null) {
       if (shiftPressed) {
         controller.extendSelection(direction);
       } else {
         controller.moveCursor(direction);
       }
-    });
-    
-    return KeyEventResult.handled;
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
-  return KeyEventResult.ignored;
-}
+
   void _handleSelectionStart(CodeLineEditingController controller) {
     controller.addListener(_handleSelectionChange);
   }
