@@ -122,17 +122,7 @@ class _EditorScreenState extends State<EditorScreen> {
   });
 }
 
-void _selectCurrentChunk(CodeLineEditingController controller) {
-  final selection = controller.selection;
-  if (selection.isCollapsed) {
-    final line = controller.codeLines[selection.baseIndex];
-    if (line.isChunk) {
-      controller.selectLines(selection.baseIndex, selection.baseIndex + line.chunkParent!.lines.length);
-    } else {
-      controller.selectLine(selection.baseIndex);
-    }
-  }
-}
+
 
    Future<void> _openFileTab(String uri) async {
           try {
