@@ -486,6 +486,8 @@ Future<bool> _checkFileModified(String uri) async {
                       theme: atomOneDarkTheme,
                       ),
                     ),
+                    wordWrap: tab.wordWrap,
+
                   )).toList(),
                 ),
                 ),
