@@ -595,69 +595,14 @@ Future<bool> _checkFileModified(String uri) async {
       children: [
         if (_tabs.isNotEmpty)
           SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _tabs.length,
-              itemBuilder: (context, index) {
-                final tab = _tabs[index];
-                return GestureDetector(
-                  onTap: () => setState(() => _currentTabIndex = index),
-                  onLongPress: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text(_getFormattedPath(tab.uri)),
-                              actions: [
-                                TextButton(
-                                  child: const Text('Close'),
-                                  onPressed: () {
-                                    _closeTab(index);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                TextButton(
-                                  child: const Text('Close Others'),
-                                  onPressed: () {
-                                    _closeOtherTabs(index);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _currentTabIndex == index
-                          ? Colors.grey[800]
-                          : Colors.grey[900],
-                    border: Border(
-                      right: BorderSide(color: Colors.grey[700]!),
-                      bottom: _currentTabIndex == index
-                          ? BorderSide(color: Colors.blueAccent, width: 2)
-                          : BorderSide.none,
-                          ),                    
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 18),
-                          onPressed: () => _closeTab(index),
-                        ),
-                        Text(
-                          _getFileName(tab.uri),
-                          style: TextStyle(
-                            color: tab.isDirty ? Colors.orange : Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+            height: 40,ReorderableListView(
+                scrollDirection: Axis.horizontal,
+                onReorder: _handleTabReorder,
+                children: [
+                  for (int index = 0; index < _tabs.length; index++)
+                    _buildTabItem(index, _tabs[index]),
+                ],
+              )
           ),
         Expanded(
           child: _tabs.isEmpty
@@ -679,6 +624,68 @@ Future<bool> _checkFileModified(String uri) async {
       ],
     );
   }
+  
+  // Add tab item builder method
+Widget _buildTabItem(int index, EditorTab tab) {
+  return Container(
+    key: ValueKey(tab.uri),
+    decoration: BoxDecoration(
+      color: _currentTabIndex == index 
+          ? Colors.blueGrey[800] 
+          : Colors.grey[900],
+      border: Border(
+        right: BorderSide(color: Colors.grey[700]!),
+        bottom: _currentTabIndex == index 
+            ? BorderSide(color: Colors.blueAccent, width: 2)
+            : BorderSide.none,
+      ),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Row(
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _currentTabIndex = index),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Icon(Icons.drag_handle, size: 16),
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.close, size: 18),
+          onPressed: () => _closeTab(index),
+        ),
+        Text(
+          _getFileName(tab.uri),
+          style: TextStyle(
+            color: tab.isDirty ? Colors.orange : Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Add tab reorder handler
+void _handleTabReorder(int oldIndex, int newIndex) {
+  if (oldIndex == newIndex) return;
+  
+  setState(() {
+    final currentTab = _tabs[_currentTabIndex];
+    
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final tab = _tabs.removeAt(oldIndex);
+    _tabs.insert(newIndex, tab);
+    
+    // Update current tab index
+    _currentTabIndex = _tabs.indexOf(currentTab);
+  });
+}
   
     Widget _buildEditor(EditorTab tab) {
     return Focus(
