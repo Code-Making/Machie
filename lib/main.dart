@@ -27,7 +27,7 @@ void main() => runApp(const CodeEditorApp());
 
 class CodeEditorApp extends StatelessWidget {
   const CodeEditorApp({super.key});
-
+  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -44,7 +44,7 @@ class EditorTab {
   bool isDirty;
   bool wordWrap;
   CodeLinePosition? markPosition;
-
+  
   EditorTab({
     required this.uri,
     required this.controller,
@@ -57,7 +57,7 @@ class EditorTab {
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
-
+  
   @override
   State<EditorScreen> createState() => _EditorScreenState();
 }
@@ -67,19 +67,19 @@ class _EditorScreenState extends State<EditorScreen> {
   final List<EditorTab> _tabs = [];
   int _currentTabIndex = 0;
   String? _currentDirUri;
-    String? _originalFileHash; // Add this line
-
+  String? _originalFileHash; // Add this line
+  
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _directoryContents = [];
   bool _isSidebarVisible = true;
   final double _sidebarWidth = 300;
   double _sidebarPosition = 0;
   
-    late FocusNode _editorFocusNode;
+  late FocusNode _editorFocusNode;
   late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
-
   
-    @override
+  
+  @override
   void initState() {
     super.initState();
     _editorFocusNode = FocusNode();
@@ -90,37 +90,37 @@ class _EditorScreenState extends State<EditorScreen> {
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
   }
-
+  
   @override
   void dispose() {
     _editorFocusNode.dispose();
     super.dispose();
   }
-
-
+  
+  
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
     if (uri != null) {
       _openFileTab(uri);
     }
   }
-
+  
   Future<void> _openFolder() async {
     final uri = await _fileHandler.openFolder();
     if (uri != null) {
       _loadDirectoryContents(uri, isRoot: true);
     }
   }
-
+  
   Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
     final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
     if (contents != null) {
-        setState(() {
-            _currentDirUri = uri;
-            _directoryContents = contents;
-        });
+      setState(() {
+        _currentDirUri = uri;
+        _directoryContents = contents;
+      });
     }
-}
+  }
   
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -143,153 +143,153 @@ class _EditorScreenState extends State<EditorScreen> {
   }
   
   void _toggleWordWrap(int tabIndex) {
-  setState(() {
-    _tabs[tabIndex].wordWrap = !_tabs[tabIndex].wordWrap;
-  });
-}
-
-
-
-   Future<void> _openFileTab(String uri) async {
-          try {
-            // Check if file is already open in a tab
-            for (int i = 0; i < _tabs.length; i++) {
-              if (_tabs[i].uri == uri) {
-                setState(() {
-                  _currentTabIndex = i;
-                });
-                _showSuccess('Switched to existing tab');
-                return;
-              }
-            }
-        
-            final content = await _fileHandler.readFile(uri);
-            if (content == null) {
-              _showError('Failed to read file');
-              return;
-            }
-        
-            final isEmpty = content.isEmpty;
-            _originalFileHash = _calculateHash(content);
-            final controller = CodeLineEditingController(
-              codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
-            );
-                final commentFormatter = _getCommentFormatter(uri);
-
-        
-            setState(() {
-              _tabs.add(EditorTab(
-                uri: uri,
-                controller: controller,
-                commentFormatter: commentFormatter,
-                isDirty: isEmpty,
-              ));
-              _currentTabIndex = _tabs.length - 1;
-            });
-        
-            _showSuccess(isEmpty 
-                ? 'Opened empty file' 
-                : 'Successfully opened file (${content.length} chars)');
-          } on Exception catch (e) {
-            _showError('Failed to open file: ${e.toString()}');
-          }
+    setState(() {
+      _tabs[tabIndex].wordWrap = !_tabs[tabIndex].wordWrap;
+    });
+  }
+  
+  
+  
+  Future<void> _openFileTab(String uri) async {
+    try {
+      // Check if file is already open in a tab
+      for (int i = 0; i < _tabs.length; i++) {
+        if (_tabs[i].uri == uri) {
+          setState(() {
+            _currentTabIndex = i;
+          });
+          _showSuccess('Switched to existing tab');
+          return;
         }
-
-Widget _buildBottomToolbar() {
-  final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
-  final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
-  final isWrapped = hasActiveTab ? _tabs[_currentTabIndex].wordWrap : false;
-
-  return CodeEditorTapRegion(
-    child: Container(
-      height: 48,
-      color: Colors.grey[900],
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          // Clipboard section
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 150),
-            child: Row(
-              children: [
+      }
+      
+      final content = await _fileHandler.readFile(uri);
+      if (content == null) {
+        _showError('Failed to read file');
+        return;
+      }
+      
+      final isEmpty = content.isEmpty;
+      _originalFileHash = _calculateHash(content);
+      final controller = CodeLineEditingController(
+        codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
+      );
+      final commentFormatter = _getCommentFormatter(uri);
+      
+      
+      setState(() {
+        _tabs.add(EditorTab(
+          uri: uri,
+          controller: controller,
+          commentFormatter: commentFormatter,
+          isDirty: isEmpty,
+        ));
+        _currentTabIndex = _tabs.length - 1;
+      });
+      
+      _showSuccess(isEmpty
+      ? 'Opened empty file'
+      : 'Successfully opened file (${content.length} chars)');
+    } on Exception catch (e) {
+      _showError('Failed to open file: ${e.toString()}');
+    }
+  }
+  
+  Widget _buildBottomToolbar() {
+    final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
+    final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
+    final isWrapped = hasActiveTab ? _tabs[_currentTabIndex].wordWrap : false;
+    
+    return CodeEditorTapRegion(
+      child: Container(
+        height: 48,
+        color: Colors.grey[900],
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            // Clipboard section
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 150),
+              child: Row(
+                children: [
                   IconButton(
-                  icon: const Icon(Icons.keyboard, size: 20),
-                  onPressed: hasActiveTab ? () => _editorFocusNode.requestFocus() : null,
-                  tooltip: 'Show Keyboard',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.content_copy, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.copy() : null,
-                  tooltip: 'Copy',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.content_cut, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.cut() : null,
-                  tooltip: 'Cut',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.content_paste, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.paste() : null,
-                  tooltip: 'Paste',
-                ),
-                const VerticalDivider(width: 20),
-              ],
+                    icon: const Icon(Icons.keyboard, size: 20),
+                    onPressed: hasActiveTab ? () => _editorFocusNode.requestFocus() : null,
+                    tooltip: 'Show Keyboard',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.content_copy, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.copy() : null,
+                    tooltip: 'Copy',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.content_cut, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.cut() : null,
+                    tooltip: 'Cut',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.content_paste, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.paste() : null,
+                    tooltip: 'Paste',
+                  ),
+                  const VerticalDivider(width: 20),
+                ],
+              ),
             ),
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 120),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.format_indent_increase, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.applyIndent() : null,
-                  tooltip: 'Indent',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.format_indent_decrease, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.applyOutdent() : null,
-                  tooltip: 'Outdent',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.comment, size: 20),
-                  onPressed: hasActiveTab ? () => _toggleComments() : null,
-                  tooltip: 'Toggle Comment',
-                ),
-                IconButton(
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 120),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.format_indent_increase, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.applyIndent() : null,
+                    tooltip: 'Indent',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.format_indent_decrease, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.applyOutdent() : null,
+                    tooltip: 'Outdent',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.comment, size: 20),
+                    onPressed: hasActiveTab ? () => _toggleComments() : null,
+                    tooltip: 'Toggle Comment',
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.format_align_left, size: 20),
                     onPressed: hasActiveTab ? () => _reformatDocument() : null,
                     tooltip: 'Reformat Document',
                   ),
-                const VerticalDivider(width: 20),
-              ],
+                  const VerticalDivider(width: 20),
+                ],
+              ),
             ),
-          ),
-          
-          // Line operations
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 150),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_upward, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
-                  tooltip: 'Move Line Up',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_downward, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
-                  tooltip: 'Move Line Down',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.select_all, size: 20),
-                  onPressed: hasActiveTab ? () => controller!.selectAll() : null,
-                  tooltip: 'Select All',
-                ),
-                const VerticalDivider(width: 20),
-              ],
+            
+            // Line operations
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 150),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_upward, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+                    tooltip: 'Move Line Up',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_downward, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+                    tooltip: 'Move Line Down',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.select_all, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.selectAll() : null,
+                    tooltip: 'Select All',
+                  ),
+                  const VerticalDivider(width: 20),
+                ],
+              ),
             ),
-          ),
-          ConstrainedBox(
+            ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
@@ -307,255 +307,255 @@ Widget _buildBottomToolbar() {
                 ],
               ),
             ),
-          // Code structure
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 120),
-            child: Row(
-              children: [
-                /*IconButton(
-                  icon: const Icon(Icons.horizontal_rule, size: 20),
-                  onPressed: hasActiveTab ? () => _selectCurrentChunk(controller!) : null,
-                  tooltip: 'Select Current Chunk',
-                ),*/
-                IconButton(
-                  icon: const Icon(Icons.wrap_text, size: 20),
-                  onPressed: hasActiveTab ? () => _toggleWordWrap(_currentTabIndex) : null,
-                  tooltip: 'Toggle Word Wrap',
-                  color: isWrapped ? Colors.blue : null,
-                ),
-                const VerticalDivider(width: 20),
-              ],
+            // Code structure
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 120),
+              child: Row(
+                children: [
+                  /*IconButton(
+                    icon: const Icon(Icons.horizontal_rule, size: 20),
+                    onPressed: hasActiveTab ? () => _selectCurrentChunk(controller!) : null,
+                    tooltip: 'Select Current Chunk',
+                  ),*/
+                  IconButton(
+                    icon: const Icon(Icons.wrap_text, size: 20),
+                    onPressed: hasActiveTab ? () => _toggleWordWrap(_currentTabIndex) : null,
+                    tooltip: 'Toggle Word Wrap',
+                    color: isWrapped ? Colors.blue : null,
+                  ),
+                  const VerticalDivider(width: 20),
+                ],
+              ),
             ),
-          ),
-          
-          // History
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 100),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.undo, size: 20),
-                  onPressed: (hasActiveTab && controller!.canUndo) 
-                    ? () => controller!.undo() 
+            
+            // History
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 100),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.undo, size: 20),
+                    onPressed: (hasActiveTab && controller!.canUndo)
+                    ? () => controller!.undo()
                     : null,
-                  tooltip: 'Undo',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.redo, size: 20),
-                  onPressed: (hasActiveTab && controller!.canRedo)
+                    tooltip: 'Undo',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.redo, size: 20),
+                    onPressed: (hasActiveTab && controller!.canRedo)
                     ? () => controller!.redo()
                     : null,
-                  tooltip: 'Redo',
-                ),
-              ],
+                    tooltip: 'Redo',
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
-// Add reformat method using CodeLineEditingValue
-void _reformatDocument() {
-  final tab = _tabs[_currentTabIndex];
-  final controller = tab.controller;
+    );
+  }
   
-  try {
-    final formattedValue = _formatCodeValue(controller.value);
+  // Add reformat method using CodeLineEditingValue
+  void _reformatDocument() {
+    final tab = _tabs[_currentTabIndex];
+    final controller = tab.controller;
     
-    controller.runRevocableOp(() {
-      controller.value = formattedValue.copyWith(
-        selection: const CodeLineSelection.zero(),
-        composing: TextRange.empty,
+    try {
+      final formattedValue = _formatCodeValue(controller.value);
+      
+      controller.runRevocableOp(() {
+        controller.value = formattedValue.copyWith(
+          selection: const CodeLineSelection.zero(),
+          composing: TextRange.empty,
+        );
+      });
+      
+      _showSuccess('Document reformatted');
+    } catch (e) {
+      _showError('Formatting failed: ${e.toString()}');
+    }
+  }
+  
+  CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
+    final buffer = StringBuffer();
+    int indentLevel = 0;
+    final indent = '  '; // 2 spaces
+    
+    // Convert CodeLines to a list for iteration
+    final codeLines = value.codeLines.toList();
+    
+    for (final line in codeLines) {
+      final trimmed = line.text.trim();
+      
+      // Handle indentation decreases
+      if (trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')'))
+      {
+        indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
+      }
+      
+      // Write indentation
+      buffer.write(indent * indentLevel);
+      
+      // Write line content
+      buffer.writeln(trimmed);
+      
+      // Handle indentation increases
+      if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
+        indentLevel++;
+      }
+    }
+    
+    return CodeLineEditingValue(
+      codeLines: CodeLines.fromText(buffer.toString().trim()),
+      selection: value.selection,
+      composing: value.composing,
+    );
+  }
+  void _setMarkPosition() {
+    final tab = _tabs[_currentTabIndex];
+    setState(() {
+      tab.markPosition = tab.controller.selection.base;
+    });
+    //_showSuccess('Mark set at line ${tab.markPosition!.index + 1}');
+  }
+  
+  void _selectToMark() {
+    final tab = _tabs[_currentTabIndex];
+    final currentPosition = tab.controller.selection.base;
+    
+    if (tab.markPosition == null) {
+      _showError('No mark set! Set a mark first');
+      return;
+    }
+    
+    try {
+      final start = _comparePositions(tab.markPosition!, currentPosition) < 0
+      ? tab.markPosition!
+      : currentPosition;
+      final end = _comparePositions(tab.markPosition!, currentPosition) < 0
+      ? currentPosition
+      : tab.markPosition!;
+      
+      tab.controller.selection = CodeLineSelection(
+        baseIndex: start.index,
+        baseOffset: start.offset,
+        extentIndex: end.index,
+        extentOffset: end.offset,
       );
-    });
-    
-    _showSuccess('Document reformatted');
-  } catch (e) {
-    _showError('Formatting failed: ${e.toString()}');
-  }
-}
-
-CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
-  final buffer = StringBuffer();
-  int indentLevel = 0;
-  final indent = '  '; // 2 spaces
-  
-  // Convert CodeLines to a list for iteration
-  final codeLines = value.codeLines.toList();
-  
-  for (final line in codeLines) {
-    final trimmed = line.text.trim();
-    
-    // Handle indentation decreases
-    if (trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')'))
-    {
-      indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
-    }
-    
-    // Write indentation
-    buffer.write(indent * indentLevel);
-    
-    // Write line content
-    buffer.writeln(trimmed);
-    
-    // Handle indentation increases
-    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
-      indentLevel++;
+      
+      //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
+    } catch (e) {
+      _showError('Selection error: ${e.toString()}');
     }
   }
   
-  return CodeLineEditingValue(
-    codeLines: CodeLines.fromText(buffer.toString().trim()),
-    selection: value.selection,
-    composing: value.composing,
-  );
-}
-void _setMarkPosition() {
-  final tab = _tabs[_currentTabIndex];
-  setState(() {
-    tab.markPosition = tab.controller.selection.base;
-  });
-  //_showSuccess('Mark set at line ${tab.markPosition!.index + 1}');
-}
-
-void _selectToMark() {
-  final tab = _tabs[_currentTabIndex];
-  final currentPosition = tab.controller.selection.base;
-  
-  if (tab.markPosition == null) {
-    _showError('No mark set! Set a mark first');
-    return;
+  int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
+    if (a.index < b.index) return -1;
+    if (a.index > b.index) return 1;
+    return a.offset.compareTo(b.offset);
   }
-
-  try {
-    final start = _comparePositions(tab.markPosition!, currentPosition) < 0 
-        ? tab.markPosition! 
-        : currentPosition;
-    final end = _comparePositions(tab.markPosition!, currentPosition) < 0 
-        ? currentPosition 
-        : tab.markPosition!;
-
-    tab.controller.selection = CodeLineSelection(
-      baseIndex: start.index,
-      baseOffset: start.offset,
-      extentIndex: end.index,
-      extentOffset: end.offset,
-    );
-
-    //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
-  } catch (e) {
-    _showError('Selection error: ${e.toString()}');
-  }
-}
-
-int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
-  if (a.index < b.index) return -1;
-  if (a.index > b.index) return 1;
-  return a.offset.compareTo(b.offset);
-}
-
-
-// 4. Add comment button handler
-void _toggleComments() {
-  final tab = _tabs[_currentTabIndex];
-  final controller = tab.controller;
-  final formatter = tab.commentFormatter;
-  final selection = controller.selection;
-  /*if (selection.isCollapsed) {
-        final lineIndex = selection.baseIndex;
-        controller.selectLine(lineIndex);
-  }*/
-
-  final value = controller.value;
-  final indent = controller.options.indent;
   
-  try {
-    final formatted = formatter.format(
-      value,
-      indent,
-      true,
-    );
+  
+  // 4. Add comment button handler
+  void _toggleComments() {
+    final tab = _tabs[_currentTabIndex];
+    final controller = tab.controller;
+    final formatter = tab.commentFormatter;
+    final selection = controller.selection;
+    /*if (selection.isCollapsed) {
+      final lineIndex = selection.baseIndex;
+      controller.selectLine(lineIndex);
+    }*/
     
-    controller.runRevocableOp(() {
-      controller.value = formatted;
-    });
-  } catch (e) {
-    _showError('Comment error: ${e.toString()}');
+    final value = controller.value;
+    final indent = controller.options.indent;
+    
+    try {
+      final formatted = formatter.format(
+        value,
+        indent,
+        true,
+      );
+      
+      controller.runRevocableOp(() {
+        controller.value = formatted;
+      });
+    } catch (e) {
+      _showError('Comment error: ${e.toString()}');
+    }
   }
-}
-
-bool _shouldUseLineComments(String uri) {
-  final ext = uri.split('.').last.toLowerCase();
-  return !{'html', 'htm', 'css'}.contains(ext);
-}
-
-
+  
+  bool _shouldUseLineComments(String uri) {
+    final ext = uri.split('.').last.toLowerCase();
+    return !{'html', 'htm', 'css'}.contains(ext);
+  }
+  
+  
   Future<void> _saveFile() async {
-          if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+    if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+    
+    final tab = _tabs[_currentTabIndex];
+    try {
+      // Check external modifications
+      final currentContent = await _fileHandler.readFile(tab.uri);
+      final currentHash = _calculateHash(currentContent ?? '');
+      
+      if (currentHash != _originalFileHash) {
+        final choice = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('File Modified'),
+            content: const Text('This file has been modified externally. Overwrite?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Overwrite'),
+              ),
+            ],
+          ),
+        );
         
-          final tab = _tabs[_currentTabIndex];
-          try {
-            // Check external modifications
-            final currentContent = await _fileHandler.readFile(tab.uri);
-            final currentHash = _calculateHash(currentContent ?? '');
-            
-            if (currentHash != _originalFileHash) {
-              final choice = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('File Modified'),
-                  content: const Text('This file has been modified externally. Overwrite?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Overwrite'),
-                    ),
-                  ],
-                ),
-              );
-              
-              if (choice != true) return;
-            }
-        
-            // Perform save
-            final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
-            
-            if (success) {
-              // Update checksum after successful save
-              final newContent = await _fileHandler.readFile(tab.uri);
-              setState(() {
-                tab.isDirty = false;
-                _originalFileHash = _calculateHash(newContent ?? '');
-              });
-              _showSuccess('File saved successfully');
-            } else {
-              _showError('Failed to save file');
-            }
-          } catch (e) {
-            _showError('Save error: ${e.toString()}');
-          }
-        }
-
-String _calculateHash(String content) {
-  return md5.convert(utf8.encode(content)).toString();
-}
-
-Future<bool> _checkFileModified(String uri) async {
-  try {
-    final currentContent = await _fileHandler.readFile(uri);
-    return _calculateHash(currentContent ?? '') != _originalFileHash;
-  } catch (e) {
-    _showError('Modification check failed: ${e.toString()}');
-    return false;
+        if (choice != true) return;
+      }
+      
+      // Perform save
+      final success = await _fileHandler.writeFile(tab.uri, tab.controller.text);
+      
+      if (success) {
+        // Update checksum after successful save
+        final newContent = await _fileHandler.readFile(tab.uri);
+        setState(() {
+          tab.isDirty = false;
+          _originalFileHash = _calculateHash(newContent ?? '');
+        });
+        _showSuccess('File saved successfully');
+      } else {
+        _showError('Failed to save file');
+      }
+    } catch (e) {
+      _showError('Save error: ${e.toString()}');
+    }
   }
-}
-
+  
+  String _calculateHash(String content) {
+    return md5.convert(utf8.encode(content)).toString();
+  }
+  
+  Future<bool> _checkFileModified(String uri) async {
+    try {
+      final currentContent = await _fileHandler.readFile(uri);
+      return _calculateHash(currentContent ?? '') != _originalFileHash;
+    } catch (e) {
+      _showError('Modification check failed: ${e.toString()}');
+      return false;
+    }
+  }
+  
   void _closeTab(int index) {
     setState(() {
       _tabs.removeAt(index);
@@ -566,32 +566,32 @@ Future<bool> _checkFileModified(String uri) async {
   }
   
   Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: contents.length,
-    itemBuilder: (context, index) {
-      final item = contents[index];
-      if (item['type'] == 'dir') {
-        return _DirectoryExpansionTile(
-          uri: item['uri'],
-          name: item['name'],
-          fileHandler: _fileHandler,
-          onFileTap: (uri) => _openFileTab(uri),
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: contents.length,
+      itemBuilder: (context, index) {
+        final item = contents[index];
+        if (item['type'] == 'dir') {
+          return _DirectoryExpansionTile(
+            uri: item['uri'],
+            name: item['name'],
+            fileHandler: _fileHandler,
+            onFileTap: (uri) => _openFileTab(uri),
+          );
+        }
+        return ListTile(
+          leading: const Icon(Icons.insert_drive_file),
+          title: Text(item['name']),
+          onTap: () {
+            _openFileTab(item['uri']);
+            Navigator.pop(context);
+          },
         );
-      }
-      return ListTile(
-        leading: const Icon(Icons.insert_drive_file),
-        title: Text(item['name']),
-        onTap: () {
-          _openFileTab(item['uri']);
-          Navigator.pop(context);
-        },
-      );
-    },
-  );
-}
-
+      },
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -601,9 +601,9 @@ Future<bool> _checkFileModified(String uri) async {
           icon: const Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Text(_tabs.isEmpty 
-            ? 'No File Open' 
-            : _getFormattedPath(_tabs[_currentTabIndex].uri)),
+        title: Text(_tabs.isEmpty
+        ? 'No File Open'
+        : _getFormattedPath(_tabs[_currentTabIndex].uri)),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
@@ -626,129 +626,129 @@ Future<bool> _checkFileModified(String uri) async {
       body: _buildEditorArea(),
     );
   }
-
+  
   Widget _buildDrawer() {
-  return Drawer(
-    child: Column(
-      children: [
-        AppBar(
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
             title: Text(_currentDirUri!=null ? _getFileName(_currentDirUri!):"Explorer"),
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-        Expanded(
-          child: _currentDirUri == null
-              ? const Center(child: Text('Open a folder to browse'))
-              : _buildDirectoryTree(_directoryContents),
-        ),
-      ],
-    ),
-  );
-}
-
-    Widget _buildEditorArea() {
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          Expanded(
+            child: _currentDirUri == null
+            ? const Center(child: Text('Open a folder to browse'))
+            : _buildDirectoryTree(_directoryContents),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEditorArea() {
     return Column(
       children: [
         if (_tabs.isNotEmpty)
-          SizedBox(
-            height: 40,
-            child: ReorderableListView(
-                scrollDirection: Axis.horizontal,
-                buildDefaultDragHandles: false,
-                onReorder: _handleTabReorder,
-                children: [
-                  for (int index = 0; index < _tabs.length; index++)
-                    ReorderableDragStartListener(
-                      key: ValueKey(_tabs[index].uri),
-                      index: index,
-                      child: _buildTabItem(index, _tabs[index]),
-                    ),
-                ],
-              )
-          ),
+        SizedBox(
+          height: 40,
+          child: ReorderableListView(
+            scrollDirection: Axis.horizontal,
+            buildDefaultDragHandles: false,
+            onReorder: _handleTabReorder,
+            children: [
+              for (int index = 0; index < _tabs.length; index++)
+              ReorderableDragStartListener(
+                key: ValueKey(_tabs[index].uri),
+                index: index,
+                child: _buildTabItem(index, _tabs[index]),
+              ),
+            ],
+          )
+        ),
         Expanded(
           child: _tabs.isEmpty
-              ? const Center(child: Text('Open a file to start editing'))
-              : CodeEditorTapRegion(
-                    child: Column(
-                      children: [
-                          Expanded(
-                            child: IndexedStack(
-                  index: _currentTabIndex,
-                  children: _tabs.map((tab) => _buildEditor(tab)).toList(),
-                ),
+          ? const Center(child: Text('Open a file to start editing'))
+          : CodeEditorTapRegion(
+            child: Column(
+              children: [
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentTabIndex,
+                    children: _tabs.map((tab) => _buildEditor(tab)).toList(),
+                  ),
                 ),
                 _buildBottomToolbar(),
-                ],
-                ),
-                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
   
   // Add tab item builder method
-Widget _buildTabItem(int index, EditorTab tab) {
-  return MouseRegion(
-    cursor: SystemMouseCursors.grab,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _currentTabIndex = index),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _currentTabIndex == index 
-              ? Colors.blueGrey[800] 
-              : Colors.grey[900],
-          border: Border(
-            right: BorderSide(color: Colors.grey[700]!),
-            bottom: _currentTabIndex == index 
-                ? BorderSide(color: Colors.blueAccent, width: 2)
-                : BorderSide.none,
+  Widget _buildTabItem(int index, EditorTab tab) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _currentTabIndex = index),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _currentTabIndex == index
+            ? Colors.blueGrey[800]
+            : Colors.grey[900],
+            border: Border(
+              right: BorderSide(color: Colors.grey[700]!),
+              bottom: _currentTabIndex == index
+              ? BorderSide(color: Colors.blueAccent, width: 2)
+              : BorderSide.none,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => _closeTab(index),
+              ),
+              Text(
+                _getFileName(tab.uri),
+                style: TextStyle(
+                  color: tab.isDirty ? Colors.orange : Colors.white,
+                ),
+              ),
+            ],
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () => _closeTab(index),
-            ),
-            Text(
-              _getFileName(tab.uri),
-              style: TextStyle(
-                color: tab.isDirty ? Colors.orange : Colors.white,
-              ),
-            ),
-          ],
-        ),
       ),
-    ),
-  );
-}
-// Add tab reorder handler
-void _handleTabReorder(int oldIndex, int newIndex) {
-  if (oldIndex == newIndex) return;
-  
-  setState(() {
-    final currentTab = _tabs[_currentTabIndex];
+    );
+  }
+  // Add tab reorder handler
+  void _handleTabReorder(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
     
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    final tab = _tabs.removeAt(oldIndex);
-    _tabs.insert(newIndex, tab);
-    
-    // Update current tab index
-    _currentTabIndex = _tabs.indexOf(currentTab);
-  });
-}
+    setState(() {
+      final currentTab = _tabs[_currentTabIndex];
+      
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final tab = _tabs.removeAt(oldIndex);
+      _tabs.insert(newIndex, tab);
+      
+      // Update current tab index
+      _currentTabIndex = _tabs.indexOf(currentTab);
+    });
+  }
   
-    Widget _buildEditor(EditorTab tab) {
+  Widget _buildEditor(EditorTab tab) {
     return Focus(
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
@@ -762,328 +762,328 @@ void _handleTabReorder(int oldIndex, int newIndex) {
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
-                    controller: tab.controller,
-                    commentFormatter: tab.commentFormatter,
-                    indicatorBuilder: (context, editingController, chunkController, notifier) {
-                            return GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {}, // Absorb taps
-                                child:Row(
-                              children: [
-                                DefaultCodeLineNumber(
-                                  controller: editingController,
-                                  notifier: notifier,
-                                ),
-                                
-                                DefaultCodeChunkIndicator(
-                                  width: 20,
-                                  controller: chunkController,
-                                  notifier: notifier,
-                                ),
-                              ],
-                            ));
-                          },
-                    style: CodeEditorStyle(
-                      fontSize: 12,
-                      fontFamily: 'JetBrainsMono',
-                      codeTheme: CodeHighlightTheme(
-                      languages: _getLanguageMode(tab.uri),         
-                      theme: atomOneDarkTheme,
-                      ),
+            controller: tab.controller,
+            commentFormatter: tab.commentFormatter,
+            indicatorBuilder: (context, editingController, chunkController, notifier) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {}, // Absorb taps
+                child:Row(
+                  children: [
+                    DefaultCodeLineNumber(
+                      controller: editingController,
+                      notifier: notifier,
                     ),
-                    wordWrap: tab.wordWrap,
+                    
+                    DefaultCodeChunkIndicator(
+                      width: 20,
+                      controller: chunkController,
+                      notifier: notifier,
                     ),
+                  ],
+                ));
+              },
+              style: CodeEditorStyle(
+                fontSize: 12,
+                fontFamily: 'JetBrainsMono',
+                codeTheme: CodeHighlightTheme(
+                  languages: _getLanguageMode(tab.uri),
+                  theme: atomOneDarkTheme,
+                ),
               ),
+              wordWrap: tab.wordWrap,
+            ),
+          ),
         ),
-    );
-  }
-  
+      );
+    }
     
-
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
     
-    final controller = _tabs[_currentTabIndex].controller;
-    final direction = _arrowKeyDirections[event.logicalKey];
-    final shiftPressed = event.isShiftPressed;
-
-    if (direction != null) {
-      if (shiftPressed) {
-        controller.extendSelection(direction);
-      } else {
-        controller.moveCursor(direction);
+    
+    KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+      if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+      
+      final controller = _tabs[_currentTabIndex].controller;
+      final direction = _arrowKeyDirections[event.logicalKey];
+      final shiftPressed = event.isShiftPressed;
+      
+      if (direction != null) {
+        if (shiftPressed) {
+          controller.extendSelection(direction);
+        } else {
+          controller.moveCursor(direction);
+        }
+        return KeyEventResult.handled;
       }
-      return KeyEventResult.handled;
+      return KeyEventResult.ignored;
     }
-    return KeyEventResult.ignored;
-  }
-
-  void _handleSelectionStart(CodeLineEditingController controller) {
-    controller.addListener(_handleSelectionChange);
-  }
-
-  void _handleSelectionChange() {
-    final controller = _tabs[_currentTabIndex].controller;
-    if (!controller.selection.isCollapsed) {
-      _editorFocusNode.unfocus();
+    
+    void _handleSelectionStart(CodeLineEditingController controller) {
+      controller.addListener(_handleSelectionChange);
     }
-    controller.removeListener(_handleSelectionChange);
+    
+    void _handleSelectionChange() {
+      final controller = _tabs[_currentTabIndex].controller;
+      if (!controller.selection.isCollapsed) {
+        _editorFocusNode.unfocus();
+      }
+      controller.removeListener(_handleSelectionChange);
+    }
+    
+    void _closeOtherTabs(int keepIndex) {
+      setState(() {
+        _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
+        _currentTabIndex = 0;
+      });
+    }
+    
+    String _getFormattedPath(String uri){
+      final parsed = Uri.parse(uri);
+      if (parsed.pathSegments.isNotEmpty) {
+        // Handle content URIs and normal file paths
+        return parsed.pathSegments.last.split(':').last;
+      }
+      // Fallback for unusual URI formats
+      return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+    }
+    
+    String _getFileName(String uri) {
+      final parsed = Uri.parse(uri);
+      if (parsed.pathSegments.isNotEmpty) {
+        // Handle content URIs and normal file paths
+        return parsed.pathSegments.last.split('/').last;
+      }
+      // Fallback for unusual URI formats
+      return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+    }
   }
   
-  void _closeOtherTabs(int keepIndex) {
-  setState(() {
-    _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
-    _currentTabIndex = 0;
-  });
-}
-
-String _getFormattedPath(String uri){
-    final parsed = Uri.parse(uri);
-  if (parsed.pathSegments.isNotEmpty) {
-    // Handle content URIs and normal file paths
-    return parsed.pathSegments.last.split(':').last;
-  }
-  // Fallback for unusual URI formats
-  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-}
-
-String _getFileName(String uri) {
-  final parsed = Uri.parse(uri);
-  if (parsed.pathSegments.isNotEmpty) {
-    // Handle content URIs and normal file paths
-    return parsed.pathSegments.last.split('/').last;
-  }
-  // Fallback for unusual URI formats
-  return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-}
-}
-
-class _DirectoryExpansionTile extends StatefulWidget {
-  final String uri;
-  final String name;
-  final AndroidFileHandler fileHandler;
-  final Function(String) onFileTap;
-
-  const _DirectoryExpansionTile({
-    required this.uri,
-    required this.name,
-    required this.fileHandler,
-    required this.onFileTap,
-  });
-
-  @override
-  State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
-}
-
-// Update the _DirectoryExpansionTileState class
-class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
-  bool _isExpanded = false;
-  List<Map<String, dynamic>> _children = [];
-  bool _isLoading = false;
-
-  Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+  class _DirectoryExpansionTile extends StatefulWidget {
+    final String uri;
+    final String name;
+    final AndroidFileHandler fileHandler;
+    final Function(String) onFileTap;
     
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: contents.length,
-      itemBuilder: (context, index) {
-        final item = contents[index];
-        if (item['type'] == 'dir') {
-          return _DirectoryExpansionTile(
-            uri: item['uri'],  // Pass the SUBFOLDER's URI here
-            name: item['name'],
-            fileHandler: widget.fileHandler,
-            onFileTap: widget.onFileTap,
+    const _DirectoryExpansionTile({
+      required this.uri,
+      required this.name,
+      required this.fileHandler,
+      required this.onFileTap,
+    });
+    
+    @override
+    State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+  }
+  
+  // Update the _DirectoryExpansionTileState class
+  class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
+    bool _isExpanded = false;
+    List<Map<String, dynamic>> _children = [];
+    bool _isLoading = false;
+    
+    Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+      
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: contents.length,
+        itemBuilder: (context, index) {
+          final item = contents[index];
+          if (item['type'] == 'dir') {
+            return _DirectoryExpansionTile(
+              uri: item['uri'],  // Pass the SUBFOLDER's URI here
+              name: item['name'],
+              fileHandler: widget.fileHandler,
+              onFileTap: widget.onFileTap,
+            );
+          }
+          return ListTile(
+            leading: const Icon(Icons.insert_drive_file),
+            title: Text(item['name']),
+            onTap: () => widget.onFileTap(item['uri']),
           );
-        }
-        return ListTile(
-          leading: const Icon(Icons.insert_drive_file),
-          title: Text(item['name']),
-          onTap: () => widget.onFileTap(item['uri']),
-        );
-      },
-    );
-  }
-
-  Future<void> _loadChildren() async {
-    setState(() => _isLoading = true);
-    try {
-        // In _loadChildren()
-      debugPrint('Loading children for: ${widget.uri}');
-      // Use the current directory's URI to load its contents
-      final contents = await widget.fileHandler.listDirectory(widget.uri);
-      if (contents != null) {
-        setState(() => _children = contents);
-      }
-    } finally {
-      setState(() => _isLoading = false);
+        },
+      );
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ExpansionTile(
-      leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
-      title: Text(widget.name),
-      trailing: _isLoading 
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
-      onExpansionChanged: (expanded) async {
-        setState(() => _isExpanded = expanded);
-        if (expanded && _children.isEmpty) {
-          await _loadChildren();
+    
+    Future<void> _loadChildren() async {
+      setState(() => _isLoading = true);
+      try {
+        // In _loadChildren()
+        debugPrint('Loading children for: ${widget.uri}');
+        // Use the current directory's URI to load its contents
+        final contents = await widget.fileHandler.listDirectory(widget.uri);
+        if (contents != null) {
+          setState(() => _children = contents);
         }
-      },
-      children: [
-        if (_children.isNotEmpty)
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+    
+    @override
+    Widget build(BuildContext context) {
+      return ExpansionTile(
+        leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
+        title: Text(widget.name),
+        trailing: _isLoading
+        ? const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+        : null,
+        onExpansionChanged: (expanded) async {
+          setState(() => _isExpanded = expanded);
+          if (expanded && _children.isEmpty) {
+            await _loadChildren();
+          }
+        },
+        children: [
+          if (_children.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 16.0),
             child: _buildChildItems(_children),
           ),
-      ],
-    );
-  }
-}
-class AndroidFileHandler {
-  static const _channel = MethodChannel('com.example/file_handler');
-  
-  
-  Future<bool> _requestPermissions() async {
-    if (await Permission.storage.request().isGranted) {
-      return true;
-    }
-    return await Permission.manageExternalStorage.request().isGranted;
-  }
-  
-  Future<String?> openFile() async {
-    if (!await _requestPermissions()) {
-      throw Exception('Storage permission denied');
-    }
-    try {
-      return await _channel.invokeMethod<String>('openFile');
-    } on PlatformException catch (e) {
-      print("Error opening file: ${e.message}");
-      return null;
+        ],
+      );
     }
   }
-
-  Future<String?> openFolder() async {
-    try {
-      return await _channel.invokeMethod<String>('openFolder');
-    } on PlatformException catch (e) {
-      print("Error opening folder: ${e.message}");
-      return null;
+  class AndroidFileHandler {
+    static const _channel = MethodChannel('com.example/file_handler');
+    
+    
+    Future<bool> _requestPermissions() async {
+      if (await Permission.storage.request().isGranted) {
+        return true;
+      }
+      return await Permission.manageExternalStorage.request().isGranted;
     }
-  }
-
-Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
-    try {
+    
+    Future<String?> openFile() async {
+      if (!await _requestPermissions()) {
+        throw Exception('Storage permission denied');
+      }
+      try {
+        return await _channel.invokeMethod<String>('openFile');
+      } on PlatformException catch (e) {
+        print("Error opening file: ${e.message}");
+        return null;
+      }
+    }
+    
+    Future<String?> openFolder() async {
+      try {
+        return await _channel.invokeMethod<String>('openFolder');
+      } on PlatformException catch (e) {
+        print("Error opening folder: ${e.message}");
+        return null;
+      }
+    }
+    
+    Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
+      try {
         final result = await _channel.invokeMethod<List<dynamic>>(
-            'listDirectory',
-            {'uri': uri, 'isRoot': isRoot}
+          'listDirectory',
+          {'uri': uri, 'isRoot': isRoot}
         );
         return result?.map((e) => Map<String, dynamic>.from(e)).toList();
-    } on PlatformException catch (e) {
+      } on PlatformException catch (e) {
         print("Error listing directory: ${e.message}");
         return null;
-    }
-}
-
-Future<String?> readFile(String uri) async {
-  try {
-    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-      'readFile',
-      {'uri': uri}
-    );
-
-    final error = response?['error'];
-    final isEmpty = response?['isEmpty'] ?? false;
-    final content = response?['content'] as String?;
-
-    if (error != null) {
-      throw Exception(error);
+      }
     }
     
-    if (isEmpty) {
-      print('File is empty but opened successfully');
-      return '';
-    }
-
-    return content;
-  } on PlatformException catch (e) {
-    throw Exception('Platform error: ${e.message}');
-  }
-}
-
-  Future<bool> writeFile(String uri, String content) async {
-  try {
-    final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-      'writeFile',
-      {'uri': uri, 'content': content}
-    );
-
-    if (response?['success'] == true) {
-      return true;
+    Future<String?> readFile(String uri) async {
+      try {
+        final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+          'readFile',
+          {'uri': uri}
+        );
+        
+        final error = response?['error'];
+        final isEmpty = response?['isEmpty'] ?? false;
+        final content = response?['content'] as String?;
+        
+        if (error != null) {
+          throw Exception(error);
+        }
+        
+        if (isEmpty) {
+          print('File is empty but opened successfully');
+          return '';
+        }
+        
+        return content;
+      } on PlatformException catch (e) {
+        throw Exception('Platform error: ${e.message}');
+      }
     }
     
-    throw Exception(response?['error'] ?? 'Unknown write error');
-  } on PlatformException catch (e) {
-    throw Exception('Platform error: ${e.message}');
+    Future<bool> writeFile(String uri, String content) async {
+      try {
+        final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+          'writeFile',
+          {'uri': uri, 'content': content}
+        );
+        
+        if (response?['success'] == true) {
+          return true;
+        }
+        
+        throw Exception(response?['error'] ?? 'Unknown write error');
+      } on PlatformException catch (e) {
+        throw Exception('Platform error: ${e.message}');
+      }
+    }
   }
-}
-}
-
-// Add this extension-to-language mapper in your _EditorScreenState class
-// Update the language mapping logic
-Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-  final extension = uri.split('.').last.toLowerCase();
   
-  // Explicitly handle each case with proper typing
-  switch (extension) {
-    case 'dart':
+  // Add this extension-to-language mapper in your _EditorScreenState class
+  // Update the language mapping logic
+  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+    
+    // Explicitly handle each case with proper typing
+    switch (extension) {
+      case 'dart':
       return {'dart': CodeHighlightThemeMode(mode: langDart)};
-    case 'js':
-    case 'jsx':
+      case 'js':
+      case 'jsx':
       return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
-    case 'py':
+      case 'py':
       return {'python': CodeHighlightThemeMode(mode: langPython)};
-    case 'java':
+      case 'java':
       return {'java': CodeHighlightThemeMode(mode: langJava)};
-    case 'cpp':
-    case 'cc':
-    case 'h':
+      case 'cpp':
+      case 'cc':
+      case 'h':
       return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
-    case 'css':
+      case 'css':
       return {'css': CodeHighlightThemeMode(mode: langCss)};
-    case 'kt':
+      case 'kt':
       return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
-    case 'json':
+      case 'json':
       return {'json': CodeHighlightThemeMode(mode: langJson)};
-    case 'yaml':
-    case 'yml':
+      case 'yaml':
+      case 'yml':
       return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
-    case 'md':
+      case 'md':
       return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
-    default:
+      default:
       return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+    }
   }
-}
-
-CodeCommentFormatter _getCommentFormatter(String uri) {
-  final extension = uri.split('.').last.toLowerCase();
-  switch (extension) {
-    case 'dart':
+  
+  CodeCommentFormatter _getCommentFormatter(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'dart':
       return DefaultCodeCommentFormatter(
         singleLinePrefix: '//',
-        multiLinePrefix: '/*', 
+        multiLinePrefix: '/*',
         multiLineSuffix: '*/',
       );
-    default:
+      default:
       return DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', multiLineSuffix: '*/');
+    }
   }
-}
