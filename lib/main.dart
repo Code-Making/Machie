@@ -356,7 +356,7 @@ void _setMarkPosition() {
   setState(() {
     tab.markPosition = tab.controller.selection.base;
   });
-  _showSuccess('Mark set at line ${tab.markPosition!.index + 1}');
+  //_showSuccess('Mark set at line ${tab.markPosition!.index + 1}');
 }
 
 void _selectToMark() {
@@ -383,7 +383,7 @@ void _selectToMark() {
       extentOffset: end.offset,
     );
 
-    _showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
+    //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
   } catch (e) {
     _showError('Selection error: ${e.toString()}');
   }
