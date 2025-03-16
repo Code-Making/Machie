@@ -563,21 +563,22 @@ Future<bool> _checkFileModified(String uri) async {
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
                     controller: tab.controller,
-                    indicatorBuilder: (context, editingController, chunkController, notifier) {
-                            return Row(
-                              children: [
-                                DefaultCodeLineNumber(
-                                  controller: editingController,
-                                  notifier: notifier,
-                                ),
-                                DefaultCodeChunkIndicator(
-                                  width: 20,
-                                  controller: chunkController,
-                                  notifier: notifier,
-                                ),
-                              ],
-                            );
-                          },
+                  indicatorBuilder: (context, editingController, chunkController, notifier) {
+  return GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTapDown: (_) {}, // Absorb taps without requesting focus
+    child: Row(
+      children: [
+        _buildLineNumberBar(editingController, notifier),
+        DefaultCodeChunkIndicator(
+          width: 20,
+          controller: chunkController,
+          notifier: notifier,
+        ),
+      ],
+    ),
+  );
+},
                     style: CodeEditorStyle(
                       fontSize: 12,
                       fontFamily: 'JetBrainsMono',
@@ -593,6 +594,26 @@ Future<bool> _checkFileModified(String uri) async {
       ),
     );
   }
+  
+  // Add this helper method
+Widget _buildLineNumberBar(CodeLineEditingController controller, ValueNotifier<CodeLineEditingValue> notifier) {
+  return GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTapDown: (_) {
+      // Handle line number selection without focusing
+      final offset = controller.textEditingValue.selection.baseOffset;
+      final position = controller.textEditingValue.selection.base;
+      controller.selection = CodeLineSelection.from(
+        position: position,
+        affinity: controller.textEditingValue.selection.affinity,
+      );
+    },
+    child: DefaultCodeLineNumber(
+      controller: controller,
+      notifier: notifier,
+    ),
+  );
+}
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
     if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
