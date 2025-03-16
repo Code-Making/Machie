@@ -356,23 +356,18 @@ Widget _buildBottomToolbar() {
   );
 }
 
-// Add reformat method
+// Add reformat method using CodeLineEditingValue
 void _reformatDocument() {
   final tab = _tabs[_currentTabIndex];
   final controller = tab.controller;
-  final originalValue = controller.value;
   
   try {
-    final formatted = _formatCode(
-      originalValue.text,
-      tab.uri,
-      controller.options.indent,
-    );
+    final formattedValue = _formatCodeValue(controller.value);
     
     controller.runRevocableOp(() {
-      controller.value = controller.value.copyWith(
-        codeLines: CodeLines.fromText(formatted),
+      controller.value = formattedValue.copyWith(
         selection: const CodeLineSelection.zero(),
+        composing: TextRange.empty,
       );
     });
     
@@ -382,39 +377,36 @@ void _reformatDocument() {
   }
 }
 
-// Basic formatter implementation
-String _formatCode(String text, String uri, String indent) {
-  final lines = text.split('\n');
+CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
   final buffer = StringBuffer();
   int indentLevel = 0;
-  final isPython = uri.endsWith('.py');
-
-  for (var line in lines) {
-    final trimmed = line.trim();
+  final indent = '  '; // 2 spaces, adjust based on file type
+  
+  for (final line in value.codeLines) {
+    final trimmed = line.text.trim();
     
-    // Decrease indent for closing braces/brackets
-    if (trimmed.endsWith('}') || trimmed.endsWith(']') || trimmed.endsWith(')')) {
+    // Handle indentation decreases first
+    if (trimmed.endsWith('}') || trimmed.endsWith(']')) {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
-
-    // Add current indent
+    
+    // Write indentation
     buffer.write(indent * indentLevel);
     
-    // Add line content
-    buffer.write(trimmed);
-    buffer.write('\n');
-
-    // Increase indent for opening braces/brackets
-    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
-      indentLevel++;
-    }
-    // Python-specific indent handling
-    else if (isPython && trimmed.endsWith(':')) {
+    // Write line content
+    buffer.writeln(trimmed);
+    
+    // Handle indentation increases
+    if (trimmed.endsWith('{') || trimmed.endsWith('[')) {
       indentLevel++;
     }
   }
-
-  return buffer.toString().trim();
+  
+  return CodeLineEditingValue(
+    codeLines: CodeLines.fromText(buffer.toString().trim()),
+    selection: value.selection,
+    composing: value.composing,
+  );
 }
 
 void _setMarkPosition() {
