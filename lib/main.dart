@@ -389,9 +389,8 @@ CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     final trimmed = line.text.trim();
     
     // Handle indentation decreases
-    if (trimmed.endsWith('}') || trimmed.endsWith(']')|| trimmed.endsWith(')') ||
-    trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')')
-    ) {
+    if (trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')'))
+    {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
     
