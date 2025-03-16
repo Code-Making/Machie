@@ -205,6 +205,11 @@ Widget _buildBottomToolbar() {
             constraints: const BoxConstraints(minWidth: 150),
             child: Row(
               children: [
+                  IconButton(
+                  icon: const Icon(Icons.keyboard, size: 20),
+                  onPressed: hasActiveTab ? () => _editorFocusNode.requestFocus() : null,
+                  tooltip: 'Show Keyboard',
+                ),
                 IconButton(
                   icon: const Icon(Icons.content_copy, size: 20),
                   onPressed: hasActiveTab ? () => controller!.copy() : null,
@@ -219,6 +224,29 @@ Widget _buildBottomToolbar() {
                   icon: const Icon(Icons.content_paste, size: 20),
                   onPressed: hasActiveTab ? () => controller!.paste() : null,
                   tooltip: 'Paste',
+                ),
+                const VerticalDivider(width: 20),
+              ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 120),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.format_indent_increase, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.applyIndent() : null,
+                  tooltip: 'Indent',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_indent_decrease, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.applyOutdent() : null,
+                  tooltip: 'Outdent',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.comment, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.commentLines() : null,
+                  tooltip: 'Toggle Comment',
                 ),
                 const VerticalDivider(width: 20),
               ],
