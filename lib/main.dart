@@ -558,7 +558,6 @@ Future<bool> _checkFileModified(String uri) async {
       onKey: _handleKeyEvent,
       child:  GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _handleTapDown(),
         onTap: () => _handleSingleTap(),
         onDoubleTap: _handleDoubleTap,
         child: Listener(
@@ -600,34 +599,34 @@ Future<bool> _checkFileModified(String uri) async {
     );
   }
   
-    void _handleTapDown() {
-    _tapTimer?.cancel();
-    _isDoubleTap = false;
-    _tapTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!_isDoubleTap && !_editorFocusNode.hasFocus) {
-        _editorFocusNode.requestFocus();
-      }
-    });
+  void _handleSingleTap() {
+    if (!_isDoubleTap) {
+      final controller = _tabs[_currentTabIndex].controller;
+      final selection = controller.selection;
+      controller.selection = selection.copyWith(
+        baseOffset: selection.baseOffset,
+        extentOffset: selection.baseOffset,
+      );
+    }
   }
-
-void _handleSingleTap() {
-  if (!_isDoubleTap) {
-    final controller = _tabs[_currentTabIndex].controller;
-    final selection = controller.selection;
-    // Get the actual position from the selection base
-    final position = selection.base; // Changed from baseOffset to base
-    controller.selection = CodeLineSelection.collapsed(
-      index: position.index,
-      offset: position.offset,
-    );
-  }
-}
 
   void _handleDoubleTap() {
     _isDoubleTap = true;
     _tapTimer?.cancel();
-    // Let the default double tap behavior (word selection) occur
-    // without triggering keyboard
+    final controller = _tabs[_currentTabIndex].controller;
+    final position = controller.selection.base;
+    
+    // Select word at double-tap position
+    controller.runRevocableOp(() {
+      controller.selection = CodeLineSelection.fromBaseAndExtent(
+        baseIndex: position.index,
+        baseOffset: position.offset,
+        extentIndex: position.index,
+        extentOffset: position.offset,
+      );
+      controller.extendSelectionToWordBoundaryBackward();
+      controller.extendSelectionToWordBoundaryForward();
+    });
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
