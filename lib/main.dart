@@ -553,7 +553,16 @@ Future<bool> _checkFileModified(String uri) async {
     return Focus(
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
-      child: CodeEditor(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (!_editorFocusNode.hasFocus) {
+            _editorFocusNode.requestFocus();
+          }
+        },
+        child: Listener(
+          onPointerDown: (_) => _handleSelectionStart(tab.controller),
+          child: CodeEditor(
                     controller: tab.controller,
                     indicatorBuilder: (context, editingController, chunkController, notifier) {
                             return GestureDetector(
@@ -583,9 +592,9 @@ Future<bool> _checkFileModified(String uri) async {
                       ),
                     ),
                     wordWrap: tab.wordWrap,
-
-                  ),
-        
+                    ),
+              ),
+        ),
     );
   }
   
