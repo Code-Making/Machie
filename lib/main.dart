@@ -73,7 +73,9 @@ class _EditorScreenState extends State<EditorScreen> {
   
     late FocusNode _editorFocusNode;
   late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
-
+  Timer? _tapTimer;
+  bool _isDoubleTap = false;
+  
     @override
   void initState() {
     super.initState();
@@ -89,6 +91,7 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     _editorFocusNode.dispose();
+        _tapTimer?.cancel();
     super.dispose();
   }
 
