@@ -255,6 +255,11 @@ Widget _buildBottomToolbar() {
                   onPressed: hasActiveTab ? () => _toggleComments() : null,
                   tooltip: 'Toggle Comment',
                 ),
+                IconButton(
+                    icon: const Icon(Icons.format_align_left, size: 20),
+                    onPressed: hasActiveTab ? () => _reformatDocument() : null,
+                    tooltip: 'Reformat Document',
+                  ),
                 const VerticalDivider(width: 20),
               ],
             ),
@@ -349,6 +354,67 @@ Widget _buildBottomToolbar() {
       ),
     ),
   );
+}
+
+// Add reformat method
+void _reformatDocument() {
+  final tab = _tabs[_currentTabIndex];
+  final controller = tab.controller;
+  final originalValue = controller.value;
+  
+  try {
+    final formatted = _formatCode(
+      originalValue.text,
+      tab.uri,
+      controller.options.indent,
+    );
+    
+    controller.runRevocableOp(() {
+      controller.value = controller.value.copyWith(
+        codeLines: CodeLines.fromText(formatted),
+        selection: const CodeLineSelection.zero(),
+      );
+    });
+    
+    _showSuccess('Document reformatted');
+  } catch (e) {
+    _showError('Formatting failed: ${e.toString()}');
+  }
+}
+
+// Basic formatter implementation
+String _formatCode(String text, String uri, String indent) {
+  final lines = text.split('\n');
+  final buffer = StringBuffer();
+  int indentLevel = 0;
+  final isPython = uri.endsWith('.py');
+
+  for (var line in lines) {
+    final trimmed = line.trim();
+    
+    // Decrease indent for closing braces/brackets
+    if (trimmed.endsWith('}') || trimmed.endsWith(']') || trimmed.endsWith(')')) {
+      indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
+    }
+
+    // Add current indent
+    buffer.write(indent * indentLevel);
+    
+    // Add line content
+    buffer.write(trimmed);
+    buffer.write('\n');
+
+    // Increase indent for opening braces/brackets
+    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
+      indentLevel++;
+    }
+    // Python-specific indent handling
+    else if (isPython && trimmed.endsWith(':')) {
+      indentLevel++;
+    }
+  }
+
+  return buffer.toString().trim();
 }
 
 void _setMarkPosition() {
