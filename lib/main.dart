@@ -564,23 +564,23 @@ Future<bool> _checkFileModified(String uri) async {
           child: CodeEditor(
                     controller: tab.controller,
                     indicatorBuilder: (context, editingController, chunkController, notifier) {
-                            return Row(
-                              children: [GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {}, // Absorb taps
-        child:
+                            return GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {}, // Absorb taps
+                                child:Row(
+                              children: [
                                 DefaultCodeLineNumber(
                                   controller: editingController,
                                   notifier: notifier,
                                 ),
-                                ),
+                                
                                 DefaultCodeChunkIndicator(
                                   width: 20,
                                   controller: chunkController,
                                   notifier: notifier,
                                 ),
                               ],
-                            );
+                            ));
                           },
                     style: CodeEditorStyle(
                       fontSize: 12,
