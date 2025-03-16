@@ -611,23 +611,25 @@ Future<bool> _checkFileModified(String uri) async {
   }
 
   void _handleDoubleTap() {
-    _isDoubleTap = true;
-    _tapTimer?.cancel();
-    final controller = _tabs[_currentTabIndex].controller;
-    final position = controller.selection.base;
-    
-    // Select word at double-tap position
-    controller.runRevocableOp(() {
-      controller.selection = CodeLineSelection.fromBaseAndExtent(
-        baseIndex: position.index,
-        baseOffset: position.offset,
-        extentIndex: position.index,
-        extentOffset: position.offset,
-      );
-      controller.extendSelectionToWordBoundaryBackward();
-      controller.extendSelectionToWordBoundaryForward();
-    });
-  }
+  _isDoubleTap = true;
+  _tapTimer?.cancel();
+  final controller = _tabs[_currentTabIndex].controller;
+  final position = controller.selection.base;
+  
+  // Select word at double-tap position
+  controller.runRevocableOp(() {
+    controller.selection = CodeLineSelection(
+      baseIndex: position.index,
+      baseOffset: position.offset,
+      extentIndex: position.index,
+      extentOffset: position.offset,
+      baseAffinity: TextAffinity.downstream,
+      extentAffinity: TextAffinity.downstream,
+    );
+    controller.extendSelectionToWordBoundaryBackward();
+    controller.extendSelectionToWordBoundaryForward();
+  });
+}
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
     if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
