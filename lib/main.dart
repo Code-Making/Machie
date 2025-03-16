@@ -732,7 +732,7 @@ Future<bool> _checkFileModified(String uri) async {
   
     
 
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
   if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
   
   final controller = _tabs[_currentTabIndex].controller;
@@ -742,36 +742,52 @@ Future<bool> _checkFileModified(String uri) async {
 
   if (direction != null) {
     controller.runRevocableOp(() {
-      // Handle right arrow at line end
-      if (direction == AxisDirection.right) {
-        final line = controller.codeLines[selection.extentIndex];
-        if (selection.extentOffset >= line.text.length) {
-          // Move to next line start if not last line
-          if (selection.extentIndex < controller.codeLines.length - 1) {
-            controller.selection = CodeLineSelection.collapsed(
-              index: selection.extentIndex + 1,
-              offset: 0,
-            );
-            return;
-          }
-        }
-      }
+      final currentIndex = selection.extentIndex;
+      final currentLine = controller.codeLines[currentIndex];
+      final currentOffset = selection.extentOffset;
 
-      // Handle down arrow in chunks
-      if (direction == AxisDirection.down) {
-        final currentLine = controller.codeLines[selection.extentIndex];
-        if (currentLine.isChunk && !currentLine.isChunkStart) {
-          // Jump to parent chunk end
-          final parent = currentLine.chunkParent!;
+      // Handle right arrow at line end
+      if (direction == AxisDirection.right && currentOffset >= currentLine.text.length) {
+        if (currentIndex < controller.codeLines.length - 1) {
           controller.selection = CodeLineSelection.collapsed(
-            index: parent.lineIndex + parent.lines.length,
-            offset: controller.codeLines[parent.lineIndex + parent.lines.length].text.length,
+            index: currentIndex + 1,
+            offset: 0,
           );
           return;
         }
       }
 
-      // Default behavior with shift support
+      // Handle down arrow navigation through chunks
+      if (direction == AxisDirection.down) {
+        // Find parent chunk if exists
+        CodeLine? parentChunk;
+        int parentIndex = currentIndex;
+        
+        while (parentIndex >= 0) {
+          final line = controller.codeLines[parentIndex];
+          if (line.chunks.isNotEmpty && parentIndex + line.chunks.length >= currentIndex) {
+            parentChunk = line;
+            break;
+          }
+          parentIndex--;
+        }
+
+        if (parentChunk != null) {
+          final chunkEnd = parentIndex + parentChunk.chunks.length;
+          if (currentIndex <= chunkEnd) {
+            final targetIndex = chunkEnd + 1;
+            if (targetIndex < controller.codeLines.length) {
+              controller.selection = CodeLineSelection.collapsed(
+                index: targetIndex,
+                offset: 0,
+              );
+              return;
+            }
+          }
+        }
+      }
+
+      // Default behavior
       if (shiftPressed) {
         controller.extendSelection(direction);
       } else {
@@ -782,20 +798,7 @@ Future<bool> _checkFileModified(String uri) async {
     return KeyEventResult.handled;
   }
   return KeyEventResult.ignored;
-}
-
-  void _handleSelectionStart(CodeLineEditingController controller) {
-    controller.addListener(_handleSelectionChange);
-  }
-
-  void _handleSelectionChange() {
-    final controller = _tabs[_currentTabIndex].controller;
-    if (!controller.selection.isCollapsed) {
-      _editorFocusNode.unfocus();
-    }
-    controller.removeListener(_handleSelectionChange);
-  }
-  
+}  
   void _closeOtherTabs(int keepIndex) {
   setState(() {
     _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
