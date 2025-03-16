@@ -250,7 +250,7 @@ Widget _buildBottomToolbar() {
                 ),
                 IconButton(
                   icon: const Icon(Icons.comment, size: 20),
-                  onPressed: hasActiveTab ? () => _toggleComments : null,
+                  onPressed: hasActiveTab ? () => _toggleComments() : null,
                   tooltip: 'Toggle Comment',
                 ),
                 const VerticalDivider(width: 20),
@@ -334,12 +334,10 @@ Widget _buildBottomToolbar() {
 
 // 4. Add comment button handler
 void _toggleComments() {
-    _showSuccess("try comment");
   final tab = _tabs[_currentTabIndex];
   final controller = tab.controller;
   final formatter = tab.commentFormatter;
   final selection = controller.selection;
-    _showSuccess("try comment "+selection.isCollapsed.toString());
   if (selection.isCollapsed) {
     return;
   }
