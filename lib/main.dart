@@ -338,10 +338,10 @@ void _toggleComments() {
   final controller = tab.controller;
   final formatter = tab.commentFormatter;
   final selection = controller.selection;
-  if (selection.isCollapsed) {
+  /*if (selection.isCollapsed) {
         final lineIndex = selection.baseIndex;
         controller.selectLine(lineIndex);
-  }
+  }*/
 
   final value = controller.value;
   final indent = controller.options.indent;
