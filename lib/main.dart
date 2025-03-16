@@ -286,6 +286,7 @@ Widget _buildBottomToolbar() {
     ),
   );
 }
+}
 
 // Add to EditorTab class
 class EditorTab {
