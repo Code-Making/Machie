@@ -41,11 +41,13 @@ class EditorTab {
   final String uri;
   final CodeLineEditingController controller;
   bool isDirty;
+  bool wordWrap;
 
   EditorTab({
     required this.uri,
     required this.controller,
     this.isDirty = false,
+    this.wordWrap = false,
   });
 }
 
@@ -113,6 +115,24 @@ class _EditorScreenState extends State<EditorScreen> {
       )
     );
   }
+  
+  void _toggleWordWrap(int tabIndex) {
+  setState(() {
+    _tabs[tabIndex].wordWrap = !_tabs[tabIndex].wordWrap;
+  });
+}
+
+void _selectCurrentChunk(CodeLineEditingController controller) {
+  final selection = controller.selection;
+  if (selection.isCollapsed) {
+    final line = controller.codeLines[selection.baseIndex];
+    if (line.isChunk) {
+      controller.selectLines(selection.baseIndex, selection.baseIndex + line.chunkParent!.lines.length);
+    } else {
+      controller.selectLine(selection.baseIndex);
+    }
+  }
+}
 
    Future<void> _openFileTab(String uri) async {
           try {
@@ -446,9 +466,10 @@ Future<bool> _checkFileModified(String uri) async {
           child: _tabs.isEmpty
               ? const Center(child: Text('Open a file to start editing'))
               : CodeEditorTapRegion(
-                    child: Stack(
+                    child: Column(
                       children: [
-                          IndexedStack(
+                          Expanded(
+                            child: IndexedStack(
                   index: _currentTabIndex,
                   children: _tabs.map((tab) => CodeEditor(
                     controller: tab.controller,
@@ -477,12 +498,8 @@ Future<bool> _checkFileModified(String uri) async {
                     ),
                   )).toList(),
                 ),
-                Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: _buildBottomToolbar(),
-                        ),
+                ),
+                _buildBottomToolbar(),
                 ],
                 ),
                 ),
