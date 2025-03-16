@@ -536,34 +536,7 @@ Future<bool> _checkFileModified(String uri) async {
                           Expanded(
                             child: IndexedStack(
                   index: _currentTabIndex,
-                  children: _tabs.map((tab) => CodeEditor(
-                    controller: tab.controller,
-                    indicatorBuilder: (context, editingController, chunkController, notifier) {
-                            return Row(
-                              children: [
-                                DefaultCodeLineNumber(
-                                  controller: editingController,
-                                  notifier: notifier,
-                                ),
-                                DefaultCodeChunkIndicator(
-                                  width: 20,
-                                  controller: chunkController,
-                                  notifier: notifier,
-                                ),
-                              ],
-                            );
-                          },
-                    style: CodeEditorStyle(
-                      fontSize: 12,
-                      fontFamily: 'JetBrainsMono',
-                      codeTheme: CodeHighlightTheme(
-                      languages: _getLanguageMode(tab.uri),         
-                      theme: atomOneDarkTheme,
-                      ),
-                    ),
-                    wordWrap: tab.wordWrap,
-
-                  )).toList(),
+                  children: _tabs.map((tab) => _buildEditor(tab)).toList(),
                 ),
                 ),
                 _buildBottomToolbar(),
@@ -574,6 +547,68 @@ Future<bool> _checkFileModified(String uri) async {
       ],
     );
   }
+  
+    Widget _buildEditor(EditorTab tab) {
+    return Focus(
+      focusNode: _editorFocusNode,
+      onKey: _handleKeyEvent,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (!_editorFocusNode.hasFocus) {
+            _editorFocusNode.requestFocus();
+          }
+        },
+        child: Listener(
+          onPointerDown: (_) => _handleSelectionStart(tab.controller),
+          child: CodeEditor(
+            controller: tab.controller,
+            style: CodeEditorStyle(
+              fontSize: 14,
+              fontFamily: 'FiraCode',
+              codeTheme: CodeHighlightTheme(
+                languages: _getLanguageThemes(tab.uri),
+                theme: atomOneDarkTheme,
+              ),
+              wordWrap: tab.wordWrap,
+            ),
+            focusNode: _editorFocusNode,
+          ),
+        ),
+      ),
+    );
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+    
+    final controller = _tabs[_currentTabIndex].controller;
+    final direction = _arrowKeyDirections[event.logicalKey];
+    final shiftPressed = event.isShiftPressed;
+
+    if (direction != null) {
+      if (shiftPressed) {
+        controller.extendSelection(direction);
+      } else {
+        controller.moveCursor(direction);
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _handleSelectionStart(CodeLineEditingController controller) {
+    controller.addListener(_handleSelectionChange);
+  }
+
+  void _handleSelectionChange() {
+    final controller = _tabs[_currentTabIndex].controller;
+    if (!controller.selection.isCollapsed) {
+      _editorFocusNode.unfocus();
+    }
+    controller.removeListener(_handleSelectionChange);
+  }
+  
   void _closeOtherTabs(int keepIndex) {
   setState(() {
     _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
