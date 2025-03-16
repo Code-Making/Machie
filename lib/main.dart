@@ -798,7 +798,19 @@ KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
     return KeyEventResult.handled;
   }
   return KeyEventResult.ignored;
-}  
+}
+  void _handleSelectionStart(CodeLineEditingController controller) {
+    controller.addListener(_handleSelectionChange);
+  }
+
+  void _handleSelectionChange() {
+    final controller = _tabs[_currentTabIndex].controller;
+    if (!controller.selection.isCollapsed) {
+      _editorFocusNode.unfocus();
+    }
+    controller.removeListener(_handleSelectionChange);
+  }
+  
   void _closeOtherTabs(int keepIndex) {
   setState(() {
     _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
