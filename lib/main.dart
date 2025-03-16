@@ -337,21 +337,38 @@ void _toggleComments() {
   final tab = _tabs[_currentTabIndex];
   final controller = tab.controller;
   final formatter = tab.commentFormatter;
-  final selection = controller.selection;
+  
+  CodeLineEditingValue value = controller.value;
+  CodeLineSelection selection = value.selection;
+
+  // Handle collapsed selection by selecting current line
   if (selection.isCollapsed) {
-    return;
+    final lineIndex = selection.baseIndex;
+    final line = controller.codeLines[lineIndex];
+    selection = CodeLineSelection(
+      base: CodeLinePosition(index: lineIndex, offset: 0),
+      extent: CodeLinePosition(index: lineIndex, offset: line.text.length),
+    );
+    value = value.copyWith(selection: selection);
   }
 
-  final value = controller.value;
   final indent = controller.options.indent;
+  final singleLine = _shouldUseLineComments(tab.uri);
   
   try {
-    final formatted = formatter.format(
-      value,
-      indent,
-      true,
-    );
+    CodeLineEditingValue formatted = formatter.format(value, indent, singleLine);
     
+    // Collapse selection after formatting if original was collapsed
+    if (value.selection.isCollapsed) {
+      final newPosition = CodeLinePosition(
+        index: selection.baseIndex,
+        offset: formatted.codeLines[selection.baseIndex].text.length
+      );
+      formatted = formatted.copyWith(
+        selection: CodeLineSelection.collapsed(newPosition)
+      );
+    }
+
     controller.runRevocableOp(() {
       controller.value = formatted;
     });
