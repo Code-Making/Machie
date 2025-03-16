@@ -585,7 +585,7 @@ Future<bool> _checkFileModified(String uri) async {
                     wordWrap: tab.wordWrap,
 
                   ),
-        ),
+        
     );
   }
   
