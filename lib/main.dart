@@ -389,7 +389,7 @@ CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     final trimmed = line.text.trim();
     
     // Handle indentation decreases
-    if (trimmed.endsWith('}') || trimmed.endsWith(']')) {
+    if (trimmed.endsWith('}') || trimmed.endsWith(']')|| trimmed.endsWith(')')) {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
     
@@ -400,7 +400,7 @@ CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     buffer.writeln(trimmed);
     
     // Handle indentation increases
-    if (trimmed.endsWith('{') || trimmed.endsWith('[')) {
+    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
       indentLevel++;
     }
   }
