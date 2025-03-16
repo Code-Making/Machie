@@ -557,9 +557,9 @@ Future<bool> _checkFileModified(String uri) async {
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
       child:  GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _handleSingleTap(),
-        onDoubleTap: _handleDoubleTap,
+      behavior: HitTestBehavior.translucent,
+      onTapDown: (_) => _handleTapDown(),
+      onDoubleTap: _handleDoubleTap,
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
@@ -599,36 +599,19 @@ Future<bool> _checkFileModified(String uri) async {
     );
   }
   
-  void _handleSingleTap() {
-    if (!_isDoubleTap) {
-      final controller = _tabs[_currentTabIndex].controller;
-      final selection = controller.selection;
-      controller.selection = selection.copyWith(
-        baseOffset: selection.baseOffset,
-        extentOffset: selection.baseOffset,
-      );
+  void _handleTapDown() {
+  _tapTimer?.cancel();
+  _isDoubleTap = false;
+  _tapTimer = Timer(const Duration(milliseconds: 300), () {
+    if (!_isDoubleTap && !_editorFocusNode.hasFocus) {
+      _editorFocusNode.requestFocus();
     }
-  }
+  });
+}
 
-  void _handleDoubleTap() {
+void _handleDoubleTap() {
   _isDoubleTap = true;
   _tapTimer?.cancel();
-  final controller = _tabs[_currentTabIndex].controller;
-  final position = controller.selection.base;
-  
-  // Select word at double-tap position
-  controller.runRevocableOp(() {
-    controller.selection = CodeLineSelection(
-      baseIndex: position.index,
-      baseOffset: position.offset,
-      extentIndex: position.index,
-      extentOffset: position.offset,
-      baseAffinity: TextAffinity.downstream,
-      extentAffinity: TextAffinity.downstream,
-    );
-    controller.extendSelectionToWordBoundaryBackward();
-    controller.extendSelectionToWordBoundaryForward();
-  });
 }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
