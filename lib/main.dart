@@ -334,6 +334,7 @@ Widget _buildBottomToolbar() {
 
 // 4. Add comment button handler
 void _toggleComments() {
+    _showSuccess("try comment");
   final tab = _tabs[_currentTabIndex];
   final controller = tab.controller;
   final formatter = tab.commentFormatter;
