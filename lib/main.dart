@@ -169,53 +169,107 @@ class _EditorScreenState extends State<EditorScreen> {
 Widget _buildBottomToolbar() {
   final hasActiveTab = _tabs.isNotEmpty && _currentTabIndex < _tabs.length;
   final controller = hasActiveTab ? _tabs[_currentTabIndex].controller : null;
+  final isWrapped = hasActiveTab ? _tabs[_currentTabIndex].wordWrap : false;
 
   return CodeEditorTapRegion(
     child: Container(
       height: 48,
       color: Colors.grey[900],
-      child: Row(
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          IconButton(
-            icon: const Icon(Icons.content_copy, size: 20),
-            onPressed: hasActiveTab ? () => controller!.copy() : null,
-            tooltip: 'Copy',
+          // Clipboard section
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 150),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.content_copy, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.copy() : null,
+                  tooltip: 'Copy',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.content_cut, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.cut() : null,
+                  tooltip: 'Cut',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.content_paste, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.paste() : null,
+                  tooltip: 'Paste',
+                ),
+                const VerticalDivider(width: 20),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.content_cut, size: 20),
-            onPressed: hasActiveTab ? () => controller!.cut() : null,
-            tooltip: 'Cut',
+          
+          // Line operations
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 150),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_upward, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+                  tooltip: 'Move Line Up',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_downward, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+                  tooltip: 'Move Line Down',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.select_all, size: 20),
+                  onPressed: hasActiveTab ? () => controller!.selectAll() : null,
+                  tooltip: 'Select All',
+                ),
+                const VerticalDivider(width: 20),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.content_paste, size: 20),
-            onPressed: hasActiveTab ? () => controller!.paste() : null,
-            tooltip: 'Paste',
+          
+          // Code structure
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 120),
+            child: Row(
+              children: [
+                /*IconButton(
+                  icon: const Icon(Icons.horizontal_rule, size: 20),
+                  onPressed: hasActiveTab ? () => _selectCurrentChunk(controller!) : null,
+                  tooltip: 'Select Current Chunk',
+                ),*/
+                IconButton(
+                  icon: const Icon(Icons.wrap_text, size: 20),
+                  onPressed: hasActiveTab ? () => _toggleWordWrap(_currentTabIndex) : null,
+                  tooltip: 'Toggle Word Wrap',
+                  color: isWrapped ? Colors.blue : null,
+                ),
+                const VerticalDivider(width: 20),
+              ],
+            ),
           ),
-          const VerticalDivider(width: 20),
-          IconButton(
-            icon: const Icon(Icons.arrow_upward, size: 20),
-            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
-            tooltip: 'Move Line Up',
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_downward, size: 20),
-            onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
-            tooltip: 'Move Line Down',
-          ),
-          const VerticalDivider(width: 20),
-          IconButton(
-            icon: const Icon(Icons.undo, size: 20),
-            onPressed: (hasActiveTab && controller!.canUndo) 
-              ? () => controller!.undo() 
-              : null,
-            tooltip: 'Undo',
-          ),
-          IconButton(
-            icon: const Icon(Icons.redo, size: 20),
-            onPressed: (hasActiveTab && controller!.canRedo)
-              ? () => controller!.redo()
-              : null,
-            tooltip: 'Redo',
+          
+          // History
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 100),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.undo, size: 20),
+                  onPressed: (hasActiveTab && controller!.canUndo) 
+                    ? () => controller!.undo() 
+                    : null,
+                  tooltip: 'Undo',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.redo, size: 20),
+                  onPressed: (hasActiveTab && controller!.canRedo)
+                    ? () => controller!.redo()
+                    : null,
+                  tooltip: 'Redo',
+                ),
+              ],
+            ),
           ),
         ],
       ),
