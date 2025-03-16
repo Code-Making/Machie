@@ -337,7 +337,7 @@ void _toggleComments() {
   final tab = _tabs[_currentTabIndex];
   final controller = tab.controller;
   final formatter = tab.commentFormatter;
-  
+  _showSuccess("try comment ");
   final selection = controller.selection;
   if (selection.isCollapsed) {
     return;
