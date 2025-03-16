@@ -294,7 +294,7 @@ Widget _buildBottomToolbar() {
                     tooltip: 'Set Mark',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.text_select_start, size: 20),
+                    icon: const Icon(Icons.bookmark_add, size: 20),
                     onPressed: hasActiveTab ? () => _selectToMark() : null,
                     tooltip: 'Select to Mark',
                   ),
