@@ -946,23 +946,12 @@ CodeCommentFormatter _getCommentFormatter(String uri) {
   final extension = uri.split('.').last.toLowerCase();
   switch (extension) {
     case 'dart':
-      return const CodeCommentFormatter(
-        line: '//',
-        block: CodeBlockComment(start: '/*', end: '*/'),
-      );
-    case 'py':
-      return const CodeCommentFormatter(line: '#');
-    case 'html':
-    case 'htm':
-      return const CodeCommentFormatter(
-        block: CodeBlockComment(start: '<!--', end: '-->'),
-      );
-    case 'css':
-      return const CodeCommentFormatter(
-        line: '/*', // CSS uses block comments for both
-        block: CodeBlockComment(start: '/*', end: '*/'),
+      return const DefaultCodeCommentFormatter(
+        singleLinePrefix: '//',
+        multiLinePrefix: '/*', 
+        end: '*/',
       );
     default:
-      return const CodeCommentFormatter(line: '//');
+      return const DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', end: '*/');
   }
 }
