@@ -595,7 +595,8 @@ Future<bool> _checkFileModified(String uri) async {
       children: [
         if (_tabs.isNotEmpty)
           SizedBox(
-            height: 40,ReorderableListView(
+            height: 40,
+            child: ReorderableListView(
                 scrollDirection: Axis.horizontal,
                 onReorder: _handleTabReorder,
                 children: [
