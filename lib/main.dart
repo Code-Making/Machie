@@ -380,37 +380,61 @@ void _reformatDocument() {
 CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
   final buffer = StringBuffer();
   int indentLevel = 0;
-  final indent = '  '; // 2 spaces
-  
-  // Convert CodeLines to a list for iteration
+  final indent = '    '; // 4-space indentation
   final codeLines = value.codeLines.toList();
-  
-  for (final line in codeLines) {
-    final trimmed = line.text.trim();
-    
-    // Handle indentation decreases
-    if (trimmed.endsWith('}') || trimmed.endsWith(']')|| trimmed.endsWith(')')) {
+
+  String processLineContent(String line) {
+    // Trim trailing whitespace and handle punctuation
+    return line
+        .trim() // Remove leading/trailing whitespace
+        .replaceAll(RegExp(r'\s*([,;])\s*'), r'$1 ') // Fix spacing around punctuation
+        .replaceAll(RegExp(r'\s+'), ' ') // Collapse multiple spaces
+        .replaceAll(RegExp(r'([\(\{\[])\s+'), r'$1') // Remove space after opening brackets
+        .replaceAll(RegExp(r'\s+([\)\}\]])(?!\w)'), r'$1'); // Remove space before closing brackets
+  }
+
+  for (int i = 0; i < codeLines.length; i++) {
+    final originalLine = codeLines[i].text;
+    var processedLine = processLineContent(originalLine);
+    final trimmed = processedLine.trim();
+
+    // Handle closing brackets at line start
+    if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
-    
-    // Write indentation
+
+    // Apply current indentation
     buffer.write(indent * indentLevel);
-    
-    // Write line content
-    buffer.writeln(trimmed);
-    
-    // Handle indentation increases
-    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
-      indentLevel++;
+    buffer.write(processedLine);
+
+    // Handle line continuation
+    final hasTrailingComma = processedLine.endsWith(',');
+    final hasTrailingOperator = RegExp(r'[+\-*/%&|\^=<>!]\s*$').hasMatch(processedLine);
+    final shouldContinue = hasTrailingComma || hasTrailingOperator;
+
+    // Add line break unless it's the last line
+    if (i != codeLines.length - 1 || shouldContinue) {
+      buffer.writeln();
     }
+
+    // Handle opening brackets and indentation
+    final openingBrackets = RegExp(r'[\(\{\[]').allMatches(trimmed).length;
+    final closingBrackets = RegExp(r'[\)\}\]]').allMatches(trimmed).length;
+    indentLevel += openingBrackets - closingBrackets;
+    indentLevel = indentLevel.clamp(0, 20); // Prevent excessive indentation
+
+    // Special case for ternary operators
+    if (trimmed.contains('?')) indentLevel++;
+    if (trimmed.contains(':')) indentLevel--;
   }
-  
+
   return CodeLineEditingValue(
-    codeLines: CodeLines.fromText(buffer.toString().trim()),
+    codeLines: CodeLines.fromText(buffer.toString().trimRight()),
     selection: value.selection,
     composing: value.composing,
   );
 }
+
 void _setMarkPosition() {
   final tab = _tabs[_currentTabIndex];
   setState(() {
