@@ -43,6 +43,7 @@ class EditorTab {
   final CodeCommentFormatter commentFormatter;
   bool isDirty;
   bool wordWrap;
+  CodeLinePosition? markPosition;
 
   EditorTab({
     required this.uri,
@@ -50,6 +51,7 @@ class EditorTab {
     required this.commentFormatter,
     this.isDirty = false,
     this.wordWrap = false,
+    this.markPosition,
   });
 }
 
@@ -282,7 +284,24 @@ Widget _buildBottomToolbar() {
               ],
             ),
           ),
-          
+          ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 100),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.flag, size: 20),
+                    onPressed: hasActiveTab ? () => _setMarkPosition() : null,
+                    tooltip: 'Set Mark',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.text_select_start, size: 20),
+                    onPressed: hasActiveTab ? () => _selectToMark() : null,
+                    tooltip: 'Select to Mark',
+                  ),
+                  const VerticalDivider(width: 20),
+                ],
+              ),
+            ),
           // Code structure
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 120),
@@ -331,6 +350,51 @@ Widget _buildBottomToolbar() {
     ),
   );
 }
+
+void _setMarkPosition() {
+  final tab = _tabs[_currentTabIndex];
+  setState(() {
+    tab.markPosition = tab.controller.selection.base;
+  });
+  _showSuccess('Mark set at line ${tab.markPosition!.index + 1}');
+}
+
+void _selectToMark() {
+  final tab = _tabs[_currentTabIndex];
+  final currentPosition = tab.controller.selection.base;
+  
+  if (tab.markPosition == null) {
+    _showError('No mark set! Set a mark first');
+    return;
+  }
+
+  try {
+    final start = _comparePositions(tab.markPosition!, currentPosition) < 0 
+        ? tab.markPosition! 
+        : currentPosition;
+    final end = _comparePositions(tab.markPosition!, currentPosition) < 0 
+        ? currentPosition 
+        : tab.markPosition!;
+
+    tab.controller.selection = CodeLineSelection(
+      baseIndex: start.index,
+      baseOffset: start.offset,
+      extentIndex: end.index,
+      extentOffset: end.offset,
+    );
+
+    _showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
+  } catch (e) {
+    _showError('Selection error: ${e.toString()}');
+  }
+}
+
+int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
+  if (a.index < b.index) return -1;
+  if (a.index > b.index) return 1;
+  return a.offset.compareTo(b.offset);
+}
+
 
 // 4. Add comment button handler
 void _toggleComments() {
