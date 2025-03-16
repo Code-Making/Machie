@@ -380,12 +380,15 @@ void _reformatDocument() {
 CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
   final buffer = StringBuffer();
   int indentLevel = 0;
-  final indent = '  '; // 2 spaces, adjust based on file type
+  final indent = '  '; // 2 spaces
   
-  for (final line in value.codeLines) {
+  // Convert CodeLines to a list for iteration
+  final codeLines = value.codeLines.toList();
+  
+  for (final line in codeLines) {
     final trimmed = line.text.trim();
     
-    // Handle indentation decreases first
+    // Handle indentation decreases
     if (trimmed.endsWith('}') || trimmed.endsWith(']')) {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
@@ -408,7 +411,6 @@ CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     composing: value.composing,
   );
 }
-
 void _setMarkPosition() {
   final tab = _tabs[_currentTabIndex];
   setState(() {
