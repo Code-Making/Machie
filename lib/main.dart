@@ -390,8 +390,8 @@ CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     
     // Handle indentation decreases
     if (trimmed.endsWith('}') || trimmed.endsWith(']')|| trimmed.endsWith(')') ||
-    trimmed.endsWith(' },') || trimmed.endsWith(' ],')|| trimmed.endsWith(' ),') ||
-    trimmed.endsWith(' };') || trimmed.endsWith(' ];')|| trimmed.endsWith(' );')
+    trimmed.startsWith('},') || trimmed.startsWith('],')|| trimmed.startsWith('),') ||
+    trimmed.startsWith('};') || trimmed.startsWith('];')|| trimmed.startsWith(');')
     ) {
       indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
     }
