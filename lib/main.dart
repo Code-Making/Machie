@@ -552,13 +552,11 @@ Future<bool> _checkFileModified(String uri) async {
     return Focus(
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
-      child: GestureDetector(
+      child:  GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (!_editorFocusNode.hasFocus) {
-            _editorFocusNode.requestFocus();
-          }
-        },
+        onTapDown: (_) => _handleTapDown(),
+        onTap: () => _handleSingleTap(),
+        onDoubleTap: _handleDoubleTap,
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
@@ -596,6 +594,35 @@ Future<bool> _checkFileModified(String uri) async {
         ),
       ),
     );
+  }
+  
+    void _handleTapDown() {
+    _tapTimer?.cancel();
+    _isDoubleTap = false;
+    _tapTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!_isDoubleTap && !_editorFocusNode.hasFocus) {
+        _editorFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _handleSingleTap() {
+    if (!_isDoubleTap) {
+      // Handle normal single tap selection
+      final controller = _tabs[_currentTabIndex].controller;
+      final position = controller.selection.baseOffset;
+      controller.selection = CodeLineSelection.collapsed(
+        index: position.index,
+        offset: position.offset,
+      );
+    }
+  }
+
+  void _handleDoubleTap() {
+    _isDoubleTap = true;
+    _tapTimer?.cancel();
+    // Let the default double tap behavior (word selection) occur
+    // without triggering keyboard
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
