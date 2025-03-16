@@ -610,17 +610,18 @@ Future<bool> _checkFileModified(String uri) async {
     });
   }
 
-  void _handleSingleTap() {
-    if (!_isDoubleTap) {
-      // Handle normal single tap selection
-      final controller = _tabs[_currentTabIndex].controller;
-      final position = controller.selection.baseOffset;
-      controller.selection = CodeLineSelection.collapsed(
-        index: position.index,
-        offset: position.offset,
-      );
-    }
+void _handleSingleTap() {
+  if (!_isDoubleTap) {
+    final controller = _tabs[_currentTabIndex].controller;
+    final selection = controller.selection;
+    // Get the actual position from the selection base
+    final position = selection.base; // Changed from baseOffset to base
+    controller.selection = CodeLineSelection.collapsed(
+      index: position.index,
+      offset: position.offset,
+    );
   }
+}
 
   void _handleDoubleTap() {
     _isDoubleTap = true;
