@@ -657,6 +657,48 @@ String _getFileName(String uri) {
 }
 }
 
+class CustomLineNumberWidget extends StatelessWidget {
+  final CodeLineEditingController controller;
+  final CodeLineEditingNotifier notifier;
+
+  const CustomLineNumberWidget({
+    super.key,
+    required this.controller,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<CodeLineEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        return Container(
+          color: Colors.grey[900],
+          padding: const EdgeInsets.only(right: 8),
+          child: ListView.builder(
+            itemCount: value.codeLines.length,
+            itemBuilder: (context, index) {
+              return SizedBox(
+                height: notifier.lineHeight,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _DirectoryExpansionTile extends StatefulWidget {
   final String uri;
   final String name;
