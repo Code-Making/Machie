@@ -562,18 +562,33 @@ Future<bool> _checkFileModified(String uri) async {
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
-            controller: tab.controller,
-            style: CodeEditorStyle(
-              fontSize: 14,
-              fontFamily: 'FiraCode',
-              codeTheme: CodeHighlightTheme(
-                languages: _getLanguageThemes(tab.uri),
-                theme: atomOneDarkTheme,
-              ),
-              wordWrap: tab.wordWrap,
-            ),
-            focusNode: _editorFocusNode,
-          ),
+                    controller: tab.controller,
+                    indicatorBuilder: (context, editingController, chunkController, notifier) {
+                            return Row(
+                              children: [
+                                DefaultCodeLineNumber(
+                                  controller: editingController,
+                                  notifier: notifier,
+                                ),
+                                DefaultCodeChunkIndicator(
+                                  width: 20,
+                                  controller: chunkController,
+                                  notifier: notifier,
+                                ),
+                              ],
+                            );
+                          },
+                    style: CodeEditorStyle(
+                      fontSize: 12,
+                      fontFamily: 'JetBrainsMono',
+                      codeTheme: CodeHighlightTheme(
+                      languages: _getLanguageMode(tab.uri),         
+                      theme: atomOneDarkTheme,
+                      ),
+                    ),
+                    wordWrap: tab.wordWrap,
+
+                  ),
         ),
       ),
     );
