@@ -355,7 +355,6 @@ void _toggleComments() {
     controller.runRevocableOp(() {
       controller.value = formatted;
     });
-    _showSuccess("formatted");
   } catch (e) {
     _showError('Comment error: ${e.toString()}');
   }
