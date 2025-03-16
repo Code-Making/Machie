@@ -469,7 +469,7 @@ Future<bool> _checkFileModified(String uri) async {
                           },
                     style: CodeEditorStyle(
                       fontSize: 14,
-                      fontFamily: 'FiraMono',
+                      fontFamily: 'JetBrainsMono',
                       codeTheme: CodeHighlightTheme(
                       languages: _getLanguageMode(tab.uri),         
                       theme: atomOneDarkTheme,
