@@ -468,7 +468,7 @@ Future<bool> _checkFileModified(String uri) async {
                             );
                           },
                     style: CodeEditorStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontFamily: 'JetBrainsMono',
                       codeTheme: CodeHighlightTheme(
                       languages: _getLanguageMode(tab.uri),         
