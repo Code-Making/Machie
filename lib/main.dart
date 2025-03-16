@@ -350,12 +350,13 @@ void _toggleComments() {
     final formatted = formatter.format(
       value,
       indent,
-      _shouldUseLineComments(tab.uri),
+      true,
     );
     
     controller.runRevocableOp(() {
       controller.value = formatted;
     });
+    _showSuccess("formatted");
   } catch (e) {
     _showError('Comment error: ${e.toString()}');
   }
