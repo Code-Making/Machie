@@ -749,23 +749,64 @@ KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
       // Handle right arrow at line end
       if (direction == AxisDirection.right && currentOffset >= currentLine.text.length) {
         if (currentIndex < controller.codeLines.length - 1) {
-          controller.selection = CodeLineSelection.collapsed(
-            index: currentIndex + 1,
-            offset: 0,
-          );
+          // Check if next line is hidden in a folded chunk
+          CodeLine? parentChunk;
+          int parentIndex = currentIndex;
+          
+          while (parentIndex >= 0) {
+            final line = controller.codeLines[parentIndex];
+            if (line.chunks.isNotEmpty && line.chunks.contains(controller.codeLines[currentIndex + 1])) {
+              parentChunk = line;
+              break;
+            }
+            parentIndex--;
+          }
+
+          if (parentChunk != null && parentChunk.chunks.isNotEmpty) {
+            // Jump to end of folded chunk
+            final chunkEnd = parentIndex + parentChunk.chunks.length;
+            controller.selection = CodeLineSelection.collapsed(
+              index: chunkEnd,
+              offset: controller.codeLines[chunkEnd].text.length,
+            );
+          } else {
+            // Normal line wrap
+            controller.selection = CodeLineSelection.collapsed(
+              index: currentIndex + 1,
+              offset: 0,
+            );
+          }
           return;
         }
       }
 
-      // Handle down arrow navigation through chunks
+      // Handle down arrow navigation
       if (direction == AxisDirection.down) {
-        // Find parent chunk if exists
+        // Check if current line is parent of a folded chunk
+        if (currentLine.chunks.isNotEmpty) {
+          final nextIndex = currentIndex + 1;
+          if (nextIndex < controller.codeLines.length) {
+            final nextLine = controller.codeLines[nextIndex];
+            // If next line isn't first child, chunk is folded
+            if (!currentLine.chunks.contains(nextLine)) {
+              final chunkEnd = currentIndex + currentLine.chunks.length;
+              if (chunkEnd < controller.codeLines.length) {
+                controller.selection = CodeLineSelection.collapsed(
+                  index: chunkEnd,
+                  offset: controller.codeLines[chunkEnd].text.length,
+                );
+                return;
+              }
+            }
+          }
+        }
+
+        // Check if we're inside a folded parent chunk
         CodeLine? parentChunk;
         int parentIndex = currentIndex;
-        
         while (parentIndex >= 0) {
           final line = controller.codeLines[parentIndex];
-          if (line.chunks.isNotEmpty && parentIndex + line.chunks.length >= currentIndex) {
+          if (line.chunks.isNotEmpty && line.chunks.contains(currentLine)) {
             parentChunk = line;
             break;
           }
@@ -775,6 +816,7 @@ KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
         if (parentChunk != null) {
           final chunkEnd = parentIndex + parentChunk.chunks.length;
           if (currentIndex <= chunkEnd) {
+            // Jump out of folded parent chunk
             final targetIndex = chunkEnd + 1;
             if (targetIndex < controller.codeLines.length) {
               controller.selection = CodeLineSelection.collapsed(
@@ -787,7 +829,7 @@ KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
         }
       }
 
-      // Default behavior
+      // Default behavior for unfolded content
       if (shiftPressed) {
         controller.extendSelection(direction);
       } else {
