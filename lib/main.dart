@@ -1318,32 +1318,26 @@ void _extendSelectionToLineEdges() {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<CodeLineEditingValue>(
-      valueListenable: controller,
+    return ValueListenableBuilder<CodeIndicatorValue?>(
+      valueListenable: notifier,
       builder: (context, value, child) {
-        return Container(
-          color: Colors.grey[900],
-          padding: const EdgeInsets.only(right: 8),
-          child: ListView.builder(
-            itemCount: value.codeLines.length,
-            itemBuilder: (context, index) {
-              final isHighlighted = highlightedLines.contains(index);
-              return SizedBox(
-                height: notifier.lineHeight,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: isHighlighted ? Colors.yellow : Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              );
-            },
+        return DefaultCodeLineNumber(
+          controller: controller,
+          notifier: notifier,
+          textStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
           ),
+          focusedTextStyle: TextStyle(
+            color: Colors.yellow,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          customLineIndex2Text: (index) {
+            final lineNumber = (index + 1).toString();
+            final isHighlighted = highlightedLines.contains(index);
+            return isHighlighted ? '➤$lineNumber' : lineNumber;
+          },
         );
       },
     );
