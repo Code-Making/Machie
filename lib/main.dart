@@ -618,13 +618,6 @@ void _selectBetweenBrackets() {
     _showError('Selection failed: ${e.toString()}');
   }
 }
-
-// Existing position comparison helper
-int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
-  if (a.index < b.index) return -1;
-  if (a.index > b.index) return 1;
-  return a.offset.compareTo(b.offset);
-}
   
   // Add to your _EditorScreenState class
 void _extendSelectionToLineEdges() {
