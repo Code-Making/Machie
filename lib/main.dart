@@ -82,12 +82,12 @@ class _EditorScreenState extends State<EditorScreen> {
   
   Set<CodeLinePosition> _bracketPositions = {};
   Set<int> _highlightedLines = {};
-
+  
   final Map<String, String> _bracketPairs = {
-    '{': '}', '[': ']', '(': ')', 
+    '{': '}', '[': ']', '(': ')',
     '}': '{', ']': '[', ')': '('
   };
-
+  
   
   @override
   void initState() {
@@ -114,182 +114,182 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
   
-    void _handleBracketHighlight() {
+  void _handleBracketHighlight() {
     if (!mounted){
       setState(() {
         _bracketPositions = {};
         _matchingBracketPosition = null;
         _highlightedLines = {};
-
+        
       });
       return;
     }
-        
-        
+    
+    
     final tab = _tabs[_currentTabIndex];
     final selection = tab.controller.selection;
     if (selection.isCollapsed) {
       final position = selection.base;
       final brackets = {'(': ')', '[': ']', '{': '}'};
       final line = tab.controller.codeLines[position.index].text;
-        Set<int> newHighlightedLines = {};
+      Set<int> newHighlightedLines = {};
       Set<CodeLinePosition> newPositions = {};
       CodeLinePosition? matchPosition;
       CodeLinePosition targetPos = position;
       // Check both left and right of cursor
-        int offset = 1;
-        final index = position.offset - offset;
-        if (index >= 0 && index < line.length) {
-          final char = line[index];
-          targetPos = CodeLinePosition(
-                index: position.index,
-                offset: index,
-              );
-          if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-            matchPosition = _findMatchingBracket(
-              tab.controller.codeLines,
-              targetPos,
-              brackets,
-            );
-            if (matchPosition != null) {
-              newPositions.add(targetPos);
-              newPositions.add(matchPosition);
-              newHighlightedLines.add(targetPos.index);
-              newHighlightedLines.add(matchPosition.index);
-            }
+      int offset = 1;
+      final index = position.offset - offset;
+      if (index >= 0 && index < line.length) {
+        final char = line[index];
+        targetPos = CodeLinePosition(
+          index: position.index,
+          offset: index,
+        );
+        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+          matchPosition = _findMatchingBracket(
+            tab.controller.codeLines,
+            targetPos,
+            brackets,
+          );
+          if (matchPosition != null) {
+            newPositions.add(targetPos);
+            newPositions.add(matchPosition);
+            newHighlightedLines.add(targetPos.index);
+            newHighlightedLines.add(matchPosition.index);
           }
         }
-        setState(() {
-          _bracketPositions = newPositions;
-          _matchingBracketPosition = matchPosition;
-          _highlightedLines = newHighlightedLines;
-        });
       }
-  }
-
-  CodeLinePosition? _findMatchingBracket(
-  CodeLines codeLines,
-  CodeLinePosition position,
-  Map<String, String> brackets,
-) {
-  final line = codeLines[position.index].text;
-  final char = line[position.offset];
-  
-  // Determine if we're looking at an opening or closing bracket
-  final isOpen = brackets.keys.contains(char);
-  final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
-    (k) => brackets[k] == char,
-    orElse: () => '',
-  );
-
-  if (target?.isEmpty ?? true) return null;
-
-  int stack = 1;
-  int index = position.index;
-  int offset = position.offset;
-  final direction = isOpen ? 1 : -1;
-
-  while (index >= 0 && index < codeLines.length) {
-    final currentLine = codeLines[index].text;
-    
-    while (offset >= 0 && offset < currentLine.length) {
-      // Skip the original position
-      if (index == position.index && offset == position.offset) {
-        offset += direction;
-        continue;
-      }
-
-      final currentChar = currentLine[offset];
-      
-      if (currentChar == char) {
-        stack += 1;
-      } else if (currentChar == target) {
-        stack -= 1;
-      }
-
-      if (stack == 0) {
-        return CodeLinePosition(index: index, offset: offset);
-      }
-
-      offset += direction;
+      setState(() {
+        _bracketPositions = newPositions;
+        _matchingBracketPosition = matchPosition;
+        _highlightedLines = newHighlightedLines;
+      });
     }
-
-    // Move to next/previous line
-    index += direction;
-    offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
   }
-
-  return null; // No matching bracket found
-}
-
-TextSpan _buildSpan({
-  required CodeLine codeLine,
-  required BuildContext context,
-  required int index,
-  required TextStyle style,
-  required TextSpan textSpan,
-}) {
-  final spans = <TextSpan>[];
-  int currentPosition = 0;
-  final highlightPositions = _bracketPositions
+  
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    
+    // Determine if we're looking at an opening or closing bracket
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
+      (k) => brackets[k] == char,
+      orElse: () => '',
+    );
+    
+    if (target?.isEmpty ?? true) return null;
+    
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
+    
+    while (index >= 0 && index < codeLines.length) {
+      final currentLine = codeLines[index].text;
+      
+      while (offset >= 0 && offset < currentLine.length) {
+        // Skip the original position
+        if (index == position.index && offset == position.offset) {
+          offset += direction;
+          continue;
+        }
+        
+        final currentChar = currentLine[offset];
+        
+        if (currentChar == char) {
+          stack += 1;
+        } else if (currentChar == target) {
+          stack -= 1;
+        }
+        
+        if (stack == 0) {
+          return CodeLinePosition(index: index, offset: offset);
+        }
+        
+        offset += direction;
+      }
+      
+      // Move to next/previous line
+      index += direction;
+      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
+    }
+    
+    return null; // No matching bracket found
+  }
+  
+  TextSpan _buildSpan({
+    required CodeLine codeLine,
+    required BuildContext context,
+    required int index,
+    required TextStyle style,
+    required TextSpan textSpan,
+  }) {
+    final spans = <TextSpan>[];
+    int currentPosition = 0;
+    final highlightPositions = _bracketPositions
     .where((pos) => pos.index == index)
     .map((pos) => pos.offset)
     .toSet();
-
-  void processSpan(TextSpan span) {
-    final text = span.text ?? '';
-    final spanStyle = span.style ?? style;
-    List<int> highlightIndices = [];
-
-    // Find highlight positions within this span
-    for (var i = 0; i < text.length; i++) {
-      if (highlightPositions.contains(currentPosition + i)) {
-        highlightIndices.add(i);
+    
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      List<int> highlightIndices = [];
+      
+      // Find highlight positions within this span
+      for (var i = 0; i < text.length; i++) {
+        if (highlightPositions.contains(currentPosition + i)) {
+          highlightIndices.add(i);
+        }
       }
-    }
-
-    // Split span into non-highlight and highlight segments
-    int lastSplit = 0;
-    for (final highlightIndex in highlightIndices) {
-      if (highlightIndex > lastSplit) {
+      
+      // Split span into non-highlight and highlight segments
+      int lastSplit = 0;
+      for (final highlightIndex in highlightIndices) {
+        if (highlightIndex > lastSplit) {
+          spans.add(TextSpan(
+            text: text.substring(lastSplit, highlightIndex),
+            style: spanStyle,
+          ));
+        }
         spans.add(TextSpan(
-          text: text.substring(lastSplit, highlightIndex),
+          text: text[highlightIndex],
+          style: spanStyle.copyWith(
+            backgroundColor: Colors.yellow.withOpacity(0.3),
+            fontWeight: FontWeight.bold,
+          ),
+        ));
+        lastSplit = highlightIndex + 1;
+      }
+      
+      // Add remaining text
+      if (lastSplit < text.length) {
+        spans.add(TextSpan(
+          text: text.substring(lastSplit),
           style: spanStyle,
         ));
       }
-      spans.add(TextSpan(
-        text: text[highlightIndex],
-        style: spanStyle.copyWith(
-          backgroundColor: Colors.yellow.withOpacity(0.3),
-          fontWeight: FontWeight.bold,
-        ),
-      ));
-      lastSplit = highlightIndex + 1;
-    }
-
-    // Add remaining text
-    if (lastSplit < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastSplit),
-        style: spanStyle,
-      ));
-    }
-
-    currentPosition += text.length;
-
-    // Process child spans
-    if (span.children != null) {
-      for (final child in span.children!) {
-        if (child is TextSpan) {
-          processSpan(child);
+      
+      currentPosition += text.length;
+      
+      // Process child spans
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
         }
       }
     }
+    
+    processSpan(textSpan);
+    return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
   }
-
-  processSpan(textSpan);
-  return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
-}
   
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -477,16 +477,16 @@ TextSpan _buildSpan({
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
-                     IconButton(
-                        icon: const Icon(Icons.code, size: 20),
-                        onPressed: hasActiveTab ? () => _selectBetweenBrackets() : null,
-                        tooltip: 'Select Between Brackets',
-                     ),
-                    IconButton(
-                      icon: const Icon(Icons.horizontal_rule, size: 20),
-                      onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
-                      tooltip: 'Extend to Line Edges',
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.code, size: 20),
+                    onPressed: hasActiveTab ? () => _selectBetweenBrackets() : null,
+                    tooltip: 'Select Between Brackets',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.horizontal_rule, size: 20),
+                    onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
+                    tooltip: 'Extend to Line Edges',
+                  ),
                   IconButton(
                     icon: const Icon(Icons.bookmark_add_outlined, size: 20),
                     onPressed: hasActiveTab ? () => _setMarkPosition() : null,
@@ -555,90 +555,90 @@ TextSpan _buildSpan({
     );
   }
   
-void _selectBetweenBrackets() {
-  final tab = _tabs[_currentTabIndex];
-  final controller = tab.controller;
-  final selection = controller.selection;
-  
-  if (!selection.isCollapsed) {
-    _showError('Selection already active');
-    return;
-  }
-
-  try {
-    final position = selection.base;
-    final brackets = {'(': ')', '[': ']', '{': '}'};
-    CodeLinePosition? start;
-    CodeLinePosition? end;
-
-    // Check both left and right of cursor
-    for (int offset = 0; offset <= 1; offset++) {
-      final index = position.offset - offset;
-      if (index >= 0 && index < controller.codeLines[position.index].text.length) {
-        final char = controller.codeLines[position.index].text[index];
-        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-          final match = _findMatchingBracket(
-            controller.codeLines,
-            CodeLinePosition(
-              index: position.index,
-              offset: index,
-            ),
-            brackets,
-          );
-          if (match != null) {
-            start = CodeLinePosition(
-              index: position.index,
-              offset: index,
+  void _selectBetweenBrackets() {
+    final tab = _tabs[_currentTabIndex];
+    final controller = tab.controller;
+    final selection = controller.selection;
+    
+    if (!selection.isCollapsed) {
+      _showError('Selection already active');
+      return;
+    }
+    
+    try {
+      final position = selection.base;
+      final brackets = {'(': ')', '[': ']', '{': '}'};
+      CodeLinePosition? start;
+      CodeLinePosition? end;
+      
+      // Check both left and right of cursor
+      for (int offset = 0; offset <= 1; offset++) {
+        final index = position.offset - offset;
+        if (index >= 0 && index < controller.codeLines[position.index].text.length) {
+          final char = controller.codeLines[position.index].text[index];
+          if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+            final match = _findMatchingBracket(
+              controller.codeLines,
+              CodeLinePosition(
+                index: position.index,
+                offset: index,
+              ),
+              brackets,
             );
-            end = match;
-            break;
+            if (match != null) {
+              start = CodeLinePosition(
+                index: position.index,
+                offset: index,
+              );
+              end = match;
+              break;
+            }
           }
         }
       }
+      
+      if (start == null || end == null) {
+        _showError('No matching bracket found');
+        return;
+      }
+      
+      // Order positions correctly
+      final orderedStart = _comparePositions(start, end) < 0 ? start : end;
+      final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
+      
+      controller.selection = CodeLineSelection(
+        baseIndex: orderedStart.index,
+        baseOffset: orderedStart.offset,
+        extentIndex: orderedEnd.index,
+        extentOffset: orderedEnd.offset + 1, // Include the bracket itself
+      );
+      _extendSelectionToLineEdges();
+      //_showSuccess('Selected between brackets');
+    } catch (e) {
+      //_showError('Selection failed: ${e.toString()}');
     }
-
-    if (start == null || end == null) {
-      _showError('No matching bracket found');
-      return;
-    }
-
-    // Order positions correctly
-    final orderedStart = _comparePositions(start, end) < 0 ? start : end;
-    final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
-
-    controller.selection = CodeLineSelection(
-      baseIndex: orderedStart.index,
-      baseOffset: orderedStart.offset,
-      extentIndex: orderedEnd.index,
-      extentOffset: orderedEnd.offset + 1, // Include the bracket itself
-    );
-    _extendSelectionToLineEdges();
-    //_showSuccess('Selected between brackets');
-  } catch (e) {
-    //_showError('Selection failed: ${e.toString()}');
   }
-}
   
   // Add to your _EditorScreenState class
-void _extendSelectionToLineEdges() {
-  if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+  void _extendSelectionToLineEdges() {
+    if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+    
+    final controller = _tabs[_currentTabIndex].controller;
+    final selection = controller.selection;
+    
+    final newBaseOffset = 0;
+    final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
+    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+    final newExtentOffset = extentLineLength;
+    
+    controller.selection = CodeLineSelection(
+      baseIndex: selection.baseIndex,
+      baseOffset: newBaseOffset,
+      extentIndex: selection.extentIndex,
+      extentOffset: newExtentOffset,
+    );
+  }
   
-  final controller = _tabs[_currentTabIndex].controller;
-  final selection = controller.selection;
-
-  final newBaseOffset = 0;
-  final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
-  final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
-  final newExtentOffset = extentLineLength;
-
-  controller.selection = CodeLineSelection(
-    baseIndex: selection.baseIndex,
-    baseOffset: newBaseOffset,
-    extentIndex: selection.extentIndex,
-    extentOffset: newExtentOffset,
-  );
-}
-
   
   // Add reformat method using CodeLineEditingValue
   void _reformatDocument() {
@@ -1078,337 +1078,337 @@ void _extendSelectionToLineEdges() {
               ),
               wordWrap: tab.wordWrap,
             ),
-       /*   ),
-        ),*/
-      );
-    }
-    
-
-    
-    KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-      if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+            /*   ),
+          ),*/
+        );
+      }
       
-      final controller = _tabs[_currentTabIndex].controller;
-      final direction = _arrowKeyDirections[event.logicalKey];
-      final shiftPressed = event.isShiftPressed;
       
-      if (direction != null) {
-        if (shiftPressed) {
-          controller.extendSelection(direction);
-        } else {
-          controller.moveCursor(direction);
+      
+      KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+        
+        final controller = _tabs[_currentTabIndex].controller;
+        final direction = _arrowKeyDirections[event.logicalKey];
+        final shiftPressed = event.isShiftPressed;
+        
+        if (direction != null) {
+          if (shiftPressed) {
+            controller.extendSelection(direction);
+          } else {
+            controller.moveCursor(direction);
+          }
+          return KeyEventResult.handled;
         }
-        return KeyEventResult.handled;
+        return KeyEventResult.ignored;
       }
-      return KeyEventResult.ignored;
-    }
-    
-    void _handleSelectionStart(CodeLineEditingController controller) {
-      controller.addListener(_handleSelectionChange);
-    }
-    
-    void _handleSelectionChange() {
-      final controller = _tabs[_currentTabIndex].controller;
-      if (!controller.selection.isCollapsed) {
-        _editorFocusNode.unfocus();
+      
+      void _handleSelectionStart(CodeLineEditingController controller) {
+        controller.addListener(_handleSelectionChange);
       }
-      controller.removeListener(_handleSelectionChange);
+      
+      void _handleSelectionChange() {
+        final controller = _tabs[_currentTabIndex].controller;
+        if (!controller.selection.isCollapsed) {
+          _editorFocusNode.unfocus();
+        }
+        controller.removeListener(_handleSelectionChange);
+      }
+      
+      void _closeOtherTabs(int keepIndex) {
+        setState(() {
+          _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
+          _currentTabIndex = 0;
+        });
+      }
+      
+      String _getFormattedPath(String uri){
+        final parsed = Uri.parse(uri);
+        if (parsed.pathSegments.isNotEmpty) {
+          // Handle content URIs and normal file paths
+          return parsed.pathSegments.last.split(':').last;
+        }
+        // Fallback for unusual URI formats
+        return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+      }
+      
+      String _getFileName(String uri) {
+        final parsed = Uri.parse(uri);
+        if (parsed.pathSegments.isNotEmpty) {
+          // Handle content URIs and normal file paths
+          return parsed.pathSegments.last.split('/').last;
+        }
+        // Fallback for unusual URI formats
+        return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
+      }
     }
     
-    void _closeOtherTabs(int keepIndex) {
-      setState(() {
-        _tabs.removeWhere((tab) => _tabs.indexOf(tab) != keepIndex);
-        _currentTabIndex = 0;
+    class _DirectoryExpansionTile extends StatefulWidget {
+      final String uri;
+      final String name;
+      final AndroidFileHandler fileHandler;
+      final Function(String) onFileTap;
+      
+      const _DirectoryExpansionTile({
+        required this.uri,
+        required this.name,
+        required this.fileHandler,
+        required this.onFileTap,
       });
-    }
-    
-    String _getFormattedPath(String uri){
-      final parsed = Uri.parse(uri);
-      if (parsed.pathSegments.isNotEmpty) {
-        // Handle content URIs and normal file paths
-        return parsed.pathSegments.last.split(':').last;
-      }
-      // Fallback for unusual URI formats
-      return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-    }
-    
-    String _getFileName(String uri) {
-      final parsed = Uri.parse(uri);
-      if (parsed.pathSegments.isNotEmpty) {
-        // Handle content URIs and normal file paths
-        return parsed.pathSegments.last.split('/').last;
-      }
-      // Fallback for unusual URI formats
-      return uri.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'untitled');
-    }
-  }
-  
-  class _DirectoryExpansionTile extends StatefulWidget {
-    final String uri;
-    final String name;
-    final AndroidFileHandler fileHandler;
-    final Function(String) onFileTap;
-    
-    const _DirectoryExpansionTile({
-      required this.uri,
-      required this.name,
-      required this.fileHandler,
-      required this.onFileTap,
-    });
-    
-    @override
-    State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
-  }
-  
-  // Update the _DirectoryExpansionTileState class
-  class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
-    bool _isExpanded = false;
-    List<Map<String, dynamic>> _children = [];
-    bool _isLoading = false;
-    
-    Widget _buildChildItems(List<Map<String, dynamic>> contents) {
       
-      return ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: contents.length,
-        itemBuilder: (context, index) {
-          final item = contents[index];
-          if (item['type'] == 'dir') {
-            return _DirectoryExpansionTile(
-              uri: item['uri'],  // Pass the SUBFOLDER's URI here
-              name: item['name'],
-              fileHandler: widget.fileHandler,
-              onFileTap: widget.onFileTap,
+      @override
+      State<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+    }
+    
+    // Update the _DirectoryExpansionTileState class
+    class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
+      bool _isExpanded = false;
+      List<Map<String, dynamic>> _children = [];
+      bool _isLoading = false;
+      
+      Widget _buildChildItems(List<Map<String, dynamic>> contents) {
+        
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: contents.length,
+          itemBuilder: (context, index) {
+            final item = contents[index];
+            if (item['type'] == 'dir') {
+              return _DirectoryExpansionTile(
+                uri: item['uri'],  // Pass the SUBFOLDER's URI here
+                name: item['name'],
+                fileHandler: widget.fileHandler,
+                onFileTap: widget.onFileTap,
+              );
+            }
+            return ListTile(
+              leading: const Icon(Icons.insert_drive_file),
+              title: Text(item['name']),
+              onTap: () => widget.onFileTap(item['uri']),
             );
-          }
-          return ListTile(
-            leading: const Icon(Icons.insert_drive_file),
-            title: Text(item['name']),
-            onTap: () => widget.onFileTap(item['uri']),
-          );
-        },
-      );
-    }
-    
-    Future<void> _loadChildren() async {
-      setState(() => _isLoading = true);
-      try {
-        // In _loadChildren()
-        debugPrint('Loading children for: ${widget.uri}');
-        // Use the current directory's URI to load its contents
-        final contents = await widget.fileHandler.listDirectory(widget.uri);
-        if (contents != null) {
-          setState(() => _children = contents);
-        }
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-    
-    @override
-    Widget build(BuildContext context) {
-      return ExpansionTile(
-        leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
-        title: Text(widget.name),
-        trailing: _isLoading
-        ? const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
-        : null,
-        onExpansionChanged: (expanded) async {
-          setState(() => _isExpanded = expanded);
-          if (expanded && _children.isEmpty) {
-            await _loadChildren();
-          }
-        },
-        children: [
-          if (_children.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: _buildChildItems(_children),
-          ),
-        ],
-      );
-    }
-  }
-  class AndroidFileHandler {
-    static const _channel = MethodChannel('com.example/file_handler');
-    
-    
-    Future<bool> _requestPermissions() async {
-      if (await Permission.storage.request().isGranted) {
-        return true;
-      }
-      return await Permission.manageExternalStorage.request().isGranted;
-    }
-    
-    Future<String?> openFile() async {
-      if (!await _requestPermissions()) {
-        throw Exception('Storage permission denied');
-      }
-      try {
-        return await _channel.invokeMethod<String>('openFile');
-      } on PlatformException catch (e) {
-        print("Error opening file: ${e.message}");
-        return null;
-      }
-    }
-    
-    Future<String?> openFolder() async {
-      try {
-        return await _channel.invokeMethod<String>('openFolder');
-      } on PlatformException catch (e) {
-        print("Error opening folder: ${e.message}");
-        return null;
-      }
-    }
-    
-    Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
-      try {
-        final result = await _channel.invokeMethod<List<dynamic>>(
-          'listDirectory',
-          {'uri': uri, 'isRoot': isRoot}
-        );
-        return result?.map((e) => Map<String, dynamic>.from(e)).toList();
-      } on PlatformException catch (e) {
-        print("Error listing directory: ${e.message}");
-        return null;
-      }
-    }
-    
-    Future<String?> readFile(String uri) async {
-      try {
-        final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-          'readFile',
-          {'uri': uri}
-        );
-        
-        final error = response?['error'];
-        final isEmpty = response?['isEmpty'] ?? false;
-        final content = response?['content'] as String?;
-        
-        if (error != null) {
-          throw Exception(error);
-        }
-        
-        if (isEmpty) {
-          print('File is empty but opened successfully');
-          return '';
-        }
-        
-        return content;
-      } on PlatformException catch (e) {
-        throw Exception('Platform error: ${e.message}');
-      }
-    }
-    
-    Future<bool> writeFile(String uri, String content) async {
-      try {
-        final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-          'writeFile',
-          {'uri': uri, 'content': content}
-        );
-        
-        if (response?['success'] == true) {
-          return true;
-        }
-        
-        throw Exception(response?['error'] ?? 'Unknown write error');
-      } on PlatformException catch (e) {
-        throw Exception('Platform error: ${e.message}');
-      }
-    }
-  }
-  
-  // Add this extension-to-language mapper in your _EditorScreenState class
-  // Update the language mapping logic
-  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
-    
-    // Explicitly handle each case with proper typing
-    switch (extension) {
-      case 'dart':
-      return {'dart': CodeHighlightThemeMode(mode: langDart)};
-      case 'js':
-      case 'jsx':
-      return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
-      case 'py':
-      return {'python': CodeHighlightThemeMode(mode: langPython)};
-      case 'java':
-      return {'java': CodeHighlightThemeMode(mode: langJava)};
-      case 'cpp':
-      case 'cc':
-      case 'h':
-      return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
-      case 'css':
-      return {'css': CodeHighlightThemeMode(mode: langCss)};
-      case 'kt':
-      return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
-      case 'json':
-      return {'json': CodeHighlightThemeMode(mode: langJson)};
-      case 'yaml':
-      case 'yml':
-      return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
-      case 'md':
-      return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
-      default:
-      return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
-    }
-  }
-  
-  CodeCommentFormatter _getCommentFormatter(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
-    switch (extension) {
-      case 'dart':
-      return DefaultCodeCommentFormatter(
-        singleLinePrefix: '//',
-        multiLinePrefix: '/*',
-        multiLineSuffix: '*/',
-      );
-      default:
-      return DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', multiLineSuffix: '*/');
-    }
-  }
-  
-  class CustomLineNumberWidget extends StatelessWidget {
-  final CodeLineEditingController controller;
-  final CodeIndicatorValueNotifier notifier;
-  final Set<int> highlightedLines;
-
-  const CustomLineNumberWidget({
-    super.key,
-    required this.controller,
-    required this.notifier,
-    required this.highlightedLines,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<CodeIndicatorValue?>(
-      valueListenable: notifier,
-      builder: (context, value, child) {
-        return DefaultCodeLineNumber(
-          controller: controller,
-          notifier: notifier,
-          textStyle: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
-          focusedTextStyle: TextStyle(
-            color: Colors.yellow,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          customLineIndex2Text: (index) {
-            final lineNumber = (index + 1).toString();
-            final isHighlighted = highlightedLines.contains(index);
-            return isHighlighted ? '➤$lineNumber' : lineNumber;
           },
         );
-      },
-    );
-  }
-}
+      }
+      
+      Future<void> _loadChildren() async {
+        setState(() => _isLoading = true);
+        try {
+          // In _loadChildren()
+          debugPrint('Loading children for: ${widget.uri}');
+          // Use the current directory's URI to load its contents
+          final contents = await widget.fileHandler.listDirectory(widget.uri);
+          if (contents != null) {
+            setState(() => _children = contents);
+          }
+        } finally {
+          setState(() => _isLoading = false);
+        }
+      }
+      
+      @override
+      Widget build(BuildContext context) {
+        return ExpansionTile(
+          leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
+          title: Text(widget.name),
+          trailing: _isLoading
+          ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+          : null,
+          onExpansionChanged: (expanded) async {
+            setState(() => _isExpanded = expanded);
+            if (expanded && _children.isEmpty) {
+              await _loadChildren();
+            }
+          },
+          children: [
+            if (_children.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: _buildChildItems(_children),
+            ),
+          ],
+        );
+      }
+    }
+    class AndroidFileHandler {
+      static const _channel = MethodChannel('com.example/file_handler');
+      
+      
+      Future<bool> _requestPermissions() async {
+        if (await Permission.storage.request().isGranted) {
+          return true;
+        }
+        return await Permission.manageExternalStorage.request().isGranted;
+      }
+      
+      Future<String?> openFile() async {
+        if (!await _requestPermissions()) {
+          throw Exception('Storage permission denied');
+        }
+        try {
+          return await _channel.invokeMethod<String>('openFile');
+        } on PlatformException catch (e) {
+          print("Error opening file: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<String?> openFolder() async {
+        try {
+          return await _channel.invokeMethod<String>('openFolder');
+        } on PlatformException catch (e) {
+          print("Error opening folder: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
+        try {
+          final result = await _channel.invokeMethod<List<dynamic>>(
+            'listDirectory',
+            {'uri': uri, 'isRoot': isRoot}
+          );
+          return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+        } on PlatformException catch (e) {
+          print("Error listing directory: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<String?> readFile(String uri) async {
+        try {
+          final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'readFile',
+            {'uri': uri}
+          );
+          
+          final error = response?['error'];
+          final isEmpty = response?['isEmpty'] ?? false;
+          final content = response?['content'] as String?;
+          
+          if (error != null) {
+            throw Exception(error);
+          }
+          
+          if (isEmpty) {
+            print('File is empty but opened successfully');
+            return '';
+          }
+          
+          return content;
+        } on PlatformException catch (e) {
+          throw Exception('Platform error: ${e.message}');
+        }
+      }
+      
+      Future<bool> writeFile(String uri, String content) async {
+        try {
+          final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'writeFile',
+            {'uri': uri, 'content': content}
+          );
+          
+          if (response?['success'] == true) {
+            return true;
+          }
+          
+          throw Exception(response?['error'] ?? 'Unknown write error');
+        } on PlatformException catch (e) {
+          throw Exception('Platform error: ${e.message}');
+        }
+      }
+    }
+    
+    // Add this extension-to-language mapper in your _EditorScreenState class
+    // Update the language mapping logic
+    Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+      final extension = uri.split('.').last.toLowerCase();
+      
+      // Explicitly handle each case with proper typing
+      switch (extension) {
+        case 'dart':
+        return {'dart': CodeHighlightThemeMode(mode: langDart)};
+        case 'js':
+        case 'jsx':
+        return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
+        case 'py':
+        return {'python': CodeHighlightThemeMode(mode: langPython)};
+        case 'java':
+        return {'java': CodeHighlightThemeMode(mode: langJava)};
+        case 'cpp':
+        case 'cc':
+        case 'h':
+        return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
+        case 'css':
+        return {'css': CodeHighlightThemeMode(mode: langCss)};
+        case 'kt':
+        return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
+        case 'json':
+        return {'json': CodeHighlightThemeMode(mode: langJson)};
+        case 'yaml':
+        case 'yml':
+        return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
+        case 'md':
+        return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
+        default:
+        return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+      }
+    }
+    
+    CodeCommentFormatter _getCommentFormatter(String uri) {
+      final extension = uri.split('.').last.toLowerCase();
+      switch (extension) {
+        case 'dart':
+        return DefaultCodeCommentFormatter(
+          singleLinePrefix: '//',
+          multiLinePrefix: '/*',
+          multiLineSuffix: '*/',
+        );
+        default:
+        return DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', multiLineSuffix: '*/');
+      }
+    }
+    
+    class CustomLineNumberWidget extends StatelessWidget {
+      final CodeLineEditingController controller;
+      final CodeIndicatorValueNotifier notifier;
+      final Set<int> highlightedLines;
+      
+      const CustomLineNumberWidget({
+        super.key,
+        required this.controller,
+        required this.notifier,
+        required this.highlightedLines,
+      });
+      
+      @override
+      Widget build(BuildContext context) {
+        return ValueListenableBuilder<CodeIndicatorValue?>(
+          valueListenable: notifier,
+          builder: (context, value, child) {
+            return DefaultCodeLineNumber(
+              controller: controller,
+              notifier: notifier,
+              textStyle: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+              focusedTextStyle: TextStyle(
+                color: Colors.yellow,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              customLineIndex2Text: (index) {
+                final lineNumber = (index + 1).toString();
+                final isHighlighted = highlightedLines.contains(index);
+                return isHighlighted ? '➤$lineNumber' : lineNumber;
+              },
+            );
+          },
+        );
+      }
+    }
