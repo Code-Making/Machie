@@ -401,11 +401,6 @@ TextSpan _buildSpan({
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.keyboard, size: 20),
-                    onPressed: hasActiveTab ? () => _showKeyboard() : null,
-                    tooltip: 'Show Keyboard',
-                  ),
-                  IconButton(
                     icon: const Icon(Icons.content_copy, size: 20),
                     onPressed: hasActiveTab ? () => controller!.copy() : null,
                     tooltip: 'Copy',
@@ -468,11 +463,6 @@ TextSpan _buildSpan({
                     onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
                     tooltip: 'Move Line Down',
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.select_all, size: 20),
-                    onPressed: hasActiveTab ? () => controller!.selectAll() : null,
-                    tooltip: 'Select All',
-                  ),
                   const VerticalDivider(width: 20),
                 ],
               ),
@@ -481,6 +471,13 @@ TextSpan _buildSpan({
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
+            
+                  // Add to your bottom toolbar
+IconButton(
+  icon: const Icon(Icons.horizontal_rule, size: 20),
+  onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
+  tooltip: 'Extend to Line Edges',
+),
                   IconButton(
                     icon: const Icon(Icons.bookmark_add_outlined, size: 20),
                     onPressed: hasActiveTab ? () => _setMarkPosition() : null,
@@ -490,6 +487,11 @@ TextSpan _buildSpan({
                     icon: const Icon(Icons.bookmark_added, size: 20),
                     onPressed: hasActiveTab ? () => _selectToMark() : null,
                     tooltip: 'Select to Mark',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.select_all, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.selectAll() : null,
+                    tooltip: 'Select All',
                   ),
                   const VerticalDivider(width: 20),
                 ],
@@ -544,13 +546,26 @@ TextSpan _buildSpan({
     );
   }
   
-  void _showKeyboard(){
-    final tab = _tabs[_currentTabIndex];
-    final controller = tab.controller;
-    
-    controller.extendSelectionToLineEnd();
-    controller.extendSelectionToLineStart();
-  }
+  // Add to your _EditorScreenState class
+void _extendSelectionToLineEdges() {
+  if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
+  
+  final controller = _tabs[_currentTabIndex].controller;
+  final selection = controller.selection;
+
+  final newBaseOffset = 0;
+  final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
+  final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+  final newExtentOffset = extentLineLength;
+
+  controller.selection = CodeLineSelection(
+    baseIndex: selection.baseIndex,
+    baseOffset: newBaseOffset,
+    extentIndex: selection.extentIndex,
+    extentOffset: newExtentOffset,
+  );
+}
+
   
   // Add reformat method using CodeLineEditingValue
   void _reformatDocument() {
