@@ -167,7 +167,7 @@ class _EditorScreenState extends State<EditorScreen> {
       orElse: () => '',
     );
 
-    if (target.isEmpty) return null;
+  if (target?.isEmpty ?? true) return null; // Fixed null check
 
     int stack = 0;
     final direction = isOpen ? 1 : -1;
@@ -204,34 +204,33 @@ class _EditorScreenState extends State<EditorScreen> {
     return null;
   }
 
-  // Update CodeLineSpanBuilder in your CodeEditor configuration
-  CodeLineSpanBuilder _getSpanBuilder(EditorTab tab) {
-    return (context, text, style) {
-      final spans = <TextSpan>[];
-      final textLength = text.length;
+TextSpan _buildSpan({
+  required CodeLine codeLine,
+  required BuildContext context,
+  required int index,
+  required TextStyle style,
+  required TextSpan textSpan,
+}) {
+  final spans = <TextSpan>[];
+  final text = codeLine.text;
+  
+  for (int i = 0; i < text.length; i++) {
+    final pos = CodeLinePosition(index: index, offset: i);
+    final charStyle = _bracketPositions.contains(pos)
+        ? style.copyWith(
+            backgroundColor: Colors.yellow.withOpacity(0.3),
+            fontWeight: FontWeight.bold,
+          )
+        : style;
 
-      for (int i = 0; i < textLength; i++) {
-        final pos = CodeLinePosition(
-          index: context.lineIndex,
-          offset: i,
-        );
-
-        final charStyle = _bracketPositions.contains(pos)
-            ? style.copyWith(
-                backgroundColor: Colors.yellow.withOpacity(0.3),
-                fontWeight: FontWeight.bold,
-              )
-            : style;
-
-        spans.add(TextSpan(
-          text: text[i],
-          style: charStyle,
-        ));
-      }
-
-      return TextSpan(children: spans);
-    };
+    spans.add(TextSpan(
+      text: text[i],
+      style: charStyle,
+    ));
   }
+
+  return TextSpan(children: spans);
+}
   
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -927,7 +926,6 @@ class _EditorScreenState extends State<EditorScreen> {
                   theme: atomOneDarkTheme,
                 ),
               ),
-              wordWrap: tab.wordWrap,
             ),
           ),
         ),
