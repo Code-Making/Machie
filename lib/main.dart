@@ -947,7 +947,6 @@ TextSpan _buildSpan({
             _editorFocusNode.requestFocus();
           }
         },
-        onDoubleTapDown: (details) => _handleDoubleTap(),
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child: CodeEditor(
@@ -987,58 +986,6 @@ TextSpan _buildSpan({
       );
     }
     
-void _handleDoubleTap() {
-  final controller = _tabs[_currentTabIndex].controller;
-  final selection = controller.selection;
-
-  // First try bracket chunk selection
-  if (selection.isCollapsed) {
-    final position = selection.base;
-    final line = controller.codeLines[position.index].text;
-    final offset = position.offset;
-
-    // Check both sides of cursor for brackets
-    if (_trySelectBracketChunk(controller, position.index, offset)) {
-      return;
-    }
-    if (offset > 0 && _trySelectBracketChunk(controller, position.index, offset - 1)) {
-      return;
-    }
-  }
-
-  // Fall back to word selection using built-in methods
-  controller.extendSelectionToWordBoundaryBackward();
-  controller.extendSelectionToWordBoundaryForward();
-}
-
-bool _trySelectBracketChunk(CodeLineEditingController controller, int lineIndex, int offset) {
-  final line = controller.codeLines[lineIndex].text;
-  if (offset >= line.length) return false;
-
-  final bracket = line[offset];
-  if (!_bracketPairs.containsKey(bracket)) return false;
-
-  final matchPos = _findMatchingBracket(
-    controller.codeLines,
-    CodeLinePosition(index: lineIndex, offset: offset),
-    _bracketPairs,
-  );
-
-  if (matchPos != null) {
-    controller.selection = CodeLineSelection(
-      baseIndex: lineIndex,
-      baseOffset: offset,
-      extentIndex: matchPos.index,
-      extentOffset: matchPos.offset + 1,
-    );
-    controller.extendSelectionToLineStart();
-    controller.extendSelectionToLineEnd();
-    return true;
-  }
-  return false;
-}
-
-  bool _isWordChar(String char) => RegExp(r'[\w_]').hasMatch(char);
 
     
     KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
