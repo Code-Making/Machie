@@ -985,9 +985,10 @@ void _extendSelectionToLineEdges() {
                 onTap: () {}, // Absorb taps
                 child:Row(
                   children: [
-                    DefaultCodeLineNumber(
+                    CustomLineNumberWidget(
                       controller: editingController,
                       notifier: notifier,
+                      highlightedLines: _highlightedLines,
                     ),
                     
                     DefaultCodeChunkIndicator(
