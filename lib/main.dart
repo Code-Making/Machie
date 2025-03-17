@@ -918,7 +918,6 @@ TextSpan _buildSpan({
                   ],
                 ));
               },
-              spanBuilder: _getSpanBuilder(tab),
               style: CodeEditorStyle(
                 fontSize: 12,
                 fontFamily: 'JetBrainsMono',
