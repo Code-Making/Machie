@@ -154,7 +154,7 @@ class _EditorScreenState extends State<EditorScreen> {
             if (matchPosition != null) {
               newPositions.add(targetPos);
               newPositions.add(matchPosition);
-              newHighlightedLines.add(position.index);
+              newHighlightedLines.add(targetPos.index);
               newHighlightedLines.add(matchPosition.index);
             }
           }
