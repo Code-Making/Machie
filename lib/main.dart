@@ -988,7 +988,7 @@ void _extendSelectionToLineEdges() {
                     CustomLineNumberWidget(
                       controller: editingController,
                       notifier: notifier,
-                      highlightedLines: _highlightedLines,
+                      highlightedLines: {12, 4}},
                     ),
                     
                     DefaultCodeChunkIndicator(
