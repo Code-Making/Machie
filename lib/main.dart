@@ -947,9 +947,9 @@ TextSpan _buildSpan({
             _editorFocusNode.requestFocus();
           }
         },
+        onDoubleTapDown: (details) => _handleDoubleTap(details.globalPosition),
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
-          onDoubleTapDown: (details) => _handleDoubleTap(details.globalPosition),
           child: CodeEditor(
             controller: tab.controller,
             commentFormatter: tab.commentFormatter,
