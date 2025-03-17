@@ -987,7 +987,75 @@ TextSpan _buildSpan({
       );
     }
     
+      void _handleDoubleTap(Offset globalPosition) {
+    final controller = _tabs[_currentTabIndex].controller;
+    final renderBox = context.findRenderObject() as RenderBox;
+    final localPosition = renderBox.globalToLocal(globalPosition);
+
+    final position = controller.selectionAtPosition(localPosition);
+    if (position == null) return;
+
+    final line = controller.codeLines[position.index].text;
+    final offset = position.offset;
+
+    // Check for end-of-line bracket selection first
+    if (_trySelectBracketChunk(controller, position.index, offset)) {
+      return;
+    }
+
+    // Fall back to word selection
+    _selectWordAtPosition(controller, position.index, offset);
+  }
+
+  bool _trySelectBracketChunk(CodeLineEditingController controller, int lineIndex, int offset) {
+    final line = controller.codeLines[lineIndex].text;
+    if (line.isEmpty) return false;
+
+    final lastChar = line.length - 1;
+    final isEndOfLine = offset >= lastChar - 1 && offset <= lastChar;
+    final bracket = isEndOfLine ? line[lastChar] : null;
     
+    if (bracket != null && _bracketPairs.containsKey(bracket)) {
+      final matchPos = _findMatchingBracket(
+        controller.codeLines,
+        CodeLinePosition(index: lineIndex, offset: lastChar),
+        _bracketPairs,
+      );
+
+      if (matchPos != null) {
+        controller.selection = CodeLineSelection(
+          baseIndex: lineIndex,
+          baseOffset: lastChar,
+          extentIndex: matchPos.index,
+          extentOffset: matchPos.offset + 1,
+        );
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _selectWordAtPosition(CodeLineEditingController controller, int lineIndex, int offset) {
+    final line = controller.codeLines[lineIndex].text;
+    if (line.isEmpty) return;
+
+    var start = offset.clamp(0, line.length - 1);
+    var end = start;
+
+    // Find word boundaries
+    while (start > 0 && _isWordChar(line[start - 1])) start--;
+    while (end < line.length && _isWordChar(line[end])) end++;
+
+    controller.selection = CodeLineSelection(
+      baseIndex: lineIndex,
+      baseOffset: start,
+      extentIndex: lineIndex,
+      extentOffset: end,
+    );
+  }
+
+  bool _isWordChar(String char) => RegExp(r'[\w_]').hasMatch(char);
+
     
     KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
       if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
