@@ -450,7 +450,7 @@ TextSpan _buildSpan({
             
             // Line operations
             ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 150),
+              constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
                   IconButton(
@@ -471,13 +471,11 @@ TextSpan _buildSpan({
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
-            
-                  // Add to your bottom toolbar
-IconButton(
-  icon: const Icon(Icons.horizontal_rule, size: 20),
-  onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
-  tooltip: 'Extend to Line Edges',
-),
+                    IconButton(
+                      icon: const Icon(Icons.horizontal_rule, size: 20),
+                      onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
+                      tooltip: 'Extend to Line Edges',
+                    ),
                   IconButton(
                     icon: const Icon(Icons.bookmark_add_outlined, size: 20),
                     onPressed: hasActiveTab ? () => _setMarkPosition() : null,
