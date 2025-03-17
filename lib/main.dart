@@ -477,6 +477,11 @@ TextSpan _buildSpan({
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
                 children: [
+                     IconButton(
+                        icon: const Icon(Icons.code, size: 20),
+                        onPressed: hasActiveTab ? () => _selectBetweenBrackets() : null,
+                        tooltip: 'Select Between Brackets',
+                     ),
                     IconButton(
                       icon: const Icon(Icons.horizontal_rule, size: 20),
                       onPressed: hasActiveTab ? () => _extendSelectionToLineEdges() : null,
