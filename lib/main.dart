@@ -450,7 +450,7 @@ TextSpan _buildSpan({
             
             // Line operations
             ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 100),
+              constraints: const BoxConstraints(minWidth: 60),
               child: Row(
                 children: [
                   IconButton(
