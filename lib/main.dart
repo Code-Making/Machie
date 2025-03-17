@@ -204,7 +204,7 @@ class _EditorScreenState extends State<EditorScreen> {
     return null;
   }
 
-CodeLineSpanBuilder _buildSpan({
+TextSpan _buildSpan({
   required CodeLine codeLine,
   required BuildContext context,
   required int index,
