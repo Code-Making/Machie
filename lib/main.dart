@@ -81,6 +81,7 @@ class _EditorScreenState extends State<EditorScreen> {
   CodeLinePosition? _matchingBracketPosition;
   
   Set<CodeLinePosition> _bracketPositions = {};
+  Set<int> _highlightedLines = {};
 
   final Map<String, String> _bracketPairs = {
     '{': '}', '[': ']', '(': ')', 
@@ -118,6 +119,8 @@ class _EditorScreenState extends State<EditorScreen> {
       setState(() {
         _bracketPositions = {};
         _matchingBracketPosition = null;
+        _highlightedLines = null;
+
       });
       return;
     }
@@ -151,12 +154,15 @@ class _EditorScreenState extends State<EditorScreen> {
             if (matchPosition != null) {
               newPositions.add(targetPos);
               newPositions.add(matchPosition);
+              newHighlightedLines.add(position.index);
+              newHighlightedLines.add(matchPosition.index);
             }
           }
         }
         setState(() {
           _bracketPositions = newPositions;
           _matchingBracketPosition = matchPosition;
+          _highlightedLines = newHighlightedLines;
         });
       }
   }
