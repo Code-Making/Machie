@@ -77,7 +77,10 @@ class _EditorScreenState extends State<EditorScreen> {
   
   late FocusNode _editorFocusNode;
   late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
+  CodeLinePosition? _matchingBracketPosition;
   
+  Set<CodeLinePosition> _bracketPositions = {};
+
   
   @override
   void initState() {
@@ -89,6 +92,7 @@ class _EditorScreenState extends State<EditorScreen> {
       LogicalKeyboardKey.arrowLeft: AxisDirection.left,
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
+    _setupBracketHighlighting();
   }
   
   @override
@@ -97,6 +101,137 @@ class _EditorScreenState extends State<EditorScreen> {
     super.dispose();
   }
   
+  void _setupBracketHighlighting() {
+    for (final tab in _tabs) {
+      tab.controller.addListener(_handleBracketHighlight);
+    }
+  }
+  
+    void _handleBracketHighlight() {
+    final tab = _tabs[_currentTabIndex];
+    final selection = tab.controller.selection;
+    if (selection.isCollapsed) {
+      final position = selection.base;
+      final brackets = {'(': ')', '[': ']', '{': '}'};
+      final line = tab.controller.codeLines[position.index].text;
+      
+      Set<CodeLinePosition> newPositions = {};
+      CodeLinePosition? matchPosition;
+
+      // Check both left and right of cursor
+      for (int offset = 0; offset <= 1; offset++) {
+        final index = position.offset - offset;
+        if (index >= 0 && index < line.length) {
+          final char = line[index];
+          if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+            matchPosition = _findMatchingBracket(
+              tab.controller.codeLines,
+              CodeLinePosition(
+                index: position.index,
+                offset: index,
+              ),
+              brackets,
+            );
+            if (matchPosition != null) {
+              newPositions.add(position);
+              newPositions.add(matchPosition);
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _bracketPositions = newPositions;
+          _matchingBracketPosition = matchPosition;
+        });
+      }
+    } else {
+      setState(() {
+        _bracketPositions = {};
+        _matchingBracketPosition = null;
+      });
+    }
+  }
+
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
+      (k) => brackets[k] == char,
+      orElse: () => '',
+    );
+
+    if (target.isEmpty) return null;
+
+    int stack = 0;
+    final direction = isOpen ? 1 : -1;
+    int index = position.index;
+    int offset = position.offset;
+
+    while (index >= 0 && index < codeLines.length) {
+      final currentLine = codeLines[index].text;
+      while (offset >= 0 && offset < currentLine.length) {
+        if (index == position.index && offset == position.offset) {
+          // Skip original position
+          offset += direction;
+          continue;
+        }
+
+        final currentChar = currentLine[offset];
+        if (currentChar == char) {
+          stack += direction;
+        } else if (currentChar == target) {
+          stack -= direction;
+        }
+
+        if (stack == 0) {
+          return CodeLinePosition(index: index, offset: offset);
+        }
+
+        offset += direction;
+      }
+
+      index += direction;
+      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
+    }
+
+    return null;
+  }
+
+  // Update CodeLineSpanBuilder in your CodeEditor configuration
+  CodeLineSpanBuilder _getSpanBuilder(EditorTab tab) {
+    return (context, text, style) {
+      final spans = <TextSpan>[];
+      final textLength = text.length;
+
+      for (int i = 0; i < textLength; i++) {
+        final pos = CodeLinePosition(
+          index: context.lineIndex,
+          offset: i,
+        );
+
+        final charStyle = _bracketPositions.contains(pos)
+            ? style.copyWith(
+                backgroundColor: Colors.yellow.withOpacity(0.3),
+                fontWeight: FontWeight.bold,
+              )
+            : style;
+
+        spans.add(TextSpan(
+          text: text[i],
+          style: charStyle,
+        ));
+      }
+
+      return TextSpan(children: spans);
+    };
+  }
   
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
@@ -783,6 +918,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   ],
                 ));
               },
+              spanBuilder: _getSpanBuilder(tab),
               style: CodeEditorStyle(
                 fontSize: 12,
                 fontFamily: 'JetBrainsMono',
