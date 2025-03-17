@@ -119,7 +119,7 @@ class _EditorScreenState extends State<EditorScreen> {
       setState(() {
         _bracketPositions = {};
         _matchingBracketPosition = null;
-        _highlightedLines = null;
+        _highlightedLines = {};
 
       });
       return;
