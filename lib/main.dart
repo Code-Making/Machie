@@ -223,10 +223,7 @@ TextSpan _buildSpan({
           )
         : style;
 
-    spans.add(TextSpan(
-      text: text[i],
-      style: charStyle,
-    ));
+    spans.add(textSpan);
   }
 
   return TextSpan(children: spans);
