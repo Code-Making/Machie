@@ -217,24 +217,65 @@ TextSpan _buildSpan({
   required TextSpan textSpan,
 }) {
   final spans = <TextSpan>[];
-  final text = codeLine.text;
-  
-  for (int i = 0; i < text.length; i++) {
-    final pos = CodeLinePosition(index: index, offset: i);
-    final charStyle = _bracketPositions.contains(pos)
-        ? style.copyWith(
-            backgroundColor: Colors.yellow.withOpacity(0.3),
-            fontWeight: FontWeight.bold,
-          )
-        : style;
+  int currentPosition = 0;
+  final highlightPositions = _bracketPositions
+    .where((pos) => pos.index == index)
+    .map((pos) => pos.offset)
+    .toSet();
 
-    spans.add(TextSpan(
-      text: text[i],
-      style: charStyle,
-    ));
+  void processSpan(TextSpan span) {
+    final text = span.text ?? '';
+    final spanStyle = span.style ?? style;
+    List<int> highlightIndices = [];
+
+    // Find highlight positions within this span
+    for (var i = 0; i < text.length; i++) {
+      if (highlightPositions.contains(currentPosition + i)) {
+        highlightIndices.add(i);
+      }
+    }
+
+    // Split span into non-highlight and highlight segments
+    int lastSplit = 0;
+    for (final highlightIndex in highlightIndices) {
+      if (highlightIndex > lastSplit) {
+        spans.add(TextSpan(
+          text: text.substring(lastSplit, highlightIndex),
+          style: spanStyle,
+        ));
+      }
+      spans.add(TextSpan(
+        text: text[highlightIndex],
+        style: spanStyle.copyWith(
+          backgroundColor: Colors.yellow.withOpacity(0.3),
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+      lastSplit = highlightIndex + 1;
+    }
+
+    // Add remaining text
+    if (lastSplit < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastSplit),
+        style: spanStyle,
+      ));
+    }
+
+    currentPosition += text.length;
+
+    // Process child spans
+    if (span.children != null) {
+      for (final child in span.children!) {
+        if (child is TextSpan) {
+          processSpan(child);
+        }
+      }
+    }
   }
 
-  return TextSpan(children: spans);
+  processSpan(textSpan);
+  return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
 }
   
   Future<void> _openFile() async {
