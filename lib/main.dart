@@ -161,7 +161,7 @@ class _EditorScreenState extends State<EditorScreen> {
         });
       }
     
-    })
+    });
   }
 
   CodeLinePosition? _findMatchingBracket(
