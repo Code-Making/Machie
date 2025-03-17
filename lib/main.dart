@@ -218,7 +218,7 @@ TextSpan _buildSpan({
     final pos = CodeLinePosition(index: index, offset: i);
     final charStyle = _bracketPositions.contains(pos)
         ? style.copyWith(
-            backgroundColor: Colors.yellow.withOpacity(0.3),
+            backgroundColor: Colors.yellow.withOpacity(0.8),
             fontWeight: FontWeight.bold,
           )
         : style;
