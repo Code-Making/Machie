@@ -189,9 +189,9 @@ class _EditorScreenState extends State<EditorScreen> {
       final currentChar = currentLine[offset];
       
       if (currentChar == char) {
-        stack += direction;
+        stack += 1;
       } else if (currentChar == target) {
-        stack -= direction;
+        stack -= 1;
       }
 
       if (stack == 0) {
