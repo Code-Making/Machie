@@ -1302,3 +1302,49 @@ void _extendSelectionToLineEdges() {
       return DefaultCodeCommentFormatter(singleLinePrefix: '//',multiLinePrefix: '/*', multiLineSuffix: '*/');
     }
   }
+  
+  class CustomLineNumberWidget extends StatelessWidget {
+  final CodeLineEditingController controller;
+  final CodeLineEditingNotifier notifier;
+  final Set<int> highlightedLines;
+
+  const CustomLineNumberWidget({
+    super.key,
+    required this.controller,
+    required this.notifier,
+    required this.highlightedLines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<CodeLineEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        return Container(
+          color: Colors.grey[900],
+          padding: const EdgeInsets.only(right: 8),
+          child: ListView.builder(
+            itemCount: value.codeLines.length,
+            itemBuilder: (context, index) {
+              final isHighlighted = highlightedLines.contains(index);
+              return SizedBox(
+                height: notifier.lineHeight,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: isHighlighted ? Colors.yellow : Colors.grey[600],
+                      fontSize: 12,
+                      fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
