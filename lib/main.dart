@@ -133,19 +133,20 @@ class _EditorScreenState extends State<EditorScreen> {
       
       Set<CodeLinePosition> newPositions = {};
       CodeLinePosition? matchPosition;
-
+      CodeLinePosition targetPos = position;
       // Check both left and right of cursor
-      for (int offset = 0; offset <= 1; offset++) {
+        int offset = 1;
         final index = position.offset - offset;
         if (index >= 0 && index < line.length) {
           final char = line[index];
+          targetPos = CodeLinePosition(
+                index: position.index,
+                offset: index,
+              );
           if (brackets.keys.contains(char) || brackets.values.contains(char)) {
             matchPosition = _findMatchingBracket(
               tab.controller.codeLines,
-              CodeLinePosition(
-                index: position.index,
-                offset: index,
-              ),
+              targetPos,
               brackets,
             );
             if (matchPosition != null) {
@@ -154,7 +155,6 @@ class _EditorScreenState extends State<EditorScreen> {
             }
           }
         }
-      }
         setState(() {
           _bracketPositions = newPositions;
           _matchingBracketPosition = matchPosition;
