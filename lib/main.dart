@@ -132,7 +132,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final position = selection.base;
       final brackets = {'(': ')', '[': ']', '{': '}'};
       final line = tab.controller.codeLines[position.index].text;
-      
+        Set<int> newHighlightedLines = {};
       Set<CodeLinePosition> newPositions = {};
       CodeLinePosition? matchPosition;
       CodeLinePosition targetPos = position;
