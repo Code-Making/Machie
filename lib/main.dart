@@ -402,7 +402,7 @@ TextSpan _buildSpan({
                 children: [
                   IconButton(
                     icon: const Icon(Icons.keyboard, size: 20),
-                    onPressed: hasActiveTab ? () => _editorFocusNode.requestFocus() : null,
+                    onPressed: hasActiveTab ? () => _showKeyboard() : null,
                     tooltip: 'Show Keyboard',
                   ),
                   IconButton(
@@ -542,6 +542,14 @@ TextSpan _buildSpan({
         ),
       ),
     );
+  }
+  
+  void _showKeyboard(){
+    final tab = _tabs[_currentTabIndex];
+    final controller = tab.controller;
+    
+    controller.extendSelectionToLineEnd();
+    controller.extendSelectionToLineStart();
   }
   
   // Add reformat method using CodeLineEditingValue
