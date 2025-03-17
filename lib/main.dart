@@ -82,8 +82,6 @@ class _EditorScreenState extends State<EditorScreen> {
   
   Set<CodeLinePosition> _bracketPositions = {};
 
-  Timer? _debounceTimer;
-  final Duration _debounceDelay = const Duration(milliseconds: 200);
 
   
   @override
@@ -102,7 +100,6 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     _editorFocusNode.dispose();
-    _debounceTimer?.cancel();
     super.dispose();
   }
   
@@ -113,8 +110,6 @@ class _EditorScreenState extends State<EditorScreen> {
   }
   
     void _handleBracketHighlight() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(_debounceDelay, () {    
     if (!mounted){
       setState(() {
         _bracketPositions = {};
@@ -160,8 +155,6 @@ class _EditorScreenState extends State<EditorScreen> {
           _matchingBracketPosition = matchPosition;
         });
       }
-    
-    });
   }
 
   CodeLinePosition? _findMatchingBracket(
