@@ -307,6 +307,7 @@ TextSpan _buildSpan({
       _originalFileHash = _calculateHash(content);
       final controller = CodeLineEditingController(
         codeLines: isEmpty ? CodeLines.fromText('') : CodeLines.fromText(content),
+        spanBuilder: _buildSpan, // Add span builder here
       );
       final commentFormatter = _getCommentFormatter(uri);
       
