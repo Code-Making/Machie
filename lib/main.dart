@@ -987,72 +987,54 @@ TextSpan _buildSpan({
       );
     }
     
-      void _handleDoubleTap(Offset globalPosition) {
-    final controller = _tabs[_currentTabIndex].controller;
-    final renderBox = context.findRenderObject() as RenderBox;
-    final localPosition = renderBox.globalToLocal(globalPosition);
+void _handleDoubleTap() {
+  final controller = _tabs[_currentTabIndex].controller;
+  final selection = controller.selection;
 
-    final position = controller.selectionAtPosition(localPosition);
-    if (position == null) return;
-
+  // First try bracket chunk selection
+  if (selection.isCollapsed) {
+    final position = selection.base;
     final line = controller.codeLines[position.index].text;
     final offset = position.offset;
 
-    // Check for end-of-line bracket selection first
+    // Check both sides of cursor for brackets
     if (_trySelectBracketChunk(controller, position.index, offset)) {
       return;
     }
-
-    // Fall back to word selection
-    _selectWordAtPosition(controller, position.index, offset);
-  }
-
-  bool _trySelectBracketChunk(CodeLineEditingController controller, int lineIndex, int offset) {
-    final line = controller.codeLines[lineIndex].text;
-    if (line.isEmpty) return false;
-
-    final lastChar = line.length - 1;
-    final isEndOfLine = offset >= lastChar - 1 && offset <= lastChar;
-    final bracket = isEndOfLine ? line[lastChar] : null;
-    
-    if (bracket != null && _bracketPairs.containsKey(bracket)) {
-      final matchPos = _findMatchingBracket(
-        controller.codeLines,
-        CodeLinePosition(index: lineIndex, offset: lastChar),
-        _bracketPairs,
-      );
-
-      if (matchPos != null) {
-        controller.selection = CodeLineSelection(
-          baseIndex: lineIndex,
-          baseOffset: lastChar,
-          extentIndex: matchPos.index,
-          extentOffset: matchPos.offset + 1,
-        );
-        return true;
-      }
+    if (offset > 0 && _trySelectBracketChunk(controller, position.index, offset - 1)) {
+      return;
     }
-    return false;
   }
 
-  void _selectWordAtPosition(CodeLineEditingController controller, int lineIndex, int offset) {
-    final line = controller.codeLines[lineIndex].text;
-    if (line.isEmpty) return;
+  // Fall back to word selection using built-in methods
+  controller.extendSelectionToWordBoundaryBackward();
+  controller.extendSelectionToWordBoundaryForward();
+}
 
-    var start = offset.clamp(0, line.length - 1);
-    var end = start;
+bool _trySelectBracketChunk(CodeLineEditingController controller, int lineIndex, int offset) {
+  final line = controller.codeLines[lineIndex].text;
+  if (offset >= line.length) return false;
 
-    // Find word boundaries
-    while (start > 0 && _isWordChar(line[start - 1])) start--;
-    while (end < line.length && _isWordChar(line[end])) end++;
+  final bracket = line[offset];
+  if (!_bracketPairs.containsKey(bracket)) return false;
 
+  final matchPos = _findMatchingBracket(
+    controller.codeLines,
+    CodeLinePosition(index: lineIndex, offset: offset),
+    _bracketPairs,
+  );
+
+  if (matchPos != null) {
     controller.selection = CodeLineSelection(
       baseIndex: lineIndex,
-      baseOffset: start,
-      extentIndex: lineIndex,
-      extentOffset: end,
+      baseOffset: offset,
+      extentIndex: matchPos.index,
+      extentOffset: matchPos.offset + 1,
     );
+    return true;
   }
+  return false;
+}
 
   bool _isWordChar(String char) => RegExp(r'[\w_]').hasMatch(char);
 
