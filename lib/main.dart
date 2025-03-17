@@ -1305,7 +1305,7 @@ void _extendSelectionToLineEdges() {
   }
   
   class CustomLineNumberWidget extends StatelessWidget {
-  final CodeIndicatorValueNotifier controller;
+  final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
   final Set<int> highlightedLines;
 
