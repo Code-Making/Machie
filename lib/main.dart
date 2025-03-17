@@ -497,7 +497,7 @@ TextSpan _buildSpan({
             ),
             // Code structure
             ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 120),
+              constraints: const BoxConstraints(minWidth: 60),
               child: Row(
                 children: [
                   /*IconButton(
@@ -518,7 +518,7 @@ TextSpan _buildSpan({
             
             // History
             ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 100),
+              constraints: const BoxConstraints(minWidth: 60),
               child: Row(
                 children: [
                   IconButton(
