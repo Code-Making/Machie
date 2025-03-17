@@ -940,7 +940,7 @@ TextSpan _buildSpan({
     return Focus(
       focusNode: _editorFocusNode,
       onKey: _handleKeyEvent,
-      child: GestureDetector(
+      child: /*GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
           if (!_editorFocusNode.hasFocus) {
@@ -949,7 +949,7 @@ TextSpan _buildSpan({
         },
         child: Listener(
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
-          child: CodeEditor(
+          child:*/ CodeEditor(
             controller: tab.controller,
             commentFormatter: tab.commentFormatter,
             indicatorBuilder: (context, editingController, chunkController, notifier) {
@@ -981,8 +981,8 @@ TextSpan _buildSpan({
               ),
               wordWrap: tab.wordWrap,
             ),
-          ),
-        ),
+       /*   ),
+        ),*/
       );
     }
     
