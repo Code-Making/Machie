@@ -1031,6 +1031,8 @@ bool _trySelectBracketChunk(CodeLineEditingController controller, int lineIndex,
       extentIndex: matchPos.index,
       extentOffset: matchPos.offset + 1,
     );
+    controller.extendSelectionToLineStart();
+    controller.extendSelectionToLineEnd();
     return true;
   }
   return false;
