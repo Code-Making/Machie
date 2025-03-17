@@ -555,6 +555,77 @@ TextSpan _buildSpan({
     );
   }
   
+void _selectBetweenBrackets() {
+  final tab = _tabs[_currentTabIndex];
+  final controller = tab.controller;
+  final selection = controller.selection;
+  
+  if (!selection.isCollapsed) {
+    _showError('Selection already active');
+    return;
+  }
+
+  try {
+    final position = selection.base;
+    final brackets = {'(': ')', '[': ']', '{': '}'};
+    CodeLinePosition? start;
+    CodeLinePosition? end;
+
+    // Check both left and right of cursor
+    for (int offset = 0; offset <= 1; offset++) {
+      final index = position.offset - offset;
+      if (index >= 0 && index < controller.codeLines[position.index].text.length) {
+        final char = controller.codeLines[position.index].text[index];
+        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+          final match = _findMatchingBracket(
+            controller.codeLines,
+            CodeLinePosition(
+              index: position.index,
+              offset: index,
+            ),
+            brackets,
+          );
+          if (match != null) {
+            start = CodeLinePosition(
+              index: position.index,
+              offset: index,
+            );
+            end = match;
+            break;
+          }
+        }
+      }
+    }
+
+    if (start == null || end == null) {
+      _showError('No matching bracket found');
+      return;
+    }
+
+    // Order positions correctly
+    final orderedStart = _comparePositions(start, end) < 0 ? start : end;
+    final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
+
+    controller.selection = CodeLineSelection(
+      baseIndex: orderedStart.index,
+      baseOffset: orderedStart.offset,
+      extentIndex: orderedEnd.index,
+      extentOffset: orderedEnd.offset + 1, // Include the bracket itself
+    );
+
+    _showSuccess('Selected between brackets');
+  } catch (e) {
+    _showError('Selection failed: ${e.toString()}');
+  }
+}
+
+// Existing position comparison helper
+int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
+  if (a.index < b.index) return -1;
+  if (a.index > b.index) return 1;
+  return a.offset.compareTo(b.offset);
+}
+  
   // Add to your _EditorScreenState class
 void _extendSelectionToLineEdges() {
   if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
