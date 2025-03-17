@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
