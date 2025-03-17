@@ -223,7 +223,10 @@ TextSpan _buildSpan({
           )
         : style;
 
-    spans.add(textSpan);
+    spans.add(TextSpan(
+      text: text[i],
+      style: charStyle,
+    ));
   }
 
   return TextSpan(children: spans);
@@ -307,7 +310,7 @@ TextSpan _buildSpan({
         spanBuilder: _buildSpan, // Add span builder here
       );
       final commentFormatter = _getCommentFormatter(uri);
-      
+      controller.addListener(_handleBracketHighlight);
       
       setState(() {
         _tabs.add(EditorTab(
