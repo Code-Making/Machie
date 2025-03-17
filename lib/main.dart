@@ -81,6 +81,9 @@ class _EditorScreenState extends State<EditorScreen> {
   
   Set<CodeLinePosition> _bracketPositions = {};
 
+  Timer? _debounceTimer;
+  final Duration _debounceDelay = const Duration(milliseconds: 200);
+
   
   @override
   void initState() {
@@ -98,6 +101,7 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     _editorFocusNode.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
   
@@ -108,6 +112,17 @@ class _EditorScreenState extends State<EditorScreen> {
   }
   
     void _handleBracketHighlight() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_debounceDelay, () {    
+    if (!mounted){
+      setState(() {
+        _bracketPositions = {};
+        _matchingBracketPosition = null;
+      });
+      return;
+    }
+        
+        
     final tab = _tabs[_currentTabIndex];
     final selection = tab.controller.selection;
     if (selection.isCollapsed) {
@@ -139,19 +154,13 @@ class _EditorScreenState extends State<EditorScreen> {
           }
         }
       }
-
-      if (mounted) {
         setState(() {
           _bracketPositions = newPositions;
           _matchingBracketPosition = matchPosition;
         });
       }
-    } else {
-      setState(() {
-        _bracketPositions = {};
-        _matchingBracketPosition = null;
-      });
-    }
+    
+    })
   }
 
   CodeLinePosition? _findMatchingBracket(
