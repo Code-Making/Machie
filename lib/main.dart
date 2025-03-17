@@ -612,10 +612,10 @@ void _selectBetweenBrackets() {
       extentIndex: orderedEnd.index,
       extentOffset: orderedEnd.offset + 1, // Include the bracket itself
     );
-
-    _showSuccess('Selected between brackets');
+    _extendSelectionToLineEdges();
+    //_showSuccess('Selected between brackets');
   } catch (e) {
-    _showError('Selection failed: ${e.toString()}');
+    //_showError('Selection failed: ${e.toString()}');
   }
 }
   
