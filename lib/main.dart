@@ -155,54 +155,55 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
-    final line = codeLines[position.index].text;
-    final char = line[position.offset];
-    final isOpen = brackets.keys.contains(char);
-    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
-      (k) => brackets[k] == char,
-      orElse: () => '',
-    );
+  CodeLines codeLines,
+  CodeLinePosition position,
+  Map<String, String> brackets,
+) {
+  final line = codeLines[position.index].text;
+  if (position.offset >= line.length) return null;
 
-  if (target?.isEmpty ?? true) return null; // Fixed null check
+  final char = line[position.offset];
+  final isOpen = brackets.containsKey(char);
+  final isClose = brackets.containsValue(char);
+  
+  if (!isOpen && !isClose) return null;
 
-    int stack = 0;
-    final direction = isOpen ? 1 : -1;
-    int index = position.index;
-    int offset = position.offset;
+  final target = isOpen ? brackets[char] : 
+    brackets.entries.firstWhere((e) => e.value == char).key;
+  final direction = isOpen ? 1 : -1;
+  int stack = 1;
 
-    while (index >= 0 && index < codeLines.length) {
-      final currentLine = codeLines[index].text;
-      while (offset >= 0 && offset < currentLine.length) {
-        if (index == position.index && offset == position.offset) {
-          // Skip original position
-          offset += direction;
-          continue;
-        }
+  int currentLine = position.index;
+  int currentOffset = position.offset + direction;
 
-        final currentChar = currentLine[offset];
-        if (currentChar == char) {
-          stack += direction;
-        } else if (currentChar == target) {
-          stack -= direction;
-        }
-
-        if (stack == 0) {
-          return CodeLinePosition(index: index, offset: offset);
-        }
-
-        offset += direction;
+  while (currentLine >= 0 && currentLine < codeLines.length) {
+    final currentText = codeLines[currentLine].text;
+    while (currentOffset >= 0 && currentOffset < currentText.length) {
+      final currentChar = currentText[currentOffset];
+      
+      if (currentChar == char) {
+        stack += direction;
+      } else if (currentChar == target) {
+        stack -= direction;
       }
 
-      index += direction;
-      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
-    }
+      if (stack == 0) {
+        return CodeLinePosition(
+          index: currentLine,
+          offset: currentOffset,
+        );
+      }
 
-    return null;
+      currentOffset += direction;
+    }
+    
+    // Move to next line
+    currentLine += direction;
+    currentOffset = direction > 0 ? 0 : (codeLines[currentLine].text.length - 1);
   }
+
+  return null;
+}
 
 TextSpan _buildSpan({
   required CodeLine codeLine,
