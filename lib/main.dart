@@ -119,7 +119,7 @@ class _EditorScreenState extends State<EditorScreen> {
       CodeLinePosition? matchPosition;
 
       // Check both left and right of cursor
-      for (int offset = 0; offset < 1; offset++) {
+      for (int offset = 0; offset <= 1; offset++) {
         final index = position.offset - offset;
         if (index >= 0 && index < line.length) {
           final char = line[index];
