@@ -150,7 +150,7 @@ class _EditorScreenState extends State<EditorScreen> {
               brackets,
             );
             if (matchPosition != null) {
-              newPositions.add(position);
+              newPositions.add(targetPos);
               newPositions.add(matchPosition);
             }
           }
