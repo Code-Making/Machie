@@ -972,6 +972,7 @@ TextSpan _buildSpan({
                   theme: atomOneDarkTheme,
                 ),
               ),
+              wordWrap: tab.wordWrap,
             ),
           ),
         ),
