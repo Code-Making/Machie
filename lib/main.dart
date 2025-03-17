@@ -160,26 +160,33 @@ class _EditorScreenState extends State<EditorScreen> {
   Map<String, String> brackets,
 ) {
   final line = codeLines[position.index].text;
-  if (position.offset >= line.length) return null;
-
   final char = line[position.offset];
-  final isOpen = brackets.containsKey(char);
-  final isClose = brackets.containsValue(char);
   
-  if (!isOpen && !isClose) return null;
+  // Determine if we're looking at an opening or closing bracket
+  final isOpen = brackets.keys.contains(char);
+  final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
+    (k) => brackets[k] == char,
+    orElse: () => '',
+  );
 
-  final target = isOpen ? brackets[char] : 
-    brackets.entries.firstWhere((e) => e.value == char).key;
-  final direction = isOpen ? 1 : -1;
+  if (target?.isEmpty ?? true) return null;
+
   int stack = 1;
+  int index = position.index;
+  int offset = position.offset;
+  final direction = isOpen ? 1 : -1;
 
-  int currentLine = position.index;
-  int currentOffset = position.offset + direction;
+  while (index >= 0 && index < codeLines.length) {
+    final currentLine = codeLines[index].text;
+    
+    while (offset >= 0 && offset < currentLine.length) {
+      // Skip the original position
+      if (index == position.index && offset == position.offset) {
+        offset += direction;
+        continue;
+      }
 
-  while (currentLine >= 0 && currentLine < codeLines.length) {
-    final currentText = codeLines[currentLine].text;
-    while (currentOffset >= 0 && currentOffset < currentText.length) {
-      final currentChar = currentText[currentOffset];
+      final currentChar = currentLine[offset];
       
       if (currentChar == char) {
         stack += direction;
@@ -188,21 +195,18 @@ class _EditorScreenState extends State<EditorScreen> {
       }
 
       if (stack == 0) {
-        return CodeLinePosition(
-          index: currentLine,
-          offset: currentOffset,
-        );
+        return CodeLinePosition(index: index, offset: offset);
       }
 
-      currentOffset += direction;
+      offset += direction;
     }
-    
-    // Move to next line
-    currentLine += direction;
-    currentOffset = direction > 0 ? 0 : (codeLines[currentLine].text.length - 1);
+
+    // Move to next/previous line
+    index += direction;
+    offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
   }
 
-  return null;
+  return null; // No matching bracket found
 }
 
 TextSpan _buildSpan({
