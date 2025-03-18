@@ -625,6 +625,8 @@ if (decisions != null) {
 }
 
 Future<String?> _showTextInputDialog() async {
+  final textController = TextEditingController();
+  
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
@@ -633,6 +635,7 @@ Future<String?> _showTextInputDialog() async {
         width: 400,
         height: 300,
         child: TextField(
+          controller: textController,
           autofocus: true,
           maxLines: null,
           decoration: const InputDecoration(
@@ -647,19 +650,23 @@ Future<String?> _showTextInputDialog() async {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, 
-            (context.widget as AlertDialog).content is SizedBox 
-              ? ((context.widget as AlertDialog).content as SizedBox).child is TextField 
-                ? (((context.widget as AlertDialog).content as SizedBox).child as TextField).controller?.text
-                : null
-              : null
-          ),
+          onPressed: () {
+            final text = textController.text;
+            if (text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter some text to compare'))
+              );
+              return;
+            }
+            Navigator.pop(context, text);
+          },
           child: const Text('Compare'),
         ),
       ],
     ),
   );
 }
+
 // For diff calculation and cleanup
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
