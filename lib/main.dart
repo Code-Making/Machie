@@ -631,23 +631,22 @@ Future<String?> _showTextInputDialog() async {
   );
 }
 
-// 2. Update diff_match_patch method calls
+// For diff calculation and cleanup
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
-  return dmp.diff(original, modified) // Changed to diff() instead of diff_main()
-    ..cleanupSemantic();
+  final diffs = dmp.diff(original, modified);
+  dmp.diffCleanupSemantic(diffs);
+  return diffs;
 }
 
+// For applying patches
 void _applyDiffs(List<Diff> diffs) {
   final dmp = DiffMatchPatch();
-  final patches = dmp.patchMake( // Changed to patchMake() instead of patch_make()
-    _tabs[_currentTabIndex].controller.text, 
-    diffs
-  );
-  
+  final patches = dmp.patchMake(_tabs[_currentTabIndex].controller.text, diffs);
   final results = dmp.patchApply(
     patches, 
-    _tabs[_currentTabIndex].controller.text
+    _tabs[_currentTabIndex].controller.text,
+    diffTimeout: 1.0, // Add required parameter
   );
   
   _tabs[_currentTabIndex].controller.runRevocableOp(() {
