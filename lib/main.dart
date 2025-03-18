@@ -1231,7 +1231,7 @@ Future<void> _loadDirectoryContents(String uri) async {
       @override
       Widget build(BuildContext context) {
         return ExpansionTile(
-          leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder),
+          leading: Icon(_isExpanded ? Icons.folder_open : Icons.folder, color: Colors.yellow),
           title: Text(widget.name),
           trailing: _isLoading
           ? const SizedBox(
