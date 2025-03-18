@@ -667,8 +667,8 @@ Future<String?> _showTextInputDialog() async {
 // For diff calculation and cleanup
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
-  final diffs = diff(original, modified);
-  diffCleanupSemantic(diffs);
+  final diffs = dmp.diff(original, modified);
+  dmp.diffCleanupSemantic(diffs); // Call through dmp instance
   return diffs;
 }
 
@@ -1678,7 +1678,6 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
-// Update the CodeEditor configuration in _buildPreviewPanel:
 Widget _buildPreviewPanel() {
   return Container(
     decoration: BoxDecoration(
@@ -1688,10 +1687,10 @@ Widget _buildPreviewPanel() {
     child: CodeEditor(
       controller: CodeLineEditingController(
         codeLines: CodeLines.fromText(_previewText),
+        readOnly: true, // Add readOnly here instead
       ),
       style: CodeEditorStyle(
         fontSize: 12,
-        readOnly: true, // Add readOnly here instead
         fontFamily: 'JetBrainsMono',
         codeTheme: CodeHighlightTheme(
           languages: _getLanguageMode(widget.modifiedText),
