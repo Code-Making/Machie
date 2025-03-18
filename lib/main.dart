@@ -1687,8 +1687,8 @@ Widget _buildPreviewPanel() {
     child: CodeEditor(
       controller: CodeLineEditingController(
         codeLines: CodeLines.fromText(_previewText),
-        readOnly: true, // Add readOnly here instead
       ),
+      readOnly: true, // Add readOnly here instead
       style: CodeEditorStyle(
         fontSize: 12,
         fontFamily: 'JetBrainsMono',
