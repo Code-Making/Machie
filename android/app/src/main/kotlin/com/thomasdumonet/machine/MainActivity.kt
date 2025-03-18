@@ -223,9 +223,11 @@ private fun readFileContent(uri: Uri): FileReadResult {
 
 private fun writeFileContent(uri: Uri, content: String): FileWriteResult {
     return try {
-        contentResolver.openOutputStream(uri)?.use { outputStream ->
-            BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
-                writer.write(content)
+        // Open with truncation mode to clear existing content
+        contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
+            BufferedWriter(OutputStreamWriter(outputStream)).apply {
+                write(content)
+                flush()
             }
 
             // Calculate checksum AFTER writing
