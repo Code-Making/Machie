@@ -658,26 +658,6 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
-void _applyDiffs(List<Diff> diffs) {
-  final dmp = DiffMatchPatch();
-  
-  // Create patches using the patch() method
-  final patches = dmp.patch(
-    _tabs[_currentTabIndex].controller.text,
-    diffs
-  );
-  
-  // Apply patches using patch_apply()
-  final results = dmp.patch_apply(
-    patches, 
-    _tabs[_currentTabIndex].controller.text
-  );
-  
-  _tabs[_currentTabIndex].controller.runRevocableOp(() {
-    _tabs[_currentTabIndex].controller.text = results[0] as String;
-  });
-}
-
 void _applyGranularChanges(List<Diff> diffs) {
   final controller = _tabs[_currentTabIndex].controller;
   final originalText = controller.text;
@@ -1575,96 +1555,6 @@ void _applyGranularChanges(List<Diff> diffs) {
     }
     
     
-// Diff Comparison Dialog
-class DiffComparisonDialog extends StatelessWidget {
-  final List<Diff> diffs;
-  final String originalContent;
-
-  const DiffComparisonDialog({
-    super.key,
-    required this.diffs,
-    required this.originalContent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Review Changes'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildDiffPreview(),
-              const SizedBox(height: 20),
-              const Text('Apply changes?'),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Apply'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDiffPreview() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: diffs.map((diff) {
-          final text = diff.text;
-          Color color;
-          switch (diff.operation) {
-            case DIFF_INSERT:
-              color = Colors.green.shade100;
-              break;
-            case DIFF_DELETE:
-              color = Colors.red.shade100;
-              break;
-            default:
-              color = Colors.transparent;
-          }
-          
-          return Container(
-            color: color,
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Text(
-              '${_getOperationSymbol(diff.operation)} $text',
-              style: TextStyle(
-                color: Colors.grey[800],
-                fontSize: 12,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  String _getOperationSymbol(int operation) {
-    switch (operation) {
-      case DIFF_INSERT:
-        return '+';
-      case DIFF_DELETE:
-        return '-';
-      default:
-        return ' ';
-    }
-  }
-}
 
 // Granular diff approval dialog
 class DiffApprovalDialog extends StatefulWidget {
