@@ -667,8 +667,8 @@ Future<String?> _showTextInputDialog() async {
 // For diff calculation and cleanup
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
-  final diffs = dmp.diff(original, modified);
-  dmp.diffCleanupSemantic(diffs);
+  final diffs = diff(original, modified);
+  diffCleanupSemantic(diffs);
   return diffs;
 }
 
@@ -1599,8 +1599,8 @@ class DiffApprovalDialog extends StatefulWidget {
 }
 
 class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
-  // ... existing state variables ...
   final Map<int, bool> _decisions = {};
+  final ScrollController _scrollController = ScrollController();
   String _previewText = '';
 
   @override
@@ -1608,6 +1608,15 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
     super.initState();
     _updatePreview();
   }
+
+  String _getOperationSymbol(int operation) {
+    switch (operation) {
+      case DIFF_INSERT: return '+';
+      case DIFF_DELETE: return '-';
+      default: return ' ';
+    }
+  }
+
 
   void _updatePreview() {
     _previewText = _mergeDiffs(widget.originalText, widget.diffs, _decisions);
@@ -1661,6 +1670,7 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
     );
   }
 
+  // Update the CodeEditor controller section
   Widget _buildPreviewPanel() {
     return Container(
       decoration: BoxDecoration(
@@ -1670,7 +1680,7 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
       child: CodeEditor(
         controller: CodeLineEditingController(
           codeLines: CodeLines.fromText(_previewText),
-          readOnly: true,
+          editingValueNotifier: ValueNotifier(false),
         ),
         style: CodeEditorStyle(
           fontSize: 12,
