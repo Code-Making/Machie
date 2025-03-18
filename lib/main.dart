@@ -1599,26 +1599,39 @@ class DiffApprovalDialog extends StatefulWidget {
 }
 
 class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
+  // ... existing state variables ...
   final Map<int, bool> _decisions = {};
-  final _scrollController = ScrollController();
+  String _previewText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _updatePreview();
+  }
+
+  void _updatePreview() {
+    _previewText = _mergeDiffs(widget.originalText, widget.diffs, _decisions);
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Review Changes'),
       content: SizedBox(
-        width: 800,
-        height: 500,
-        child: Scrollbar(
-          controller: _scrollController,
-          child: ListView.builder(
-            controller: _scrollController,
-            itemCount: widget.diffs.length,
-            itemBuilder: (context, index) {
-              final diff = widget.diffs[index];
-              return _buildDiffRow(diff, index);
-            },
-          ),
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            // Diff List
+            Expanded(
+              child: _buildDiffList(),
+            ),
+            const Divider(height: 20),
+            // Preview Panel
+            Expanded(
+              child: _buildPreviewPanel(),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -1628,48 +1641,105 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(context, _decisions),
-          child: const Text('Apply Changes'),
+          child: const Text('Apply Selected'),
         ),
       ],
+    );
+  }
+
+  Widget _buildDiffList() {
+    return Scrollbar(
+      controller: _scrollController,
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: widget.diffs.length,
+        itemBuilder: (context, index) {
+          final diff = widget.diffs[index];
+          return _buildDiffRow(diff, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPreviewPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[700]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: CodeEditor(
+        controller: CodeLineEditingController(
+          codeLines: CodeLines.fromText(_previewText),
+          readOnly: true,
+        ),
+        style: CodeEditorStyle(
+          fontSize: 12,
+          fontFamily: 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            languages: _getLanguageMode(widget.modifiedText),
+            theme: atomOneDarkTheme,
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildDiffRow(Diff diff, int index) {
     final isApproved = _decisions[index] ?? false;
     final color = diff.operation == DIFF_INSERT
-        ? Colors.green.withOpacity(isApproved ? 0.2 : 0.05)
-        : Colors.red.withOpacity(isApproved ? 0.2 : 0.05);
+        ? Colors.green.withOpacity(isApproved ? 0.3 : 0.1)
+        : Colors.red.withOpacity(isApproved ? 0.3 : 0.1);
 
     return GestureDetector(
-      onTap: () => setState(() => _decisions[index] = !isApproved),
+      onTap: () {
+        setState(() {
+          _decisions[index] = !isApproved;
+          _updatePreview();
+        });
+      },
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isApproved 
-                ? Colors.blue.withOpacity(0.5)
-                : Colors.transparent,
-            width: 2,
+          border: Border(
+            left: BorderSide(
+              color: isApproved ? Colors.blue : Colors.transparent,
+              width: 4,
+            ),
           ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                isApproved ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: isApproved ? Colors.blue : Colors.grey,
+                isApproved ? Icons.check_box : Icons.check_box_outline_blank,
                 size: 20,
+                color: isApproved ? Colors.blue : Colors.grey,
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  '${_getOperationSymbol(diff.operation)} ${diff.text}',
-                  style: const TextStyle(
-                    fontFamily: 'FiraCode',
-                    fontSize: 14,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${_getOperationSymbol(diff.operation)} ',
+                        style: TextStyle(
+                          color: diff.operation == DIFF_INSERT 
+                              ? Colors.green 
+                              : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: diff.text,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrainsMono',
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1680,11 +1750,30 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
     );
   }
 
-  String _getOperationSymbol(int operation) {
-    switch (operation) {
-      case DIFF_INSERT: return '+';
-      case DIFF_DELETE: return '-';
-      default: return ' ';
+  String _mergeDiffs(String original, List<Diff> diffs, Map<int, bool> decisions) {
+    final buffer = StringBuffer();
+    int position = 0;
+    
+    for (int i = 0; i < diffs.length; i++) {
+      final diff = diffs[i];
+      
+      if (decisions[i] ?? false) {
+        if (diff.operation == DIFF_DELETE) {
+          position += diff.text.length;
+        } else if (diff.operation == DIFF_INSERT) {
+          buffer.write(diff.text);
+        }
+      } else {
+        if (diff.operation == DIFF_EQUAL) {
+          buffer.write(diff.text);
+          position += diff.text.length;
+        } else if (diff.operation == DIFF_DELETE) {
+          buffer.write(original.substring(position, position + diff.text.length));
+          position += diff.text.length;
+        }
+      }
     }
+    
+    return buffer.toString();
   }
 }
