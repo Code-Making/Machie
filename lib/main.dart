@@ -23,6 +23,7 @@ import 'package:re_highlight/languages/kotlin.dart';
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/plaintext.dart';
+import 'package:diff_match_patch/diff_match_patch.dart';
 
 
 void main() => runApp(const CodeEditorApp());
@@ -473,26 +474,6 @@ Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
                 ],
               ),
             ),
-            
-            // Line operations
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 60),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_upward, size: 20),
-                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
-                    tooltip: 'Move Line Up',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_downward, size: 20),
-                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
-                    tooltip: 'Move Line Down',
-                  ),
-                  const VerticalDivider(width: 20),
-                ],
-              ),
-            ),
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 100),
               child: Row(
@@ -522,6 +503,30 @@ Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
                     onPressed: hasActiveTab ? () => controller!.selectAll() : null,
                     tooltip: 'Select All',
                   ),
+                  const VerticalDivider(width: 20),
+                ],
+              ),
+            ),
+            // Line operations
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 60),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_upward, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesUp() : null,
+                    tooltip: 'Move Line Up',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_downward, size: 20),
+                    onPressed: hasActiveTab ? () => controller!.moveSelectionLinesDown() : null,
+                    tooltip: 'Move Line Down',
+                  ),
+                    IconButton(
+                      icon: const Icon(Icons.compare_arrows),
+                      onPressed: _tabs.isNotEmpty ? _showCompareDialog : null,
+                      tooltip: 'Compare Changes',
+                    ),
                   const VerticalDivider(width: 20),
                 ],
               ),
@@ -574,6 +579,165 @@ Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
       ),
     );
   }
+  
+  // Add dialog methods
+void _showCompareDialog() async {
+  final currentContent = _tabs[_currentTabIndex].controller.text;
+  final incomingContent = await _showTextInputDialog();
+  if (incomingContent == null) return;
+
+  final diffs = _calculateDiffs(currentContent, incomingContent);
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => DiffComparisonDialog(
+      diffs: diffs,
+      originalContent: currentContent,
+    ),
+  );
+
+  if (result == true) {
+    _applyDiffs(diffs);
+  }
+}
+
+Future<String?> _showTextInputDialog() async {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Paste modified content'),
+      content: TextField(
+        autofocus: true,
+        maxLines: 10,
+        minLines: 5,
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: 'Paste the modified code here...'
+        ),
+        controller: TextEditingController(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, 
+            (context.widget as AlertDialog).content is TextField 
+              ? (context.widget as AlertDialog).content.controller?.text
+              : null
+          ),
+          child: const Text('Compare'),
+        ),
+      ],
+    ),
+  );
+}
+
+List<Diff> _calculateDiffs(String original, String modified) {
+  final dmp = DiffMatchPatch();
+  return dmp.diff_main(original, modified)
+    ..cleanupSemantic();
+}
+
+void _applyDiffs(List<Diff> diffs) {
+  final patch = DiffMatchPatch().patch_make(_tabs[_currentTabIndex].controller.text, diffs);
+  final result = DiffMatchPatch().patch_apply(patch, _tabs[_currentTabIndex].controller.text);
+  
+  _tabs[_currentTabIndex].controller.runRevocableOp(() {
+    _tabs[_currentTabIndex].controller.text = result[0] as String;
+  });
+}
+
+// Diff Comparison Dialog
+class DiffComparisonDialog extends StatelessWidget {
+  final List<Diff> diffs;
+  final String originalContent;
+
+  const DiffComparisonDialog({
+    super.key,
+    required this.diffs,
+    required this.originalContent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Review Changes'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildDiffPreview(),
+              const SizedBox(height: 20),
+              const Text('Apply changes?'),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiffPreview() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: diffs.map((diff) {
+          final text = diff.text;
+          Color color;
+          switch (diff.operation) {
+            case DIFF_INSERT:
+              color = Colors.green.shade100;
+              break;
+            case DIFF_DELETE:
+              color = Colors.red.shade100;
+              break;
+            default:
+              color = Colors.transparent;
+          }
+          
+          return Container(
+            color: color,
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              '${_getOperationSymbol(diff.operation)} $text',
+              style: TextStyle(
+                color: Colors.grey[800],
+                fontSize: 12,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getOperationSymbol(int operation) {
+    switch (operation) {
+      case DIFF_INSERT:
+        return '+';
+      case DIFF_DELETE:
+        return '-';
+      default:
+        return ' ';
+    }
+  }
+}
   
   void _selectBetweenBrackets() {
     final tab = _tabs[_currentTabIndex];
