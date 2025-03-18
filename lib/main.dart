@@ -639,14 +639,19 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
-// For applying patches
 void _applyDiffs(List<Diff> diffs) {
   final dmp = DiffMatchPatch();
-  final patches = dmp.patchMake(_tabs[_currentTabIndex].controller.text, diffs);
-  final results = dmp.patchApply(
-    patches, 
+  
+  // Create patches using the patch() method
+  final patches = dmp.patch(
     _tabs[_currentTabIndex].controller.text,
-    diffTimeout: 1.0, // Add required parameter
+    diffs
+  );
+  
+  // Apply patches using patch_apply()
+  final results = dmp.patch_apply(
+    patches, 
+    _tabs[_currentTabIndex].controller.text
   );
   
   _tabs[_currentTabIndex].controller.runRevocableOp(() {
