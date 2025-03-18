@@ -606,18 +606,22 @@ void _showCompareDialog() async {
     return;
   }
 
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) => DiffApprovalDialog(
-      diffs: diffs,
-      originalText: _selectedOriginal,
-      modifiedText: incomingContent,
-    ),
-  );
+  // Original code:
+// final result = await showDialog<bool>(...);
 
-  if (result == true) {
-    _applyGranularChanges(diffs);
-  }
+// Modified code:
+final decisions = await showDialog<Map<int, bool>>(
+  context: context,
+  builder: (context) => DiffApprovalDialog(
+    diffs: diffs,
+    originalText: _selectedOriginal,
+    modifiedText: incomingContent,
+  ),
+);
+
+if (decisions != null) {
+  _applyGranularChanges(diffs, decisions);
+}
 }
 
 Future<String?> _showTextInputDialog() async {
@@ -1619,10 +1623,11 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
           onPressed: () => Navigator.pop(context, false),
           child: const Text('Cancel'),
         ),
+        // In DiffApprovalDialog's build method, update the Apply Selected button:
         ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => Navigator.pop(context, _decisions),
           child: const Text('Apply Selected'),
-        ),
+        )
       ],
     );
   }
