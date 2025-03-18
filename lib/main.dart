@@ -1701,96 +1701,103 @@ Widget _buildPreviewPanel() {
   );
 }
 
-  Widget _buildDiffRow(Diff diff, int index) {
-    final isApproved = _decisions[index] ?? false;
-    final color = diff.operation == DIFF_INSERT
-        ? Colors.green.withOpacity(isApproved ? 0.3 : 0.1)
-        : Colors.red.withOpacity(isApproved ? 0.3 : 0.1);
+// In _DiffApprovalDialogState class
+Widget _buildDiffRow(Diff diff, int index) {
+  // Skip rendering for unchanged content
+  if (diff.operation == DIFF_EQUAL) {
+    return const SizedBox.shrink();
+  }
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _decisions[index] = !isApproved;
-          _updatePreview();
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        decoration: BoxDecoration(
-          color: color,
-          border: Border(
-            left: BorderSide(
-              color: isApproved ? Colors.blue : Colors.transparent,
-              width: 4,
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                isApproved ? Icons.check_box : Icons.check_box_outline_blank,
-                size: 20,
-                color: isApproved ? Colors.blue : Colors.grey,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${_getOperationSymbol(diff.operation)} ',
-                        style: TextStyle(
-                          color: diff.operation == DIFF_INSERT 
-                              ? Colors.green 
-                              : Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextSpan(
-                        text: diff.text,
-                        style: const TextStyle(
-                          fontFamily: 'JetBrainsMono',
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+  final isApproved = _decisions[index] ?? false;
+  final color = diff.operation == DIFF_INSERT
+      ? Colors.green.withOpacity(isApproved ? 0.3 : 0.1)
+      : Colors.red.withOpacity(isApproved ? 0.3 : 0.1);
+
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        _decisions[index] = !isApproved;
+        _updatePreview();
+      });
+    },
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        border: Border(
+          left: BorderSide(
+            color: isApproved ? Colors.blue : Colors.transparent,
+            width: 4,
           ),
         ),
       ),
-    );
-  }
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isApproved ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 20,
+              color: isApproved ? Colors.blue : Colors.grey,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${_getOperationSymbol(diff.operation)} ',
+                      style: TextStyle(
+                        color: diff.operation == DIFF_INSERT 
+                            ? Colors.green 
+                            : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: diff.text,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
-  String _mergeDiffs(String original, List<Diff> diffs, Map<int, bool> decisions) {
-    final buffer = StringBuffer();
-    int position = 0;
+String _mergeDiffs(String original, List<Diff> diffs, Map<int, bool> decisions) {
+  final buffer = StringBuffer();
+  int position = 0;
+  
+  for (int i = 0; i < diffs.length; i++) {
+    final diff = diffs[i];
     
-    for (int i = 0; i < diffs.length; i++) {
-      final diff = diffs[i];
-      
-      if (decisions[i] ?? false) {
-        if (diff.operation == DIFF_DELETE) {
-          position += diff.text.length;
-        } else if (diff.operation == DIFF_INSERT) {
-          buffer.write(diff.text);
-        }
-      } else {
-        if (diff.operation == DIFF_EQUAL) {
-          buffer.write(diff.text);
-          position += diff.text.length;
-        } else if (diff.operation == DIFF_DELETE) {
-          buffer.write(original.substring(position, position + diff.text.length));
-          position += diff.text.length;
-        }
+    if (diff.operation == DIFF_EQUAL) {
+      // Always include unchanged content
+      buffer.write(diff.text);
+      position += diff.text.length;
+    }
+    else if (decisions[i] ?? false) {
+      if (diff.operation == DIFF_DELETE) {
+        position += diff.text.length;
+      } else if (diff.operation == DIFF_INSERT) {
+        buffer.write(diff.text);
+      }
+    } else {
+      if (diff.operation == DIFF_DELETE) {
+        buffer.write(original.substring(position, position + diff.text.length));
+        position += diff.text.length;
       }
     }
-    
-    return buffer.toString();
   }
-}
+  
+  return buffer.toString();
+}}
