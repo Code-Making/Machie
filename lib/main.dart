@@ -621,8 +621,8 @@ void _showCompareDialog() async {
 }
 
 // 1. Fix TextField controller access
-Future<String?> _showTextInputDialog() async {
-  final textController = TextEditingController();
+Future<String?> _showTextInputDialog({String original = ''}) async {
+  final textController = TextEditingController(text: original);
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
@@ -650,7 +650,6 @@ Future<String?> _showTextInputDialog() async {
     ),
   );
 }
-
 // For diff calculation and cleanup
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
