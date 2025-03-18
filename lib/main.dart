@@ -317,8 +317,8 @@ class _EditorScreenState extends State<EditorScreen> {
   }*/
   
   // Update the _loadDirectoryContents method
-Future<void> _loadDirectoryContents(String uri) async {
-  final contents = await _fileHandler.listDirectory(uri);
+Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
+  final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
   if (contents != null) {
     // Sort directories first, then files, both alphabetically
     contents.sort((a, b) {
