@@ -606,22 +606,19 @@ void _showCompareDialog() async {
     return;
   }
 
-  // Original code:
-// final result = await showDialog<bool>(...);
+  final decisions = await showDialog<Map<int, bool>>(
+    context: context,
+    builder: (context) => DiffApprovalDialog(
+      diffs: diffs,
+      originalText: _selectedOriginal,
+      modifiedText: incomingContent,
+    ),
+  );
 
-// Modified code:
-final decisions = await showDialog<Map<int, bool>>(
-  context: context,
-  builder: (context) => DiffApprovalDialog(
-    diffs: diffs,
-    originalText: _selectedOriginal,
-    modifiedText: incomingContent,
-  ),
-);
-
-if (decisions != null) {
-  _applyGranularChanges(diffs, decisions);
-}
+  if (decisions != null && decisions.isNotEmpty) {
+    _applyGranularChanges(diffs, decisions);
+    _showSuccess('Applied ${decisions.length} changes');
+  }
 }
 
 Future<String?> _showTextInputDialog() async {
@@ -1585,7 +1582,6 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
     
     
 
-// Updated diff approval dialog
 class DiffApprovalDialog extends StatefulWidget {
   final List<Diff> diffs;
   final String originalText;
@@ -1627,60 +1623,61 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        // In DiffApprovalDialog's build method, update the Apply Selected button:
         ElevatedButton(
           onPressed: () => Navigator.pop(context, _decisions),
-          child: const Text('Apply Selected'),
-        )
+          child: const Text('Apply Changes'),
+        ),
       ],
     );
   }
 
   Widget _buildDiffRow(Diff diff, int index) {
-    final color = diff.operation == DIFF_INSERT 
-        ? Colors.green.withOpacity(0.1)
-        : Colors.red.withOpacity(0.1);
-        
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                '${_getOperationSymbol(diff.operation)} ${diff.text}',
-                style: const TextStyle(
-                  fontFamily: 'FiraCode',
-                  fontSize: 14,
+    final isApproved = _decisions[index] ?? false;
+    final color = diff.operation == DIFF_INSERT
+        ? Colors.green.withOpacity(isApproved ? 0.2 : 0.05)
+        : Colors.red.withOpacity(isApproved ? 0.2 : 0.05);
+
+    return GestureDetector(
+      onTap: () => setState(() => _decisions[index] = !isApproved),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isApproved 
+                ? Colors.blue.withOpacity(0.5)
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Icon(
+                isApproved ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isApproved ? Colors.blue : Colors.grey,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${_getOperationSymbol(diff.operation)} ${diff.text}',
+                  style: const TextStyle(
+                    fontFamily: 'FiraCode',
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-          IconButton(
-            icon: Icon(Icons.check, color: Colors.green[600]),
-            onPressed: () => _updateDecision(index, true),
-          ),
-          IconButton(
-            icon: Icon(Icons.close, color: Colors.red[600]),
-            onPressed: () => _updateDecision(index, false),
-          ),
-        ],
+        ),
       ),
     );
-  }
-
-  void _updateDecision(int index, bool approve) {
-    setState(() {
-      _decisions[index] = approve;
-    });
   }
 
   String _getOperationSymbol(int operation) {
@@ -1691,4 +1688,3 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
     }
   }
 }
-
