@@ -597,7 +597,7 @@ void _showCompareDialog() async {
   _selectedOriginal = controller.selectedText;
   _selectionRange = selection;
 
-  final incomingContent = await _showTextInputDialog(original: _selectedOriginal);
+  final incomingContent = await _showTextInputDialog();
   if (incomingContent == null) return;
 
   final diffs = _calculateDiffs(_selectedOriginal, incomingContent);
