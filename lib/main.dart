@@ -1602,10 +1602,13 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   final Map<int, bool> _decisions = {};
   final ScrollController _scrollController = ScrollController();
   String _previewText = '';
+  final Map<int, (int start, int end)> _diffPositions = {};
+  late final CodeLineEditingController _previewController;
 
   @override
   void initState() {
     super.initState();
+    _previewController = CodeLineEditingController();
     _updatePreview();
   }
 
@@ -1619,8 +1622,58 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
 
 
   void _updatePreview() {
-    _previewText = _mergeDiffs(widget.originalText, widget.diffs, _decisions);
+  final buffer = StringBuffer();
+  int originalPosition = 0;
+  _diffPositions.clear();
+  
+  for (int i = 0; i < widget.diffs.length; i++) {
+    final diff = widget.diffs[i];
+    final start = buffer.length;
+    
+    if (diff.operation == DIFF_EQUAL) {
+      buffer.write(diff.text);
+      originalPosition += diff.text.length;
+    } else if (_decisions[i] ?? false) {
+      if (diff.operation == DIFF_INSERT) {
+        buffer.write(diff.text);
+      } else {
+        originalPosition += diff.text.length;
+      }
+    } else {
+      if (diff.operation == DIFF_DELETE) {
+        buffer.write(widget.originalText.substring(
+          originalPosition, 
+          originalPosition + diff.text.length
+        ));
+        originalPosition += diff.text.length;
+      }
+    }
+    
+    _diffPositions[i] = (start, buffer.length);
   }
+  
+  _previewText = buffer.toString();
+  _previewController.codeLines = CodeLines.fromText(_previewText);
+}
+
+CodeLinePosition _getCodeLinePosition(int charIndex) {
+  int current = 0;
+  final codeLines = _previewController.codeLines;
+  for (int i = 0; i < codeLines.length; i++) {
+    final lineLength = codeLines[i].text.length;
+    if (charIndex <= current + lineLength) {
+      return CodeLinePosition(
+        index: i,
+        offset: charIndex - current,
+      );
+    }
+    current += lineLength + 1; // +1 for newline character
+  }
+  return CodeLinePosition(
+    index: codeLines.length - 1,
+    offset: codeLines.last.text.length,
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1719,6 +1772,15 @@ Widget _buildDiffRow(Diff diff, int index) {
         _decisions[index] = !isApproved;
         _updatePreview();
       });
+
+      // Auto-scroll to changed position
+      final positions = _diffPositions[index];
+      if (positions != null && positions.$1 < positions.$2) {
+        final position = _getCodeLinePosition(positions.$1);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _previewController.makePositionCenterIfInvisible(position);
+        });
+      }
     },
     child: Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
