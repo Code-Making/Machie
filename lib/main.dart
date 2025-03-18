@@ -664,35 +664,47 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
-void _applyGranularChanges(List<Diff> diffs) {
+// Update apply method to use decisions
+void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
   final controller = _tabs[_currentTabIndex].controller;
   final originalText = controller.text;
   var modifiedText = originalText;
   
-  // Get original selection positions
-  final startLine = _selectionRange.start.index;
-  final startOffset = _selectionRange.start.offset;
-  final endLine = _selectionRange.end.index;
-  final endOffset = _selectionRange.end.offset;
+  // Track offset changes
+  var offset = 0;
+  final selectionStart = _selectionRange.start.offset;
 
-  var newStartOffset = startOffset;
-  var newEndOffset = endOffset;
+  // Apply approved changes in reverse order to maintain correct offsets
+  for (int i = diffs.length - 1; i >= 0; i--) {
+    if (decisions[i] ?? false) {
+      final diff = diffs[i];
+      final position = selectionStart + offset;
 
-  for (final diff in diffs) {
-    if (diff.operation == DIFF_DELETE) {
-      newEndOffset -= diff.text.length;
-    } else if (diff.operation == DIFF_INSERT) {
-      newEndOffset += diff.text.length;
+      if (diff.operation == DIFF_DELETE) {
+        modifiedText = modifiedText.replaceRange(
+          position, 
+          position + diff.text.length, 
+          ''
+        );
+        offset -= diff.text.length;
+      } else if (diff.operation == DIFF_INSERT) {
+        modifiedText = modifiedText.replaceRange(
+          position,
+          position,
+          diff.text
+        );
+        offset += diff.text.length;
+      }
     }
   }
 
   controller.runRevocableOp(() {
     controller.text = modifiedText;
     controller.selection = CodeLineSelection(
-      baseIndex: startLine,
-      baseOffset: newStartOffset,
-      extentIndex: endLine,
-      extentOffset: newEndOffset,
+      baseIndex: _selectionRange.start.index,
+      baseOffset: _selectionRange.start.offset,
+      extentIndex: _selectionRange.end.index,
+      extentOffset: _selectionRange.end.offset + offset,
     );
   });
 }
@@ -1668,47 +1680,3 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   }
 }
 
-// Update apply method to use decisions
-void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
-  final controller = _tabs[_currentTabIndex].controller;
-  final originalText = controller.text;
-  var modifiedText = originalText;
-  
-  // Track offset changes
-  var offset = 0;
-  final selectionStart = _selectionRange.start.offset;
-
-  // Apply approved changes in reverse order to maintain correct offsets
-  for (int i = diffs.length - 1; i >= 0; i--) {
-    if (decisions[i] ?? false) {
-      final diff = diffs[i];
-      final position = selectionStart + offset;
-
-      if (diff.operation == DIFF_DELETE) {
-        modifiedText = modifiedText.replaceRange(
-          position, 
-          position + diff.text.length, 
-          ''
-        );
-        offset -= diff.text.length;
-      } else if (diff.operation == DIFF_INSERT) {
-        modifiedText = modifiedText.replaceRange(
-          position,
-          position,
-          diff.text
-        );
-        offset += diff.text.length;
-      }
-    }
-  }
-
-  controller.runRevocableOp(() {
-    controller.text = modifiedText;
-    controller.selection = CodeLineSelection(
-      baseIndex: _selectionRange.start.index,
-      baseOffset: _selectionRange.start.offset,
-      extentIndex: _selectionRange.end.index,
-      extentOffset: _selectionRange.end.offset + offset,
-    );
-  });
-}
