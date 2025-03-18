@@ -85,6 +85,10 @@ class _EditorScreenState extends State<EditorScreen> {
   Set<CodeLinePosition> _bracketPositions = {};
   Set<int> _highlightedLines = {};
   
+  String _selectedOriginal = '';
+  CodeLineSelection _selectionRange = const CodeLineSelection.zero();
+
+  
   final Map<String, String> _bracketPairs = {
     '{': '}', '[': ']', '(': ')',
     '}': '{', ']': '[', ')': '('
@@ -582,21 +586,37 @@ Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
   
   // Add dialog methods
 void _showCompareDialog() async {
-  final currentContent = _tabs[_currentTabIndex].controller.text;
-  final incomingContent = await _showTextInputDialog();
+  final controller = _tabs[_currentTabIndex].controller;
+  final selection = controller.selection;
+  
+  if (selection.isCollapsed) {
+    _showError('Select code to compare first');
+    return;
+  }
+
+  _selectedOriginal = controller.selectedText;
+  _selectionRange = selection;
+
+  final incomingContent = await _showTextInputDialog(original: _selectedOriginal);
   if (incomingContent == null) return;
 
-  final diffs = _calculateDiffs(currentContent, incomingContent);
+  final diffs = _calculateDiffs(_selectedOriginal, incomingContent);
+  if (diffs.isEmpty) {
+    _showSuccess('No changes detected');
+    return;
+  }
+
   final result = await showDialog<bool>(
     context: context,
-    builder: (context) => DiffComparisonDialog(
+    builder: (context) => DiffApprovalDialog(
       diffs: diffs,
-      originalContent: currentContent,
+      originalText: _selectedOriginal,
+      modifiedText: incomingContent,
     ),
   );
 
   if (result == true) {
-    _applyDiffs(diffs);
+    _applyGranularChanges(diffs);
   }
 }
 
@@ -656,6 +676,36 @@ void _applyDiffs(List<Diff> diffs) {
   
   _tabs[_currentTabIndex].controller.runRevocableOp(() {
     _tabs[_currentTabIndex].controller.text = results[0] as String;
+  });
+}
+
+// Apply approved changes
+void _applyGranularChanges(List<Diff> diffs) {
+  final controller = _tabs[_currentTabIndex].controller;
+  final originalText = controller.text;
+  var modifiedText = originalText;
+  var offset = 0;
+
+  for (int i = 0; i < diffs.length; i++) {
+    final diff = diffs[i];
+    final start = _selectionRange.start.offset + offset;
+    final end = start + diff.text.length;
+
+    if (diff.operation == DIFF_DELETE) {
+      modifiedText = modifiedText.replaceRange(start, end, '');
+      offset -= diff.text.length;
+    } else if (diff.operation == DIFF_INSERT) {
+      modifiedText = modifiedText.replaceRange(start, start, diff.text);
+      offset += diff.text.length;
+    }
+  }
+
+  controller.runRevocableOp(() {
+    controller.text = modifiedText;
+    controller.selection = CodeLineSelection(
+      baseOffset: _selectionRange.start.offset,
+      extentOffset: _selectionRange.start.offset + offset,
+    );
   });
 }
 
@@ -724,7 +774,6 @@ void _applyDiffs(List<Diff> diffs) {
     }
   }
   
-  // Add to your _EditorScreenState class
   void _extendSelectionToLineEdges() {
     if (_tabs.isEmpty || _currentTabIndex >= _tabs.length) return;
     
@@ -1430,8 +1479,6 @@ void _applyDiffs(List<Diff> diffs) {
       }
     }
     
-    // Add this extension-to-language mapper in your _EditorScreenState class
-    // Update the language mapping logic
     Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
       final extension = uri.split('.').last.toLowerCase();
       
@@ -1616,3 +1663,115 @@ class DiffComparisonDialog extends StatelessWidget {
     }
   }
 }
+
+// Granular diff approval dialog
+class DiffApprovalDialog extends StatefulWidget {
+  final List<Diff> diffs;
+  final String originalText;
+  final String modifiedText;
+
+  const DiffApprovalDialog({
+    super.key,
+    required this.diffs,
+    required this.originalText,
+    required this.modifiedText,
+  });
+
+  @override
+  State<DiffApprovalDialog> createState() => _DiffApprovalDialogState();
+}
+
+class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
+  int _currentDiffIndex = 0;
+  List<bool> _approvedDiffs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _approvedDiffs = List<bool>.filled(widget.diffs.length, false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = widget.diffs[_currentDiffIndex];
+    final isLast = _currentDiffIndex == widget.diffs.length - 1;
+
+    return AlertDialog(
+      title: Text('Review Change ${_currentDiffIndex + 1}/${widget.diffs.length}'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDiffVisual(diff),
+            const SizedBox(height: 20),
+            Text('Apply this change?'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel All'),
+        ),
+        if (_currentDiffIndex > 0) TextButton(
+          onPressed: _previousDiff,
+          child: const Text('Back'),
+        ),
+        TextButton(
+          onPressed: () => _handleApproval(false),
+          child: const Text('Skip'),
+        ),
+        ElevatedButton(
+          onPressed: () => _handleApproval(true),
+          child: Text(isLast ? 'Apply All' : 'Next'),
+        ),
+      ],
+    );
+  }
+
+  void _handleApproval(bool approve) {
+    setState(() {
+      _approvedDiffs[_currentDiffIndex] = approve;
+      if (_currentDiffIndex < widget.diffs.length - 1) {
+        _currentDiffIndex++;
+      } else {
+        Navigator.pop(context, true);
+      }
+    });
+  }
+
+  void _previousDiff() {
+    if (_currentDiffIndex > 0) {
+      setState(() => _currentDiffIndex--);
+    }
+  }
+
+  Widget _buildDiffVisual(Diff diff) {
+    final color = diff.operation == DIFF_INSERT 
+        ? Colors.green.shade100 
+        : Colors.red.shade100;
+        
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color,
+        border: Border.all(color: Colors.grey),
+      ),
+      child: Text(
+        '${_getOperationSymbol(diff.operation)} ${diff.text}',
+        style: const TextStyle(fontFamily: 'FiraCode'),
+      ),
+    );
+  }
+
+  String _getOperationSymbol(int operation) {
+    switch (operation) {
+      case DIFF_INSERT: return '+';
+      case DIFF_DELETE: return '-';
+      default: return ' ';
+    }
+  }
+}
+
