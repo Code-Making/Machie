@@ -20,6 +20,7 @@ import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/kotlin.dart';
+import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/plaintext.dart';
 
 
@@ -1354,6 +1355,8 @@ class _EditorScreenState extends State<EditorScreen> {
         return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
         case 'md':
         return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
+        case 'sh':
+        return {'bash': CodeHighlightThemeMode(mode: langBash)};
         default:
         return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
       }
