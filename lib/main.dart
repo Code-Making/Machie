@@ -305,7 +305,7 @@ class _EditorScreenState extends State<EditorScreen> {
       _loadDirectoryContents(uri, isRoot: true);
     }
   }
-  
+ /* 
   Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
     final contents = await _fileHandler.listDirectory(uri, isRoot: isRoot);
     if (contents != null) {
@@ -314,7 +314,26 @@ class _EditorScreenState extends State<EditorScreen> {
         _directoryContents = contents;
       });
     }
+  }*/
+  
+  // Update the _loadDirectoryContents method
+Future<void> _loadDirectoryContents(String uri) async {
+  final contents = await _fileHandler.listDirectory(uri);
+  if (contents != null) {
+    // Sort directories first, then files, both alphabetically
+    contents.sort((a, b) {
+      if (a['type'] == b['type']) {
+        return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
+      }
+      return a['type'] == 'dir' ? -1 : 1;
+    });
+
+    setState(() {
+      _currentDirUri = uri;
+      _directoryContents = contents;
+    });
   }
+}
   
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
