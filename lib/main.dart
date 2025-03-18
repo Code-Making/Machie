@@ -600,12 +600,15 @@ void _showCompareDialog() async {
   }
 }
 
+// 1. Fix TextField controller access
 Future<String?> _showTextInputDialog() async {
+  final textController = TextEditingController();
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Paste modified content'),
       content: TextField(
+        controller: textController,
         autofocus: true,
         maxLines: 10,
         minLines: 5,
@@ -613,7 +616,6 @@ Future<String?> _showTextInputDialog() async {
           border: OutlineInputBorder(),
           hintText: 'Paste the modified code here...'
         ),
-        controller: TextEditingController(),
       ),
       actions: [
         TextButton(
@@ -621,11 +623,7 @@ Future<String?> _showTextInputDialog() async {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, 
-            (context.widget as AlertDialog).content is TextField 
-              ? (context.widget as AlertDialog).content.controller?.text
-              : null
-          ),
+          onPressed: () => Navigator.pop(context, textController.text),
           child: const Text('Compare'),
         ),
       ],
@@ -633,18 +631,27 @@ Future<String?> _showTextInputDialog() async {
   );
 }
 
+// 2. Update diff_match_patch method calls
 List<Diff> _calculateDiffs(String original, String modified) {
   final dmp = DiffMatchPatch();
-  return dmp.diff_main(original, modified)
+  return dmp.diff(original, modified) // Changed to diff() instead of diff_main()
     ..cleanupSemantic();
 }
 
 void _applyDiffs(List<Diff> diffs) {
-  final patch = DiffMatchPatch().patch_make(_tabs[_currentTabIndex].controller.text, diffs);
-  final result = DiffMatchPatch().patch_apply(patch, _tabs[_currentTabIndex].controller.text);
+  final dmp = DiffMatchPatch();
+  final patches = dmp.patchMake( // Changed to patchMake() instead of patch_make()
+    _tabs[_currentTabIndex].controller.text, 
+    diffs
+  );
+  
+  final results = dmp.patchApply(
+    patches, 
+    _tabs[_currentTabIndex].controller.text
+  );
   
   _tabs[_currentTabIndex].controller.runRevocableOp(() {
-    _tabs[_currentTabIndex].controller.text = result[0] as String;
+    _tabs[_currentTabIndex].controller.text = results[0] as String;
   });
 }
 
