@@ -21,8 +21,8 @@ import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/kotlin.dart';
 import 'package:re_highlight/languages/bash.dart';
+import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/plaintext.dart';
-
 
 
 void main() => runApp(const CodeEditorApp());
@@ -1350,6 +1350,9 @@ class _EditorScreenState extends State<EditorScreen> {
         return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
         case 'json':
         return {'json': CodeHighlightThemeMode(mode: langJson)};
+        case 'htm':
+        case 'html':
+        return {'html': CodeHighlightThemeMode(mode: langXml)};
         case 'yaml':
         case 'yml':
         return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
