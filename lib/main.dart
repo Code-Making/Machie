@@ -678,32 +678,35 @@ void _applyDiffs(List<Diff> diffs) {
   });
 }
 
-// Apply approved changes
 void _applyGranularChanges(List<Diff> diffs) {
   final controller = _tabs[_currentTabIndex].controller;
   final originalText = controller.text;
   var modifiedText = originalText;
-  var offset = 0;
+  
+  // Get original selection positions
+  final startLine = _selectionRange.start.index;
+  final startOffset = _selectionRange.start.offset;
+  final endLine = _selectionRange.end.index;
+  final endOffset = _selectionRange.end.offset;
 
-  for (int i = 0; i < diffs.length; i++) {
-    final diff = diffs[i];
-    final start = _selectionRange.start.offset + offset;
-    final end = start + diff.text.length;
+  var newStartOffset = startOffset;
+  var newEndOffset = endOffset;
 
+  for (final diff in diffs) {
     if (diff.operation == DIFF_DELETE) {
-      modifiedText = modifiedText.replaceRange(start, end, '');
-      offset -= diff.text.length;
+      newEndOffset -= diff.text.length;
     } else if (diff.operation == DIFF_INSERT) {
-      modifiedText = modifiedText.replaceRange(start, start, diff.text);
-      offset += diff.text.length;
+      newEndOffset += diff.text.length;
     }
   }
 
   controller.runRevocableOp(() {
     controller.text = modifiedText;
     controller.selection = CodeLineSelection(
-      baseOffset: _selectionRange.start.offset,
-      extentOffset: _selectionRange.start.offset + offset,
+      baseIndex: startLine,
+      baseOffset: newStartOffset,
+      extentIndex: endLine,
+      extentOffset: newEndOffset,
     );
   });
 }
