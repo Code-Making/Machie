@@ -851,9 +851,10 @@ class _EditorScreenState extends State<EditorScreen> {
   }
   
   Widget _buildDirectoryTree(List<Map<String, dynamic>> contents) {
-    return ListView.builder(
+    return 
+      Expanded(
+      child: ListView.builder(
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       itemCount: contents.length,
       itemBuilder: (context, index) {
         final item = contents[index];
@@ -874,6 +875,7 @@ class _EditorScreenState extends State<EditorScreen> {
           },
         );
       },
+    ),
     );
   }
   
