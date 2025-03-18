@@ -1670,29 +1670,37 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
     );
   }
 
-  // Update the CodeEditor controller section
-  Widget _buildPreviewPanel() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[700]!),
-        borderRadius: BorderRadius.circular(4),
+// In your _EditorScreenState class, modify the _calculateDiffs method:
+List<Diff> _calculateDiffs(String original, String modified) {
+  final DiffMatchPatch dmpInstance = DiffMatchPatch();
+  final diffs = dmpInstance.diff(original, modified);
+  dmpInstance.diffCleanupSemantic(diffs); // Call via instance
+  return diffs;
+}
+
+// Update the CodeEditor configuration in _buildPreviewPanel:
+Widget _buildPreviewPanel() {
+  return Container(
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.grey[700]!),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: CodeEditor(
+      controller: CodeLineEditingController(
+        codeLines: CodeLines.fromText(_previewText),
       ),
-      child: CodeEditor(
-        controller: CodeLineEditingController(
-          codeLines: CodeLines.fromText(_previewText),
-          editingValueNotifier: ValueNotifier(false),
-        ),
-        style: CodeEditorStyle(
-          fontSize: 12,
-          fontFamily: 'JetBrainsMono',
-          codeTheme: CodeHighlightTheme(
-            languages: _getLanguageMode(widget.modifiedText),
-            theme: atomOneDarkTheme,
-          ),
+      style: CodeEditorStyle(
+        fontSize: 12,
+        readOnly: true, // Add readOnly here instead
+        fontFamily: 'JetBrainsMono',
+        codeTheme: CodeHighlightTheme(
+          languages: _getLanguageMode(widget.modifiedText),
+          theme: atomOneDarkTheme,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDiffRow(Diff diff, int index) {
     final isApproved = _decisions[index] ?? false;
