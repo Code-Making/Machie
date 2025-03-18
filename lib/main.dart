@@ -620,21 +620,21 @@ void _showCompareDialog() async {
   }
 }
 
-// 1. Fix TextField controller access
-Future<String?> _showTextInputDialog({String original = ''}) async {
-  final textController = TextEditingController(text: original);
+Future<String?> _showTextInputDialog() async {
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Paste modified content'),
-      content: TextField(
-        controller: textController,
-        autofocus: true,
-        maxLines: 10,
-        minLines: 5,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: 'Paste the modified code here...'
+      content: SizedBox(
+        width: 400,
+        height: 300,
+        child: TextField(
+          autofocus: true,
+          maxLines: null,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Paste the modified code here...'
+          ),
         ),
       ),
       actions: [
@@ -643,7 +643,13 @@ Future<String?> _showTextInputDialog({String original = ''}) async {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, textController.text),
+          onPressed: () => Navigator.pop(context, 
+            (context.widget as AlertDialog).content is SizedBox 
+              ? ((context.widget as AlertDialog).content as SizedBox).child is TextField 
+                ? (((context.widget as AlertDialog).content as SizedBox).child as TextField).controller?.text
+                : null
+              : null
+          ),
           child: const Text('Compare'),
         ),
       ],
