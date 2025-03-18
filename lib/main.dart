@@ -1556,7 +1556,7 @@ void _applyGranularChanges(List<Diff> diffs) {
     
     
 
-// Granular diff approval dialog
+// Updated diff approval dialog
 class DiffApprovalDialog extends StatefulWidget {
   final List<Diff> diffs;
   final String originalText;
@@ -1574,88 +1574,83 @@ class DiffApprovalDialog extends StatefulWidget {
 }
 
 class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
-  int _currentDiffIndex = 0;
-  List<bool> _approvedDiffs = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _approvedDiffs = List<bool>.filled(widget.diffs.length, false);
-  }
+  final Map<int, bool> _decisions = {};
+  final _scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
-    final diff = widget.diffs[_currentDiffIndex];
-    final isLast = _currentDiffIndex == widget.diffs.length - 1;
-
     return AlertDialog(
-      title: Text('Review Change ${_currentDiffIndex + 1}/${widget.diffs.length}'),
+      title: const Text('Review Changes'),
       content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDiffVisual(diff),
-            const SizedBox(height: 20),
-            Text('Apply this change?'),
-          ],
+        width: 800,
+        height: 500,
+        child: Scrollbar(
+          controller: _scrollController,
+          child: ListView.builder(
+            controller: _scrollController,
+            itemCount: widget.diffs.length,
+            itemBuilder: (context, index) {
+              final diff = widget.diffs[index];
+              return _buildDiffRow(diff, index);
+            },
+          ),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel All'),
-        ),
-        if (_currentDiffIndex > 0) TextButton(
-          onPressed: _previousDiff,
-          child: const Text('Back'),
-        ),
-        TextButton(
-          onPressed: () => _handleApproval(false),
-          child: const Text('Skip'),
+          child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () => _handleApproval(true),
-          child: Text(isLast ? 'Apply All' : 'Next'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Apply Selected'),
         ),
       ],
     );
   }
 
-  void _handleApproval(bool approve) {
-    setState(() {
-      _approvedDiffs[_currentDiffIndex] = approve;
-      if (_currentDiffIndex < widget.diffs.length - 1) {
-        _currentDiffIndex++;
-      } else {
-        Navigator.pop(context, true);
-      }
-    });
-  }
-
-  void _previousDiff() {
-    if (_currentDiffIndex > 0) {
-      setState(() => _currentDiffIndex--);
-    }
-  }
-
-  Widget _buildDiffVisual(Diff diff) {
+  Widget _buildDiffRow(Diff diff, int index) {
     final color = diff.operation == DIFF_INSERT 
-        ? Colors.green.shade100 
-        : Colors.red.shade100;
+        ? Colors.green.withOpacity(0.1)
+        : Colors.red.withOpacity(0.1);
         
     return Container(
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: color,
-        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        '${_getOperationSymbol(diff.operation)} ${diff.text}',
-        style: const TextStyle(fontFamily: 'FiraCode'),
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                '${_getOperationSymbol(diff.operation)} ${diff.text}',
+                style: const TextStyle(
+                  fontFamily: 'FiraCode',
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.check, color: Colors.green[600]),
+            onPressed: () => _updateDecision(index, true),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: Colors.red[600]),
+            onPressed: () => _updateDecision(index, false),
+          ),
+        ],
       ),
     );
+  }
+
+  void _updateDecision(int index, bool approve) {
+    setState(() {
+      _decisions[index] = approve;
+    });
   }
 
   String _getOperationSymbol(int operation) {
@@ -1667,3 +1662,47 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   }
 }
 
+// Update apply method to use decisions
+void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
+  final controller = _tabs[_currentTabIndex].controller;
+  final originalText = controller.text;
+  var modifiedText = originalText;
+  
+  // Track offset changes
+  var offset = 0;
+  final selectionStart = _selectionRange.start.offset;
+
+  // Apply approved changes in reverse order to maintain correct offsets
+  for (int i = diffs.length - 1; i >= 0; i--) {
+    if (decisions[i] ?? false) {
+      final diff = diffs[i];
+      final position = selectionStart + offset;
+
+      if (diff.operation == DIFF_DELETE) {
+        modifiedText = modifiedText.replaceRange(
+          position, 
+          position + diff.text.length, 
+          ''
+        );
+        offset -= diff.text.length;
+      } else if (diff.operation == DIFF_INSERT) {
+        modifiedText = modifiedText.replaceRange(
+          position,
+          position,
+          diff.text
+        );
+        offset += diff.text.length;
+      }
+    }
+  }
+
+  controller.runRevocableOp(() {
+    controller.text = modifiedText;
+    controller.selection = CodeLineSelection(
+      baseIndex: _selectionRange.start.index,
+      baseOffset: _selectionRange.start.offset,
+      extentIndex: _selectionRange.end.index,
+      extentOffset: _selectionRange.end.offset + offset,
+    );
+  });
+}
