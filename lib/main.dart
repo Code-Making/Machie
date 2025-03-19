@@ -1604,11 +1604,13 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   String _previewText = '';
   final Map<int, (int start, int end)> _diffPositions = {};
   late final CodeLineEditingController _previewController;
+  late final ScrollController _previewScrollController;
 
   @override
   void initState() {
     super.initState();
     _previewController = CodeLineEditingController();
+    _previewScrollController = ScrollController();
     _updatePreview();
   }
 
@@ -1657,21 +1659,25 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
 }
 
 CodeLinePosition _getCodeLinePosition(int charIndex) {
-  int current = 0;
-  final codeLines = _previewController.codeLines;
-  for (int i = 0; i < codeLines.length; i++) {
-    final lineLength = codeLines[i].text.length;
-    if (charIndex <= current + lineLength) {
+  int currentLineStart = 0;
+  final text = _previewController.text;
+  
+  for (int i = 0; i < _previewController.codeLines.length; i++) {
+    final lineLength = _previewController.codeLines[i].text.length;
+    final lineEnd = currentLineStart + lineLength;
+    
+    if (charIndex <= lineEnd) {
       return CodeLinePosition(
         index: i,
-        offset: charIndex - current,
+        offset: charIndex - currentLineStart,
       );
     }
-    current += lineLength + 1; // +1 for newline character
+    currentLineStart = lineEnd + 1; // Account for newline
   }
+  
   return CodeLinePosition(
-    index: codeLines.length - 1,
-    offset: codeLines.last.text.length,
+    index: _previewController.codeLines.length - 1,
+    offset: _previewController.codeLines.last.text.length,
   );
 }
 
@@ -1731,6 +1737,7 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
+// Update the preview panel construction
 Widget _buildPreviewPanel() {
   return Container(
     decoration: BoxDecoration(
@@ -1738,10 +1745,9 @@ Widget _buildPreviewPanel() {
       borderRadius: BorderRadius.circular(4),
     ),
     child: CodeEditor(
-      controller: CodeLineEditingController(
-        codeLines: CodeLines.fromText(_previewText),
-      ),
-      readOnly: true, // Add readOnly here instead
+      key: ValueKey(_previewText), // Force rebuild on text change
+      controller: _previewController,
+      readOnly: true,
       style: CodeEditorStyle(
         fontSize: 12,
         fontFamily: 'JetBrainsMono',
@@ -1775,10 +1781,18 @@ Widget _buildDiffRow(Diff diff, int index) {
 
       // Auto-scroll to changed position
       final positions = _diffPositions[index];
-      if (positions != null && positions.$1 < positions.$2) {
+      if (positions != null) {
         final position = _getCodeLinePosition(positions.$1);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _previewController.makePositionVisible(position);
+          _previewController.makePositionCenterIfInvisible(position);
+          // Additional scroll controller manipulation
+          final lineHeight = 20.0; // Approximate line height
+          final scrollOffset = position.index * lineHeight;
+          _previewScrollController.animateTo(
+            scrollOffset,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
         });
       }
     },
