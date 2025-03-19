@@ -260,22 +260,14 @@ Future<void> _openFileTab(WidgetRef ref, String uri) async {
   final content = await handler.readFile(uri);
   
   if (content != null) {
-    final tabNotifier = ref.read(tabManagerProvider.notifier);
-    final existingTab = tabNotifier.state.tabs
-        .firstWhere((t) => t.uri == uri, orElse: () => null);
-
-    if (existingTab == null) {
-      final controller = CodeLineEditingController(
-        codeLines: CodeLines.fromText(content),
-      );
-      
-      tabNotifier.addTab(EditorTab(
-        uri: uri,
-        controller: controller,
-      ));
-    } else {
-      tabNotifier.switchTab(tabNotifier.state.tabs.indexOf(existingTab));
-    }
+    final controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(content),
+    );
+    
+    ref.read(tabManagerProvider.notifier).addTab(EditorTab(
+      uri: uri,
+      controller: controller,
+    ));
   }
 }
 
