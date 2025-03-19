@@ -19,6 +19,15 @@ class MainActivity: FlutterActivity() {
     private var saveFileResult: MethodChannel.Result? = null
     private var openFolderResult: MethodChannel.Result? = null
 
+    // In MainActivity.kt (Android)
+override fun onCreate() {
+  super.onCreate()
+  // Fix for Samsung keyboard line navigation
+  if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
+    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+  }
+}
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
