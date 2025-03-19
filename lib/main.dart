@@ -153,6 +153,7 @@ class EditorScreen extends ConsumerWidget {
         : _DirectoryView(
             uri: currentDir,
             onOpenFile: (uri) => _openFileTab(ref, uri),
+            onOpenDirectory: (uri) => ref.read(currentDirectoryProvider.notifier).state = uri,
           ),
   );
 }
@@ -220,13 +221,13 @@ class EditorScreen extends ConsumerWidget {
 // 5. Directory Tree Components
 class _DirectoryView extends ConsumerWidget {
   final String uri;
-    final Function(String) onOpenFile;
+  final Function(String) onOpenFile;
 
   const _DirectoryView({
     required this.uri,
     required this.onOpenFile,
   });
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final contentsAsync = ref.watch(directoryContentsProvider(uri));
@@ -238,7 +239,8 @@ class _DirectoryView extends ConsumerWidget {
         itemCount: contents.length,
         itemBuilder: (context, index) => _DirectoryItem(
           item: contents[index],
-          onOpenFile: (uri) => _openFileTab(ref, uri),
+          onOpenFile: onOpenFile,
+          onOpenDirectory: (uri) => ref.read(currentDirectoryProvider.notifier).state = uri,
         ),
       ),
     );
@@ -248,8 +250,13 @@ class _DirectoryView extends ConsumerWidget {
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(String) onOpenFile;
+  final Function(String) onOpenDirectory;
 
-  const _DirectoryItem({required this.item, required this.onOpenFile});
+  const _DirectoryItem({
+    required this.item,
+    required this.onOpenFile,
+    required this.onOpenDirectory,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -257,8 +264,8 @@ class _DirectoryItem extends StatelessWidget {
       leading: Icon(item['type'] == 'dir' ? Icons.folder : Icons.insert_drive_file),
       title: Text(item['name']),
       onTap: () => item['type'] == 'dir'
-    ? ref.read(currentDirectoryProvider.notifier).state = item['uri']
-    : onOpenFile(item['uri']),
+          ? onOpenDirectory(item['uri'])
+          : onOpenFile(item['uri']),
     );
   }
 }
