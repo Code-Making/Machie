@@ -145,14 +145,17 @@ class EditorScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
-    return SizedBox(
-      width: 300,
-      child: currentDir == null 
-          ? const Center(child: Text('No folder open'))
-          : _DirectoryView(uri: currentDir),
-    );
-  }
+ Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
+  return SizedBox(
+    width: 300,
+    child: currentDir == null 
+        ? const Center(child: Text('No folder open'))
+        : _DirectoryView(
+            uri: currentDir,
+            onOpenFile: (uri) => _openFileTab(ref, uri),
+          ),
+  );
+}
 
   Widget _buildTabBar(WidgetRef ref, TabState state) {
     return SizedBox(
@@ -217,9 +220,13 @@ class EditorScreen extends ConsumerWidget {
 // 5. Directory Tree Components
 class _DirectoryView extends ConsumerWidget {
   final String uri;
+    final Function(String) onOpenFile;
 
-  const _DirectoryView({required this.uri});
-
+  const _DirectoryView({
+    required this.uri,
+    required this.onOpenFile,
+  });
+  
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final contentsAsync = ref.watch(directoryContentsProvider(uri));
@@ -250,8 +257,8 @@ class _DirectoryItem extends StatelessWidget {
       leading: Icon(item['type'] == 'dir' ? Icons.folder : Icons.insert_drive_file),
       title: Text(item['name']),
       onTap: () => item['type'] == 'dir'
-          ? context.read(currentDirectoryProvider.notifier).state = item['uri']
-          : onOpenFile(item['uri']),
+    ? ref.read(currentDirectoryProvider.notifier).state = item['uri']
+    : onOpenFile(item['uri']),
     );
   }
 }
@@ -275,11 +282,11 @@ class Tab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-          border: Border(right: BorderSide(color: Colors.grey[700]!)),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
+         padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+            border: Border(right: BorderSide(color: Colors.grey[700]!)),
+          child: Row(
           children: [
             IconButton(
               icon: const Icon(Icons.close, size: 18),
@@ -385,3 +392,9 @@ class Tab extends StatelessWidget {
         }
       }
     }
+    
+    Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+  final extension = uri.split('.').last.toLowerCase();
+  // Add your language mappings here
+  return {'dart': CodeHighlightThemeMode(mode: langDart)};
+}
