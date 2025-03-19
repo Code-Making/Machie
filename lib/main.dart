@@ -394,6 +394,30 @@ class _DirectoryExpansionTile extends ConsumerWidget {
   }
 }
 
+class _FileItem extends StatelessWidget {
+  final String uri;
+  final String name;
+  final int depth;
+  final VoidCallback onTap;
+
+  const _FileItem({
+    required this.uri,
+    required this.name,
+    required this.depth,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      leading: Icon(Icons.insert_drive_file),
+      title: Text(name),
+      onTap: onTap,
+    );
+  }
+}
+
 class _DirectoryLoadingTile extends StatelessWidget {
   final int depth;
 
