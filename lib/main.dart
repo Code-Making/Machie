@@ -278,7 +278,6 @@ class _DirectoryView extends ConsumerWidget {
   }
 }
 
-// Update _DirectoryItem
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(String) onOpenFile;
@@ -302,7 +301,9 @@ class _DirectoryItem extends StatelessWidget {
   }
 }
 
-// 6. Tab Widget
+// --------------------
+//      Tab Widget
+// --------------------
 class Tab extends StatelessWidget {
   final EditorTab tab;
   final bool isActive;
