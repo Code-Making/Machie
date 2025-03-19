@@ -317,7 +317,6 @@ class _DirectoryItem extends StatelessWidget {
       return _DirectoryExpansionTile(
         uri: item['uri'],
         name: item['name'],
-        parentIsRoot: parentIsRoot,
         onOpenFile: onOpenFile,
       );
     }
