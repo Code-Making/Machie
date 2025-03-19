@@ -104,6 +104,7 @@ class EditorScreen extends ConsumerWidget {
                   child: tabState.currentTab != null
                       ? _buildEditor(tabState.currentTab!)
                       : const Center(child: Text('Open a file to start')),
+              ),
               ],
             ),
           ),
@@ -258,3 +259,91 @@ class Tab extends StatelessWidget {
 }
 
 // Keep AndroidFileHandler class from original code unchanged
+    class AndroidFileHandler {
+      static const _channel = MethodChannel('com.example/file_handler');
+      
+      
+      Future<bool> _requestPermissions() async {
+        if (await Permission.storage.request().isGranted) {
+          return true;
+        }
+        return await Permission.manageExternalStorage.request().isGranted;
+      }
+      
+      Future<String?> openFile() async {
+        if (!await _requestPermissions()) {
+          throw Exception('Storage permission denied');
+        }
+        try {
+          return await _channel.invokeMethod<String>('openFile');
+        } on PlatformException catch (e) {
+          print("Error opening file: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<String?> openFolder() async {
+        try {
+          return await _channel.invokeMethod<String>('openFolder');
+        } on PlatformException catch (e) {
+          print("Error opening folder: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<List<Map<String, dynamic>>?> listDirectory(String uri, {bool isRoot = false}) async {
+        try {
+          final result = await _channel.invokeMethod<List<dynamic>>(
+            'listDirectory',
+            {'uri': uri, 'isRoot': isRoot}
+          );
+          return result?.map((e) => Map<String, dynamic>.from(e)).toList();
+        } on PlatformException catch (e) {
+          print("Error listing directory: ${e.message}");
+          return null;
+        }
+      }
+      
+      Future<String?> readFile(String uri) async {
+        try {
+          final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'readFile',
+            {'uri': uri}
+          );
+          
+          final error = response?['error'];
+          final isEmpty = response?['isEmpty'] ?? false;
+          final content = response?['content'] as String?;
+          
+          if (error != null) {
+            throw Exception(error);
+          }
+          
+          if (isEmpty) {
+            print('File is empty but opened successfully');
+            return '';
+          }
+          
+          return content;
+        } on PlatformException catch (e) {
+          throw Exception('Platform error: ${e.message}');
+        }
+      }
+      
+      Future<bool> writeFile(String uri, String content) async {
+        try {
+          final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'writeFile',
+            {'uri': uri, 'content': content}
+          );
+          
+          if (response?['success'] == true) {
+            return true;
+          }
+          
+          throw Exception(response?['error'] ?? 'Unknown write error');
+        } on PlatformException catch (e) {
+          throw Exception('Platform error: ${e.message}');
+        }
+      }
+    }
