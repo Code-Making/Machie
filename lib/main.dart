@@ -1272,7 +1272,7 @@ void _handleCursorMovement(AxisDirection direction) {
   final selection = controller.selection;
   final codeLines = controller.codeLines;
 
-  CodeLineSelection newSelection;
+  CodeLineSelection newSelection = selection;
 
   switch (direction) {
     case AxisDirection.left:
@@ -1293,6 +1293,84 @@ void _handleCursorMovement(AxisDirection direction) {
   controller.makeCursorVisible();
 }
 
+CodeLineSelection _handleLeftMovement(CodeLineSelection selection, CodeLines codeLines) {
+  if (!selection.isCollapsed) {
+    return CodeLineSelection.fromPosition(position: selection.start);
+  }
+
+  if (selection.extentIndex == 0 && selection.extentOffset == 0) {
+    return selection;
+  }
+
+  final currentLine = codeLines[selection.extentIndex];
+  final characters = currentLine.substring(0, selection.extentOffset).characters;
+  
+  return CodeLineSelection.collapsed(
+    index: selection.extentIndex - (selection.extentOffset == 0 ? 1 : 0),
+    offset: selection.extentOffset == 0 
+        ? codeLines[selection.extentIndex - 1].length
+        : characters.take(characters.length - 1).string.length,
+    affinity: TextAffinity.downstream,
+  );
+}
+
+CodeLineSelection _handleRightMovement(CodeLineSelection selection, CodeLines codeLines) {
+  if (!selection.isCollapsed) {
+    return CodeLineSelection.fromPosition(position: selection.end);
+  }
+
+  final currentLine = codeLines[selection.extentIndex];
+  final characters = currentLine.substring(selection.extentOffset).characters;
+
+  return CodeLineSelection.collapsed(
+    index: selection.extentIndex + (selection.extentOffset == currentLine.length ? 1 : 0),
+    offset: selection.extentOffset == currentLine.length
+        ? 0
+        : selection.extentOffset + characters.elementAt(0).length,
+    affinity: TextAffinity.upstream,
+  );
+}
+
+CodeLineSelection _handleUpMovement(CodeLineSelection selection, CodeLines codeLines) {
+  final currentPosition = selection.start;
+  if (currentPosition.index == 0) {
+    return const CodeLineSelection.collapsed(index: 0, offset: 0);
+  }
+
+  final prevLine = codeLines[currentPosition.index - 1];
+  final horizontalOffset = _getHorizontalOffset(currentPosition, codeLines);
+  
+  return CodeLineSelection.collapsed(
+    index: currentPosition.index - 1,
+    offset: min(prevLine.length, horizontalOffset),
+    affinity: TextAffinity.downstream,
+  );
+}
+
+CodeLineSelection _handleDownMovement(CodeLineSelection selection, CodeLines codeLines) {
+  final currentPosition = selection.end;
+  if (currentPosition.index == codeLines.length - 1) {
+    return CodeLineSelection.collapsed(
+      index: codeLines.length - 1,
+      offset: codeLines.last.length,
+    );
+  }
+
+  final nextLine = codeLines[currentPosition.index + 1];
+  final horizontalOffset = _getHorizontalOffset(currentPosition, codeLines);
+  
+  return CodeLineSelection.collapsed(
+    index: currentPosition.index + 1,
+    offset: min(nextLine.length, horizontalOffset),
+    affinity: TextAffinity.downstream,
+  );
+}
+
+int _getHorizontalOffset(CodeLinePosition position, CodeLines codeLines) {
+  // Implement this if you need precise column preservation
+  // This is simplified version matching the library's basic behavior
+  return position.offset;
+}
 CodeLineSelection _handleLeftMovement(CodeLineSelection selection, CodeLines codeLines) {
   if (!selection.isCollapsed) {
     return CodeLineSelection.fromPosition(position: selection.start);
