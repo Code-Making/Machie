@@ -304,13 +304,15 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
-  final Function(String) onOpenFile;  final int depth;
-  final String uri;
+  final Function(String) onOpenFile;
+  final int depth;
+  final bool parentIsRoot;
 
   const _DirectoryItem({
     required this.item,
     required this.onOpenFile,
-    required this.uri,
+    required this.depth,
+    required this.parentIsRoot,
   });
 
   @override
@@ -319,12 +321,15 @@ class _DirectoryItem extends StatelessWidget {
       return _DirectoryExpansionTile(
         uri: item['uri'],
         name: item['name'],
+        depth: depth,
+        parentIsRoot: parentIsRoot,
         onOpenFile: onOpenFile,
       );
     }
     return _FileItem(
       uri: item['uri'],
       name: item['name'],
+      depth: depth,
       onTap: () => onOpenFile(item['uri']),
     );
   }
