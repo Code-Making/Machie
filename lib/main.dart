@@ -316,19 +316,13 @@ class EditorTab {
 class AndroidFileHandler {
   static const _channel = MethodChannel('com.example/file_handler');
   
-  Future<bool> _requestPermissions() async {
-    final status = await Permission.storage.status();
-    if (!status.isGranted) {
-      final result = await Permission.storage.request();
-      if (!result.isGranted) return false;
-    }
-    
-    if (await Permission.manageExternalStorage.request().isGranted) {
-      return true;
-    }
-    
-    return await Permission.storage.isGranted;
+Future<bool> _requestPermissions() async {
+  final status = await Permission.storage.status;
+  if (!status.isGranted) {
+    return (await Permission.storage.request()).isGranted;
   }
+  return true;
+}
 
   Future<String?> openFile() async {
     if (!await _requestPermissions()) {
