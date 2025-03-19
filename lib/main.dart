@@ -55,7 +55,7 @@ return (await handler.listDirectory(uri ?? '', isRoot: isRoot) ?? [])
       return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
     }
     return a['type'] == 'dir' ? -1 : 1;
-  });
+  });});
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
 
