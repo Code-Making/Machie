@@ -23,6 +23,7 @@ import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/plaintext.dart';
 import 'package:diff_match_patch/diff_match_patch.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 1. Define Providers
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
