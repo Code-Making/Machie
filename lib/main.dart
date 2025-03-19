@@ -335,6 +335,7 @@ class _DirectoryItem extends StatelessWidget {
   }
 }
 
+// Update the Directory Expansion Tile
 class _DirectoryExpansionTile extends ConsumerWidget {
   final String uri;
   final String name;
@@ -362,6 +363,54 @@ class _DirectoryExpansionTile extends ConsumerWidget {
       ],
     );
   }
+}
+
+// Update the File Item
+class _FileItem extends StatelessWidget {
+  final String name;
+  final VoidCallback onTap;
+
+  const _FileItem({
+    required this.name,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.insert_drive_file),
+      title: Text(name),
+      onTap: onTap,
+    );
+  }
+}
+
+// Update the directory view mapping
+Widget build(BuildContext context, WidgetRef ref) {
+  final contentsAsync = ref.watch(directoryChildrenProvider(uri));
+
+  return contentsAsync.when(
+    loading: () => isRoot 
+        ? const Center(child: CircularProgressIndicator())
+        : _DirectoryLoadingTile(),
+    error: (error, _) => ListTile(
+      leading: const Icon(Icons.error, color: Colors.red),
+      title: const Text('Error loading directory'),
+    ),
+    data: (contents) => Column(
+      children: contents.map((item) => item['type'] == 'dir'
+          ? _DirectoryExpansionTile(
+              uri: item['uri'],
+              name: item['name'],
+              onOpenFile: onOpenFile,
+            )
+          : _FileItem(
+              name: item['name'],
+              onTap: () => onOpenFile(item['uri']),
+            ),
+      ).toList(),
+    ),
+  );
 }
 
 class _FileItem extends StatelessWidget {
