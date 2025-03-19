@@ -1,8 +1,28 @@
-import 'dart:convert';
 import 'package:crypto/crypto.dart';
+
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
+
+import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/javascript.dart';
+import 'package:re_highlight/languages/java.dart';
+import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/css.dart';
+import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/yaml.dart';
+import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/kotlin.dart';
+import 'package:re_highlight/languages/bash.dart';
+import 'package:re_highlight/languages/xml.dart';
+import 'package:re_highlight/languages/plaintext.dart';
+import 'package:diff_match_patch/diff_match_patch.dart';
 
 // 1. Define Providers
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
