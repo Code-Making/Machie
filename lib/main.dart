@@ -26,6 +26,16 @@ import 'package:re_highlight/languages/plaintext.dart';
 import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+
+void main() => runApp(
+  ProviderScope(
+    child: MaterialApp(
+      theme: ThemeData.dark(),
+      home: const EditorScreen(),
+    ),
+  ),
+);
+
 // 1. Define Providers
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
 
