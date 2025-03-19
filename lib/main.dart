@@ -189,19 +189,6 @@ class EditorScreen extends ConsumerWidget {
   );
 }
 
-  Future<void> _openFile(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFile();
-    if (uri != null) _openFileTab(ref, uri);
-  }
-
-  Future<void> _openFolder(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFolder();
-    if (uri != null) ref.read(currentDirectoryProvider.notifier).state = uri;
-  }
-
-  // In EditorScreen class
 Future<void> _openFileTab(WidgetRef ref, String uri) async {
   final handler = ref.read(fileHandlerProvider);
   final content = await handler.readFile(uri);
@@ -217,6 +204,19 @@ Future<void> _openFileTab(WidgetRef ref, String uri) async {
     ));
   }
 }
+
+  Future<void> _openFile(WidgetRef ref) async {
+    final handler = ref.read(fileHandlerProvider);
+    final uri = await handler.openFile();
+    if (uri != null) _openFileTab(ref, uri);
+  }
+
+  Future<void> _openFolder(WidgetRef ref) async {
+    final handler = ref.read(fileHandlerProvider);
+    final uri = await handler.openFolder();
+    if (uri != null) ref.read(currentDirectoryProvider.notifier).state = uri;
+  }
+
 }
 
 // Update _DirectoryView constructor
