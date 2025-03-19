@@ -142,13 +142,19 @@ class TabManager extends StateNotifier<TabState> {
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
-  @override
+override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabState = ref.watch(tabManagerProvider);
     final currentDir = ref.watch(currentDirectoryProvider);
+    final scaffoldKey = GlobalKey<ScaffoldState>();
     
     return Scaffold(
+      key: scaffoldKey,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => scaffoldKey.currentState?.openDrawer(),
+        ),
         title: Text(tabState.currentTab?.uri ?? 'Code Editor'),
         actions: [
           IconButton(
@@ -161,38 +167,51 @@ class EditorScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Row(
+      drawer: _buildDirectoryDrawer(ref, currentDir),
+      body: Column(
         children: [
-          _buildDirectoryTree(ref, currentDir),
+          _buildTabBar(ref, tabState),
           Expanded(
-            child: Column(
-              children: [
-                _buildTabBar(ref, tabState),
-                Expanded(
-                  child: tabState.currentTab != null
-                      ? _buildEditor(tabState.currentTab!)
-                      : const Center(child: Text('Open a file to start')),
-              ),
-              ],
-            ),
+            child: tabState.currentTab != null
+                ? _buildEditor(tabState.currentTab!)
+                : const Center(child: Text('Open a file to start')),
           ),
         ],
       ),
     );
   }
 
-Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
-  return SizedBox(
-    width: 300,
-    child: currentDir == null
-        ? const Center(child: Text('No folder open'))
-        : _DirectoryView(
-            uri: currentDir,
-            onOpenFile: (uri) => _openFileTab(ref, uri),
-            isRoot: true,
+  Widget _buildDirectoryDrawer(WidgetRef ref, String? currentDir) {
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
+            title: const Text('File Explorer'),
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
-  );
-}
+          Expanded(
+            child: currentDir == null
+                ? const Center(child: Text('No folder open'))
+                : _DirectoryView(
+                    uri: currentDir,
+                    onOpenFile: (uri) {
+                      Navigator.of(context).pop();
+                      _openFileTab(ref, uri);
+                    },
+                    isRoot: true,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildTabBar(WidgetRef ref, TabState state) {
     return SizedBox(
