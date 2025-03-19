@@ -1267,8 +1267,6 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
         return KeyEventResult.ignored;
       }
       
-
-}
       
       void _handleSelectionStart(CodeLineEditingController controller) {
         controller.addListener(_handleSelectionChange);
