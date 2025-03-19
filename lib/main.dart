@@ -142,7 +142,7 @@ class TabManager extends StateNotifier<TabState> {
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
-override
+@override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabState = ref.watch(tabManagerProvider);
     final currentDir = ref.watch(currentDirectoryProvider);
