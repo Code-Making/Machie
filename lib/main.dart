@@ -44,7 +44,7 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 final directoryContentsProvider = FutureProvider.autoDispose
 .family<List<Map<String, dynamic>>, String?>((ref, uri) async {
   final handler = ref.read(fileHandlerProvider);
-  return await handler.listDirectory(uri ?? '', isRoot: uri == null);
+  return await handler.listDirectory(uri ?? '', isRoot: uri == null) ?? [];
 });
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
@@ -171,15 +171,19 @@ class EditorScreen extends ConsumerWidget {
   }
 
   Widget _buildEditor(EditorTab tab) {
-    return CodeEditor(
-      controller: tab.controller,
-      style: CodeEditorStyle(
-        fontSize: 14,
-        codeTheme: CodeHighlightTheme(theme: atomOneDarkTheme),
-      wordWrap: tab.wordWrap,
+  return CodeEditor(
+    controller: tab.controller,
+    style: CodeEditorStyle(
+      fontSize: 12,
+      codeTheme: CodeHighlightTheme(
+        theme: atomOneDarkTheme,
+        languages: _getLanguageMode(tab.uri),
       ),
-    );
-  }
+      textStyle: const TextStyle(fontFamily: 'JetBrainsMono'),
+    ),
+    wordWrap: tab.wordWrap,
+  );
+}
 
   Future<void> _openFile(WidgetRef ref) async {
     final handler = ref.read(fileHandlerProvider);
