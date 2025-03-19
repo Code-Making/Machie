@@ -1346,7 +1346,7 @@ String _languageKeyForExtension(String extension) {
   }
 }
 
-ReLangMode _languageModeForExtension(String extension) {
+CodeHighlightThemeMode _languageModeForExtension(String extension) {
   switch (extension) {
     // Main programming languages
     case 'dart': return langDart;
