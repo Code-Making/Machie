@@ -41,11 +41,21 @@ final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHan
 
 final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
+final rootUriProvider = StateProvider<String?>((_) => null);
+
 final directoryContentsProvider = FutureProvider.autoDispose
 .family<List<Map<String, dynamic>>, String?>((ref, uri) async {
   final handler = ref.read(fileHandlerProvider);
-  return await handler.listDirectory(uri ?? '', isRoot: uri == null) ?? [];
-});
+  final rootUri = ref.read(rootUriProvider);
+  final isRoot = uri == rootUri;
+  // Modify the directoryContentsProvider
+return (await handler.listDirectory(uri ?? '', isRoot: isRoot) ?? [])
+  ..sort((a, b) {
+    if (a['type'] == b['type']) {
+      return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
+    }
+    return a['type'] == 'dir' ? -1 : 1;
+  });
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
 
@@ -150,11 +160,7 @@ class EditorScreen extends ConsumerWidget {
     width: 300,
     child: currentDir == null 
         ? const Center(child: Text('No folder open'))
-        : _DirectoryView(
-            uri: currentDir,
-            onOpenFile: (uri) => _openFileTab(ref, uri),
-            onOpenDirectory: (uri) => ref.read(currentDirectoryProvider.notifier).state = uri,
-          ),
+        : _DirectoryView(uri: currentDir),
   );
 }
 
@@ -211,11 +217,14 @@ Future<void> _openFileTab(WidgetRef ref, String uri) async {
     if (uri != null) _openFileTab(ref, uri);
   }
 
-  Future<void> _openFolder(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFolder();
-    if (uri != null) ref.read(currentDirectoryProvider.notifier).state = uri;
+Future<void> _openFolder(WidgetRef ref) async {
+  final handler = ref.read(fileHandlerProvider);
+  final uri = await handler.openFolder();
+  if (uri != null) {
+    ref.read(rootUriProvider.notifier).state = uri;
+    ref.read(currentDirectoryProvider.notifier).state = uri;
   }
+}
 
 }
 
@@ -237,14 +246,25 @@ class _DirectoryView extends ConsumerWidget {
     
     return contentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('Error: ${e.toString()}')),
       data: (contents) => ListView.builder(
         itemCount: contents.length,
-        itemBuilder: (context, index) => _DirectoryItem(
-          item: contents[index],
-          onOpenFile: onOpenFile,
-          onOpenDirectory: onOpenDirectory,
-        ),
+        itemBuilder: (context, index) {
+          final item = contents[index];
+          return ListTile(
+            leading: Icon(item['type'] == 'dir' 
+                ? Icons.folder 
+                : Icons.insert_drive_file),
+            title: Text(item['name']),
+            onTap: () {
+              if (item['type'] == 'dir') {
+                ref.read(currentDirectoryProvider.notifier).state = item['uri'];
+              } else {
+                _openFileTab(ref, item['uri']);
+              }
+            },
+          );
+        },
       ),
     );
   }
