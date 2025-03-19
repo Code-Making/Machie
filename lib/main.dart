@@ -142,7 +142,7 @@ class TabManager extends StateNotifier<TabState> {
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
-@override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabState = ref.watch(tabManagerProvider);
     final currentDir = ref.watch(currentDirectoryProvider);
@@ -167,7 +167,7 @@ class EditorScreen extends ConsumerWidget {
           ),
         ],
       ),
-      drawer: _buildDirectoryDrawer(ref, currentDir),
+      drawer: _buildDirectoryDrawer(context, ref, currentDir),
       body: Column(
         children: [
           _buildTabBar(ref, tabState),
@@ -181,7 +181,7 @@ class EditorScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDirectoryDrawer(WidgetRef ref, String? currentDir) {
+  Widget _buildDirectoryDrawer(BuildContext context, WidgetRef ref, String? currentDir) {
     return Drawer(
       child: Column(
         children: [
@@ -211,6 +211,7 @@ class EditorScreen extends ConsumerWidget {
       ),
     );
   }
+
 
 
   Widget _buildTabBar(WidgetRef ref, TabState state) {
