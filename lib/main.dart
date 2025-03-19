@@ -1778,7 +1778,7 @@ Widget _buildDiffRow(Diff diff, int index) {
       if (positions != null && positions.$1 < positions.$2) {
         final position = _getCodeLinePosition(positions.$1);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _previewController.makePositionCenterIfInvisible(position);
+          _previewController.makePositionVisible(position);
         });
       }
     },
