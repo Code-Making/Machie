@@ -1211,7 +1211,7 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child:*/ CodeEditor(
             controller: tab.controller,
-            /*commentFormatter: tab.commentFormatter,
+            commentFormatter: tab.commentFormatter,
             indicatorBuilder: (context, editingController, chunkController, notifier) {
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1231,7 +1231,7 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
                     ),
                   ],
                 ));
-              },*/
+              },
               style: CodeEditorStyle(
                 fontSize: 12,
                 fontFamily: 'JetBrainsMono',
