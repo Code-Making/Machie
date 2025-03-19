@@ -201,21 +201,22 @@ class EditorScreen extends ConsumerWidget {
     if (uri != null) ref.read(currentDirectoryProvider.notifier).state = uri;
   }
 
-  Future<void> _openFileTab(WidgetRef ref, String uri) async {
-    final handler = ref.read(fileHandlerProvider);
-    final content = await handler.readFile(uri);
+  // In EditorScreen class
+Future<void> _openFileTab(WidgetRef ref, String uri) async {
+  final handler = ref.read(fileHandlerProvider);
+  final content = await handler.readFile(uri);
+  
+  if (content != null) {
+    final controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(content),
+    );
     
-    if (content != null) {
-      final controller = CodeLineEditingController(
-        codeLines: CodeLines.fromText(content),
-      );
-      
-      ref.read(tabManagerProvider.notifier).addTab(EditorTab(
-        uri: uri,
-        controller: controller,
-      ));
-    }
+    ref.read(tabManagerProvider.notifier).addTab(EditorTab(
+      uri: uri,
+      controller: controller,
+    ));
   }
+}
 }
 
 // Update _DirectoryView constructor
@@ -250,6 +251,7 @@ class _DirectoryView extends ConsumerWidget {
 }
 
 // Update directory tree construction
+// Update _buildDirectoryTree in EditorScreen
 Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
   return SizedBox(
     width: 300,
@@ -258,7 +260,7 @@ Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
         : _DirectoryView(
             uri: currentDir,
             onOpenFile: (uri) => _openFileTab(ref, uri),
-            onOpenDirectory: (uri) => 
+            onOpenDirectory: (uri) =>
                 ref.read(currentDirectoryProvider.notifier).state = uri,
           ),
   );
