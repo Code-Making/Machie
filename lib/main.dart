@@ -145,6 +145,7 @@ class EditorScreen extends ConsumerWidget {
         fontSize: 14,
         codeTheme: CodeHighlightTheme(theme: atomOneDarkTheme),
       wordWrap: tab.wordWrap,
+      ),
     );
   }
 
