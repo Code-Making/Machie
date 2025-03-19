@@ -250,20 +250,6 @@ class _DirectoryView extends ConsumerWidget {
   }
 }
 
-Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
-  return SizedBox(
-    width: 300,
-    child: currentDir == null 
-        ? const Center(child: Text('No folder open'))
-        : _DirectoryView(
-            uri: currentDir,
-            onOpenFile: (uri) => _openFileTab(ref, uri),
-            onOpenDirectory: (uri) =>
-                ref.read(currentDirectoryProvider.notifier).state = uri,
-          ),
-  );
-}
-
 // Update _DirectoryItem
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
