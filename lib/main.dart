@@ -178,7 +178,7 @@ class EditorScreen extends ConsumerWidget {
     controller: tab.controller,
     style: CodeEditorStyle(
       fontSize: 12,
-      fontFamily: 'JetBrainsMono',
+                      fontFamily: 'JetBrainsMono',
       codeTheme: CodeHighlightTheme(
         theme: atomOneDarkTheme,
         languages: _getLanguageMode(tab.uri),
@@ -286,7 +286,8 @@ class Tab extends StatelessWidget {
           decoration: BoxDecoration(
             color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
             border: Border(right: BorderSide(color: Colors.grey[700]!)),
-          children: [Row(
+            ),
+          child: Row(
           children: [
             IconButton(
               icon: const Icon(Icons.close, size: 18),
@@ -294,8 +295,8 @@ class Tab extends StatelessWidget {
             ),
             Text(_getFileName(tab.uri)),
           ],
-        ),],
-      ),
+        ),
+      
       ),
     );
   }
