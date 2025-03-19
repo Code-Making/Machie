@@ -321,7 +321,6 @@ class _DirectoryItem extends StatelessWidget {
       return _DirectoryExpansionTile(
         uri: item['uri'],
         name: item['name'],
-        depth: depth,
         parentIsRoot: parentIsRoot,
         onOpenFile: onOpenFile,
       );
@@ -329,7 +328,6 @@ class _DirectoryItem extends StatelessWidget {
     return _FileItem(
       uri: item['uri'],
       name: item['name'],
-      depth: depth,
       onTap: () => onOpenFile(item['uri']),
     );
   }
