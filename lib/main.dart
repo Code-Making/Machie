@@ -218,14 +218,16 @@ class EditorScreen extends ConsumerWidget {
   }
 }
 
-// 5. Directory Tree Components
+// Update _DirectoryView constructor
 class _DirectoryView extends ConsumerWidget {
   final String uri;
   final Function(String) onOpenFile;
+  final Function(String) onOpenDirectory;
 
   const _DirectoryView({
     required this.uri,
     required this.onOpenFile,
+    required this.onOpenDirectory,
   });
 
   @override
@@ -240,13 +242,29 @@ class _DirectoryView extends ConsumerWidget {
         itemBuilder: (context, index) => _DirectoryItem(
           item: contents[index],
           onOpenFile: onOpenFile,
-          onOpenDirectory: (uri) => ref.read(currentDirectoryProvider.notifier).state = uri,
+          onOpenDirectory: onOpenDirectory,
         ),
       ),
     );
   }
 }
 
+// Update directory tree construction
+Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
+  return SizedBox(
+    width: 300,
+    child: currentDir == null 
+        ? const Center(child: Text('No folder open'))
+        : _DirectoryView(
+            uri: currentDir,
+            onOpenFile: (uri) => _openFileTab(ref, uri),
+            onOpenDirectory: (uri) => 
+                ref.read(currentDirectoryProvider.notifier).state = uri,
+          ),
+  );
+}
+
+// Update _DirectoryItem
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(String) onOpenFile;
