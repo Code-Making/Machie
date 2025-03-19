@@ -1790,8 +1790,8 @@ Widget _buildDiffRow(Diff diff, int index) {
           final scrollOffset = position.index * lineHeight;
           _previewScrollController.animateTo(
             scrollOffset,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeInOut,
           );
         });
       }
