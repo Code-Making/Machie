@@ -304,15 +304,11 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
-  final Function(String) onOpenFile;
-  final int depth;
-  final bool parentIsRoot;
+  final Function(String) onOpenFile;  final int depth;
 
   const _DirectoryItem({
     required this.item,
     required this.onOpenFile,
-    required this.depth,
-    required this.parentIsRoot,
   });
 
   @override
