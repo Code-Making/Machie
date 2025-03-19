@@ -1604,13 +1604,11 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   String _previewText = '';
   final Map<int, (int start, int end)> _diffPositions = {};
   late final CodeLineEditingController _previewController;
-  late final ScrollController _previewScrollController;
 
   @override
   void initState() {
     super.initState();
     _previewController = CodeLineEditingController();
-    _previewScrollController = ScrollController();
     _updatePreview();
   }
 
@@ -1737,7 +1735,6 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
-// Update the preview panel construction
 Widget _buildPreviewPanel() {
   return Container(
     decoration: BoxDecoration(
@@ -1745,9 +1742,10 @@ Widget _buildPreviewPanel() {
       borderRadius: BorderRadius.circular(4),
     ),
     child: CodeEditor(
-      key: ValueKey(_previewText), // Force rebuild on text change
-      controller: _previewController,
-      readOnly: true,
+      controller: CodeLineEditingController(
+        codeLines: CodeLines.fromText(_previewText),
+      ),
+      readOnly: true, // Add readOnly here instead
       style: CodeEditorStyle(
         fontSize: 12,
         fontFamily: 'JetBrainsMono',
@@ -1781,18 +1779,10 @@ Widget _buildDiffRow(Diff diff, int index) {
 
       // Auto-scroll to changed position
       final positions = _diffPositions[index];
-      if (positions != null) {
+      if (positions != null && positions.$1 < positions.$2) {
         final position = _getCodeLinePosition(positions.$1);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          //_previewController.makePositionCenterIfInvisible(position);
-          // Additional scroll controller manipulation
-          final lineHeight = 20.0; // Approximate line height
-          final scrollOffset = position.index * lineHeight;
-          _previewScrollController.animateTo(
-            scrollOffset,
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeInOut,
-          );
+          _previewController.makePositionCenterIfInvisible(position);
         });
       }
     },
