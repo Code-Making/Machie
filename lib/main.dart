@@ -1335,7 +1335,7 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
   return {
     _languageKeyForExtension(extension): CodeHighlightThemeMode(
       mode: _languageModeForExtension(extension),
-  };
+  )};
 }
 
 String _languageKeyForExtension(String extension) {
