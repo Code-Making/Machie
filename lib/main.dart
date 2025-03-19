@@ -228,52 +228,74 @@ class _EditorScreenState extends State<EditorScreen> {
     return null; // No matching bracket found
   }
   
-TextSpan _buildSpan({
-  required CodeLine codeLine,
-  required BuildContext context,
-  required int index,
-  required TextStyle style,
-  required TextSpan textSpan,
-}) {
-  // 1. Maintain the full line text as the root span
-  final fullText = codeLine.text;
-  final spans = <TextSpan>[];
-  
-  // 2. Create base span with full line text
-  final baseSpan = TextSpan(
-    text: fullText,
-    style: style,
-  );
-
-  // 3. Add highlight overlays as children
-  final highlightPositions = _bracketPositions
-      .where((pos) => pos.index == index)
-      .map((pos) => pos.offset)
-      .toSet();
-
-  for (final position in highlightPositions) {
-    if (position < fullText.length) {
-      spans.add(
-        TextSpan(
-          text: fullText[position],
-          style: style.copyWith(
+  TextSpan _buildSpan({
+    required CodeLine codeLine,
+    required BuildContext context,
+    required int index,
+    required TextStyle style,
+    required TextSpan textSpan,
+  }) {
+    final spans = <TextSpan>[];
+    int currentPosition = 0;
+    final highlightPositions = _bracketPositions
+    .where((pos) => pos.index == index)
+    .map((pos) => pos.offset)
+    .toSet();
+    
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      List<int> highlightIndices = [];
+      
+      // Find highlight positions within this span
+      for (var i = 0; i < text.length; i++) {
+        if (highlightPositions.contains(currentPosition + i)) {
+          highlightIndices.add(i);
+        }
+      }
+      
+      // Split span into non-highlight and highlight segments
+      int lastSplit = 0;
+      for (final highlightIndex in highlightIndices) {
+        if (highlightIndex > lastSplit) {
+          spans.add(TextSpan(
+            text: text.substring(lastSplit, highlightIndex),
+            style: spanStyle,
+          ));
+        }
+        spans.add(TextSpan(
+          text: text[highlightIndex],
+          style: spanStyle.copyWith(
             backgroundColor: Colors.yellow.withOpacity(0.3),
             fontWeight: FontWeight.bold,
           ),
-          // Critical for cursor navigation
-          recognizer: null, 
-        ),
-      );
+        ));
+        lastSplit = highlightIndex + 1;
+      }
+      
+      // Add remaining text
+      if (lastSplit < text.length) {
+        spans.add(TextSpan(
+          text: text.substring(lastSplit),
+          style: spanStyle,
+        ));
+      }
+      
+      currentPosition += text.length;
+      
+      // Process child spans
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
     }
+    
+    processSpan(textSpan);
+    return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
   }
-
-  // 4. Return single text flow with overlay highlights
-  return TextSpan(
-    text: fullText,
-    style: style,
-    children: spans,
-  );
-}
   
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
