@@ -297,6 +297,7 @@ class EditorTab {
   bool wordWrap;
   CodeLinePosition? markPosition;
   String? lastKnownHash;
+  Set<int> highlightedLines;
 
   EditorTab({
     required this.uri,
@@ -306,6 +307,7 @@ class EditorTab {
     this.wordWrap = false,
     this.markPosition,
     this.lastKnownHash,
+    this.highlightedLines = const {},
   });
 }
 
