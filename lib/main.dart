@@ -273,14 +273,13 @@ class _DirectoryView extends ConsumerWidget {
     this.isRoot = false,
   });
 
-  @override
 Widget build(BuildContext context, WidgetRef ref) {
   final contentsAsync = ref.watch(directoryChildrenProvider(uri));
 
   return contentsAsync.when(
     loading: () => isRoot 
         ? const Center(child: CircularProgressIndicator())
-        : _DirectoryLoadingTile(),
+        : _DirectoryLoadingTile(depth: depth),
     error: (error, _) => ListTile(
       leading: const Icon(Icons.error, color: Colors.red),
       title: const Text('Error loading directory'),
@@ -290,16 +289,18 @@ Widget build(BuildContext context, WidgetRef ref) {
           ? _DirectoryExpansionTile(
               uri: item['uri'],
               name: item['name'],
+              depth: depth,
               onOpenFile: onOpenFile,
             )
           : _FileItem(
+              uri: item['uri'],
               name: item['name'],
               onTap: () => onOpenFile(item['uri']),
             ),
       ).toList(),
     ),
   );
-}
+ }
 }
 
 class _DirectoryItem extends StatelessWidget {
@@ -338,11 +339,13 @@ class _DirectoryItem extends StatelessWidget {
 class _DirectoryExpansionTile extends ConsumerWidget {
   final String uri;
   final String name;
+  final int depth;
   final Function(String) onOpenFile;
 
   const _DirectoryExpansionTile({
     required this.uri,
     required this.name,
+    required this.depth,
     required this.onOpenFile,
   });
 
@@ -353,10 +356,11 @@ class _DirectoryExpansionTile extends ConsumerWidget {
       title: Text(name),
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 16.0),
+          padding: EdgeInsets.only(left: (depth + 1) * 16.0),
           child: _DirectoryView(
             uri: uri,
             onOpenFile: onOpenFile,
+            depth: depth + 1,
           ),
         ),
       ],
@@ -365,10 +369,12 @@ class _DirectoryExpansionTile extends ConsumerWidget {
 }
 
 class _FileItem extends StatelessWidget {
+  final String uri;
   final String name;
   final VoidCallback onTap;
 
   const _FileItem({
+    required this.uri,
     required this.name,
     required this.onTap,
   });
