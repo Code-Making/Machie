@@ -265,55 +265,51 @@ Future<void> _openFolder(WidgetRef ref) async {
 class _DirectoryView extends ConsumerWidget {
   final String uri;
   final Function(String) onOpenFile;
+  final int depth;
   final bool isRoot;
 
   const _DirectoryView({
     required this.uri,
     required this.onOpenFile,
+    this.depth = 0,
     this.isRoot = false,
   });
 
-Widget build(BuildContext context, WidgetRef ref) {
-  final contentsAsync = ref.watch(directoryChildrenProvider(uri));
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contentsAsync = ref.watch(directoryChildrenProvider(uri));
 
-  return contentsAsync.when(
-    loading: () => isRoot 
-        ? const Center(child: CircularProgressIndicator())
-        : _DirectoryLoadingTile(depth: depth),
-    error: (error, _) => ListTile(
-      leading: const Icon(Icons.error, color: Colors.red),
-      title: const Text('Error loading directory'),
-    ),
-    data: (contents) => Column(
-      children: contents.map((item) => item['type'] == 'dir'
-          ? _DirectoryExpansionTile(
-              uri: item['uri'],
-              name: item['name'],
-              depth: depth,
-              onOpenFile: onOpenFile,
-            )
-          : _FileItem(
-              uri: item['uri'],
-              name: item['name'],
-              onTap: () => onOpenFile(item['uri']),
-            ),
-      ).toList(),
-    ),
-  );
- }
+    return contentsAsync.when(
+      loading: () => isRoot 
+          ? const Center(child: CircularProgressIndicator())
+          : _DirectoryLoadingTile(depth: depth),
+      error: (error, _) => ListTile(
+        leading: const Icon(Icons.error, color: Colors.red),
+        title: const Text('Error loading directory'),
+      ),
+      data: (contents) => Column(
+        children: contents.map((item) => _DirectoryItem(
+          item: item,
+          onOpenFile: onOpenFile,
+          depth: depth,
+          isRoot: isRoot,
+        )).toList(),
+      ),
+    );
+  }
 }
 
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(String) onOpenFile;
   final int depth;
-  final bool parentIsRoot;
+  final bool isRoot;
 
   const _DirectoryItem({
     required this.item,
     required this.onOpenFile,
     required this.depth,
-    required this.parentIsRoot,
+    required this.isRoot,
   });
 
   @override
@@ -323,7 +319,7 @@ class _DirectoryItem extends StatelessWidget {
         uri: item['uri'],
         name: item['name'],
         depth: depth,
-        parentIsRoot: parentIsRoot,
+        isRoot: isRoot,
         onOpenFile: onOpenFile,
       );
     }
@@ -340,28 +336,30 @@ class _DirectoryExpansionTile extends ConsumerWidget {
   final String uri;
   final String name;
   final int depth;
+  final bool isRoot;
   final Function(String) onOpenFile;
 
   const _DirectoryExpansionTile({
     required this.uri,
     required this.name,
     required this.depth,
+    required this.isRoot,
     required this.onOpenFile,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ExpansionTile(
-      leading: const Icon(Icons.folder, color: Colors.yellow),
+      leading: Icon(isRoot ? Icons.folder_open : Icons.folder, 
+        color: Colors.yellow),
       title: Text(name),
+      childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       children: [
-        Padding(
-          padding: EdgeInsets.only(left: (depth + 1) * 16.0),
-          child: _DirectoryView(
-            uri: uri,
-            onOpenFile: onOpenFile,
-            depth: depth + 1,
-          ),
+        _DirectoryView(
+          uri: uri,
+          onOpenFile: onOpenFile,
+          depth: depth + 1,
+          isRoot: false,
         ),
       ],
     );
@@ -371,17 +369,20 @@ class _DirectoryExpansionTile extends ConsumerWidget {
 class _FileItem extends StatelessWidget {
   final String uri;
   final String name;
+  final int depth;
   final VoidCallback onTap;
 
   const _FileItem({
     required this.uri,
     required this.name,
+    required this.depth,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       leading: const Icon(Icons.insert_drive_file),
       title: Text(name),
       onTap: onTap,
@@ -390,13 +391,15 @@ class _FileItem extends StatelessWidget {
 }
 
 class _DirectoryLoadingTile extends StatelessWidget {
-  const _DirectoryLoadingTile();
+  final int depth;
+
+  const _DirectoryLoadingTile({required this.depth});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: Center(
+    return Padding(
+      padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      child: const Center(
         child: SizedBox(
           width: 20,
           height: 20,
