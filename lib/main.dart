@@ -443,14 +443,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   final _sidebarScrollController = ScrollController();
   final _editorScrollController = ScrollController();
   final _searchQueryController = TextEditingController();
-  final _diffDialogController = TextEditingController();
-
+  
   double _sidebarPosition = 0;
   bool _isSidebarVisible = true;
   Set<CodeLinePosition> _bracketPositions = {};
   Set<int> _highlightedLines = {};
-  CodeLineSelection _selectionRange = const CodeLineSelection.zero();
-  String _selectedOriginal = '';
 
   @override
   void initState() {
@@ -463,7 +460,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _sidebarScrollController.dispose();
     _editorScrollController.dispose();
     _searchQueryController.dispose();
-    _diffDialogController.dispose();
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvent);
     super.dispose();
   }
 
@@ -472,25 +469,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   bool _handleGlobalKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
-      final currentTab = ref.read(tabManagerProvider).currentTab;
-      
-      if (currentTab != null) {
-        _handleEditorShortcuts(event, currentTab.controller, isCtrlPressed);
-      }
-    }
+    // Handle global keyboard shortcuts
     return false;
   }
 
-  void _handleEditorShortcuts(
-    KeyDownEvent event,
-    CodeLineEditingController controller,
-    bool isCtrlPressed
-  ) {
-    // Existing shortcut handling logic
-  }
-
+  // region File Operations
   Future<void> _openFile() async {
     try {
       final uri = await ref.read(fileHandlerProvider).openFile();
@@ -527,29 +510,37 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         commentFormatter: formatter,
         isDirty: content?.isEmpty ?? true,
         lastKnownHash: content != null ? _calculateHash(content) : null,
+        highlightedLines: const {},
       ));
     } catch (e) {
       _showError('Failed to open file: ${e.toString()}');
     }
   }
 
-  // In your EditorScreen state
-void _handleBracketHighlight() {
-  final currentTab = ref.read(tabManagerProvider).currentTab;
-  if (currentTab == null) return;
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red[800],
+      )
+    );
+  }
 
-  final selection = currentTab.controller.selection;
-  final currentLine = selection.baseIndex;
-  
-  // Update tab with current line
-  ref.read(tabManagerProvider.notifier).updateTab(
-    ref.read(tabManagerProvider).currentIndex,
-    currentTab.copyWith(
-      highlightedLines: {...currentTab.highlightedLines, currentLine},
-    )
-  );
-}
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green[800],
+      )
+    );
+  }
 
+  String _calculateHash(String content) {
+    return md5.convert(utf8.encode(content)).toString();
+  }
+  // endregion
+
+  // region Editor UI Components
   Widget _buildEditorArea() {
     final tabState = ref.watch(tabManagerProvider);
     final directoryState = ref.watch(directoryProvider);
@@ -562,16 +553,7 @@ void _handleBracketHighlight() {
             children: [
               if (_isSidebarVisible) ...[
                 _buildDirectorySidebar(directoryState),
-                MouseRegion(
-                  cursor: SystemMouseCursors.resizeColumn,
-                  child: GestureDetector(
-                    onHorizontalDragUpdate: _handleSidebarDrag,
-                    child: Container(
-                      width: 8,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                ),
+                _buildSidebarDivider(),
               ],
               Expanded(child: _buildEditorStack(tabState)),
             ],
@@ -596,6 +578,7 @@ void _handleBracketHighlight() {
               key: ValueKey(tabState.tabs[index].uri),
               index: index,
               child: _buildTabItem(tabState.tabs[index], index),
+            )
         ],
       ),
     );
@@ -603,7 +586,6 @@ void _handleBracketHighlight() {
 
   Widget _buildTabItem(EditorTab tab, int index) {
     final currentIndex = ref.read(tabManagerProvider).currentIndex;
-    
     return Container(
       decoration: BoxDecoration(
         color: index == currentIndex ? Colors.blueGrey[800] : Colors.grey[900],
@@ -632,7 +614,120 @@ void _handleBracketHighlight() {
     );
   }
 
-  // ... rest of the UI building methods with Riverpod integration ...
+  Widget _buildSidebarDivider() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            _sidebarPosition += details.delta.dx;
+          });
+        },
+        child: Container(
+          width: 8,
+          color: Colors.grey[800],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditorStack(TabState tabState) {
+    return IndexedStack(
+      index: tabState.currentIndex,
+      children: tabState.tabs.map((tab) => CodeEditor(
+        controller: tab.controller,
+        indicatorBuilder: (context, editingController, chunkController, notifier) {
+          return Row(
+            children: [
+              CustomLineNumberWidget(
+                controller: editingController,
+                notifier: notifier,
+                highlightedLines: tab.highlightedLines,
+              ),
+              DefaultCodeChunkIndicator(
+                width: 20,
+                controller: chunkController,
+                notifier: notifier,
+              ),
+            ],
+          );
+        },
+        style: CodeEditorStyle(
+          fontSize: 12,
+          fontFamily: 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            languages: _getLanguageMode(tab.uri),
+            theme: atomOneDarkTheme,
+          ),
+        ),
+        wordWrap: tab.wordWrap,
+      )).toList(),
+    );
+  }
+  // endregion
+
+  // region Directory Tree Implementation
+  Widget _buildDirectorySidebar(DirectoryState state) {
+    return SizedBox(
+      width: 300,
+      child: ListView.builder(
+        controller: _sidebarScrollController,
+        itemCount: state.contents.length,
+        itemBuilder: (context, index) {
+          final item = state.contents[index];
+          if (item['type'] == 'dir') {
+            return _DirectoryExpansionTile(
+              uri: item['uri'],
+              name: item['name'],
+            );
+          }
+          return ListTile(
+            leading: const Icon(Icons.insert_drive_file),
+            title: Text(item['name']),
+            onTap: () => _openFileTab(item['uri']),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
+            title: const Text("File Explorer"),
+            automaticallyImplyLeading: false,
+          ),
+          Expanded(
+            child: ref.watch(directoryProvider).currentDirUri != null
+                ? _buildDirectorySidebar(ref.watch(directoryProvider))
+                : const Center(child: Text('Open a folder to browse')),
+          ),
+        ],
+      ),
+    );
+  }
+  // endregion
+
+  // region Bottom Toolbar
+  Widget _buildBottomToolbar(TabState tabState) {
+    final currentTab = tabState.currentTab;
+    return Container(
+      height: 48,
+      color: Colors.grey[900],
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: currentTab?.isDirty == true ? _saveCurrentTab : null,
+            tooltip: 'Save File',
+          ),
+          // Add other toolbar buttons
+        ],
+      ),
+    );
+  }
 
   Future<void> _saveCurrentTab() async {
     final tabNotifier = ref.read(tabManagerProvider.notifier);
@@ -648,38 +743,65 @@ void _handleBracketHighlight() {
       );
       
       if (success) {
-        tabNotifier.updateTab(tabState.currentIndex, currentTab.copyWith(
-          isDirty: false,
-          lastKnownHash: _calculateHash(currentTab.controller.text),
-        ));
+        tabNotifier.updateTab(
+          tabState.currentIndex,
+          currentTab.copyWith(
+            isDirty: false,
+            lastKnownHash: _calculateHash(currentTab.controller.text),
+          )
+        );
         _showSuccess('File saved successfully');
       }
     } catch (e) {
       _showError('Save failed: ${e.toString()}');
     }
   }
+  // endregion
 
-  // ... other existing methods with Riverpod integration ...
+  // region Helper Methods
+  String _getFileName(String uri) {
+    final parsed = Uri.parse(uri);
+    return parsed.pathSegments.lastOrNull?.split('/').last ?? 'untitled';
+  }
+
+  TextSpan _buildSpan({
+    required CodeLine codeLine,
+    required BuildContext context,
+    required int index,
+    required TextStyle style,
+    required TextSpan textSpan,
+  }) {
+    // Implement your custom span building logic
+    return textSpan;
+  }
+  // endregion
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         title: Consumer(
           builder: (context, ref, _) {
             final currentTab = ref.watch(tabManagerProvider.select((s) => s.currentTab));
             return Text(currentTab?.uri != null 
-                ? _getFormattedPath(currentTab!.uri)
+                ? _getFileName(currentTab!.uri)
                 : 'No File Open');
           },
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.folder_open),
+            onPressed: _openFolder,
+          ),
+          IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveCurrentTab,
           ),
-          // ... other app bar actions
         ],
       ),
       body: _buildEditorArea(),
@@ -687,7 +809,6 @@ void _handleBracketHighlight() {
     );
   }
 }
-
 class _DirectoryExpansionTile extends StatefulWidget {
   final String uri;
   final String name;
