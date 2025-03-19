@@ -185,11 +185,15 @@ Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
     width: 300,
     child: currentDir == null
         ? const Center(child: Text('No folder open'))
-        : _DirectoryView(
-            uri: currentDir,
-            onOpenFile: (uri) => _openFileTab(ref, uri),
-            isRoot: true,
-            depth: 0,
+        : ListView(
+            children: [
+              _DirectoryExpansionTile(
+                uri: currentDir,
+                name: _getFolderName(currentDir),
+                depth: 0,
+                onOpenFile: (uri) => _openFileTab(ref, uri),
+              ),
+            ],
           ),
   );
 }
@@ -390,6 +394,27 @@ class _DirectoryExpansionTile extends ConsumerWidget {
           isRoot: false,
         ),
       ],
+    );
+  }
+}
+
+class _DirectoryLoadingTile extends StatelessWidget {
+  final int depth;
+
+  const _DirectoryLoadingTile({required this.depth});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      child: const ListTile(
+        leading: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        title: Text('Loading...'),
+      ),
     );
   }
 }
