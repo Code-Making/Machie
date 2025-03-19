@@ -185,15 +185,11 @@ Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
     width: 300,
     child: currentDir == null
         ? const Center(child: Text('No folder open'))
-        : ListView(
-            children: [
-              _DirectoryExpansionTile(
-                uri: currentDir,
-                name: _getFolderName(currentDir),
-                depth: 0,
-                onOpenFile: (uri) => _openFileTab(ref, uri),
-              ),
-            ],
+        : _DirectoryView(
+            uri: currentDir,
+            onOpenFile: (uri) => _openFileTab(ref, uri),
+            isRoot: true,
+            depth: 0,
           ),
   );
 }
