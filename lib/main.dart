@@ -533,15 +533,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  void _handleBracketHighlight() {
-    final currentTab = ref.read(tabManagerProvider).currentTab;
-    if (currentTab == null) return;
+  // In your EditorScreen state
+void _handleBracketHighlight() {
+  final currentTab = ref.read(tabManagerProvider).currentTab;
+  if (currentTab == null) return;
 
-    final selection = currentTab.controller.selection;
-    // Existing bracket highlighting logic
-    // Update _bracketPositions and _highlightedLines
-    setState(() {});
-  }
+  final selection = currentTab.controller.selection;
+  final currentLine = selection.baseIndex;
+  
+  // Update tab with current line
+  ref.read(tabManagerProvider.notifier).updateTab(
+    ref.read(tabManagerProvider).currentIndex,
+    currentTab.copyWith(
+      highlightedLines: {...currentTab.highlightedLines, currentLine},
+    )
+  );
+}
 
   Widget _buildEditorArea() {
     final tabState = ref.watch(tabManagerProvider);
@@ -1029,22 +1036,15 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   }
 
   void _scrollToDiffHighlight(int index) {
-    final diff = widget.diffs[index];
-    if (diff.operation == DIFF_EQUAL) return;
-
-    final previewText = _previewController.text;
-    int position = 0;
-    
-    // Calculate position in preview text
-    for (int i = 0; i < index; i++) {
-      if (_decisions[i] == true && widget.diffs[i].operation == DIFF_INSERT) {
-        position += widget.diffs[i].text.length;
-      }
-    }
-
-    final line = previewText.substring(0, position).split('\n').length - 1;
-    _previewController.makeLineVisible(line);
-  }
+  // Calculate approximate line position
+  final lineHeight = 20.0; // Adjust based on your font size
+  final position = lineHeight * line;
+  _previewScrollController.animateTo(
+    position,
+    duration: Duration(milliseconds: 300),
+    curve: Curves.easeOut,
+  );
+}
 }
 
 //=========================================
