@@ -35,8 +35,9 @@ void main() => runApp(const ProviderScope(child: CodeEditorApp()));
 //=========================================
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
-final directoryProvider = StateNotifierProvider<DirectoryNotifier, DirectoryState>((ref) => DirectoryNotifier());
-final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
+final directoryProvider = StateNotifierProvider<DirectoryNotifier, DirectoryState>(
+  (ref) => DirectoryNotifier(ref));
+  final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
 final editorFocusProvider = Provider<FocusNode>((ref) => FocusNode());
 
 //=========================================
@@ -110,11 +111,11 @@ class TabManager extends StateNotifier<TabState> {
   TabManager() : super(const TabState());
 
   void addTab(EditorTab newTab) {
-    // Check for existing tab with same URI
     final existingIndex = state.tabs.indexWhere((t) => t.uri == newTab.uri);
-    if (existingIndex != -1) {
-      return state = state.copyWith(currentIndex: existingIndex);
-    }
+      if (existingIndex != -1) {
+        state = state.copyWith(currentIndex: existingIndex);
+        return;
+      }
 
     // Cache formatter if not already cached
     final formatterCache = Map<String, CodeCommentFormatter>.from(state.formatterCache);
