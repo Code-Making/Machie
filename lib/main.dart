@@ -1212,6 +1212,7 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
           child:*/ CodeEditor(
             controller: tab.controller,
             commentFormatter: tab.commentFormatter,
+            paragraphBuilder: (text) => text.split('\n'),
             indicatorBuilder: (context, editingController, chunkController, notifier) {
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
