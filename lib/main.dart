@@ -1832,16 +1832,25 @@ Widget _buildDiffRow(Diff diff, int index) {
   );
 }
 
+// Replace the problematic map usage with index-based access
 void _scrollToDiff(int index) {
   final positions = _diffPositions[index];
   if (positions == null) return;
 
-  final lineHeights = _previewController.codeLines.map((line) => line.text.length / 80 * 20).toList();
+  final codeLines = _previewController.codeLines;
+  final lineCount = codeLines.length;
+  final lineHeights = List<double>.generate(
+    lineCount,
+    (i) => codeLines[i].text.length / 80 * 20, // Approximation
+  );
+
+  final targetLine = _getCodeLinePosition(positions.$1).index;
   double scrollOffset = 0;
   
-  final targetLine = _getCodeLinePosition(positions.$1).index;
   for (int i = 0; i < targetLine; i++) {
-    scrollOffset += lineHeights[i];
+    if (i < lineHeights.length) {
+      scrollOffset += lineHeights[i];
+    }
   }
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
