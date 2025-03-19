@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import android.os.Build
+import android.os.Bundle
+import android.view.WindowManager
 import java.security.MessageDigest
 import java.nio.charset.Charset
 import android.provider.DocumentsContract
@@ -19,14 +22,13 @@ class MainActivity: FlutterActivity() {
     private var saveFileResult: MethodChannel.Result? = null
     private var openFolderResult: MethodChannel.Result? = null
 
-    // In MainActivity.kt (Android)
-override fun onCreate() {
-  super.onCreate()
-  // Fix for Samsung keyboard line navigation
-  if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
-    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-  }
-}
+override fun onCreate(savedInstanceState: Bundle?) {
+        // Samsung keyboard fix
+        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        }
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
