@@ -1330,14 +1330,24 @@ CodeLineSelection _handleRightMovement(CodeLineSelection selection, CodeLines co
   final currentLine = codeLines[selection.extentIndex];
   if (selection.extentOffset == currentLine.length) {
     if (selection.extentIndex == codeLines.length - 1) {
-      return selection; // Already at end of document
+      return selection;
     }
-    // Move to start of next line
     return CodeLineSelection.collapsed(
       index: selection.extentIndex + 1,
       offset: 0,
     );
   }
+
+  // Fixed code: remove .text and add int cast
+  final nextOffset = selection.extentOffset +
+      currentLine.substring(selection.extentOffset)
+          .characters.first.length;
+
+  return CodeLineSelection.collapsed(
+    index: selection.extentIndex,
+    offset: nextOffset.clamp(0, currentLine.length).toInt(),
+  );
+}
 
   // Move right within current line
   final nextOffset = selection.extentOffset +
