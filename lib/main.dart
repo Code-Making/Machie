@@ -250,8 +250,6 @@ class _DirectoryView extends ConsumerWidget {
   }
 }
 
-// Update directory tree construction
-// Update _buildDirectoryTree in EditorScreen
 Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
   return SizedBox(
     width: 300,
