@@ -253,6 +253,7 @@ class Tab extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
