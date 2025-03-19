@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'dart:math';
+
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -1272,7 +1272,7 @@ void _handleCursorMovement(AxisDirection direction) {
   final selection = controller.selection;
   final codeLines = controller.codeLines;
 
-  CodeLineSelection newSelection = selection;
+  CodeLineSelection newSelection;
 
   switch (direction) {
     case AxisDirection.left:
@@ -1297,20 +1297,28 @@ CodeLineSelection _handleLeftMovement(CodeLineSelection selection, CodeLines cod
   if (!selection.isCollapsed) {
     return CodeLineSelection.fromPosition(position: selection.start);
   }
-
+  
   if (selection.extentIndex == 0 && selection.extentOffset == 0) {
-    return selection;
+    return selection; // Already at start of document
   }
 
+  if (selection.extentOffset == 0) {
+    // Move to end of previous line
+    final prevLine = codeLines[selection.extentIndex - 1];
+    return CodeLineSelection.collapsed(
+      index: selection.extentIndex - 1,
+      offset: prevLine.length,
+    );
+  }
+
+  // Move left within current line
   final currentLine = codeLines[selection.extentIndex];
-  final characters = currentLine.substring(0, selection.extentOffset).characters;
-  
+  final newOffset = (currentLine.substring(0, selection.extentOffset).characters.skipLast(1).string.length)
+      .clamp(0, currentLine.length);
+
   return CodeLineSelection.collapsed(
-    index: selection.extentIndex - (selection.extentOffset == 0 ? 1 : 0),
-    offset: selection.extentOffset == 0 
-        ? codeLines[selection.extentIndex - 1].length
-        : characters.take(characters.length - 1).string.length,
-    affinity: TextAffinity.downstream,
+    index: selection.extentIndex,
+    offset: newOffset,
   );
 }
 
@@ -1320,16 +1328,26 @@ CodeLineSelection _handleRightMovement(CodeLineSelection selection, CodeLines co
   }
 
   final currentLine = codeLines[selection.extentIndex];
-  final characters = currentLine.substring(selection.extentOffset).characters;
+  if (selection.extentOffset == currentLine.length) {
+    if (selection.extentIndex == codeLines.length - 1) {
+      return selection;
+    }
+    return CodeLineSelection.collapsed(
+      index: selection.extentIndex + 1,
+      offset: 0,
+    );
+  }
+
+  // Fixed code: remove .text and add int cast
+  final nextOffset = selection.extentOffset +
+      currentLine.substring(selection.extentOffset)
+          .characters.first.length;
 
   return CodeLineSelection.collapsed(
-    index: selection.extentIndex + (selection.extentOffset == currentLine.length ? 1 : 0),
-    offset: selection.extentOffset == currentLine.length
-        ? 0
-        : selection.extentOffset + characters.elementAt(0).length,
-    affinity: TextAffinity.upstream,
+    index: selection.extentIndex,
+    offset: nextOffset.clamp(0, currentLine.length).toInt(),
   );
-}
+} 
 
 CodeLineSelection _handleUpMovement(CodeLineSelection selection, CodeLines codeLines) {
   final currentPosition = selection.start;
@@ -1338,12 +1356,11 @@ CodeLineSelection _handleUpMovement(CodeLineSelection selection, CodeLines codeL
   }
 
   final prevLine = codeLines[currentPosition.index - 1];
-  final horizontalOffset = _getHorizontalOffset(currentPosition, codeLines);
-  
+  final newOffset = currentPosition.offset.clamp(0, prevLine.length);
+
   return CodeLineSelection.collapsed(
     index: currentPosition.index - 1,
-    offset: min(prevLine.length, horizontalOffset),
-    affinity: TextAffinity.downstream,
+    offset: newOffset,
   );
 }
 
@@ -1357,19 +1374,12 @@ CodeLineSelection _handleDownMovement(CodeLineSelection selection, CodeLines cod
   }
 
   final nextLine = codeLines[currentPosition.index + 1];
-  final horizontalOffset = _getHorizontalOffset(currentPosition, codeLines);
-  
+  final newOffset = currentPosition.offset.clamp(0, nextLine.length);
+
   return CodeLineSelection.collapsed(
     index: currentPosition.index + 1,
-    offset: min(nextLine.length, horizontalOffset),
-    affinity: TextAffinity.downstream,
+    offset: newOffset,
   );
-}
-
-int _getHorizontalOffset(CodeLinePosition position, CodeLines codeLines) {
-  // Implement this if you need precise column preservation
-  // This is simplified version matching the library's basic behavior
-  return position.offset;
 }
       
       void _handleSelectionStart(CodeLineEditingController controller) {
