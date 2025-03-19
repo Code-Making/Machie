@@ -1347,17 +1347,7 @@ CodeLineSelection _handleRightMovement(CodeLineSelection selection, CodeLines co
     index: selection.extentIndex,
     offset: nextOffset.clamp(0, currentLine.length).toInt(),
   );
-}
-
-  // Move right within current line
-  final nextOffset = selection.extentOffset +
-      currentLine.substring(selection.extentOffset).characters.first.text.length;
-
-  return CodeLineSelection.collapsed(
-    index: selection.extentIndex,
-    offset: nextOffset.clamp(0, currentLine.length),
-  );
-}
+} 
 
 CodeLineSelection _handleUpMovement(CodeLineSelection selection, CodeLines codeLines) {
   final currentPosition = selection.start;
