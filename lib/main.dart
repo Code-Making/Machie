@@ -155,12 +155,17 @@ class EditorScreen extends ConsumerWidget {
     );
   }
 
- Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
+Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
   return SizedBox(
     width: 300,
     child: currentDir == null 
         ? const Center(child: Text('No folder open'))
-        : _DirectoryView(uri: currentDir),
+        : _DirectoryView(
+            uri: currentDir,
+            onOpenFile: (uri) => _openFileTab(ref, uri),
+            onOpenDirectory: (uri) => 
+                ref.read(currentDirectoryProvider.notifier).state = uri,
+          ),
   );
 }
 
@@ -228,7 +233,6 @@ Future<void> _openFolder(WidgetRef ref) async {
 
 }
 
-// Update _DirectoryView constructor
 class _DirectoryView extends ConsumerWidget {
   final String uri;
   final Function(String) onOpenFile;
@@ -256,13 +260,9 @@ class _DirectoryView extends ConsumerWidget {
                 ? Icons.folder 
                 : Icons.insert_drive_file),
             title: Text(item['name']),
-            onTap: () {
-              if (item['type'] == 'dir') {
-                ref.read(currentDirectoryProvider.notifier).state = item['uri'];
-              } else {
-                _openFileTab(ref, item['uri']);
-              }
-            },
+            onTap: () => item['type'] == 'dir'
+                ? onOpenDirectory(item['uri'])
+                : onOpenFile(item['uri']),
           );
         },
       ),
