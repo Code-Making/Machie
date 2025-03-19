@@ -178,11 +178,11 @@ class EditorScreen extends ConsumerWidget {
     controller: tab.controller,
     style: CodeEditorStyle(
       fontSize: 12,
+      fontFamily: 'JetBrainsMono',
       codeTheme: CodeHighlightTheme(
         theme: atomOneDarkTheme,
         languages: _getLanguageMode(tab.uri),
       ),
-      textStyle: const TextStyle(fontFamily: 'JetBrainsMono'),
     ),
     wordWrap: tab.wordWrap,
   );
