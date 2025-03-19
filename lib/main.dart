@@ -1211,7 +1211,7 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
           onPointerDown: (_) => _handleSelectionStart(tab.controller),
           child:*/ CodeEditor(
             controller: tab.controller,
-            commentFormatter: tab.commentFormatter,
+            /*commentFormatter: tab.commentFormatter,
             indicatorBuilder: (context, editingController, chunkController, notifier) {
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1231,7 +1231,7 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
                     ),
                   ],
                 ));
-              },
+              },*/
               style: CodeEditorStyle(
                 fontSize: 12,
                 fontFamily: 'JetBrainsMono',
@@ -1248,68 +1248,24 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
       }
       
       
-// Replace the existing _handleKeyEvent method
-KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-  if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-  
-  final controller = _tabs[_currentTabIndex].controller;
-  final selection = controller.selection;
-  
-  if (selection.isCollapsed) {
-    final position = selection.base;
-    final codeLines = controller.codeLines;
-    
-    void moveTo(int newIndex, int newOffset) {
-      controller.selection = CodeLineSelection.collapsed(
-        index: newIndex,
-        offset: newOffset,
-        affinity: TextAffinity.downstream,
-      );
-    }
-    
-    switch (event.logicalKey) {
-      case LogicalKeyboardKey.arrowRight:
-        if (position.offset < codeLines[position.index].text.length) {
-          // Move within line
-          moveTo(position.index, position.offset + 1);
-        } else if (position.index < codeLines.length - 1) {
-          // Move to next line start
-          moveTo(position.index + 1, 0);
-        }
-        return KeyEventResult.handled;
+      
+      KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
         
-      case LogicalKeyboardKey.arrowLeft:
-        if (position.offset > 0) {
-          moveTo(position.index, position.offset - 1);
-        } else if (position.index > 0) {
-          // Move to previous line end
-          final prevLine = codeLines[position.index - 1];
-          moveTo(position.index - 1, prevLine.text.length);
-        }
-        return KeyEventResult.handled;
+        final controller = _tabs[_currentTabIndex].controller;
+        final direction = _arrowKeyDirections[event.logicalKey];
+        final shiftPressed = event.isShiftPressed;
         
-      case LogicalKeyboardKey.arrowDown:
-        final nextIndex = position.index + 1;
-        if (nextIndex < codeLines.length) {
-          final nextLine = codeLines[nextIndex];
-          final newOffset = position.offset.clamp(0, nextLine.text.length);
-          moveTo(nextIndex, newOffset);
+        if (direction != null) {
+          if (shiftPressed) {
+            controller.extendSelection(direction);
+          } else {
+            controller.moveCursor(direction);
+          }
+          return KeyEventResult.handled;
         }
-        return KeyEventResult.handled;
-        
-      case LogicalKeyboardKey.arrowUp:
-        final prevIndex = position.index - 1;
-        if (prevIndex >= 0) {
-          final prevLine = codeLines[prevIndex];
-          final newOffset = position.offset.clamp(0, prevLine.text.length);
-          moveTo(prevIndex, newOffset);
-        }
-        return KeyEventResult.handled;
-    }
-  }
-  
-  return KeyEventResult.ignored;
-}
+        return KeyEventResult.ignored;
+      }
       
       void _handleSelectionStart(CodeLineEditingController controller) {
         controller.addListener(_handleSelectionChange);
