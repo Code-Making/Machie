@@ -511,6 +511,34 @@ Future<void> _loadDirectoryContents(String uri, {bool isRoot = false}) async {
                 ],
               ),
             ),
+                      ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 120),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_left),
+                  onPressed: hasActiveTab ? () => controller!.moveCursor(AxisDirection.left) : null,
+                  tooltip: 'Move Left',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_right),
+                  onPressed: hasActiveTab ? () => controller!.moveCursor(AxisDirection.right) : null,
+                  tooltip: 'Move Right',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_upward),
+                  onPressed: hasActiveTab ? () => controller!.moveCursor(AxisDirection.up) : null,
+                  tooltip: 'Move Up',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_downward),
+                  onPressed: hasActiveTab ? () => controller!.moveCursor(AxisDirection.down) : null,
+                  tooltip: 'Move Down',
+                ),
+                const VerticalDivider(width: 20),
+              ],
+            ),
+          ),
             // Line operations
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 60),
