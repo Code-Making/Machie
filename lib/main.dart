@@ -1260,12 +1260,127 @@ void _applyGranularChanges(List<Diff> diffs, Map<int, bool> decisions) {
           if (shiftPressed) {
             controller.extendSelection(direction);
           } else {
-            controller.moveCursor(direction);
+            _handleCursorMovement(direction);
           }
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       }
+      
+void _handleCursorMovement(AxisDirection direction) {
+  final controller = _tabs[_currentTabIndex].controller;
+  final selection = controller.selection;
+  final codeLines = controller.codeLines;
+
+  CodeLineSelection newSelection;
+
+  switch (direction) {
+    case AxisDirection.left:
+      newSelection = _handleLeftMovement(selection, codeLines);
+      break;
+    case AxisDirection.right:
+      newSelection = _handleRightMovement(selection, codeLines);
+      break;
+    case AxisDirection.up:
+      newSelection = _handleUpMovement(selection, codeLines);
+      break;
+    case AxisDirection.down:
+      newSelection = _handleDownMovement(selection, codeLines);
+      break;
+  }
+
+  controller.selection = newSelection;
+  controller.makeCursorVisible();
+}
+
+CodeLineSelection _handleLeftMovement(CodeLineSelection selection, CodeLines codeLines) {
+  if (!selection.isCollapsed) {
+    return CodeLineSelection.fromPosition(position: selection.start);
+  }
+  
+  if (selection.extentIndex == 0 && selection.extentOffset == 0) {
+    return selection; // Already at start of document
+  }
+
+  if (selection.extentOffset == 0) {
+    // Move to end of previous line
+    final prevLine = codeLines[selection.extentIndex - 1];
+    return CodeLineSelection.collapsed(
+      index: selection.extentIndex - 1,
+      offset: prevLine.length,
+    );
+  }
+
+  // Move left within current line
+  final currentLine = codeLines[selection.extentIndex];
+  final newOffset = (currentLine.substring(0, selection.extentOffset).characters.skipLast(1).string.length)
+      .clamp(0, currentLine.length);
+
+  return CodeLineSelection.collapsed(
+    index: selection.extentIndex,
+    offset: newOffset,
+  );
+}
+
+CodeLineSelection _handleRightMovement(CodeLineSelection selection, CodeLines codeLines) {
+  if (!selection.isCollapsed) {
+    return CodeLineSelection.fromPosition(position: selection.end);
+  }
+
+  final currentLine = codeLines[selection.extentIndex];
+  if (selection.extentOffset == currentLine.length) {
+    if (selection.extentIndex == codeLines.length - 1) {
+      return selection; // Already at end of document
+    }
+    // Move to start of next line
+    return CodeLineSelection.collapsed(
+      index: selection.extentIndex + 1,
+      offset: 0,
+    );
+  }
+
+  // Move right within current line
+  final nextOffset = selection.extentOffset +
+      currentLine.substring(selection.extentOffset).characters.first.text.length;
+
+  return CodeLineSelection.collapsed(
+    index: selection.extentIndex,
+    offset: nextOffset.clamp(0, currentLine.length),
+  );
+}
+
+CodeLineSelection _handleUpMovement(CodeLineSelection selection, CodeLines codeLines) {
+  final currentPosition = selection.start;
+  if (currentPosition.index == 0) {
+    return const CodeLineSelection.collapsed(index: 0, offset: 0);
+  }
+
+  final prevLine = codeLines[currentPosition.index - 1];
+  final newOffset = currentPosition.offset.clamp(0, prevLine.length);
+
+  return CodeLineSelection.collapsed(
+    index: currentPosition.index - 1,
+    offset: newOffset,
+  );
+}
+
+CodeLineSelection _handleDownMovement(CodeLineSelection selection, CodeLines codeLines) {
+  final currentPosition = selection.end;
+  if (currentPosition.index == codeLines.length - 1) {
+    return CodeLineSelection.collapsed(
+      index: codeLines.length - 1,
+      offset: codeLines.last.length,
+    );
+  }
+
+  final nextLine = codeLines[currentPosition.index + 1];
+  final newOffset = currentPosition.offset.clamp(0, nextLine.length);
+
+  return CodeLineSelection.collapsed(
+    index: currentPosition.index + 1,
+    offset: newOffset,
+  );
+}
       
       void _handleSelectionStart(CodeLineEditingController controller) {
         controller.addListener(_handleSelectionChange);
