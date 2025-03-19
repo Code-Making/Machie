@@ -228,74 +228,49 @@ class _EditorScreenState extends State<EditorScreen> {
     return null; // No matching bracket found
   }
   
-  TextSpan _buildSpan({
-    required CodeLine codeLine,
-    required BuildContext context,
-    required int index,
-    required TextStyle style,
-    required TextSpan textSpan,
-  }) {
-    final spans = <TextSpan>[];
-    int currentPosition = 0;
-    final highlightPositions = _bracketPositions
-    .where((pos) => pos.index == index)
-    .map((pos) => pos.offset)
-    .toSet();
-    
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final spanStyle = span.style ?? style;
-      List<int> highlightIndices = [];
-      
-      // Find highlight positions within this span
-      for (var i = 0; i < text.length; i++) {
-        if (highlightPositions.contains(currentPosition + i)) {
-          highlightIndices.add(i);
-        }
-      }
-      
-      // Split span into non-highlight and highlight segments
-      int lastSplit = 0;
-      for (final highlightIndex in highlightIndices) {
-        if (highlightIndex > lastSplit) {
-          spans.add(TextSpan(
-            text: text.substring(lastSplit, highlightIndex),
-            style: spanStyle,
-          ));
-        }
-        spans.add(TextSpan(
-          text: text[highlightIndex],
-          style: spanStyle.copyWith(
-            backgroundColor: Colors.yellow.withOpacity(0.3),
-            fontWeight: FontWeight.bold,
-          ),
-        ));
-        lastSplit = highlightIndex + 1;
-      }
-      
-      // Add remaining text
-      if (lastSplit < text.length) {
-        spans.add(TextSpan(
-          text: text.substring(lastSplit),
-          style: spanStyle,
-        ));
-      }
-      
-      currentPosition += text.length;
-      
-      // Process child spans
-      if (span.children != null) {
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child);
-          }
-        }
-      }
+TextSpan _buildSpan({
+  required CodeLine codeLine,
+  required BuildContext context,
+  required int index,
+  required TextStyle style,
+  required TextSpan textSpan,
+}) {
+  final fullText = codeLine.text;
+  final highlightPositions = _bracketPositions
+      .where((pos) => pos.index == index)
+      .map((pos) => pos.offset)
+      .toSet();
+
+  // Base span with full text
+  final baseSpan = TextSpan(
+    text: fullText,
+    style: style,
+  );
+
+  // Highlight overlays
+  final highlightSpans = highlightPositions.map((position) {
+    if (position >= 0 && position < fullText.length) {
+      return TextSpan(
+        text: fullText[position],
+        style: style.copyWith(
+          backgroundColor: Colors.yellow.withOpacity(0.3),
+          fontWeight: FontWeight.bold,
+        ),
+        recognizer: null, // Critical for text selection
+      );
     }
-    
-    processSpan(textSpan);
-    return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
-  }
+    return null;
+  }).whereType<TextSpan>().toList();
+
+  return TextSpan(
+    text: fullText, // Maintain single text node
+    style: style,
+    children: [
+      baseSpan,       // Base text
+      ...highlightSpans // Overlay highlights
+    ],
+  );
+}
   
   Future<void> _openFile() async {
     final uri = await _fileHandler.openFile();
