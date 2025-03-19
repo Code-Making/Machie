@@ -274,32 +274,32 @@ class _DirectoryView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(directoryChildrenProvider(uri));
+Widget build(BuildContext context, WidgetRef ref) {
+  final contentsAsync = ref.watch(directoryChildrenProvider(uri));
 
-    return contentsAsync.when(
-      loading: () => isRoot 
-          ? const Center(child: CircularProgressIndicator())
-          : _DirectoryLoadingTile(),
-      error: (error, _) => ListTile(
-        leading: const Icon(Icons.error, color: Colors.red),
-        title: const Text('Error loading directory'),
-      ),
-      data: (contents) => Column(
-        children: contents.map((item) => item['type'] == 'dir'
-            ? _DirectoryExpansionTile(
-                uri: item['uri'],
-                name: item['name'],
-                onOpenFile: onOpenFile,
-              )
-            : _FileItem(
-                name: item['name'],
-                onTap: () => onOpenFile(item['uri']),
-              ),
-        ).toList(),
-      ),
-    );
-  }
+  return contentsAsync.when(
+    loading: () => isRoot 
+        ? const Center(child: CircularProgressIndicator())
+        : _DirectoryLoadingTile(),
+    error: (error, _) => ListTile(
+      leading: const Icon(Icons.error, color: Colors.red),
+      title: const Text('Error loading directory'),
+    ),
+    data: (contents) => Column(
+      children: contents.map((item) => item['type'] == 'dir'
+          ? _DirectoryExpansionTile(
+              uri: item['uri'],
+              name: item['name'],
+              onOpenFile: onOpenFile,
+            )
+          : _FileItem(
+              name: item['name'],
+              onTap: () => onOpenFile(item['uri']),
+            ),
+      ).toList(),
+    ),
+  );
+}
 }
 
 class _DirectoryItem extends StatelessWidget {
@@ -363,6 +363,7 @@ class _DirectoryExpansionTile extends ConsumerWidget {
     );
   }
 }
+
 class _FileItem extends StatelessWidget {
   final String name;
   final VoidCallback onTap;
