@@ -27,6 +27,10 @@ import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
+// --------------------
+//     Main
+// --------------------
+
 void main() => runApp(
   ProviderScope(
     child: MaterialApp(
@@ -58,6 +62,19 @@ return (await handler.listDirectory(uri ?? '', isRoot: isRoot) ?? [])
     }
     return a['type'] == 'dir' ? -1 : 1;
   });});
+  
+final directoryChildrenProvider = FutureProvider.autoDispose
+.family<List<Map<String, dynamic>>, String>((ref, uri) async {
+  final handler = ref.read(fileHandlerProvider);
+  final contents = await handler.listDirectory(uri, isRoot: false) ?? [];
+  contents.sort((a, b) {
+    if (a['type'] == b['type']) {
+      return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
+    }
+    return a['type'] == 'dir' ? -1 : 1;
+  });
+  return contents;
+});
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
 
@@ -166,13 +183,17 @@ class EditorScreen extends ConsumerWidget {
 Widget _buildDirectoryTree(WidgetRef ref, String? currentDir) {
   return SizedBox(
     width: 300,
-    child: currentDir == null 
+    child: currentDir == null
         ? const Center(child: Text('No folder open'))
-        : _DirectoryView(
-            uri: currentDir,
-            onOpenFile: (uri) => _openFileTab(ref, uri),
-            onOpenDirectory: (uri) => 
-                ref.read(currentDirectoryProvider.notifier).state = uri,
+        : ListView(
+            children: [
+              _DirectoryExpansionTile(
+                uri: currentDir,
+                name: _getFolderName(currentDir),
+                depth: 0,
+                onOpenFile: (uri) => _openFileTab(ref, uri),
+              ),
+            ],
           ),
   );
 }
@@ -241,38 +262,37 @@ Future<void> _openFolder(WidgetRef ref) async {
 
 }
 
+// --------------------
+//   Directory view
+// --------------------
+
 class _DirectoryView extends ConsumerWidget {
   final String uri;
   final Function(String) onOpenFile;
-  final Function(String) onOpenDirectory;
+  final int depth;
 
   const _DirectoryView({
     required this.uri,
     required this.onOpenFile,
-    required this.onOpenDirectory,
+    this.depth = 0,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(directoryContentsProvider(uri));
-    
+    final contentsAsync = ref.watch(directoryChildrenProvider(uri));
+
     return contentsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: ${e.toString()}')),
-      data: (contents) => ListView.builder(
-        itemCount: contents.length,
-        itemBuilder: (context, index) {
-          final item = contents[index];
-          return ListTile(
-            leading: Icon(item['type'] == 'dir' 
-                ? Icons.folder 
-                : Icons.insert_drive_file),
-            title: Text(item['name']),
-            onTap: () => item['type'] == 'dir'
-                ? onOpenDirectory(item['uri'])
-                : onOpenFile(item['uri']),
-          );
-        },
+      loading: () => _DirectoryLoadingTile(depth: depth),
+      error: (error, _) => ListTile(
+        leading: Icon(Icons.error, color: Colors.red),
+        title: Text('Error loading directory'),
+      ),
+      data: (contents) => Column(
+        children: contents.map((item) => _DirectoryItem(
+          item: item,
+          onOpenFile: onOpenFile,
+          depth: depth,
+        )).toList(),
       ),
     );
   }
@@ -281,22 +301,104 @@ class _DirectoryView extends ConsumerWidget {
 class _DirectoryItem extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(String) onOpenFile;
-  final Function(String) onOpenDirectory;
+  final int depth;
 
   const _DirectoryItem({
     required this.item,
     required this.onOpenFile,
-    required this.onOpenDirectory,
+    this.depth = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (item['type'] == 'dir') {
+      return _DirectoryExpansionTile(
+        uri: item['uri'],
+        name: item['name'],
+        depth: depth,
+        onOpenFile: onOpenFile,
+      );
+    }
+    return _FileItem(
+      uri: item['uri'],
+      name: item['name'],
+      depth: depth,
+      onTap: () => onOpenFile(item['uri']),
+    );
+  }
+}
+
+class _DirectoryExpansionTile extends ConsumerWidget {
+  final String uri;
+  final String name;
+  final int depth;
+  final Function(String) onOpenFile;
+
+  const _DirectoryExpansionTile({
+    required this.uri,
+    required this.name,
+    required this.depth,
+    required this.onOpenFile,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ExpansionTile(
+      leading: Icon(Icons.folder, color: Colors.yellow),
+      title: Text(name),
+      childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      children: [
+        _DirectoryView(
+          uri: uri,
+          onOpenFile: onOpenFile,
+          depth: depth + 1,
+        ),
+      ],
+    );
+  }
+}
+
+class _FileItem extends StatelessWidget {
+  final String uri;
+  final String name;
+  final int depth;
+  final VoidCallback onTap;
+
+  const _FileItem({
+    required this.uri,
+    required this.name,
+    required this.depth,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(item['type'] == 'dir' ? Icons.folder : Icons.insert_drive_file),
-      title: Text(item['name']),
-      onTap: () => item['type'] == 'dir'
-          ? onOpenDirectory(item['uri'])
-          : onOpenFile(item['uri']),
+      contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      leading: Icon(Icons.insert_drive_file),
+      title: Text(name),
+      onTap: onTap,
+    );
+  }
+}
+
+class _DirectoryLoadingTile extends StatelessWidget {
+  final int depth;
+
+  const _DirectoryLoadingTile({required this.depth});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      child: const ListTile(
+        leading: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        title: Text('Loading...'),
+      ),
     );
   }
 }
@@ -442,4 +544,13 @@ class AndroidFileHandler {
   final extension = uri.split('.').last.toLowerCase();
   // Add your language mappings here
   return {'dart': CodeHighlightThemeMode(mode: langDart)};
+}
+
+// --------------------
+//   Helper Functions
+// --------------------
+
+String _getFolderName(String uri) {
+  final parsed = Uri.parse(uri);
+  return parsed.pathSegments.last.split('/').last;
 }
