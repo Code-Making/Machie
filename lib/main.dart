@@ -36,7 +36,9 @@ void main() => runApp(
   ),
 );
 
-// 1. Define Providers
+// --------------------
+//   Providers
+// --------------------
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
 
 final currentDirectoryProvider = StateProvider<String?>((ref) => null);
@@ -59,7 +61,9 @@ return (await handler.listDirectory(uri ?? '', isRoot: isRoot) ?? [])
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) => TabManager());
 
-// 2. State Classes
+// --------------------
+//        States
+// --------------------
 class TabState {
   final List<EditorTab> tabs;
   final int currentIndex;
@@ -83,7 +87,9 @@ class EditorTab {
   });
 }
 
-// 3. State Notifier
+// --------------------
+//  States notifiers
+// --------------------
 class TabManager extends StateNotifier<TabState> {
   TabManager() : super(TabState());
 
@@ -112,7 +118,9 @@ class TabManager extends StateNotifier<TabState> {
   }
 }
 
-// 4. Editor Screen
+// --------------------
+//    Editor Screen
+// --------------------
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
@@ -335,8 +343,12 @@ class Tab extends StatelessWidget {
   String _getFileName(String uri) => uri.split('/').last;
 }
 
-// Keep AndroidFileHandler class from original code unchanged
-    class AndroidFileHandler {
+
+// --------------------
+//     File Handlers
+// --------------------
+
+class AndroidFileHandler {
       static const _channel = MethodChannel('com.example/file_handler');
       
       
