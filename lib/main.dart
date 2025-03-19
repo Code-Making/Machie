@@ -22,6 +22,7 @@ import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/kotlin.dart';
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/xml.dart';
+import 'package:re_highlight/languages/rust.dart';
 import 'package:re_highlight/languages/plaintext.dart';
 import 'package:diff_match_patch/diff_match_patch.dart';
 
@@ -814,7 +815,7 @@ class _DirectoryExpansionTileState extends State<_DirectoryExpansionTile> {
 
   void _handleFileTap(String uri, WidgetRef ref) {
     try {
-      ref.read(tabManagerProvider.notifier).openFileTab(uri);
+    ref.read(tabManagerProvider.notifier).addTab(uri); // Changed from openFileTab
       widget.onFileOpened?.call();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1060,6 +1061,13 @@ class CustomLineNumberWidget extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
 
+  // In CustomLineNumberWidget
+customLineIndex2Text: (index) {
+  final lineNumber = (index + 1).toString();
+  final isHighlighted = highlightedLines.contains(index);
+  return isHighlighted ? '➤$lineNumber' : lineNumber.padLeft(3);
+},
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(tabManagerProvider.select((s) => s.currentTab));
@@ -1229,13 +1237,11 @@ ReLangMode _languageModeForExtension(String extension) {
     case 'jsx': return langJavascript;
     case 'ts': return langJavascript;
     case 'py': return langPython;
-    case 'java': return langJava;
     case 'kt': return langKotlin;
     case 'cpp': return langCpp;
     case 'h': return langCpp;
     case 'cc': return langCpp;
-    case 'cs': return langCsharp;
-    
+
     // Web technologies
     case 'html': return langXml;
     case 'css': return langCss;
@@ -1254,13 +1260,7 @@ ReLangMode _languageModeForExtension(String extension) {
     
     // Special cases
     case 'rs': return langRust;
-    case 'swift': return langSwift;
-    case 'go': return langGo;
-    case 'rb': return langRuby;
-    case 'pl': return langPerl;
-    case 'php': return langPhp;
-    case 'sql': return langSql;
-    
+
     // Fallback
     default: return langPlaintext;
   }
