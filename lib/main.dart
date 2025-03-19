@@ -1182,12 +1182,7 @@ class CustomLineNumberWidget extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
 
-  // In CustomLineNumberWidget
-customLineIndex2Text: (index) {
-  final lineNumber = (index + 1).toString();
-  final isHighlighted = highlightedLines.contains(index);
-  return isHighlighted ? '➤$lineNumber' : lineNumber.padLeft(3);
-},
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1209,11 +1204,12 @@ customLineIndex2Text: (index) {
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
-          customLineIndex2Text: (index) {
-            final lineNumber = (index + 1).toString();
-            final isHighlighted = highlightedLines.contains(index);
-            final isCurrentLine = value?.currentLineIndex == index;
-            
+  // In CustomLineNumberWidget
+customLineIndex2Text: (index) {
+  final lineNumber = (index + 1).toString();
+  final isHighlighted = highlightedLines.contains(index);
+  return isHighlighted ? '➤$lineNumber' : lineNumber.padLeft(3);
+},
             return TextSpan(
               text: isHighlighted ? '➤$lineNumber' : lineNumber.padLeft(3),
               style: TextStyle(
