@@ -1604,11 +1604,13 @@ class _DiffApprovalDialogState extends State<DiffApprovalDialog> {
   String _previewText = '';
   final Map<int, (int start, int end)> _diffPositions = {};
   late final CodeLineEditingController _previewController;
+  late final ScrollController _previewScrollController;
 
   @override
   void initState() {
     super.initState();
     _previewController = CodeLineEditingController();
+    _previewScrollController = ScrollController();
     _updatePreview();
   }
 
@@ -1735,6 +1737,7 @@ List<Diff> _calculateDiffs(String original, String modified) {
   return diffs;
 }
 
+// Update the preview panel construction
 Widget _buildPreviewPanel() {
   return Container(
     decoration: BoxDecoration(
@@ -1742,10 +1745,8 @@ Widget _buildPreviewPanel() {
       borderRadius: BorderRadius.circular(4),
     ),
     child: CodeEditor(
-      controller: CodeLineEditingController(
-        codeLines: CodeLines.fromText(_previewText),
-      ),
-      readOnly: true, // Add readOnly here instead
+      controller: _previewController,
+      readOnly: true,
       style: CodeEditorStyle(
         fontSize: 12,
         fontFamily: 'JetBrainsMono',
@@ -1776,15 +1777,7 @@ Widget _buildDiffRow(Diff diff, int index) {
         _decisions[index] = !isApproved;
         _updatePreview();
       });
-
-      // Auto-scroll to changed position
-      final positions = _diffPositions[index];
-      if (positions != null && positions.$1 < positions.$2) {
-        final position = _getCodeLinePosition(positions.$1);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _previewController.makePositionCenterIfInvisible(position);
-        });
-      }
+      _scrollToDiff(index);
     },
     child: Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -1837,6 +1830,27 @@ Widget _buildDiffRow(Diff diff, int index) {
       ),
     ),
   );
+}
+
+void _scrollToDiff(int index) {
+  final positions = _diffPositions[index];
+  if (positions == null) return;
+
+  final lineHeights = _previewController.codeLines.map((line) => line.text.length / 80 * 20).toList();
+  double scrollOffset = 0;
+  
+  final targetLine = _getCodeLinePosition(positions.$1).index;
+  for (int i = 0; i < targetLine; i++) {
+    scrollOffset += lineHeights[i];
+  }
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _previewScrollController.animateTo(
+      scrollOffset - (MediaQuery.of(context).size.height / 3),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  });
 }
 
 String _mergeDiffs(String original, List<Diff> diffs, Map<int, bool> decisions) {
