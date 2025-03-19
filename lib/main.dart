@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'dart:math;'
+import 'dart:math';
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
