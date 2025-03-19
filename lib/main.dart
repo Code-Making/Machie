@@ -1784,7 +1784,7 @@ Widget _buildDiffRow(Diff diff, int index) {
       if (positions != null) {
         final position = _getCodeLinePosition(positions.$1);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _previewController.makePositionCenterIfInvisible(position);
+          //_previewController.makePositionCenterIfInvisible(position);
           // Additional scroll controller manipulation
           final lineHeight = 20.0; // Approximate line height
           final scrollOffset = position.index * lineHeight;
