@@ -111,59 +111,6 @@ class EditorTab {
 // --------------------
 //  States notifiers
 // --------------------
-class TabManager extends StateNotifier<TabState> {
-  TabManager() : super(TabState());
-
-  void addTab(EditorTab tab) {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == tab.uri);
-
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
-    }
-
-    state = TabState(
-      tabs: [...state.tabs, tab],
-      currentIndex: state.tabs.length,
-    );
-  }
-
-  void switchTab(int index) {
-    state = TabState(
-      tabs: state.tabs,
-      currentIndex: index.clamp(0, state.tabs.length - 1),
-    );
-  }
-
-void reorderTabs(int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(state.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab if it still exists
-    final currentUri = state.currentTab?.uri;
-    final newCurrentIndex = currentUri != null 
-        ? newTabs.indexWhere((t) => t.uri == currentUri)
-        : state.currentIndex;
-
-    state = TabState(
-      tabs: newTabs,
-      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
-  }
-
-  void closeTab(int index) {
-    state.tabs[index].controller.dispose();
-    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
-    state = TabState(
-      tabs: newTabs,
-      currentIndex:
-          state.currentIndex >= index && state.currentIndex > 0
-              ? state.currentIndex - 1
-              : state.currentIndex,
-    );
-  }
-}
 
 // --------------------
 //    Editor Screen
@@ -262,11 +209,17 @@ Widget _buildTabBar(WidgetRef ref) {
         ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
       },
       buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) => Material(
+        child: child,
+      ),
       children: [
         for (int index = 0; index < tabs.length; index++)
-          _TabItem(
-            index: index,
-            tab: tabs[index],
+          SizedBox( // Constrain tab width
+            width: 180,
+            child: _TabItem(
+              index: index,
+              tab: tabs[index],
+            ),
           ),
       ],
     ),
@@ -523,6 +476,61 @@ class _DirectoryLoadingTile extends StatelessWidget {
 // --------------------
 //      Tab Widget
 // --------------------
+
+class TabManager extends StateNotifier<TabState> {
+  TabManager() : super(TabState());
+
+  void addTab(EditorTab tab) {
+    final existingIndex = state.tabs.indexWhere((t) => t.uri == tab.uri);
+
+    if (existingIndex != -1) {
+      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
+      return;
+    }
+
+    state = TabState(
+      tabs: [...state.tabs, tab],
+      currentIndex: state.tabs.length,
+    );
+  }
+
+  void switchTab(int index) {
+    state = TabState(
+      tabs: state.tabs,
+      currentIndex: index.clamp(0, state.tabs.length - 1),
+    );
+  }
+
+void reorderTabs(int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(state.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Preserve current tab if it still exists
+    final currentUri = state.currentTab?.uri;
+    final newCurrentIndex = currentUri != null 
+        ? newTabs.indexWhere((t) => t.uri == currentUri)
+        : state.currentIndex;
+
+    state = TabState(
+      tabs: newTabs,
+      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
+  }
+
+  void closeTab(int index) {
+    state.tabs[index].controller.dispose();
+    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
+    state = TabState(
+      tabs: newTabs,
+      currentIndex:
+          state.currentIndex >= index && state.currentIndex > 0
+              ? state.currentIndex - 1
+              : state.currentIndex,
+    );
+  }
+}
+
 class Tab extends StatelessWidget {
   final EditorTab tab;
   final bool isActive;
@@ -538,38 +546,41 @@ class Tab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-          border: Border(
-            right: BorderSide(color: Colors.grey[700]!),
-            bottom: isActive 
-                ? BorderSide(color: Colors.blueAccent, width: 2)
-                : BorderSide.none,
-          ),
+Widget build(BuildContext context) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      constraints: const BoxConstraints(minWidth: 120), // Add minimum width
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+        border: Border(
+          right: BorderSide(color: Colors.grey[700]!),
+          bottom: isActive 
+              ? BorderSide(color: Colors.blueAccent, width: 2)
+              : BorderSide.none,
         ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: onClose,
-            ),
-            Text(
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onClose,
+          ),
+          Expanded( // Ensure text doesn't overflow
+            child: Text(
               _getFileName(tab.uri),
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: tab.isDirty ? Colors.orange : Colors.white,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
