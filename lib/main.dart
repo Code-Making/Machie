@@ -253,22 +253,23 @@ class EditorScreen extends ConsumerWidget {
 Widget _buildTabBar(WidgetRef ref) {
   final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
   
-  return ReorderableListView(
-    onReorder: (oldIndex, newIndex) {
-      ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-    },
-    scrollDirection: Axis.horizontal,
-    children: [
-      for (int i = 0; i < tabs.length; i++)
-        ReorderableDelayedDragStartListener(
-          key: ValueKey(tabs[i].uri),
-          index: i,
-          child: _TabItem(
-            tab: tabs[i],
-            index: i,
+  return SizedBox(
+    height: 40,
+    child: ReorderableListView(
+      scrollDirection: Axis.horizontal,
+      onReorder: (oldIndex, newIndex) {
+        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+      },
+      buildDefaultDragHandles: false,
+      children: [
+        for (int index = 0; index < tabs.length; index++)
+          _TabItem(
+            key: ValueKey(tabs[index].uri),
+            index: index,
+            tab: tabs[index],
           ),
-        ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -343,7 +344,15 @@ class _EditorContentState extends State<_EditorContent> {
   Widget build(BuildContext context) {
     return CodeEditor(
       controller: widget.tab.controller,
-      // ... other editor properties
+      style: CodeEditorStyle(
+        fontSize: 12,
+        fontFamily: 'JetBrainsMono',
+        codeTheme: CodeHighlightTheme(
+          theme: atomOneDarkTheme,
+          languages: _getLanguageMode(tab.uri),
+        ),
+      ),
+      wordWrap: widget.tab.wordWrap,
     );
   }
 }
@@ -518,7 +527,7 @@ class Tab extends StatelessWidget {
   final EditorTab tab;
   final bool isActive;
   final VoidCallback onClose;
-  final VoidCallback onTap; // Add onTap parameter
+  final VoidCallback onTap;
 
   const Tab({
     super.key,
@@ -531,17 +540,16 @@ class Tab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap, // Use the onTap parameter
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
           border: Border(
             right: BorderSide(color: Colors.grey[700]!),
-            bottom:
-                isActive
-                    ? BorderSide(color: Colors.blueAccent, width: 2)
-                    : BorderSide.none,
+            bottom: isActive 
+                ? BorderSide(color: Colors.blueAccent, width: 2)
+                : BorderSide.none,
           ),
         ),
         child: Row(
@@ -562,35 +570,32 @@ class Tab extends StatelessWidget {
     );
   }
 
-  String _getFileName(String uri) =>
-      Uri.parse(uri).pathSegments.last.split('/').last;
+  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
 class _TabItem extends ConsumerWidget {
-  final EditorTab tab;
   final int index;
+  final EditorTab tab;
 
-  const _TabItem({required this.tab, required this.index});
+  const _TabItem({
+    required this.index,
+    required this.tab,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(tabManagerProvider.select(
-      (state) => state.currentIndex == index
-    ));
+    final isActive = ref.watch(
+      tabManagerProvider.select((state) => state.currentIndex == index)
+    );
 
-    return GestureDetector(
-      onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-      child: Container(
-        // ... tab styling
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-            ),
-            Text(_getFileName(tab.uri)),
-          ],
-        ),
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(tab.uri),
+      index: index,
+      child: Tab(
+        tab: tab,
+        isActive: isActive,
+        onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+        onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
       ),
     );
   }
