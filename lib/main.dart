@@ -264,7 +264,6 @@ Widget _buildTabBar(WidgetRef ref) {
       children: [
         for (int index = 0; index < tabs.length; index++)
           _TabItem(
-            key: ValueKey(tabs[index].uri),
             index: index,
             tab: tabs[index],
           ),
@@ -576,6 +575,7 @@ class Tab extends StatelessWidget {
 class _TabItem extends ConsumerWidget {
   final int index;
   final EditorTab tab;
+
 
   const _TabItem({
     required this.index,
