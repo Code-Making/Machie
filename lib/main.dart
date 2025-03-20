@@ -199,16 +199,16 @@ class EditorScreen extends ConsumerWidget {
         ],
       ),
       drawer: _buildDirectoryDrawer(context, ref, currentDir),
-      body: Column(
-        children: [
-          _buildTabBar(ref, tabState, isReordering),
-          Expanded(
-            child: tabState.currentTab != null
-                ? _buildEditor(tabState.currentTab!)
-                : const Center(child: Text('Open a file to start')),
-          ),
-        ],
-      ),
+        body: Column(
+          children: [
+            _buildTabBar(ref, tabState), // Remove extra parameter
+            Expanded(
+              child: tabState.currentTab != null
+                  ? _buildEditor(tabState.currentTab!)
+                  : const Center(child: Text('Open a file to start')),
+            ),
+          ],
+        ),
     );
   }
 
@@ -248,49 +248,25 @@ class EditorScreen extends ConsumerWidget {
 Widget _buildTabBar(WidgetRef ref, TabState state) {
   return SizedBox(
     height: 40,
-    child: Scrollbar(
-      thickness: 4,
-      interactive: true,
-      trackVisibility: true,
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        scrollController: ScrollController(),
-        physics: const ClampingScrollPhysics(),
-        padding: EdgeInsets.zero,
-        buildDefaultDragHandles: false,
-        onReorder: (oldIndex, newIndex) {
-          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-        },
-        proxyDecorator: (child, index, animation) {
-          return SizedBox(
-            width: 150, // Match your tab width
-            child: Material(
-              elevation: 6,
-              color: Colors.transparent,
-              child: child,
+    child: ReorderableListView(
+      scrollDirection: Axis.horizontal,
+      onReorder: (oldIndex, newIndex) {
+        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+      },
+      buildDefaultDragHandles: false,
+      children: [
+        for (int index = 0; index < state.tabs.length; index++)
+          ReorderableDelayedDragStartListener(
+            key: ValueKey(state.tabs[index].uri),
+            index: index,
+            child: Tab(
+              tab: state.tabs[index],
+              isActive: index == state.currentIndex,
+              onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+              onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
             ),
-          );
-        },
-        children: [
-          for (int index = 0; index < state.tabs.length; index++)
-            ReorderableDelayedDragStartListener(
-              key: ValueKey(state.tabs[index].uri),
-              index: index,
-              child: SizedBox(
-                width: 150, // Fixed tab width
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-                  child: Tab(
-                    tab: state.tabs[index],
-                    isActive: index == state.currentIndex,
-                    onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+          ),
+      ],
     ),
   );
 }
@@ -510,50 +486,50 @@ class Tab extends StatelessWidget {
   final EditorTab tab;
   final bool isActive;
   final VoidCallback onClose;
-  final VoidCallback onTap;
-  final bool isReordering;
-  final bool isDragging;
+  final VoidCallback onTap; // Add onTap parameter
 
   const Tab({
+    super.key,
     required this.tab,
     required this.isActive,
     required this.onClose,
     required this.onTap,
-    this.isReordering = false,
-    this.isDragging = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-        border: Border(
-          right: BorderSide(color: Colors.grey[700]!),
-          bottom: isActive ? BorderSide(color: Colors.blueAccent, width: 2) : BorderSide.none,
+    return GestureDetector(
+      onTap: onTap, // Use the onTap parameter
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+          border: Border(
+            right: BorderSide(color: Colors.grey[700]!),
+            bottom: isActive 
+                ? BorderSide(color: Colors.blueAccent, width: 2)
+                : BorderSide.none,
+          ),
         ),
-        boxShadow: isDragging ? [BoxShadow(color: Colors.black38, blurRadius: 4)] : null,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: onClose,
-          ),
-          Text(
-            _getFileName(tab.uri),
-            style: TextStyle(
-              color: isReordering ? Colors.grey : 
-                (tab.isDirty ? Colors.orange : Colors.white),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: onClose,
             ),
-          ),
-        ],
+            Text(
+              _getFileName(tab.uri),
+              style: TextStyle(
+                color: tab.isDirty ? Colors.orange : Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+    String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
 
-  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
 
