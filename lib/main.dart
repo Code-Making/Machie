@@ -145,7 +145,7 @@ class EditorScreen extends ConsumerWidget {
         ),
        title: Text(
           currentTab != null 
-              ? Uri.parse(currentTab!.uri).pathSegments.last 
+              ? Uri.parse(currentTab!.uri).pathSegments.last.split(':').last
               : 'Code Editor'
           ),            
         ),
