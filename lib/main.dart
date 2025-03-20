@@ -129,210 +129,91 @@ class EditorTab {
 // --------------------
 //    Editor Screen
 // --------------------
+
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(tabManagerProvider.select(
-      (state) => state.currentTab
-    ));
+    final currentTab = ref.watch(tabManagerProvider.select((s) => s.currentTab));
     final currentDir = ref.watch(currentDirectoryProvider);
-    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(
-      key: scaffoldKey,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.menu),
-          onPressed: () => scaffoldKey.currentState?.openDrawer(),
+          onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        title: Text(currentTab != null ? Uri.parse(currentTab!.uri).pathSegments.last : 'Code Editor'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            onPressed: () => _openFolder(ref),
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_open),
-            onPressed: () => _openFile(ref),
-          ),
-        ],
+        title: Text(currentTab?.uri.pathSegments.last ?? 'Code Editor'),
       ),
-      drawer: _buildDirectoryDrawer(context, ref, currentDir),
+      drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
         children: [
-        _buildTabBar(ref),
-        Expanded(
-          child: currentTab != null
-              ? _EditorContent(
-                  key: ValueKey(currentTab.uri), // Stable key based on URI
-                  tab: currentTab,
-                )
-              : const Center(child: Text('Open file')),
-        )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDirectoryDrawer(
-    BuildContext context,
-    WidgetRef ref,
-    String? currentDir,
-  ) {
-    return Drawer(
-      child: Column(
-        children: [
-          AppBar(
-            title: const Text('File Explorer'),
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
+          const TabBarView(),
           Expanded(
-            child:
-                currentDir == null
-                    ? const Center(child: Text('No folder open'))
-                    : _DirectoryView(
-                      uri: currentDir,
-                      onOpenFile: (uri) {
-                        Navigator.of(context).pop();
-                        _openFileTab(ref, uri);
-                      },
-                      isRoot: true,
-                    ),
+            child: currentTab != null
+                ? EditorContentSwitcher(tab: currentTab)
+                : const Center(child: Text('Open file')),
           ),
         ],
       ),
     );
   }
-
-Widget _buildTabBar(WidgetRef ref) {
-  final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
-  
-  return Container(
-    color: Colors.grey[900],
-    height: 40,
-    child: ReorderableListView(
-      scrollDirection: Axis.horizontal,
-      onReorder: (oldIndex, newIndex) {
-        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-      },
-      buildDefaultDragHandles: false,
-      // 1. Add proxy decorator for visual feedback
-      proxyDecorator: (child, index, animation) => Material(
-        elevation: 4,
-        child: child,
-      ),
-      children: [
-        for (final tab in tabs)
-          // 2. Use ValueKey with unique identifier
-          ReorderableDelayedDragStartListener(
-            key: ValueKey(tab.uri), // Unique key
-            index: tabs.indexOf(tab),
-            child: ConstrainedBox(
-              // 3. Use constraints instead of fixed size
-              constraints: const BoxConstraints(
-                minWidth: 120,
-                maxWidth: 200,
-                minHeight: 40,
-              ),
-              child: _TabItem(
-                index: tabs.indexOf(tab),
-                tab: tab,
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-  Widget _buildEditor(EditorTab tab) {
-    return CodeEditor(
-      controller: tab.controller,
-      style: CodeEditorStyle(
-        fontSize: 12,
-        fontFamily: 'JetBrainsMono',
-        codeTheme: CodeHighlightTheme(
-          theme: atomOneDarkTheme,
-          languages: _getLanguageMode(tab.uri),
-        ),
-      ),
-      wordWrap: tab.wordWrap,
-    );
-  }
-
-  Future<void> _openFileTab(WidgetRef ref, String uri) async {
-    final handler = ref.read(fileHandlerProvider);
-    final content = await handler.readFile(uri);
-
-    if (content != null) {
-      final tabNotifier = ref.read(tabManagerProvider.notifier);
-      final existingIndex = tabNotifier.state.tabs.indexWhere(
-        (t) => t.uri == uri,
-      );
-
-      if (existingIndex != -1) {
-        tabNotifier.switchTab(existingIndex);
-      } else {
-        final controller = CodeLineEditingController(
-          codeLines: CodeLines.fromText(content),
-        );
-
-        tabNotifier.addTab(EditorTab(uri: uri, controller: controller));
-      }
-    }
-  }
-
-  Future<void> _openFile(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFile();
-    if (uri != null) _openFileTab(ref, uri);
-  }
-
-  Future<void> _openFolder(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFolder();
-    if (uri != null) {
-      ref.read(rootUriProvider.notifier).state = uri;
-      ref.read(currentDirectoryProvider.notifier).state = uri;
-    }
-  }
 }
 
 // --------------------
-//   Editor content
+//   Editor Content
 // --------------------
+abstract class EditorContent extends Widget {
+  const EditorContent({super.key});
 
-class _EditorContent extends StatefulWidget {
-  final EditorTab tab;
-
-  const _EditorContent({super.key, required this.tab});
-
-  @override
-  State<_EditorContent> createState() => _EditorContentState();
+  factory EditorContent.code({
+    required CodeLineEditingController controller,
+    required String uri,
+    bool wordWrap = false,
+  }) = CodeEditorContent;
 }
 
-class _EditorContentState extends State<_EditorContent> {
+class CodeEditorContent extends StatelessWidget implements EditorContent {
+  final CodeLineEditingController controller;
+  final String uri;
+  final bool wordWrap;
+
+  const CodeEditorContent({
+    super.key,
+    required this.controller,
+    required this.uri,
+    this.wordWrap = false,
+  });
+
   @override
   Widget build(BuildContext context) {
     return CodeEditor(
-      controller: widget.tab.controller,
+      controller: controller,
       style: CodeEditorStyle(
         fontSize: 12,
         fontFamily: 'JetBrainsMono',
         codeTheme: CodeHighlightTheme(
           theme: atomOneDarkTheme,
-          languages: _getLanguageMode(widget.tab.uri),
+          languages: _getLanguageMode(uri),
         ),
       ),
-      wordWrap: widget.tab.wordWrap,
+      wordWrap: wordWrap,
+    );
+  }
+}
+
+class EditorContentSwitcher extends StatelessWidget {
+  final EditorTab tab;
+
+  const EditorContentSwitcher({super.key, required this.tab});
+
+  @override
+  Widget build(BuildContext context) {
+    return EditorContent.code(
+      controller: tab.controller,
+      uri: tab.uri,
+      wordWrap: tab.wordWrap,
     );
   }
 }
@@ -527,6 +408,24 @@ class TabManager extends StateNotifier<TabState> {
       currentIndex: index.clamp(0, state.tabs.length - 1),
     );
   }
+  
+void openFileTab(String uri) async {
+    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
+    if (existingIndex != -1) {
+      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
+      return;
+    }
+
+    final content = await ref.read(fileHandlerProvider).readFile(uri);
+    final controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(content ?? ''),
+    );
+
+    state = TabState(
+      tabs: [...state.tabs, EditorTab(uri: uri, controller: controller)],
+      currentIndex: state.tabs.length,
+    );
+  }
 
 void reorderTabs(int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(state.tabs);
@@ -647,6 +546,141 @@ class _TabItem extends ConsumerWidget {
 }
 
 // --------------------
+//      Tab Bar
+// --------------------
+class TabBarView extends ConsumerWidget {
+  const TabBarView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
+    
+    return Container(
+      color: Colors.grey[900],
+      height: 40,
+      child: ReorderableListView(
+        scrollDirection: Axis.horizontal,
+        onReorder: (oldIndex, newIndex) =>
+            ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex),
+        buildDefaultDragHandles: false,
+        children: [
+          for (final tab in tabs)
+            ReorderableDelayedDragStartListener(
+              key: ValueKey(tab.uri),
+              index: tabs.indexOf(tab),
+              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+        ],
+      ),
+    );
+  }
+}
+
+class FileTab extends ConsumerWidget {
+  final EditorTab tab;
+  final int index;
+
+  const FileTab({super.key, required this.tab, required this.index});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isActive = ref.watch(
+      tabManagerProvider.select((state) => state.currentIndex == index)
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+      child: Material(
+        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+        child: InkWell(
+          onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+                ),
+                Expanded(
+                  child: Text(
+                    _getFileName(tab.uri),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tab.isDirty ? Colors.orange : Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last;
+}
+
+// --------------------
+//    File Explorer
+// --------------------
+class FileExplorerDrawer extends ConsumerWidget {
+  final String? currentDir;
+  
+  const FileExplorerDrawer({super.key, this.currentDir});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Drawer(
+      child: Column(
+        children: [
+          AppBar(
+            title: const Text('File Explorer'),
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          Expanded(
+            child: currentDir == null
+                ? const Center(child: Text('No folder open'))
+                : _DirectoryView(
+                    uri: currentDir!,
+                    onOpenFile: (uri) {
+                      Navigator.of(context).pop();
+                      ref.read(tabManagerProvider.notifier).openFileTab(uri);
+                    },
+                    isRoot: true,
+                  ),
+          ),
+          _FileOperationsFooter(),
+        ],
+      ),
+    );
+  }
+}
+
+class _FileOperationsFooter extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ButtonBar(
+      children: [
+        FilledButton(
+          child: const Text('Open Folder'),
+          onPressed: () => ref.read(fileHandlerProvider).openFolder(),
+        ),
+        FilledButton(
+          child: const Text('Open File'),
+          onPressed: () => ref.read(fileHandlerProvider).openFile(),
+        ),
+      ],
+    );
+  }
+}
+
+// --------------------
 //     File Handlers
 // --------------------
 
@@ -755,3 +789,10 @@ String _getFolderName(String uri) {
   final parsed = Uri.parse(uri);
   return parsed.pathSegments.last.split('/').last;
 }
+
+
+
+// TEMP
+
+
+
