@@ -135,17 +135,16 @@ class TabManager extends StateNotifier<TabState> {
     );
   }
 
-  void reorderTabs(int oldIndex, int newIndex) {
+void reorderTabs(int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(state.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
     newTabs.insert(newIndex, movedTab);
 
-    // Adjust current index after reorder
-    final currentTabUri = state.currentTab?.uri;
-    final newCurrentIndex =
-        currentTabUri != null
-            ? newTabs.indexWhere((t) => t.uri == currentTabUri)
-            : state.currentIndex;
+    // Preserve current tab if it still exists
+    final currentUri = state.currentTab?.uri;
+    final newCurrentIndex = currentUri != null 
+        ? newTabs.indexWhere((t) => t.uri == currentUri)
+        : state.currentIndex;
 
     state = TabState(
       tabs: newTabs,
