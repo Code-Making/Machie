@@ -756,7 +756,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                     // In FileExplorerDrawer
                     onOpenFile: (uri) {
                       Navigator.of(context).pop();
-                      ref.read(tabManagerProvider.notifier).openFileTab(uri);
+                      ref.read(tabManagerProvider.notifier).openFile(uri);
                     },
                     isRoot: true,
                   ),
