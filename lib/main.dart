@@ -112,13 +112,11 @@ class EditorTab {
   final String uri;
   final CodeLineEditingController controller;
   bool isDirty;
-  bool wordWrap;
 
   EditorTab({
     required this.uri,
     required this.controller,
     this.isDirty = false,
-    this.wordWrap = false,
   });
 }
 
@@ -457,94 +455,6 @@ void reorderTabs(int oldIndex, int newIndex) {
   }
 }
 
-class Tab extends StatelessWidget {
-  final EditorTab tab;
-  final bool isActive;
-  final VoidCallback onClose;
-  final VoidCallback onTap;
-
-  const Tab({
-    super.key,
-    required this.tab,
-    required this.isActive,
-    required this.onClose,
-    required this.onTap,
-  });
-
-  @override
-Widget build(BuildContext context) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      constraints: const BoxConstraints(minWidth: 120), // Add minimum width
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-        border: Border(
-          right: BorderSide(color: Colors.grey[700]!),
-          bottom: isActive 
-              ? BorderSide(color: Colors.blueAccent, width: 2)
-              : BorderSide.none,
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: onClose,
-          ),
-          Expanded( // Ensure text doesn't overflow
-            child: Text(
-              _getFileName(tab.uri),
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: tab.isDirty ? Colors.orange : Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
-}
-
-class _TabItem extends ConsumerWidget {
-  final int index;
-  final EditorTab tab;
-
-
-  const _TabItem({
-    required this.index,
-    required this.tab,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(
-      tabManagerProvider.select((state) => state.currentIndex == index)
-    );
-    return ReorderableDelayedDragStartListener(
-      key: ValueKey(tab.uri), // Essential for ReorderableListView
-      index: index,
-      child: Material( // Add Material layer
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(right: BorderSide(color: Colors.grey[700]!)),
-            ),
-          child: Tab(
-            tab: tab,
-            isActive: isActive,
-            onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-            onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),          ),
-        ),
-      ),
-    );
-  }
-}
-
 // --------------------
 //      Tab Bar
 // --------------------
@@ -677,6 +587,21 @@ class _FileOperationsFooter extends ConsumerWidget {
         ),
       ],
     );
+  }
+  
+  Future<void> _openFile(WidgetRef ref) async {
+    final handler = ref.read(fileHandlerProvider);
+    final uri = await handler.openFile();
+    if (uri != null) _openFileTab(ref, uri);
+  }
+
+  Future<void> _openFolder(WidgetRef ref) async {
+    final handler = ref.read(fileHandlerProvider);
+    final uri = await handler.openFolder();
+    if (uri != null) {
+      ref.read(rootUriProvider.notifier).state = uri;
+      ref.read(currentDirectoryProvider.notifier).state = uri;
+    }
   }
 }
 
