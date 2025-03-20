@@ -134,6 +134,24 @@ class TabManager extends StateNotifier<TabState> {
       currentIndex: index.clamp(0, state.tabs.length - 1),
     );
   }
+  
+  void reorderTabs(int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(state.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Adjust current index after reorder
+    final currentTabUri = state.currentTab?.uri;
+    final newCurrentIndex = currentTabUri != null 
+        ? newTabs.indexWhere((t) => t.uri == currentTabUri)
+        : state.currentIndex;
+
+    state = TabState(
+      tabs: newTabs,
+      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
+  }
+
 
   void closeTab(int index) {
     final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
@@ -224,21 +242,36 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-  Widget _buildTabBar(WidgetRef ref, TabState state) {
-    return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: state.tabs.length,
-        itemBuilder: (context, index) => Tab(
-          tab: state.tabs[index],
-          isActive: index == state.currentIndex,
-          onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-          onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-        ),
-      ),
-    );
-  }
+Widget _buildTabBar(WidgetRef ref, TabState state) {
+  return SizedBox(
+    height: 40,
+    child: ReorderableListView(
+      scrollDirection: Axis.horizontal,
+      onReorder: (oldIndex, newIndex) {
+        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+      },
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          color: Colors.transparent,
+          child: child,
+        );
+      },
+      children: [
+        for (int index = 0; index < state.tabs.length; index++)
+          ReorderableDragStartListener(
+            key: ValueKey(state.tabs[index].uri),
+            index: index,
+            child: Tab(
+              tab: state.tabs[index],
+              isActive: index == state.currentIndex,
+              onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+              onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
