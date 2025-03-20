@@ -384,7 +384,7 @@ class _DirectoryLoadingTile extends StatelessWidget {
 // --------------------
 
 class TabManager extends StateNotifier<TabState> {
-  final FileHandler fileHandler;
+  final AndroidFileHandler fileHandler;
 
   TabManager({required this.fileHandler}) : super(TabState());
 
