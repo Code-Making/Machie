@@ -173,6 +173,10 @@ class EditorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabState = ref.watch(tabManagerProvider);
+    final currentTab = ref.watch(tabManagerProvider.select(
+    (state) => state.currentTab
+  ));
+  
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>();
     final isReordering = ref.watch(reorderProvider);
@@ -184,7 +188,7 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Text(tabState.currentTab?.uri ?? 'Code Editor'),
+        title: Text(Uri.parse(currentTab?.uri) ?? 'Code Editor'),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
@@ -199,13 +203,12 @@ class EditorScreen extends ConsumerWidget {
       drawer: _buildDirectoryDrawer(context, ref, currentDir),
       body: Column(
         children: [
-          _buildTabBar(ref, tabState), // Remove extra parameter
-          Expanded(
-            child:
-                tabState.currentTab != null
-                    ? _buildEditor(tabState.currentTab!)
-                    : const Center(child: Text('Open a file to start')),
-          ),
+        _buildTabBar(ref),
+        Expanded(
+          child: currentTab != null
+              ? _EditorContent(key: ValueKey(currentTab.uri), tab: currentTab)
+              : const Center(child: Text('Open file')),
+        ),
         ],
       ),
     );
@@ -247,34 +250,27 @@ class EditorScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTabBar(WidgetRef ref, TabState state) {
-    return SizedBox(
-      height: 40,
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        onReorder: (oldIndex, newIndex) {
-          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-        },
-        buildDefaultDragHandles: false,
-        children: [
-          for (int index = 0; index < state.tabs.length; index++)
-            ReorderableDelayedDragStartListener(
-              key: ValueKey(state.tabs[index].uri),
-              index: index,
-              child: Tab(
-                tab: state.tabs[index],
-                isActive: index == state.currentIndex,
-                onClose:
-                    () => ref.read(tabManagerProvider.notifier).closeTab(index),
-                onTap:
-                    () =>
-                        ref.read(tabManagerProvider.notifier).switchTab(index),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+Widget _buildTabBar(WidgetRef ref) {
+  final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
+  
+  return ReorderableListView(
+    onReorder: (oldIndex, newIndex) {
+      ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+    },
+    scrollDirection: Axis.horizontal,
+    children: [
+      for (int i = 0; i < tabs.length; i++)
+        ReorderableDelayedDragStartListener(
+          key: ValueKey(tabs[i].uri),
+          index: i,
+          child: _TabItem(
+            tab: tabs[i],
+            index: i,
+          ),
+        ),
+    ],
+  );
+}
 
   Widget _buildEditor(EditorTab tab) {
     return CodeEditor(
@@ -326,6 +322,29 @@ class EditorScreen extends ConsumerWidget {
       ref.read(rootUriProvider.notifier).state = uri;
       ref.read(currentDirectoryProvider.notifier).state = uri;
     }
+  }
+}
+
+// --------------------
+//   Editor content
+// --------------------
+
+class _EditorContent extends StatefulWidget {
+  final EditorTab tab;
+
+  const _EditorContent({super.key, required this.tab});
+
+  @override
+  State<_EditorContent> createState() => _EditorContentState();
+}
+
+class _EditorContentState extends State<_EditorContent> {
+  @override
+  Widget build(BuildContext context) {
+    return CodeEditor(
+      controller: widget.tab.controller,
+      // ... other editor properties
+    );
   }
 }
 
@@ -545,6 +564,36 @@ class Tab extends StatelessWidget {
 
   String _getFileName(String uri) =>
       Uri.parse(uri).pathSegments.last.split('/').last;
+}
+
+class _TabItem extends ConsumerWidget {
+  final EditorTab tab;
+  final int index;
+
+  const _TabItem({required this.tab, required this.index});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isActive = ref.watch(tabManagerProvider.select(
+      (state) => state.currentIndex == index
+    ));
+
+    return GestureDetector(
+      onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+      child: Container(
+        // ... tab styling
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+            ),
+            Text(_getFileName(tab.uri)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // --------------------
