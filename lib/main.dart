@@ -625,6 +625,7 @@ class _TabItem extends ConsumerWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
