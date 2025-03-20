@@ -245,50 +245,55 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-Widget _buildTabBar(WidgetRef ref, TabState state, bool isReordering) {
-    return SizedBox(
-      height: 40,
-      child: ListView(
+Widget _buildTabBar(WidgetRef ref, TabState state) {
+  return SizedBox(
+    height: 40,
+    child: Scrollbar(
+      thickness: 4,
+      interactive: true,
+      trackVisibility: true,
+      child: ReorderableListView(
         scrollDirection: Axis.horizontal,
+        scrollController: ScrollController(),
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.zero,
+        buildDefaultDragHandles: false,
+        onReorder: (oldIndex, newIndex) {
+          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+        },
+        proxyDecorator: (child, index, animation) {
+          return SizedBox(
+            width: 150, // Match your tab width
+            child: Material(
+              elevation: 6,
+              color: Colors.transparent,
+              child: child,
+            ),
+          );
+        },
         children: [
           for (int index = 0; index < state.tabs.length; index++)
-            LongPressDraggable(
+            ReorderableDelayedDragStartListener(
               key: ValueKey(state.tabs[index].uri),
-              feedback: Material(
-                child: Tab(
-                  tab: state.tabs[index],
-                  isActive: index == state.currentIndex,
-                  onClose: () {},
-                  onTap: () {},
-                  isDragging: true,
-                ),
-              ),
-              childWhenDragging: Opacity(
-                opacity: 0.5,
-                child: Tab(
-                  tab: state.tabs[index],
-                  isActive: index == state.currentIndex,
-                  onClose: () {},
-                  onTap: () {},
-                ),
-              ),
-              onDragStarted: () => ref.read(reorderProvider.notifier).state = true,
-              onDragEnd: (_) => ref.read(reorderProvider.notifier).state = false,
-              child: GestureDetector(
-                onLongPress: () {}, // Required for drag to work
-                child: Tab(
-                  tab: state.tabs[index],
-                  isActive: index == state.currentIndex,
-                  onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+              index: index,
+              child: SizedBox(
+                width: 150, // Fixed tab width
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-                  isReordering: isReordering,
+                  child: Tab(
+                    tab: state.tabs[index],
+                    isActive: index == state.currentIndex,
+                    onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+                  ),
                 ),
               ),
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
