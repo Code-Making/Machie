@@ -617,13 +617,13 @@ class _TabItem extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             border: Border(right: BorderSide(color: Colors.grey[700]!)),
+            ),
           child: Tab(
             tab: tab,
             isActive: isActive,
             onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
             onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),          ),
         ),
-      ),
       ),
     );
   }
