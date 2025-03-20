@@ -43,6 +43,8 @@ void main() => runApp(
 // --------------------
 //   Providers
 // --------------------
+final reorderProvider = StateProvider<bool>((ref) => false);
+
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
 
 final currentDirectoryProvider = StateProvider<String?>((ref) => null);
@@ -175,7 +177,8 @@ class EditorScreen extends ConsumerWidget {
     final tabState = ref.watch(tabManagerProvider);
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>();
-    
+    final isReordering = ref.watch(reorderProvider);
+
     return Scaffold(
       key: scaffoldKey,
       appBar: AppBar(
@@ -198,7 +201,7 @@ class EditorScreen extends ConsumerWidget {
       drawer: _buildDirectoryDrawer(context, ref, currentDir),
       body: Column(
         children: [
-          _buildTabBar(ref, tabState),
+          _buildTabBar(ref, tabState, isReordering),
           Expanded(
             child: tabState.currentTab != null
                 ? _buildEditor(tabState.currentTab!)
@@ -242,36 +245,50 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-Widget _buildTabBar(WidgetRef ref, TabState state) {
-  return SizedBox(
-    height: 40,
-    child: ReorderableListView(
-      scrollDirection: Axis.horizontal,
-      onReorder: (oldIndex, newIndex) {
-        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-      },
-      proxyDecorator: (child, index, animation) {
-        return Material(
-          color: Colors.transparent,
-          child: child,
-        );
-      },
-      children: [
-        for (int index = 0; index < state.tabs.length; index++)
-          ReorderableDragStartListener(
-            key: ValueKey(state.tabs[index].uri),
-            index: index,
-            child: Tab(
-              tab: state.tabs[index],
-              isActive: index == state.currentIndex,
-              onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-              onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+Widget _buildTabBar(WidgetRef ref, TabState state, bool isReordering) {
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (int index = 0; index < state.tabs.length; index++)
+            LongPressDraggable(
+              key: ValueKey(state.tabs[index].uri),
+              feedback: Material(
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () {},
+                  onTap: () {},
+                  isDragging: true,
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.5,
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () {},
+                  onTap: () {},
+                ),
+              ),
+              onDragStarted: () => ref.read(reorderProvider.notifier).state = true,
+              onDragEnd: (_) => ref.read(reorderProvider.notifier).state = false,
+              child: GestureDetector(
+                onLongPress: () {}, // Required for drag to work
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+                  onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+                  isReordering: isReordering,
+                ),
+              ),
             ),
-          ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
@@ -489,34 +506,44 @@ class Tab extends StatelessWidget {
   final bool isActive;
   final VoidCallback onClose;
   final VoidCallback onTap;
+  final bool isReordering;
+  final bool isDragging;
 
   const Tab({
     required this.tab,
     required this.isActive,
     required this.onClose,
     required this.onTap,
+    this.isReordering = false,
+    this.isDragging = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-         padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-            border: Border(right: BorderSide(color: Colors.grey[700]!)),
-            ),
-          child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: onClose,
-            ),
-            Text(_getFileName(tab.uri)),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+        border: Border(
+          right: BorderSide(color: Colors.grey[700]!),
+          bottom: isActive ? BorderSide(color: Colors.blueAccent, width: 2) : BorderSide.none,
         ),
-      
+        boxShadow: isDragging ? [BoxShadow(color: Colors.black38, blurRadius: 4)] : null,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onClose,
+          ),
+          Text(
+            _getFileName(tab.uri),
+            style: TextStyle(
+              color: isReordering ? Colors.grey : 
+                (tab.isDirty ? Colors.orange : Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
