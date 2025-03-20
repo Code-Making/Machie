@@ -121,12 +121,10 @@ abstract class EditorTab {
 
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
-  bool wordWrap;
 
   CodeEditorTab({
     required super.uri,
     required this.controller,
-    this.wordWrap = false,
     super.isDirty = false,
   });
 
@@ -230,7 +228,6 @@ class EditorContentSwitcher extends StatelessWidget {
       return CodeEditorContent(
         controller: codeTab.controller,
         uri: codeTab.uri,
-        wordWrap: codeTab.wordWrap,
       );
     }
     
