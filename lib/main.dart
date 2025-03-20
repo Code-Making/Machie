@@ -107,16 +107,31 @@ class TabState {
       Object.hash(currentIndex, const ListEquality().hash(tabs));
 }
 
-class EditorTab {
+abstract class EditorTab {
   final String uri;
-  final CodeLineEditingController controller;
   bool isDirty;
 
   EditorTab({
     required this.uri,
-    required this.controller,
     this.isDirty = false,
   });
+
+  void dispose(); // For cleaning up resources
+}
+
+class CodeEditorTab extends EditorTab {
+  final CodeLineEditingController controller;
+  bool wordWrap;
+
+  CodeEditorTab({
+    required super.uri,
+    required this.controller,
+    this.wordWrap = false,
+    super.isDirty = false,
+  });
+
+  @override
+  void dispose() => controller.dispose();
 }
 
 // --------------------
@@ -210,10 +225,16 @@ class EditorContentSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EditorContent.code(
-      controller: tab.controller,
-      uri: tab.uri,
-    );
+    if (tab is CodeEditorTab) {
+      final codeTab = tab as CodeEditorTab;
+      return CodeEditorContent(
+        controller: codeTab.controller,
+        uri: codeTab.uri,
+        wordWrap: codeTab.wordWrap,
+      );
+    }
+    
+    return const Center(child: Text('Unsupported file type'));
   }
 }
 
@@ -389,6 +410,24 @@ class TabManager extends StateNotifier<TabState> {
 
   TabManager({required this.fileHandler}) : super(TabState());
 
+  Future<void> openCodeEditorTab(String uri) async {
+    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
+    if (existingIndex != -1) {
+      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
+      return;
+    }
+
+    final content = await fileHandler.readFile(uri);
+    final controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(content ?? ''),
+    );
+
+    state = TabState(
+      tabs: [...state.tabs, CodeEditorTab(uri: uri, controller: controller)],
+      currentIndex: state.tabs.length,
+    );
+  }
+
   Future<void> openFileTab(String uri) async {
     final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
     if (existingIndex != -1) {
@@ -449,7 +488,7 @@ void reorderTabs(int oldIndex, int newIndex) {
   }
 
   void closeTab(int index) {
-    state.tabs[index].controller.dispose();
+    state.tabs[index].dispose();
     final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
     state = TabState(
       tabs: newTabs,
