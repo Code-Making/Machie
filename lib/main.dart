@@ -348,7 +348,7 @@ class _EditorContentState extends State<_EditorContent> {
         fontFamily: 'JetBrainsMono',
         codeTheme: CodeHighlightTheme(
           theme: atomOneDarkTheme,
-          languages: _getLanguageMode(tab.uri),
+          languages: _getLanguageMode(widget.tab.uri),
         ),
       ),
       wordWrap: widget.tab.wordWrap,
