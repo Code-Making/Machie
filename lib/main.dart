@@ -133,12 +133,7 @@ class TabManager extends StateNotifier<TabState> {
       tabs: state.tabs,
       currentIndex: index.clamp(0, state.tabs.length - 1),
     );
-  }void switchTab(int index) {
-  state = TabState(
-    tabs: state.tabs,
-    currentIndex: index.clamp(0, state.tabs.length - 1),
-  );
-}
+  }
 
   void closeTab(int index) {
     final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
