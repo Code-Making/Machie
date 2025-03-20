@@ -366,8 +366,9 @@ class EditorContentSwitcher extends ConsumerWidget {
       return tab.plugin.buildEditor(tab);
     } catch (e) {
       return ErrorWidget.withDetails(
-        error: 'Failed to load editor: ${e.toString()}',
-      );
+        message: 'Failed to load editor: ${e.toString()}',
+        error: FlutterError(e.toString()),
+       );
     }
   }
 }
