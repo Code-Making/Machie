@@ -245,66 +245,50 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-  Widget _buildTabBar(WidgetRef ref, TabState state) {
+Widget _buildTabBar(WidgetRef ref, TabState state, bool isReordering) {
     return SizedBox(
       height: 40,
-      child: ReorderableListView(
+      child: ListView(
         scrollDirection: Axis.horizontal,
-        onReorder: (oldIndex, newIndex) {
-          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-        },
-        buildDefaultDragHandles: false,
-        proxyDecorator: (child, index, animation) => Material(
-          color: Colors.transparent,
-          child: child,
-        ),
         children: [
           for (int index = 0; index < state.tabs.length; index++)
-            ReorderableDragStartListener(
+            LongPressDraggable(
               key: ValueKey(state.tabs[index].uri),
-              index: index,
-              child: _buildTabItem(ref, state, index),
+              feedback: Material(
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () {},
+                  onTap: () {},
+                  isDragging: true,
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.5,
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () {},
+                  onTap: () {},
+                ),
+              ),
+              onDragStarted: () => ref.read(reorderProvider.notifier).state = true,
+              onDragEnd: (_) => ref.read(reorderProvider.notifier).state = false,
+              child: GestureDetector(
+                onLongPress: () {}, // Required for drag to work
+                child: Tab(
+                  tab: state.tabs[index],
+                  isActive: index == state.currentIndex,
+                  onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+                  onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+                  isReordering: isReordering,
+                ),
+              ),
             ),
         ],
       ),
     );
   }
-  
-  Widget _buildTabItem(WidgetRef ref, TabState state, int index) {
-    final isActive = index == state.currentIndex;
-    return GestureDetector(
-      onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-          border: Border(
-            right: BorderSide(color: Colors.grey[700]!),
-            bottom: isActive 
-                ? BorderSide(color: Colors.blueAccent, width: 2) 
-                : BorderSide.none,
-          ),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-            ),
-            Text(
-              _getFileName(state.tabs[index].uri),
-              style: TextStyle(
-                color: state.tabs[index].isDirty ? Colors.orange : Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getFileName(String uri) => uri.split('/').last;
-
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
