@@ -120,14 +120,11 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabState = ref.watch(tabManagerProvider);
     final currentTab = ref.watch(tabManagerProvider.select(
-    (state) => state.currentTab
-  ));
-  
+      (state) => state.currentTab
+    ));
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>();
-    final isReordering = ref.watch(reorderProvider);
 
     return Scaffold(
       key: scaffoldKey,
@@ -154,9 +151,12 @@ class EditorScreen extends ConsumerWidget {
         _buildTabBar(ref),
         Expanded(
           child: currentTab != null
-              ? _EditorContent(key: ValueKey(currentTab.uri), tab: currentTab)
+              ? _EditorContent(
+                  key: ValueKey(currentTab.uri), // Stable key based on URI
+                  tab: currentTab,
+                )
               : const Center(child: Text('Open file')),
-        ),
+        )
         ],
       ),
     );
