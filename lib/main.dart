@@ -143,8 +143,12 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Text(currentTab?.uri.pathSegments.last ?? 'Code Editor'),
-      ),
+       title: Text(
+          currentTab != null 
+              ? Uri.parse(currentTab!.uri).pathSegments.last 
+              : 'Code Editor'
+          ),            
+        ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
         children: [
@@ -533,7 +537,7 @@ class FileTab extends ConsumerWidget {
     );
   }
 
-  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last;
+  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
 // --------------------
