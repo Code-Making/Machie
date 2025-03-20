@@ -242,7 +242,7 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   bool supportsFile(String uri, {String? mimeType, Uint8List? bytes}) {
-    final ext = uri.split('.').last.toLowerCase();
+    final ext = Uri.parse(uri).pathSegments.last.split('.').last.toLowerCase();
     return const {
       'dart', 'js', 'ts', 'py', 'java', 'kt', 'cpp', 'h', 'cs',
       'html', 'css', 'xml', 'json', 'yaml', 'md', 'txt'
@@ -573,10 +573,9 @@ class TabManager extends StateNotifier<TabState> {
     }
 
     final content = await fileHandler.readFile(uri);
-    final bytes = await fileHandler.readFileBytes(uri);
 
     for (final plugin in plugins) {
-      if (plugin.supportsFile(uri, bytes: bytes)) {
+      if (plugin.supportsFile(uri)) {
         final tab = plugin.createTab(uri);
         _initializeTab(tab, content);
         return _addTab(tab);
