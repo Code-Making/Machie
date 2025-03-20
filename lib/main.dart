@@ -609,18 +609,21 @@ class _TabItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(
-      tabManagerProvider.select((state) => state.currentIndex == index)
-    );
-
     return ReorderableDelayedDragStartListener(
-      key: ValueKey(tab.uri),
+      key: ValueKey(tab.uri), // Essential for ReorderableListView
       index: index,
-      child: Tab(
-        tab: tab,
-        isActive: isActive,
-        onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-        onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+      child: Material( // Add Material layer
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(right: BorderSide(color: Colors.grey[700]!)),
+          child: Tab(
+            tab: tab,
+            isActive: isActive,
+            onClose: () => ref.read(...),
+            onTap: () => ref.read(...),
+          ),
+        ),
       ),
     );
   }
