@@ -623,7 +623,7 @@ class _TabItem extends ConsumerWidget {
             ),
           child: Tab(
             tab: tab,
-            isActive: true,
+            isActive: isActive,
             onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
             onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),          ),
         ),
