@@ -92,6 +92,18 @@ class TabState {
   TabState({this.tabs = const [], this.currentIndex = 0});
 
   EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentIndex] : null;
+  
+    // Add equality checks
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TabState &&
+          currentIndex == other.currentIndex &&
+          const ListEquality().equals(tabs, other.tabs);
+
+  @override
+  int get hashCode => 
+      Object.hash(currentIndex, const ListEquality().hash(tabs));
 }
 
 class EditorTab {
