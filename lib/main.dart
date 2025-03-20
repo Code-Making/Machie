@@ -788,7 +788,7 @@ class _FileOperationsFooter extends ConsumerWidget {
           onPressed: () async {
             final uri = await ref.read(fileHandlerProvider).openFile();
             if (uri != null) {
-              ref.read(tabManagerProvider.notifier).openFileTab(uri);
+              ref.read(tabManagerProvider.notifier).openFile(uri);
             }
           },
         ),
