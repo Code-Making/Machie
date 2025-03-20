@@ -153,6 +153,7 @@ void reorderTabs(int oldIndex, int newIndex) {
   }
 
   void closeTab(int index) {
+    state.tabs[index].controller.dispose();
     final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
     state = TabState(
       tabs: newTabs,
