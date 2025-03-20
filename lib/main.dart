@@ -43,7 +43,6 @@ void main() => runApp(
 // --------------------
 //   Providers
 // --------------------
-final reorderProvider = StateProvider<bool>((ref) => false);
 
 final fileHandlerProvider = Provider<AndroidFileHandler>((ref) => AndroidFileHandler());
 
@@ -171,6 +170,7 @@ class TabManager extends StateNotifier<TabState> {
 // --------------------
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
+final reorderProvider = StateProvider<bool>((ref) => false);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
