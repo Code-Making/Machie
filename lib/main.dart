@@ -209,9 +209,6 @@ Widget _buildTabBar(WidgetRef ref) {
         ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
       },
       buildDefaultDragHandles: false,
-      proxyDecorator: (child, index, animation) => Material(
-        child: child,
-      ),
       children: [
         for (int index = 0; index < tabs.length; index++)
           SizedBox( // Constrain tab width
