@@ -80,10 +80,9 @@ final directoryChildrenProvider = FutureProvider.autoDispose
       return contents;
     });
 
-final tabManagerProvider = StateNotifierProvider<TabManager, TabState>(
-  (ref) => TabManager(),
-);
-
+final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
+  return TabManager(fileHandler: ref.read(fileHandlerProvider));
+});
 // --------------------
 //        States
 // --------------------
@@ -142,8 +141,13 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        title: Text(currentTab?.uri.pathSegments.last ?? 'Code Editor'),
-      ),
+        // In EditorScreen's AppBar
+        title: Text(
+          currentTab != null 
+              ? Uri.parse(currentTab!.uri).pathSegments.last 
+              : 'Code Editor'
+          ),      
+        ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
         children: [
@@ -168,20 +172,17 @@ abstract class EditorContent extends Widget {
   factory EditorContent.code({
     required CodeLineEditingController controller,
     required String uri,
-    bool wordWrap = false,
   }) = CodeEditorContent;
 }
 
 class CodeEditorContent extends StatelessWidget implements EditorContent {
   final CodeLineEditingController controller;
   final String uri;
-  final bool wordWrap;
 
   const CodeEditorContent({
     super.key,
     required this.controller,
     required this.uri,
-    this.wordWrap = false,
   });
 
   @override
@@ -196,7 +197,7 @@ class CodeEditorContent extends StatelessWidget implements EditorContent {
           languages: _getLanguageMode(uri),
         ),
       ),
-      wordWrap: wordWrap,
+      wordWrap: false,
     );
   }
 }
@@ -211,7 +212,6 @@ class EditorContentSwitcher extends StatelessWidget {
     return EditorContent.code(
       controller: tab.controller,
       uri: tab.uri,
-      wordWrap: tab.wordWrap,
     );
   }
 }
@@ -384,37 +384,18 @@ class _DirectoryLoadingTile extends StatelessWidget {
 // --------------------
 
 class TabManager extends StateNotifier<TabState> {
-  TabManager() : super(TabState());
+  final FileHandler fileHandler;
 
-  void addTab(EditorTab tab) {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == tab.uri);
+  TabManager({required this.fileHandler}) : super(TabState());
 
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
-    }
-
-    state = TabState(
-      tabs: [...state.tabs, tab],
-      currentIndex: state.tabs.length,
-    );
-  }
-
-  void switchTab(int index) {
-    state = TabState(
-      tabs: state.tabs,
-      currentIndex: index.clamp(0, state.tabs.length - 1),
-    );
-  }
-  
-void openFileTab(String uri) async {
+  Future<void> openFileTab(String uri) async {
     final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
     if (existingIndex != -1) {
       state = TabState(tabs: state.tabs, currentIndex: existingIndex);
       return;
     }
 
-    final content = await ref.read(fileHandlerProvider).readFile(uri);
+    final content = await fileHandler.readFile(uri);
     final controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(content ?? ''),
     );
@@ -422,35 +403,6 @@ void openFileTab(String uri) async {
     state = TabState(
       tabs: [...state.tabs, EditorTab(uri: uri, controller: controller)],
       currentIndex: state.tabs.length,
-    );
-  }
-
-void reorderTabs(int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(state.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab if it still exists
-    final currentUri = state.currentTab?.uri;
-    final newCurrentIndex = currentUri != null 
-        ? newTabs.indexWhere((t) => t.uri == currentUri)
-        : state.currentIndex;
-
-    state = TabState(
-      tabs: newTabs,
-      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
-  }
-
-  void closeTab(int index) {
-    state.tabs[index].controller.dispose();
-    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
-    state = TabState(
-      tabs: newTabs,
-      currentIndex:
-          state.currentIndex >= index && state.currentIndex > 0
-              ? state.currentIndex - 1
-              : state.currentIndex,
     );
   }
 }
