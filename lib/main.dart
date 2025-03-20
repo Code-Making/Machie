@@ -609,6 +609,9 @@ class _TabItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isActive = ref.watch(
+      tabManagerProvider.select((state) => state.currentIndex == index)
+    );
     return ReorderableDelayedDragStartListener(
       key: ValueKey(tab.uri), // Essential for ReorderableListView
       index: index,
