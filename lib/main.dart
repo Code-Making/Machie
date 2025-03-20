@@ -134,20 +134,17 @@ class EditorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(tabManagerProvider.select((s) => s.currentTab));
     final currentDir = ref.watch(currentDirectoryProvider);
+    final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
     return Scaffold(
+      key: scaffoldKey, // Assign key to Scaffold
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.menu),
-          onPressed: () => Scaffold.of(context).openDrawer(),
+          onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
-        // In EditorScreen's AppBar
-        title: Text(
-          currentTab != null 
-              ? Uri.parse(currentTab!.uri).pathSegments.last 
-              : 'Code Editor'
-          ),      
-        ),
+        title: Text(currentTab?.uri.pathSegments.last ?? 'Code Editor'),
+      ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
         children: [
