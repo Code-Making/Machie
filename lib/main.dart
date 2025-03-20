@@ -478,7 +478,11 @@ class TabBarView extends ConsumerWidget {
             ReorderableDelayedDragStartListener(
               key: ValueKey(tab.uri),
               index: tabs.indexOf(tab),
-              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+              child: FileTab(
+                tab: tab, 
+                index: tabs.indexOf(tab),
+              ),
+            )
         ],
       ),
     );
