@@ -137,15 +137,15 @@ class TabManager extends StateNotifier<TabState> {
     );
   }
   
-void reorderTabs(int oldIndex, int newIndex) {
+  void reorderTabs(int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(state.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
     newTabs.insert(newIndex, movedTab);
 
-    // Preserve current tab identity
-    final currentUri = state.currentTab?.uri;
-    final newCurrentIndex = currentUri != null 
-        ? newTabs.indexWhere((t) => t.uri == currentUri)
+    // Adjust current index after reorder
+    final currentTabUri = state.currentTab?.uri;
+    final newCurrentIndex = currentTabUri != null 
+        ? newTabs.indexWhere((t) => t.uri == currentTabUri)
         : state.currentIndex;
 
     state = TabState(
@@ -245,49 +245,46 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-  Widget _buildTabBar(WidgetRef ref, TabState state) {
-    return SizedBox(
-      height: 40,
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        onReorder: (oldIndex, newIndex) {
-          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
-        },
-        buildDefaultDragHandles: false,
-        children: [
-          for (int index = 0; index < state.tabs.length; index++)
-            ReorderableDelayedDragStartListener(
-              key: ValueKey(state.tabs[index].uri),
-              index: index,
-              child: Tab(
-                tab: state.tabs[index],
-                isActive: index == state.currentIndex,
-                onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-                onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-              ),
+Widget _buildTabBar(WidgetRef ref, TabState state) {
+  return SizedBox(
+    height: 40,
+    child: ReorderableListView(
+      scrollDirection: Axis.horizontal,
+      onReorder: (oldIndex, newIndex) {
+        ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+      },
+      buildDefaultDragHandles: false,
+      children: [
+        for (int index = 0; index < state.tabs.length; index++)
+          ReorderableDelayedDragStartListener(
+            key: ValueKey(state.tabs[index].uri),
+            index: index,
+            child: Tab(
+              tab: state.tabs[index],
+              isActive: index == state.currentIndex,
+              onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+              onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
             ),
-        ],
-      ),
-    );
-  }
-
-Widget _buildEditor(EditorTab tab) {
-    return KeyedSubtree(
-      key: ValueKey(tab.uri),
-      child: CodeEditor(
-        controller: tab.controller,
-        style: CodeEditorStyle(
-          fontSize: 12,
-          fontFamily: 'JetBrainsMono',
-          codeTheme: CodeHighlightTheme(
-            theme: atomOneDarkTheme,
-            languages: _getLanguageMode(tab.uri),
           ),
-        ),
-        wordWrap: tab.wordWrap,
+      ],
+    ),
+  );
+}
+
+  Widget _buildEditor(EditorTab tab) {
+  return CodeEditor(
+    controller: tab.controller,
+    style: CodeEditorStyle(
+      fontSize: 12,
+                      fontFamily: 'JetBrainsMono',
+      codeTheme: CodeHighlightTheme(
+        theme: atomOneDarkTheme,
+        languages: _getLanguageMode(tab.uri),
       ),
-    );
-  }
+    ),
+    wordWrap: tab.wordWrap,
+  );
+}
 
 Future<void> _openFileTab(WidgetRef ref, String uri) async {
   final handler = ref.read(fileHandlerProvider);
