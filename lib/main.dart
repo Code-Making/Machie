@@ -125,7 +125,7 @@ class CodeEditorTab extends EditorTab {
 
   CodeEditorTab({
     required super.uri,
-    reqhured super.plugin,
+    required super.plugin,
     required this.controller,
     super.isDirty = false,
   });
