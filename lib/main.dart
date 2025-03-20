@@ -113,6 +113,7 @@ abstract class EditorTab {
 
   EditorTab({
     required this.uri,
+    required this.plugin,
     this.isDirty = false,
   });
 
@@ -124,6 +125,7 @@ class CodeEditorTab extends EditorTab {
 
   CodeEditorTab({
     required super.uri,
+    reqhured super.plugin,
     required this.controller,
     super.isDirty = false,
   });
@@ -178,6 +180,112 @@ class EditorScreen extends ConsumerWidget {
 }
 
 // --------------------
+//   Plugin Registry
+// --------------------
+
+final pluginRegistryProvider = Provider<Set<EditorPlugin>>((_) => {
+  CodeEditorPlugin(), // Default text editor
+  // Add other plugins here
+});
+
+final activePluginsProvider = StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
+  return PluginManager(ref.read(pluginRegistryProvider));
+});
+
+class PluginManager extends StateNotifier<Set<EditorPlugin>> {
+  PluginManager(Set<EditorPlugin> plugins) : super(plugins);
+
+  void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
+  void unregisterPlugin(EditorPlugin plugin) => state = state.where((p) => p != plugin).toSet();
+}
+
+// --------------------
+//   Editor Plugin
+// --------------------
+
+abstract class EditorPlugin {
+  // Metadata
+  String get name;
+  Widget get icon;
+
+  // File type support
+  bool supportsFile(String uri, {String? mimeType, Uint8List? bytes});
+  
+  // Tab management
+  EditorTab createTab(String uri);
+  Widget buildEditor(EditorTab tab);
+  
+  // Optional lifecycle hooks
+  Future<void> initialize() async {}
+  Future<void> dispose() async {}
+}
+
+class CodeEditorPlugin implements EditorPlugin {
+  @override
+  final name = 'Code Editor';
+  @override
+  final icon = const Icon(Icons.code);
+
+  @override
+  bool supportsFile(String uri, {String? mimeType, Uint8List? bytes}) {
+    final ext = uri.split('.').last.toLowerCase();
+    return const {
+      'dart', 'js', 'ts', 'py', 'java', 'kt', 'cpp', 'h', 'cs',
+      'html', 'css', 'xml', 'json', 'yaml', 'md', 'txt'
+    }.contains(ext);
+  }
+
+  @override
+  EditorTab createTab(String uri) => CodeEditorTab(
+    uri: uri,
+    plugin: this,
+    controller: CodeLineEditingController(),
+  );
+
+  @override
+  Widget buildEditor(EditorTab tab) {
+    final codeTab = tab as CodeEditorTab;
+    return CodeEditor(
+      controller: codeTab.controller,
+      style: _editorStyleFor(codeTab.uri),
+    );
+  }
+}
+
+// --------------------
+//   Plugin Settings Screen
+// --------------------
+
+class PluginSettingsScreen extends ConsumerWidget {
+  const PluginSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plugins = ref.watch(activePluginsProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Plugins')),
+      body: ListView.builder(
+        itemCount: plugins.length,
+        itemBuilder: (_, index) => ListTile(
+          leading: plugins.elementAt(index).icon,
+          title: Text(plugins.elementAt(index).name),
+          trailing: Switch(
+            value: true,
+            onChanged: (v) => _togglePlugin(ref, plugins.elementAt(index), v),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _togglePlugin(WidgetRef ref, EditorPlugin plugin, bool enable) {
+    final manager = ref.read(activePluginsProvider.notifier);
+    enable ? manager.registerPlugin(plugin) : manager.unregisterPlugin(plugin);
+  }
+}
+
+// --------------------
 //   Editor Content
 // --------------------
 abstract class EditorContent extends Widget {
@@ -216,22 +324,37 @@ class CodeEditorContent extends StatelessWidget implements EditorContent {
   }
 }
 
-class EditorContentSwitcher extends StatelessWidget {
+class EditorContentSwitcher extends ConsumerWidget {
   final EditorTab tab;
 
   const EditorContentSwitcher({super.key, required this.tab});
 
   @override
-  Widget build(BuildContext context) {
-    if (tab is CodeEditorTab) {
-      final codeTab = tab as CodeEditorTab;
-      return CodeEditorContent(
-        controller: codeTab.controller,
-        uri: codeTab.uri,
+  Widget build(BuildContext context, WidgetRef ref) {
+    try {
+      return tab.plugin.buildEditor(tab);
+    } catch (e) {
+      return ErrorWidget.withDetails(
+        error: 'Failed to load editor: ${e.toString()}',
+        stackTrace: StackTrace.current,
       );
     }
+  }
+}
+
+class FileTypeIcon extends ConsumerWidget {
+  final String uri;
+
+  const FileTypeIcon({super.key, required this.uri});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plugins = ref.watch(activePluginsProvider);
+    final plugin = plugins.firstWhereOrNull(
+      (p) => p.supportsFile(uri)
+    );
     
-    return const Center(child: Text('Unsupported file type'));
+    return plugin?.icon ?? const Icon(Icons.insert_drive_file);
   }
 }
 
@@ -407,55 +530,32 @@ class TabManager extends StateNotifier<TabState> {
 
   TabManager({required this.fileHandler}) : super(TabState());
 
-  Future<void> openCodeEditorTab(String uri) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
-    }
-
+  Future<void> openFile(String uri) async {
+    final plugins = ref.read(activePluginsProvider);
+    final fileHandler = ref.read(fileHandlerProvider);
+    
     final content = await fileHandler.readFile(uri);
-    final controller = CodeLineEditingController(
-      codeLines: CodeLines.fromText(content ?? ''),
-    );
+    final bytes = await fileHandler.readFileBytes(uri);
 
-    state = TabState(
-      tabs: [...state.tabs, CodeEditorTab(uri: uri, controller: controller)],
-      currentIndex: state.tabs.length,
-    );
+    for (final plugin in plugins) {
+      if (plugin.supportsFile(uri, bytes: bytes)) {
+        final tab = plugin.createTab(uri);
+        _initializeTab(tab, content);
+        return _addTab(tab);
+      }
+    }
+    
+    throw UnsupportedFileType(uri);
   }
 
-  Future<void> openFileTab(String uri) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
+  void _initializeTab(EditorTab tab, String? content) {
+    if (tab is CodeEditorTab) {
+      tab.controller.codeLines = CodeLines.fromText(content ?? '');
     }
-
-    final content = await fileHandler.readFile(uri);
-    final controller = CodeLineEditingController(
-      codeLines: CodeLines.fromText(content ?? ''),
-    );
-
-    state = TabState(
-      // Use CodeEditorTab instead of abstract EditorTab
-      tabs: [...state.tabs, CodeEditorTab(
-        uri: uri,
-        controller: controller,
-      )],
-      currentIndex: state.tabs.length,
-    );
+    // Add other tab type initializations
   }
   
-  // Legacy
-  void addTab(EditorTab tab) {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == tab.uri);
-
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
-    }
-
+  void _addTab(EditorTab tab) {
     state = TabState(
       tabs: [...state.tabs, tab],
       currentIndex: state.tabs.length,
