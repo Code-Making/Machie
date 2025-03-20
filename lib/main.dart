@@ -438,7 +438,11 @@ class TabManager extends StateNotifier<TabState> {
     );
 
     state = TabState(
-      tabs: [...state.tabs, EditorTab(uri: uri, controller: controller)],
+      // Use CodeEditorTab instead of abstract EditorTab
+      tabs: [...state.tabs, CodeEditorTab(
+        uri: uri,
+        controller: controller,
+      )],
       currentIndex: state.tabs.length,
     );
   }
