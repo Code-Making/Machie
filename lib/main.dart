@@ -262,7 +262,7 @@ class EditorScreen extends ConsumerWidget {
         },
         children: [
           for (int index = 0; index < state.tabs.length; index++)
-            ReorderableDragStartListener(
+            ReorderableDelayedDragStartListener(
               key: ValueKey(state.tabs[index].uri),
               index: index,
               child: GestureDetector(
