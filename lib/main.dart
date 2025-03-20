@@ -304,7 +304,7 @@ class EditorScreen extends ConsumerWidget {
   }
 
   String _getFileName(String uri) => uri.split('/').last;
-}
+
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
