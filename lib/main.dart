@@ -425,7 +425,7 @@ class TabManager extends StateNotifier<TabState> {
     );
   }
 
-  /*Future<void> openFileTab(String uri) async {
+  Future<void> openFileTab(String uri) async {
     final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
     if (existingIndex != -1) {
       state = TabState(tabs: state.tabs, currentIndex: existingIndex);
@@ -441,7 +441,7 @@ class TabManager extends StateNotifier<TabState> {
       tabs: [...state.tabs, EditorTab(uri: uri, controller: controller)],
       currentIndex: state.tabs.length,
     );
-  }*/
+  }
   
   // Legacy
   void addTab(EditorTab tab) {
