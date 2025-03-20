@@ -177,7 +177,6 @@ class EditorScreen extends ConsumerWidget {
     final tabState = ref.watch(tabManagerProvider);
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>();
-    final isReordering = ref.watch(reorderProvider);
 
     return Scaffold(
       key: scaffoldKey,
@@ -201,7 +200,7 @@ class EditorScreen extends ConsumerWidget {
       drawer: _buildDirectoryDrawer(context, ref, currentDir),
       body: Column(
         children: [
-          _buildTabBar(ref, tabState, isReordering),
+          _buildTabBar(ref, tabState),
           Expanded(
             child: tabState.currentTab != null
                 ? _buildEditor(tabState.currentTab!)
@@ -245,43 +244,33 @@ class EditorScreen extends ConsumerWidget {
 
 
 
-Widget _buildTabBar(WidgetRef ref, TabState state, bool isReordering) {
+  Widget _buildTabBar(WidgetRef ref, TabState state) {
     return SizedBox(
       height: 40,
-      child: ListView(
+      child: ReorderableListView(
         scrollDirection: Axis.horizontal,
+        onReorder: (oldIndex, newIndex) {
+          ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
+        },
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, index, animation) {
+          return Material(
+            color: Colors.transparent,
+            elevation: 6,
+            child: child,
+          );
+        },
         children: [
           for (int index = 0; index < state.tabs.length; index++)
-            LongPressDraggable(
+            ReorderableDragStartListener(
               key: ValueKey(state.tabs[index].uri),
-              feedback: Material(
-                child: Tab(
-                  tab: state.tabs[index],
-                  isActive: index == state.currentIndex,
-                  onClose: () {},
-                  onTap: () {},
-                  isDragging: true,
-                ),
-              ),
-              childWhenDragging: Opacity(
-                opacity: 0.5,
-                child: Tab(
-                  tab: state.tabs[index],
-                  isActive: index == state.currentIndex,
-                  onClose: () {},
-                  onTap: () {},
-                ),
-              ),
-              onDragStarted: () => ref.read(reorderProvider.notifier).state = true,
-              onDragEnd: (_) => ref.read(reorderProvider.notifier).state = false,
+              index: index,
               child: GestureDetector(
-                onLongPress: () {}, // Required for drag to work
+                onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
                 child: Tab(
                   tab: state.tabs[index],
                   isActive: index == state.currentIndex,
                   onClose: () => ref.read(tabManagerProvider.notifier).closeTab(index),
-                  onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
-                  isReordering: isReordering,
                 ),
               ),
             ),
@@ -289,6 +278,7 @@ Widget _buildTabBar(WidgetRef ref, TabState state, bool isReordering) {
       ),
     );
   }
+
 
   Widget _buildEditor(EditorTab tab) {
   return CodeEditor(
@@ -505,17 +495,11 @@ class Tab extends StatelessWidget {
   final EditorTab tab;
   final bool isActive;
   final VoidCallback onClose;
-  final VoidCallback onTap;
-  final bool isReordering;
-  final bool isDragging;
 
   const Tab({
     required this.tab,
     required this.isActive,
     required this.onClose,
-    required this.onTap,
-    this.isReordering = false,
-    this.isDragging = false,
   });
 
   @override
@@ -526,9 +510,10 @@ class Tab extends StatelessWidget {
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         border: Border(
           right: BorderSide(color: Colors.grey[700]!),
-          bottom: isActive ? BorderSide(color: Colors.blueAccent, width: 2) : BorderSide.none,
+          bottom: isActive 
+              ? BorderSide(color: Colors.blueAccent, width: 2)
+              : BorderSide.none,
         ),
-        boxShadow: isDragging ? [BoxShadow(color: Colors.black38, blurRadius: 4)] : null,
       ),
       child: Row(
         children: [
@@ -539,8 +524,7 @@ class Tab extends StatelessWidget {
           Text(
             _getFileName(tab.uri),
             style: TextStyle(
-              color: isReordering ? Colors.grey : 
-                (tab.isDirty ? Colors.orange : Colors.white),
+              color: tab.isDirty ? Colors.orange : Colors.white,
             ),
           ),
         ],
