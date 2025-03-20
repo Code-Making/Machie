@@ -405,6 +405,59 @@ class TabManager extends StateNotifier<TabState> {
       currentIndex: state.tabs.length,
     );
   }
+  
+  // Legacy
+  void addTab(EditorTab tab) {
+    final existingIndex = state.tabs.indexWhere((t) => t.uri == tab.uri);
+
+    if (existingIndex != -1) {
+      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
+      return;
+    }
+
+    state = TabState(
+      tabs: [...state.tabs, tab],
+      currentIndex: state.tabs.length,
+    );
+  }
+
+  void switchTab(int index) {
+    state = TabState(
+      tabs: state.tabs,
+      currentIndex: index.clamp(0, state.tabs.length - 1),
+    );
+  }
+  
+
+
+void reorderTabs(int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(state.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Preserve current tab if it still exists
+    final currentUri = state.currentTab?.uri;
+    final newCurrentIndex = currentUri != null 
+        ? newTabs.indexWhere((t) => t.uri == currentUri)
+        : state.currentIndex;
+
+    state = TabState(
+      tabs: newTabs,
+      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
+  }
+
+  void closeTab(int index) {
+    state.tabs[index].controller.dispose();
+    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
+    state = TabState(
+      tabs: newTabs,
+      currentIndex:
+          state.currentIndex >= index && state.currentIndex > 0
+              ? state.currentIndex - 1
+              : state.currentIndex,
+    );
+  }
 }
 
 // --------------------
@@ -514,6 +567,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                 ? const Center(child: Text('No folder open'))
                 : _DirectoryView(
                     uri: currentDir!,
+                    // In FileExplorerDrawer
                     onOpenFile: (uri) {
                       Navigator.of(context).pop();
                       ref.read(tabManagerProvider.notifier).openFileTab(uri);
@@ -535,29 +589,25 @@ class _FileOperationsFooter extends ConsumerWidget {
       children: [
         FilledButton(
           child: const Text('Open Folder'),
-          onPressed: () => ref.read(fileHandlerProvider).openFolder(),
+          onPressed: () async {
+            final uri = await ref.read(fileHandlerProvider).openFolder();
+            if (uri != null) {
+              ref.read(rootUriProvider.notifier).state = uri;
+              ref.read(currentDirectoryProvider.notifier).state = uri;
+            }
+          },
         ),
         FilledButton(
           child: const Text('Open File'),
-          onPressed: () => ref.read(fileHandlerProvider).openFile(),
+          onPressed: () async {
+            final uri = await ref.read(fileHandlerProvider).openFile();
+            if (uri != null) {
+              ref.read(tabManagerProvider.notifier).openFileTab(uri);
+            }
+          },
         ),
       ],
     );
-  }
-  
-  Future<void> _openFile(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFile();
-    if (uri != null) _openFileTab(ref, uri);
-  }
-
-  Future<void> _openFolder(WidgetRef ref) async {
-    final handler = ref.read(fileHandlerProvider);
-    final uri = await handler.openFolder();
-    if (uri != null) {
-      ref.read(rootUriProvider.notifier).state = uri;
-      ref.read(currentDirectoryProvider.notifier).state = uri;
-    }
   }
 }
 
