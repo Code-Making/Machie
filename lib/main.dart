@@ -81,7 +81,10 @@ final directoryChildrenProvider = FutureProvider.autoDispose
     });
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
-  return TabManager(fileHandler: ref.read(fileHandlerProvider));
+  return TabManager(
+    fileHandler: ref.read(fileHandlerProvider),
+    plugins: ref.read(activePluginsProvider),
+  );
 });
 // --------------------
 //        States
@@ -109,6 +112,7 @@ class TabState {
 
 abstract class EditorTab {
   final String uri;
+  final EditorPlugin plugin;
   bool isDirty;
 
   EditorTab({
@@ -117,7 +121,7 @@ abstract class EditorTab {
     this.isDirty = false,
   });
 
-  void dispose(); // For cleaning up resources
+  void dispose();
 }
 
 class CodeEditorTab extends EditorTab {
@@ -125,9 +129,8 @@ class CodeEditorTab extends EditorTab {
 
   CodeEditorTab({
     required super.uri,
-    required super.plugin,
     required this.controller,
-    super.isDirty = false,
+    required super.plugin,
   });
 
   @override
@@ -222,9 +225,20 @@ abstract class EditorPlugin {
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
-  final name = 'Code Editor';
+  String get name => 'Code Editor';
+  
   @override
-  final icon = const Icon(Icons.code);
+  Widget get icon => const Icon(Icons.code);
+
+  @override
+  Future<void> initialize() async {
+    // Initialization logic here
+  }
+
+  @override
+  Future<void> dispose() async {
+    // Cleanup logic here
+  }
 
   @override
   bool supportsFile(String uri, {String? mimeType, Uint8List? bytes}) {
@@ -249,6 +263,23 @@ class CodeEditorPlugin implements EditorPlugin {
       controller: codeTab.controller,
       style: _editorStyleFor(codeTab.uri),
     );
+  }
+
+  // 4. Add missing style method
+  CodeEditorStyle _editorStyleFor(String uri) {
+    return CodeEditorStyle(
+      fontSize: 12,
+      fontFamily: 'JetBrainsMono',
+      codeTheme: CodeHighlightTheme(
+        theme: atomOneDarkTheme,
+        languages: _getLanguageMode(uri),
+      ),
+    );
+  }
+
+  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+    return {'dart': CodeHighlightThemeMode(mode: langDart)};
   }
 }
 
@@ -336,7 +367,6 @@ class EditorContentSwitcher extends ConsumerWidget {
     } catch (e) {
       return ErrorWidget.withDetails(
         error: 'Failed to load editor: ${e.toString()}',
-        stackTrace: StackTrace.current,
       );
     }
   }
@@ -526,14 +556,21 @@ class _DirectoryLoadingTile extends StatelessWidget {
 // --------------------
 
 class TabManager extends StateNotifier<TabState> {
-  final AndroidFileHandler fileHandler;
+    final FileHandler fileHandler;
+    final Set<EditorPlugin> plugins;
 
-  TabManager({required this.fileHandler}) : super(TabState());
+  TabManager({
+    required this.fileHandler,
+    required this.plugins,
+  }) : super(TabState());
 
   Future<void> openFile(String uri) async {
-    final plugins = ref.read(activePluginsProvider);
-    final fileHandler = ref.read(fileHandlerProvider);
-    
+    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
+    if (existingIndex != -1) {
+      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
+      return;
+    }
+
     final content = await fileHandler.readFile(uri);
     final bytes = await fileHandler.readFileBytes(uri);
 
@@ -552,9 +589,8 @@ class TabManager extends StateNotifier<TabState> {
     if (tab is CodeEditorTab) {
       tab.controller.codeLines = CodeLines.fromText(content ?? '');
     }
-    // Add other tab type initializations
   }
-  
+
   void _addTab(EditorTab tab) {
     state = TabState(
       tabs: [...state.tabs, tab],
@@ -683,6 +719,15 @@ class FileTab extends ConsumerWidget {
 // --------------------
 //    File Explorer
 // --------------------
+
+class UnsupportedFileType implements Exception {
+  final String uri;
+  UnsupportedFileType(this.uri);
+  
+  @override
+  String toString() => 'Unsupported file type: $uri';
+}
+
 class FileExplorerDrawer extends ConsumerWidget {
   final String? currentDir;
   
