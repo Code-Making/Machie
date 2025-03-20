@@ -548,7 +548,7 @@ class Tab extends StatelessWidget {
     );
   }
 
-  String _getFileName(String uri) => uri.split('/').last;
+  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;;
 }
 
 
