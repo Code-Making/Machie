@@ -188,7 +188,7 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Text(Uri.parse(currentTab != null ? currentTab!.uri) : 'Code Editor'),
+        title: Text(currentTab != null ? Uri.parse(currentTab!.uri) : 'Code Editor'),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
