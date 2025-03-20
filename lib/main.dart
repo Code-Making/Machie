@@ -201,7 +201,8 @@ class EditorScreen extends ConsumerWidget {
 Widget _buildTabBar(WidgetRef ref) {
   final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
   
-  return SizedBox(
+  return Container(
+    color: Colors.grey[900],
     height: 40,
     child: ReorderableListView(
       scrollDirection: Axis.horizontal,
@@ -209,13 +210,28 @@ Widget _buildTabBar(WidgetRef ref) {
         ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex);
       },
       buildDefaultDragHandles: false,
+      // 1. Add proxy decorator for visual feedback
+      proxyDecorator: (child, index, animation) => Material(
+        elevation: 4,
+        child: child,
+      ),
       children: [
-        for (int index = 0; index < tabs.length; index++)
-          SizedBox( // Constrain tab width
-            width: 180,
-            child: _TabItem(
-              index: index,
-              tab: tabs[index],
+        for (final tab in tabs)
+          // 2. Use ValueKey with unique identifier
+          ReorderableDelayedDragStartListener(
+            key: ValueKey(tab.uri), // Unique key
+            index: tabs.indexOf(tab),
+            child: ConstrainedBox(
+              // 3. Use constraints instead of fixed size
+              constraints: const BoxConstraints(
+                minWidth: 120,
+                maxWidth: 200,
+                minHeight: 40,
+              ),
+              child: _TabItem(
+                index: tabs.indexOf(tab),
+                tab: tab,
+              ),
             ),
           ),
       ],
