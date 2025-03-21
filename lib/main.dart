@@ -317,17 +317,6 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // 4. Add missing style method
-  CodeEditorStyle _editorStyleFor(String uri) {
-    return CodeEditorStyle(
-      fontSize: 12,
-      fontFamily: 'JetBrainsMono',
-      codeTheme: CodeHighlightTheme(
-        theme: atomOneDarkTheme,
-        languages: _getLanguageMode(uri),
-      ),
-    );
-  }
 
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
