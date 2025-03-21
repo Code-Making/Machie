@@ -36,15 +36,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  final settingsNotifier = SettingsNotifier();
-  await settingsNotifier.loadSettings();
+  final pluginRegistry = {CodeEditorPlugin()};
 
   runApp(
     ProviderScope(
       overrides: [
-        settingsProvider.overrideWith((ref) => settingsNotifier),
-      ],
+        pluginRegistryProvider.overrideWithValue(pluginRegistry),
+        activePluginsProvider.overrideWith((ref) => PluginManager(pluginRegistry)),
+        ],
     child: MaterialApp(theme: ThemeData.dark(), home: const EditorScreen()),
     ),
   );
