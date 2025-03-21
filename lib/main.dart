@@ -302,6 +302,7 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditor(
       controller: codeTab.controller,
       style: _editorStyleFor(codeTab.uri),
+      wordWrap: false,
     );
   }
 
