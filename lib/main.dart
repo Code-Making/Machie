@@ -734,29 +734,36 @@ class FileExplorerDrawer extends ConsumerWidget {
     return Drawer(
       child: Column(
         children: [
+          // Header with title and close
           AppBar(
             title: const Text('File Explorer'),
             automaticallyImplyLeading: false,
             actions: [
               IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.pop(context),
               ),
             ],
           ),
+          
+          // File operations header
+          _FileOperationsHeader(),
+          
+          // Directory tree
           Expanded(
             child: currentDir == null
                 ? const Center(child: Text('No folder open'))
                 : _DirectoryView(
                     uri: currentDir!,
-                    // In FileExplorerDrawer
                     onOpenFile: (uri) {
-                      Navigator.of(context).pop();
+                      Navigator.pop(context);
                       ref.read(tabManagerProvider.notifier).openFile(uri);
                     },
                     isRoot: true,
                   ),
           ),
+          
+          // Footer for additional operations
           _FileOperationsFooter(),
         ],
       ),
@@ -764,31 +771,61 @@ class FileExplorerDrawer extends ConsumerWidget {
   }
 }
 
-class _FileOperationsFooter extends ConsumerWidget {
+class _FileOperationsHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ButtonBar(
-      children: [
-        FilledButton(
-          child: const Text('Open Folder'),
-          onPressed: () async {
-            final uri = await ref.read(fileHandlerProvider).openFolder();
-            if (uri != null) {
-              ref.read(rootUriProvider.notifier).state = uri;
-              ref.read(currentDirectoryProvider.notifier).state = uri;
-            }
-          },
-        ),
-        FilledButton(
-          child: const Text('Open File'),
-          onPressed: () async {
-            final uri = await ref.read(fileHandlerProvider).openFile();
-            if (uri != null) {
-              ref.read(tabManagerProvider.notifier).openFile(uri);
-            }
-          },
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: ButtonBar(
+        alignment: MainAxisAlignment.center,
+        children: [
+          FilledButton.icon(
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Open Folder'),
+            onPressed: () async {
+              final uri = await ref.read(fileHandlerProvider).openFolder();
+              if (uri != null) {
+                ref.read(rootUriProvider.notifier).state = uri;
+                ref.read(currentDirectoryProvider.notifier).state = uri;
+                Navigator.pop(context);
+              }
+            },
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.file_open),
+            label: const Text('Open File'),
+            onPressed: () async {
+              final uri = await ref.read(fileHandlerProvider).openFile();
+              if (uri != null) {
+                ref.read(tabManagerProvider.notifier).openFile(uri);
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FileOperationsFooter extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(8.0),
+      child: ButtonBar(
+        children: [
+          /* Add other operations here like:
+          TextButton(
+            child: Text('New Folder'),
+            onPressed: () {},
+          ),
+          TextButton(
+            child: Text('Upload File'),
+            onPressed: () {},
+          ),*/
+        ],
+      ),
     );
   }
 }
