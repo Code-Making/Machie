@@ -393,6 +393,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
             DropdownMenuItem(value: 'SourceCodePro', child: Text('Source Code Pro')),
           ],
           onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
+          ),
       ],
     );
   }
