@@ -751,6 +751,7 @@ class FileExplorerDrawer extends ConsumerWidget {
           
           // Directory tree
           Expanded(
+            shrinkWrap: true,
             child: currentDir == null
                 ? const Center(child: Text('No folder open'))
                 : _DirectoryView(
