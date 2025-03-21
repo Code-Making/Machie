@@ -378,6 +378,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
           title: const Text('Word Wrap'),
           value: _currentSettings.wordWrap,
           onChanged: (value) => _updateSettings(_currentSettings.copyWith(wordWrap: value)),
+          ),
         Slider(
           value: _currentSettings.fontSize,
           min: 8,
@@ -385,6 +386,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
           divisions: 16,
           label: 'Font Size: ${_currentSettings.fontSize.round()}',
           onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontSize: value)),
+          ),
         DropdownButtonFormField<String>(
           value: _currentSettings.fontFamily,
           items: const [
