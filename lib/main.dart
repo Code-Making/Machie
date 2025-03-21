@@ -36,17 +36,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final pluginRegistry = {CodeEditorPlugin()};
 
   runApp(
     ProviderScope(
       child: MaterialApp(
-        theme: ThemeData.dark(), 
+        theme: ThemeData.dark(),
         home: const EditorScreen(),
-        routes: {
-          '/settings': (_) => const SettingsScreen(),
-        },
+        routes: {'/settings': (_) => const SettingsScreen()},
       ),
     ),
   );
@@ -100,6 +98,7 @@ final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
     plugins: ref.read(activePluginsProvider),
   );
 });
+
 // --------------------
 //        States
 // --------------------
@@ -110,8 +109,8 @@ class TabState {
   TabState({this.tabs = const [], this.currentIndex = 0});
 
   EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentIndex] : null;
-  
-    // Add equality checks
+
+  // Add equality checks
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -120,7 +119,7 @@ class TabState {
           const ListEquality().equals(tabs, other.tabs);
 
   @override
-  int get hashCode => 
+  int get hashCode =>
       Object.hash(currentIndex, const ListEquality().hash(tabs));
 }
 
@@ -129,11 +128,7 @@ abstract class EditorTab {
   final EditorPlugin plugin;
   bool isDirty;
 
-  EditorTab({
-    required this.uri,
-    required this.plugin,
-    this.isDirty = false,
-  });
+  EditorTab({required this.uri, required this.plugin, this.isDirty = false});
 
   void dispose();
 }
@@ -164,7 +159,9 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(tabManagerProvider.select((s) => s.currentTab));
+    final currentTab = ref.watch(
+      tabManagerProvider.select((s) => s.currentTab),
+    );
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
@@ -175,27 +172,28 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
-          actions: [
-// In EditorScreen's AppBar
-IconButton(
-  icon: const Icon(Icons.settings),
-  onPressed: () => Navigator.pushNamed(context, '/settings'),
-)
-  ],
-       title: Text(
-          currentTab != null 
+        actions: [
+          // In EditorScreen's AppBar
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+          ),
+        ],
+        title: Text(
+          currentTab != null
               ? Uri.parse(currentTab!.uri).pathSegments.last.split(':').last
-              : 'Code Editor'
-          ),            
+              : 'Code Editor',
         ),
+      ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
         children: [
           const TabBarView(),
           Expanded(
-            child: currentTab != null
-                ? EditorContentSwitcher(tab: currentTab)
-                : const Center(child: Text('Open file')),
+            child:
+                currentTab != null
+                    ? EditorContentSwitcher(tab: currentTab)
+                    : const Center(child: Text('Open file')),
           ),
         ],
       ),
@@ -207,20 +205,24 @@ IconButton(
 //   Plugin Registry
 // --------------------
 
-final pluginRegistryProvider = Provider<Set<EditorPlugin>>((_) => {
-  CodeEditorPlugin(), // Default text editor
-  // Add other plugins here
-});
+final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
+  (_) => {
+    CodeEditorPlugin(), // Default text editor
+    // Add other plugins here
+  },
+);
 
-final activePluginsProvider = StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-  return PluginManager(ref.read(pluginRegistryProvider));
-});
+final activePluginsProvider =
+    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
+      return PluginManager(ref.read(pluginRegistryProvider));
+    });
 
 class PluginManager extends StateNotifier<Set<EditorPlugin>> {
   PluginManager(Set<EditorPlugin> plugins) : super(plugins);
 
   void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
-  void unregisterPlugin(EditorPlugin plugin) => state = state.where((p) => p != plugin).toSet();
+  void unregisterPlugin(EditorPlugin plugin) =>
+      state = state.where((p) => p != plugin).toSet();
 }
 
 // --------------------
@@ -234,14 +236,14 @@ abstract class EditorPlugin {
 
   // File type support
   bool supportsFile(String uri, {String? mimeType, Uint8List? bytes});
-  
+
   // Tab management
   EditorTab createTab(String uri);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
-  
+
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
-  
+
   // Optional lifecycle hooks
   Future<void> initializeTab(EditorTab tab, String? content);
   Future<void> dispose() async {}
@@ -254,10 +256,9 @@ abstract class EditorPlugin {
 class CodeEditorPlugin implements EditorPlugin {
   @override
   String get name => 'Code Editor';
-  
+
   @override
   Widget get icon => const Icon(Icons.code);
-
 
   @override
   final PluginSettings? settings = CodeEditorSettings();
@@ -284,8 +285,22 @@ class CodeEditorPlugin implements EditorPlugin {
   bool supportsFile(String uri, {String? mimeType, Uint8List? bytes}) {
     final ext = Uri.parse(uri).pathSegments.last.split('.').last.toLowerCase();
     return const {
-      'dart', 'js', 'ts', 'py', 'java', 'kt', 'cpp', 'h', 'cs',
-      'html', 'css', 'xml', 'json', 'yaml', 'md', 'txt'
+      'dart',
+      'js',
+      'ts',
+      'py',
+      'java',
+      'kt',
+      'cpp',
+      'h',
+      'cs',
+      'html',
+      'css',
+      'xml',
+      'json',
+      'yaml',
+      'md',
+      'txt',
     }.contains(ext);
   }
 
@@ -299,24 +314,25 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    final settings = ref.watch(settingsProvider
-      .select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
+    final settings = ref.watch(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
 
-    
     return CodeEditor(
       controller: codeTab.controller,
       style: CodeEditorStyle(
-      fontSize: settings?.fontSize ?? 12,
-      fontFamily: settings?.fontFamily ?? "JetBrainsMono",
-      codeTheme: CodeHighlightTheme(
-        theme: atomOneDarkTheme,
-        languages: _getLanguageMode(codeTab.uri),
+        fontSize: settings?.fontSize ?? 12,
+        fontFamily: settings?.fontFamily ?? "JetBrainsMono",
+        codeTheme: CodeHighlightTheme(
+          theme: atomOneDarkTheme,
+          languages: _getLanguageMode(codeTab.uri),
+        ),
       ),
-    ),
       wordWrap: settings?.wordWrap ?? false,
     );
   }
-
 
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
@@ -351,8 +367,8 @@ class CodeEditorSettings extends PluginSettings {
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
   }
-  
-    CodeEditorSettings copyWith({
+
+  CodeEditorSettings copyWith({
     bool? wordWrap,
     double? fontSize,
     String? fontFamily,
@@ -390,36 +406,46 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
         SwitchListTile(
           title: const Text('Word Wrap'),
           value: _currentSettings.wordWrap,
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(wordWrap: value)),
-          ),
+          onChanged:
+              (value) =>
+                  _updateSettings(_currentSettings.copyWith(wordWrap: value)),
+        ),
         Slider(
           value: _currentSettings.fontSize,
           min: 8,
           max: 24,
           divisions: 16,
           label: 'Font Size: ${_currentSettings.fontSize.round()}',
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontSize: value)),
-          ),
+          onChanged:
+              (value) =>
+                  _updateSettings(_currentSettings.copyWith(fontSize: value)),
+        ),
         DropdownButtonFormField<String>(
           value: _currentSettings.fontFamily,
           items: const [
-            DropdownMenuItem(value: 'JetBrainsMono', child: Text('JetBrains Mono')),
+            DropdownMenuItem(
+              value: 'JetBrainsMono',
+              child: Text('JetBrains Mono'),
+            ),
             DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
-           // DropdownMenuItem(value: 'SourceSans3', child: Text('Source Sans')),
+            // DropdownMenuItem(value: 'SourceSans3', child: Text('Source Sans')),
             DropdownMenuItem(value: 'RobotoMono', child: Text('Roboto Mono')),
           ],
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
-          ),
+          onChanged:
+              (value) =>
+                  _updateSettings(_currentSettings.copyWith(fontFamily: value)),
+        ),
       ],
     );
   }
 
-// In _CodeEditorSettingsUIState
-void _updateSettings(CodeEditorSettings newSettings) {
-  setState(() => _currentSettings = newSettings);
-  ProviderScope.containerOf(context).read(settingsProvider.notifier)
-    .updatePluginSettings(newSettings);
-}
+  // In _CodeEditorSettingsUIState
+  void _updateSettings(CodeEditorSettings newSettings) {
+    setState(() => _currentSettings = newSettings);
+    ProviderScope.containerOf(
+      context,
+    ).read(settingsProvider.notifier).updatePluginSettings(newSettings);
+  }
 }
 
 // --------------------
@@ -436,17 +462,24 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: plugins.isEmpty
-          ? const Center(child: Text('No plugins available'))
-          : ListView(
-              children: plugins
-                  .where((p) => p.settings != null)
-                  .map((plugin) => _PluginSettingsCard(
-                    plugin: plugin,
-                    settings: settings.pluginSettings[plugin.settings.runtimeType]!,
-                  ))
-                  .toList(),
-            ),
+      body:
+          plugins.isEmpty
+              ? const Center(child: Text('No plugins available'))
+              : ListView(
+                children:
+                    plugins
+                        .where((p) => p.settings != null)
+                        .map(
+                          (plugin) => _PluginSettingsCard(
+                            plugin: plugin,
+                            settings:
+                                settings.pluginSettings[plugin
+                                    .settings
+                                    .runtimeType]!,
+                          ),
+                        )
+                        .toList(),
+              ),
     );
   }
 }
@@ -462,14 +495,16 @@ class PluginSettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Plugins')),
       body: ListView.builder(
         itemCount: plugins.length,
-        itemBuilder: (_, index) => ListTile(
-          leading: plugins.elementAt(index).icon,
-          title: Text(plugins.elementAt(index).name),
-          trailing: Switch(
-            value: true,
-            onChanged: (v) => _togglePlugin(ref, plugins.elementAt(index), v),
-          ),
-        ),
+        itemBuilder:
+            (_, index) => ListTile(
+              leading: plugins.elementAt(index).icon,
+              title: Text(plugins.elementAt(index).name),
+              trailing: Switch(
+                value: true,
+                onChanged:
+                    (v) => _togglePlugin(ref, plugins.elementAt(index), v),
+              ),
+            ),
       ),
     );
   }
@@ -484,10 +519,7 @@ class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
   final PluginSettings settings;
 
-  const _PluginSettingsCard({
-    required this.plugin,
-    required this.settings,
-  });
+  const _PluginSettingsCard({required this.plugin, required this.settings});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -577,7 +609,7 @@ class EditorContentSwitcher extends ConsumerWidget {
       return ErrorWidget.withDetails(
         message: 'Failed to load editor: ${e.toString()}',
         error: FlutterError(e.toString()),
-       );
+      );
     }
   }
 }
@@ -590,10 +622,8 @@ class FileTypeIcon extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
-    final plugin = plugins.firstWhereOrNull(
-      (p) => p.supportsFile(uri)
-    );
-    
+    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(uri));
+
     return plugin?.icon ?? const Icon(Icons.insert_drive_file);
   }
 }
@@ -631,21 +661,20 @@ class _DirectoryView extends ConsumerWidget {
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
       itemCount: contents.length,
-      itemBuilder: (context, index) => _DirectoryItem(
-        item: contents[index],
-        onOpenFile: onOpenFile,
-        depth: depth,
-        isRoot: isRoot,
-      ),
+      itemBuilder:
+          (context, index) => _DirectoryItem(
+            item: contents[index],
+            onOpenFile: onOpenFile,
+            depth: depth,
+            isRoot: isRoot,
+          ),
     );
   }
 
   Widget _buildLoadingState() {
     return ListView(
       shrinkWrap: true,
-      children: [
-        _DirectoryLoadingTile(depth: depth),
-      ],
+      children: [_DirectoryLoadingTile(depth: depth)],
     );
   }
 
@@ -780,13 +809,11 @@ class _DirectoryLoadingTile extends StatelessWidget {
 // --------------------
 
 class TabManager extends StateNotifier<TabState> {
-    final AndroidFileHandler fileHandler;
-    final Set<EditorPlugin> plugins;
+  final AndroidFileHandler fileHandler;
+  final Set<EditorPlugin> plugins;
 
-  TabManager({
-    required this.fileHandler,
-    required this.plugins,
-  }) : super(TabState());
+  TabManager({required this.fileHandler, required this.plugins})
+    : super(TabState());
 
   Future<void> openFile(String uri) async {
     final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
@@ -804,7 +831,7 @@ class TabManager extends StateNotifier<TabState> {
         return _addTab(tab);
       }
     }
-    
+
     throw UnsupportedFileType(uri);
   }
 
@@ -821,19 +848,18 @@ class TabManager extends StateNotifier<TabState> {
       currentIndex: index.clamp(0, state.tabs.length - 1),
     );
   }
-  
 
-
-void reorderTabs(int oldIndex, int newIndex) {
+  void reorderTabs(int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(state.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
     newTabs.insert(newIndex, movedTab);
 
     // Preserve current tab if it still exists
     final currentUri = state.currentTab?.uri;
-    final newCurrentIndex = currentUri != null 
-        ? newTabs.indexWhere((t) => t.uri == currentUri)
-        : state.currentIndex;
+    final newCurrentIndex =
+        currentUri != null
+            ? newTabs.indexWhere((t) => t.uri == currentUri)
+            : state.currentIndex;
 
     state = TabState(
       tabs: newTabs,
@@ -863,25 +889,24 @@ class TabBarView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
-    
+
     return Container(
       color: Colors.grey[900],
       height: 40,
       child: ReorderableListView(
         scrollDirection: Axis.horizontal,
-        onReorder: (oldIndex, newIndex) =>
-            ref.read(tabManagerProvider.notifier).reorderTabs(oldIndex, newIndex),
+        onReorder:
+            (oldIndex, newIndex) => ref
+                .read(tabManagerProvider.notifier)
+                .reorderTabs(oldIndex, newIndex),
         buildDefaultDragHandles: false,
         children: [
           for (final tab in tabs)
             ReorderableDelayedDragStartListener(
               key: ValueKey(tab.uri),
               index: tabs.indexOf(tab),
-              child: FileTab(
-                tab: tab, 
-                index: tabs.indexOf(tab),
-              ),
-            )
+              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+            ),
         ],
       ),
     );
@@ -897,7 +922,7 @@ class FileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = ref.watch(
-      tabManagerProvider.select((state) => state.currentIndex == index)
+      tabManagerProvider.select((state) => state.currentIndex == index),
     );
 
     return ConstrainedBox(
@@ -912,14 +937,17 @@ class FileTab extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => ref.read(tabManagerProvider.notifier).closeTab(index),
+                  onPressed:
+                      () =>
+                          ref.read(tabManagerProvider.notifier).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
                     _getFileName(tab.uri),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: tab.isDirty ? Colors.orange : Colors.white),
+                      color: tab.isDirty ? Colors.orange : Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -930,7 +958,8 @@ class FileTab extends ConsumerWidget {
     );
   }
 
-  String _getFileName(String uri) => Uri.parse(uri).pathSegments.last.split('/').last;
+  String _getFileName(String uri) =>
+      Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
 // --------------------
@@ -940,14 +969,14 @@ class FileTab extends ConsumerWidget {
 class UnsupportedFileType implements Exception {
   final String uri;
   UnsupportedFileType(this.uri);
-  
+
   @override
   String toString() => 'Unsupported file type: $uri';
 }
 
 class FileExplorerDrawer extends ConsumerWidget {
   final String? currentDir;
-  
+
   const FileExplorerDrawer({super.key, this.currentDir});
 
   @override
@@ -966,24 +995,25 @@ class FileExplorerDrawer extends ConsumerWidget {
               ),
             ],
           ),
-          
+
           // File operations header
           _FileOperationsHeader(),
-          
+
           // Directory tree
           Expanded(
-            child: currentDir == null
-                ? const Center(child: Text('No folder open'))
-                : _DirectoryView(
-                    uri: currentDir!,
-                    onOpenFile: (uri) {
-                      Navigator.pop(context);
-                      ref.read(tabManagerProvider.notifier).openFile(uri);
-                    },
-                    isRoot: true,
-                  ),
+            child:
+                currentDir == null
+                    ? const Center(child: Text('No folder open'))
+                    : _DirectoryView(
+                      uri: currentDir!,
+                      onOpenFile: (uri) {
+                        Navigator.pop(context);
+                        ref.read(tabManagerProvider.notifier).openFile(uri);
+                      },
+                      isRoot: true,
+                    ),
           ),
-          
+
           // Footer for additional operations
           _FileOperationsFooter(),
         ],
@@ -1165,19 +1195,17 @@ class AppSettings {
 
   AppSettings({required this.pluginSettings});
 
-  AppSettings copyWith({
-    Map<Type, PluginSettings>? pluginSettings,
-  }) {
-    return AppSettings(
-      pluginSettings: pluginSettings ?? this.pluginSettings,
-    );
+  AppSettings copyWith({Map<Type, PluginSettings>? pluginSettings}) {
+    return AppSettings(pluginSettings: pluginSettings ?? this.pluginSettings);
   }
 }
 
 // --------------------
 //  Settings Providers
 // --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
+  ref,
+) {
   final plugins = ref.watch(activePluginsProvider);
   return SettingsNotifier(plugins: plugins);
 });
@@ -1186,28 +1214,26 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   final Set<EditorPlugin> _plugins;
 
   SettingsNotifier({required Set<EditorPlugin> plugins})
-      : _plugins = plugins,
-        super(AppSettings(
-          pluginSettings: _getDefaultSettings(plugins),
-        )) {
+    : _plugins = plugins,
+      super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
     loadSettings();
   }
 
-  static Map<Type, PluginSettings> _getDefaultSettings(Set<EditorPlugin> plugins) {
+  static Map<Type, PluginSettings> _getDefaultSettings(
+    Set<EditorPlugin> plugins,
+  ) {
     return {
       for (final plugin in plugins)
         if (plugin.settings != null)
-          plugin.settings.runtimeType: plugin.settings!
+          plugin.settings.runtimeType: plugin.settings!,
     };
   }
-  
+
   void updatePluginSettings(PluginSettings newSettings) {
     final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
       ..[newSettings.runtimeType] = newSettings;
-    
-    state = state.copyWith(
-      pluginSettings: updatedSettings,
-    );
+
+    state = state.copyWith(pluginSettings: updatedSettings);
     _saveSettings();
   }
 
@@ -1227,10 +1253,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final settingsJson = prefs.getString('app_settings');
-      
+
       if (settingsJson != null) {
         final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-        final newSettings = Map<Type, PluginSettings>.from(state.pluginSettings);
+        final newSettings = Map<Type, PluginSettings>.from(
+          state.pluginSettings,
+        );
 
         for (final entry in decoded.entries) {
           try {

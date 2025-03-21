@@ -46,6 +46,7 @@ dependencies:
   riverpod: ^2.6.1
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1
+  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:
@@ -101,7 +102,18 @@ flutter:
         - asset: assets/fonts/JetBrainsMono-BoldItalic.ttf
           weight: 700
           style: italic
-  #   - family: Schyler
+    - family: FiraCode
+      fonts:
+        - asset: assets/fonts/FiraCode/FiraCode-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/FiraCode/FiraCode-Bold.ttf
+          weight: 700
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono/RobotoMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/RobotoMono/RobotoMono-Bold.ttf
+          weight: 700
   #     fonts:
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
