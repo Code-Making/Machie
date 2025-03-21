@@ -299,13 +299,14 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab) {
     final codeTab = tab as CodeEditorTab;
-    final settings = ProviderScope.containerOf(context).read(settingsProvider)
-    .pluginSettings[CodeEditorSettings] as CodeEditorSettings?;
+// Get settings from provider
+   final settings = ref.watch(settingsProvider
+  .select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));ttings[CodeEditorSettings] as CodeEditorSettings?;
 
     return CodeEditor(
       controller: codeTab.controller,
       style: _editorStyleFor(codeTab.uri),
-      wordWrap: settings.wordWrap,
+      wordWrap: settings?.wordWrap ?? false,
     );
   }
 
