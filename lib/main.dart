@@ -492,18 +492,36 @@ class _PluginSettingsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
+      margin: const EdgeInsets.all(8),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(plugin.name, style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                plugin.icon,
+                const SizedBox(width: 12),
+                Text(
+                  plugin.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
-            plugin.buildSettingsUI(settings),
+            _buildSettingsWithErrorHandling(),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildSettingsWithErrorHandling() {
+    try {
+      return plugin.buildSettingsUI(settings);
+    } catch (e) {
+      return Text('Error loading settings: ${e.toString()}');
+    }
   }
 }
 
