@@ -434,16 +434,23 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          for (final plugin in plugins)
-            if (plugin.settings != null)
-              _PluginSettingsCard(
-                plugin: plugin,
-                settings: settings.pluginSettings[plugin.settings.runtimeType]!,
-              ),
-        ],
-      ),
+      body: plugins.isEmpty
+          ? const Center(child: Text('No plugins available'))
+          : ListView.builder(
+              itemCount: plugins.length,
+              itemBuilder: (context, index) {
+                final plugin = plugins.elementAt(index);
+                if (plugin.settings == null) return const SizedBox.shrink();
+                
+                final pluginSettings = settings.pluginSettings[plugin.settings.runtimeType];
+                if (pluginSettings == null) return const SizedBox.shrink();
+
+                return _PluginSettingsCard(
+                  plugin: plugin,
+                  settings: pluginSettings,
+                );
+              },
+            ),
     );
   }
 }
@@ -1156,25 +1163,24 @@ class AppSettings {
 // --------------------
 //  Settings Providers
 // --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>(
-  (ref) => SettingsNotifier(),
-);
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+  final plugins = ref.watch(activePluginsProvider);
+  return SettingsNotifier(plugins: plugins);
+});
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
-  SettingsNotifier() : super(AppSettings(pluginSettings: {}));
+  final Set<EditorPlugin> plugins;
 
-  void registerPluginSettings(PluginSettings settings) {
-    state = state.copyWith(
-      pluginSettings: {...state.pluginSettings, settings.runtimeType: settings},
-    );
+  SettingsNotifier({required this.plugins}) : super(AppSettings(pluginSettings: _getDefaultSettings(plugins)) {
+    loadSettings();
   }
 
-  void updatePluginSettings<T extends PluginSettings>(T newSettings) {
-    final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
-      ..[T] = newSettings;
-    
-    state = state.copyWith(pluginSettings: updatedSettings);
-    _saveSettings();
+  static Map<Type, PluginSettings> _getDefaultSettings(Set<EditorPlugin> plugins) {
+    return {
+      for (final plugin in plugins)
+        if (plugin.settings != null)
+          plugin.settings.runtimeType: plugin.settings!
+    };
   }
 
   Future<void> loadSettings() async {
@@ -1183,20 +1189,20 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     
     if (settingsJson != null) {
       final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-      state.pluginSettings.forEach((type, settings) {
-        if (decoded.containsKey(type.toString())) {
-          settings.fromJson(decoded[type.toString()]);
-        }
-      });
+      state = state.copyWith(
+        pluginSettings: Map.fromEntries(
+          decoded.entries.map((entry) {
+            final plugin = plugins.firstWhere(
+              (p) => p.settings.runtimeType.toString() == entry.key,
+            );
+            return MapEntry(
+              plugin.settings.runtimeType,
+              plugin.settings..fromJson(entry.value),
+            );
+          }),
+        ),
+      );
     }
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final settingsMap = state.pluginSettings.map(
-      (key, value) => MapEntry(key.toString(), value.toJson()),
-    );
-    prefs.setString('app_settings', jsonEncode(settingsMap));
   }
 }
 
