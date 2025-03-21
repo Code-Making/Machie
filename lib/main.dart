@@ -180,6 +180,7 @@ class EditorScreen extends ConsumerWidget {
         context, 
         MaterialPageRoute(builder: (_) => const SettingsScreen()),
       ),
+      ),
   ],
        title: Text(
           currentTab != null 
