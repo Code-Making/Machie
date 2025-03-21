@@ -1198,6 +1198,28 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           plugin.settings.runtimeType: plugin.settings!
     };
   }
+  
+  void updatePluginSettings(PluginSettings newSettings) {
+    final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
+      ..[newSettings.runtimeType] = newSettings;
+    
+    state = state.copyWith(
+      pluginSettings: updatedSettings,
+    );
+    _saveSettings();
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final settingsMap = state.pluginSettings.map(
+        (type, settings) => MapEntry(type.toString(), settings.toJson()),
+      );
+      await prefs.setString('app_settings', jsonEncode(settingsMap));
+    } catch (e) {
+      print('Error saving settings: $e');
+    }
+  }
 
   Future<void> loadSettings() async {
     try {
