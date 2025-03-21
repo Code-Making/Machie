@@ -299,10 +299,10 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-// Get settings from provider
-   final settings = ref.watch(settingsProvider
-  .select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));ttings[CodeEditorSettings] as CodeEditorSettings?;
+    final settings = ref.watch(settingsProvider
+      .select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
 
+    
     return CodeEditor(
       controller: codeTab.controller,
       style: _editorStyleFor(codeTab.uri),
