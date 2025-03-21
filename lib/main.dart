@@ -237,7 +237,7 @@ abstract class EditorPlugin {
   
   // Tab management
   EditorTab createTab(String uri);
-  Widget buildEditor(EditorTab tab);
+  Widget buildEditor(EditorTab tab, WidgetRef ref);
   
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
@@ -297,7 +297,7 @@ class CodeEditorPlugin implements EditorPlugin {
   );
 
   @override
-  Widget buildEditor(EditorTab tab) {
+  Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
 // Get settings from provider
    final settings = ref.watch(settingsProvider
@@ -575,7 +575,7 @@ class EditorContentSwitcher extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     try {
-      return tab.plugin.buildEditor(tab);
+      return tab.plugin.buildEditor(tab, ref);
     } catch (e) {
       return ErrorWidget.withDetails(
         message: 'Failed to load editor: ${e.toString()}',
