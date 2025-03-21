@@ -377,7 +377,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
         SwitchListTile(
           title: const Text('Word Wrap'),
           value: _currentSettings.wordWrap,
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(wordWrap: value)),
+          onChanged: (value) => _updateSettings(context, _currentSettings.copyWith(wordWrap: value)),
           ),
         Slider(
           value: _currentSettings.fontSize,
@@ -385,7 +385,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
           max: 24,
           divisions: 16,
           label: 'Font Size: ${_currentSettings.fontSize.round()}',
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontSize: value)),
+          onChanged: (value) => _updateSettings(context, _currentSettings.copyWith(fontSize: value)),
           ),
         DropdownButtonFormField<String>(
           value: _currentSettings.fontFamily,
@@ -394,13 +394,13 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
             DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
             DropdownMenuItem(value: 'SourceCodePro', child: Text('Source Code Pro')),
           ],
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
+          onChanged: (value) => _updateSettings(context, _currentSettings.copyWith(fontFamily: value)),
           ),
       ],
     );
   }
 
-  void _updateSettings(CodeEditorSettings newSettings) {
+  void _updateSettings(BuildContext context, CodeEditorSettings newSettings) {
     setState(() => _currentSettings = newSettings);
     context.read(settingsProvider.notifier)
       .updatePluginSettings(newSettings);
