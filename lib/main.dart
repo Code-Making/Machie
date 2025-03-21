@@ -405,7 +405,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
           items: const [
             DropdownMenuItem(value: 'JetBrainsMono', child: Text('JetBrains Mono')),
             DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
-            DropdownMenuItem(value: 'SourceSans3', child: Text('Source Sans')),
+           // DropdownMenuItem(value: 'SourceSans3', child: Text('Source Sans')),
             DropdownMenuItem(value: 'RobotoMono', child: Text('Roboto Mono')),
           ],
           onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
