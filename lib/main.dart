@@ -305,7 +305,14 @@ class CodeEditorPlugin implements EditorPlugin {
     
     return CodeEditor(
       controller: codeTab.controller,
-      style: _editorStyleFor(codeTab.uri),
+      style: CodeEditorStyle(
+      fontSize: settings?.fontSize ?? 12,
+      fontFamily: settings?.fontFamily ?? "JetBrainsMono",
+      codeTheme: CodeHighlightTheme(
+        theme: atomOneDarkTheme,
+        languages: _getLanguageMode(uri),
+      ),
+    ),
       wordWrap: settings?.wordWrap ?? false,
     );
   }
