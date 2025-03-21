@@ -1169,9 +1169,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   void updatePluginSettings<T extends PluginSettings>(T newSettings) {
-    state = state.copyWith(
-      pluginSettings: {...state.pluginSettings, T: newSettings},
-    );
+    final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
+      ..[T] = newSettings;
+    
+    state = state.copyWith(pluginSettings: updatedSettings);
     _saveSettings();
   }
 
