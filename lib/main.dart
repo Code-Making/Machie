@@ -45,7 +45,7 @@ void main() async {
       overrides: [
         settingsProvider.overrideWith((ref) => settingsNotifier),
       ],
-      child: const MyApp(),
+    child: MaterialApp(theme: ThemeData.dark(), home: const EditorScreen()),
     ),
   );
 }
