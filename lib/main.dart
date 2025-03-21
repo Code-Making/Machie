@@ -350,6 +350,18 @@ class CodeEditorSettings extends PluginSettings {
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
   }
+  
+    CodeEditorSettings copyWith({
+    bool? wordWrap,
+    double? fontSize,
+    String? fontFamily,
+  }) {
+    return CodeEditorSettings(
+      wordWrap: wordWrap ?? this.wordWrap,
+      fontSize: fontSize ?? this.fontSize,
+      fontFamily: fontFamily ?? this.fontFamily,
+    );
+  }
 }
 
 class CodeEditorSettingsUI extends StatefulWidget {
@@ -1131,7 +1143,9 @@ class AppSettings {
 
   AppSettings({required this.pluginSettings});
 
-  AppSettings copyWith(Map<Type, PluginSettings>? pluginSettings) {
+  AppSettings copyWith({
+    Map<Type, PluginSettings>? pluginSettings,
+  }) {
     return AppSettings(
       pluginSettings: pluginSettings ?? this.pluginSettings,
     );
