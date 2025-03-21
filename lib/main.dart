@@ -219,7 +219,7 @@ abstract class EditorPlugin {
   Widget buildEditor(EditorTab tab);
   
   // Optional lifecycle hooks
-  Future<void> initialize() async {}
+  Future<void> initializeTab(EditorTab tab, String? content);
   Future<void> dispose() async {}
 }
 
@@ -231,8 +231,10 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget get icon => const Icon(Icons.code);
 
   @override
-  Future<void> initialize() async {
-    // Initialization logic here
+  Future<void> initializeTab(EditorTab tab, String? content) async {
+    if (tab is CodeEditorTab) {
+      tab.controller.codeLines = CodeLines.fromText(content ?? '');
+    }
   }
 
   @override
@@ -577,18 +579,12 @@ class TabManager extends StateNotifier<TabState> {
     for (final plugin in plugins) {
       if (plugin.supportsFile(uri)) {
         final tab = plugin.createTab(uri);
-        _initializeTab(tab, content);
+        await plugin.initializeTab(tab, content); // Delegate initialization
         return _addTab(tab);
       }
     }
     
     throw UnsupportedFileType(uri);
-  }
-
-  void _initializeTab(EditorTab tab, String? content) {
-    if (tab is CodeEditorTab) {
-      tab.controller.codeLines = CodeLines.fromText(content ?? '');
-    }
   }
 
   void _addTab(EditorTab tab) {
