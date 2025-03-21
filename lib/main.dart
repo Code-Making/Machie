@@ -176,13 +176,11 @@ class EditorScreen extends ConsumerWidget {
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
           actions: [
-    IconButton(
-      icon: const Icon(Icons.settings),
-      onPressed: () => Navigator.push(
-        context, 
-        MaterialPageRoute(builder: (_) => const SettingsScreen()),
-      ),
-      ),
+// In EditorScreen's AppBar
+IconButton(
+  icon: const Icon(Icons.settings),
+  onPressed: () => Navigator.pushNamed(context, '/settings'),
+)
   ],
        title: Text(
           currentTab != null 
@@ -1177,9 +1175,10 @@ class AppSettings {
 // --------------------
 //  Settings Providers
 // --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>(
-  (ref) => SettingsNotifier(),
-);
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+  final plugins = ref.watch(activePluginsProvider);
+  return SettingsNotifier(plugins: plugins);
+});
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final Set<EditorPlugin> _plugins;
