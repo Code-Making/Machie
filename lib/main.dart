@@ -32,11 +32,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 //     Main
 // --------------------
 
-void main() => runApp(
-  ProviderScope(
-    child: MaterialApp(theme: ThemeData.dark(), home: const EditorScreen()),
-  ),
-);
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  final settingsNotifier = SettingsNotifier();
+  await settingsNotifier.loadSettings();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith((ref) => settingsNotifier),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
 
 // --------------------
 //   Providers
@@ -161,6 +171,14 @@ class EditorScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
+          actions: [
+    IconButton(
+      icon: const Icon(Icons.settings),
+      onPressed: () => Navigator.push(
+        context, 
+        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+      ),
+  ],
        title: Text(
           currentTab != null 
               ? Uri.parse(currentTab!.uri).pathSegments.last.split(':').last
@@ -218,10 +236,17 @@ abstract class EditorPlugin {
   EditorTab createTab(String uri);
   Widget buildEditor(EditorTab tab);
   
+  PluginSettings? get settings;
+  Widget buildSettingsUI(PluginSettings settings);
+  
   // Optional lifecycle hooks
   Future<void> initializeTab(EditorTab tab, String? content);
   Future<void> dispose() async {}
 }
+
+// --------------------
+//  Code Editor Plugin
+// --------------------
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
@@ -229,6 +254,16 @@ class CodeEditorPlugin implements EditorPlugin {
   
   @override
   Widget get icon => const Icon(Icons.code);
+
+
+  @override
+  final PluginSettings? settings = CodeEditorSettings();
+
+  @override
+  Widget buildSettingsUI(PluginSettings settings) {
+    final editorSettings = settings as CodeEditorSettings;
+    return CodeEditorSettingsUI(settings: editorSettings);
+  }
 
   @override
   Future<void> initializeTab(EditorTab tab, String? content) async {
@@ -286,8 +321,113 @@ class CodeEditorPlugin implements EditorPlugin {
 }
 
 // --------------------
-//   Plugin Settings Screen
+//  Code Editor Settings
 // --------------------
+class CodeEditorSettings extends PluginSettings {
+  bool wordWrap;
+  double fontSize;
+  String fontFamily;
+
+  CodeEditorSettings({
+    this.wordWrap = false,
+    this.fontSize = 14,
+    this.fontFamily = 'JetBrainsMono',
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'wordWrap': wordWrap,
+    'fontSize': fontSize,
+    'fontFamily': fontFamily,
+  };
+
+  @override
+  void fromJson(Map<String, dynamic> json) {
+    wordWrap = json['wordWrap'] ?? false;
+    fontSize = json['fontSize']?.toDouble() ?? 14;
+    fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
+  }
+}
+
+class CodeEditorSettingsUI extends StatefulWidget {
+  final CodeEditorSettings settings;
+
+  const CodeEditorSettingsUI({super.key, required this.settings});
+
+  @override
+  State<CodeEditorSettingsUI> createState() => _CodeEditorSettingsUIState();
+}
+
+class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
+  late CodeEditorSettings _currentSettings;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSettings = widget.settings;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SwitchListTile(
+          title: const Text('Word Wrap'),
+          value: _currentSettings.wordWrap,
+          onChanged: (value) => _updateSettings(_currentSettings.copyWith(wordWrap: value)),
+        Slider(
+          value: _currentSettings.fontSize,
+          min: 8,
+          max: 24,
+          divisions: 16,
+          label: 'Font Size: ${_currentSettings.fontSize.round()}',
+          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontSize: value)),
+        DropdownButtonFormField<String>(
+          value: _currentSettings.fontFamily,
+          items: const [
+            DropdownMenuItem(value: 'JetBrainsMono', child: Text('JetBrains Mono')),
+            DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
+            DropdownMenuItem(value: 'SourceCodePro', child: Text('Source Code Pro')),
+          ],
+          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
+      ],
+    );
+  }
+
+  void _updateSettings(CodeEditorSettings newSettings) {
+    setState(() => _currentSettings = newSettings);
+    context.read(settingsProvider.notifier)
+      .updatePluginSettings(newSettings);
+  }
+}
+
+// --------------------
+//   Settings Screen
+// --------------------
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plugins = ref.watch(activePluginsProvider);
+    final settings = ref.watch(settingsProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: ListView(
+        children: [
+          for (final plugin in plugins)
+            if (plugin.settings != null)
+              _PluginSettingsCard(
+                plugin: plugin,
+                settings: settings.pluginSettings[plugin.settings.runtimeType]!,
+              ),
+        ],
+      ),
+    );
+  }
+}
 
 class PluginSettingsScreen extends ConsumerWidget {
   const PluginSettingsScreen({super.key});
@@ -315,6 +455,33 @@ class PluginSettingsScreen extends ConsumerWidget {
   void _togglePlugin(WidgetRef ref, EditorPlugin plugin, bool enable) {
     final manager = ref.read(activePluginsProvider.notifier);
     enable ? manager.registerPlugin(plugin) : manager.unregisterPlugin(plugin);
+  }
+}
+
+class _PluginSettingsCard extends ConsumerWidget {
+  final EditorPlugin plugin;
+  final PluginSettings settings;
+
+  const _PluginSettingsCard({
+    required this.plugin,
+    required this.settings,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(plugin.name, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            plugin.buildSettingsUI(settings),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -946,6 +1113,72 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
 }
 
 // --------------------
+//   Settings Core
+// --------------------
+abstract class PluginSettings {
+  Map<String, dynamic> toJson();
+  void fromJson(Map<String, dynamic> json);
+}
+
+class AppSettings {
+  final Map<Type, PluginSettings> pluginSettings;
+
+  AppSettings({required this.pluginSettings});
+
+  AppSettings copyWith(Map<Type, PluginSettings>? pluginSettings) {
+    return AppSettings(
+      pluginSettings: pluginSettings ?? this.pluginSettings,
+    );
+  }
+}
+
+// --------------------
+//  Settings Providers
+// --------------------
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>(
+  (ref) => SettingsNotifier(),
+);
+
+class SettingsNotifier extends StateNotifier<AppSettings> {
+  SettingsNotifier() : super(AppSettings(pluginSettings: {}));
+
+  void registerPluginSettings(PluginSettings settings) {
+    state = state.copyWith(
+      pluginSettings: {...state.pluginSettings, settings.runtimeType: settings},
+    );
+  }
+
+  void updatePluginSettings<T extends PluginSettings>(T newSettings) {
+    state = state.copyWith(
+      pluginSettings: {...state.pluginSettings, T: newSettings},
+    );
+    _saveSettings();
+  }
+
+  Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsJson = prefs.getString('app_settings');
+    
+    if (settingsJson != null) {
+      final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
+      state.pluginSettings.forEach((type, settings) {
+        if (decoded.containsKey(type.toString())) {
+          settings.fromJson(decoded[type.toString()]);
+        }
+      });
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsMap = state.pluginSettings.map(
+      (key, value) => MapEntry(key.toString(), value.toJson()),
+    );
+    prefs.setString('app_settings', jsonEncode(settingsMap));
+  }
+}
+
+// --------------------
 //   Helper Functions
 // --------------------
 
@@ -953,10 +1186,3 @@ String _getFolderName(String uri) {
   final parsed = Uri.parse(uri);
   return parsed.pathSegments.last.split('/').last;
 }
-
-
-
-// TEMP
-
-
-
