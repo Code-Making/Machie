@@ -36,15 +36,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   final pluginRegistry = {CodeEditorPlugin()};
 
   runApp(
     ProviderScope(
-      overrides: [
-        pluginRegistryProvider.overrideWithValue(pluginRegistry),
-        activePluginsProvider.overrideWith((ref) => PluginManager(pluginRegistry)),
-        ],
-    child: MaterialApp(theme: ThemeData.dark(), home: const EditorScreen()),
+      child: MaterialApp(
+        theme: ThemeData.dark(), 
+        home: const EditorScreen(),
+        routes: {
+          '/settings': (_) => const SettingsScreen(),
+        },
+      ),
     ),
   );
 }
@@ -435,20 +438,14 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: plugins.isEmpty
           ? const Center(child: Text('No plugins available'))
-          : ListView.builder(
-              itemCount: plugins.length,
-              itemBuilder: (context, index) {
-                final plugin = plugins.elementAt(index);
-                if (plugin.settings == null) return const SizedBox.shrink();
-                
-                final pluginSettings = settings.pluginSettings[plugin.settings.runtimeType];
-                if (pluginSettings == null) return const SizedBox.shrink();
-
-                return _PluginSettingsCard(
-                  plugin: plugin,
-                  settings: pluginSettings,
-                );
-              },
+          : ListView(
+              children: plugins
+                  .where((p) => p.settings != null)
+                  .map((plugin) => _PluginSettingsCard(
+                    plugin: plugin,
+                    settings: settings.pluginSettings[plugin.settings.runtimeType]!,
+                  ))
+                  .toList(),
             ),
     );
   }
@@ -1162,15 +1159,18 @@ class AppSettings {
 // --------------------
 //  Settings Providers
 // --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
-  final plugins = ref.watch(activePluginsProvider);
-  return SettingsNotifier(plugins: plugins);
-});
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>(
+  (ref) => SettingsNotifier(),
+);
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
-  final Set<EditorPlugin> plugins;
+  final Set<EditorPlugin> _plugins;
 
-  SettingsNotifier({required this.plugins}) : super(AppSettings(pluginSettings: _getDefaultSettings(plugins)) {
+  SettingsNotifier({required Set<EditorPlugin> plugins})
+      : _plugins = plugins,
+        super(AppSettings(
+          pluginSettings: _getDefaultSettings(plugins),
+        )) {
     loadSettings();
   }
 
@@ -1183,24 +1183,30 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final settingsJson = prefs.getString('app_settings');
-    
-    if (settingsJson != null) {
-      final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-      state = state.copyWith(
-        pluginSettings: Map.fromEntries(
-          decoded.entries.map((entry) {
-            final plugin = plugins.firstWhere(
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final settingsJson = prefs.getString('app_settings');
+      
+      if (settingsJson != null) {
+        final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
+        final newSettings = Map<Type, PluginSettings>.from(state.pluginSettings);
+
+        for (final entry in decoded.entries) {
+          try {
+            final plugin = _plugins.firstWhere(
               (p) => p.settings.runtimeType.toString() == entry.key,
             );
-            return MapEntry(
-              plugin.settings.runtimeType,
-              plugin.settings..fromJson(entry.value),
-            );
-          }),
-        ),
-      );
+            plugin.settings!.fromJson(entry.value);
+            newSettings[plugin.settings.runtimeType] = plugin.settings!;
+          } catch (e) {
+            print('Error loading settings for $entry: $e');
+          }
+        }
+
+        state = state.copyWith(pluginSettings: newSettings);
+      }
+    } catch (e) {
+      print('Error loading settings: $e');
     }
   }
 }
