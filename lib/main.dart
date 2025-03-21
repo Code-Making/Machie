@@ -413,30 +413,44 @@ class _DirectoryView extends ConsumerWidget {
     final contentsAsync = ref.watch(directoryChildrenProvider(uri));
 
     return contentsAsync.when(
-      loading:
-          () =>
-              isRoot
-                  ? const Center(child: CircularProgressIndicator())
-                  : _DirectoryLoadingTile(depth: depth),
-      error:
-          (error, _) => ListTile(
-            leading: const Icon(Icons.error, color: Colors.red),
-            title: const Text('Error loading directory'),
-          ),
-      data:
-          (contents) => Column(
-            children:
-                contents
-                    .map(
-                      (item) => _DirectoryItem(
-                        item: item,
-                        onOpenFile: onOpenFile,
-                        depth: depth,
-                        isRoot: isRoot,
-                      ),
-                    )
-                    .toList(),
-          ),
+      loading: () => _buildLoadingState(),
+      error: (error, _) => _buildErrorState(),
+      data: (contents) => _buildDirectoryList(contents),
+    );
+  }
+
+  Widget _buildDirectoryList(List<Map<String, dynamic>> contents) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const ClampingScrollPhysics(),
+      itemCount: contents.length,
+      itemBuilder: (context, index) => _DirectoryItem(
+        item: contents[index],
+        onOpenFile: onOpenFile,
+        depth: depth,
+        isRoot: isRoot,
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        _DirectoryLoadingTile(depth: depth),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return ListView(
+      shrinkWrap: true,
+      children: const [
+        ListTile(
+          leading: Icon(Icons.error, color: Colors.red),
+          title: Text('Error loading directory'),
+        ),
+      ],
     );
   }
 }
@@ -751,7 +765,6 @@ class FileExplorerDrawer extends ConsumerWidget {
           
           // Directory tree
           Expanded(
-            shrinkWrap: true,
             child: currentDir == null
                 ? const Center(child: Text('No folder open'))
                 : _DirectoryView(
