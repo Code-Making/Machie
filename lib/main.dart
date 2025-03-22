@@ -544,14 +544,14 @@ class EditorContentSwitcher extends ConsumerWidget {
 }
 
 class FileTypeIcon extends ConsumerWidget {
-  final String uri;
+  final DocumentFile file;
 
-  const FileTypeIcon({super.key, required this.uri});
+  const FileTypeIcon({super.key, required this.file});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
-    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(uri));
+    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(file));
 
     return plugin?.icon ?? const Icon(Icons.insert_drive_file);
   }
@@ -784,10 +784,10 @@ class TabManager extends StateNotifier<TabState> {
     newTabs.insert(newIndex, movedTab);
 
     // Preserve current tab if it still exists
-    final currentUri = state.currentTab?.uri;
+    final currentFile = state.currentTab?.file;
     final newCurrentIndex =
-        currentUri != null
-            ? newTabs.indexWhere((t) => t.uri == currentUri)
+        currentFile != null
+            ? newTabs.indexWhere((t) => t.file == currentFile)
             : state.currentIndex;
 
     state = TabState(
@@ -832,7 +832,7 @@ class TabBarView extends ConsumerWidget {
         children: [
           for (final tab in tabs)
             ReorderableDelayedDragStartListener(
-              key: ValueKey(tab.uri),
+              key: ValueKey(tab.file),
               index: tabs.indexOf(tab),
               child: FileTab(tab: tab, index: tabs.indexOf(tab)),
             ),
@@ -872,7 +872,7 @@ class FileTab extends ConsumerWidget {
                 ),
                 Expanded(
                   child: Text(
-                    _getFileName(tab.uri),
+                    tab.file.name,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: tab.isDirty ? Colors.orange : Colors.white,
@@ -935,9 +935,9 @@ class FileExplorerDrawer extends ConsumerWidget {
                     ? const Center(child: Text('No folder open'))
                     : _DirectoryView(
                       uri: currentDir!,
-                      onOpenFile: (uri) {
+                      onOpenFile: (file) {
                         Navigator.pop(context);
-                        ref.read(tabManagerProvider.notifier).openFile(uri);
+                        ref.read(tabManagerProvider.notifier).openFile(file);
                       },
                       isRoot: true,
                     ),
