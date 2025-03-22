@@ -926,7 +926,6 @@ class FileExplorerDrawer extends ConsumerWidget {
                         Navigator.pop(context);
                         ref.read(tabManagerProvider.notifier).openFile(file);
                       },
-                      isRoot: true,
                     ),
           ),
 
