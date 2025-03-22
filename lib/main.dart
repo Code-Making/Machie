@@ -672,7 +672,6 @@ class _DirectoryExpansionTile extends ConsumerWidget {
           uri: file.uri,
           onOpenFile: onOpenFile,
           depth: depth + 1,
-          isRoot: false,
         ),
       ],
     );
