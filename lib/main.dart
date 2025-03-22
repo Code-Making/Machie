@@ -655,21 +655,29 @@ class _DirectoryExpansionTile extends ConsumerWidget {
     required this.depth,
     required this.onOpenFile,
   });
+  
+    @override
+  ConsumerState<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+}
+
+class _DirectoryExpansionTileState extends ConsumerState<_DirectoryExpansionTile> {
+  bool _isExpanded = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return ExpansionTile(
       leading: Icon(
-        Icons.folder,
+        _isExpanded ? Icons.folder_open : Icons.folder,
         color: Colors.yellow,
       ),
-      title: Text(file.name),
-      childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      title: Text(widget.name),
+      childrenPadding: EdgeInsets.only(left: (widget.depth + 1) * 16.0),
+      onExpansionChanged: (expanded) => setState(() => _isExpanded = expanded),
       children: [
         _DirectoryView(
-          uri: file.uri,
-          onOpenFile: onOpenFile,
-          depth: depth + 1,
+          file: widget.file,
+          onOpenFile: widget.onOpenFile,
+          depth: widget.depth + 1,
         ),
       ],
     );
