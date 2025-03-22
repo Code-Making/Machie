@@ -1286,7 +1286,7 @@ class CustomSAFDocumentFile implements DocumentFile {
 }
 
 class SAFFileHandler implements FileHandler {
-  final MethodChannelSafUtil _safUtil = MethodChannelSafUtil();
+  final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
   final SharedPreferences _prefs;
   static const _prefsKey = 'saf_root_uri';
