@@ -7,7 +7,9 @@ import 'package:collection/collection.dart';
 
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
+import 'package:saf_util/saf_util_method_channel.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
@@ -1278,7 +1280,7 @@ class CustomSAFDocumentFile implements DocumentFile {
 }
 
 class SAFFileHandler implements FileHandler {
-  final SafUtil _safUtil = SafUtil();
+  final MethodChannelSafUtil _safUtil = MethodChannelSafUtil();
   final SafStream _safStream = SafStream();
   final SharedPreferences _prefs;
   static const _prefsKey = 'saf_root_uri';
