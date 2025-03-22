@@ -70,20 +70,11 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
-final directoryChildrenProvider = FutureProvider.autoDispose
-    .family<List<Map<String, dynamic>>, String>((ref, uri) async {
+/*final directoryContentsProvider = FutureProvider.autoDispose
+    .family<List<DocumentFile>, String?>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
-      final isRoot = ref.read(rootUriProvider) == uri;
-      final contents = await handler.listDirectory(uri) ?? [];
-    //  final contents = await handler.listDirectory(uri, isRoot: isRoot) ?? [];
-      contents.sort((a, b) {
-        if (a.mimeType == b.mimeType) {
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        }
-        return a.mimeType == 'dir' ? -1 : 1;
-      });
-      return contents;
-    });
+      return handler.listDirectory(uri);
+    });*/
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
   return TabManager(
