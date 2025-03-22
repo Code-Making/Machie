@@ -1293,11 +1293,25 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<List<DocumentFile>> listDirectory(String? uri) async {
-    final targetUri = uri ?? await getPersistedRootUri();
-    if (targetUri == null) return [];
-    
-    final contents = await _safUtil.list(targetUri);
-    return contents.map((f) => CustomSAFDocumentFile(f)).toList();
+    try {
+      final contents = await _safUtil.list(uri ?? '');
+      
+      // Add sorting logic here
+      contents.sort((a, b) {
+        // First sort by type (directories first)
+        if (a.isDir != b.isDir) {
+          return a.isDir ? -1 : 1;
+        }
+        
+        // Then sort alphabetically case-insensitive
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+
+      return contents.map((f) => CustomSAFDocumentFile(f)).toList();
+    } catch (e) {
+      print('Error listing directory: $e');
+      return [];
+    }
   }
 
   @override
