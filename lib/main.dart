@@ -1247,7 +1247,7 @@ abstract class FileHandler {
 //  SAF Implementation
 // --------------------
 class SAFDocumentFile implements DocumentFile {
-  final SafDocumentFile _file;
+  final SAFDocumentFile _file;
 
   SAFDocumentFile(this._file);
 
