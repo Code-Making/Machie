@@ -79,10 +79,12 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
+// Update directoryContentsProvider
 final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String?>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
-      return handler.listDirectory(uri);
+      final targetUri = uri ?? await handler.getPersistedRootUri();
+      return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
