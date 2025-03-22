@@ -59,6 +59,12 @@ void main() async {
 /*final fileHandlerProvider = Provider<AndroidFileHandler>(
   (ref) => AndroidFileHandler(),
 );*/
+final fileHandlerProvider = Provider<FileHandler>((ref) {
+  return SAFFileHandler(SharedPreferences.getInstance() as SharedPreferences);
+});
+
+
+
 
 final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
@@ -68,7 +74,8 @@ final directoryChildrenProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
       final isRoot = ref.read(rootUriProvider) == uri;
-      final contents = await handler.listDirectory(uri, isRoot: isRoot) ?? [];
+      final contents = await handler.listDirectory(uri) ?? [];
+    //  final contents = await handler.listDirectory(uri, isRoot: isRoot) ?? [];
       contents.sort((a, b) {
         if (a['type'] == b['type']) {
           return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
@@ -955,8 +962,8 @@ class _FileOperationsHeader extends ConsumerWidget {
             icon: const Icon(Icons.folder_open),
             label: const Text('Open Folder'),
             onPressed: () async {
-              final uri = await ref.read(fileHandlerProvider).openFolder();
-              if (uri != null) {
+            final pickedDir = await ref.read(fileHandlerProvider).pickDirectory();
+              if (pickedDir != null) {
                 ref.read(rootUriProvider.notifier).state = uri;
                 ref.read(currentDirectoryProvider.notifier).state = uri;
                 Navigator.pop(context);
@@ -967,8 +974,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             icon: const Icon(Icons.file_open),
             label: const Text('Open File'),
             onPressed: () async {
-              final uri = await ref.read(fileHandlerProvider).openFile();
-              if (uri != null) {
+            final pickedFile = await ref.read(fileHandlerProvider).pickFile();              if (uri != null) {
                 ref.read(tabManagerProvider.notifier).openFile(uri);
                 Navigator.pop(context);
               }
@@ -1347,11 +1353,4 @@ class SAFFileHandler implements FileHandler {
     return file != null ? SAFDocumentFile(file) : null;
   }
 }
-
-// --------------------
-//    Provider Setup
-// --------------------
-final fileHandlerProvider = Provider<FileHandler>((ref) {
-  return SAFFileHandler(SharedPreferences.getInstance() as SharedPreferences);
-});
 
