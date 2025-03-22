@@ -562,8 +562,8 @@ class FileTypeIcon extends ConsumerWidget {
 // --------------------
 
 class _DirectoryView extends ConsumerWidget {
-  final String uri;
-  final Function(String) onOpenFile;
+  final DocumentFile file;
+  final Function(DocumentFile) onOpenFile;
   final int depth;
   final bool isRoot;
 
@@ -937,7 +937,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                       uri: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
-                        ref.read(tabManagerProvider.notifier).openFile(file.uri);
+                        ref.read(tabManagerProvider.notifier).openFile(file);
                       },
                       isRoot: true,
                     ),
