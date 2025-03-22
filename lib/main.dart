@@ -63,21 +63,6 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
-/*final directoryContentsProvider = FutureProvider.autoDispose
-    .family<List<Map<String, dynamic>>, String?>((ref, uri) async {
-      final handler = ref.read(fileHandlerProvider);
-      final rootUri = ref.read(rootUriProvider);
-      final isRoot = uri == rootUri;
-      // Modify the directoryContentsProvider
-      return (await handler.listDirectory(uri ?? '', isRoot: isRoot) ?? [])
-        ..sort((a, b) {
-          if (a['type'] == b['type']) {
-            return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
-          }
-          return a['type'] == 'dir' ? -1 : 1;
-        });
-    });*/
-
 final directoryChildrenProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
@@ -484,36 +469,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-/*class PluginSettingsScreen extends ConsumerWidget {
-  const PluginSettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plugins = ref.watch(activePluginsProvider);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Plugins')),
-      body: ListView.builder(
-        itemCount: plugins.length,
-        itemBuilder:
-            (_, index) => ListTile(
-              leading: plugins.elementAt(index).icon,
-              title: Text(plugins.elementAt(index).name),
-              trailing: Switch(
-                value: true,
-                onChanged:
-                    (v) => _togglePlugin(ref, plugins.elementAt(index), v),
-              ),
-            ),
-      ),
-    );
-  }
-
-  void _togglePlugin(WidgetRef ref, EditorPlugin plugin, bool enable) {
-    final manager = ref.read(activePluginsProvider.notifier);
-    enable ? manager.registerPlugin(plugin) : manager.unregisterPlugin(plugin);
-  }
-}*/
 
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
@@ -560,41 +515,6 @@ class _PluginSettingsCard extends ConsumerWidget {
 // --------------------
 //   Editor Content
 // --------------------
-/*abstract class EditorContent extends Widget {
-  const EditorContent({super.key});
-
-  factory EditorContent.code({
-    required CodeLineEditingController controller,
-    required String uri,
-  }) = CodeEditorContent;
-}
-
-class CodeEditorContent extends StatelessWidget implements EditorContent {
-  final CodeLineEditingController controller;
-  final String uri;
-
-  const CodeEditorContent({
-    super.key,
-    required this.controller,
-    required this.uri,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CodeEditor(
-      controller: controller,
-      style: CodeEditorStyle(
-        fontSize: 12,
-        fontFamily: 'JetBrainsMono',
-        codeTheme: CodeHighlightTheme(
-          theme: atomOneDarkTheme,
-          languages: _getLanguageMode(uri),
-        ),
-      ),
-      wordWrap: false,
-    );
-  }
-}*/
 
 class EditorContentSwitcher extends ConsumerWidget {
   final EditorTab tab;
