@@ -118,11 +118,11 @@ class TabState {
 }
 
 abstract class EditorTab {
-  final String uri;
+  final DocumentFile file;
   final EditorPlugin plugin;
   bool isDirty;
 
-  EditorTab({required this.uri, required this.plugin, this.isDirty = false});
+  EditorTab({required this.file, required this.plugin, this.isDirty = false});
 
   void dispose();
 }
@@ -131,7 +131,7 @@ class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
 
   CodeEditorTab({
-    required super.uri,
+    required super.file,
     required this.controller,
     required super.plugin,
   });
@@ -229,7 +229,7 @@ abstract class EditorPlugin {
   Widget get icon;
 
   // File type support
-  bool supportsFile(String uri, {String? mimeType, Uint8List? bytes});
+  bool supportsFile(DocumentFile file);
 
   // Tab management
   EditorTab createTab(String uri);
@@ -276,8 +276,8 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  bool supportsFile(String uri, {String? mimeType, Uint8List? bytes}) {
-    final ext = Uri.parse(uri).pathSegments.last.split('.').last.toLowerCase();
+  bool supportsFile(DocumentFile file) {
+    final ext = file.name.split('.').last.toLowerCase();
     return const {
       'dart',
       'js',
@@ -299,8 +299,8 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  EditorTab createTab(String uri) => CodeEditorTab(
-    uri: uri,
+  EditorTab createTab(DocumentFile file) => CodeEditorTab(
+    file: file,
     plugin: this,
     controller: CodeLineEditingController(),
   );
@@ -744,24 +744,24 @@ class TabManager extends StateNotifier<TabState> {
   TabManager({required this.fileHandler, required this.plugins})
     : super(TabState());
 
-  Future<void> openFile(String uri) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.uri == uri);
+  Future<void> openFile(DocumentFile file) async {
+    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
       state = TabState(tabs: state.tabs, currentIndex: existingIndex);
       return;
     }
 
-    final content = await fileHandler.readFile(uri);
+    final content = await fileHandler.readFile(file.uri);
 
     for (final plugin in plugins) {
-      if (plugin.supportsFile(uri)) {
-        final tab = plugin.createTab(uri);
-        await plugin.initializeTab(tab, content); // Delegate initialization
+      if (plugin.supportsFile(file)) {
+        final tab = plugin.createTab(file);
+        await plugin.initializeTab(tab, content);
         return _addTab(tab);
       }
     }
 
-    throw UnsupportedFileType(uri);
+    throw UnsupportedFileType(file.uri);
   }
 
   void _addTab(EditorTab tab) {
