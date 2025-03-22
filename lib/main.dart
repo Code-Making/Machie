@@ -575,7 +575,7 @@ class _DirectoryView extends ConsumerWidget {
     );
   }
 
-  Widget _buildDirectoryList(List<Map<String, dynamic>> contents) {
+  Widget _buildDirectoryList(List<DocumentFile> contents) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
