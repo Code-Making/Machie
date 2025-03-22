@@ -68,9 +68,9 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async 
 });
 
 // Update fileHandlerProvider
-final fileHandlerProvider = Provider<FileHandler>((ref) await {
-  final prefs = ref.watch(sharedPreferencesProvider).asData?.value;
-  return SAFFileHandler(prefs ?? await SharedPreferences.getInstance() as SharedPreferences);
+final fileHandlerProvider = Provider<FileHandler>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return SAFFileHandler(prefs;
 });
 
 
