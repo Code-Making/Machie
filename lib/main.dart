@@ -690,14 +690,12 @@ class _DirectoryExpansionTile extends ConsumerWidget {
 }
 
 class _FileItem extends StatelessWidget {
-  final String uri;
-  final String name;
+  final DocumentFile file;
   final int depth;
   final VoidCallback onTap;
 
   const _FileItem({
-    required this.uri,
-    required this.name,
+    required this.file,
     required this.depth,
     required this.onTap,
   });
