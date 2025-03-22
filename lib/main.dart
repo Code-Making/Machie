@@ -611,7 +611,7 @@ class _DirectoryView extends ConsumerWidget {
 }
 
 class _DirectoryItem extends StatelessWidget {
-  final Map<String, dynamic> item;
+  final DocumentFile item;
   final Function(String) onOpenFile;
   final int depth;
   final bool isRoot;
@@ -625,7 +625,7 @@ class _DirectoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.mimeType == 'dir') {
+    if (item.isDirectory) {
       return _DirectoryExpansionTile(
         uri: item.uri,
         name: item.name,
