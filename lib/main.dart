@@ -62,10 +62,16 @@ void main() async {
 /*final fileHandlerProvider = Provider<AndroidFileHandler>(
   (ref) => AndroidFileHandler(),
 );*/
-final fileHandlerProvider = Provider<FileHandler>((ref) {
-  return SAFFileHandler(SharedPreferences.getInstance() as SharedPreferences);
+// Add this provider
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+  return await SharedPreferences.getInstance();
 });
 
+// Update fileHandlerProvider
+final fileHandlerProvider = Provider<FileHandler>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider).asData?.value;
+  return SAFFileHandler(prefs ?? SharedPreferences.getInstance() as SharedPreferences);
+});
 
 
 
