@@ -562,13 +562,13 @@ class FileTypeIcon extends ConsumerWidget {
 // --------------------
 
 class _DirectoryView extends ConsumerWidget {
-  final String uri;
+  final DocumentFile file;
   final Function(DocumentFile) onOpenFile;
   final int depth;
   final bool isRoot;
 
   const _DirectoryView({
-    required this.uri,
+    required this.file,
     required this.onOpenFile,
     this.depth = 0,
     this.isRoot = false,
@@ -637,8 +637,7 @@ class _DirectoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     if (item.isDirectory) {
       return _DirectoryExpansionTile(
-        uri: item.uri,
-        name: item.name,
+        file: item
         depth: depth,
         isRoot: isRoot,
         onOpenFile: onOpenFile,
@@ -654,15 +653,13 @@ class _DirectoryItem extends StatelessWidget {
 }
 
 class _DirectoryExpansionTile extends ConsumerWidget {
-  final String uri;
-  final String name;
+  final DocumentFile file;
   final int depth;
   final bool isRoot;
   final Function(DocumentFile) onOpenFile;
 
   const _DirectoryExpansionTile({
-    required this.uri,
-    required this.name,
+    required this.file,
     required this.depth,
     required this.isRoot,
     required this.onOpenFile,
