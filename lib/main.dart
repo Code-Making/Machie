@@ -659,12 +659,10 @@ class _DirectoryExpansionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ExpansionTile(
-      builder: (context, expansionState) {
-        return Icon(
-          expansionState.isExpanded ? Icons.folder_open : Icons.folder,
-          color: Colors.yellow,
-        );
-      },
+      leading: Icon(
+        Icons.folder,
+        color: Colors.yellow,
+      ),
       title: Text(file.name),
       childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       children: [
