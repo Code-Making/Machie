@@ -637,15 +637,14 @@ class _DirectoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     if (item.isDirectory) {
       return _DirectoryExpansionTile(
-        file: item
+        file: item,
         depth: depth,
         isRoot: isRoot,
         onOpenFile: onOpenFile,
       );
     }
     return _FileItem(
-      uri: item.uri,
-      name: item.name,
+      file: item,
       depth: depth,
       onTap: () => onOpenFile(item),
     );
