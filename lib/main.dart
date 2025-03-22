@@ -37,7 +37,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final pluginRegistry = {CodeEditorPlugin()};
+  //final pluginRegistry = {CodeEditorPlugin()};
 
   runApp(
     ProviderScope(
@@ -53,7 +53,7 @@ void main() async {
 // --------------------
 //   Providers
 // --------------------
-final reorderProvider = StateProvider<bool>((ref) => false);
+//final reorderProvider = StateProvider<bool>((ref) => false);
 
 final fileHandlerProvider = Provider<AndroidFileHandler>(
   (ref) => AndroidFileHandler(),
@@ -63,7 +63,7 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
-final directoryContentsProvider = FutureProvider.autoDispose
+/*final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String?>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
       final rootUri = ref.read(rootUriProvider);
@@ -76,7 +76,7 @@ final directoryContentsProvider = FutureProvider.autoDispose
           }
           return a['type'] == 'dir' ? -1 : 1;
         });
-    });
+    });*/
 
 final directoryChildrenProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, uri) async {
@@ -484,7 +484,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class PluginSettingsScreen extends ConsumerWidget {
+/*class PluginSettingsScreen extends ConsumerWidget {
   const PluginSettingsScreen({super.key});
 
   @override
@@ -513,7 +513,7 @@ class PluginSettingsScreen extends ConsumerWidget {
     final manager = ref.read(activePluginsProvider.notifier);
     enable ? manager.registerPlugin(plugin) : manager.unregisterPlugin(plugin);
   }
-}
+}*/
 
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
@@ -560,7 +560,7 @@ class _PluginSettingsCard extends ConsumerWidget {
 // --------------------
 //   Editor Content
 // --------------------
-abstract class EditorContent extends Widget {
+/*abstract class EditorContent extends Widget {
   const EditorContent({super.key});
 
   factory EditorContent.code({
@@ -594,7 +594,7 @@ class CodeEditorContent extends StatelessWidget implements EditorContent {
       wordWrap: false,
     );
   }
-}
+}*/
 
 class EditorContentSwitcher extends ConsumerWidget {
   final EditorTab tab;
