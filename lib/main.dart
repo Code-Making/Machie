@@ -562,7 +562,7 @@ class FileTypeIcon extends ConsumerWidget {
 // --------------------
 
 class _DirectoryView extends ConsumerWidget {
-  final DocumentFile file;
+  final String uri;
   final Function(DocumentFile) onOpenFile;
   final int depth;
   final bool isRoot;
