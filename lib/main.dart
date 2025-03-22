@@ -964,8 +964,8 @@ class _FileOperationsHeader extends ConsumerWidget {
             onPressed: () async {
             final pickedDir = await ref.read(fileHandlerProvider).pickDirectory();
               if (pickedDir != null) {
-                ref.read(rootUriProvider.notifier).state = uri;
-                ref.read(currentDirectoryProvider.notifier).state = uri;
+                ref.read(rootUriProvider.notifier).state = pickedDir;
+                ref.read(currentDirectoryProvider.notifier).state = pickedDir;
                 Navigator.pop(context);
               }
             },
@@ -974,8 +974,9 @@ class _FileOperationsHeader extends ConsumerWidget {
             icon: const Icon(Icons.file_open),
             label: const Text('Open File'),
             onPressed: () async {
-            final pickedFile = await ref.read(fileHandlerProvider).pickFile();              if (uri != null) {
-                ref.read(tabManagerProvider.notifier).openFile(uri);
+            final pickedFile = await ref.read(fileHandlerProvider).pickFile();    
+            if (pickFile != null) {
+                ref.read(tabManagerProvider.notifier).openFile(pickedFile);
                 Navigator.pop(context);
               }
             },
