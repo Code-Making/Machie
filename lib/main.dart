@@ -1240,21 +1240,31 @@ abstract class FileHandler {
 //  SAF Implementation
 // --------------------
 class CustomSAFDocumentFile implements DocumentFile {
-  final CustomSAFDocumentFile _file;
+//  final CustomSAFDocumentFile _file;
+  final SafDocumentFile _safFile;
+  
+    CustomSAFDocumentFile(this._safFile); // Accept SafDocumentFile
 
-  CustomSAFDocumentFile(this._file);
+  @override
+  String get uri => _safFile.uri;
 
-  @override String get uri => _file.uri;
-  @override String get name => _file.name;
-  @override bool get isDirectory => _file.isDir;
-  @override int get size => _file.length;
-  @override DateTime get modifiedDate => 
-      DateTime.fromMillisecondsSinceEpoch(_file.lastModified);
-  @override String? get mimeType => _getMimeType();
+  @override
+  String get name => _safFile.name;
 
-  String? _getMimeType() {
-    if (_file.isDir) return 'inode/directory';
-    final ext = _file.name.split('.').lastOrNull?.toLowerCase();
+  @override
+  bool get isDirectory => _safFile.isDir; // Match SAF package's property name
+
+  @override
+  int get size => _safFile.length; // SAF uses 'length' for size
+
+  @override
+  DateTime get modifiedDate => 
+      DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
+
+  @override
+  String? get mimeType {
+    if (_safFile.isDir) return 'inode/directory';
+    final ext = name.split('.').lastOrNull?.toLowerCase();
     return _mimeTypes[ext] ?? 'application/octet-stream';
   }
 
