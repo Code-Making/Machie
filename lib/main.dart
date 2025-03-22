@@ -53,7 +53,6 @@ void main() async {
 // --------------------
 //   Providers
 // --------------------
-//final reorderProvider = StateProvider<bool>((ref) => false);
 
 final fileHandlerProvider = Provider<AndroidFileHandler>(
   (ref) => AndroidFileHandler(),
