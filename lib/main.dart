@@ -671,7 +671,7 @@ class _DirectoryExpansionTile extends ConsumerWidget {
         isRoot ? Icons.folder_open : Icons.folder,
         color: Colors.yellow,
       ),
-      title: Text(name),
+      title: Text(file.name),
       childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       children: [
         _DirectoryView(
