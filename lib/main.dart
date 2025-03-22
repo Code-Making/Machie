@@ -1347,13 +1347,13 @@ class SAFFileHandler implements FileHandler {
   @override
   Future<void> persistRootUri(String? uri) async {
     final prefs = await SharedPreferences.getInstance();
-    await _prefs.setString(_prefsKey, uri ?? '');
+    await prefs.setString(_prefsKey, uri ?? '');
   }
 
   @override
   Future<String?> getPersistedRootUri() async {
     final prefs = await SharedPreferences.getInstance();
-    return _prefs.getString(_prefsKey);
+    return prefs.getString(_prefsKey);
   }
 
   @override
