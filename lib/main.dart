@@ -77,10 +77,10 @@ final directoryChildrenProvider = FutureProvider.autoDispose
       final contents = await handler.listDirectory(uri) ?? [];
     //  final contents = await handler.listDirectory(uri, isRoot: isRoot) ?? [];
       contents.sort((a, b) {
-        if (a['type'] == b['type']) {
-          return a['name'].toLowerCase().compareTo(b['name'].toLowerCase());
+        if (a.mimeType == b.mimeType) {
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
         }
-        return a['type'] == 'dir' ? -1 : 1;
+        return a.mimeType == 'dir' ? -1 : 1;
       });
       return contents;
     });
@@ -634,20 +634,20 @@ class _DirectoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item['type'] == 'dir') {
+    if (item.mimeType == 'dir') {
       return _DirectoryExpansionTile(
-        uri: item['uri'],
-        name: item['name'],
+        uri: item.uri,
+        name: item.name,
         depth: depth,
         isRoot: isRoot,
         onOpenFile: onOpenFile,
       );
     }
     return _FileItem(
-      uri: item['uri'],
-      name: item['name'],
+      uri: item.uri,
+      name: item.name,
       depth: depth,
-      onTap: () => onOpenFile(item['uri']),
+      onTap: () => onOpenFile(item.uri),
     );
   }
 }
