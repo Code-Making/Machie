@@ -82,7 +82,7 @@ final rootUriProvider = StateProvider<String?>((_) => null);
 // Update directoryContentsProvider
 final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String?>((ref, uri) async {
-      final handler = ref.read(fileHandlerProvider);
+      final handler = await ref.read(fileHandlerProvider);
       final targetUri = uri ?? await handler.getPersistedRootUri();
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
