@@ -565,13 +565,11 @@ class _DirectoryView extends ConsumerWidget {
   final String uri;
   final Function(DocumentFile) onOpenFile;
   final int depth;
-  final bool isRoot;
 
   const _DirectoryView({
     required this.uri,
     required this.onOpenFile,
     this.depth = 0,
-    this.isRoot = false,
   });
 
   @override
@@ -595,7 +593,6 @@ class _DirectoryView extends ConsumerWidget {
             item: contents[index],
             onOpenFile: onOpenFile,
             depth: depth,
-            isRoot: isRoot,
           ),
     );
   }
