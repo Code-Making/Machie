@@ -622,7 +622,7 @@ class _DirectoryView extends ConsumerWidget {
 
 class _DirectoryItem extends StatelessWidget {
   final DocumentFile item;
-  final Function(String) onOpenFile;
+  final Function(DocumentFile) onOpenFile;
   final int depth;
   final bool isRoot;
 
