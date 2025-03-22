@@ -1289,10 +1289,9 @@ class CustomSAFDocumentFile implements DocumentFile {
 class SAFFileHandler implements FileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
-  final SharedPreferences _prefs;
   static const _prefsKey = 'saf_root_uri';
 
-  SAFFileHandler(this._prefs);
+  SAFFileHandler();
 
   @override
   Future<String?> pickDirectory() async {
@@ -1347,11 +1346,13 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<void> persistRootUri(String? uri) async {
+    final prefs = await SharedPreferences.getInstance();
     await _prefs.setString(_prefsKey, uri ?? '');
   }
 
   @override
   Future<String?> getPersistedRootUri() async {
+    final prefs = await SharedPreferences.getInstance();
     return _prefs.getString(_prefsKey);
   }
 
