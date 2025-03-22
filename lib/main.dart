@@ -232,7 +232,7 @@ abstract class EditorPlugin {
   bool supportsFile(DocumentFile file);
 
   // Tab management
-  EditorTab createTab(String uri);
+  EditorTab createTab(DocumentFile file);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   PluginSettings? get settings;
