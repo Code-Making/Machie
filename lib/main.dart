@@ -675,7 +675,7 @@ class _DirectoryExpansionTile extends ConsumerWidget {
       childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       children: [
         _DirectoryView(
-          uri: uri,
+          file: file,
           onOpenFile: onOpenFile,
           depth: depth + 1,
           isRoot: false,
