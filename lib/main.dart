@@ -175,7 +175,7 @@ class EditorScreen extends ConsumerWidget {
         ],
         title: Text(
           currentTab != null
-              ? currentTab?.file.name
+              ? currentTab.file.name
               : 'Code Editor',
         ),
       ),
