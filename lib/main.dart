@@ -1218,7 +1218,9 @@ abstract class FileHandler {
   // Directory operations
   Future<String?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(String? uri);
-  
+  Future<DocumentFile?> pickFile();
+  Future<List<DocumentFile>> pickFiles();
+
   // File operations
   Future<String> readFile(String uri);
   Future<void> writeFile(String uri, String content);
