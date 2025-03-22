@@ -658,7 +658,7 @@ class _DirectoryExpansionTile extends ConsumerWidget {
   final String name;
   final int depth;
   final bool isRoot;
-  final Function(String) onOpenFile;
+  final Function(DocumentFile) onOpenFile;
 
   const _DirectoryExpansionTile({
     required this.uri,
