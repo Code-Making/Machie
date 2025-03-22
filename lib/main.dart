@@ -670,7 +670,7 @@ class _DirectoryExpansionTileState extends ConsumerState<_DirectoryExpansionTile
         _isExpanded ? Icons.folder_open : Icons.folder,
         color: Colors.yellow,
       ),
-      title: Text(widget.name),
+      title: Text(widget.file.name),
       childrenPadding: EdgeInsets.only(left: (widget.depth + 1) * 16.0),
       onExpansionChanged: (expanded) => setState(() => _isExpanded = expanded),
       children: [
