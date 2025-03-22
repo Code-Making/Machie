@@ -966,7 +966,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             label: const Text('Open File'),
             onPressed: () async {
             final pickedFile = await ref.read(fileHandlerProvider).pickFile();    
-            if (pickFile != null) {
+            if (pickedFile != null) {
                 ref.read(tabManagerProvider.notifier).openFile(pickedFile.uri);
                 Navigator.pop(context);
               }
