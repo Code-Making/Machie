@@ -1352,5 +1352,17 @@ class SAFFileHandler implements FileHandler {
     final file = await _safUtil.documentFileFromUri(uri, false);
     return file != null ? SAFDocumentFile(file) : null;
   }
+  
+    @override
+  Future<DocumentFile?> pickFile() async {
+    final file = await _safUtil.pickFile();
+    return file != null ? SAFDocumentFile(file) : null;
+  }
+
+  @override
+  Future<List<DocumentFile>> pickFiles() async {
+    final files = await _safUtil.pickFiles();
+    return files?.map((f) => SAFDocumentFile(f)).toList() ?? [];
+  }
 }
 
