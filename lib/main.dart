@@ -70,11 +70,11 @@ final currentDirectoryProvider = StateProvider<String?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
-/*final directoryContentsProvider = FutureProvider.autoDispose
+final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String?>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
       return handler.listDirectory(uri);
-    });*/
+    });
 
 final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
   return TabManager(
@@ -566,7 +566,7 @@ class _DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(directoryChildrenProvider(uri));
+    final contentsAsync = ref.watch(directoryContentsProvider(uri));
 
     return contentsAsync.when(
       loading: () => _buildLoadingState(),
