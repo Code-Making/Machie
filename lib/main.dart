@@ -321,7 +321,7 @@ class CodeEditorPlugin implements EditorPlugin {
         fontFamily: settings?.fontFamily ?? "JetBrainsMono",
         codeTheme: CodeHighlightTheme(
           theme: atomOneDarkTheme,
-          languages: _getLanguageMode(codeTab.uri),
+          languages: _getLanguageMode(codeTab.file.uri),
         ),
       ),
       wordWrap: settings?.wordWrap ?? false,
