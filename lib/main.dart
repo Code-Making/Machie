@@ -701,7 +701,7 @@ class _FileItem extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       leading: const Icon(Icons.insert_drive_file),
-      title: Text(name),
+      title: Text(filr.name),
       onTap: onTap,
     );
   }
