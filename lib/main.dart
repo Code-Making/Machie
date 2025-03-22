@@ -68,9 +68,8 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async 
 });
 
 // Update fileHandlerProvider
-final fileHandlerProvider = FutureProvider<FileHandler>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  return SAFFileHandler(prefs);
+final fileHandlerProvider = Provider<FileHandler>((ref) {
+  return SAFFileHandler();
 });
 
 
@@ -82,7 +81,7 @@ final rootUriProvider = StateProvider<String?>((_) => null);
 // Update directoryContentsProvider
 final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String?>((ref, uri) async {
-      final handler = await ref.read(fileHandlerProvider);
+      final handler = ref.read(fileHandlerProvider);
       final targetUri = uri ?? await handler.getPersistedRootUri();
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
