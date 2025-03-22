@@ -1246,10 +1246,10 @@ abstract class FileHandler {
 // --------------------
 //  SAF Implementation
 // --------------------
-class SAFDocumentFile implements DocumentFile {
-  final SAFDocumentFile _file;
+class CustomSAFDocumentFile implements DocumentFile {
+  final CustomSAFDocumentFile _file;
 
-  SAFDocumentFile(this._file);
+  CustomSAFDocumentFile(this._file);
 
   @override String get uri => _file.uri;
   @override String get name => _file.name;
@@ -1293,7 +1293,7 @@ class SAFFileHandler implements FileHandler {
     if (targetUri == null) return [];
     
     final contents = await _safUtil.list(targetUri);
-    return contents.map((f) => SAFDocumentFile(f)).toList();
+    return contents.map((f) => CustomSAFDocumentFile(f)).toList();
   }
 
   @override
@@ -1322,9 +1322,9 @@ class SAFFileHandler implements FileHandler {
     final file = await _safUtil.child(parentUri, [fileName]);
     if (file == null) {
       final created = await _safUtil.mkdirp(parentUri, [fileName]);
-      return SAFDocumentFile(created!);
+      return CustomSAFDocumentFile(created!);
     }
-    return SAFDocumentFile(file);
+    return CustomSAFDocumentFile(file);
   }
 
   @override
@@ -1345,25 +1345,25 @@ class SAFFileHandler implements FileHandler {
   @override
   Future<String?> getMimeType(String uri) async {
     final file = await _safUtil.documentFileFromUri(uri, false);
-    return file != null ? SAFDocumentFile(file).mimeType : null;
+    return file != null ? CustomSAFDocumentFile(file).mimeType : null;
   }
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
     final file = await _safUtil.documentFileFromUri(uri, false);
-    return file != null ? SAFDocumentFile(file) : null;
+    return file != null ? CustomSAFDocumentFile(file) : null;
   }
   
     @override
   Future<DocumentFile?> pickFile() async {
     final file = await _safUtil.pickFile();
-    return file != null ? SAFDocumentFile(file) : null;
+    return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
   @override
   Future<List<DocumentFile>> pickFiles() async {
     final files = await _safUtil.pickFiles();
-    return files?.map((f) => SAFDocumentFile(f)).toList() ?? [];
+    return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
   }
 }
 
