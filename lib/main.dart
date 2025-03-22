@@ -645,7 +645,7 @@ class _DirectoryItem extends StatelessWidget {
   }
 }
 
-class _DirectoryExpansionTile extends ConsumerWidget {
+class _DirectoryExpansionTile extends ConsumerStatefulWidget {
   final DocumentFile file;
   final int depth;
   final Function(DocumentFile) onOpenFile;
