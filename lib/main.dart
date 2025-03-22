@@ -984,7 +984,7 @@ class _FileOperationsHeader extends ConsumerWidget {
         ],
       ),
     );
-  }
+  } 
 }
 
 class _FileOperationsFooter extends StatelessWidget {
