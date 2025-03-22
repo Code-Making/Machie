@@ -648,7 +648,7 @@ class _DirectoryItem extends StatelessWidget {
       uri: item.uri,
       name: item.name,
       depth: depth,
-      onTap: () => onOpenFile(item.uri),
+      onTap: () => onOpenFile(item),
     );
   }
 }
