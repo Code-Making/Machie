@@ -624,13 +624,11 @@ class _DirectoryItem extends StatelessWidget {
   final DocumentFile item;
   final Function(DocumentFile) onOpenFile;
   final int depth;
-  final bool isRoot;
 
   const _DirectoryItem({
     required this.item,
     required this.onOpenFile,
     required this.depth,
-    required this.isRoot,
   });
 
   @override
@@ -639,7 +637,6 @@ class _DirectoryItem extends StatelessWidget {
       return _DirectoryExpansionTile(
         file: item,
         depth: depth,
-        isRoot: isRoot,
         onOpenFile: onOpenFile,
       );
     }
@@ -654,23 +651,23 @@ class _DirectoryItem extends StatelessWidget {
 class _DirectoryExpansionTile extends ConsumerWidget {
   final DocumentFile file;
   final int depth;
-  final bool isRoot;
   final Function(DocumentFile) onOpenFile;
 
   const _DirectoryExpansionTile({
     required this.file,
     required this.depth,
-    required this.isRoot,
     required this.onOpenFile,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ExpansionTile(
-      leading: Icon(
-        isRoot ? Icons.folder_open : Icons.folder,
-        color: Colors.yellow,
-      ),
+      builder: (context, expansionState) {
+        return Icon(
+          expansionState.isExpanded ? Icons.folder_open : Icons.folder,
+          color: Colors.yellow,
+        );
+      },
       title: Text(file.name),
       childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
       children: [
