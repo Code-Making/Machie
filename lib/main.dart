@@ -574,7 +574,7 @@ class _DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(directoryContentsProvider(ditrctory.uri));
+    final contentsAsync = ref.watch(directoryContentsProvider(directory.uri));
 
     return contentsAsync.when(
       loading: () => _buildLoadingState(),
