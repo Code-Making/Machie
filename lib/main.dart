@@ -48,11 +48,33 @@ void main() async {
     ProviderScope(
       child: MaterialApp(
         theme: ThemeData.dark(),
-        home: const EditorScreen(),
+        home: _AppInitializer(),
         routes: {'/settings': (_) => const SettingsScreen()},
       ),
     ),
   );
+}
+
+// --------------------
+//   App init
+// --------------------
+
+class _AppInitializer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, ref) {
+    final settingsAsync = ref.watch(settingsProvider);
+    final prefsAsync = ref.watch(sharedPreferencesProvider);
+
+    return prefsAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stack) => ErrorWidget(error),
+      data: (prefs) => settingsAsync.when(
+        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (error, stack) => ErrorWidget(error),
+        data: (settings) => EditorScreen(),
+      ),
+    );
+  }
 }
 
 // --------------------
@@ -67,6 +89,9 @@ void main() async {
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
   return await SharedPreferences.getInstance();
 });
+
+final settingsProvider = AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+
 
 // Update fileHandlerProvider
 final fileHandlerProvider = Provider<FileHandler>((ref) {
@@ -1023,82 +1048,59 @@ class AppSettings {
   }
 }
 
-// --------------------
-//  Settings Providers
-// --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
-  ref,
-) {
-  final plugins = ref.watch(activePluginsProvider);
-  return SettingsNotifier(plugins: plugins);
-});
 
-class SettingsNotifier extends StateNotifier<AppSettings> {
-  final Set<EditorPlugin> _plugins;
 
-  SettingsNotifier({required Set<EditorPlugin> plugins})
-    : _plugins = plugins,
-      super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
-    loadSettings();
+class SettingsNotifier extends AsyncNotifier<AppSettings> {
+  @override
+  Future<AppSettings> build() async {
+    // Initial load from disk
+    final prefs = await ref.watch(sharedPreferencesProvider.future);
+    return _loadSettings(prefs);
   }
 
-  static Map<Type, PluginSettings> _getDefaultSettings(
-    Set<EditorPlugin> plugins,
-  ) {
-    return {
-      for (final plugin in plugins)
-        if (plugin.settings != null)
-          plugin.settings.runtimeType: plugin.settings!,
-    };
-  }
-
-  void updatePluginSettings(PluginSettings newSettings) {
-    final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
-      ..[newSettings.runtimeType] = newSettings;
-
-    state = state.copyWith(pluginSettings: updatedSettings);
-    _saveSettings();
-  }
-
-  Future<void> _saveSettings() async {
+  Future<AppSettings> _loadSettings(SharedPreferences prefs) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsMap = state.pluginSettings.map(
-        (type, settings) => MapEntry(type.toString(), settings.toJson()),
-      );
-      await prefs.setString('app_settings', jsonEncode(settingsMap));
+      final settingsJson = prefs.getString('app_settings');
+      if (settingsJson == null) return _defaultSettings();
+
+      final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
+      return _parseSettings(decoded);
     } catch (e) {
-      print('Error saving settings: $e');
+      print('Error loading settings: $e');
+      return _defaultSettings();
     }
   }
 
-  Future<void> loadSettings() async {
+  AppSettings _defaultSettings() {
+    return AppSettings(pluginSettings: {
+      CodeEditorSettings: CodeEditorSettings(),
+    });
+  }
+
+  AppSettings _parseSettings(Map<String, dynamic> decoded) {
+    final pluginSettings = <Type, PluginSettings>{};
+    
+    // Add your settings parsing logic here
+    pluginSettings[CodeEditorSettings] = CodeEditorSettings()
+      ..fromJson(decoded[CodeEditorSettings.toString()] ?? {});
+
+    return AppSettings(pluginSettings: pluginSettings);
+  }
+
+  Future<void> updatePluginSettings(PluginSettings newSettings) async {
+    state = const AsyncValue.loading();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsJson = prefs.getString('app_settings');
-
-      if (settingsJson != null) {
-        final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-        final newSettings = Map<Type, PluginSettings>.from(
-          state.pluginSettings,
-        );
-
-        for (final entry in decoded.entries) {
-          try {
-            final plugin = _plugins.firstWhere(
-              (p) => p.settings.runtimeType.toString() == entry.key,
-            );
-            plugin.settings!.fromJson(entry.value);
-            newSettings[plugin.settings.runtimeType] = plugin.settings!;
-          } catch (e) {
-            print('Error loading settings for $entry: $e');
-          }
-        }
-
-        state = state.copyWith(pluginSettings: newSettings);
-      }
+      final current = await future;
+      final updated = current.copyWith(
+        pluginSettings: {...current.pluginSettings, newSettings.runtimeType: newSettings}
+      );
+      
+      final prefs = await ref.read(sharedPreferencesProvider.future);
+      await prefs.setString('app_settings', jsonEncode(updated.toJson()));
+      
+      state = AsyncValue.data(updated);
     } catch (e) {
-      print('Error loading settings: $e');
+      state = AsyncValue.error(e, StackTrace.current);
     }
   }
 }
