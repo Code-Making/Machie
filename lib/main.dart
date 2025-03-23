@@ -897,7 +897,7 @@ class UnsupportedFileType implements Exception {
 }
 
 class FileExplorerDrawer extends ConsumerWidget {
-  final String? currentDir;
+  final DocumentFile? currentDir;
 
   const FileExplorerDrawer({super.key, this.currentDir});
 
@@ -927,7 +927,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                 currentDir == null
                     ? const Center(child: Text('No folder open'))
                     : _DirectoryView(
-                      uri: currentDir!,
+                      directory: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
                         ref.read(tabManagerProvider.notifier).openFile(file);
