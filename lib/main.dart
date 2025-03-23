@@ -74,7 +74,7 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
 
 
 
-final currentDirectoryProvider = StateProvider<String?>((ref) => null);
+final currentDirectoryProvider = StateProvider<DocumentFile?>((ref) => null);
 
 final rootUriProvider = StateProvider<String?>((_) => null);
 
@@ -1218,7 +1218,7 @@ abstract class DocumentFile {
 
 abstract class FileHandler {
   // Directory operations
-  Future<String?> pickDirectory();
+  Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(String? uri);
   Future<DocumentFile?> pickFile();
   Future<List<DocumentFile>> pickFiles();
@@ -1286,9 +1286,9 @@ class SAFFileHandler implements FileHandler {
   SAFFileHandler();
 
   @override
-  Future<String?> pickDirectory() async {
+  Future<DocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory();
-    return dir?.uri;
+    return dir;
   }
 
   @override
