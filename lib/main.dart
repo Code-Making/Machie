@@ -63,6 +63,7 @@ void main() async {
   (ref) => AndroidFileHandler(),
 );*/
 // Add this provider
+@Riverpod(keepAlive: true)
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
   return await SharedPreferences.getInstance();
 });
