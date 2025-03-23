@@ -76,7 +76,7 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
 
 final currentDirectoryProvider = StateProvider<DocumentFile?>((ref) => null);
 
-final rootUriProvider = StateProvider<String?>((_) => null);
+final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
 
 // Update directoryContentsProvider
 final directoryContentsProvider = FutureProvider.autoDispose
