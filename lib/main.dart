@@ -675,7 +675,7 @@ class _DirectoryExpansionTileState extends ConsumerState<_DirectoryExpansionTile
       onExpansionChanged: (expanded) => setState(() => _isExpanded = expanded),
       children: [
         _DirectoryView(
-          uri: widget.file.uri,
+          directory: widget.file,
           onOpenFile: widget.onOpenFile,
           depth: widget.depth + 1,
         ),
