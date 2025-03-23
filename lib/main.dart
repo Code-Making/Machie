@@ -49,7 +49,7 @@ void main() async {
       child: MaterialApp(
         theme: ThemeData.dark(),
         home: AppStartupWidget(
-          onLoaded: () => const EditorScreen(),
+          onLoaded: (context) => const EditorScreen(),
           ),
           routes: {'/settings': (_) => const SettingsScreen()},
       ),
