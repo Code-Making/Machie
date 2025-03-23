@@ -111,7 +111,7 @@ Future<void> appStartup(Ref ref) async {
     await ref.read(settingsProvider.notifier).loadSettings();
     
     // Initialize other dependencies if needed
-    await ref.read(fileHandlerProvider).initialize();
+    //await ref.read(fileHandlerProvider).initialize();
   } catch (e, st) {
     print('App startup error: $e\n$st');
     rethrow;
