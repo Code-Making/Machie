@@ -48,8 +48,10 @@ void main() async {
     ProviderScope(
       child: MaterialApp(
         theme: ThemeData.dark(),
-        home: const EditorScreen(),
-        routes: {'/settings': (_) => const SettingsScreen()},
+        home: AppStartupWidget(
+          onLoaded: () => const EditorScreen(),
+          ),
+          routes: {'/settings': (_) => const SettingsScreen()},
       ),
     ),
   );
@@ -92,6 +94,103 @@ final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
     plugins: ref.read(activePluginsProvider),
   );
 });
+
+// --------------------
+//        Startup
+// --------------------
+final appStartupProvider = FutureProvider<void>((ref) async {
+  await appStartup(ref);
+});
+
+Future<void> appStartup(Ref ref) async {
+  try {
+    // Initialize SharedPreferences first
+    final prefs = await ref.read(sharedPreferencesProvider.future);
+    
+    // Then load settings
+    await ref.read(settingsProvider.notifier).loadSettings();
+    
+    // Initialize other dependencies if needed
+    await ref.read(fileHandlerProvider).initialize();
+  } catch (e, st) {
+    print('App startup error: $e\n$st');
+    rethrow;
+  }
+}
+
+// 3. Implement AppStartupWidget
+class AppStartupWidget extends ConsumerWidget {
+  final WidgetBuilder onLoaded;
+
+  const AppStartupWidget({super.key, required this.onLoaded});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final startupState = ref.watch(appStartupProvider);
+
+    return startupState.when(
+      loading: () => const AppStartupLoadingWidget(),
+      error: (error, stack) => AppStartupErrorWidget(
+        error: error,
+        onRetry: () => ref.invalidate(appStartupProvider),
+      ),
+      data: (_) => onLoaded(context),
+    );
+  }
+}
+
+// 4. Create loading and error widgets
+class AppStartupLoadingWidget extends StatelessWidget {
+  const AppStartupLoadingWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text('Initializing application...'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppStartupErrorWidget extends StatelessWidget {
+  final Object error;
+  final VoidCallback onRetry;
+
+  const AppStartupErrorWidget({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 50),
+            const SizedBox(height: 20),
+            Text('Initialization failed: $error', textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // --------------------
 //        States
