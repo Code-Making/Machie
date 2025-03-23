@@ -562,19 +562,19 @@ class FileTypeIcon extends ConsumerWidget {
 // --------------------
 
 class _DirectoryView extends ConsumerWidget {
-  final String uri;
+  final DocumentFile directory;
   final Function(DocumentFile) onOpenFile;
   final int depth;
 
   const _DirectoryView({
-    required this.uri,
+    required this.directory,
     required this.onOpenFile,
     this.depth = 0,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(directoryContentsProvider(uri));
+    final contentsAsync = ref.watch(directoryContentsProvider(ditrctory.uri));
 
     return contentsAsync.when(
       loading: () => _buildLoadingState(),
