@@ -88,10 +88,17 @@ final directoryContentsProvider = FutureProvider.autoDispose
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
 
-final tabManagerProvider = StateNotifierProvider<TabManager, TabState>((ref) {
-  return TabManager(
-    fileHandler: ref.read(fileHandlerProvider),
-    plugins: ref.read(activePluginsProvider),
+final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
+  return SessionNotifier(
+    fileHandler: ref.watch(fileHandlerProvider),
+    plugins: ref.watch(pluginRegistryProvider),
+  );
+});
+
+final sessionManagerProvider = Provider<SessionManager>((ref) {
+  return SessionManager(
+    ref.watch(fileHandlerProvider),
+    ref.watch(pluginRegistryProvider),
   );
 });
 
@@ -195,15 +202,18 @@ class AppStartupErrorWidget extends StatelessWidget {
 // --------------------
 //        States
 // --------------------
-class TabState {
+@immutable
+class SessionState {
   final List<EditorTab> tabs;
-  final int currentIndex;
+  final int currentTabIndex;
+  final DocumentFile? currentDirectory;
 
-  TabState({this.tabs = const [], this.currentIndex = 0});
+  const SessionState({
+    this.tabs = const [],
+    this.currentTabIndex = 0,
+    this.currentDirectory,
+  });
 
-  EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentIndex] : null;
-
-  // Add equality checks
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -829,75 +839,67 @@ class _DirectoryLoadingTile extends StatelessWidget {
 //      Tab Widget
 // --------------------
 
-class TabManager extends StateNotifier<TabState> {
-  final FileHandler fileHandler;
-  final Set<EditorPlugin> plugins;
+class SessionManager {
+  final FileHandler _fileHandler;
+  final PluginRegistry _plugins;
 
-  TabManager({required this.fileHandler, required this.plugins})
-    : super(TabState());
+  SessionManager(this._fileHandler, this._plugins);
+
+  Future<SessionState> openFile(SessionState currentState, DocumentFile file) async {
+    // Business logic implementation
+    final existingIndex = currentState.tabs.indexWhere((t) => t.file.uri == file.uri);
+    if (existingIndex != -1) {
+      return currentState.copyWith(currentTabIndex: existingIndex);
+    }
+
+    final content = await _fileHandler.readFile(file.uri);
+    final plugin = _plugins.findForFile(file);
+    final tab = plugin.createTab(file);
+    await plugin.initializeTab(tab, content);
+
+    return currentState.copyWith(
+      tabs: [...currentState.tabs, tab],
+      currentTabIndex: currentState.tabs.length,
+    );
+  }
+
+  SessionState closeTab(SessionState currentState, int index) {
+    final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
+    return currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: _calculateNewTabIndex(currentState.currentTabIndex, index),
+    );
+  }
+
+  static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
+    if (currentIndex < closedIndex) return currentIndex;
+    return currentIndex > 0 ? currentIndex - 1 : 0;
+  }
+}
+
+
+
+
+class SessionNotifier extends StateNotifier<SessionState> {
+  final SessionManager _manager;
+  
+  SessionNotifier({
+    required FileHandler fileHandler,
+    required PluginRegistry plugins,
+  }) : _manager = SessionManager(fileHandler, plugins),
+        super(const SessionState());
 
   Future<void> openFile(DocumentFile file) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
-    if (existingIndex != -1) {
-      state = TabState(tabs: state.tabs, currentIndex: existingIndex);
-      return;
-    }
-
-    final content = await fileHandler.readFile(file.uri);
-
-    for (final plugin in plugins) {
-      if (plugin.supportsFile(file)) {
-        final tab = plugin.createTab(file);
-        await plugin.initializeTab(tab, content);
-        return _addTab(tab);
-      }
-    }
-
-    throw UnsupportedFileType(file.uri);
-  }
-
-  void _addTab(EditorTab tab) {
-    state = TabState(
-      tabs: [...state.tabs, tab],
-      currentIndex: state.tabs.length,
-    );
-  }
-
-  void switchTab(int index) {
-    state = TabState(
-      tabs: state.tabs,
-      currentIndex: index.clamp(0, state.tabs.length - 1),
-    );
-  }
-
-  void reorderTabs(int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(state.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab if it still exists
-    final currentFile = state.currentTab?.file;
-    final newCurrentIndex =
-        currentFile != null
-            ? newTabs.indexWhere((t) => t.file == currentFile)
-            : state.currentIndex;
-
-    state = TabState(
-      tabs: newTabs,
-      currentIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
+    state = await _manager.openFile(state, file);
   }
 
   void closeTab(int index) {
-    state.tabs[index].dispose();
-    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
-    state = TabState(
-      tabs: newTabs,
-      currentIndex:
-          state.currentIndex >= index && state.currentIndex > 0
-              ? state.currentIndex - 1
-              : state.currentIndex,
-    );
+    state = _manager.closeTab(state, index);
+  }
+
+  Future<void> changeDirectory(DocumentFile directory) async {
+    state = state.copyWith(currentDirectory: directory);
+    await _manager.persistDirectory(state);
   }
 }
 
