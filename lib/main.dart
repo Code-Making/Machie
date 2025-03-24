@@ -970,7 +970,20 @@ class SessionNotifier extends StateNotifier<SessionState> {
   }
   
   void reorderTabs(int oldIndex, int newIndex) {
-    state = SessionManager.reorderTabs(state, oldIndex, newIndex);
+    final newTabs = List<EditorTab>.from(state.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Preserve current tab selection
+    final currentFile = state.currentTab?.file;
+    final newCurrentIndex = currentFile != null 
+        ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
+        : state.currentTabIndex;
+
+    state = state.copyWith(
+      tabs: newTabs,
+      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
   }
 
   int _calculateNewTabIndex(int closedIndex) {
