@@ -64,24 +64,20 @@ void main() async {
 //   Providers
 // --------------------
 
-/*final fileHandlerProvider = Provider<AndroidFileHandler>(
-  (ref) => AndroidFileHandler(),
-);*/
-// Add this provider
+
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
   ref,
 ) async {
   return await SharedPreferences.getInstance();
 });
 
-// Update fileHandlerProvider
 final fileHandlerProvider = Provider<FileHandler>((ref) {
   return SAFFileHandler();
 });
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
-    CodeEditorPlugin(), // Default text editor
+    CodeEditorPlugin(),
   },
 );
 
@@ -92,7 +88,6 @@ final activePluginsProvider =
 
 final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
 
-// Update directoryContentsProvider
 final directoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String?>((ref, uri) async {
       final handler = ref.read(fileHandlerProvider);
@@ -100,7 +95,6 @@ final directoryContentsProvider = FutureProvider.autoDispose
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
 
-// 1. Business Logic Layer
 final sessionManagerProvider = Provider<SessionManager>((ref) {
   return SessionManager(
     fileHandler: ref.watch(fileHandlerProvider),
@@ -124,18 +118,10 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 
 Future<void> appStartup(Ref ref) async {
   try {
-    // Initialize SharedPreferences first
     final prefs = await ref.read(sharedPreferencesProvider.future);
 
-    // Then load settings
     await ref.read(settingsProvider.notifier).loadSettings();
-
-
-
     await ref.read(sessionProvider.notifier).loadSession();
-
-    // Initialize other dependencies if needed
-    //await ref.read(fileHandlerProvider).initialize();
   } catch (e, st) {
     print('App startup error: $e\n$st');
     rethrow;
@@ -159,7 +145,6 @@ class AppStartupWidget extends ConsumerWidget {
             onRetry: () => ref.invalidate(appStartupProvider),
           ),
       data: (_) {
-        // Load session after startup
         WidgetsBinding.instance.addPostFrameCallback((_) {
           ref.read(sessionProvider.notifier).loadSession();
         });
@@ -261,7 +246,6 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
   }
   
   Future<void> _debouncedSave(ProviderContainer container) async {
-    // Save immediately but skip transient pauses
     await container.read(sessionProvider.notifier).saveSession();
   }
 
@@ -1461,110 +1445,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 }
 
 // --------------------
-//     File Handlers
+//     File Handling
 // --------------------
-/*
-class AndroidFileHandler {
-  static const _channel = MethodChannel('com.example/file_handler');
 
-  Future<bool> _requestPermissions() async {
-    if (await Permission.storage.request().isGranted) {
-      return true;
-    }
-    return await Permission.manageExternalStorage.request().isGranted;
-  }
-
-  Future<String?> openFile() async {
-    if (!await _requestPermissions()) {
-      throw Exception('Storage permission denied');
-    }
-    try {
-      return await _channel.invokeMethod<String>('openFile');
-    } on PlatformException catch (e) {
-      print("Error opening file: ${e.message}");
-      return null;
-    }
-  }
-
-  Future<String?> openFolder() async {
-    try {
-      return await _channel.invokeMethod<String>('openFolder');
-    } on PlatformException catch (e) {
-      print("Error opening folder: ${e.message}");
-      return null;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>?> listDirectory(
-    String uri, {
-    bool isRoot = false,
-  }) async {
-    try {
-      final result = await _channel.invokeMethod<List<dynamic>>(
-        'listDirectory',
-        {'uri': uri, 'isRoot': isRoot},
-      );
-      return result?.map((e) => Map<String, dynamic>.from(e)).toList();
-    } on PlatformException catch (e) {
-      print("Error listing directory: ${e.message}");
-      return null;
-    }
-  }
-
-  Future<String?> readFile(String uri) async {
-    try {
-      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'readFile',
-        {'uri': uri},
-      );
-
-      final error = response?['error'];
-      final isEmpty = response?['isEmpty'] ?? false;
-      final content = response?['content'] as String?;
-
-      if (error != null) {
-        throw Exception(error);
-      }
-
-      if (isEmpty) {
-        print('File is empty but opened successfully');
-        return '';
-      }
-
-      return content;
-    } on PlatformException catch (e) {
-      throw Exception('Platform error: ${e.message}');
-    }
-  }
-
-  Future<bool> writeFile(String uri, String content) async {
-    try {
-      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'writeFile',
-        {'uri': uri, 'content': content},
-      );
-
-      if (response?['success'] == true) {
-        return true;
-      }
-
-      throw Exception(response?['error'] ?? 'Unknown write error');
-    } on PlatformException catch (e) {
-      throw Exception('Platform error: ${e.message}');
-    }
-  }
-}
-
-Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-  final extension = uri.split('.').last.toLowerCase();
-  // Add your language mappings here
-  return {'dart': CodeHighlightThemeMode(mode: langDart)};
-}
-*/
-
-// --------------------
-//  Abstract Interfaces
-// --------------------
 abstract class DocumentFile {
   String get uri;
   String get name;
@@ -1575,23 +1458,19 @@ abstract class DocumentFile {
 }
 
 abstract class FileHandler {
-  // Directory operations
   Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(String? uri);
   Future<DocumentFile?> pickFile();
   Future<List<DocumentFile>> pickFiles();
 
-  // File operations
   Future<String> readFile(String uri);
   Future<void> writeFile(String uri, String content);
   Future<DocumentFile> createFile(String parentUri, String fileName);
   Future<void> deleteFile(String uri);
 
-  // URI persistence
   Future<void> persistRootUri(String? uri);
   Future<String?> getPersistedRootUri();
 
-  // File metadata
   Future<String?> getMimeType(String uri);
   Future<DocumentFile?> getFileMetadata(String uri);
 }
@@ -1599,8 +1478,7 @@ abstract class FileHandler {
 // --------------------
 //  SAF Implementation
 // --------------------
-class CustomSAFDocumentFile implements DocumentFile {
-  //  final CustomSAFDocumentFile _file;
+class CustomSAFDocumentFile implements DocumentFile {  //  final CustomSAFDocumentFile _file;
   final SafDocumentFile _safFile;
 
   CustomSAFDocumentFile(this._safFile); // Accept SafDocumentFile
@@ -1654,14 +1532,11 @@ class SAFFileHandler implements FileHandler {
     try {
       final contents = await _safUtil.list(uri ?? '');
 
-      // Add sorting logic here
       contents.sort((a, b) {
-        // First sort by type (directories first)
         if (a.isDir != b.isDir) {
           return a.isDir ? -1 : 1;
         }
 
-        // Then sort alphabetically case-insensitive
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
