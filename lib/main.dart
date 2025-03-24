@@ -202,7 +202,7 @@ class AppStartupErrorWidget extends StatelessWidget {
 // --------------------
 //        States
 // --------------------
-@@immutable
+@immutable
 class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
