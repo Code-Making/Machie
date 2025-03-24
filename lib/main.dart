@@ -100,7 +100,7 @@ final sessionManagerProvider = Provider<SessionManager>((ref) {
   return SessionManager(
     fileHandler: ref.watch(fileHandlerProvider),
     plugins: ref.watch(activePluginsProvider),
-    prefs: ref.watch(sharedPreferencesProvider),
+    prefs: ref.watch(sharedPreferencesProvider).requireValue,
   );
 });
 
