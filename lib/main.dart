@@ -984,6 +984,22 @@ class SessionNotifier extends StateNotifier<SessionState> {
       currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
     );
   }
+  
+  Future<void> changeDirectory(DocumentFile? directory) async {
+    if (directory == null) return;
+    
+    state = state.copyWith(currentDirectory: directory);
+    
+    // Persist the directory
+    await _fileHandler.persistRootUri(directory.uri);
+    
+    // Optional: Preload directory contents
+    try {
+      await _fileHandler.listDirectory(directory.uri);
+    } catch (e) {
+      print('Error preloading directory: $e');
+    }
+  }
 
   int _calculateNewTabIndex(int closedIndex) {
     if (state.currentTabIndex < closedIndex) return state.currentTabIndex;
@@ -1156,7 +1172,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             final pickedDir = await ref.read(fileHandlerProvider).pickDirectory();
               if (pickedDir != null) {
                 ref.read(rootUriProvider.notifier).state = pickedDir;
-                ref.read(currentDirectoryProvider.notifier).state = pickedDir;
+                ref.read(sessionProvider.notifier).changeDirectory(pickedDir);
                 Navigator.pop(context);
               }
             },
