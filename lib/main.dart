@@ -891,6 +891,23 @@ class SessionManager {
       currentTabIndex: _calculateNewTabIndex(currentState.currentTabIndex, index),
     );
   }
+  
+  static SessionState reorderTabs(SessionState currentState, int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(currentState.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Preserve current tab if it still exists
+    final currentFile = currentState.currentTab?.file;
+    final newCurrentIndex = currentFile != null 
+        ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
+        : currentState.currentTabIndex;
+
+    return currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
+  }
 
   static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
     if (currentIndex < closedIndex) return currentIndex;
@@ -950,6 +967,10 @@ class SessionNotifier extends StateNotifier<SessionState> {
       tabs: newTabs,
       currentTabIndex: _calculateNewTabIndex(index),
     );
+  }
+  
+  void reorderTabs(int oldIndex, int newIndex) {
+    state = SessionManager.reorderTabs(state, oldIndex, newIndex);
   }
 
   int _calculateNewTabIndex(int closedIndex) {
