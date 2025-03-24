@@ -221,12 +221,15 @@ class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
   final DocumentFile? currentDirectory;
+  final DateTime? lastSaved;
 
   const SessionState({
     this.tabs = const [],
     this.currentTabIndex = 0,
     this.currentDirectory,
+    this.lastSaved,
   });
+
 
   EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentTabIndex] : null;
 
@@ -328,29 +331,53 @@ class SessionManager {
         _plugins = plugins,
         _prefs = prefs;
 
-  Future<SessionState> loadSession() async {
-    final json = _prefs.getString('session');
-    if (json == null) return const SessionState();
+  Future<SessionState> openFile(SessionState current, DocumentFile file) async {
+    final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
+    if (existingIndex != -1) return current.copyWith(currentTabIndex: existingIndex);
 
-    try {
-      final data = jsonDecode(json) as Map<String, dynamic>;
-      return await _deserializeState(data);
-    } catch (e) {
-      print('Error loading session: $e');
-      return const SessionState();
+    final content = await _fileHandler.readFile(file.uri);
+    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
+    final tab = plugin.createTab(file);
+    await plugin.initializeTab(tab, content);
+
+    return current.copyWith(
+      tabs: [...current.tabs, tab],
+      currentTabIndex: current.tabs.length,
+    );
+  }
+
+  SessionState reorderTabs(SessionState current, int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(current.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    return current.copyWith(
+      tabs: newTabs,
+      currentTabIndex: current.currentTabIndex,
+    );
+  }
+
+  SessionState closeTab(SessionState current, int index) {
+    final newTabs = List<EditorTab>.from(current.tabs)..removeAt(index);
+    return current.copyWith(
+      tabs: newTabs,
+      currentTabIndex: _calculateNewIndex(current.currentTabIndex, index),
+    );
+  }
+
+  int _calculateNewIndex(int currentIndex, int closedIndex) => 
+      currentIndex == closedIndex ? max(0, closedIndex - 1) : currentIndex;
+
+  Future<void> persistDirectory(SessionState state) async {
+    if (state.currentDirectory != null) {
+      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
     }
   }
 
-  Future<void> saveSession(SessionState state) async {
-    await _prefs.setString('session', jsonEncode(_serializeState(state)));
-  }
-
-  Map<String, dynamic> _serializeState(SessionState state) => {/* ... */};
-  
-  Future<SessionState> _deserializeState(Map<String, dynamic> data) async {
-    // Business logic for deserialization
-  }
+  Future<SessionState> loadSession() async {/* ... */} 
+  Future<void> saveSession(SessionState state) async {/* ... */}
 }
+
 
 // --------------------
 //  Session Notifier
@@ -361,25 +388,37 @@ class SessionNotifier extends StateNotifier<SessionState> {
 
   SessionNotifier({required SessionManager manager})
       : _manager = manager,
-        super(const SessionState()) {
-    _initialize();
-  }
+        super(const SessionState());
 
-  Future<void> _initialize() async {
+  Future<void> loadSession() async {
     state = await _manager.loadSession();
   }
 
   Future<void> openFile(DocumentFile file) async {
-    final newState = await _manager.openFile(state, file);
-    state = newState;
+    state = await _manager.openFile(state, file);
+  }
+
+  void switchTab(int index) {
+    state = state.copyWith(currentTabIndex: index);
+  }
+
+  void closeTab(int index) {
+    state = _manager.closeTab(state, index);
+  }
+
+  void reorderTabs(int oldIndex, int newIndex) {
+    state = _manager.reorderTabs(state, oldIndex, newIndex);
+  }
+
+  Future<void> changeDirectory(DocumentFile directory) async {
+    await _manager.persistDirectory(state);
+    state = state.copyWith(currentDirectory: directory);
   }
 
   Future<void> saveSession() async {
     await _manager.saveSession(state);
     state = state.copyWith(lastSaved: DateTime.now());
   }
-
-  // Other state methods...
 }
 
 // --------------------
