@@ -377,8 +377,20 @@ class SessionManager {
     }
   }
 
-  Future<SessionState> loadSession() async {/* ... */} 
-  Future<void> saveSession(SessionState state) async {/* ... */}
+Future<SessionState> loadSession() async {
+    try {
+      final json = _prefs.getString('session');
+      if (json == null) return const SessionState();
+      
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      // Add actual deserialization implementation
+      return SessionState.fromJson(data); // Implement proper fromJson
+    } catch (e) {
+      print('Session load error: $e');
+      return const SessionState();
+    }
+  }  
+  
 }
 
 
