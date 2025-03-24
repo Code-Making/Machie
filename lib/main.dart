@@ -251,7 +251,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
     switch (state) {
       case AppLifecycleState.resumed:
         // Optional: Refresh session on resume
-        await container.read(sessionProvider.notifier).loadSession();
+        //await container.read(sessionProvider.notifier).loadSession();
         break;
       case AppLifecycleState.paused:
         // Save session when app backgrounds
