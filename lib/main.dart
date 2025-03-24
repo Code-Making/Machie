@@ -134,7 +134,6 @@ Future<void> appStartup(Ref ref) async {
   }
 }
 
-// 3. Implement AppStartupWidget
 class AppStartupWidget extends ConsumerWidget {
   final WidgetBuilder onLoaded;
 
@@ -151,12 +150,17 @@ class AppStartupWidget extends ConsumerWidget {
             error: error,
             onRetry: () => ref.invalidate(appStartupProvider),
           ),
-      data: (_) => onLoaded(context),
+      data: (_) {
+        // Load session after startup
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(sessionProvider.notifier).loadSession();
+        });
+        return onLoaded(context);
+      },
     );
   }
 }
 
-// 4. Create loading and error widgets
 class AppStartupLoadingWidget extends StatelessWidget {
   const AppStartupLoadingWidget({super.key});
 
@@ -207,7 +211,7 @@ class AppStartupErrorWidget extends StatelessWidget {
 }
 
 // --------------------
-//        States
+//      Session State
 // --------------------
 @immutable
 class SessionState {
@@ -249,7 +253,251 @@ class SessionState {
     const DeepCollectionEquality().hash(tabs),
     currentDirectory?.uri,
   );
+  
+  Map<String, dynamic> toJson() => {
+    'tabs': tabs.map((t) => _tabToJson(t)).toList(),
+    'currentIndex': currentTabIndex,
+    'directory': currentDirectory?.uri,
+  };
+
+  static SessionState fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins) {
+    return SessionState(
+      tabs: _tabsFromJson(json['tabs'], plugins),
+      currentTabIndex: json['currentIndex'] ?? 0,
+      currentDirectory: json['directory'] != null 
+          ? DocumentFile(uri: json['directory'])
+          : null,
+    );
+  }
+
+  static Map<String, dynamic> _tabToJson(EditorTab tab) => {
+    'fileUri': tab.file.uri,
+    'pluginType': tab.plugin.runtimeType.toString(),
+  };
+
+  static List<EditorTab> _tabsFromJson(List<dynamic> json, Set<EditorPlugin> plugins) {
+    return json.map((t) => _tabFromJson(t, plugins)).whereType<EditorTab>().toList();
+  }
+
+  static EditorTab? _tabFromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins) {
+    try {
+      final file = DocumentFile(uri: json['fileUri']);
+      final plugin = plugins.firstWhere(
+        (p) => p.runtimeType.toString() == json['pluginType'],
+      );
+      return plugin.createTab(file);
+    } catch (e) {
+      return null;
+    }
+  }
 }
+
+// --------------------
+//    Session Manager
+// --------------------
+
+class SessionManager {
+  final FileHandler _fileHandler;
+  final Set<EditorPlugin> _plugins;
+  final SharedPreferences _prefs;
+
+  SessionManager(this._fileHandler, this._plugins, this._prefs);
+
+  Future<SessionState> openFile(
+    SessionState currentState,
+    DocumentFile file,
+  ) async {
+    final existingIndex = currentState.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
+    if (existingIndex != -1) {
+      return currentState.copyWith(currentTabIndex: existingIndex);
+    }
+
+    final plugin = _plugins.firstWhere(
+      (p) => p.supportsFile(file),
+      orElse: () => throw Exception('No plugin found for ${file.name}'),
+    );
+
+    final content = await _fileHandler.readFile(file.uri);
+    final tab = plugin.createTab(file);
+    await plugin.initializeTab(tab, content);
+
+    return currentState.copyWith(
+      tabs: [...currentState.tabs, tab],
+      currentTabIndex: currentState.tabs.length,
+    );
+  }
+
+  static SessionState closeTab(SessionState currentState, int index) {
+    final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
+    return currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: _calculateNewTabIndex(
+        currentState.currentTabIndex,
+        index,
+      ),
+    );
+  }
+  
+  Future<void> saveSession(SessionState state) async {
+    await _prefs.setString('session', jsonEncode(state.toJson()));
+  }
+
+  Future<SessionState> loadSession() async {
+    final json = _prefs.getString('session');
+    if (json == null) return const SessionState();
+
+    try {
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      return SessionState.fromJson(data, _plugins);
+    } catch (e) {
+      print('Error loading session: $e');
+      return const SessionState();
+    }
+  }
+
+
+  static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
+    if (currentIndex < closedIndex) return currentIndex;
+    return currentIndex > 0 ? currentIndex - 1 : 0;
+  }
+
+  Future<void> persistDirectory(SessionState state) async {
+    if (state.currentDirectory != null) {
+      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
+    }
+  }
+}
+
+// --------------------
+//  Session Notifier
+// --------------------
+
+class SessionNotifier extends StateNotifier<SessionState> {
+  final FileHandler _fileHandler;
+  final Set<EditorPlugin> _plugins;
+  final SessionManager _manager;
+  
+  SessionNotifier({
+    required FileHandler fileHandler,
+    required Set<EditorPlugin> plugins,
+  }) : _fileHandler = fileHandler,
+       _plugins = plugins,
+       super(const SessionState());
+
+  Future<void> openFile(DocumentFile file) async {
+    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
+    if (existingIndex != -1) {
+      state = state.copyWith(currentTabIndex: existingIndex);
+      return;
+    }
+
+    final content = await _fileHandler.readFile(file.uri);
+    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
+    final tab = plugin.createTab(file);
+    await plugin.initializeTab(tab, content);
+
+    state = state.copyWith(
+      tabs: [...state.tabs, tab],
+      currentTabIndex: state.tabs.length,
+    );
+  }
+
+  void switchTab(int index) {
+    state = state.copyWith(
+      currentTabIndex: index.clamp(0, state.tabs.length - 1),
+    );
+  }
+
+  void closeTab(int index) {
+    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
+    state = state.copyWith(
+      tabs: newTabs,
+      currentTabIndex: _calculateNewTabIndex(index),
+    );
+  }
+
+  void reorderTabs(int oldIndex, int newIndex) {
+    final newTabs = List<EditorTab>.from(state.tabs);
+    final movedTab = newTabs.removeAt(oldIndex);
+    newTabs.insert(newIndex, movedTab);
+
+    // Preserve current tab selection
+    final currentFile = state.currentTab?.file;
+    final newCurrentIndex =
+        currentFile != null
+            ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
+            : state.currentTabIndex;
+
+    state = state.copyWith(
+      tabs: newTabs,
+      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
+    );
+  }
+
+  Future<void> changeDirectory(DocumentFile? directory) async {
+    if (directory == null) return;
+
+    state = state.copyWith(currentDirectory: directory);
+
+    // Persist the directory
+    await _fileHandler.persistRootUri(directory.uri);
+
+    // Optional: Preload directory contents
+    try {
+      await _fileHandler.listDirectory(directory.uri);
+    } catch (e) {
+      print('Error preloading directory: $e');
+    }
+  }
+
+  int _calculateNewTabIndex(int closedIndex) {
+    if (state.currentTabIndex < closedIndex) return state.currentTabIndex;
+    if (state.currentTabIndex == closedIndex) {
+      return (closedIndex > 0) ? closedIndex - 1 : 0;
+    }
+    return state.currentTabIndex - 1;
+  }
+  
+  Future<void> saveSession() => _manager.saveSession(state);
+
+  Future<void> loadSession() async {
+    final loaded = await _manager.loadSession();
+    state = await _initializeLoadedSession(loaded);
+  }
+
+  Future<SessionState> _initializeLoadedSession(SessionState loaded) async {
+    final tabs = await Future.wait(
+      loaded.tabs.map((t) => _loadTabContent(t)),
+    );
+    
+    return loaded.copyWith(tabs: tabs.whereType<EditorTab>().toList());
+  }
+
+  Future<EditorTab?> _loadTabContent(EditorTab tab) async {
+    try {
+      final content = await _fileHandler.readFile(tab.file.uri);
+      await tab.plugin.initializeTab(tab, content);
+      return tab;
+    } catch (e) {
+      print('Error loading tab ${tab.file.name}: $e');
+      return null;
+    }
+  }
+
+  /*Future<void> changeDirectory(DocumentFile directory) async {
+    state = state.copyWith(currentDirectory: directory);
+    if (directory != null) {
+      await _fileHandler.persistRootUri(directory.uri);
+    }
+  }*/
+}
+
+// --------------------
+//  Tabs
+// --------------------
+
 
 abstract class EditorTab {
   final DocumentFile file;
@@ -275,8 +523,85 @@ class CodeEditorTab extends EditorTab {
 }
 
 // --------------------
-//  States notifiers
+//      Tab Bar
 // --------------------
+class TabBarView extends ConsumerWidget {
+  const TabBarView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabs = ref.watch(sessionProvider.select((state) => state.tabs));
+
+    return Container(
+      color: Colors.grey[900],
+      height: 40,
+      child: ReorderableListView(
+        scrollDirection: Axis.horizontal,
+        onReorder:
+            (oldIndex, newIndex) => ref
+                .read(sessionProvider.notifier)
+                .reorderTabs(oldIndex, newIndex),
+        buildDefaultDragHandles: false,
+        children: [
+          for (final tab in tabs)
+            ReorderableDelayedDragStartListener(
+              key: ValueKey(tab.file),
+              index: tabs.indexOf(tab),
+              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class FileTab extends ConsumerWidget {
+  final EditorTab tab;
+  final int index;
+
+  const FileTab({super.key, required this.tab, required this.index});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isActive = ref.watch(
+      sessionProvider.select((s) => s.currentTabIndex == index),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+      child: Material(
+        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
+        child: InkWell(
+          onTap: () => ref.read(sessionProvider.notifier).switchTab(index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed:
+                      () => ref.read(sessionProvider.notifier).closeTab(index),
+                ),
+                Expanded(
+                  child: Text(
+                    tab.file.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tab.isDirty ? Colors.orange : Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getFileName(String uri) =>
+      Uri.parse(uri).pathSegments.last.split('/').last;
+}
 
 // --------------------
 //    Editor Screen
@@ -847,255 +1172,8 @@ class _DirectoryLoadingTile extends StatelessWidget {
 //      Tab Widget
 // --------------------
 
-class SessionManager {
-  final FileHandler _fileHandler;
-  final Set<EditorPlugin> _plugins;
 
-  SessionManager(this._fileHandler, this._plugins);
 
-  Future<SessionState> openFile(
-    SessionState currentState,
-    DocumentFile file,
-  ) async {
-    final existingIndex = currentState.tabs.indexWhere(
-      (t) => t.file.uri == file.uri,
-    );
-    if (existingIndex != -1) {
-      return currentState.copyWith(currentTabIndex: existingIndex);
-    }
-
-    final plugin = _plugins.firstWhere(
-      (p) => p.supportsFile(file),
-      orElse: () => throw Exception('No plugin found for ${file.name}'),
-    );
-
-    final content = await _fileHandler.readFile(file.uri);
-    final tab = plugin.createTab(file);
-    await plugin.initializeTab(tab, content);
-
-    return currentState.copyWith(
-      tabs: [...currentState.tabs, tab],
-      currentTabIndex: currentState.tabs.length,
-    );
-  }
-
-  static SessionState closeTab(SessionState currentState, int index) {
-    final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
-    return currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: _calculateNewTabIndex(
-        currentState.currentTabIndex,
-        index,
-      ),
-    );
-  }
-  /*
-  static SessionState reorderTabs(SessionState currentState, int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(currentState.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab if it still exists
-    final currentFile = currentState.currentTab?.file;
-    final newCurrentIndex = currentFile != null 
-        ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
-        : currentState.currentTabIndex;
-
-    return currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
-  }*/
-
-  static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
-    if (currentIndex < closedIndex) return currentIndex;
-    return currentIndex > 0 ? currentIndex - 1 : 0;
-  }
-
-  Future<void> persistDirectory(SessionState state) async {
-    if (state.currentDirectory != null) {
-      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
-    }
-  }
-}
-
-// --------------------
-//  Session Notifier
-// --------------------
-
-class SessionNotifier extends StateNotifier<SessionState> {
-  final FileHandler _fileHandler;
-  final Set<EditorPlugin> _plugins;
-
-  SessionNotifier({
-    required FileHandler fileHandler,
-    required Set<EditorPlugin> plugins,
-  }) : _fileHandler = fileHandler,
-       _plugins = plugins,
-       super(const SessionState());
-
-  Future<void> openFile(DocumentFile file) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
-    if (existingIndex != -1) {
-      state = state.copyWith(currentTabIndex: existingIndex);
-      return;
-    }
-
-    final content = await _fileHandler.readFile(file.uri);
-    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
-    final tab = plugin.createTab(file);
-    await plugin.initializeTab(tab, content);
-
-    state = state.copyWith(
-      tabs: [...state.tabs, tab],
-      currentTabIndex: state.tabs.length,
-    );
-  }
-
-  void switchTab(int index) {
-    state = state.copyWith(
-      currentTabIndex: index.clamp(0, state.tabs.length - 1),
-    );
-  }
-
-  void closeTab(int index) {
-    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
-    state = state.copyWith(
-      tabs: newTabs,
-      currentTabIndex: _calculateNewTabIndex(index),
-    );
-  }
-
-  void reorderTabs(int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(state.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab selection
-    final currentFile = state.currentTab?.file;
-    final newCurrentIndex =
-        currentFile != null
-            ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
-            : state.currentTabIndex;
-
-    state = state.copyWith(
-      tabs: newTabs,
-      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
-  }
-
-  Future<void> changeDirectory(DocumentFile? directory) async {
-    if (directory == null) return;
-
-    state = state.copyWith(currentDirectory: directory);
-
-    // Persist the directory
-    await _fileHandler.persistRootUri(directory.uri);
-
-    // Optional: Preload directory contents
-    try {
-      await _fileHandler.listDirectory(directory.uri);
-    } catch (e) {
-      print('Error preloading directory: $e');
-    }
-  }
-
-  int _calculateNewTabIndex(int closedIndex) {
-    if (state.currentTabIndex < closedIndex) return state.currentTabIndex;
-    if (state.currentTabIndex == closedIndex) {
-      return (closedIndex > 0) ? closedIndex - 1 : 0;
-    }
-    return state.currentTabIndex - 1;
-  }
-
-  /*Future<void> changeDirectory(DocumentFile directory) async {
-    state = state.copyWith(currentDirectory: directory);
-    if (directory != null) {
-      await _fileHandler.persistRootUri(directory.uri);
-    }
-  }*/
-}
-
-// --------------------
-//      Tab Bar
-// --------------------
-class TabBarView extends ConsumerWidget {
-  const TabBarView({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = ref.watch(sessionProvider.select((state) => state.tabs));
-
-    return Container(
-      color: Colors.grey[900],
-      height: 40,
-      child: ReorderableListView(
-        scrollDirection: Axis.horizontal,
-        onReorder:
-            (oldIndex, newIndex) => ref
-                .read(sessionProvider.notifier)
-                .reorderTabs(oldIndex, newIndex),
-        buildDefaultDragHandles: false,
-        children: [
-          for (final tab in tabs)
-            ReorderableDelayedDragStartListener(
-              key: ValueKey(tab.file),
-              index: tabs.indexOf(tab),
-              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class FileTab extends ConsumerWidget {
-  final EditorTab tab;
-  final int index;
-
-  const FileTab({super.key, required this.tab, required this.index});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(
-      sessionProvider.select((s) => s.currentTabIndex == index),
-    );
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
-      child: Material(
-        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-        child: InkWell(
-          onTap: () => ref.read(sessionProvider.notifier).switchTab(index),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed:
-                      () => ref.read(sessionProvider.notifier).closeTab(index),
-                ),
-                Expanded(
-                  child: Text(
-                    tab.file.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: tab.isDirty ? Colors.orange : Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getFileName(String uri) =>
-      Uri.parse(uri).pathSegments.last.split('/').last;
-}
 
 // --------------------
 //    File Explorer
