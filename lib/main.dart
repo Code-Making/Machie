@@ -983,10 +983,10 @@ class TabBarView extends ConsumerWidget {
       height: 40,
       child: ReorderableListView(
         scrollDirection: Axis.horizontal,
-      /*  onReorder:
+        onReorder:
             (oldIndex, newIndex) => ref
-                .read(tabManagerProvider.notifier)
-                .reorderTabs(oldIndex, newIndex),*/
+                .read(sessionManagerProvider.notifier)
+                .reorderTabs(oldIndex, newIndex),
         buildDefaultDragHandles: false,
         children: [
           for (final tab in tabs)
