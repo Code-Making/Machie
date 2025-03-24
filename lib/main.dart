@@ -50,9 +50,7 @@ void main() async {
       child: LifecycleHandler(
         child: MaterialApp(
           theme: ThemeData.dark(),
-          home: AppStartupWidget(
-            onLoaded: (context) => const EditorScreen(),
-          ),
+          home: AppStartupWidget(onLoaded: (context) => const EditorScreen()),
           routes: {'/settings': (_) => const SettingsScreen()},
         ),
       ),
@@ -63,7 +61,6 @@ void main() async {
 // --------------------
 //   Providers
 // --------------------
-
 
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
   ref,
@@ -76,9 +73,7 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
 });
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {
-    CodeEditorPlugin(),
-  },
+  (_) => {CodeEditorPlugin()},
 );
 
 final activePluginsProvider =
@@ -103,10 +98,10 @@ final sessionManagerProvider = Provider<SessionManager>((ref) {
   );
 });
 
-final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
-  return SessionNotifier(
-    manager: ref.watch(sessionManagerProvider),
-  );
+final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
+  ref,
+) {
+  return SessionNotifier(manager: ref.watch(sessionManagerProvider));
 });
 
 // --------------------
@@ -232,7 +227,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     final container = ProviderScope.containerOf(context);
-    
+
     switch (state) {
       case AppLifecycleState.paused:
         await _debouncedSave(container);
@@ -244,7 +239,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
         break;
     }
   }
-  
+
   Future<void> _debouncedSave(ProviderContainer container) async {
     await container.read(sessionProvider.notifier).saveSession();
   }
@@ -271,7 +266,6 @@ class SessionState {
     this.currentDirectory,
     this.lastSaved,
   });
-
 
   EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentTabIndex] : null;
 
@@ -303,59 +297,67 @@ class SessionState {
     const DeepCollectionEquality().hash(tabs),
     currentDirectory?.uri,
   );
-  
+
   Map<String, dynamic> toJson() => {
     'tabs': tabs.map((t) => _tabToJson(t)).toList(),
     'currentIndex': currentTabIndex,
     'directory': currentDirectory?.uri,
   };
 
-  static Future<SessionState> fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
-  final directoryUri = json['directory'];
-  DocumentFile? directory;
-  
-  if (directoryUri != null) {
-    directory = await fileHandler.getFileMetadata(directoryUri);
-  }
+  static Future<SessionState> fromJson(
+    Map<String, dynamic> json,
+    Set<EditorPlugin> plugins,
+    FileHandler fileHandler,
+  ) async {
+    final directoryUri = json['directory'];
+    DocumentFile? directory;
 
-  return SessionState(
-    tabs: await _tabsFromJson(json['tabs'], plugins, fileHandler),
-    currentTabIndex: json['currentIndex'] ?? 0,
-    currentDirectory: directory,
-  );
-}
+    if (directoryUri != null) {
+      directory = await fileHandler.getFileMetadata(directoryUri);
+    }
+
+    return SessionState(
+      tabs: await _tabsFromJson(json['tabs'], plugins, fileHandler),
+      currentTabIndex: json['currentIndex'] ?? 0,
+      currentDirectory: directory,
+    );
+  }
 
   static Map<String, dynamic> _tabToJson(EditorTab tab) => {
     'fileUri': tab.file.uri,
     'pluginType': tab.plugin.runtimeType.toString(),
   };
 
-  static Future<List<EditorTab>> _tabsFromJson(List<dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
-  final tabs = <EditorTab>[];
-  for (final item in json) {
-    final tab = await _tabFromJson(item, plugins, fileHandler);
-    if (tab != null) tabs.add(tab);
+  static Future<List<EditorTab>> _tabsFromJson(
+    List<dynamic> json,
+    Set<EditorPlugin> plugins,
+    FileHandler fileHandler,
+  ) async {
+    final tabs = <EditorTab>[];
+    for (final item in json) {
+      final tab = await _tabFromJson(item, plugins, fileHandler);
+      if (tab != null) tabs.add(tab);
+    }
+    return tabs;
   }
-  return tabs;
-}
 
-static Future<EditorTab?> _tabFromJson(
-  Map<String, dynamic> json, 
-  Set<EditorPlugin> plugins, 
-  FileHandler fileHandler
-) async {
-  try {
-    final file = await fileHandler.getFileMetadata(json['fileUri']);
-    if (file == null) return null; // Add null check
-    
-    final plugin = plugins.firstWhere(
-      (p) => p.runtimeType.toString() == json['pluginType'],
-    );
-    return plugin.createTab(file);
-  } catch (e) {
-    return null;
+  static Future<EditorTab?> _tabFromJson(
+    Map<String, dynamic> json,
+    Set<EditorPlugin> plugins,
+    FileHandler fileHandler,
+  ) async {
+    try {
+      final file = await fileHandler.getFileMetadata(json['fileUri']);
+      if (file == null) return null; // Add null check
+
+      final plugin = plugins.firstWhere(
+        (p) => p.runtimeType.toString() == json['pluginType'],
+      );
+      return plugin.createTab(file);
+    } catch (e) {
+      return null;
+    }
   }
-}
 }
 
 // --------------------
@@ -371,13 +373,16 @@ class SessionManager {
     required FileHandler fileHandler,
     required Set<EditorPlugin> plugins,
     required SharedPreferences prefs,
-  })  : _fileHandler = fileHandler,
-        _plugins = plugins,
-        _prefs = prefs;
+  }) : _fileHandler = fileHandler,
+       _plugins = plugins,
+       _prefs = prefs;
 
   Future<SessionState> openFile(SessionState current, DocumentFile file) async {
-    final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
-    if (existingIndex != -1) return current.copyWith(currentTabIndex: existingIndex);
+    final existingIndex = current.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
+    if (existingIndex != -1)
+      return current.copyWith(currentTabIndex: existingIndex);
 
     final content = await _fileHandler.readFile(file.uri);
     final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
@@ -409,7 +414,7 @@ class SessionManager {
     );
   }
 
-  int _calculateNewIndex(int currentIndex, int closedIndex) => 
+  int _calculateNewIndex(int currentIndex, int closedIndex) =>
       currentIndex == closedIndex ? max(0, closedIndex - 1) : currentIndex;
 
   Future<void> persistDirectory(SessionState state) async {
@@ -418,7 +423,7 @@ class SessionManager {
     }
   }
 
-Future<SessionState> loadSession() async {
+  Future<SessionState> loadSession() async {
     try {
       final json = _prefs.getString('session');
       if (json == null) return const SessionState();
@@ -435,7 +440,7 @@ Future<SessionState> loadSession() async {
     final tabs = await Future.wait(
       (data['tabs'] as List).map((t) => _loadTabFromJson(t)),
     );
-    
+
     return SessionState(
       tabs: tabs.whereType<EditorTab>().toList(),
       currentTabIndex: data['currentIndex'] ?? 0,
@@ -447,29 +452,28 @@ Future<SessionState> loadSession() async {
     try {
       final uri = tabJson['fileUri'] as String;
       final pluginType = tabJson['pluginType'] as String;
-      
+
       final file = await _fileHandler.getFileMetadata(uri);
       final plugin = _plugins.firstWhere(
         (p) => p.runtimeType.toString() == pluginType,
       );
-      
+
       final content = await _fileHandler.readFile(uri);
       final tab = plugin.createTab(file!);
       await plugin.initializeTab(tab, content);
-      
+
       return tab;
     } catch (e) {
       print('Error loading tab: $e');
       return null;
     }
   }
-  
+
   Future<DocumentFile?> _loadDirectory(String? uri) async {
     return uri != null ? await _fileHandler.getFileMetadata(uri) : null;
   }
 
-  
-Future<void> saveSession(SessionState state) async {
+  Future<void> saveSession(SessionState state) async {
     try {
       await _prefs.setString('session', jsonEncode(state.toJson()));
     } catch (e) {
@@ -477,7 +481,6 @@ Future<void> saveSession(SessionState state) async {
     }
   }
 }
-
 
 // --------------------
 //  Session Notifier
@@ -487,10 +490,10 @@ class SessionNotifier extends StateNotifier<SessionState> {
   final SessionManager _manager;
   bool _loaded = false;
   bool _isSaving = false;
-  
+
   SessionNotifier({required SessionManager manager})
-      : _manager = manager,
-        super(const SessionState()) {
+    : _manager = manager,
+      super(const SessionState()) {
     _initialize();
   }
 
@@ -522,7 +525,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
     state = state.copyWith(currentDirectory: directory);
   }
 
-Future<void> loadSession() async {
+  Future<void> loadSession() async {
     try {
       final loadedState = await _manager.loadSession();
       state = loadedState;
@@ -549,7 +552,6 @@ Future<void> loadSession() async {
 // --------------------
 //  Tabs
 // --------------------
-
 
 abstract class EditorTab {
   final DocumentFile file;
@@ -1224,9 +1226,6 @@ class _DirectoryLoadingTile extends StatelessWidget {
 //      Tab Widget
 // --------------------
 
-
-
-
 // --------------------
 //    File Explorer
 // --------------------
@@ -1478,7 +1477,8 @@ abstract class FileHandler {
 // --------------------
 //  SAF Implementation
 // --------------------
-class CustomSAFDocumentFile implements DocumentFile {  //  final CustomSAFDocumentFile _file;
+class CustomSAFDocumentFile implements DocumentFile {
+  //  final CustomSAFDocumentFile _file;
   final SafDocumentFile _safFile;
 
   CustomSAFDocumentFile(this._safFile); // Accept SafDocumentFile
