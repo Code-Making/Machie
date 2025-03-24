@@ -128,9 +128,13 @@ Future<void> appStartup(Ref ref) async {
     await ref.read(settingsProvider.notifier).loadSettings();
 
 
-    await ref.read(sessionProvider.notifier)
-    .._manager = sessionManager
-    ..loadSession();
+    ref.read(sessionProvider.notifier)
+    .._fileHandler = fileHandler
+    .._plugins = plugins
+    .._manager = sessionManager;
+
+  await ref.read(sessionProvider.notifier).loadSession();
+
     // Initialize other dependencies if needed
     //await ref.read(fileHandlerProvider).initialize();
   } catch (e, st) {
@@ -265,36 +269,46 @@ class SessionState {
     'directory': currentDirectory?.uri,
   };
 
-  static SessionState fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins) {
-    return SessionState(
-      tabs: _tabsFromJson(json['tabs'], plugins),
-      currentTabIndex: json['currentIndex'] ?? 0,
-      currentDirectory: json['directory'] != null 
-          ? DocumentFile(uri: json['directory'])
-          : null,
-    );
+  static SessionState fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
+  final directoryUri = json['directory'];
+  DocumentFile? directory;
+  
+  if (directoryUri != null) {
+    directory = await fileHandler.getFileMetadata(directoryUri);
   }
+
+  return SessionState(
+    tabs: await _tabsFromJson(json['tabs'], plugins, fileHandler),
+    currentTabIndex: json['currentIndex'] ?? 0,
+    currentDirectory: directory,
+  );
+}
 
   static Map<String, dynamic> _tabToJson(EditorTab tab) => {
     'fileUri': tab.file.uri,
     'pluginType': tab.plugin.runtimeType.toString(),
   };
 
-  static List<EditorTab> _tabsFromJson(List<dynamic> json, Set<EditorPlugin> plugins) {
-    return json.map((t) => _tabFromJson(t, plugins)).whereType<EditorTab>().toList();
+  static Future<List<EditorTab>> _tabsFromJson(List<dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
+  final tabs = <EditorTab>[];
+  for (final item in json) {
+    final tab = await _tabFromJson(item, plugins, fileHandler);
+    if (tab != null) tabs.add(tab);
   }
+  return tabs;
+}
 
-  static EditorTab? _tabFromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins) {
-    try {
-      final file = DocumentFile(uri: json['fileUri']);
-      final plugin = plugins.firstWhere(
-        (p) => p.runtimeType.toString() == json['pluginType'],
-      );
-      return plugin.createTab(file);
-    } catch (e) {
-      return null;
-    }
+static Future<EditorTab?> _tabFromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
+  try {
+    final file = await fileHandler.getFileMetadata(json['fileUri']);
+    final plugin = plugins.firstWhere(
+      (p) => p.runtimeType.toString() == json['pluginType'],
+    );
+    return plugin.createTab(file);
+  } catch (e) {
+    return null;
   }
+}
 }
 
 // --------------------
@@ -383,13 +397,15 @@ class SessionNotifier extends StateNotifier<SessionState> {
   final FileHandler _fileHandler;
   final Set<EditorPlugin> _plugins;
   final SessionManager _manager;
-  
+
   SessionNotifier({
     required FileHandler fileHandler,
     required Set<EditorPlugin> plugins,
-  }) : _fileHandler = fileHandler,
-       _plugins = plugins,
-       super(const SessionState());
+    required SessionManager manager,
+  })  : _fileHandler = fileHandler,
+        _plugins = plugins,
+        _manager = manager,
+        super(const SessionState());
 
   Future<void> openFile(DocumentFile file) async {
     final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
