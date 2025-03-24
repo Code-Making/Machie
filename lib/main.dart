@@ -295,9 +295,15 @@ class SessionState {
   return tabs;
 }
 
-static Future<EditorTab?> _tabFromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
+static Future<EditorTab?> _tabFromJson(
+  Map<String, dynamic> json, 
+  Set<EditorPlugin> plugins, 
+  FileHandler fileHandler
+) async {
   try {
     final file = await fileHandler.getFileMetadata(json['fileUri']);
+    if (file == null) return null; // Add null check
+    
     final plugin = plugins.firstWhere(
       (p) => p.runtimeType.toString() == json['pluginType'],
     );
