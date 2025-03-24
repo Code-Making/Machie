@@ -985,7 +985,7 @@ class TabBarView extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         onReorder:
             (oldIndex, newIndex) => ref
-                .read(sessionManagerProvider.notifier)
+                .read(sessionProvider.notifier)
                 .reorderTabs(oldIndex, newIndex),
         buildDefaultDragHandles: false,
         children: [
