@@ -47,10 +47,14 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: MaterialApp(
-        theme: ThemeData.dark(),
-        home: AppStartupWidget(onLoaded: (context) => const EditorScreen()),
-        routes: {'/settings': (_) => const SettingsScreen()},
+      child: LifecycleHandler(
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AppStartupWidget(
+            onLoaded: (context) => const EditorScreen(),
+          ),
+          routes: {'/settings': (_) => const SettingsScreen()},
+        ),
       ),
     ),
   );
@@ -211,6 +215,60 @@ class AppStartupErrorWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// --------------------
+//  Lifecycle Handler
+// --------------------
+class LifecycleHandler extends StatefulWidget {
+  final Widget child;
+
+  const LifecycleHandler({super.key, required this.child});
+
+  @override
+  State<LifecycleHandler> createState() => _LifecycleHandlerState();
+}
+
+class _LifecycleHandlerState extends State<LifecycleHandler>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    final container = ProviderScope.containerOf(context);
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // Optional: Refresh session on resume
+        await container.read(sessionProvider.notifier).loadSession();
+        break;
+      case AppLifecycleState.paused:
+        // Save session when app backgrounds
+        await container.read(sessionProvider.notifier).saveSession();
+        break;
+      case AppLifecycleState.detached:
+        // Handle app termination
+        await container.read(sessionProvider.notifier).saveSession();
+        break;
+      default:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 
