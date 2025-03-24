@@ -908,31 +908,6 @@ class SessionManager {
 //  Session Notifier
 // --------------------
 
-class SessionNotifier extends StateNotifier<SessionState> {
-  final SessionManager _manager;
-
-  SessionNotifier({
-    required FileHandler fileHandler,
-    required Set<EditorPlugin> plugins,
-  }) : _manager = SessionManager(fileHandler, plugins),
-        super(const SessionState());
-
-  Future<void> openFile(DocumentFile file) async {
-    state = await _manager.openFile(state, file);
-  }
-
-  void closeTab(int index) {
-    state = SessionManager.closeTab(state, index);
-  }
-
-  Future<void> changeDirectory(DocumentFile directory) async {
-    state = state.copyWith(currentDirectory: directory);
-    await _manager.persistDirectory(state);
-  }
-}
-
-
-
 
 class SessionNotifier extends StateNotifier<SessionState> {
   final FileHandler _fileHandler;
