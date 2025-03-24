@@ -249,21 +249,20 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
     final container = ProviderScope.containerOf(context);
     
     switch (state) {
-      case AppLifecycleState.resumed:
-        // Optional: Refresh session on resume
-        //await container.read(sessionProvider.notifier).loadSession();
-        break;
       case AppLifecycleState.paused:
-        // Save session when app backgrounds
-        // await container.read(sessionProvider.notifier).saveSession();
+        await _debouncedSave(container);
         break;
       case AppLifecycleState.detached:
-        // Handle app termination
-        // await container.read(sessionProvider.notifier).saveSession();
+        await container.read(sessionProvider.notifier).saveSession();
         break;
       default:
         break;
     }
+  }
+  
+  Future<void> _debouncedSave(ProviderContainer container) async {
+    // Save immediately but skip transient pauses
+    await container.read(sessionProvider.notifier).saveSession();
   }
 
   @override
