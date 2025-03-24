@@ -74,7 +74,12 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
   return SAFFileHandler();
 });
 
-
+// Replace pluginRegistryProvider with activePluginsProvider
+final activePluginsProvider = StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
+  return PluginManager({
+    CodeEditorPlugin()
+  });
+});
 
 final currentDirectoryProvider = StateProvider<DocumentFile?>((ref) => null);
 
@@ -282,9 +287,11 @@ class EditorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(
-      tabManagerProvider.select((s) => s.currentTab),
+      sessionProvider.select((s) => s.currentTab), // Use sessionProvider
     );
-    final currentDir = ref.watch(sessionProvider.select((s) => s.currentDirectory));
+    final currentDir = ref.watch(
+      sessionProvider.select((s) => s.currentDirectory),
+    );
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
     return Scaffold(
@@ -326,18 +333,6 @@ class EditorScreen extends ConsumerWidget {
 // --------------------
 //   Plugin Registry
 // --------------------
-
-final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {
-    CodeEditorPlugin(), // Default text editor
-    // Add other plugins here
-  },
-);
-
-final activePluginsProvider =
-    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-      return PluginManager(ref.read(pluginRegistryProvider));
-    });
 
 class PluginManager extends StateNotifier<Set<EditorPlugin>> {
   PluginManager(Set<EditorPlugin> plugins) : super(plugins);
