@@ -480,15 +480,10 @@ Future<SessionState> loadSession() async {
     }
   }
   
-  
-  Future<void> loadSession() async {
-    try {
-      final loadedState = await _manager.loadSession();
-      state = loadedState;
-    } catch (e) {
-      print('Error loading session: $e');
-    }
+  Future<DocumentFile?> _loadDirectory(String? uri) async {
+    return uri != null ? await _fileHandler.getFileMetadata(uri) : null;
   }
+
   
 Future<void> saveSession(SessionState state) async {
     try {
@@ -545,7 +540,8 @@ class SessionNotifier extends StateNotifier<SessionState> {
 
 Future<void> loadSession() async {
     try {
-      state = await _manager.loadSession();
+      final loadedState = await _manager.loadSession();
+      state = loadedState;
     } catch (e) {
       print('Error loading session: $e');
     }
