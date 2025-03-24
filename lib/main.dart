@@ -859,19 +859,22 @@ class _DirectoryLoadingTile extends StatelessWidget {
 
 class SessionManager {
   final FileHandler _fileHandler;
-  final PluginRegistry _plugins;
+  final Set<EditorPlugin> _plugins;
 
   SessionManager(this._fileHandler, this._plugins);
 
   Future<SessionState> openFile(SessionState currentState, DocumentFile file) async {
-    // Business logic implementation
     final existingIndex = currentState.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
       return currentState.copyWith(currentTabIndex: existingIndex);
     }
 
+    final plugin = _plugins.firstWhere(
+      (p) => p.supportsFile(file),
+      orElse: () => throw Exception('No plugin found for ${file.name}'),
+    );
+
     final content = await _fileHandler.readFile(file.uri);
-    final plugin = _plugins.findForFile(file);
     final tab = plugin.createTab(file);
     await plugin.initializeTab(tab, content);
 
@@ -881,7 +884,7 @@ class SessionManager {
     );
   }
 
-  SessionState closeTab(SessionState currentState, int index) {
+  static SessionState closeTab(SessionState currentState, int index) {
     final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
     return currentState.copyWith(
       tabs: newTabs,
@@ -892,6 +895,39 @@ class SessionManager {
   static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
     if (currentIndex < closedIndex) return currentIndex;
     return currentIndex > 0 ? currentIndex - 1 : 0;
+  }
+
+  Future<void> persistDirectory(SessionState state) async {
+    if (state.currentDirectory != null) {
+      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
+    }
+  }
+}
+
+// --------------------
+//  Session Notifier
+// --------------------
+
+class SessionNotifier extends StateNotifier<SessionState> {
+  final SessionManager _manager;
+
+  SessionNotifier({
+    required FileHandler fileHandler,
+    required Set<EditorPlugin> plugins,
+  }) : _manager = SessionManager(fileHandler, plugins),
+        super(const SessionState());
+
+  Future<void> openFile(DocumentFile file) async {
+    state = await _manager.openFile(state, file);
+  }
+
+  void closeTab(int index) {
+    state = SessionManager.closeTab(state, index);
+  }
+
+  Future<void> changeDirectory(DocumentFile directory) async {
+    state = state.copyWith(currentDirectory: directory);
+    await _manager.persistDirectory(state);
   }
 }
 
