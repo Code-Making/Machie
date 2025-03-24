@@ -238,11 +238,13 @@ class SessionState {
     List<EditorTab>? tabs,
     int? currentTabIndex,
     DocumentFile? currentDirectory,
+    DateTime? lastSaved,
   }) {
     return SessionState(
       tabs: tabs ?? this.tabs,
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
       currentDirectory: currentDirectory ?? this.currentDirectory,
+      lastSaved: lastSaved ?? this.lastSaved,
     );
   }
 
