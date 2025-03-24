@@ -463,10 +463,20 @@ Future<void> saveSession(SessionState state) async {
 
 class SessionNotifier extends StateNotifier<SessionState> {
   final SessionManager _manager;
-
+  bool _loaded = false;
+  bool _isSaving = false;
+  
   SessionNotifier({required SessionManager manager})
       : _manager = manager,
-        super(const SessionState());
+        super(const SessionState()) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    if (!_loaded) {
+      await loadSession();
+      _loaded = true;
+    }
 
   Future<void> openFile(DocumentFile file) async {
     state = await _manager.openFile(state, file);
@@ -489,19 +499,25 @@ class SessionNotifier extends StateNotifier<SessionState> {
     state = state.copyWith(currentDirectory: directory);
   }
 
-  Future<void> loadSession() async {
-    if (!_loaded) { // Prevent multiple loads
+Future<void> loadSession() async {
+    try {
       state = await _manager.loadSession();
-      _loaded = true;
+    } catch (e) {
+      print('Error loading session: $e');
     }
   }
-  
+
   Future<void> saveSession() async {
-    if (!_isSaving) { // Prevent concurrent saves
+    if (!_isSaving) {
       _isSaving = true;
-      await _manager.saveSession(state);
-      state = state.copyWith(lastSaved: DateTime.now());
-      _isSaving = false;
+      try {
+        await _manager.saveSession(state);
+        state = state.copyWith(lastSaved: DateTime.now());
+      } catch (e) {
+        print('Error saving session: $e');
+      } finally {
+        _isSaving = false;
+      }
     }
   }
 }
