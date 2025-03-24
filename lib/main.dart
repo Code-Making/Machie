@@ -383,13 +383,12 @@ Future<SessionState> loadSession() async {
       if (json == null) return const SessionState();
       
       final data = jsonDecode(json) as Map<String, dynamic>;
-      // Add actual deserialization implementation
-      return SessionState.fromJson(data); // Implement proper fromJson
+      return await SessionState.fromJson(data, _plugins, _fileHandler);
     } catch (e) {
       print('Session load error: $e');
       return const SessionState();
     }
-  }  
+  }
   
 Future<void> saveSession(SessionState state) async {
     try {
