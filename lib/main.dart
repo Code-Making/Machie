@@ -477,6 +477,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
       await loadSession();
       _loaded = true;
     }
+  }
 
   Future<void> openFile(DocumentFile file) async {
     state = await _manager.openFile(state, file);
