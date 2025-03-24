@@ -126,6 +126,10 @@ Future<void> appStartup(Ref ref) async {
     // Then load settings
     await ref.read(settingsProvider.notifier).loadSettings();
 
+
+    await ref.read(sessionProvider.notifier)
+    .._manager = sessionManager
+    ..loadSession();
     // Initialize other dependencies if needed
     //await ref.read(fileHandlerProvider).initialize();
   } catch (e, st) {
