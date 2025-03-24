@@ -101,6 +101,7 @@ final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
   return SessionNotifier(
     fileHandler: ref.read(fileHandlerProvider),
     plugins: ref.read(activePluginsProvider),
+    manager: ref.read(sessionManagerProvider),
   );
 });
 
