@@ -438,12 +438,55 @@ Future<SessionState> loadSession() async {
     try {
       final json = _prefs.getString('session');
       if (json == null) return const SessionState();
-      
+
       final data = jsonDecode(json) as Map<String, dynamic>;
-      return await SessionState.fromJson(data, _plugins, _fileHandler);
+      return await _deserializeState(data);
     } catch (e) {
       print('Session load error: $e');
       return const SessionState();
+    }
+  }
+
+  Future<SessionState> _deserializeState(Map<String, dynamic> data) async {
+    final tabs = await Future.wait(
+      (data['tabs'] as List).map((t) => _loadTabFromJson(t)),
+    );
+    
+    return SessionState(
+      tabs: tabs.whereType<EditorTab>().toList(),
+      currentTabIndex: data['currentIndex'] ?? 0,
+      currentDirectory: await _loadDirectory(data['directory']),
+    );
+  }
+
+  Future<EditorTab?> _loadTabFromJson(Map<String, dynamic> tabJson) async {
+    try {
+      final uri = tabJson['fileUri'] as String;
+      final pluginType = tabJson['pluginType'] as String;
+      
+      final file = await _fileHandler.getFileMetadata(uri);
+      final plugin = _plugins.firstWhere(
+        (p) => p.runtimeType.toString() == pluginType,
+      );
+      
+      final content = await _fileHandler.readFile(uri);
+      final tab = plugin.createTab(file!);
+      await plugin.initializeTab(tab, content);
+      
+      return tab;
+    } catch (e) {
+      print('Error loading tab: $e');
+      return null;
+    }
+  }
+  
+  
+  Future<void> loadSession() async {
+    try {
+      final loadedState = await _manager.loadSession();
+      state = loadedState;
+    } catch (e) {
+      print('Error loading session: $e');
     }
   }
   
