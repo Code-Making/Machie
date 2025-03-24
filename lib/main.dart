@@ -48,10 +48,8 @@ void main() async {
     ProviderScope(
       child: MaterialApp(
         theme: ThemeData.dark(),
-        home: AppStartupWidget(
-          onLoaded: (context) => const EditorScreen(),
-          ),
-          routes: {'/settings': (_) => const SettingsScreen()},
+        home: AppStartupWidget(onLoaded: (context) => const EditorScreen()),
+        routes: {'/settings': (_) => const SettingsScreen()},
       ),
     ),
   );
@@ -65,7 +63,9 @@ void main() async {
   (ref) => AndroidFileHandler(),
 );*/
 // Add this provider
-final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
+  ref,
+) async {
   return await SharedPreferences.getInstance();
 });
 
@@ -85,7 +85,6 @@ final activePluginsProvider =
       return PluginManager(ref.read(pluginRegistryProvider));
     });
 
-
 final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
 
 // Update directoryContentsProvider
@@ -96,7 +95,9 @@ final directoryContentsProvider = FutureProvider.autoDispose
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
 
-final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
+final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
+  ref,
+) {
   return SessionNotifier(
     fileHandler: ref.read(fileHandlerProvider),
     plugins: ref.read(activePluginsProvider),
@@ -121,10 +122,10 @@ Future<void> appStartup(Ref ref) async {
   try {
     // Initialize SharedPreferences first
     final prefs = await ref.read(sharedPreferencesProvider.future);
-    
+
     // Then load settings
     await ref.read(settingsProvider.notifier).loadSettings();
-    
+
     // Initialize other dependencies if needed
     //await ref.read(fileHandlerProvider).initialize();
   } catch (e, st) {
@@ -145,10 +146,11 @@ class AppStartupWidget extends ConsumerWidget {
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error: (error, stack) => AppStartupErrorWidget(
-        error: error,
-        onRetry: () => ref.invalidate(appStartupProvider),
-      ),
+      error:
+          (error, stack) => AppStartupErrorWidget(
+            error: error,
+            onRetry: () => ref.invalidate(appStartupProvider),
+          ),
       data: (_) => onLoaded(context),
     );
   }
@@ -196,10 +198,7 @@ class AppStartupErrorWidget extends StatelessWidget {
             const SizedBox(height: 20),
             Text('Initialization failed: $error', textAlign: TextAlign.center),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),
@@ -245,12 +244,11 @@ class SessionState {
           currentDirectory?.uri == other.currentDirectory?.uri;
 
   @override
-  int get hashCode =>
-      Object.hash(
-        currentTabIndex,
-        const DeepCollectionEquality().hash(tabs),
-        currentDirectory?.uri,
-      );
+  int get hashCode => Object.hash(
+    currentTabIndex,
+    const DeepCollectionEquality().hash(tabs),
+    currentDirectory?.uri,
+  );
 }
 
 abstract class EditorTab {
@@ -311,11 +309,7 @@ class EditorScreen extends ConsumerWidget {
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
-        title: Text(
-          currentTab != null
-              ? currentTab.file.name
-              : 'Code Editor',
-        ),
+        title: Text(currentTab != null ? currentTab.file.name : 'Code Editor'),
       ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
@@ -604,7 +598,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
   final PluginSettings settings;
@@ -763,11 +756,7 @@ class _DirectoryItem extends StatelessWidget {
         onOpenFile: onOpenFile,
       );
     }
-    return _FileItem(
-      file: item,
-      depth: depth,
-      onTap: () => onOpenFile(item),
-    );
+    return _FileItem(file: item, depth: depth, onTap: () => onOpenFile(item));
   }
 }
 
@@ -781,12 +770,14 @@ class _DirectoryExpansionTile extends ConsumerStatefulWidget {
     required this.depth,
     required this.onOpenFile,
   });
-  
-    @override
-  ConsumerState<_DirectoryExpansionTile> createState() => _DirectoryExpansionTileState();
+
+  @override
+  ConsumerState<_DirectoryExpansionTile> createState() =>
+      _DirectoryExpansionTileState();
 }
 
-class _DirectoryExpansionTileState extends ConsumerState<_DirectoryExpansionTile> {
+class _DirectoryExpansionTileState
+    extends ConsumerState<_DirectoryExpansionTile> {
   bool _isExpanded = false;
 
   @override
@@ -862,8 +853,13 @@ class SessionManager {
 
   SessionManager(this._fileHandler, this._plugins);
 
-  Future<SessionState> openFile(SessionState currentState, DocumentFile file) async {
-    final existingIndex = currentState.tabs.indexWhere((t) => t.file.uri == file.uri);
+  Future<SessionState> openFile(
+    SessionState currentState,
+    DocumentFile file,
+  ) async {
+    final existingIndex = currentState.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
     if (existingIndex != -1) {
       return currentState.copyWith(currentTabIndex: existingIndex);
     }
@@ -887,7 +883,10 @@ class SessionManager {
     final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
     return currentState.copyWith(
       tabs: newTabs,
-      currentTabIndex: _calculateNewTabIndex(currentState.currentTabIndex, index),
+      currentTabIndex: _calculateNewTabIndex(
+        currentState.currentTabIndex,
+        index,
+      ),
     );
   }
   /*
@@ -924,7 +923,6 @@ class SessionManager {
 //  Session Notifier
 // --------------------
 
-
 class SessionNotifier extends StateNotifier<SessionState> {
   final FileHandler _fileHandler;
   final Set<EditorPlugin> _plugins;
@@ -932,9 +930,9 @@ class SessionNotifier extends StateNotifier<SessionState> {
   SessionNotifier({
     required FileHandler fileHandler,
     required Set<EditorPlugin> plugins,
-  })  : _fileHandler = fileHandler,
-        _plugins = plugins,
-        super(const SessionState());
+  }) : _fileHandler = fileHandler,
+       _plugins = plugins,
+       super(const SessionState());
 
   Future<void> openFile(DocumentFile file) async {
     final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
@@ -967,7 +965,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
       currentTabIndex: _calculateNewTabIndex(index),
     );
   }
-  
+
   void reorderTabs(int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(state.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
@@ -975,24 +973,25 @@ class SessionNotifier extends StateNotifier<SessionState> {
 
     // Preserve current tab selection
     final currentFile = state.currentTab?.file;
-    final newCurrentIndex = currentFile != null 
-        ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
-        : state.currentTabIndex;
+    final newCurrentIndex =
+        currentFile != null
+            ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
+            : state.currentTabIndex;
 
     state = state.copyWith(
       tabs: newTabs,
       currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
     );
   }
-  
+
   Future<void> changeDirectory(DocumentFile? directory) async {
     if (directory == null) return;
-    
+
     state = state.copyWith(currentDirectory: directory);
-    
+
     // Persist the directory
     await _fileHandler.persistRootUri(directory.uri);
-    
+
     // Optional: Preload directory contents
     try {
       await _fileHandler.listDirectory(directory.uri);
@@ -1144,7 +1143,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                       directory: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
-                         ref.read(sessionProvider.notifier).openFile(file);
+                        ref.read(sessionProvider.notifier).openFile(file);
                       },
                     ),
           ),
@@ -1169,7 +1168,8 @@ class _FileOperationsHeader extends ConsumerWidget {
             icon: const Icon(Icons.folder_open),
             label: const Text('Open Folder'),
             onPressed: () async {
-            final pickedDir = await ref.read(fileHandlerProvider).pickDirectory();
+              final pickedDir =
+                  await ref.read(fileHandlerProvider).pickDirectory();
               if (pickedDir != null) {
                 ref.read(rootUriProvider.notifier).state = pickedDir;
                 ref.read(sessionProvider.notifier).changeDirectory(pickedDir);
@@ -1181,8 +1181,8 @@ class _FileOperationsHeader extends ConsumerWidget {
             icon: const Icon(Icons.file_open),
             label: const Text('Open File'),
             onPressed: () async {
-            final pickedFile = await ref.read(fileHandlerProvider).pickFile();    
-            if (pickedFile != null) {
+              final pickedFile = await ref.read(fileHandlerProvider).pickFile();
+              if (pickedFile != null) {
                 ref.read(sessionProvider.notifier).openFile(pickedFile);
                 Navigator.pop(context);
               }
@@ -1191,7 +1191,7 @@ class _FileOperationsHeader extends ConsumerWidget {
         ],
       ),
     );
-  } 
+  }
 }
 
 class _FileOperationsFooter extends StatelessWidget {
@@ -1215,8 +1215,6 @@ class _FileOperationsFooter extends StatelessWidget {
     );
   }
 }
-
-
 
 // --------------------
 //   Settings Core
@@ -1442,11 +1440,11 @@ abstract class FileHandler {
   Future<void> writeFile(String uri, String content);
   Future<DocumentFile> createFile(String parentUri, String fileName);
   Future<void> deleteFile(String uri);
-  
+
   // URI persistence
   Future<void> persistRootUri(String? uri);
   Future<String?> getPersistedRootUri();
-  
+
   // File metadata
   Future<String?> getMimeType(String uri);
   Future<DocumentFile?> getFileMetadata(String uri);
@@ -1456,10 +1454,10 @@ abstract class FileHandler {
 //  SAF Implementation
 // --------------------
 class CustomSAFDocumentFile implements DocumentFile {
-//  final CustomSAFDocumentFile _file;
+  //  final CustomSAFDocumentFile _file;
   final SafDocumentFile _safFile;
-  
-    CustomSAFDocumentFile(this._safFile); // Accept SafDocumentFile
+
+  CustomSAFDocumentFile(this._safFile); // Accept SafDocumentFile
 
   @override
   String get uri => _safFile.uri;
@@ -1474,7 +1472,7 @@ class CustomSAFDocumentFile implements DocumentFile {
   int get size => _safFile.length; // SAF uses 'length' for size
 
   @override
-  DateTime get modifiedDate => 
+  DateTime get modifiedDate =>
       DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
 
   @override
@@ -1509,14 +1507,14 @@ class SAFFileHandler implements FileHandler {
   Future<List<DocumentFile>> listDirectory(String? uri) async {
     try {
       final contents = await _safUtil.list(uri ?? '');
-      
+
       // Add sorting logic here
       contents.sort((a, b) {
         // First sort by type (directories first)
         if (a.isDir != b.isDir) {
           return a.isDir ? -1 : 1;
         }
-        
+
         // Then sort alphabetically case-insensitive
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
@@ -1587,8 +1585,8 @@ class SAFFileHandler implements FileHandler {
     final file = await _safUtil.documentFileFromUri(uri, false);
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
-  
-    @override
+
+  @override
   Future<DocumentFile?> pickFile() async {
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
@@ -1600,4 +1598,3 @@ class SAFFileHandler implements FileHandler {
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
   }
 }
-
