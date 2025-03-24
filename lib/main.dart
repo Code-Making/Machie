@@ -891,7 +891,7 @@ class SessionManager {
       currentTabIndex: _calculateNewTabIndex(currentState.currentTabIndex, index),
     );
   }
-  
+  /*
   static SessionState reorderTabs(SessionState currentState, int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(currentState.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
@@ -907,7 +907,7 @@ class SessionManager {
       tabs: newTabs,
       currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
     );
-  }
+  }*/
 
   static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
     if (currentIndex < closedIndex) return currentIndex;
