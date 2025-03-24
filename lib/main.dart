@@ -367,17 +367,17 @@ class SessionManager {
   }
 
   Future<SessionState> loadSession() async {
-    final json = _prefs.getString('session');
-    if (json == null) return const SessionState();
+  final json = _prefs.getString('session');
+  if (json == null) return const SessionState();
 
-    try {
-      final data = jsonDecode(json) as Map<String, dynamic>;
-      return SessionState.fromJson(data, _plugins);
-    } catch (e) {
-      print('Error loading session: $e');
-      return const SessionState();
-    }
+  try {
+    final data = jsonDecode(json) as Map<String, dynamic>;
+    return await SessionState.fromJson(data, _plugins, _fileHandler); // Add fileHandler
+  } catch (e) {
+    print('Error loading session: $e');
+    return const SessionState();
   }
+}
 
 
   static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
