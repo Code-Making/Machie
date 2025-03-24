@@ -1009,12 +1009,12 @@ class SessionNotifier extends StateNotifier<SessionState> {
     return state.currentTabIndex - 1;
   }
 
-  Future<void> changeDirectory(DocumentFile directory) async {
+  /*Future<void> changeDirectory(DocumentFile directory) async {
     state = state.copyWith(currentDirectory: directory);
     if (directory != null) {
       await _fileHandler.persistRootUri(directory.uri);
     }
-  }
+  }*/
 }
 
 // --------------------
