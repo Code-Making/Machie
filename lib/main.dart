@@ -90,8 +90,8 @@ final directoryContentsProvider = FutureProvider.autoDispose
 
 final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
   return SessionNotifier(
-    fileHandler: ref.watch(fileHandlerProvider),
-    plugins: ref.watch(pluginRegistryProvider),
+    fileHandler: ref.read(fileHandlerProvider),
+    plugins: ref.read(activePluginsProvider),
   );
 });
 
@@ -214,16 +214,35 @@ class SessionState {
     this.currentDirectory,
   });
 
+  EditorTab? get currentTab => tabs.isNotEmpty ? tabs[currentTabIndex] : null;
+
+  SessionState copyWith({
+    List<EditorTab>? tabs,
+    int? currentTabIndex,
+    DocumentFile? currentDirectory,
+  }) {
+    return SessionState(
+      tabs: tabs ?? this.tabs,
+      currentTabIndex: currentTabIndex ?? this.currentTabIndex,
+      currentDirectory: currentDirectory ?? this.currentDirectory,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TabState &&
-          currentIndex == other.currentIndex &&
-          const ListEquality().equals(tabs, other.tabs);
+      other is SessionState &&
+          currentTabIndex == other.currentTabIndex &&
+          const DeepCollectionEquality().equals(tabs, other.tabs) &&
+          currentDirectory?.uri == other.currentDirectory?.uri;
 
   @override
   int get hashCode =>
-      Object.hash(currentIndex, const ListEquality().hash(tabs));
+      Object.hash(
+        currentTabIndex,
+        const DeepCollectionEquality().hash(tabs),
+        currentDirectory?.uri,
+      );
 }
 
 abstract class EditorTab {
@@ -881,25 +900,61 @@ class SessionManager {
 
 
 class SessionNotifier extends StateNotifier<SessionState> {
-  final SessionManager _manager;
-  
+  final FileHandler _fileHandler;
+  final Set<EditorPlugin> _plugins;
+
   SessionNotifier({
     required FileHandler fileHandler,
-    required PluginRegistry plugins,
-  }) : _manager = SessionManager(fileHandler, plugins),
+    required Set<EditorPlugin> plugins,
+  })  : _fileHandler = fileHandler,
+        _plugins = plugins,
         super(const SessionState());
 
   Future<void> openFile(DocumentFile file) async {
-    state = await _manager.openFile(state, file);
+    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
+    if (existingIndex != -1) {
+      state = state.copyWith(currentTabIndex: existingIndex);
+      return;
+    }
+
+    final content = await _fileHandler.readFile(file.uri);
+    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
+    final tab = plugin.createTab(file);
+    await plugin.initializeTab(tab, content);
+
+    state = state.copyWith(
+      tabs: [...state.tabs, tab],
+      currentTabIndex: state.tabs.length,
+    );
+  }
+
+  void switchTab(int index) {
+    state = state.copyWith(
+      currentTabIndex: index.clamp(0, state.tabs.length - 1),
+    );
   }
 
   void closeTab(int index) {
-    state = _manager.closeTab(state, index);
+    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
+    state = state.copyWith(
+      tabs: newTabs,
+      currentTabIndex: _calculateNewTabIndex(index),
+    );
+  }
+
+  int _calculateNewTabIndex(int closedIndex) {
+    if (state.currentTabIndex < closedIndex) return state.currentTabIndex;
+    if (state.currentTabIndex == closedIndex) {
+      return (closedIndex > 0) ? closedIndex - 1 : 0;
+    }
+    return state.currentTabIndex - 1;
   }
 
   Future<void> changeDirectory(DocumentFile directory) async {
     state = state.copyWith(currentDirectory: directory);
-    await _manager.persistDirectory(state);
+    if (directory != null) {
+      await _fileHandler.persistRootUri(directory.uri);
+    }
   }
 }
 
