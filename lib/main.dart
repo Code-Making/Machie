@@ -202,7 +202,7 @@ class AppStartupErrorWidget extends StatelessWidget {
 // --------------------
 //        States
 // --------------------
-@immutable
+@@immutable
 class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
@@ -282,7 +282,7 @@ class EditorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(
-      sessionManagerProvider.select((s) => s.currentTab),
+      tabManagerProvider.select((s) => s.currentTab),
     );
     final currentDir = ref.watch(currentDirectoryProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
@@ -966,7 +966,7 @@ class TabBarView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = ref.watch(sessionManagerProvider.select((state) => state.tabs));
+    final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
 
     return Container(
       color: Colors.grey[900],
@@ -975,7 +975,7 @@ class TabBarView extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         onReorder:
             (oldIndex, newIndex) => ref
-                .read(sessionManagerProvider.notifier)
+                .read(tabManagerProvider.notifier)
                 .reorderTabs(oldIndex, newIndex),
         buildDefaultDragHandles: false,
         children: [
@@ -1000,7 +1000,7 @@ class FileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = ref.watch(
-      sessionManagerProvider.select((state) => state.currentIndex == index),
+      tabManagerProvider.select((state) => state.currentIndex == index),
     );
 
     return ConstrainedBox(
@@ -1008,7 +1008,7 @@ class FileTab extends ConsumerWidget {
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
-          onTap: () => ref.read(sessionManagerProvider.notifier).switchTab(index),
+          onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -1017,7 +1017,7 @@ class FileTab extends ConsumerWidget {
                   icon: const Icon(Icons.close, size: 18),
                   onPressed:
                       () =>
-                          ref.read(sessionManagerProvider.notifier).closeTab(index),
+                          ref.read(tabManagerProvider.notifier).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -1086,7 +1086,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                       directory: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
-                        ref.read(sessionManagerProvider.notifier).openFile(file);
+                        ref.read(tabManagerProvider.notifier).openFile(file);
                       },
                     ),
           ),
@@ -1125,7 +1125,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             onPressed: () async {
             final pickedFile = await ref.read(fileHandlerProvider).pickFile();    
             if (pickedFile != null) {
-                ref.read(sessionManagerProvider.notifier).openFile(pickedFile);
+                ref.read(tabManagerProvider.notifier).openFile(pickedFile);
                 Navigator.pop(context);
               }
             },
