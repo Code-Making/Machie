@@ -284,7 +284,7 @@ class EditorScreen extends ConsumerWidget {
     final currentTab = ref.watch(
       tabManagerProvider.select((s) => s.currentTab),
     );
-    final currentDir = ref.watch(currentDirectoryProvider);
+    final currentDir = ref.watch(sessionProvider.select((s) => s.currentDirectory));
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
     return Scaffold(
@@ -966,17 +966,17 @@ class TabBarView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = ref.watch(tabManagerProvider.select((state) => state.tabs));
+    final tabs = ref.watch(sessionProvider.select((state) => state.tabs));
 
     return Container(
       color: Colors.grey[900],
       height: 40,
       child: ReorderableListView(
         scrollDirection: Axis.horizontal,
-        onReorder:
+      /*  onReorder:
             (oldIndex, newIndex) => ref
                 .read(tabManagerProvider.notifier)
-                .reorderTabs(oldIndex, newIndex),
+                .reorderTabs(oldIndex, newIndex),*/
         buildDefaultDragHandles: false,
         children: [
           for (final tab in tabs)
@@ -1000,7 +1000,7 @@ class FileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = ref.watch(
-      tabManagerProvider.select((state) => state.currentIndex == index),
+      sessionProvider.select((s) => s.currentTabIndex == index),
     );
 
     return ConstrainedBox(
@@ -1008,7 +1008,7 @@ class FileTab extends ConsumerWidget {
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
-          onTap: () => ref.read(tabManagerProvider.notifier).switchTab(index),
+          onTap: () => ref.read(sessionProvider.notifier).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -1016,8 +1016,7 @@ class FileTab extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
                   onPressed:
-                      () =>
-                          ref.read(tabManagerProvider.notifier).closeTab(index),
+                      () => ref.read(sessionProvider.notifier).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -1086,7 +1085,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                       directory: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
-                        ref.read(tabManagerProvider.notifier).openFile(file);
+                         ref.read(sessionProvider.notifier).openFile(file);
                       },
                     ),
           ),
