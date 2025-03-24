@@ -266,7 +266,7 @@ class SessionState {
     'directory': currentDirectory?.uri,
   };
 
-  static SessionState fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
+  static Future<SessionState> fromJson(Map<String, dynamic> json, Set<EditorPlugin> plugins, FileHandler fileHandler) async {
   final directoryUri = json['directory'];
   DocumentFile? directory;
   
