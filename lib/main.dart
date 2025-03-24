@@ -489,13 +489,20 @@ class SessionNotifier extends StateNotifier<SessionState> {
     state = state.copyWith(currentDirectory: directory);
   }
 
-  Future<void> saveSession() async {
-    await _manager.saveSession(state);
-    state = state.copyWith(lastSaved: DateTime.now());
+  Future<void> loadSession() async {
+    if (!_loaded) { // Prevent multiple loads
+      state = await _manager.loadSession();
+      _loaded = true;
+    }
   }
   
-    Future<void> loadSession() async {
-    state = await _manager.loadSession();
+  Future<void> saveSession() async {
+    if (!_isSaving) { // Prevent concurrent saves
+      _isSaving = true;
+      await _manager.saveSession(state);
+      state = state.copyWith(lastSaved: DateTime.now());
+      _isSaving = false;
+    }
   }
 }
 
