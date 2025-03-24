@@ -468,10 +468,6 @@ class SessionNotifier extends StateNotifier<SessionState> {
       : _manager = manager,
         super(const SessionState());
 
-  Future<void> loadSession() async {
-    state = await _manager.loadSession();
-  }
-
   Future<void> openFile(DocumentFile file) async {
     state = await _manager.openFile(state, file);
   }
@@ -496,6 +492,10 @@ class SessionNotifier extends StateNotifier<SessionState> {
   Future<void> saveSession() async {
     await _manager.saveSession(state);
     state = state.copyWith(lastSaved: DateTime.now());
+  }
+  
+    Future<void> loadSession() async {
+    state = await _manager.loadSession();
   }
 }
 
