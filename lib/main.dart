@@ -85,7 +85,6 @@ final activePluginsProvider =
       return PluginManager(ref.read(pluginRegistryProvider));
     });
 
-final currentDirectoryProvider = StateProvider<DocumentFile?>((ref) => null);
 
 final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
 
