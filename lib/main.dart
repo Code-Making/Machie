@@ -391,12 +391,11 @@ Future<SessionState> loadSession() async {
     }
   }  
   
- Future<void> saveSession(SessionState state) async {
+Future<void> saveSession(SessionState state) async {
     try {
-      final json = _serializeState(state);
-      await _prefs.setString('session', jsonEncode(json));
+      await _prefs.setString('session', jsonEncode(state.toJson()));
     } catch (e) {
-      print('Session save error: $e');
+      print('Error saving session: $e');
     }
   }
 }
