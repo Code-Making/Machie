@@ -1124,7 +1124,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             onPressed: () async {
             final pickedFile = await ref.read(fileHandlerProvider).pickFile();    
             if (pickedFile != null) {
-                ref.read(tabManagerProvider.notifier).openFile(pickedFile);
+                ref.read(sessionManagerProvider.notifier).openFile(pickedFile);
                 Navigator.pop(context);
               }
             },
