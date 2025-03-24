@@ -255,11 +255,11 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
         break;
       case AppLifecycleState.paused:
         // Save session when app backgrounds
-        await container.read(sessionProvider.notifier).saveSession();
+        // await container.read(sessionProvider.notifier).saveSession();
         break;
       case AppLifecycleState.detached:
         // Handle app termination
-        await container.read(sessionProvider.notifier).saveSession();
+        // await container.read(sessionProvider.notifier).saveSession();
         break;
       default:
         break;
