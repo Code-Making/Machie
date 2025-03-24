@@ -74,12 +74,16 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
   return SAFFileHandler();
 });
 
-// Replace pluginRegistryProvider with activePluginsProvider
-final activePluginsProvider = StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-  return PluginManager({
-    CodeEditorPlugin()
-  });
-});
+final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
+  (_) => {
+    CodeEditorPlugin(), // Default text editor
+  },
+);
+
+final activePluginsProvider =
+    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
+      return PluginManager(ref.read(pluginRegistryProvider));
+    });
 
 final currentDirectoryProvider = StateProvider<DocumentFile?>((ref) => null);
 
