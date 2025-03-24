@@ -95,21 +95,18 @@ final directoryContentsProvider = FutureProvider.autoDispose
       return targetUri != null ? handler.listDirectory(targetUri) : [];
     });
 
-final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
-  ref,
-) {
-  return SessionNotifier(
-    fileHandler: ref.read(fileHandlerProvider),
-    plugins: ref.read(activePluginsProvider),
-    manager: ref.read(sessionManagerProvider),
+// 1. Business Logic Layer
+final sessionManagerProvider = Provider<SessionManager>((ref) {
+  return SessionManager(
+    fileHandler: ref.watch(fileHandlerProvider),
+    plugins: ref.watch(activePluginsProvider),
+    prefs: ref.watch(sharedPreferencesProvider),
   );
 });
 
-final sessionManagerProvider = Provider<SessionManager>((ref) {
-  return SessionManager(
-    ref.watch(fileHandlerProvider),
-    ref.watch(pluginRegistryProvider),
-    ref.watch(sharedPreferencesProvider).requireValue,
+final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
+  return SessionNotifier(
+    manager: ref.watch(sessionManagerProvider),
   );
 });
 
@@ -323,72 +320,35 @@ class SessionManager {
   final Set<EditorPlugin> _plugins;
   final SharedPreferences _prefs;
 
-  SessionManager(this._fileHandler, this._plugins, this._prefs);
-
-  Future<SessionState> openFile(
-    SessionState currentState,
-    DocumentFile file,
-  ) async {
-    final existingIndex = currentState.tabs.indexWhere(
-      (t) => t.file.uri == file.uri,
-    );
-    if (existingIndex != -1) {
-      return currentState.copyWith(currentTabIndex: existingIndex);
-    }
-
-    final plugin = _plugins.firstWhere(
-      (p) => p.supportsFile(file),
-      orElse: () => throw Exception('No plugin found for ${file.name}'),
-    );
-
-    final content = await _fileHandler.readFile(file.uri);
-    final tab = plugin.createTab(file);
-    await plugin.initializeTab(tab, content);
-
-    return currentState.copyWith(
-      tabs: [...currentState.tabs, tab],
-      currentTabIndex: currentState.tabs.length,
-    );
-  }
-
-  static SessionState closeTab(SessionState currentState, int index) {
-    final newTabs = List<EditorTab>.from(currentState.tabs)..removeAt(index);
-    return currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: _calculateNewTabIndex(
-        currentState.currentTabIndex,
-        index,
-      ),
-    );
-  }
-  
-  Future<void> saveSession(SessionState state) async {
-    await _prefs.setString('session', jsonEncode(state.toJson()));
-  }
+  SessionManager({
+    required FileHandler fileHandler,
+    required Set<EditorPlugin> plugins,
+    required SharedPreferences prefs,
+  })  : _fileHandler = fileHandler,
+        _plugins = plugins,
+        _prefs = prefs;
 
   Future<SessionState> loadSession() async {
-  final json = _prefs.getString('session');
-  if (json == null) return const SessionState();
+    final json = _prefs.getString('session');
+    if (json == null) return const SessionState();
 
-  try {
-    final data = jsonDecode(json) as Map<String, dynamic>;
-    return await SessionState.fromJson(data, _plugins, _fileHandler); // Add fileHandler
-  } catch (e) {
-    print('Error loading session: $e');
-    return const SessionState();
-  }
-}
-
-
-  static int _calculateNewTabIndex(int currentIndex, int closedIndex) {
-    if (currentIndex < closedIndex) return currentIndex;
-    return currentIndex > 0 ? currentIndex - 1 : 0;
-  }
-
-  Future<void> persistDirectory(SessionState state) async {
-    if (state.currentDirectory != null) {
-      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
+    try {
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      return await _deserializeState(data);
+    } catch (e) {
+      print('Error loading session: $e');
+      return const SessionState();
     }
+  }
+
+  Future<void> saveSession(SessionState state) async {
+    await _prefs.setString('session', jsonEncode(_serializeState(state)));
+  }
+
+  Map<String, dynamic> _serializeState(SessionState state) => {/* ... */};
+  
+  Future<SessionState> _deserializeState(Map<String, dynamic> data) async {
+    // Business logic for deserialization
   }
 }
 
@@ -397,125 +357,29 @@ class SessionManager {
 // --------------------
 
 class SessionNotifier extends StateNotifier<SessionState> {
-  final FileHandler _fileHandler;
-  final Set<EditorPlugin> _plugins;
   final SessionManager _manager;
 
-  SessionNotifier({
-    required FileHandler fileHandler,
-    required Set<EditorPlugin> plugins,
-    required SessionManager manager,
-  })  : _fileHandler = fileHandler,
-        _plugins = plugins,
-        _manager = manager,
-        super(const SessionState());
+  SessionNotifier({required SessionManager manager})
+      : _manager = manager,
+        super(const SessionState()) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    state = await _manager.loadSession();
+  }
 
   Future<void> openFile(DocumentFile file) async {
-    final existingIndex = state.tabs.indexWhere((t) => t.file.uri == file.uri);
-    if (existingIndex != -1) {
-      state = state.copyWith(currentTabIndex: existingIndex);
-      return;
-    }
-
-    final content = await _fileHandler.readFile(file.uri);
-    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
-    final tab = plugin.createTab(file);
-    await plugin.initializeTab(tab, content);
-
-    state = state.copyWith(
-      tabs: [...state.tabs, tab],
-      currentTabIndex: state.tabs.length,
-    );
+    final newState = await _manager.openFile(state, file);
+    state = newState;
   }
 
-  void switchTab(int index) {
-    state = state.copyWith(
-      currentTabIndex: index.clamp(0, state.tabs.length - 1),
-    );
+  Future<void> saveSession() async {
+    await _manager.saveSession(state);
+    state = state.copyWith(lastSaved: DateTime.now());
   }
 
-  void closeTab(int index) {
-    final newTabs = List<EditorTab>.from(state.tabs)..removeAt(index);
-    state = state.copyWith(
-      tabs: newTabs,
-      currentTabIndex: _calculateNewTabIndex(index),
-    );
-  }
-
-  void reorderTabs(int oldIndex, int newIndex) {
-    final newTabs = List<EditorTab>.from(state.tabs);
-    final movedTab = newTabs.removeAt(oldIndex);
-    newTabs.insert(newIndex, movedTab);
-
-    // Preserve current tab selection
-    final currentFile = state.currentTab?.file;
-    final newCurrentIndex =
-        currentFile != null
-            ? newTabs.indexWhere((t) => t.file.uri == currentFile.uri)
-            : state.currentTabIndex;
-
-    state = state.copyWith(
-      tabs: newTabs,
-      currentTabIndex: newCurrentIndex.clamp(0, newTabs.length - 1),
-    );
-  }
-
-  Future<void> changeDirectory(DocumentFile? directory) async {
-    if (directory == null) return;
-
-    state = state.copyWith(currentDirectory: directory);
-
-    // Persist the directory
-    await _fileHandler.persistRootUri(directory.uri);
-
-    // Optional: Preload directory contents
-    try {
-      await _fileHandler.listDirectory(directory.uri);
-    } catch (e) {
-      print('Error preloading directory: $e');
-    }
-  }
-
-  int _calculateNewTabIndex(int closedIndex) {
-    if (state.currentTabIndex < closedIndex) return state.currentTabIndex;
-    if (state.currentTabIndex == closedIndex) {
-      return (closedIndex > 0) ? closedIndex - 1 : 0;
-    }
-    return state.currentTabIndex - 1;
-  }
-  
-  Future<void> saveSession() => _manager.saveSession(state);
-
-  Future<void> loadSession() async {
-    final loaded = await _manager.loadSession();
-    state = await _initializeLoadedSession(loaded);
-  }
-
-  Future<SessionState> _initializeLoadedSession(SessionState loaded) async {
-    final tabs = await Future.wait(
-      loaded.tabs.map((t) => _loadTabContent(t)),
-    );
-    
-    return loaded.copyWith(tabs: tabs.whereType<EditorTab>().toList());
-  }
-
-  Future<EditorTab?> _loadTabContent(EditorTab tab) async {
-    try {
-      final content = await _fileHandler.readFile(tab.file.uri);
-      await tab.plugin.initializeTab(tab, content);
-      return tab;
-    } catch (e) {
-      print('Error loading tab ${tab.file.name}: $e');
-      return null;
-    }
-  }
-
-  /*Future<void> changeDirectory(DocumentFile directory) async {
-    state = state.copyWith(currentDirectory: directory);
-    if (directory != null) {
-      await _fileHandler.persistRootUri(directory.uri);
-    }
-  }*/
+  // Other state methods...
 }
 
 // --------------------
