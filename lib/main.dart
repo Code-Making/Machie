@@ -115,13 +115,14 @@ final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
 class LogNotifier extends StateNotifier<List<String>> {
   LogNotifier() : super([]);
 
-  void addLog(String message) {
-    state = [...state, message];
+  void add(String message) {
+    state = [...state, '${DateTime.now().toIso8601String()}: $message'];
+    if (state.length > 200) {
+      state = state.sublist(state.length - 100); // Keep last 100 entries
+    }
   }
 
-  void clearLogs() {
-    state = [];
-  }
+  void clear() => state = [];
 }
 
 class DebugLogView extends ConsumerWidget {
