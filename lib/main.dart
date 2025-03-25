@@ -40,20 +40,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 //     Main
 // --------------------
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  //final pluginRegistry = {CodeEditorPlugin()};
-
-  runApp(
-    ProviderScope(
-      child: LifecycleHandler(
-        child: MaterialApp(
-          theme: ThemeData.dark(),
-          home: AppStartupWidget(onLoaded: (context) => const EditorScreen()),
-          routes: {'/settings': (_) => const SettingsScreen()},
+void main() {
+  final printStream = StreamController<String>.broadcast();
+  
+  runZonedGuarded(
+    () {
+      runApp(
+        ProviderScope(
+          child: LifecycleHandler(
+            child: MaterialApp(
+              theme: ThemeData.dark(),
+              home: AppStartupWidget(
+                onLoaded: (context) => const EditorScreen(),
+              ),
+              routes: {'/settings': (_) => const SettingsScreen()},
+            ),
+          ),
         ),
-      ),
+      );
+    },
+    (error, stack) {
+      printStream.add('[ERROR] $error\n$stack');
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, message) {
+        final formatted = '[${DateTime.now()}] $message';
+        parent.print(zone, formatted);
+        printStream.add(formatted);
+      },
     ),
   );
 }
@@ -105,8 +119,14 @@ final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
 });
 
 final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
-  return LogNotifier();
+  // Capture the print stream when provider initializes
+  final logNotifier = LogNotifier();
+  final subscription = printStream.stream.listen(logNotifier.add);
+  ref.onDispose(() => subscription.cancel());
+  return logNotifier;
 });
+
+
 
 // --------------------
 //         Logs
@@ -124,7 +144,8 @@ class LogNotifier extends StateNotifier<List<String>> {
 
 void clearLogs() {
     state = [];
-  }}
+  }
+}
 
 class DebugLogView extends ConsumerWidget {
   const DebugLogView({super.key});
