@@ -230,8 +230,6 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
 
     switch (state) {
       case AppLifecycleState.paused:
-        await _debouncedSave(container);
-        break;
       case AppLifecycleState.detached:
         await container.read(sessionProvider.notifier).saveSession();
         break;
