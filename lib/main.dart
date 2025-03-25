@@ -104,6 +104,63 @@ final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
   return SessionNotifier(manager: ref.watch(sessionManagerProvider));
 });
 
+final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
+  return LogNotifier();
+});
+
+// --------------------
+//         Logs
+// --------------------
+
+class LogNotifier extends StateNotifier<List<String>> {
+  LogNotifier() : super([]);
+
+  void addLog(String message) {
+    state = [...state, message];
+  }
+
+  void clearLogs() {
+    state = [];
+  }
+}
+
+class DebugLogView extends ConsumerWidget {
+  const DebugLogView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logs = ref.watch(logProvider);
+
+    return AlertDialog(
+      title: const Text('Debug Logs'),
+      content: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: logs.length,
+              itemBuilder: (context, index) => Text(logs[index]),
+            ),
+          ),
+          Row(
+            children: [
+              TextButton(
+                onPressed: () => ref.read(logProvider.notifier).clearLogs(),
+                child: const Text('Clear'),
+              ),
+            ],
+          )
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
 // --------------------
 //        Startup
 // --------------------
@@ -114,6 +171,15 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 Future<void> appStartup(Ref ref) async {
   try {
     final prefs = await ref.read(sharedPreferencesProvider.future);
+      // Capture the original print function
+  final originalPrint = print;
+  final logNotifier = ref.read(logProvider.notifier);
+  
+  // Override print after ProviderScope is available
+  print = (Object? message) {
+    originalPrint(message);
+    logNotifier.add(message.toString());
+  };
 
     await ref.read(settingsProvider.notifier).loadSettings();
     await ref.read(sessionProvider.notifier).loadSession();
@@ -680,7 +746,13 @@ class EditorScreen extends ConsumerWidget {
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
-          // In EditorScreen's AppBar
+          IconButton(
+              icon: const Icon(Icons.bug_report),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => const DebugLogView(),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
