@@ -39,9 +39,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // --------------------
 //     Main
 // --------------------
+final printStream = StreamController<String>.broadcast();
+
 
 void main() {
-  final printStream = StreamController<String>.broadcast();
   
   runZonedGuarded(
     () {
