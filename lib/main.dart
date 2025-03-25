@@ -512,6 +512,7 @@ class SessionManager {
       return await _deserializeState(data);
     } catch (e) {
       print('Session load error: $e');
+      await _prefs.remove('session');
       return const SessionState();
     }
   }
@@ -520,6 +521,15 @@ class SessionManager {
     final tabs = await Future.wait(
       (data['tabs'] as List).map((t) => _loadTabFromJson(t)),
     );
+    final directoryUri = data['directory'];
+    if (directoryUri == null) return const SessionState();
+
+    // Verify directory access
+    final directory = await _fileHandler.getFileMetadata(directoryUri);
+    if (directory == null) {
+      await _fileHandler.persistRootUri(null);
+      return const SessionState();
+    }
 
     return SessionState(
       tabs: tabs.whereType<EditorTab>().toList(),
