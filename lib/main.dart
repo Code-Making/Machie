@@ -196,7 +196,7 @@ Future<void> appStartup(Ref ref) async {
   try {
     final prefs = await ref.read(sharedPreferencesProvider.future);
 
-
+    ref.read(logProvider.notifier);
     await ref.read(settingsProvider.notifier).loadSettings();
     await ref.read(sessionProvider.notifier).loadSession();
   } catch (e, st) {
