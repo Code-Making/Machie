@@ -321,7 +321,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
             await container.read(fileHandlerProvider)
               .persistRootUri(currentDir.uri);
           }
-        break;
+          break;
       default:
         break;
     }
