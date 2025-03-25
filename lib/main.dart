@@ -874,7 +874,7 @@ class CodeEditorSettings extends PluginSettings {
   }
 }
 
-class CodeEditorSettingsUI extends StatefulWidget {
+class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   final CodeEditorSettings settings;
 
   const CodeEditorSettingsUI({super.key, required this.settings});
@@ -883,7 +883,7 @@ class CodeEditorSettingsUI extends StatefulWidget {
   State<CodeEditorSettingsUI> createState() => _CodeEditorSettingsUIState();
 }
 
-class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
+class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
   late CodeEditorSettings _currentSettings;
 
   @override
@@ -935,9 +935,7 @@ class _CodeEditorSettingsUIState extends State<CodeEditorSettingsUI> {
   // In _CodeEditorSettingsUIState
   void _updateSettings(CodeEditorSettings newSettings) {
     setState(() => _currentSettings = newSettings);
-    ProviderScope.containerOf(
-      context,
-    ).read(settingsProvider.notifier).updatePluginSettings(newSettings);
+    ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
   }
 }
 
