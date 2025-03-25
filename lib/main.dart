@@ -45,13 +45,6 @@ void main() async {
 
   //final pluginRegistry = {CodeEditorPlugin()};
 
-final originalPrint = print;
-  print = (Object? message) {
-    originalPrint(message);
-    final container = ProviderContainer();
-    container.read(logProvider.notifier).addLog(message.toString());
-  };
-
   runApp(
     ProviderScope(
       child: LifecycleHandler(
@@ -180,15 +173,7 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 Future<void> appStartup(Ref ref) async {
   try {
     final prefs = await ref.read(sharedPreferencesProvider.future);
- /* // Capture the original print function
-  final originalPrint = print;
-  final logNotifier = ref.read(logProvider.notifier);
-  
-  // Override print after ProviderScope is available
-  print = (Object? message) {
-    originalPrint(message);
-    logNotifier.add(message.toString());
-  };*/
+
 
     await ref.read(settingsProvider.notifier).loadSettings();
     await ref.read(sessionProvider.notifier).loadSession();
