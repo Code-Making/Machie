@@ -315,6 +315,13 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
       case AppLifecycleState.detached:
         await container.read(sessionProvider.notifier).saveSession();
         break;
+      case AppLifecycleState.resumed:
+          final currentDir = container.read(rootUriProvider);
+          if (currentDir != null) {
+            await container.read(fileHandlerProvider)
+              .persistRootUri(currentDir.uri);
+          }
+        break;
       default:
         break;
     }
