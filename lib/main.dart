@@ -45,6 +45,13 @@ void main() async {
 
   //final pluginRegistry = {CodeEditorPlugin()};
 
+final originalPrint = print;
+  print = (Object? message) {
+    originalPrint(message);
+    final container = ProviderContainer();
+    container.read(logProvider.notifier).addLog(message.toString());
+  };
+
   runApp(
     ProviderScope(
       child: LifecycleHandler(
@@ -115,14 +122,16 @@ final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
 class LogNotifier extends StateNotifier<List<String>> {
   LogNotifier() : super([]);
 
-  void addLog(String message) {
-    state = [...state, message];
+  void add(String message) {
+    state = [...state, '${DateTime.now().toIso8601String()}: $message'];
+    if (state.length > 200) {
+      state = state.sublist(state.length - 100); // Keep last 100 entries
+    }
   }
 
-  void clearLogs() {
+void clearLogs() {
     state = [];
-  }
-}
+  }}
 
 class DebugLogView extends ConsumerWidget {
   const DebugLogView({super.key});
@@ -171,7 +180,7 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 Future<void> appStartup(Ref ref) async {
   try {
     final prefs = await ref.read(sharedPreferencesProvider.future);
-      // Capture the original print function
+ /* // Capture the original print function
   final originalPrint = print;
   final logNotifier = ref.read(logProvider.notifier);
   
@@ -179,7 +188,7 @@ Future<void> appStartup(Ref ref) async {
   print = (Object? message) {
     originalPrint(message);
     logNotifier.add(message.toString());
-  };
+  };*/
 
     await ref.read(settingsProvider.notifier).loadSettings();
     await ref.read(sessionProvider.notifier).loadSession();
