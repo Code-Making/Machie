@@ -1611,7 +1611,7 @@ class SAFFileHandler implements FileHandler {
     return dir != null ? CustomSAFDocumentFile(dir) : null;
   }
 
-  @override
+ /* @override
   Future<List<DocumentFile>> listDirectory(String? uri) async {
     try {
       final contents = await _safUtil.list(uri ?? '');
@@ -1628,6 +1628,28 @@ class SAFFileHandler implements FileHandler {
     } catch (e) {
       print('Error listing directory: $e');
       return [];
+    }
+  }*/
+  
+    @override
+  Future<List<DocumentFile>> listDirectory(String? uri) async {
+    try {
+      if (uri == null) return [];
+      final files = await _safUtil.list(uri);
+      files.sort((a, b) {
+        if (a.isDir != b.isDir) {
+          return a.isDir ? -1 : 1;
+        }
+
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      return files.map((f) => CustomSAFDocumentFile(f)).toList();
+    } on PlatformException catch (e) {
+      if (e.code == 'PERMISSION_DENIED') {
+        await persistRootUri(null);
+        return [];
+      }
+      rethrow;
     }
   }
 
@@ -1669,14 +1691,24 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<void> persistRootUri(String? uri) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, uri ?? '');
-  }
+    if (uri != null) {
+      // Take persistable permissions
+      await _safUtil.pickDirectory(
+        initialUri: uri,
+        persistablePermission: true,
+        writePermission: true,
+      );
+    }
 
   @override
   Future<String?> getPersistedRootUri() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_prefsKey);
+    final uri = prefs.getString(_prefsKey);
+    if (uri == null) return null;
+    
+    // Verify we still have access
+    final file = await _safUtil.documentFileFromUri(uri, true);
+    return file?.uri;
   }
 
   @override
