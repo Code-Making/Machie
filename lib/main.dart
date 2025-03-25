@@ -880,7 +880,7 @@ class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   const CodeEditorSettingsUI({super.key, required this.settings});
 
   @override
-  State<CodeEditorSettingsUI> createState() => _CodeEditorSettingsUIState();
+  ConsumerState<CodeEditorSettingsUI> createState() => _CodeEditorSettingsUIState();
 }
 
 class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
