@@ -1699,6 +1699,7 @@ class SAFFileHandler implements FileHandler {
         writePermission: true,
       );
     }
+  }
 
   @override
   Future<String?> getPersistedRootUri() async {
