@@ -853,13 +853,7 @@ abstract class EditorPlugin {
   Widget buildSettingsUI(PluginSettings settings);
 
   Widget buildToolbar(WidgetRef ref) {
-  final commands = ref.watch(commandProvider
-        .notifier)
-        .getVisibleCommands(CommandPosition.pluginToolbar);
-        
-    return commands.isEmpty
-        ? const SizedBox.shrink()
-        : BottomToolbar(commands: commands);
+    return const SizedBox.shrink(); // Default empty implementation
   }
 
   // Optional lifecycle hooks
@@ -950,6 +944,33 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
       wordWrap: settings?.wordWrap ?? false,
     );
+  }
+  
+    @override
+  List<Command> getCommands() => [
+    BaseCommand(
+      id: 'format_code',
+      label: 'Format',
+      icon: const Icon(Icons.format_indent_increase),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref) => _formatCode(ref),
+      canExecute: (ref) => true,
+    ),
+  ];
+
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    final commands = ref.watch(commandProvider.notifier)
+      .getVisibleCommands(CommandPosition.pluginToolbar);
+    
+    return BottomToolbar(commands: commands);
+  }
+
+  Future<void> _formatCode(WidgetRef ref) async {
+    final tab = ref.read(sessionProvider).currentTab;
+    if (tab is CodeEditorTab) {
+      // Formatting logic here
+    }
   }
 
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
@@ -1849,17 +1870,17 @@ class CommandNotifier extends StateNotifier<CommandState> {
     ...plugins.expand((p) => p.getCommands()),
   ];
 
-  List<Command> get _coreCommands => [
-    Command(
+List<Command> get _coreCommands => [
+    BaseCommand(
       id: 'save',
       label: 'Save',
       icon: const Icon(Icons.save),
       defaultPosition: CommandPosition.appBar,
-      execute: () => ref.read(sessionProvider.notifier).saveSession(),
+      execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
       canExecute: (ref) => ref.watch(sessionProvider
-          .select((s) => s.currentTab?.isDirty ?? false)),
+        .select((s) => s.currentTab?.isDirty ?? false)),
     ),
-    // Add more core commands...
+    // More core commands...
   ];
 
   List<Command> getVisibleCommands(CommandPosition position) {
