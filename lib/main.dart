@@ -1839,6 +1839,7 @@ class BaseCommand extends Command {
     required super.label,
     required super.icon,
     required super.defaultPosition,
+    required super.sourcePlugin,
     required Future<void> Function(WidgetRef) execute,
     required bool Function(WidgetRef) canExecute,
   }) : _execute = execute, _canExecute = canExecute;
