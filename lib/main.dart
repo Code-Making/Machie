@@ -950,6 +950,8 @@ class CodeEditorPlugin implements EditorPlugin {
     file: file,
     plugin: this,
     controller: CodeLineEditingController(),
+    commentFormatter: _getCommentFormatter(file.uri),
+    highlightedLines: {},
   );
 
   @override
