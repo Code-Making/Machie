@@ -1059,8 +1059,6 @@ class CodeEditorPlugin implements EditorPlugin {
     
     processSpan(textSpan);
     return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
-  
-    );
   }
 
   CodeLineEditingController _getControllerFromContext(BuildContext context) {
