@@ -1455,7 +1455,9 @@ if (mark == null) {
     final commands = ref.watch(commandProvider.notifier)
       .getVisibleCommands(CommandPosition.pluginToolbar);
     
-    return BottomToolbar();
+     return CodeEditorTapRegion(
+      child: BottomToolbar(),
+     );
   }
 
   
