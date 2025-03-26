@@ -967,7 +967,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final commands = ref.watch(commandProvider.notifier)
       .getVisibleCommands(CommandPosition.pluginToolbar);
     
-    return BottomToolbar(commands: commands);
+    return BottomToolbar();
   }
 
   Future<void> _formatCode(WidgetRef ref) async {
