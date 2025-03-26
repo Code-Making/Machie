@@ -1239,7 +1239,67 @@ List<Command> get _clipboardCommands => [
   }
 
   Future<void> _selectBetweenBrackets(WidgetRef ref, CodeLineEditingController ctrl) async {
-    // ... bracket selection logic using ctrl ...
+    final tab = _getTab(ref)!;
+    final controller = tab.controller;
+    final selection = controller.selection;
+    
+    if (!selection.isCollapsed) {
+      print('Selection already active');
+      return;
+    }
+    
+    try {
+      final position = selection.base;
+      final brackets = {'(': ')', '[': ']', '{': '}'};
+      CodeLinePosition? start;
+      CodeLinePosition? end;
+      
+      // Check both left and right of cursor
+      for (int offset = 0; offset <= 1; offset++) {
+        final index = position.offset - offset;
+        if (index >= 0 && index < controller.codeLines[position.index].text.length) {
+          final char = controller.codeLines[position.index].text[index];
+          if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+            final match = _findMatchingBracket(
+              controller.codeLines,
+              CodeLinePosition(
+                index: position.index,
+                offset: index,
+              ),
+              brackets,
+            );
+            if (match != null) {
+              start = CodeLinePosition(
+                index: position.index,
+                offset: index,
+              );
+              end = match;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (start == null || end == null) {
+        print('No matching bracket found');
+        return;
+      }
+      
+      // Order positions correctly
+      final orderedStart = _comparePositions(start, end) < 0 ? start : end;
+      final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
+      
+      controller.selection = CodeLineSelection(
+        baseIndex: orderedStart.index,
+        baseOffset: orderedStart.offset,
+        extentIndex: orderedEnd.index,
+        extentOffset: orderedEnd.offset + 1, // Include the bracket itself
+      );
+      _extendSelectionToLineEdges();
+      //_showSuccess('Selected between brackets');
+    } catch (e) {
+      //_showError('Selection failed: ${e.toString()}');
+    }
   }
 
   Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {
