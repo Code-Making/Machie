@@ -693,15 +693,14 @@ abstract class EditorTab {
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
-  final Set<int> highlightedLines;
+  final ValueNotifier<CodeLinePosition?> markPosition; // State managed internally
 
   CodeEditorTab({
     required super.file,
     required this.controller,
     required super.plugin,
     required this.commentFormatter,
-    required this.highlightedLines,
-  });
+  }) : markPosition = ValueNotifier(null);
 
   @override
   void dispose() => controller.dispose();
