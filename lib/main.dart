@@ -1262,8 +1262,41 @@ List<Command> get _clipboardCommands => [
   }
 
   CodeLineEditingValue _formatCode(CodeLineEditingValue value) {
-    // ... formatting implementation ...
+    final buffer = StringBuffer();
+    int indentLevel = 0;
+    final indent = '  '; // 2 spaces
+    
+    // Convert CodeLines to a list for iteration
+    final codeLines = value.codeLines.toList();
+    
+    for (final line in codeLines) {
+      final trimmed = line.text.trim();
+      
+      // Handle indentation decreases
+      if (trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')'))
+      {
+        indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
+      }
+      
+      // Write indentation
+      buffer.write(indent * indentLevel);
+      
+      // Write line content
+      buffer.writeln(trimmed);
+      
+      // Handle indentation increases
+      if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
+        indentLevel++;
+      }
+    }
+    
+    return CodeLineEditingValue(
+      codeLines: CodeLines.fromText(buffer.toString().trim()),
+      selection: value.selection,
+      composing: value.composing,
+    );
   }
+  
   @override
   Widget buildToolbar(WidgetRef ref) {
     final commands = ref.watch(commandProvider.notifier)
