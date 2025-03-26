@@ -949,13 +949,14 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
   
-    @override
+  @override
   List<Command> getCommands() => [
     BaseCommand(
       id: 'format_code',
       label: 'Format',
       icon: const Icon(Icons.format_indent_increase),
       defaultPosition: CommandPosition.pluginToolbar,
+      sourcePlugin: 'CodeEditor',
       execute: (ref) => _formatCode(ref),
       canExecute: (ref) => true,
     ),
@@ -1815,12 +1816,14 @@ abstract class Command {
   final String label;
   final Widget icon;
   final CommandPosition defaultPosition;
-  
+  final String sourcePlugin;
+
   const Command({
     required this.id,
     required this.label,
     required this.icon,
     required this.defaultPosition,
+    required this.sourcePlugin,
   });
 
   Future<void> execute(WidgetRef ref);
@@ -1855,58 +1858,110 @@ enum CommandPosition {
 }
 
 class CommandState {
-  final Map<String, CommandPosition> customPositions;
   final List<String> appBarOrder;
   final List<String> pluginToolbarOrder;
+  final List<String> hiddenOrder;
+  final Map<String, Set<String>> commandSources;
 
   const CommandState({
-    this.customPositions = const {},
     this.appBarOrder = const [],
     this.pluginToolbarOrder = const [],
+    this.hiddenOrder = const [],
+    this.commandSources = const {},
   });
+
+  List<String> getOrderForPosition(CommandPosition position) {
+    switch (position) {
+      case CommandPosition.appBar:
+        return appBarOrder;
+      case CommandPosition.pluginToolbar:
+        return pluginToolbarOrder;
+      case CommandPosition.hidden:
+        return hiddenOrder;
+      default:
+        return [];
+    }
+  }
 }
 
 class CommandNotifier extends StateNotifier<CommandState> {
   final Ref ref;
-  final Set<EditorPlugin> plugins;
+  final List<Command> _coreCommands;
+  final Map<String, Command> _allCommands = {};
+  final Map<String, Set<String>> _commandSources = {};
 
-  CommandNotifier({required this.ref, required this.plugins})
-      : super(const CommandState());
-
-  List<Command> get _allCommands => [
-    ..._coreCommands,
-    ...plugins.expand((p) => p.getCommands()),
-  ];
-
-List<Command> get _coreCommands => [
-    BaseCommand(
-      id: 'save',
-      label: 'Save',
-      icon: const Icon(Icons.save),
-      defaultPosition: CommandPosition.appBar,
-      execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
-      canExecute: (ref) => ref.watch(sessionProvider
-        .select((s) => s.currentTab?.isDirty ?? false)),
-    ),
-    // More core commands...
-  ];
-
-  List<Command> getVisibleCommands(CommandPosition position) {
-    return _allCommands.where((cmd) {
-      final custom = state.customPositions[cmd.id];
-      final effectivePosition = custom ?? cmd.defaultPosition;
-      return effectivePosition == position || 
-             (effectivePosition == CommandPosition.both && 
-              (position == CommandPosition.appBar || 
-               position == CommandPosition.pluginToolbar));
-    }).toList();
+  CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
+      : _coreCommands = _buildCoreCommands(ref),
+        super(const CommandState()) {
+    _initializeCommands(plugins);
   }
 
-  Future<void> updateCommandPosition(
-    String commandId, 
-    CommandPosition newPosition
-  ) async {
-    // Update logic and save to SharedPreferences
+  void _initializeCommands(Set<EditorPlugin> plugins) {
+    // Merge commands from core and plugins
+    final allCommands = [..._coreCommands, ...plugins.expand((p) => p.getCommands())];
+    
+    for (final cmd in allCommands) {
+      // Group by command ID
+      if (_allCommands.containsKey(cmd.id)) {
+        _commandSources[cmd.id]!.add(cmd.sourcePlugin);
+      } else {
+        _allCommands[cmd.id] = cmd;
+        _commandSources[cmd.id] = {cmd.sourcePlugin};
+      }
+    }
+    
+    // Initial state setup
+    state = CommandState(
+      appBarOrder: _coreCommands
+          .where((c) => c.defaultPosition == CommandPosition.appBar)
+          .map((c) => c.id)
+          .toList(),
+      pluginToolbarOrder: _coreCommands
+          .where((c) => c.defaultPosition == CommandPosition.pluginToolbar)
+          .map((c) => c.id)
+          .toList(),
+      commandSources: _commandSources,
+    );
+  }
+
+  void _updateCommandPosition(String commandId, CommandPosition newPosition) {
+    List<String> newAppBar = List.from(state.appBarOrder);
+    List<String> newPluginToolbar = List.from(state.pluginToolbarOrder);
+    List<String> newHidden = List.from(state.hiddenOrder);
+
+    // Remove from all lists
+    newAppBar.remove(commandId);
+    newPluginToolbar.remove(commandId);
+    newHidden.remove(commandId);
+
+    // Add to appropriate list
+    switch (newPosition) {
+      case CommandPosition.appBar:
+        newAppBar.add(commandId);
+        break;
+      case CommandPosition.pluginToolbar:
+        newPluginToolbar.add(commandId);
+        break;
+      case CommandPosition.hidden:
+        newHidden.add(commandId);
+        break;
+      default:
+        break;
+    }
+
+    state = state.copyWith(
+      appBarOrder: newAppBar,
+      pluginToolbarOrder: newPluginToolbar,
+      hiddenOrder: newHidden,
+    );
+    _saveToPrefs();
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('command_app_bar', state.appBarOrder);
+    await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
+    await prefs.setStringList('command_hidden', state.hiddenOrder);
   }
 }
 
@@ -1983,39 +2038,74 @@ class CommandSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.watch(commandProvider.notifier);
-    final commands = notifier._allCommands;
-
+    final state = ref.watch(commandProvider);
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Command Settings'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: ReorderableListView(
-        onReorder: (oldIndex, newIndex) {
-          // Handle reordering logic
-        },
+      appBar: AppBar(title: const Text('Command Customization')),
+      body: Column(
         children: [
-          for (final command in commands)
-            ListTile(
-              key: ValueKey(command.id),
-              leading: command.icon,
-              title: Text(command.label),
-              trailing: DropdownButton<CommandPosition>(
-                value: notifier.state.customPositions[command.id] ?? 
-                       command.defaultPosition,
-                onChanged: (pos) => notifier.updateCommandPosition(command.id, pos!),
-                items: CommandPosition.values.map((pos) {
-                  return DropdownMenuItem(
-                    value: pos,
-                    child: Text(pos.toString().split('.').last),
-                  );
-                }).toList(),
-              ),
-            ),
+          _buildSection(context, 'App Bar Commands', 
+            state.appBarOrder, CommandPosition.appBar),
+          _buildSection(context, 'Plugin Toolbar Commands',
+            state.pluginToolbarOrder, CommandPosition.pluginToolbar),
+          _buildSection(context, 'Hidden Commands',
+            state.hiddenOrder, CommandPosition.hidden),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSection(BuildContext context, String title, 
+      List<String> commandIds, CommandPosition position) {
+    return ExpansionTile(
+      title: Text(title),
+      children: [
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          itemCount: commandIds.length,
+          itemBuilder: (ctx, index) => _buildCommandItem(
+            context,
+            notifier._allCommands[commandIds[index]]!,
+            state.commandSources[commandIds[index]]!,
+          ),
+          onReorder: (oldIndex, newIndex) => 
+            _handleReorder(position, oldIndex, newIndex),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommandItem(BuildContext context, 
+      Command command, Set<String> sources) {
+    return ListTile(
+      key: ValueKey(command.id),
+      leading: command.icon,
+      title: Text(command.label),
+      subtitle: sources.length > 1 
+          ? Text('From: ${sources.join(', ')}')
+          : null,
+      trailing: IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () => _showPositionMenu(context, command),
+      ),
+    );
+  }
+
+  void _showPositionMenu(BuildContext context, Command command) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Position for ${command.label}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: CommandPosition.values.map((pos) => ListTile(
+            title: Text(pos.name),
+            onTap: () {
+              notifier._updateCommandPosition(command.id, pos);
+              Navigator.pop(ctx);
+            },
+          )).toList(),
+        ),
       ),
     );
   }
