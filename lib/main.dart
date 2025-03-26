@@ -1930,19 +1930,22 @@ class CommandNotifier extends StateNotifier<CommandState> {
   ];
 
 void updateOrder(CommandPosition position, List<String> newOrder) {
-    switch (position) {
-      case CommandPosition.appBar:
-        state = state.copyWith(appBarOrder: newOrder);
-        break;
-      case CommandPosition.pluginToolbar:
-        state = state.copyWith(pluginToolbarOrder: newOrder);
-        break;
-      case CommandPosition.hidden:
-        state = state.copyWith(hiddenOrder: newOrder);
-        break;
-    }
-    _saveToPrefs();
+  switch (position) {
+    case CommandPosition.appBar:
+      state = state.copyWith(appBarOrder: newOrder);
+      break;
+    case CommandPosition.pluginToolbar:
+      state = state.copyWith(pluginToolbarOrder: newOrder);
+      break;
+    case CommandPosition.hidden:
+      state = state.copyWith(hiddenOrder: newOrder);
+      break;
+    case CommandPosition.both:
+      // Handle both position if needed
+      break;
   }
+  _saveToPrefs();
+}
 
   void _initializeCommands(Set<EditorPlugin> plugins) {
     // Merge commands from core and plugins
