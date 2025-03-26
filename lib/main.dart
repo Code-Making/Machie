@@ -2077,7 +2077,8 @@ class BottomToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final commands = ref.watch(commandProvider
-        .select((state) => state.getVisibleCommands(CommandPosition.pluginToolbar)));
+        .notifier)
+        .getVisibleCommands(CommandPosition.pluginToolbar);
 
     return Container(
       height: 48,
