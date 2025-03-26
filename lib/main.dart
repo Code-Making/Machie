@@ -1971,6 +1971,39 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
       commandSources: _commandSources,
     );
   }
+  
+  void updateCommandPosition(String commandId, CommandPosition newPosition) {
+    List<String> newAppBar = List.from(state.appBarOrder);
+    List<String> newPluginToolbar = List.from(state.pluginToolbarOrder);
+    List<String> newHidden = List.from(state.hiddenOrder);
+
+    newAppBar.remove(commandId);
+    newPluginToolbar.remove(commandId);
+    newHidden.remove(commandId);
+
+    switch (newPosition) {
+      case CommandPosition.appBar:
+        newAppBar.add(commandId);
+        break;
+      case CommandPosition.pluginToolbar:
+        newPluginToolbar.add(commandId);
+        break;
+      case CommandPosition.hidden:
+        newHidden.add(commandId);
+        break;
+      case CommandPosition.both: // Handle both case
+        newAppBar.add(commandId);
+        newPluginToolbar.add(commandId);
+        break;
+    }
+
+    state = state.copyWith(
+      appBarOrder: newAppBar,
+      pluginToolbarOrder: newPluginToolbar,
+      hiddenOrder: newHidden,
+    );
+    _saveToPrefs();
+  }
 
   void _updateCommandPosition(String commandId, CommandPosition newPosition) {
     List<String> newAppBar = List.from(state.appBarOrder);
