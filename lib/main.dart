@@ -1087,18 +1087,223 @@ class CodeEditorPlugin implements EditorPlugin {
     }
   }
   
-  @override
-  List<Command> getCommands() => [
-    BaseCommand(
-      id: 'format_code',
-      label: 'Format',
-      icon: const Icon(Icons.format_indent_increase),
-      defaultPosition: CommandPosition.pluginToolbar,
-      sourcePlugin: 'CodeEditor',
-      execute: (ref) => _formatCode(ref),
-      canExecute: (ref) => true,
-    ),
-  ];
+override
+List<Command> getCommands() => [
+  ..._buildClipboardCommands(),
+  ..._buildFormatCommands(),
+  ..._buildSelectionCommands(),
+  ..._buildHistoryCommands(),
+];
+
+List<Command> _buildClipboardCommands() => [
+  BaseCommand(
+    id: 'copy',
+    label: 'Copy',
+    icon: const Icon(Icons.content_copy, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.copy()),
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'cut',
+    label: 'Cut',
+    icon: const Icon(Icons.content_cut, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.cut()),
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'paste',
+    label: 'Paste',
+    icon: const Icon(Icons.content_paste, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.paste()),
+    canExecute: _hasActiveEditor,
+  ),
+];
+
+List<Command> _buildFormatCommands() => [
+  BaseCommand(
+    id: 'indent',
+    label: 'Indent',
+    icon: const Icon(Icons.format_indent_increase, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.applyIndent()),
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'outdent',
+    label: 'Outdent',
+    icon: const Icon(Icons.format_indent_decrease, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.applyOutdent()),
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'toggle_comment',
+    label: 'Toggle Comment',
+    icon: const Icon(Icons.comment, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _toggleComments(ref),
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'reformat',
+    label: 'Reformat Document',
+    icon: const Icon(Icons.format_align_left, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _reformatDocument(ref),
+    canExecute: _hasActiveEditor,
+  ),
+];
+
+List<Command> _buildSelectionCommands() => [
+  BaseCommand(
+    id: 'select_brackets',
+    label: 'Select Between Brackets',
+    icon: const Icon(Icons.code, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: _selectBetweenBrackets,
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'extend_selection',
+    label: 'Extend to Line Edges',
+    icon: const Icon(Icons.horizontal_rule, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: _extendSelectionToLineEdges,
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'set_mark',
+    label: 'Set Mark',
+    icon: const Icon(Icons.bookmark_add_outlined, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: _setMarkPosition,
+    canExecute: _hasActiveEditor,
+  ),
+  BaseCommand(
+    id: 'select_to_mark',
+    label: 'Select to Mark',
+    icon: const Icon(Icons.bookmark_added, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: _selectToMark,
+    canExecute: (ref) => _hasActiveEditor(ref) && _hasMarkSet(ref),
+  ),
+];
+
+List<Command> _buildHistoryCommands() => [
+  BaseCommand(
+    id: 'undo',
+    label: 'Undo',
+    icon: const Icon(Icons.undo, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.undo()),
+    canExecute: (ref) => _hasActiveEditor(ref) && 
+      _getController(ref)?.canUndo ?? false,
+  ),
+  BaseCommand(
+    id: 'redo',
+    label: 'Redo',
+    icon: const Icon(Icons.redo, size: 20),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'CodeEditor',
+    execute: (ref) => _withController(ref, (ctrl) => ctrl.redo()),
+    canExecute: (ref) => _hasActiveEditor(ref) && 
+      _getController(ref)?.canRedo ?? false,
+  ),
+];
+
+// Helper methods
+bool _hasActiveEditor(WidgetRef ref) {
+  final session = ref.read(sessionProvider);
+  return session.currentTab is CodeEditorTab;
+}
+
+CodeLineEditingController? _getController(WidgetRef ref) {
+  final tab = ref.read(sessionProvider).currentTab;
+  return tab is CodeEditorTab ? tab.controller : null;
+}
+
+void _withController(WidgetRef ref, void Function(CodeLineEditingController) fn) {
+  final ctrl = _getController(ref);
+  if (ctrl != null) fn(ctrl);
+}
+
+// Command implementations
+void _toggleComments(WidgetRef ref) {
+  final tab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+  final controller = tab.controller;
+  final formatter = tab.commentFormatter;
+  
+  final value = controller.value;
+  final indent = controller.options.indent;
+  
+  try {
+    final formatted = formatter.format(value, indent, true);
+    controller.runRevocableOp(() => controller.value = formatted);
+  } catch (e) {
+    // Handle error
+  }
+}
+
+void _reformatDocument(WidgetRef ref) {
+  final ctrl = _getController(ref);
+  if (ctrl == null) return;
+
+  try {
+    final formattedValue = _formatCodeValue(ctrl.value);
+    ctrl.runRevocableOp(() => ctrl.value = formattedValue);
+  } catch (e) {
+    // Handle error
+  }
+}
+
+void _selectBetweenBrackets(WidgetRef ref) {
+  final ctrl = _getController(ref);
+  if (ctrl == null) return;
+  
+  final selection = ctrl.selection;
+  // ... rest of original _selectBetweenBrackets logic
+}
+
+void _extendSelectionToLineEdges(WidgetRef ref) {
+  final ctrl = _getController(ref);
+  if (ctrl == null) return;
+  
+  final selection = ctrl.selection;
+  // ... rest of original _extendSelectionToLineEdges logic
+}
+
+void _setMarkPosition(WidgetRef ref) {
+  final tab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+  tab.markPosition = tab.controller.selection.base;
+}
+
+void _selectToMark(WidgetRef ref) {
+  final tab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+  // ... rest of original _selectToMark logic
+}
+
+bool _hasMarkSet(WidgetRef ref) {
+  final tab = ref.read(sessionProvider).currentTab as CodeEditorTab?;
+  return tab?.markPosition != null;
+}
+
+// Keep existing helper methods like _formatCodeValue, 
+// _comparePositions, etc. as private methods in the plugin
 
   @override
   Widget buildToolbar(WidgetRef ref) {
