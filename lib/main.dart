@@ -1171,7 +1171,7 @@ List<Command> get _clipboardCommands => [
       icon: Icons.bookmark_added,
       execute: _selectToMark,
       canExecute: (ref, ctrl) => 
-        _getTab(ref)?.markPosition.value != null,
+        _getTab(ref)?.markPosition != null,
     ),
   ];
 
@@ -1251,12 +1251,12 @@ List<Command> get _clipboardCommands => [
   }
 
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController ctrl) async {
-    _getTab(ref)?.markPosition.value = ctrl.selection.base;
+    _getTab(ref)?.markPosition = ctrl.selection.base;
   }
 
   Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController ctrl) async {
     final tab = _getTab(ref)!;
-    final mark = tab.markPosition.value;
+    final mark = tab.markPosition;
 if (mark == null) {
       print('No mark set! Set a mark first');
       return;
