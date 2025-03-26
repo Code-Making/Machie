@@ -2498,6 +2498,15 @@ class CommandNotifier extends StateNotifier<CommandState> {
         .toList();
   }
   
+  List<String> _mergePositions(List<Command> commands, CommandPosition position) {
+    return [
+      ...state.getOrderForPosition(position),
+      ...commands.where((c) => c.defaultPosition == position)
+                 .map((c) => c.id)
+                 .where((id) => !state.commandSources.containsKey(id))
+    ];
+  }
+  
  static List<Command> _buildCoreCommands(Ref ref) => [
     BaseCommand(
       id: 'save',
@@ -2555,7 +2564,22 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
           .toList(),
       commandSources: _commandSources,
     );
+    
+    _updateCommands(plugins);
     await _loadFromPrefs(); // Load saved positions after merging commands
+  }
+  
+  void _updateCommands(Set<EditorPlugin> plugins) {
+    final newCommands = [
+      ..._coreCommands,
+      ...plugins.expand((p) => p.getCommands())
+    ];
+    
+    state = state.copyWith(
+      commandSources: _groupCommandSources(newCommands),
+      appBarOrder: _mergePositions(newCommands, CommandPosition.appBar),
+      pluginToolbarOrder: _mergePositions(newCommands, CommandPosition.pluginToolbar),
+    );
   }
   
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
