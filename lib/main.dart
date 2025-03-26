@@ -1947,7 +1947,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
   _saveToPrefs();
 }
 
-  void _initializeCommands(Set<EditorPlugin> plugins) {
+  void _initializeCommands(Set<EditorPlugin> plugins) async {
     // Merge commands from core and plugins
     final allCommands = [..._coreCommands, ...plugins.expand((p) => p.getCommands())];
     
@@ -1973,7 +1973,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
           .toList(),
       commandSources: _commandSources,
     );
-    //await _loadFromPrefs(); // Load saved positions after merging commands
+    await _loadFromPrefs(); // Load saved positions after merging commands
   }
   
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
