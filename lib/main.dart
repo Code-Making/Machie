@@ -2105,6 +2105,7 @@ class CommandSettingsScreen extends ConsumerWidget {
 
   Widget _buildSection(BuildContext context, WidgetRef ref, String title, 
       List<String> commandIds, CommandPosition position) {
+    final state = ref.watch(commandProvider);
     return ExpansionTile(
       title: Text(title),
       children: [
