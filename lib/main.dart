@@ -2085,25 +2085,25 @@ class CommandSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.watch(commandProvider.notifier);
+    final notifier = ref.read(commandProvider.notifier);
     final state = ref.watch(commandProvider);
     
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
       body: Column(
         children: [
-          _buildSection(context, 'App Bar Commands', 
+          _buildSection(context, ref, 'App Bar Commands', 
             state.appBarOrder, CommandPosition.appBar),
-          _buildSection(context, 'Plugin Toolbar Commands',
+          _buildSection(context, ref, 'Plugin Toolbar Commands',
             state.pluginToolbarOrder, CommandPosition.pluginToolbar),
-          _buildSection(context, 'Hidden Commands',
+          _buildSection(context, ref, 'Hidden Commands',
             state.hiddenOrder, CommandPosition.hidden),
         ],
       ),
     );
   }
 
-  Widget _buildSection(BuildContext context, String title, 
+  Widget _buildSection(BuildContext context, WidgetRef ref, String title, 
       List<String> commandIds, CommandPosition position) {
     return ExpansionTile(
       title: Text(title),
@@ -2113,20 +2113,24 @@ class CommandSettingsScreen extends ConsumerWidget {
           itemCount: commandIds.length,
           itemBuilder: (ctx, index) => _buildCommandItem(
             context,
-            notifier._allCommands[commandIds[index]]!,
+            ref,
+            commandIds[index],
             state.commandSources[commandIds[index]]!,
           ),
           onReorder: (oldIndex, newIndex) => 
-            _handleReorder(position, oldIndex, newIndex),
+            _handleReorder(ref, position, oldIndex, newIndex, commandIds),
         ),
       ],
     );
   }
 
-  Widget _buildCommandItem(BuildContext context, 
-      Command command, Set<String> sources) {
+  Widget _buildCommandItem(BuildContext context, WidgetRef ref,
+      String commandId, Set<String> sources) {
+    final notifier = ref.read(commandProvider.notifier);
+    final command = notifier._allCommands[commandId]!;
+    
     return ListTile(
-      key: ValueKey(command.id),
+      key: ValueKey(commandId),
       leading: command.icon,
       title: Text(command.label),
       subtitle: sources.length > 1 
@@ -2134,12 +2138,26 @@ class CommandSettingsScreen extends ConsumerWidget {
           : null,
       trailing: IconButton(
         icon: const Icon(Icons.more_vert),
-        onPressed: () => _showPositionMenu(context, command),
+        onPressed: () => _showPositionMenu(context, ref, command),
       ),
     );
   }
 
-  void _showPositionMenu(BuildContext context, Command command) {
+  void _handleReorder(WidgetRef ref, CommandPosition position, 
+      int oldIndex, int newIndex, List<String> currentOrder) {
+    if (oldIndex < newIndex) newIndex--;
+    final item = currentOrder.removeAt(oldIndex);
+    currentOrder.insert(newIndex, item);
+
+    ref.read(commandProvider.notifier).updateOrder(
+      position,
+      currentOrder,
+    );
+  }
+
+  void _showPositionMenu(BuildContext context, WidgetRef ref, Command command) {
+    final notifier = ref.read(commandProvider.notifier);
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -2147,9 +2165,9 @@ class CommandSettingsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: CommandPosition.values.map((pos) => ListTile(
-            title: Text(pos.name),
+            title: Text(pos.toString().split('.').last),
             onTap: () {
-              notifier._updateCommandPosition(command.id, pos);
+              notifier.updateCommandPosition(command.id, pos);
               Navigator.pop(ctx);
             },
           )).toList(),
