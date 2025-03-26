@@ -2607,10 +2607,7 @@ Future<void> _loadFromPrefs() async {
     final hidden = prefs.getStringList('command_hidden') ?? [];
 
     // Get all available commands from plugins and core
-    final allCommands = [
-      ..._coreCommands,
-      ...ref.read(activePluginsProvider).expand((p) => p.getCommands())
-    ].map((c) => c.id).toSet();
+    final allCommands = [..._coreCommands, ...plugins.expand((p) => p.getCommands())];
 
     // Merge saved positions with default positions for new commands
     state = state.copyWith(
