@@ -855,13 +855,8 @@ abstract class EditorPlugin {
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
-Widget buildToolbar(WidgetRef ref) {
-    final commands = ref.watch(commandProvider
-        .select((state) => state.getVisibleCommands(CommandPosition.pluginToolbar)));
-    
-    return commands.isEmpty
-        ? const SizedBox.shrink()
-        : BottomToolbar(commands: commands);
+  Widget buildToolbar(WidgetRef ref) {
+    return const SizedBox.shrink(); // Default empty implementation
   }
 
   // Optional lifecycle hooks
