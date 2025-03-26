@@ -1959,7 +1959,7 @@ class CommandButton extends ConsumerWidget {
 
     return IconButton(
       icon: command.icon,
-      onPressed: isEnabled ? () => command.execute() : null,
+      onPressed: isEnabled ? () => command.execute(ref) : null,
       tooltip: showLabel ? null : command.label,
     );
   }
