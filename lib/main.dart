@@ -1156,7 +1156,7 @@ List<Command> get _clipboardCommands => [
       icon: Icons.horizontal_rule,
       execute: _extendSelection,
     ),
-    _createCommand(
+  /*  _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
       icon: Icons.bookmark_add,
@@ -1169,7 +1169,7 @@ List<Command> get _clipboardCommands => [
       execute: _selectToMark,
       canExecute: (ref, ctrl) => 
         _getTab(ref)?.markPosition != null,
-    ),
+    ),*/
   ];
 
   List<Command> get _historyCommands => [
@@ -1246,7 +1246,7 @@ List<Command> get _clipboardCommands => [
   Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {
     // ... selection extension logic ...
   }
-
+/*
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController ctrl) async {
     _getTab(ref)?.markPosition = ctrl.selection.base;
   }
@@ -1280,7 +1280,7 @@ if (mark == null) {
       print('Selection error: ${e.toString()}');
     }
   }
-    
+    */
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
