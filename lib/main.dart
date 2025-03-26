@@ -1125,10 +1125,12 @@ final bracketHighlightProvider = StateNotifierProvider.autoDispose
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final CodeLinePosition? matchingBracketPosition;
+  final Set<int> highlightedLines;
 
   BracketHighlightState({
     this.bracketPositions = const {},
     this.matchingBracketPosition,
+    this.highlightedLines,
   });
 }
 
@@ -1155,6 +1157,7 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
     
     Set<CodeLinePosition> newPositions = {};
     CodeLinePosition? matchPosition;
+    Set<int> newHighlightedLines = {};
 
     final index = position.offset;
     if (index >= 0 && index < line.length) {
@@ -1168,6 +1171,8 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
         if (matchPosition != null) {
           newPositions.add(position);
           newPositions.add(matchPosition);
+          newHighlightedLines.add(position.index);
+          newHighlightedLines.add(matchPosition.index);
         }
       }
     }
@@ -1175,6 +1180,7 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
     state = BracketHighlightState(
       bracketPositions: newPositions,
       matchingBracketPosition: matchPosition,
+      highlightedLines: newHighlightedLines,
     );
   }
 
