@@ -699,7 +699,7 @@ class CodeEditorTab extends EditorTab {
     required this.controller,
     required super.plugin,
     required this.commentFormatter,
-  })
+  });
 
   @override
   void dispose() {
@@ -955,7 +955,6 @@ class CodeEditorPlugin implements EditorPlugin {
       plugin: this,
       controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
-      highlightedLines: {},
     );
   }
   @override
