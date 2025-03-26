@@ -1254,7 +1254,7 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
 
 class _CustomEditorIndicator extends ConsumerWidget {
   final CodeLineEditingController controller;
-  final CodeChunkIndicatorController chunkController;
+  final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
 
   const _CustomEditorIndicator({
