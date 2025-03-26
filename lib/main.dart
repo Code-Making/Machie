@@ -946,16 +946,18 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  EditorTab createTab(DocumentFile file) => CodeEditorTab(
-    file: file,
-    plugin: this,
-    controller: CodeLineEditingController(
-        spanBuilder: _buildHighlightingSpan,
-        ),
-    commentFormatter: _getCommentFormatter(file.uri),
-    highlightedLines: {},
-  );
-
+  EditorTab createTab(DocumentFile file) {
+    final controller = CodeLineEditingController(
+      spanBuilder: _buildHighlightingSpan,
+    );
+    return CodeEditorTab(
+      file: file,
+      plugin: this,
+      controller: controller,
+      commentFormatter: _getCommentFormatter(file.uri),
+      highlightedLines: {},
+    );
+  }
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
@@ -987,72 +989,70 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
   
-  TextSpan _buildHighlightingSpan(
-    BuildContext context,
-    TextSpan defaultSpan,
-    CodeLineEditingController controller,
-  ) {
-    final highlightState = context.watch(bracketHighlightProvider(controller));
-    
+  TextSpan _buildHighlightingSpan({
+    required BuildContext context,
+    required int index,
+    required CodeLine codeLine,
+    required TextSpan textSpan,
+    required TextStyle style,
+  }) {
+    final controller = _getControllerFromContext(context);
+    final highlightState = context.read(bracketHighlightProvider(controller));
+
     return TextSpan(
       children: _processSpans(
-        defaultSpan,
+        textSpan,
         highlightState.bracketPositions,
-        context,
+        codeLine.text,
+        index,
+        style,
+        Theme.of(context),
       ),
-      style: defaultSpan.style,
+      style: style,
     );
+  }
+
+  CodeLineEditingController _getControllerFromContext(BuildContext context) {
+    final editor = context.findAncestorWidgetOfExactType<CodeEditor>();
+    return editor?.controller as CodeLineEditingController;
   }
 
   List<TextSpan> _processSpans(
     TextSpan span,
     Set<CodeLinePosition> highlightPositions,
-    BuildContext context,
+    String lineText,
+    int lineIndex,
+    TextStyle baseStyle,
+    ThemeData theme,
   ) {
-    final theme = Theme.of(context);
     final List<TextSpan> spans = [];
-    int currentPosition = 0;
+    int currentOffset = 0;
 
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final style = span.style ?? DefaultTextStyle.of(context).style;
-      final List<int> highlightIndices = [];
+    void processSpan(TextSpan currentSpan) {
+      final text = currentSpan.text ?? '';
+      
+      for (int i = 0; i < text.length; i++) {
+        final isHighlighted = highlightPositions.any((pos) =>
+            pos.index == lineIndex &&
+            pos.offset == currentOffset + i);
 
-      for (var i = 0; i < text.length; i++) {
-        if (highlightPositions.any((pos) => pos.offset == currentPosition + i)) {
-          highlightIndices.add(i);
-        }
-      }
+        final charStyle = isHighlighted
+            ? baseStyle.copyWith(
+                backgroundColor: theme.colorScheme.secondary.withOpacity(0.3),
+                fontWeight: FontWeight.bold,
+              )
+            : baseStyle;
 
-      int lastSplit = 0;
-      for (final index in highlightIndices) {
-        if (index > lastSplit) {
-          spans.add(TextSpan(
-            text: text.substring(lastSplit, index),
-            style: style,
-          ));
-        }
         spans.add(TextSpan(
-          text: text[index],
-          style: style.copyWith(
-            backgroundColor: theme.colorScheme.secondary.withOpacity(0.3),
-            fontWeight: FontWeight.bold,
-          ),
-        ));
-        lastSplit = index + 1;
-      }
-
-      if (lastSplit < text.length) {
-        spans.add(TextSpan(
-          text: text.substring(lastSplit),
-          style: style,
+          text: text[i],
+          style: charStyle,
         ));
       }
 
-      currentPosition += text.length;
+      currentOffset += text.length;
 
-      if (span.children != null) {
-        for (final child in span.children!) {
+      if (currentSpan.children != null) {
+        for (final child in currentSpan.children!) {
           if (child is TextSpan) processSpan(child);
         }
       }
@@ -1117,7 +1117,6 @@ class CodeEditorPlugin implements EditorPlugin {
 // --------------------
 //  Bracket Highlight State
 // --------------------
-
 final bracketHighlightProvider = StateNotifierProvider.autoDispose
   .family<BracketHighlightNotifier, BracketHighlightState, CodeLineEditingController>(
   (ref, controller) => BracketHighlightNotifier(controller),
@@ -1126,12 +1125,10 @@ final bracketHighlightProvider = StateNotifierProvider.autoDispose
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final CodeLinePosition? matchingBracketPosition;
-  final Set<int> highlightedLines;
 
   BracketHighlightState({
     this.bracketPositions = const {},
     this.matchingBracketPosition,
-    this.highlightedLines = const {},
   });
 }
 
@@ -1145,12 +1142,6 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
     _handleBracketHighlight();
   }
 
-  @override
-  void dispose() {
-    controller.removeListener(_listener);
-    super.dispose();
-  }
-
   void _handleBracketHighlight() {
     final selection = controller.selection;
     if (!selection.isCollapsed) {
@@ -1162,11 +1153,9 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
     final brackets = {'(': ')', '[': ']', '{': '}'};
     final line = controller.codeLines[position.index].text;
     
-    Set<int> newHighlightedLines = {};
     Set<CodeLinePosition> newPositions = {};
     CodeLinePosition? matchPosition;
 
-    // Bracket detection logic
     final index = position.offset;
     if (index >= 0 && index < line.length) {
       final char = line[index];
@@ -1179,8 +1168,6 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
         if (matchPosition != null) {
           newPositions.add(position);
           newPositions.add(matchPosition);
-          newHighlightedLines.add(position.index);
-          newHighlightedLines.add(matchPosition.index);
         }
       }
     }
@@ -1188,7 +1175,6 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
     state = BracketHighlightState(
       bracketPositions: newPositions,
       matchingBracketPosition: matchPosition,
-      highlightedLines: newHighlightedLines,
     );
   }
 
