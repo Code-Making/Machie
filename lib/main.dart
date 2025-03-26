@@ -1069,7 +1069,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   
-  }
+  
   
   CodeCommentFormatter _getCommentFormatter(String uri) {
     final extension = uri.split('.').last.toLowerCase();
