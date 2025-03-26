@@ -949,7 +949,9 @@ class CodeEditorPlugin implements EditorPlugin {
   EditorTab createTab(DocumentFile file) => CodeEditorTab(
     file: file,
     plugin: this,
-    controller: CodeLineEditingController(),
+    controller: CodeLineEditingController(
+        spanBuilder: _buildHighlightingSpan,
+        ),
     commentFormatter: _getCommentFormatter(file.uri),
     highlightedLines: {},
   );
@@ -967,25 +969,12 @@ class CodeEditorPlugin implements EditorPlugin {
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {}, // Absorb taps
-          child: Row(
-            children: [
-              _CustomLineNumberWidget(
-                controller: editingController,
-                notifier: notifier,
-                highlightedLines: codeTab.highlightedLines,
-              ),
-              DefaultCodeChunkIndicator(
-                width: 20,
-                controller: chunkController,
-                notifier: notifier,
-              ),
-            ],
-          ),
-        );
-      },
+          return _CustomEditorIndicator(
+            controller: editingController,
+            chunkController: chunkController,
+            notifier: notifier,
+          );
+        },
       style: CodeEditorStyle(
         fontSize: settings?.fontSize ?? 12,
         fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
@@ -996,6 +985,81 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
       wordWrap: settings?.wordWrap ?? false,
     );
+  }
+  
+  TextSpan _buildHighlightingSpan(
+    BuildContext context,
+    TextSpan defaultSpan,
+    CodeLineEditingController controller,
+  ) {
+    final highlightState = context.watch(bracketHighlightProvider(controller));
+    
+    return TextSpan(
+      children: _processSpans(
+        defaultSpan,
+        highlightState.bracketPositions,
+        context,
+      ),
+      style: defaultSpan.style,
+    );
+  }
+
+  List<TextSpan> _processSpans(
+    TextSpan span,
+    Set<CodeLinePosition> highlightPositions,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    final List<TextSpan> spans = [];
+    int currentPosition = 0;
+
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final style = span.style ?? DefaultTextStyle.of(context).style;
+      final List<int> highlightIndices = [];
+
+      for (var i = 0; i < text.length; i++) {
+        if (highlightPositions.any((pos) => pos.offset == currentPosition + i)) {
+          highlightIndices.add(i);
+        }
+      }
+
+      int lastSplit = 0;
+      for (final index in highlightIndices) {
+        if (index > lastSplit) {
+          spans.add(TextSpan(
+            text: text.substring(lastSplit, index),
+            style: style,
+          ));
+        }
+        spans.add(TextSpan(
+          text: text[index],
+          style: style.copyWith(
+            backgroundColor: theme.colorScheme.secondary.withOpacity(0.3),
+            fontWeight: FontWeight.bold,
+          ),
+        ));
+        lastSplit = index + 1;
+      }
+
+      if (lastSplit < text.length) {
+        spans.add(TextSpan(
+          text: text.substring(lastSplit),
+          style: style,
+        ));
+      }
+
+      currentPosition += text.length;
+
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) processSpan(child);
+        }
+      }
+    }
+
+    processSpan(span);
+    return spans;
   }
   
   CodeCommentFormatter _getCommentFormatter(String uri) {
@@ -1051,22 +1115,194 @@ class CodeEditorPlugin implements EditorPlugin {
 }
 
 // --------------------
+//  Bracket Highlight State
+// --------------------
+
+final bracketHighlightProvider = StateNotifierProvider.autoDispose
+  .family<BracketHighlightNotifier, BracketHighlightState, CodeLineEditingController>(
+  (ref, controller) => BracketHighlightNotifier(controller),
+);
+
+class BracketHighlightState {
+  final Set<CodeLinePosition> bracketPositions;
+  final CodeLinePosition? matchingBracketPosition;
+  final Set<int> highlightedLines;
+
+  BracketHighlightState({
+    this.bracketPositions = const {},
+    this.matchingBracketPosition,
+    this.highlightedLines = const {},
+  });
+}
+
+class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
+  final CodeLineEditingController controller;
+  late final VoidCallback _listener;
+
+  BracketHighlightNotifier(this.controller) : super(BracketHighlightState()) {
+    _listener = () => _handleBracketHighlight();
+    controller.addListener(_listener);
+    _handleBracketHighlight();
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_listener);
+    super.dispose();
+  }
+
+  void _handleBracketHighlight() {
+    final selection = controller.selection;
+    if (!selection.isCollapsed) {
+      state = BracketHighlightState();
+      return;
+    }
+
+    final position = selection.base;
+    final brackets = {'(': ')', '[': ']', '{': '}'};
+    final line = controller.codeLines[position.index].text;
+    
+    Set<int> newHighlightedLines = {};
+    Set<CodeLinePosition> newPositions = {};
+    CodeLinePosition? matchPosition;
+
+    // Bracket detection logic
+    final index = position.offset;
+    if (index >= 0 && index < line.length) {
+      final char = line[index];
+      if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+        matchPosition = _findMatchingBracket(
+          controller.codeLines,
+          position,
+          brackets,
+        );
+        if (matchPosition != null) {
+          newPositions.add(position);
+          newPositions.add(matchPosition);
+          newHighlightedLines.add(position.index);
+          newHighlightedLines.add(matchPosition.index);
+        }
+      }
+    }
+
+    state = BracketHighlightState(
+      bracketPositions: newPositions,
+      matchingBracketPosition: matchPosition,
+      highlightedLines: newHighlightedLines,
+    );
+  }
+
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    
+    // Determine if we're looking at an opening or closing bracket
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
+      (k) => brackets[k] == char,
+      orElse: () => '',
+    );
+    
+    if (target?.isEmpty ?? true) return null;
+    
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
+    
+    while (index >= 0 && index < codeLines.length) {
+      final currentLine = codeLines[index].text;
+      
+      while (offset >= 0 && offset < currentLine.length) {
+        // Skip the original position
+        if (index == position.index && offset == position.offset) {
+          offset += direction;
+          continue;
+        }
+        
+        final currentChar = currentLine[offset];
+        
+        if (currentChar == char) {
+          stack += 1;
+        } else if (currentChar == target) {
+          stack -= 1;
+        }
+        
+        if (stack == 0) {
+          return CodeLinePosition(index: index, offset: offset);
+        }
+        
+        offset += direction;
+      }
+      
+      // Move to next/previous line
+      index += direction;
+      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
+    }
+    
+    return null; // No matching bracket found
+  }
+}
+
+// --------------------
 //  Custom Line Number Widget
 // --------------------
 
-class _CustomLineNumberWidget extends StatelessWidget {
+class _CustomEditorIndicator extends ConsumerWidget {
+  final CodeLineEditingController controller;
+  final CodeChunkIndicatorController chunkController;
+  final CodeIndicatorValueNotifier notifier;
+
+  const _CustomEditorIndicator({
+    required this.controller,
+    required this.chunkController,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final highlightState = ref.watch(bracketHighlightProvider(controller));
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {}, // Absorb taps
+      child: Row(
+        children: [
+          _CustomLineNumberWidget(
+            controller: controller,
+            notifier: notifier,
+            highlightedLines: highlightState.highlightedLines,
+          ),
+          DefaultCodeChunkIndicator(
+            width: 20,
+            controller: chunkController,
+            notifier: notifier,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomLineNumberWidget extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
   final Set<int> highlightedLines;
-  
+
   const _CustomLineNumberWidget({
     required this.controller,
     required this.notifier,
     required this.highlightedLines,
   });
-  
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    
     return ValueListenableBuilder<CodeIndicatorValue?>(
       valueListenable: notifier,
       builder: (context, value, child) {
@@ -1074,18 +1310,19 @@ class _CustomLineNumberWidget extends StatelessWidget {
           controller: controller,
           notifier: notifier,
           textStyle: TextStyle(
-            color: Colors.grey[600],
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
             fontSize: 12,
           ),
           focusedTextStyle: TextStyle(
-            color: Colors.yellow,
+            color: theme.colorScheme.secondary,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
           customLineIndex2Text: (index) {
             final lineNumber = (index + 1).toString();
-            final isHighlighted = highlightedLines.contains(index);
-            return isHighlighted ? '➤$lineNumber' : lineNumber;
+            return highlightedLines.contains(index) 
+              ? '➤$lineNumber' 
+              : lineNumber;
           },
         );
       },
