@@ -996,19 +996,32 @@ class CodeEditorPlugin implements EditorPlugin {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final controller = _getControllerFromContext(context);
-    final highlightState = context.read(bracketHighlightProvider(controller));
+    // Get controller from widget tree
+    final controller = context
+        .findAncestorWidgetOfExactType<CodeEditor>()
+        ?.controller as CodeLineEditingController?;
 
-    return TextSpan(
-      children: _processSpans(
-        textSpan,
-        highlightState.bracketPositions,
-        codeLine.text,
-        index,
-        style,
-        Theme.of(context),
-      ),
-      style: style,
+    if (controller == null) return textSpan;
+
+    // Use Consumer to access ref
+    return Consumer(
+      builder: (context, ref, _) {
+        final highlightState = ref.watch(
+          bracketHighlightProvider(controller),
+        );
+        
+        return TextSpan(
+          children: _processSpans(
+            textSpan,
+            highlightState.bracketPositions,
+            codeLine.text,
+            index,
+            style,
+            Theme.of(context),
+          ),
+          style: style,
+        );
+      },
     );
   }
 
