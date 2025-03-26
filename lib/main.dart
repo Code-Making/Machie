@@ -1973,7 +1973,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
           .toList(),
       commandSources: _commandSources,
     );
-    await _loadFromPrefs(); // Load saved positions after merging commands
+    //await _loadFromPrefs(); // Load saved positions after merging commands
   }
   
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
