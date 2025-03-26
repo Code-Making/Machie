@@ -692,11 +692,15 @@ abstract class EditorTab {
 
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
+  final CodeCommentFormatter commentFormatter;
+  final Set<int> highlightedLines;
 
   CodeEditorTab({
     required super.file,
     required this.controller,
     required super.plugin,
+    required this.commentFormatter,
+    required this.highlightedLines,
   });
 
   @override
@@ -959,9 +963,30 @@ class CodeEditorPlugin implements EditorPlugin {
 
     return CodeEditor(
       controller: codeTab.controller,
+      commentFormatter: codeTab.commentFormatter,
+      indicatorBuilder: (context, editingController, chunkController, notifier) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {}, // Absorb taps
+          child: Row(
+            children: [
+              _CustomLineNumberWidget(
+                controller: editingController,
+                notifier: notifier,
+                highlightedLines: codeTab.highlightedLines,
+              ),
+              DefaultCodeChunkIndicator(
+                width: 20,
+                controller: chunkController,
+                notifier: notifier,
+              ),
+            ],
+          ),
+        );
+      },
       style: CodeEditorStyle(
         fontSize: settings?.fontSize ?? 12,
-        fontFamily: settings?.fontFamily ?? "JetBrainsMono",
+        fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
         codeTheme: CodeHighlightTheme(
           theme: atomOneDarkTheme,
           languages: _getLanguageMode(codeTab.file.uri),
@@ -969,6 +994,24 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
       wordWrap: settings?.wordWrap ?? false,
     );
+  }
+  
+  CodeCommentFormatter _getCommentFormatter(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'dart':
+        return DefaultCodeCommentFormatter(
+          singleLinePrefix: '//',
+          multiLinePrefix: '/*',
+          multiLineSuffix: '*/',
+        );
+      default:
+        return DefaultCodeCommentFormatter(
+          singleLinePrefix: '//',
+          multiLinePrefix: '/*', 
+          multiLineSuffix: '*/',
+        );
+    }
   }
   
   @override
@@ -1002,6 +1045,49 @@ class CodeEditorPlugin implements EditorPlugin {
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
     return {'dart': CodeHighlightThemeMode(mode: langDart)};
+  }
+}
+
+// --------------------
+//  Custom Line Number Widget
+// --------------------
+
+class _CustomLineNumberWidget extends StatelessWidget {
+  final CodeLineEditingController controller;
+  final CodeIndicatorValueNotifier notifier;
+  final Set<int> highlightedLines;
+  
+  const _CustomLineNumberWidget({
+    required this.controller,
+    required this.notifier,
+    required this.highlightedLines,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<CodeIndicatorValue?>(
+      valueListenable: notifier,
+      builder: (context, value, child) {
+        return DefaultCodeLineNumber(
+          controller: controller,
+          notifier: notifier,
+          textStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+          focusedTextStyle: TextStyle(
+            color: Colors.yellow,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          customLineIndex2Text: (index) {
+            final lineNumber = (index + 1).toString();
+            final isHighlighted = highlightedLines.contains(index);
+            return isHighlighted ? '➤$lineNumber' : lineNumber;
+          },
+        );
+      },
+    );
   }
 }
 
