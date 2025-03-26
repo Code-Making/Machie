@@ -127,7 +127,12 @@ final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   return logNotifier;
 });
 
-
+final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((ref) {
+  return CommandNotifier(
+    ref: ref,
+    plugins: ref.watch(activePluginsProvider),
+  );
+});
 
 // --------------------
 //         Logs
@@ -769,6 +774,10 @@ class EditorScreen extends ConsumerWidget {
     final currentDir = ref.watch(
       sessionProvider.select((s) => s.currentDirectory),
     );
+    final currentPlugin = ref.watch(
+      sessionProvider.select((s) => s.currentTab?.plugin),
+    );
+    
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
     return Scaffold(
@@ -779,6 +788,7 @@ class EditorScreen extends ConsumerWidget {
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
+          const [AppBarCommands(),
           IconButton(
               icon: const Icon(Icons.bug_report),
               onPressed: () => showDialog(
@@ -803,6 +813,7 @@ class EditorScreen extends ConsumerWidget {
                     ? EditorContentSwitcher(tab: currentTab)
                     : const Center(child: Text('Open file')),
           ),
+        if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
       ),
     );
@@ -829,6 +840,7 @@ abstract class EditorPlugin {
   // Metadata
   String get name;
   Widget get icon;
+  List<Command> getCommands();
 
   // File type support
   bool supportsFile(DocumentFile file);
@@ -839,6 +851,16 @@ abstract class EditorPlugin {
 
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
+
+  Widget buildToolbar(WidgetRef ref) {
+  final commands = ref.watch(commandProvider
+        .notifier)
+        .getVisibleCommands(CommandPosition.pluginToolbar);
+        
+    return commands.isEmpty
+        ? const SizedBox.shrink()
+        : BottomToolbar(commands: commands);
+  }
 
   // Optional lifecycle hooks
   Future<void> initializeTab(EditorTab tab, String? content);
@@ -1751,5 +1773,196 @@ class SAFFileHandler implements FileHandler {
   Future<List<DocumentFile>> pickFiles() async {
     final files = await _safUtil.pickFiles();
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
+  }
+}
+
+
+// --------------------
+//   Command System
+// --------------------
+
+abstract class Command {
+  final String id;
+  final String label;
+  final Widget icon;
+  final CommandPosition defaultPosition;
+  final Future<void> Function() execute;
+  final bool Function(WidgetRef ref) canExecute;
+
+  const Command({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.defaultPosition,
+    required this.execute,
+    required this.canExecute,
+  });
+}
+
+enum CommandPosition {
+  appBar,
+  pluginToolbar,
+  both,
+  hidden
+}
+
+class CommandState {
+  final Map<String, CommandPosition> customPositions;
+  final List<String> appBarOrder;
+  final List<String> pluginToolbarOrder;
+
+  const CommandState({
+    this.customPositions = const {},
+    this.appBarOrder = const [],
+    this.pluginToolbarOrder = const [],
+  });
+}
+
+class CommandNotifier extends StateNotifier<CommandState> {
+  final Ref ref;
+  final Set<EditorPlugin> plugins;
+
+  CommandNotifier({required this.ref, required this.plugins})
+      : super(const CommandState());
+
+  List<Command> get _allCommands => [
+    ..._coreCommands,
+    ...plugins.expand((p) => p.getCommands()),
+  ];
+
+  List<Command> get _coreCommands => [
+    Command(
+      id: 'save',
+      label: 'Save',
+      icon: const Icon(Icons.save),
+      defaultPosition: CommandPosition.appBar,
+      execute: () => ref.read(sessionProvider.notifier).saveSession(),
+      canExecute: (ref) => ref.watch(sessionProvider
+          .select((s) => s.currentTab?.isDirty ?? false)),
+    ),
+    // Add more core commands...
+  ];
+
+  List<Command> getVisibleCommands(CommandPosition position) {
+    return _allCommands.where((cmd) {
+      final custom = state.customPositions[cmd.id];
+      final effectivePosition = custom ?? cmd.defaultPosition;
+      return effectivePosition == position || 
+             (effectivePosition == CommandPosition.both && 
+              (position == CommandPosition.appBar || 
+               position == CommandPosition.pluginToolbar));
+    }).toList();
+  }
+
+  Future<void> updateCommandPosition(
+    String commandId, 
+    CommandPosition newPosition
+  ) async {
+    // Update logic and save to SharedPreferences
+  }
+}
+
+// --------------------
+//   Toolbar Widgets
+// --------------------
+
+class AppBarCommands extends ConsumerWidget {
+  const AppBarCommands({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final commands = ref.watch(commandProvider
+        .notifier)
+        .getVisibleCommands(CommandPosition.appBar);
+
+    return Row(
+      children: commands.map((cmd) => CommandButton(command: cmd)).toList(),
+    );
+  }
+}
+
+class BottomToolbar extends ConsumerWidget {
+  final List<Command> commands;
+  
+  const BottomToolbar({super.key, required this.commands});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      height: 48,
+      color: Colors.grey[900],
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: commands.length,
+        itemBuilder: (context, index) => CommandButton(
+          command: commands[index],
+          showLabel: true,
+        ),
+      ),
+    );
+  }
+}
+
+class CommandButton extends ConsumerWidget {
+  final Command command;
+  final bool showLabel;
+  
+  const CommandButton({
+    super.key,
+    required this.command,
+    this.showLabel = false,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isEnabled = command.canExecute(ref);
+
+    return IconButton(
+      icon: command.icon,
+      onPressed: isEnabled ? () => command.execute() : null,
+      tooltip: showLabel ? null : command.label,
+    );
+  }
+}
+
+// --------------------
+//   Settings UI
+// --------------------
+
+class CommandSettingsScreen extends ConsumerWidget {
+  const CommandSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.watch(commandProvider.notifier);
+    final commands = notifier._allCommands;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Customize Commands')),
+      body: ReorderableListView(
+        onReorder: (oldIndex, newIndex) {
+          // Handle reordering logic
+        },
+        children: [
+          for (final command in commands)
+            ListTile(
+              key: ValueKey(command.id),
+              leading: command.icon,
+              title: Text(command.label),
+              trailing: DropdownButton<CommandPosition>(
+                value: notifier.state.customPositions[command.id] ?? 
+                       command.defaultPosition,
+                onChanged: (pos) => notifier.updateCommandPosition(command.id, pos!),
+                items: CommandPosition.values.map((pos) {
+                  return DropdownMenuItem(
+                    value: pos,
+                    child: Text(pos.toString().split('.').last),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
