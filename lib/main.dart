@@ -2127,9 +2127,7 @@ class CommandSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
-    print('Current Command State: ${state.appBarOrder} | '
-      '${state.pluginToolbarOrder} | ${state.hiddenOrder}');
-    
+
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
       body: Column(
