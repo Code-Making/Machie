@@ -1301,6 +1301,61 @@ List<Command> get _clipboardCommands => [
       //_showError('Selection failed: ${e.toString()}');
     }
   }
+  
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    
+    // Determine if we're looking at an opening or closing bracket
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
+      (k) => brackets[k] == char,
+      orElse: () => '',
+    );
+    
+    if (target?.isEmpty ?? true) return null;
+    
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
+    
+    while (index >= 0 && index < codeLines.length) {
+      final currentLine = codeLines[index].text;
+      
+      while (offset >= 0 && offset < currentLine.length) {
+        // Skip the original position
+        if (index == position.index && offset == position.offset) {
+          offset += direction;
+          continue;
+        }
+        
+        final currentChar = currentLine[offset];
+        
+        if (currentChar == char) {
+          stack += 1;
+        } else if (currentChar == target) {
+          stack -= 1;
+        }
+        
+        if (stack == 0) {
+          return CodeLinePosition(index: index, offset: offset);
+        }
+        
+        offset += direction;
+      }
+      
+      // Move to next/previous line
+      index += direction;
+      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
+    }
+    
+    return null; // No matching bracket found
+  }
 
   Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {
     // ... selection extension logic ...
