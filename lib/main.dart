@@ -1912,8 +1912,24 @@ class CommandNotifier extends StateNotifier<CommandState> {
   }
   
   List<Command> getVisibleCommands(CommandPosition position) {
-    final order = state.getOrderForPosition(position);
-    return order.map((id) => _allCommands[id]!).whereType<Command>().toList();
+    final commands = switch (position) {
+      CommandPosition.appBar => [
+          ...state.appBarOrder,
+          ...state.pluginToolbarOrder.where((id) => 
+            _allCommands[id]?.defaultPosition == CommandPosition.both)
+        ],
+      CommandPosition.pluginToolbar => [
+          ...state.pluginToolbarOrder,
+          ...state.appBarOrder.where((id) => 
+            _allCommands[id]?.defaultPosition == CommandPosition.both)
+        ],
+      _ => [],
+    };
+    
+    return commands
+        .map((id) => _allCommands[id])
+        .whereType<Command>()
+        .toList();
   }
   
  static List<Command> _buildCoreCommands(Ref ref) => [
