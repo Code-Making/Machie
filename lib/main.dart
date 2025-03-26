@@ -2555,7 +2555,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
           .toList(),
       commandSources: _commandSources,
     );
-    await _loadFromPrefs(); // Load saved positions after merging commands
+    await _loadFromPrefs(plugins); // Load saved positions after merging commands
   }
   
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
@@ -2600,7 +2600,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
     await prefs.setStringList('command_hidden', state.hiddenOrder);
   }
   
-Future<void> _loadFromPrefs() async {
+Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
     final prefs = await SharedPreferences.getInstance();
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
