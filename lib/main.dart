@@ -1264,6 +1264,7 @@ if (mark == null) {
     }
     
     try {
+      final currentPosition = tab.controller.selection.base;
       final start = _comparePositions(tab.markPosition!, currentPosition) < 0
       ? mark!
       : currentPosition;
