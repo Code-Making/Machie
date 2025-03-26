@@ -2631,6 +2631,10 @@ Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
       ),
     );
   }
+  
+  Command? _getCommand(String id) {
+    return _allCommands[id];
+  }
 
   List<String> _mergePosition({
     required List<String> saved,
