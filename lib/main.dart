@@ -1973,6 +1973,7 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
           .toList(),
       commandSources: _commandSources,
     );
+    await _loadFromPrefs(); // Load saved positions after merging commands
   }
   
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
@@ -2008,44 +2009,30 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
     _saveToPrefs();
   }
 
-  void _updateCommandPosition(String commandId, CommandPosition newPosition) {
-    List<String> newAppBar = List.from(state.appBarOrder);
-    List<String> newPluginToolbar = List.from(state.pluginToolbarOrder);
-    List<String> newHidden = List.from(state.hiddenOrder);
-
-    // Remove from all lists
-    newAppBar.remove(commandId);
-    newPluginToolbar.remove(commandId);
-    newHidden.remove(commandId);
-
-    // Add to appropriate list
-    switch (newPosition) {
-      case CommandPosition.appBar:
-        newAppBar.add(commandId);
-        break;
-      case CommandPosition.pluginToolbar:
-        newPluginToolbar.add(commandId);
-        break;
-      case CommandPosition.hidden:
-        newHidden.add(commandId);
-        break;
-      default:
-        break;
-    }
-
-    state = state.copyWith(
-      appBarOrder: newAppBar,
-      pluginToolbarOrder: newPluginToolbar,
-      hiddenOrder: newHidden,
-    );
-    _saveToPrefs();
-  }
+  
 
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
     await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
     await prefs.setStringList('command_hidden', state.hiddenOrder);
+  }
+  
+Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final appBar = prefs.getStringList('command_app_bar') ?? [];
+    final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
+    final hidden = prefs.getStringList('command_hidden') ?? [];
+
+    state = state.copyWith(
+      appBarOrder: _filterValidCommands(appBar),
+      pluginToolbarOrder: _filterValidCommands(pluginToolbar),
+      hiddenOrder: _filterValidCommands(hidden),
+    );
+  }
+
+  List<String> _filterValidCommands(List<String> ids) {
+    return ids.where((id) => _allCommands.containsKey(id)).toList();
   }
 }
 
