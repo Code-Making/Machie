@@ -137,6 +137,28 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((re
   );
 });
 
+final appBarCommandsProvider = Provider<List<Command>>((ref) {
+  final state = ref.watch(commandProvider);
+  final notifier = ref.read(commandProvider.notifier);
+  
+  return [
+    ...state.appBarOrder,
+    ...state.pluginToolbarOrder.where((id) =>
+      notifier.getCommand(id)?.defaultPosition == CommandPosition.both)
+  ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
+});
+
+final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
+  final state = ref.watch(commandProvider);
+  final notifier = ref.read(commandProvider.notifier);
+  
+  return [
+    ...state.pluginToolbarOrder,
+    ...state.appBarOrder.where((id) =>
+      notifier.getCommand(id)?.defaultPosition == CommandPosition.both)
+  ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
+});
+
 // --------------------
 //         Logs
 // --------------------
@@ -1905,6 +1927,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
   final Map<String, Command> _allCommands = {};
   final Map<String, Set<String>> _commandSources = {};
 
+  Command? getCommand(String id) => _allCommands[id];
+
+
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
       : _coreCommands = _buildCoreCommands(ref),
         super(const CommandState()) {
@@ -2061,10 +2086,8 @@ class AppBarCommands extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final commands = ref.watch(commandProvider
-        .notifier)
-        .getVisibleCommands(CommandPosition.appBar);
-
+    final commands = ref.watch(appBarCommandsProvider);
+    
     return Row(
       children: commands.map((cmd) => CommandButton(command: cmd)).toList(),
     );
@@ -2076,10 +2099,8 @@ class BottomToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final commands = ref.watch(commandProvider
-        .notifier)
-        .getVisibleCommands(CommandPosition.pluginToolbar);
-
+    final commands = ref.watch(pluginToolbarCommandsProvider);
+    
     return Container(
       height: 48,
       color: Colors.grey[900],
