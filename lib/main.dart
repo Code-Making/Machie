@@ -1786,17 +1786,36 @@ abstract class Command {
   final String label;
   final Widget icon;
   final CommandPosition defaultPosition;
-  final Future<void> Function() execute;
-  final bool Function(WidgetRef ref) canExecute;
-
+  
   const Command({
     required this.id,
     required this.label,
     required this.icon,
     required this.defaultPosition,
-    required this.execute,
-    required this.canExecute,
   });
+
+  Future<void> execute(WidgetRef ref);
+  bool canExecute(WidgetRef ref);
+}
+
+class BaseCommand extends Command {
+  final Future<void> Function(WidgetRef) _execute;
+  final bool Function(WidgetRef) _canExecute;
+
+  const BaseCommand({
+    required super.id,
+    required super.label,
+    required super.icon,
+    required super.defaultPosition,
+    required Future<void> Function(WidgetRef) execute,
+    required bool Function(WidgetRef) canExecute,
+  }) : _execute = execute, _canExecute = canExecute;
+
+  @override
+  Future<void> execute(WidgetRef ref) => _execute(ref);
+
+  @override
+  bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
 enum CommandPosition {
