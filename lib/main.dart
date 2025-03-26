@@ -2072,12 +2072,13 @@ class AppBarCommands extends ConsumerWidget {
 }
 
 class BottomToolbar extends ConsumerWidget {
-  final List<Command> commands;
-  
-  const BottomToolbar({super.key, required this.commands});
+  const BottomToolbar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final commands = ref.watch(commandProvider
+        .select((state) => state.getVisibleCommands(CommandPosition.pluginToolbar)));
+
     return Container(
       height: 48,
       color: Colors.grey[900],
