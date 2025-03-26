@@ -1100,11 +1100,11 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: _buildPluginSettingsList(ref),
+      body: _buildPluginSettingsList(context, ref),
     );
   }
   
-    Widget _buildPluginSettingsList(WidgetRef ref) {
+    Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
     
