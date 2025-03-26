@@ -1870,6 +1870,20 @@ class CommandState {
     this.hiddenOrder = const [],
     this.commandSources = const {},
   });
+  
+    CommandState copyWith({
+    List<String>? appBarOrder,
+    List<String>? pluginToolbarOrder,
+    List<String>? hiddenOrder,
+    Map<String, Set<String>>? commandSources,
+  }) {
+    return CommandState(
+      appBarOrder: appBarOrder ?? this.appBarOrder,
+      pluginToolbarOrder: pluginToolbarOrder ?? this.pluginToolbarOrder,
+      hiddenOrder: hiddenOrder ?? this.hiddenOrder,
+      commandSources: commandSources ?? this.commandSources,
+    );
+  }
 
   List<String> getOrderForPosition(CommandPosition position) {
     switch (position) {
@@ -1896,6 +1910,26 @@ class CommandNotifier extends StateNotifier<CommandState> {
         super(const CommandState()) {
     _initializeCommands(plugins);
   }
+  
+  List<Command> getVisibleCommands(CommandPosition position) {
+    final order = state.getOrderForPosition(position);
+    return order.map((id) => _allCommands[id]!).whereType<Command>().toList();
+  }
+  
+ static List<Command> _buildCoreCommands(Ref ref) => [
+    BaseCommand(
+      id: 'save',
+      label: 'Save',
+      icon: const Icon(Icons.save),
+      defaultPosition: CommandPosition.appBar,
+      sourcePlugin: 'Core',
+      execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
+      canExecute: (ref) => ref.watch(sessionProvider
+          .select((s) => s.currentTab?.isDirty ?? false)),
+    ),
+  ];
+
+
 
   void _initializeCommands(Set<EditorPlugin> plugins) {
     // Merge commands from core and plugins
