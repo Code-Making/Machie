@@ -1130,7 +1130,7 @@ class BracketHighlightState {
   BracketHighlightState({
     this.bracketPositions = const {},
     this.matchingBracketPosition,
-    this.highlightedLines = {},
+    this.highlightedLines = const {},
   });
 }
 
