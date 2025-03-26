@@ -999,16 +999,67 @@ class CodeEditorPlugin implements EditorPlugin {
     final controller = _getControllerFromContext(context);
     final highlightState = ProviderScope.containerOf(context).read(bracketHighlightProvider(controller));
 
-    return TextSpan(
-      children: _processSpans(
-        textSpan,
-        highlightState.bracketPositions,
-        codeLine.text,
-        index,
-        style,
-        Theme.of(context),
-      ),
-      style: style,
+    final spans = <TextSpan>[];
+    int currentPosition = 0;
+    final highlightPositions = highlightState.bracketPositions
+    .where((pos) => pos.index == index)
+    .map((pos) => pos.offset)
+    .toSet();
+    
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      List<int> highlightIndices = [];
+      
+      // Find highlight positions within this span
+      for (var i = 0; i < text.length; i++) {
+        if (highlightPositions.contains(currentPosition + i)) {
+          highlightIndices.add(i);
+        }
+      }
+      
+      // Split span into non-highlight and highlight segments
+      int lastSplit = 0;
+      for (final highlightIndex in highlightIndices) {
+        if (highlightIndex > lastSplit) {
+          spans.add(TextSpan(
+            text: text.substring(lastSplit, highlightIndex),
+            style: spanStyle,
+          ));
+        }
+        spans.add(TextSpan(
+          text: text[highlightIndex],
+          style: spanStyle.copyWith(
+            backgroundColor: Colors.yellow.withOpacity(0.3),
+            fontWeight: FontWeight.bold,
+          ),
+        ));
+        lastSplit = highlightIndex + 1;
+      }
+      
+      // Add remaining text
+      if (lastSplit < text.length) {
+        spans.add(TextSpan(
+          text: text.substring(lastSplit),
+          style: spanStyle,
+        ));
+      }
+      
+      currentPosition += text.length;
+      
+      // Process child spans
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
+    }
+    
+    processSpan(textSpan);
+    return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
+  
     );
   }
 
@@ -1017,49 +1068,7 @@ class CodeEditorPlugin implements EditorPlugin {
     return editor?.controller as CodeLineEditingController;
   }
 
-  List<TextSpan> _processSpans(
-    TextSpan span,
-    Set<CodeLinePosition> highlightPositions,
-    String lineText,
-    int lineIndex,
-    TextStyle baseStyle,
-    ThemeData theme,
-  ) {
-    final List<TextSpan> spans = [];
-    int currentOffset = 0;
-
-    void processSpan(TextSpan currentSpan) {
-      final text = currentSpan.text ?? '';
-      
-      for (int i = 0; i < text.length; i++) {
-        final isHighlighted = highlightPositions.any((pos) =>
-            pos.index == lineIndex &&
-            pos.offset == currentOffset + i);
-
-        final charStyle = isHighlighted
-            ? baseStyle.copyWith(
-                backgroundColor: theme.colorScheme.secondary.withOpacity(0.3),
-                fontWeight: FontWeight.bold,
-              )
-            : baseStyle;
-
-        spans.add(TextSpan(
-          text: text[i],
-          style: charStyle,
-        ));
-      }
-
-      currentOffset += text.length;
-
-      if (currentSpan.children != null) {
-        for (final child in currentSpan.children!) {
-          if (child is TextSpan) processSpan(child);
-        }
-      }
-    }
-
-    processSpan(span);
-    return spans;
+  
   }
   
   CodeCommentFormatter _getCommentFormatter(String uri) {
