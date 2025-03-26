@@ -1295,7 +1295,7 @@ List<Command> get _clipboardCommands => [
         extentIndex: orderedEnd.index,
         extentOffset: orderedEnd.offset + 1, // Include the bracket itself
       );
-      _extendSelectionToLineEdges(ref, ctrl);
+      _extendSelection(ref, ctrl);
       //_showSuccess('Selected between brackets');
     } catch (e) {
       //_showError('Selection failed: ${e.toString()}');
