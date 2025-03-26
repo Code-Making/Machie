@@ -54,7 +54,10 @@ void main() {
               home: AppStartupWidget(
                 onLoaded: (context) => const EditorScreen(),
               ),
-              routes: {'/settings': (_) => const SettingsScreen()},
+              routes: {
+                  '/settings': (_) => const SettingsScreen(),
+                  '/command-settings': (_) => const CommandSettingsScreen(),
+              },
             ),
           ),
         ),
@@ -1094,29 +1097,34 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final plugins = ref.watch(activePluginsProvider);
-    final settings = ref.watch(settingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body:
-          plugins.isEmpty
-              ? const Center(child: Text('No plugins available'))
-              : ListView(
-                children:
-                    plugins
-                        .where((p) => p.settings != null)
-                        .map(
-                          (plugin) => _PluginSettingsCard(
-                            plugin: plugin,
-                            settings:
-                                settings.pluginSettings[plugin
-                                    .settings
-                                    .runtimeType]!,
-                          ),
-                        )
-                        .toList(),
-              ),
+      body: _buildPluginSettingsList(ref),
+    );
+  }
+  
+    Widget _buildPluginSettingsList(WidgetRef ref) {
+    final plugins = ref.watch(activePluginsProvider);
+    final settings = ref.watch(settingsProvider);
+    
+    return ListView(
+      children: [
+        // Add a tile for command settings
+        ListTile(
+          leading: const Icon(Icons.keyboard),
+          title: const Text('Command Customization'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/command-settings'),
+        ),
+        // Existing plugin settings
+        ...plugins.where((p) => p.settings != null).map(
+          (plugin) => _PluginSettingsCard(
+            plugin: plugin,
+            settings: settings.pluginSettings[plugin.settings.runtimeType]!,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1978,7 +1986,13 @@ class CommandSettingsScreen extends ConsumerWidget {
     final commands = notifier._allCommands;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Customize Commands')),
+      appBar: AppBar(
+        title: const Text('Command Settings'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: ReorderableListView(
         onReorder: (oldIndex, newIndex) {
           // Handle reordering logic
