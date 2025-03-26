@@ -1087,7 +1087,7 @@ class CodeEditorPlugin implements EditorPlugin {
     }
   }
   
-override
+@override
 List<Command> getCommands() => [
   ..._buildClipboardCommands(),
   ..._buildFormatCommands(),
