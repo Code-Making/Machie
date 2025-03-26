@@ -1282,7 +1282,13 @@ if (mark == null) {
     } catch (e) {
       print('Selection error: ${e.toString()}');
     }
-    }
+  }
+    
+  int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
+    if (a.index < b.index) return -1;
+    if (a.index > b.index) return 1;
+    return a.offset.compareTo(b.offset);
+  }
 
   CodeLineEditingValue _formatCode(CodeLineEditingValue value) {
     final buffer = StringBuffer();
