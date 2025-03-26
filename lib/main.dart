@@ -2085,9 +2085,9 @@ class CommandSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(commandProvider.notifier);
     final state = ref.watch(commandProvider);
-    
+    final notifier = ref.read(commandProvider.notifier);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
       body: Column(
