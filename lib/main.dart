@@ -1295,7 +1295,7 @@ List<Command> get _clipboardCommands => [
         extentIndex: orderedEnd.index,
         extentOffset: orderedEnd.offset + 1, // Include the bracket itself
       );
-      _extendSelectionToLineEdges();
+      _extendSelectionToLineEdges(ref, ctrl);
       //_showSuccess('Selected between brackets');
     } catch (e) {
       //_showError('Selection failed: ${e.toString()}');
@@ -1357,8 +1357,21 @@ List<Command> get _clipboardCommands => [
     return null; // No matching bracket found
   }
 
-  Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {
-    // ... selection extension logic ...
+  Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {    final tab = _getTab(ref)!;
+    final controller = ctrl;
+    final selection = controller.selection;
+    
+    final newBaseOffset = 0;
+    final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
+    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+    final newExtentOffset = extentLineLength;
+    
+    controller.selection = CodeLineSelection(
+      baseIndex: selection.baseIndex,
+      baseOffset: newBaseOffset,
+      extentIndex: selection.extentIndex,
+      extentOffset: newExtentOffset,
+    );
   }
 /*
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController ctrl) async {
