@@ -2606,16 +2606,51 @@ Future<void> _loadFromPrefs() async {
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     final hidden = prefs.getStringList('command_hidden') ?? [];
 
+    // Get all available commands from plugins and core
+    final allCommands = [
+      ..._coreCommands,
+      ...ref.read(activePluginsProvider).expand((p) => p.getCommands())
+    ].map((c) => c.id).toSet();
+
+    // Merge saved positions with default positions for new commands
     state = state.copyWith(
-      appBarOrder: _filterValidCommands(appBar),
-      pluginToolbarOrder: _filterValidCommands(pluginToolbar),
-      hiddenOrder: _filterValidCommands(hidden),
+      appBarOrder: _mergePosition(
+        saved: appBar,
+        defaultIds: allCommands
+            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.appBar)
+            .toList(),
+      ),
+      pluginToolbarOrder: _mergePosition(
+        saved: pluginToolbar,
+        defaultIds: allCommands
+            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.pluginToolbar)
+            .toList(),
+      ),
+      hiddenOrder: _mergePosition(
+        saved: hidden,
+        defaultIds: allCommands
+            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.hidden)
+            .toList(),
+      ),
     );
   }
 
-  List<String> _filterValidCommands(List<String> ids) {
-    return ids.where((id) => _allCommands.containsKey(id)).toList();
+  List<String> _mergePosition({
+    required List<String> saved,
+    required List<String> defaultIds,
+  }) {
+    // 1. Start with saved commands that still exist
+    final validSaved = saved.where((id) => _getCommand(id) != null).toList();
+    
+    // 2. Add default commands that weren't saved
+    final newDefaults = defaultIds
+        .where((id) => !validSaved.contains(id))
+        .toList();
+    
+    // 3. Preserve saved order + append new defaults
+    return [...validSaved, ...newDefaults];
   }
+
 }
 
 // --------------------
