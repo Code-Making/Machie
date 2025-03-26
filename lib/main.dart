@@ -1258,8 +1258,31 @@ List<Command> get _clipboardCommands => [
   Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController ctrl) async {
     final tab = _getTab(ref)!;
     final mark = tab.markPosition.value;
-    // ... mark selection logic ...
-  }
+if (mark == null) {
+      print('No mark set! Set a mark first');
+      return;
+    }
+    
+    try {
+      final start = _comparePositions(tab.markPosition!, currentPosition) < 0
+      ? mark!
+      : currentPosition;
+      final end = _comparePositions(tab.markPosition!, currentPosition) < 0
+      ? currentPosition
+      : mark!;
+      
+      tab.controller.selection = CodeLineSelection(
+        baseIndex: start.index,
+        baseOffset: start.offset,
+        extentIndex: end.index,
+        extentOffset: end.offset,
+      );
+      
+      //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
+    } catch (e) {
+      print('Selection error: ${e.toString()}');
+    }
+    }
 
   CodeLineEditingValue _formatCode(CodeLineEditingValue value) {
     final buffer = StringBuffer();
