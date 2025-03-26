@@ -1272,12 +1272,7 @@ List<Command> get _clipboardCommands => [
     return BottomToolbar();
   }
 
-  Future<void> _formatCode(WidgetRef ref) async {
-    final tab = ref.read(sessionProvider).currentTab;
-    if (tab is CodeEditorTab) {
-      // Formatting logic here
-    }
-  }
+  
 
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
