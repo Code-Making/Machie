@@ -116,11 +116,9 @@ final sessionManagerProvider = Provider<SessionManager>((ref) {
   );
 });
 
-final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((
-  ref,
-) {
-  return SessionNotifier(manager: ref.watch(sessionManagerProvider));
-});
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
+  SessionNotifier.new,
+);
 
 final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   // Capture the print stream when provider initializes
