@@ -1065,7 +1065,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }) {
     final currentTab = ProviderScope.containerOf(context).read(sessionProvider).currentTab as CodeEditorTab;
     final controller = currentTab.controller;
-    final highlightState = ProviderScope.containerOf(context).read(bracketHighlightProvider(controller));
+    final highlightState = ProviderScope.containerOf(context).read(bracketHighlightProvider);
 
     final spans = <TextSpan>[];
     int currentPosition = 0;
