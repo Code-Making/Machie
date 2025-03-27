@@ -621,7 +621,7 @@ class SessionManager {
 //  Session Notifier
 // --------------------
 
-class SessionNotifier extends StateNotifier<SessionState> {
+class SessionNotifier extends Notifier<SessionState> {
   final SessionManager _manager;
   bool _loaded = false;
   bool _isSaving = false;
