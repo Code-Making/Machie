@@ -3047,46 +3047,55 @@ class CommandSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(commandProvider);
-    final notifier = ref.read(commandProvider.notifier);
-    print('Current Command State: ${state.appBarOrder} | '
-      '${state.pluginToolbarOrder} | ${state.hiddenOrder}');
-    
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
-      body: ListView(
-        shrinkWrap: true,
-        children: [
-          _buildSection(context, ref, 'App Bar Commands', 
-            state.appBarOrder, CommandPosition.appBar),
-          _buildSection(context, ref, 'Plugin Toolbar Commands',
-            state.pluginToolbarOrder, CommandPosition.pluginToolbar),
-          _buildSection(context, ref, 'Hidden Commands',
-            state.hiddenOrder, CommandPosition.hidden),
-        ],
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
+            _buildSection(context, ref, 'App Bar Commands', 
+              CommandPosition.appBar),
+            _buildSection(context, ref, 'Plugin Toolbar Commands',
+              CommandPosition.pluginToolbar),
+            _buildSection(context, ref, 'Hidden Commands',
+              CommandPosition.hidden),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSection(BuildContext context, WidgetRef ref, String title, 
-      List<String> commandIds, CommandPosition position) {
+      CommandPosition position) {
     final state = ref.watch(commandProvider);
-    return ExpansionTile(
-      title: Text(title),
-      children: [
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          itemCount: commandIds.length,
-          itemBuilder: (ctx, index) => _buildCommandItem(
-            context,
-            ref,
-            commandIds[index],
-            state.commandSources[commandIds[index]]!,
+    final commandIds = state.getOrderForPosition(position);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ExpansionTile(
+        title: Text(title),
+        initiallyExpanded: true,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6,
+            ),
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: commandIds.length,
+              itemBuilder: (ctx, index) => _buildCommandItem(
+                context,
+                ref,
+                commandIds[index],
+                state.commandSources[commandIds[index]]!,
+              ),
+              onReorder: (oldIndex, newIndex) => 
+                _handleReorder(ref, position, oldIndex, newIndex, commandIds),
+            ),
           ),
-          onReorder: (oldIndex, newIndex) => 
-            _handleReorder(ref, position, oldIndex, newIndex, commandIds),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
