@@ -650,13 +650,12 @@ class SessionNotifier extends StateNotifier<SessionState> {
   }
   
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
-    final container = ProviderScope.containerOf(context);
-    
+
     if (oldTab != null) {
       oldTab.plugin.deactivateTab(oldTab);
     }
     if (newTab != null) {
-      newTab.plugin.activateTab(newTab, container);
+      newTab.plugin.activateTab(newTab, ref);
     }
   }
 
@@ -668,8 +667,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
     
     if (state.currentTab != null) {
       newState.currentTab!.plugin.activateTab(
-        newState.currentTab!, 
-        ProviderScope.containerOf(context)
+        newState.currentTab!, ref
       );
     }
   }
