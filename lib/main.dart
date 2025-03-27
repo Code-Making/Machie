@@ -1632,6 +1632,7 @@ class ListenerManager extends StateNotifier<void> {
 
     // Add listeners to controller
     controller.addListener(undoListener);
+    controller.addListener(undoListener);
     controller.addListener(bracketListener);
   }
 
