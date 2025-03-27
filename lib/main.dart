@@ -625,6 +625,12 @@ class SessionNotifier extends Notifier<SessionState> {
   final SessionManager _manager;
   bool _loaded = false;
   bool _isSaving = false;
+  
+  @override
+  SessionState build() {
+    return SessionState();
+  }
+
 
   SessionNotifier({required SessionManager manager})
     : _manager = manager,
