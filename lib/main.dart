@@ -883,7 +883,7 @@ abstract class EditorPlugin {
   bool supportsFile(DocumentFile file);
 
   // Tab management
-  Future<EditorTab> createTab(DocumentFile file);
+  Future<EditorTab> createTab(DocumentFile file, String content);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   PluginSettings? get settings;
