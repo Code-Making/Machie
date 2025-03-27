@@ -1625,7 +1625,7 @@ class ListenerManager extends StateNotifier<void> {
     };
     
     final bracketListener = () {
-      ref.read(bracketHighlightProvider(controller).notifier)
+      ref.read(bracketHighlightProvider.notifier)
         .handleBracketHighlight();
     };
 
@@ -1663,8 +1663,8 @@ class ListenerManager extends StateNotifier<void> {
 // --------------------
 //  Bracket Highlight State
 // --------------------
-final bracketHighlightProvider = NotifierProvider.autoDispose
-  .family<BracketHighlightNotifier, BracketHighlightState, CodeLineEditingController>(BracketHighlightNotifier.new);
+final bracketHighlightProvider = NotifierProvider
+  <BracketHighlightState>(BracketHighlightNotifier.new);
 
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
@@ -1678,15 +1678,16 @@ class BracketHighlightState {
   });
 }
 
-class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighlightState, CodeLineEditingController> {
-  late final CodeLineEditingController controller;
+class BracketHighlightNotifier extends Notifier<BracketHighlightState, CodeLineEditingController> {
 
-  @override BracketHighlightState build(CodeLineEditingController ctrl){
-      controller = ctrl;
+  @override 
+  BracketHighlightState build(CodeLineEditingController ctrl){
       return BracketHighlightState();
   }
 
   void handleBracketHighlight() {
+    final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+    final controller = currentTab.controller;
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
