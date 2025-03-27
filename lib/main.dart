@@ -474,7 +474,7 @@ class SessionState {
       final plugin = plugins.firstWhere(
         (p) => p.runtimeType.toString() == json['pluginType'],
       );
-      return plugin.createTab(file);
+      return plugin.createTab(file, '');
     } catch (e) {
       return null;
     }
