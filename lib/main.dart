@@ -644,11 +644,34 @@ class SessionNotifier extends StateNotifier<SessionState> {
   }
 
   void switchTab(int index) {
+    final prevTab = state.currentTab;
     state = state.copyWith(currentTabIndex: index);
+    _handlePluginLifecycle(prevTab, state.currentTab);
+  }
+  
+  void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
+    final container = ProviderScope.containerOf(context);
+    
+    if (oldTab != null) {
+      oldTab.plugin.deactivateTab(oldTab);
+    }
+    if (newTab != null) {
+      newTab.plugin.activateTab(newTab, container);
+    }
   }
 
   void closeTab(int index) {
+    final closedTab = current.tabs[index];
+    closedTab.plugin.deactivateTab(closedTab);
+ 
     state = _manager.closeTab(state, index);
+    
+    if (state.currentTab != null) {
+      newState.currentTab!.plugin.activateTab(
+        newState.currentTab!, 
+        ProviderScope.containerOf(context)
+      );
+    }
   }
 
   void reorderTabs(int oldIndex, int newIndex) {
