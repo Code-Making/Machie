@@ -3074,10 +3074,10 @@ class CommandSettingsScreen extends ConsumerWidget {
     return ExpansionTile(
       title: Text(title),
       initiallyExpanded: true,
-      physics: const NeverScrollableScrollPhysics(),
       children: [
         ReorderableListView.builder(
           shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: commandIds.length,
           itemBuilder: (ctx, index) => _buildCommandItem(
             context,
