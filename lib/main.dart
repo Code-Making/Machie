@@ -627,7 +627,7 @@ class SessionNotifier extends Notifier<SessionState> {
 
   @override
   SessionState build() {
-    _manager = ref.read(sessionManagerProvider);
+    this._manager = ref.read(sessionManagerProvider);
     _initialize();
     return const SessionState(); // Initial state
   }
