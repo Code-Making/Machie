@@ -1155,6 +1155,13 @@ List<Command> get _clipboardCommands => [
       icon: Icons.horizontal_rule,
       execute: _extendSelection,
     ),
+    _createCommand(
+      id: 'select_all',
+      label: 'Select All',
+      icon: Icons.select_all,
+      execute: (ref, ctrl) => ctrl!.selectAll,
+    ),
+    
   /*  _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
