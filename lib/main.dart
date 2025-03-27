@@ -1664,7 +1664,7 @@ class ListenerManager extends StateNotifier<void> {
 // --------------------
 final bracketHighlightProvider = NotifierProvider.autoDispose
   .family<BracketHighlightNotifier, BracketHighlightState, CodeLineEditingController>(
-  (ref, controller) => BracketHighlightNotifier(controller),
+  (controller) => BracketHighlightNotifier(controller),
 );
 
 class BracketHighlightState {
