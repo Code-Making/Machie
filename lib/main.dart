@@ -1618,6 +1618,10 @@ class ListenerManager extends StateNotifier<void> {
       ref.read(canUndoProvider.notifier).state = controller.canUndo;
     };
     
+    final undoListener = () {
+      ref.read(canRedoProvider.notifier).state = controller.canRedo;
+    };
+    
     final bracketListener = () {
       ref.read(bracketHighlightProvider(controller).notifier)
         ._handleBracketHighlight();
