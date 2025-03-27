@@ -822,7 +822,6 @@ class EditorScreen extends ConsumerWidget {
               child: const AppBarCommands()
               ):
           const AppBarCommands(),
-          ,
           IconButton(
               icon: const Icon(Icons.bug_report),
               onPressed: () => showDialog(
