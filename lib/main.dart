@@ -913,6 +913,10 @@ abstract class EditorPlugin {
   Future<EditorTab> createTab(DocumentFile file, String content);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
+  void activateTab(EditorTab tab, WidgetRef ref);
+  void deactivateTab(EditorTab tab);
+
+
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
