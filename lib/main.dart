@@ -652,7 +652,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
 
     if (oldTab != null) {
-      oldTab.plugin.deactivateTab(oldTab);
+      oldTab.plugin.deactivateTab(oldTab, ref);
     }
     if (newTab != null) {
       newTab.plugin.activateTab(newTab, ref);
