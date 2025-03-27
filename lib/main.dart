@@ -954,7 +954,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, String content) {
+  Future<EditorTab> createTab(DocumentFile file, String content) async {
     final controller = CodeLineEditingController(
       spanBuilder: _buildHighlightingSpan,
       codeLines: CodeLines.fromText(content ?? '');
