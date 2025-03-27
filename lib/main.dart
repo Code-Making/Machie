@@ -641,7 +641,6 @@ class SessionNotifier extends Notifier<SessionState> {
     } catch (e, st) {
       ref.read(logProvider.notifier).add('Session load error: $e\n$st');
     } finally {
-      _handlePluginLifecycle(null, state.currentTab);
       _initialized = true;
     }
   }
@@ -693,6 +692,7 @@ class SessionNotifier extends Notifier<SessionState> {
     try {
       final loadedState = await _manager.loadSession();
       state = loadedState;
+      _handlePluginLifecycle(null, state.currentTab);
     } catch (e) {
       print('Error loading session: $e');
     }
