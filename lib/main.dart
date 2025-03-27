@@ -1686,12 +1686,13 @@ class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighligh
   }
 
   void handleBracketHighlight() {
+    print("highlighting");
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
       return;
     }
-
+    print("highlighting for realsies");
     final position = selection.base;
     final brackets = {'(': ')', '[': ']', '{': '}'};
     final line = controller.codeLines[position.index].text;
