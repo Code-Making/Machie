@@ -1602,7 +1602,7 @@ class ListenerManager extends StateNotifier<void> {
 
   ListenerManager() : super(null);
 
-  void addListeners(CodeLineEditingController controller, WidgetRef ref) {
+  void addListeners(CodeLineEditingController controller, ProviderRef ref) {
     // Remove existing listeners if any
     removeListeners(controller);
 
