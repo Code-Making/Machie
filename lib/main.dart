@@ -159,6 +159,10 @@ final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
 });
 
+final canUndoProvider = StateProvider<bool>((ref) => false);
+final canRedoProvider = StateProvider<bool>((ref) => false);
+
+
 // --------------------
 //         Logs
 // --------------------
@@ -503,8 +507,8 @@ class SessionManager {
 
     final content = await _fileHandler.readFile(file.uri);
     final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
-    final tab = plugin.createTab(file);
-    await plugin.initializeTab(tab, content);
+    final tab = await plugin.createTab(file, content);
+    //await plugin.initializeTab(tab, content);
 
     return current.copyWith(
       tabs: [...current.tabs, tab],
@@ -586,8 +590,8 @@ class SessionManager {
       );
 
       final content = await _fileHandler.readFile(uri);
-      final tab = plugin.createTab(file!);
-      await plugin.initializeTab(tab, content);
+      final tab = await plugin.createTab(file!);
+      //await plugin.initializeTab(tab, content);
 
       return tab;
     } catch (e) {
@@ -879,7 +883,7 @@ abstract class EditorPlugin {
   bool supportsFile(DocumentFile file);
 
   // Tab management
-  EditorTab createTab(DocumentFile file);
+  Future<EditorTab> createTab(DocumentFile file);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   PluginSettings? get settings;
@@ -890,7 +894,7 @@ abstract class EditorPlugin {
   }
 
   // Optional lifecycle hooks
-  Future<void> initializeTab(EditorTab tab, String? content);
+  //Future<void> initializeTab(EditorTab tab, String? content);
   Future<void> dispose() async {}
 }
 
@@ -913,13 +917,13 @@ class CodeEditorPlugin implements EditorPlugin {
     final editorSettings = settings as CodeEditorSettings;
     return CodeEditorSettingsUI(settings: editorSettings);
   }
-
+/*
   @override
   Future<void> initializeTab(EditorTab tab, String? content) async {
     if (tab is CodeEditorTab) {
       tab.controller.codeLines = CodeLines.fromText(content ?? '');
     }
-  }
+  }*/
 
   @override
   Future<void> dispose() async {
@@ -950,9 +954,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  EditorTab createTab(DocumentFile file) {
+  Future<EditorTab> createTab(DocumentFile file, String content) {
     final controller = CodeLineEditingController(
       spanBuilder: _buildHighlightingSpan,
+      codeLines: CodeLines.fromText(content ?? '');
     );
     return CodeEditorTab(
       file: file,
