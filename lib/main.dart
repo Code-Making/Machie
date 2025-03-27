@@ -1189,8 +1189,7 @@ List<Command> get _clipboardCommands => [
       icon: Icons.undo,
       execute: (ref, ctrl) => ctrl.undo(),
       canExecute: (ref, ctrl) => {
-         ref.watch(sessionProvider
-          .select((s) => s.currentTab.controller.canUndo
+         ref.watch(sessionProvider.select((s) => s.currentTab.controller.canUndo)
       },
     ),
     _createCommand(
