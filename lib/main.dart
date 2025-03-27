@@ -620,14 +620,14 @@ class SessionManager {
 // --------------------
 
 class SessionNotifier extends Notifier<SessionState> {
-  final SessionManager _manager;
+  late final SessionManager _manager;
   bool _loaded = false;
   bool _isSaving = false;
   bool _initialized = false;
 
   @override
   SessionState build() {
-    this._manager = ref.read(sessionManagerProvider);
+    _manager = ref.read(sessionManagerProvider);
     _initialize();
     return const SessionState(); // Initial state
   }
