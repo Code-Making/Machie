@@ -590,7 +590,7 @@ class SessionManager {
       );
 
       final content = await _fileHandler.readFile(uri);
-      final tab = await plugin.createTab(file!);
+      final tab = await plugin.createTab(file!, content);
       //await plugin.initializeTab(tab, content);
 
       return tab;
@@ -957,7 +957,7 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<EditorTab> createTab(DocumentFile file, String content) async {
     final controller = CodeLineEditingController(
       spanBuilder: _buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content ?? '');
+      codeLines: CodeLines.fromText(content ?? ''),
     );
     return CodeEditorTab(
       file: file,
