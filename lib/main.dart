@@ -625,23 +625,25 @@ class SessionNotifier extends Notifier<SessionState> {
   final SessionManager _manager;
   bool _loaded = false;
   bool _isSaving = false;
-  
+  bool _initialized = false;
+
   @override
   SessionState build() {
-    return SessionState();
-  }
-
-
-  SessionNotifier({required SessionManager manager})
-    : _manager = manager,
-      super(const SessionState()) {
+    _manager = ref.read(sessionManagerProvider);
     _initialize();
+    return const SessionState(); // Initial state
   }
 
   Future<void> _initialize() async {
-    if (!_loaded) {
-      await loadSession();
-      _loaded = true;
+    if (_initialized) return;
+    
+    try {
+      final loadedState = await _manager.loadSession();
+      state = loadedState;
+    } catch (e, st) {
+      ref.read(logProvider.notifier).add('Session load error: $e\n$st');
+    } finally {
+      _initialized = true;
     }
   }
 
