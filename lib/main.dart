@@ -1682,7 +1682,6 @@ class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighligh
 
   @override BracketHighlightState build(CodeLineEditingController ctrl){
       controller = ctrl;
-      handleBracketHighlight();
       return BracketHighlightState();
   }
 
