@@ -1679,14 +1679,12 @@ class BracketHighlightState {
   });
 }
 
-class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
-  final CodeLineEditingController controller;
-  late final VoidCallback _listener;
+class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
+  late final CodeLineEditingController controller;
 
-  BracketHighlightNotifier(this.controller) : super(BracketHighlightState()) {
-    /*_listener = () => _handleBracketHighlight();
-    controller.addListener(_listener);
-    _handleBracketHighlight();*/
+  @override BracketHighlightState build(CodeLineEditingController ctrl){
+      controller = ctrl;
+      return BracketHighlightState();
   }
 
   void _handleBracketHighlight() {
