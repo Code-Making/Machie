@@ -120,6 +120,10 @@ final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
   SessionNotifier.new,
 );
 
+final bracketHighlightProvider = NotifierProvider
+  <BracketHighlightNotifier, BracketHighlightState>(BracketHighlightNotifier.new);
+
+
 final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   // Capture the print stream when provider initializes
   final logNotifier = LogNotifier();
@@ -1663,8 +1667,6 @@ class ListenerManager extends StateNotifier<void> {
 // --------------------
 //  Bracket Highlight State
 // --------------------
-final bracketHighlightProvider = NotifierProvider
-  <BracketHighlightState>(BracketHighlightNotifier.new);
 
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
