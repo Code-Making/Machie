@@ -995,7 +995,7 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
   
-  override
+  @override
   void activateTab(EditorTab tab, WidgetRef ref) {
     if (tab is! CodeEditorTab) return;
     
