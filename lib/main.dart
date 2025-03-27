@@ -1678,7 +1678,7 @@ class BracketHighlightState {
   });
 }
 
-class BracketHighlightNotifier extends Notifier<BracketHighlightState, CodeLineEditingController> {
+class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
 
   @override 
   BracketHighlightState build(){
