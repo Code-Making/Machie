@@ -971,6 +971,27 @@ class CodeEditorPlugin implements EditorPlugin {
       commentFormatter: _getCommentFormatter(file.uri),
     );
   }
+  
+  override
+  void activateTab(EditorTab tab, WidgetRef ref) {
+    if (tab is! CodeEditorTab) return;
+    
+    final controller = tab.controller;
+    ref.read(listenerManagerProvider.notifier)
+      .addListeners(controller, ref);
+    
+    // Update initial state
+    ref.read(canUndoProvider.notifier).state = controller.canUndo;
+  }
+
+  @override
+  void deactivateTab(EditorTab tab) {
+    if (tab is! CodeEditorTab) return;
+    
+    ref.read(listenerManagerProvider.notifier)
+      .removeListeners(tab.controller);
+  }
+  
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
@@ -1550,6 +1571,56 @@ class _CodeEditorWithUndoListenerState
   }
 }
 */
+
+class ListenerManager extends StateNotifier<void> {
+  final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
+
+  ListenerManager() : super(null);
+
+  void addListeners(CodeLineEditingController controller, WidgetRef ref) {
+    // Remove existing listeners if any
+    removeListeners(controller);
+
+    // Create new listeners
+    final undoListener = () {
+      ref.read(canUndoProvider.notifier).state = controller.canUndo;
+    };
+    
+    final bracketListener = () {
+      ref.read(bracketHighlightProvider(controller).notifier
+        .updateBracketState();
+    };
+
+    // Store listeners
+    _listeners[controller] = [undoListener, bracketListener];
+
+    // Add listeners to controller
+    controller.addListener(undoListener);
+    controller.addListener(bracketListener);
+  }
+
+  void removeListeners(CodeLineEditingController controller) {
+    final listeners = _listeners[controller];
+    if (listeners != null) {
+      for (final listener in listeners) {
+        controller.removeListener(listener);
+      }
+      _listeners.remove(controller);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final entry in _listeners.entries) {
+      for (final listener in entry.value) {
+        entry.key.removeListener(listener);
+      }
+    }
+    _listeners.clear();
+    super.dispose();
+  }
+}
+
 // --------------------
 //  Bracket Highlight State
 // --------------------
