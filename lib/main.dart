@@ -976,7 +976,7 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
     );
 
-    return CodeEditor(
+    return CodeEditorWithUndoListener(
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
@@ -1194,18 +1194,14 @@ List<Command> get _clipboardCommands => [
       label: 'Undo',
       icon: Icons.undo,
       execute: (ref, ctrl) => ctrl.undo(),
-      canExecute: (ref, ctrl) => ref.watch(sessionProvider.select((s) => 
-  s.currentTab is CodeEditorTab 
-    ? (s.currentTab as CodeEditorTab).controller.canUndo 
-    : false
-))
+      canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
     ),
     _createCommand(
       id: 'redo',
       label: 'Redo',
       icon: Icons.redo,
       execute: (ref, ctrl) => ctrl.redo(),
-      canExecute: (ref, ctrl) => ctrl.canRedo,
+      canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
     ),
   ];
 
@@ -1486,6 +1482,67 @@ if (mark == null) {
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
     return {'dart': CodeHighlightThemeMode(mode: langDart)};
+  }
+}
+
+class CodeEditorWithUndoListener extends ConsumerStatefulWidget {
+  final CodeLineEditingController controller;
+  final CodeEditorStyle? style;
+  final CodeCommentFormatter? commentFormatter;
+  final CodeIndicatorBuilder? indicatorBuilder;
+  final bool? wordWrap;
+
+  const CodeEditorWithUndoListener({
+    super.key,
+    required this.controller,
+    this.style,
+    this.commentFormatter,
+    this.indicatorBuilder,
+    this.wordWrap,
+  });
+
+  @override
+  ConsumerState<CodeEditorWithUndoListener> createState() =>
+      _CodeEditorWithUndoListenerState();
+}
+
+class _CodeEditorWithUndoListenerState
+    extends ConsumerState<CodeEditorWithUndoListener> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_updateUndoState);
+  }
+
+  @override
+  void didUpdateWidget(CodeEditorWithUndoListener oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_updateUndoState);
+      widget.controller.addListener(_updateUndoState);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_updateUndoState);
+    super.dispose();
+  }
+
+  void _updateUndoState() {
+    ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
+    ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CodeEditor(
+      controller: widget.controller,
+      style: widget.style,
+      commentFormatter: widget.commentFormatter,
+      indicatorBuilder: widget.indicatorBuilder,
+      wordWrap: widget.wordWrap,
+    );
   }
 }
 
