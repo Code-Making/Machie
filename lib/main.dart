@@ -1718,6 +1718,7 @@ class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighligh
         }
       }
     }
+    print("highlighting for realsies "+newPositions.toString());
 
     state = BracketHighlightState(
       bracketPositions: newPositions,
