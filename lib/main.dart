@@ -1063,7 +1063,6 @@ class CodeEditorPlugin implements EditorPlugin {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final controller = _getControllerFromContext(context);
     final highlightState = ProviderScope.containerOf(context).read(bracketHighlightProvider(controller));
 
     final spans = <TextSpan>[];
