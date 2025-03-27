@@ -668,7 +668,7 @@ class SessionNotifier extends Notifier<SessionState> {
   void closeTab(int index) {
     final current = state;
     final closedTab = current.tabs[index];
-    closedTab.plugin.deactivateTab(closedTab);
+    closedTab.plugin.deactivateTab(closedTab, ref);
  
     state = _manager.closeTab(state, index);
     
