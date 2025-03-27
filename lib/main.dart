@@ -1072,7 +1072,7 @@ class CodeEditorPlugin implements EditorPlugin {
     .where((pos) => pos.index == index)
     .map((pos) => pos.offset)
     .toSet();
-    
+    print(highlightPositions.toString());
     void processSpan(TextSpan span) {
       final text = span.text ?? '';
       final spanStyle = span.style ?? style;
