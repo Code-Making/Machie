@@ -673,8 +673,8 @@ class SessionNotifier extends Notifier<SessionState> {
     state = _manager.closeTab(state, index);
     
     if (state.currentTab != null) {
-      newState.currentTab!.plugin.activateTab(
-        newState.currentTab!, ref
+      state.currentTab!.plugin.activateTab(
+        state.currentTab!, ref
       );
     }
   }
