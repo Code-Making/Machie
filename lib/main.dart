@@ -1190,7 +1190,8 @@ List<Command> get _clipboardCommands => [
       execute: (ref, ctrl) => ctrl.undo(),
       canExecute: (ref, ctrl) => {
          ref.watch(sessionProvider.select((s) => {
-             s.currentTab as CodeEditorTab ?? s.currentTab.controller.canUndo : false
+             CodeEditorTab curtab = s.currentTab as CodeEditorTab;
+             return curtab.controller.canUndo;
          }))
       },
     ),
