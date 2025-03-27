@@ -1188,7 +1188,10 @@ List<Command> get _clipboardCommands => [
       label: 'Undo',
       icon: Icons.undo,
       execute: (ref, ctrl) => ctrl.undo(),
-      canExecute: (ref, ctrl) => ctrl.canUndo,
+      canExecute: (ref, ctrl) => {
+         ref.watch(sessionProvider
+          .select((s) => s.currentTab.controller.canUndo
+      },
     ),
     _createCommand(
       id: 'redo',
