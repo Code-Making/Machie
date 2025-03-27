@@ -1662,7 +1662,7 @@ class ListenerManager extends StateNotifier<void> {
 // --------------------
 //  Bracket Highlight State
 // --------------------
-final bracketHighlightProvider = StateNotifierProvider.autoDispose
+final bracketHighlightProvider = NotifierProvider.autoDispose
   .family<BracketHighlightNotifier, BracketHighlightState, CodeLineEditingController>(
   (ref, controller) => BracketHighlightNotifier(controller),
 );
@@ -1679,7 +1679,7 @@ class BracketHighlightState {
   });
 }
 
-class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
+class BracketHighlightNotifier extends FamilyNotifier<BracketHighlightState, CodeLineEditingController> {
   late final CodeLineEditingController controller;
 
   @override BracketHighlightState build(CodeLineEditingController ctrl){
