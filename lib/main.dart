@@ -928,7 +928,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Future<void> dispose() async {
     // Cleanup logic here
-    print("dispose code editor")
+    print("dispose code editor");
   }
 
   @override
