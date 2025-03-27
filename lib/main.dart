@@ -1628,11 +1628,11 @@ class ListenerManager extends StateNotifier<void> {
     };
 
     // Store listeners
-    _listeners[controller] = [undoListener, bracketListener];
+    _listeners[controller] = [undoListener, redoListener, bracketListener];
 
     // Add listeners to controller
     controller.addListener(undoListener);
-    controller.addListener(undoListener);
+    controller.addListener(redoListener);
     controller.addListener(bracketListener);
   }
 
