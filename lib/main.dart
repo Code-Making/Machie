@@ -1613,7 +1613,7 @@ class ListenerManager extends StateNotifier<void> {
     
     final bracketListener = () {
       ref.read(bracketHighlightProvider(controller).notifier)
-        .updateBracketState();
+        ._handleBracketHighlight();
     };
 
     // Store listeners
@@ -1671,9 +1671,9 @@ class BracketHighlightNotifier extends StateNotifier<BracketHighlightState> {
   late final VoidCallback _listener;
 
   BracketHighlightNotifier(this.controller) : super(BracketHighlightState()) {
-    _listener = () => _handleBracketHighlight();
+    /*_listener = () => _handleBracketHighlight();
     controller.addListener(_listener);
-    _handleBracketHighlight();
+    _handleBracketHighlight();*/
   }
 
   void _handleBracketHighlight() {
