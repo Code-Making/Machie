@@ -1625,7 +1625,7 @@ class ListenerManager extends StateNotifier<void> {
     
     final bracketListener = () {
       ref.read(bracketHighlightProvider(controller).notifier)
-        ._handleBracketHighlight();
+        .handleBracketHighlight();
     };
 
     // Store listeners
