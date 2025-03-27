@@ -162,6 +162,10 @@ final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 
+final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((ref) {
+  return ListenerManager();
+});
+
 
 // --------------------
 //         Logs
@@ -976,7 +980,7 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
     );
 
-    return CodeEditorWithUndoListener(
+    return CodeEditor(
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
@@ -1484,7 +1488,7 @@ if (mark == null) {
     return {'dart': CodeHighlightThemeMode(mode: langDart)};
   }
 }
-
+/*
 class CodeEditorWithUndoListener extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
   final CodeEditorStyle? style;
@@ -1545,7 +1549,7 @@ class _CodeEditorWithUndoListenerState
     );
   }
 }
-
+*/
 // --------------------
 //  Bracket Highlight State
 // --------------------
