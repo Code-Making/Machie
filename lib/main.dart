@@ -1619,7 +1619,7 @@ class ListenerManager extends StateNotifier<void> {
       ref.read(canUndoProvider.notifier).state = controller.canUndo;
     };
     
-    final undoListener = () {
+    final redoListener = () {
       ref.read(canRedoProvider.notifier).state = controller.canRedo;
     };
     
