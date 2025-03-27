@@ -1159,7 +1159,7 @@ List<Command> get _clipboardCommands => [
       id: 'select_all',
       label: 'Select All',
       icon: Icons.select_all,
-      execute: (ref, ctrl) => ctrl!.selectAll,
+      execute: (ref, ctrl) => ctrl!.selectAll(),
     ),
     
   /*  _createCommand(
