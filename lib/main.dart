@@ -917,8 +917,8 @@ abstract class EditorPlugin {
   Future<EditorTab> createTab(DocumentFile file, String content);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
-  void activateTab(EditorTab tab, ProviderRef ref);
-  void deactivateTab(EditorTab tab, ProviderRef ref);
+  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
+  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
 
 
   PluginSettings? get settings;
@@ -1004,7 +1004,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
   
   @override
-  void activateTab(EditorTab tab, ProviderRef ref) {
+  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
     
     final controller = tab.controller;
@@ -1016,7 +1016,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  void deactivateTab(EditorTab tab, ProviderRef ref) {
+  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
     
     ref.read(listenerManagerProvider.notifier)
