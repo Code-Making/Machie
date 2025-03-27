@@ -909,9 +909,9 @@ abstract class EditorPlugin {
 
   // Tab management
   Future<EditorTab> createTab(DocumentFile file, String content);
-  Widget buildEditor(EditorTab tab, WidgetRef ref);
+  Widget buildEditor(EditorTab tab, ProviderRef ref);
 
-  void activateTab(EditorTab tab, WidgetRef ref);
+  void activateTab(EditorTab tab, ProviderRef ref);
   void deactivateTab(EditorTab tab);
 
 
@@ -998,7 +998,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
   
   @override
-  void activateTab(EditorTab tab, WidgetRef ref) {
+  void activateTab(EditorTab tab, ProviderRef ref) {
     if (tab is! CodeEditorTab) return;
     
     final controller = tab.controller;
