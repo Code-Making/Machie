@@ -1685,7 +1685,7 @@ class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighligh
       return BracketHighlightState();
   }
 
-  void _handleBracketHighlight() {
+  void handleBracketHighlight() {
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
