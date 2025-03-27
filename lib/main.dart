@@ -234,7 +234,7 @@ Future<void> appStartup(Ref ref) async {
 
     ref.read(logProvider.notifier);
     await ref.read(settingsProvider.notifier).loadSettings();
-    await ref.read(sessionProvider.notifier).loadSession();
+    await ref.read(sessionProvider).loadSession();
   } catch (e, st) {
     print('App startup error: $e\n$st');
     rethrow;
@@ -259,7 +259,7 @@ class AppStartupWidget extends ConsumerWidget {
           ),
       data: (_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(sessionProvider.notifier).loadSession();
+          ref.read(sessionProvider).loadSession();
         });
         return onLoaded(context);
       },
@@ -349,7 +349,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        await container.read(sessionProvider.notifier).saveSession();
+        await container.read(sessionProvider).saveSession();
         break;
       case AppLifecycleState.resumed:
           final currentDir = container.read(rootUriProvider);
@@ -364,7 +364,7 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
   }
 
   Future<void> _debouncedSave(ProviderContainer container) async {
-    await container.read(sessionProvider.notifier).saveSession();
+    await container.read(sessionProvider).saveSession();
   }
 
   @override
@@ -759,7 +759,7 @@ class TabBarView extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         onReorder:
             (oldIndex, newIndex) => ref
-                .read(sessionProvider.notifier)
+                .read(sessionProvider)
                 .reorderTabs(oldIndex, newIndex),
         buildDefaultDragHandles: false,
         children: [
@@ -792,7 +792,7 @@ class FileTab extends ConsumerWidget {
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
-          onTap: () => ref.read(sessionProvider.notifier).switchTab(index),
+          onTap: () => ref.read(sessionProvider).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -800,7 +800,7 @@ class FileTab extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
                   onPressed:
-                      () => ref.read(sessionProvider.notifier).closeTab(index),
+                      () => ref.read(sessionProvider).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -2302,7 +2302,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                       directory: currentDir!,
                       onOpenFile: (file) {
                         Navigator.pop(context);
-                        ref.read(sessionProvider.notifier).openFile(file);
+                        ref.read(sessionProvider).openFile(file);
                       },
                     ),
           ),
@@ -2331,7 +2331,7 @@ class _FileOperationsHeader extends ConsumerWidget {
                   await ref.read(fileHandlerProvider).pickDirectory();
               if (pickedDir != null) {
                 ref.read(rootUriProvider.notifier).state = pickedDir;
-                ref.read(sessionProvider.notifier).changeDirectory(pickedDir);
+                ref.read(sessionProvider).changeDirectory(pickedDir);
                 Navigator.pop(context);
               }
             },
@@ -2342,7 +2342,7 @@ class _FileOperationsHeader extends ConsumerWidget {
             onPressed: () async {
               final pickedFile = await ref.read(fileHandlerProvider).pickFile();
               if (pickedFile != null) {
-                ref.read(sessionProvider.notifier).openFile(pickedFile);
+                ref.read(sessionProvider).openFile(pickedFile);
                 Navigator.pop(context);
               }
             },
@@ -2819,7 +2819,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
       icon: const Icon(Icons.save),
       defaultPosition: CommandPosition.appBar,
       sourcePlugin: 'Core',
-      execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
+      execute: (ref) => ref.read(sessionProvider).saveSession(),
       canExecute: (ref) => ref.watch(sessionProvider
           .select((s) => s.currentTab?.isDirty ?? false)),
     ),
