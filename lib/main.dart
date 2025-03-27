@@ -1720,7 +1720,7 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
         }
       }
     }
-    print("highlighting for realsies "+newPositions.toString());
+    //print("highlighting for realsies "+newPositions.toString());
 
     state = BracketHighlightState(
       bracketPositions: newPositions,
