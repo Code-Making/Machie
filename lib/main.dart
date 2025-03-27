@@ -1802,7 +1802,7 @@ class _CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final highlightState = ref.watch(bracketHighlightProvider(controller));
+    final highlightState = ref.watch(bracketHighlightProvider);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
