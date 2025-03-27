@@ -2941,7 +2941,7 @@ class CommandSettingsScreen extends ConsumerWidget {
     
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
-      body: Column(
+      body: ListView(
         shrinkWrap: true,
         children: [
           _buildSection(context, ref, 'App Bar Commands', 
