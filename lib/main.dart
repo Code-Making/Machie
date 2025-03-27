@@ -1677,7 +1677,7 @@ class BracketHighlightState {
   });
 }
 
-class BracketHighlightNotifier extends FamilyNotifier<BracketHighlightState, CodeLineEditingController> {
+class BracketHighlightNotifier extends AutoDisposeFamilyNotifier<BracketHighlightState, CodeLineEditingController> {
   late final CodeLineEditingController controller;
 
   @override BracketHighlightState build(CodeLineEditingController ctrl){
