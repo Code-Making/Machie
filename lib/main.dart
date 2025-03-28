@@ -250,7 +250,7 @@ Future<void> appStartup(Ref ref) async {
 
     ref.read(logProvider.notifier);
     await ref.read(settingsProvider.notifier).loadSettings();
-    await ref.read(sessionProvider.notifier).loadSession();
+    await ref.read(sessionProvider.notifier).initialize();
   } catch (e, st) {
     print('App startup error: $e\n$st');
     rethrow;
@@ -644,11 +644,10 @@ class SessionNotifier extends Notifier<SessionState> {
   @override
   SessionState build() {
     _manager = ref.read(sessionManagerProvider);
-    _initialize();
     return const SessionState(); // Initial state
   }
 
-  Future<void> _initialize() async {
+  Future<void> initialize() async {
     if (_initialized) return;
     
     try {
