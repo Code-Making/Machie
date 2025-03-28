@@ -1629,15 +1629,15 @@ List<Command> get _clipboardCommands => [
     return {'dart': CodeHighlightThemeMode(mode: langDart)};
   }
 }
-/*
-class CodeEditorWithUndoListener extends ConsumerStatefulWidget {
+
+class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
   final CodeEditorStyle? style;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
   final bool? wordWrap;
 
-  const CodeEditorWithUndoListener({
+  const CodeEditorMachine({
     super.key,
     required this.controller,
     this.style,
@@ -1647,12 +1647,12 @@ class CodeEditorWithUndoListener extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CodeEditorWithUndoListener> createState() =>
-      _CodeEditorWithUndoListenerState();
+  ConsumerState<CodeEditorMachine> createState() =>
+      _CodeEditorMachineState();
 }
 
-class _CodeEditorWithUndoListenerState
-    extends ConsumerState<CodeEditorWithUndoListener> {
+class _CodeEditorMachineState
+    extends ConsumerState<CodeEditorMachine> {
   @override
   void initState() {
     super.initState();
@@ -1660,7 +1660,7 @@ class _CodeEditorWithUndoListenerState
   }
 
   @override
-  void didUpdateWidget(CodeEditorWithUndoListener oldWidget) {
+  void didUpdateWidget(CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_updateUndoState);
@@ -1690,7 +1690,7 @@ class _CodeEditorWithUndoListenerState
     );
   }
 }
-*/
+
 
 class ListenerManager extends StateNotifier<void> {
   final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
