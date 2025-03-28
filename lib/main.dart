@@ -1282,11 +1282,11 @@ class CodeEditorPlugin implements EditorPlugin {
               ref.read(sessionProvider.notifier).saveTab(currentIndex);
             }
           },
-          canExecute: (ref, _) => ref.watch(
+         /* canExecute: (ref, _) => ref.watch(
             sessionProvider.select(
               (s) => s.currentTab?.isDirty ?? false
             )
-          ),
+          ),*/
         ),
   ];
 
