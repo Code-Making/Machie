@@ -1090,6 +1090,7 @@ class CodeEditorPlugin implements EditorPlugin {
       canRequestFocus: false,
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
+        autofocus: false,
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
