@@ -533,6 +533,21 @@ class SessionManager {
       currentTabIndex: current.tabs.length,
     );
   }
+  
+  Future<EditorTab> saveTabFile(EditorTab tab){
+    bool isDirty = tab.isDirty;
+    try {
+      // Save file content
+      await _fileHandler.writeFile(tab.file.uri, tab.contentString);
+      isDirty = false;
+      // Return updated tab with clean state
+    } catch (e, st) {
+      print('Save failed: $e\n$st');
+      //rethrow;
+    } finally{
+        return tab.copyWith(isDirty: isDirty)
+    }
+  }
 
   SessionState reorderTabs(SessionState current, int oldIndex, int newIndex) {
     final newTabs = List<EditorTab>.from(current.tabs);
@@ -714,6 +729,35 @@ class SessionNotifier extends Notifier<SessionState> {
       print('Error loading session: $e');
     }
   }
+  
+  Future<void> saveTab(int index) async {
+  final current = state;
+  if (index < 0 || index >= current.tabs.length) return;
+
+  final savedTab = current.tabs[index];
+  
+  try {
+    final newTab = await _manager.saveTabFile(savedTab);
+    
+    // Create new immutable state
+    final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
+    
+    state = current.copyWith(
+      tabs: newTabs,
+      lastSaved: DateTime.now(),
+    );
+    
+    // If saving current tab, ensure plugins get updated
+    if (index == current.currentTabIndex) {
+      _handlePluginLifecycle(
+        oldTab: savedTab,
+        newTab: newTab,
+      );
+    }
+  } catch (e) {
+    ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
+  }
+}
 
   Future<void> saveSession() async {
     if (!_isSaving) {
@@ -740,7 +784,7 @@ abstract class EditorTab {
   bool isDirty;
 
   EditorTab({required this.file, required this.plugin, this.isDirty = false});
-
+  String get contentString;
   void dispose();
 }
 
@@ -758,6 +802,11 @@ class CodeEditorTab extends EditorTab {
   @override
   void dispose() {
       controller.dispose();
+  }
+  
+  @override
+  String get contentString(){
+      return this.controller?.value ?? "";
   }
 }
 
@@ -1214,10 +1263,31 @@ class CodeEditorPlugin implements EditorPlugin {
   
 @override
   List<Command> getCommands() => [
+    ..._fileCommands,
     ..._clipboardCommands,
     ..._formattingCommands,
     ..._selectionCommands,
     ..._historyCommands,
+  ];
+  
+  List<Command> get _fileCommands => [
+    _createCommand(
+          id: 'save',
+          label: 'Save',
+          icon: Icons.save,
+          execute: (ref, _) {
+            final session = ref.read(sessionProvider);
+            final currentIndex = session.currentTabIndex;
+            if (currentIndex != -1) {
+              ref.read(sessionProvider.notifier).saveTab(currentIndex);
+            }
+          },
+          canExecute: (ref, _) => ref.watch(
+            sessionProvider.select(
+              (s) => s.currentTab?.isDirty ?? false
+            )
+          ),
+        ),
   ];
 
 List<Command> get _clipboardCommands => [
@@ -1714,14 +1784,22 @@ class ListenerManager extends StateNotifier<void> {
       ref.read(bracketHighlightProvider.notifier)
         .handleBracketHighlight();
     };
+    
+    /*final changeListener = () {
+      final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+        if (currentTab.!isDirty) {
+          curreisDirty = true;      // Optionally notify state change
+          }
+    }*/
 
     // Store listeners
-    _listeners[controller] = [undoListener, redoListener, bracketListener];
+    _listeners[controller] = [undoListener, redoListener, bracketListener/*, changeListener*/];
 
     // Add listeners to controller
     controller.addListener(undoListener);
     controller.addListener(redoListener);
     controller.addListener(bracketListener);
+    // controller.addListener(changeListener);
   }
 
   void removeListeners(CodeLineEditingController controller) {
