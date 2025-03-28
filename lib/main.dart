@@ -177,6 +177,9 @@ final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
 });
 
+final focusNodeProvider  = Provider<FocusNode>((ref) {
+  return FocusNode();
+});
 
 // --------------------
 //         Logs
@@ -1021,6 +1024,25 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
   
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+        
+        final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+        final controller = currentTab.controller;
+        final direction = _arrowKeyDirections[event.logicalKey];
+        final shiftPressed = event.isShiftPressed;
+        
+        if (direction != null) {
+          if (shiftPressed) {
+            controller.extendSelection(direction);
+          } else {
+            controller.moveCursor(direction);
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      }
+  
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
@@ -1036,7 +1058,7 @@ class CodeEditorPlugin implements EditorPlugin {
     
     controller.makeCursorVisible();
   }
-
+      
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
@@ -1053,8 +1075,11 @@ class CodeEditorPlugin implements EditorPlugin {
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
-
-    return CodeEditor(
+    final editorFocusNode = ref.watch(focusNodeProvider);
+    return Focus(
+     focusNode: editorFocusNode,
+      onKey: _handleKeyEvent,
+      child: CodeEditor(
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
@@ -1073,6 +1098,7 @@ class CodeEditorPlugin implements EditorPlugin {
         ),
       ),
       wordWrap: settings?.wordWrap ?? false,
+    )
     );
   }
   
