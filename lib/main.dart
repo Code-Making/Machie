@@ -1028,7 +1028,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(markProvider.notifier).state = null;
+    //ref.read(markProvider.notifier).state = null;
     ref.read(listenerManagerProvider.notifier)
       .removeListeners(tab.controller);
   }
