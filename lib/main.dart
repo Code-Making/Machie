@@ -1085,6 +1085,7 @@ class CodeEditorPlugin implements EditorPlugin {
     );
     final editorFocusNode = ref.watch(focusNodeProvider);
     return Focus(
+      autofocus: false,
       focusNode: editorFocusNode,
       canRequestFocus: false,
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
