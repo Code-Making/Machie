@@ -1022,7 +1022,6 @@ class CodeEditorPlugin implements EditorPlugin {
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
-    controller.makeCursorVisible();
   }
 
   @override
@@ -1281,6 +1280,12 @@ List<Command> get _clipboardCommands => [
       icon: Icons.redo,
       execute: (ref, ctrl) => ctrl.redo(),
       canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
+    ),
+    _createCommand(
+      id: 'shoe_cursor',
+      label: 'Show Cursor',
+      icon: Icons.center_focus_strong,
+      execute: (ref, ctrl) => ctrl.makeCursorVisible(),
     ),
   ];
 
