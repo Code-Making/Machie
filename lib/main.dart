@@ -1065,6 +1065,13 @@ class CodeEditorPlugin implements EditorPlugin {
       .removeListeners(tab.controller);
   }
   
+    late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections = {
+      LogicalKeyboardKey.arrowUp: AxisDirection.up,
+      LogicalKeyboardKey.arrowDown: AxisDirection.down,
+      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+      LogicalKeyboardKey.arrowRight: AxisDirection.right,
+    };
+  
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
