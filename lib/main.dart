@@ -666,9 +666,11 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   void switchTab(int index) {
+    ref.read(focusNodeProvider).unfocus();
     final prevTab = state.currentTab;
     state = state.copyWith(currentTabIndex: index);
     _handlePluginLifecycle(prevTab, state.currentTab);
+    ref.read(focusNodeProvider).unfocus();
   }
   
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
@@ -679,7 +681,6 @@ class SessionNotifier extends Notifier<SessionState> {
     if (newTab != null) {
       newTab.plugin.activateTab(newTab, ref);
     }
-      red.read(focusNodeProvider).unfocus();
   }
 
   void closeTab(int index) {
