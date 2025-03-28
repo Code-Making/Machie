@@ -534,7 +534,7 @@ class SessionManager {
     );
   }
   
-  Future<EditorTab> saveTabFile(EditorTab tab){
+  Future<EditorTab> saveTabFile(EditorTab tab) async {
     bool isDirty = tab.isDirty;
     try {
       // Save file content
