@@ -1019,6 +1019,8 @@ class CodeEditorPlugin implements EditorPlugin {
     
     // Update initial state
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
+    ref.read(canRedoProvider.notifier).state = controller.canRedo;
+    controller.makeCursorVisible();
   }
 
   @override
