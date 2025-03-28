@@ -774,7 +774,8 @@ class TabBarView extends ConsumerWidget {
     return Container(
       color: Colors.grey[900],
       height: 40,
-      child: ReorderableListView(
+      child: CodeEditorTapRegion(
+        child: ReorderableListView(
         key: const PageStorageKey<String>('tabBarScrollPosition'),
         scrollController: scrollController,
         scrollDirection: Axis.horizontal,
@@ -792,6 +793,7 @@ class TabBarView extends ConsumerWidget {
             ),
         ],
       ),
+     ),
     );
   }
 }
