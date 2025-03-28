@@ -163,6 +163,7 @@ final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
+final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
 
 final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((ref) {
   return ListenerManager();
@@ -1020,13 +1021,14 @@ class CodeEditorPlugin implements EditorPlugin {
     // Update initial state
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
+    ref.read(markProvider.notifier).state = null;
     controller.makeCursorVisible();
   }
 
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    
+    ref.read(markProvider.notifier).state = null;
     ref.read(listenerManagerProvider.notifier)
       .removeListeners(tab.controller);
   }
@@ -1249,7 +1251,7 @@ List<Command> get _clipboardCommands => [
       execute: (ref, ctrl) => ctrl!.moveSelectionLinesDown(),
     ),
     
-  /*  _createCommand(
+    _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
       icon: Icons.bookmark_add,
@@ -1261,8 +1263,8 @@ List<Command> get _clipboardCommands => [
       icon: Icons.bookmark_added,
       execute: _selectToMark,
       canExecute: (ref, ctrl) => 
-        _getTab(ref)?.markPosition != null,
-    ),*/
+            ref.watch(markProvider) != null,
+    ),
   ];
 
   List<Command> get _historyCommands => [
@@ -1515,29 +1517,28 @@ List<Command> get _clipboardCommands => [
       extentOffset: newExtentOffset,
     );
   }
-/*
+
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController ctrl) async {
-    _getTab(ref)?.markPosition = ctrl.selection.base;
+    ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
   Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController ctrl) async {
-    final tab = _getTab(ref)!;
-    final mark = tab.markPosition;
-if (mark == null) {
+    final mark = ref.read(markProvider);
+    if (mark == null) {
       print('No mark set! Set a mark first');
       return;
     }
     
     try {
-      final currentPosition = tab.controller.selection.base;
-      final start = _comparePositions(tab.markPosition!, currentPosition) < 0
+      final currentPosition = ctrl.selection.base;
+      final start = _comparePositions(mark!, currentPosition) < 0
       ? mark!
       : currentPosition;
-      final end = _comparePositions(tab.markPosition!, currentPosition) < 0
+      final end = _comparePositions(mark!, currentPosition) < 0
       ? currentPosition
       : mark!;
       
-      tab.controller.selection = CodeLineSelection(
+      ctrl.selection = CodeLineSelection(
         baseIndex: start.index,
         baseOffset: start.offset,
         extentIndex: end.index,
@@ -1549,7 +1550,7 @@ if (mark == null) {
       print('Selection error: ${e.toString()}');
     }
   }
-    */
+    
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
