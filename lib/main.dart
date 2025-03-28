@@ -1024,11 +1024,9 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
   
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event, CodeLineEditingController controller) {
         if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
         
-        final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
-        final controller = currentTab.controller;
         final direction = _arrowKeyDirections[event.logicalKey];
         final shiftPressed = event.isShiftPressed;
         
@@ -1078,7 +1076,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final editorFocusNode = ref.watch(focusNodeProvider);
     return Focus(
      focusNode: editorFocusNode,
-      onKey: _handleKeyEvent,
+      onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
