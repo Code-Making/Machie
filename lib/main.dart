@@ -1234,6 +1234,18 @@ List<Command> get _clipboardCommands => [
       icon: Icons.select_all,
       execute: (ref, ctrl) => ctrl!.selectAll(),
     ),
+    _createCommand(
+      id: 'move_line_up',
+      label: 'Move Line Up',
+      icon: Icons.arrow_upward,
+      execute: (ref, ctrl) => ctrl!.moveSelectionLinesUp(),
+    ),
+    _createCommand(
+      id: 'move_line_down',
+      label: 'Move Line Down',
+      icon: Icons.arrow_downward,
+      execute: (ref, ctrl) => ctrl!.moveSelectionLinesDown(),
+    ),
     
   /*  _createCommand(
       id: 'set_mark',
