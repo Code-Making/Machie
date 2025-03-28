@@ -679,6 +679,7 @@ class SessionNotifier extends Notifier<SessionState> {
     if (newTab != null) {
       newTab.plugin.activateTab(newTab, ref);
     }
+      red.read(focusNodeProvider).unfocus();
   }
 
   void closeTab(int index) {
