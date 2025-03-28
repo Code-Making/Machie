@@ -545,7 +545,7 @@ class SessionManager {
       print('Save failed: $e\n$st');
       //rethrow;
     } finally{
-        return tab.copyWith(isDirty: isDirty)
+        return tab.copyWith(isDirty: isDirty);
     }
   }
 
