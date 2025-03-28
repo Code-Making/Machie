@@ -737,9 +737,8 @@ class SessionNotifier extends Notifier<SessionState> {
   final savedTab = current.tabs[index];
   
   try {
-    final newTab = await _manager.saveTabFile(savedTab);
-    
-    // Create new immutable state
+    await _manager.saveTabFile(savedTab);
+    /*
     final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
     
     state = current.copyWith(
@@ -753,7 +752,7 @@ class SessionNotifier extends Notifier<SessionState> {
         oldTab: savedTab,
         newTab: newTab,
       );
-    }
+    }*/
   } catch (e) {
     ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
   }
@@ -1282,11 +1281,11 @@ class CodeEditorPlugin implements EditorPlugin {
               ref.read(sessionProvider.notifier).saveTab(currentIndex);
             }
           },
-         /* canExecute: (ref, _) => ref.watch(
+         canExecute: (ref, _) => ref.watch(
             sessionProvider.select(
               (s) => s.currentTab?.isDirty ?? false
             )
-          ),*/
+          ),
         ),
   ];
 
@@ -1785,21 +1784,21 @@ class ListenerManager extends StateNotifier<void> {
         .handleBracketHighlight();
     };
     
-    /*final changeListener = () {
+    final changeListener = () {
       final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
         if (currentTab.!isDirty) {
-          curreisDirty = true;      // Optionally notify state change
+          currentTab.!isDirty = true;      // Optionally notify state change
           }
-    }*/
+    }
 
     // Store listeners
-    _listeners[controller] = [undoListener, redoListener, bracketListener/*, changeListener*/];
+    _listeners[controller] = [undoListener, redoListener, bracketListener, changeListener];
 
     // Add listeners to controller
     controller.addListener(undoListener);
     controller.addListener(redoListener);
     controller.addListener(bracketListener);
-    // controller.addListener(changeListener);
+    controller.addListener(changeListener);
   }
 
   void removeListeners(CodeLineEditingController controller) {
