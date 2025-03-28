@@ -169,6 +169,14 @@ final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((re
   return ListenerManager();
 });
 
+final tabBarScrollProvider = Provider<ScrollController>((ref) {
+  return ScrollController();
+});
+
+final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
+  return ScrollController();
+});
+
 
 // --------------------
 //         Logs
@@ -757,12 +765,15 @@ class TabBarView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scrollController = ref.watch(tabBarScrollProvider);
     final tabs = ref.watch(sessionProvider.select((state) => state.tabs));
 
     return Container(
       color: Colors.grey[900],
       height: 40,
       child: ReorderableListView(
+        key: const PageStorageKey<String>('tabBarScrollPosition'),
+        scrollController: scrollController,
         scrollDirection: Axis.horizontal,
         onReorder:
             (oldIndex, newIndex) => ref
@@ -3031,12 +3042,15 @@ class BottomToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scrollController = ref.watch(bottomToolbarScrollProvider);
     final commands = ref.watch(pluginToolbarCommandsProvider);
     
     return Container(
       height: 48,
       color: Colors.grey[900],
       child: ListView.builder(
+        key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
+        controller: scrollController,
         scrollDirection: Axis.horizontal,
         itemCount: commands.length,
         itemBuilder: (context, index) => CommandButton(
