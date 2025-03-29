@@ -41,9 +41,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // --------------------
 final printStream = StreamController<String>.broadcast();
 
-
 void main() {
-  
   runZonedGuarded(
     () {
       runApp(
@@ -55,8 +53,8 @@ void main() {
                 onLoaded: (context) => const EditorScreen(),
               ),
               routes: {
-                  '/settings': (_) => const SettingsScreen(),
-                  '/command-settings': (_) => const CommandSettingsScreen(),
+                '/settings': (_) => const SettingsScreen(),
+                '/command-settings': (_) => const CommandSettingsScreen(),
               },
             ),
           ),
@@ -120,9 +118,10 @@ final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
   SessionNotifier.new,
 );
 
-final bracketHighlightProvider = NotifierProvider
-  <BracketHighlightNotifier, BracketHighlightState>(BracketHighlightNotifier.new);
-
+final bracketHighlightProvider =
+    NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
+      BracketHighlightNotifier.new,
+    );
 
 final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   // Capture the print stream when provider initializes
@@ -132,32 +131,33 @@ final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   return logNotifier;
 });
 
-final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((ref) {
-  return CommandNotifier(
-    ref: ref,
-    plugins: ref.watch(activePluginsProvider),
-  );
+final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
+  ref,
+) {
+  return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
 });
 
 final appBarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  
+
   return [
     ...state.appBarOrder,
-    ...state.pluginToolbarOrder.where((id) =>
-      notifier.getCommand(id)?.defaultPosition == CommandPosition.both)
+    ...state.pluginToolbarOrder.where(
+      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+    ),
   ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
 });
 
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  
+
   return [
     ...state.pluginToolbarOrder,
-    ...state.appBarOrder.where((id) =>
-      notifier.getCommand(id)?.defaultPosition == CommandPosition.both)
+    ...state.appBarOrder.where(
+      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+    ),
   ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
 });
 
@@ -165,7 +165,9 @@ final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
 
-final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((ref) {
+final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((
+  ref,
+) {
   return ListenerManager();
 });
 
@@ -177,7 +179,7 @@ final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
 });
 
-final focusNodeProvider  = Provider<FocusNode>((ref) {
+final focusNodeProvider = Provider<FocusNode>((ref) {
   return FocusNode();
 });
 
@@ -195,7 +197,7 @@ class LogNotifier extends StateNotifier<List<String>> {
     }
   }
 
-void clearLogs() {
+  void clearLogs() {
     state = [];
   }
 }
@@ -224,7 +226,7 @@ class DebugLogView extends ConsumerWidget {
                 child: const Text('Clear'),
               ),
             ],
-          )
+          ),
         ],
       ),
       actions: [
@@ -368,12 +370,13 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
         await container.read(sessionProvider.notifier).saveSession();
         break;
       case AppLifecycleState.resumed:
-          final currentDir = container.read(rootUriProvider);
-          if (currentDir != null) {
-            await container.read(fileHandlerProvider)
+        final currentDir = container.read(rootUriProvider);
+        if (currentDir != null) {
+          await container
+              .read(fileHandlerProvider)
               .persistRootUri(currentDir.uri);
-          }
-          break;
+        }
+        break;
       default:
         break;
     }
@@ -533,15 +536,12 @@ class SessionManager {
       currentTabIndex: current.tabs.length,
     );
   }
-  
-Future<EditorTab> saveTabFile(EditorTab tab) async {
+
+  Future<EditorTab> saveTabFile(EditorTab tab) async {
     try {
       final newFile = await _fileHandler.writeFile(tab.file, tab.contentString);
 
-      return tab.copyWith(
-        file: newFile,
-        isDirty: false,
-      );
+      return tab.copyWith(file: newFile, isDirty: false);
     } catch (e, st) {
       print('Save failed: $e\n$st');
       return tab;
@@ -663,7 +663,7 @@ class SessionNotifier extends Notifier<SessionState> {
 
   Future<void> initialize() async {
     if (_initialized) return;
-    
+
     try {
       final loadedState = await _manager.loadSession();
       state = loadedState;
@@ -685,23 +685,24 @@ class SessionNotifier extends Notifier<SessionState> {
     _handlePluginLifecycle(prevTab, state.currentTab);
     ref.read(focusNodeProvider).unfocus();
   }
-  
-  void markCurrentTabDirty() {
-  final current = state;
-  final currentTab = current.currentTab;
-  if (currentTab == null) return;
-  if (currentTab!.isDirty == true) return;
-  
-  state = current.copyWith(
-    tabs: current.tabs.map((t) => t == currentTab 
-      ? currentTab.copyWith(isDirty: true) 
-      : t
-    ).toList()
-  );
-}
-  
-  void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
 
+  void markCurrentTabDirty() {
+    final current = state;
+    final currentTab = current.currentTab;
+    if (currentTab == null) return;
+    if (currentTab!.isDirty == true) return;
+
+    state = current.copyWith(
+      tabs:
+          current.tabs
+              .map(
+                (t) => t == currentTab ? currentTab.copyWith(isDirty: true) : t,
+              )
+              .toList(),
+    );
+  }
+
+  void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) {
       oldTab.plugin.deactivateTab(oldTab, ref);
     }
@@ -714,13 +715,11 @@ class SessionNotifier extends Notifier<SessionState> {
     final current = state;
     final closedTab = current.tabs[index];
     closedTab.plugin.deactivateTab(closedTab, ref);
- 
+
     state = _manager.closeTab(state, index);
-    
+
     if (state.currentTab != null) {
-      state.currentTab!.plugin.activateTab(
-        state.currentTab!, ref
-      );
+      state.currentTab!.plugin.activateTab(state.currentTab!, ref);
     }
   }
 
@@ -742,27 +741,25 @@ class SessionNotifier extends Notifier<SessionState> {
       print('Error loading session: $e');
     }
   }
-  
-Future<void> saveTab(int index) async {
-  final current = state;
-  if (index < 0 || index >= current.tabs.length) return;
 
-  final savedTab = current.tabs[index];
-  
-  try {
-    final newTab = await _manager.saveTabFile(savedTab);
-    
-    // Create new immutable state
-    final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
-    
-    state = current.copyWith(
-      tabs: newTabs,
-      lastSaved: DateTime.now(),
-    );
-  } catch (e) {
-    ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
+  Future<void> saveTab(int index) async {
+    final current = state;
+    if (index < 0 || index >= current.tabs.length) return;
+
+    final savedTab = current.tabs[index];
+
+    try {
+      final newTab = await _manager.saveTabFile(savedTab);
+
+      // Create new immutable state
+      final newTabs =
+          current.tabs.map((t) => t == savedTab ? newTab : t).toList();
+
+      state = current.copyWith(tabs: newTabs, lastSaved: DateTime.now());
+    } catch (e) {
+      ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
+    }
   }
-}
 
   Future<void> saveSession() async {
     if (!_isSaving) {
@@ -791,13 +788,8 @@ abstract class EditorTab {
   EditorTab({required this.file, required this.plugin, this.isDirty = false});
   String get contentString;
   void dispose();
-  
-EditorTab copyWith({
-    DocumentFile? file,
-    EditorPlugin? plugin,
-    bool? isDirty,
-  });
-    
+
+  EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty});
 }
 
 class CodeEditorTab extends EditorTab {
@@ -814,15 +806,15 @@ class CodeEditorTab extends EditorTab {
 
   @override
   void dispose() {
-      controller.dispose();
+    controller.dispose();
   }
-  
+
   @override
-  String get contentString{
-      return this.controller?.text ?? "";
+  String get contentString {
+    return this.controller?.text ?? "";
   }
-  
-@override
+
+  @override
   CodeEditorTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,
@@ -856,24 +848,24 @@ class TabBarView extends ConsumerWidget {
       height: 40,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
-        key: const PageStorageKey<String>('tabBarScrollPosition'),
-        scrollController: scrollController,
-        scrollDirection: Axis.horizontal,
-        onReorder:
-            (oldIndex, newIndex) => ref
-                .read(sessionProvider.notifier)
-                .reorderTabs(oldIndex, newIndex),
-        buildDefaultDragHandles: false,
-        children: [
-          for (final tab in tabs)
-            ReorderableDelayedDragStartListener(
-              key: ValueKey(tab.file),
-              index: tabs.indexOf(tab),
-              child: FileTab(tab: tab, index: tabs.indexOf(tab)),
-            ),
-        ],
+          key: const PageStorageKey<String>('tabBarScrollPosition'),
+          scrollController: scrollController,
+          scrollDirection: Axis.horizontal,
+          onReorder:
+              (oldIndex, newIndex) => ref
+                  .read(sessionProvider.notifier)
+                  .reorderTabs(oldIndex, newIndex),
+          buildDefaultDragHandles: false,
+          children: [
+            for (final tab in tabs)
+              ReorderableDelayedDragStartListener(
+                key: ValueKey(tab.file),
+                index: tabs.indexOf(tab),
+                child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+              ),
+          ],
+        ),
       ),
-     ),
     );
   }
 }
@@ -944,7 +936,7 @@ class EditorScreen extends ConsumerWidget {
     final currentPlugin = ref.watch(
       sessionProvider.select((s) => s.currentTab?.plugin),
     );
-    
+
     final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
 
     return Scaffold(
@@ -955,18 +947,17 @@ class EditorScreen extends ConsumerWidget {
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
-          currentPlugin is CodeEditorPlugin ?
-          CodeEditorTapRegion(
-              child: const AppBarCommands()
-              ):
-          const AppBarCommands(),
+          currentPlugin is CodeEditorPlugin
+              ? CodeEditorTapRegion(child: const AppBarCommands())
+              : const AppBarCommands(),
           IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) => const DebugLogView(),
-              ),
-            ),
+            icon: const Icon(Icons.bug_report),
+            onPressed:
+                () => showDialog(
+                  context: context,
+                  builder: (_) => const DebugLogView(),
+                ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
@@ -984,7 +975,7 @@ class EditorScreen extends ConsumerWidget {
                     ? EditorContentSwitcher(tab: currentTab)
                     : const Center(child: Text('Open file')),
           ),
-        if (currentPlugin != null) currentPlugin.buildToolbar(ref),
+          if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
       ),
     );
@@ -1023,7 +1014,6 @@ abstract class EditorPlugin {
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
 
-
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
@@ -1055,7 +1045,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final editorSettings = settings as CodeEditorSettings;
     return CodeEditorSettingsUI(settings: editorSettings);
   }
-/*
+  /*
   @override
   Future<void> initializeTab(EditorTab tab, String? content) async {
     if (tab is CodeEditorTab) {
@@ -1105,55 +1095,57 @@ class CodeEditorPlugin implements EditorPlugin {
       commentFormatter: _getCommentFormatter(file.uri),
     );
   }
-  
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event, CodeLineEditingController controller) {
-        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-        
-        final direction = _arrowKeyDirections[event.logicalKey];
-        final shiftPressed = event.isShiftPressed;
-        
-        if (direction != null) {
-          if (shiftPressed) {
-            controller.extendSelection(direction);
-          } else {
-            controller.moveCursor(direction);
-          }
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+
+  KeyEventResult _handleKeyEvent(
+    FocusNode node,
+    RawKeyEvent event,
+    CodeLineEditingController controller,
+  ) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+
+    final direction = _arrowKeyDirections[event.logicalKey];
+    final shiftPressed = event.isShiftPressed;
+
+    if (direction != null) {
+      if (shiftPressed) {
+        controller.extendSelection(direction);
+      } else {
+        controller.moveCursor(direction);
       }
-  
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    
+
     final controller = tab.controller;
-    ref.read(listenerManagerProvider.notifier)
-      .addListeners(controller, ref);
-    
+    ref.read(listenerManagerProvider.notifier).addListeners(controller, ref);
+
     // Update initial state
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
-    
+
     controller.makeCursorVisible();
   }
-      
+
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
     //ref.read(markProvider.notifier).state = null;
-    ref.read(listenerManagerProvider.notifier)
-      .removeListeners(tab.controller);
+    ref.read(listenerManagerProvider.notifier).removeListeners(tab.controller);
   }
-  
-    late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections = {
-      LogicalKeyboardKey.arrowUp: AxisDirection.up,
-      LogicalKeyboardKey.arrowDown: AxisDirection.down,
-      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
-      LogicalKeyboardKey.arrowRight: AxisDirection.right,
-    };
-  
+
+  late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections = {
+    LogicalKeyboardKey.arrowUp: AxisDirection.up,
+    LogicalKeyboardKey.arrowDown: AxisDirection.down,
+    LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+    LogicalKeyboardKey.arrowRight: AxisDirection.right,
+  };
+
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
@@ -1170,28 +1162,33 @@ class CodeEditorPlugin implements EditorPlugin {
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
         autofocus: false,
-      controller: codeTab.controller,
-      commentFormatter: codeTab.commentFormatter,
-      indicatorBuilder: (context, editingController, chunkController, notifier) {
+        controller: codeTab.controller,
+        commentFormatter: codeTab.commentFormatter,
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
           return _CustomEditorIndicator(
             controller: editingController,
             chunkController: chunkController,
             notifier: notifier,
           );
         },
-      style: CodeEditorStyle(
-        fontSize: settings?.fontSize ?? 12,
-        fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-        codeTheme: CodeHighlightTheme(
-          theme: atomOneDarkTheme,
-          languages: _getLanguageMode(codeTab.file.uri),
+        style: CodeEditorStyle(
+          fontSize: settings?.fontSize ?? 12,
+          fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            theme: atomOneDarkTheme,
+            languages: _getLanguageMode(codeTab.file.uri),
+          ),
         ),
+        wordWrap: settings?.wordWrap ?? false,
       ),
-      wordWrap: settings?.wordWrap ?? false,
-    )
     );
   }
-  
+
   TextSpan _buildHighlightingSpan({
     required BuildContext context,
     required int index,
@@ -1199,58 +1196,64 @@ class CodeEditorPlugin implements EditorPlugin {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final currentTab = ProviderScope.containerOf(context).read(sessionProvider).currentTab as CodeEditorTab;
+    final currentTab =
+        ProviderScope.containerOf(context).read(sessionProvider).currentTab
+            as CodeEditorTab;
     final controller = currentTab.controller;
-    final highlightState = ProviderScope.containerOf(context).read(bracketHighlightProvider);
+    final highlightState = ProviderScope.containerOf(
+      context,
+    ).read(bracketHighlightProvider);
 
     final spans = <TextSpan>[];
     int currentPosition = 0;
-    final highlightPositions = highlightState.bracketPositions
-    .where((pos) => pos.index == index)
-    .map((pos) => pos.offset)
-    .toSet();
+    final highlightPositions =
+        highlightState.bracketPositions
+            .where((pos) => pos.index == index)
+            .map((pos) => pos.offset)
+            .toSet();
     //print(highlightState.bracketPositions.toString());
     void processSpan(TextSpan span) {
       final text = span.text ?? '';
       final spanStyle = span.style ?? style;
       List<int> highlightIndices = [];
-      
+
       // Find highlight positions within this span
       for (var i = 0; i < text.length; i++) {
         if (highlightPositions.contains(currentPosition + i)) {
           highlightIndices.add(i);
         }
       }
-      
+
       // Split span into non-highlight and highlight segments
       int lastSplit = 0;
       for (final highlightIndex in highlightIndices) {
         if (highlightIndex > lastSplit) {
-          spans.add(TextSpan(
-            text: text.substring(lastSplit, highlightIndex),
-            style: spanStyle,
-          ));
+          spans.add(
+            TextSpan(
+              text: text.substring(lastSplit, highlightIndex),
+              style: spanStyle,
+            ),
+          );
         }
-        spans.add(TextSpan(
-          text: text[highlightIndex],
-          style: spanStyle.copyWith(
-            backgroundColor: Colors.yellow.withOpacity(0.3),
-            fontWeight: FontWeight.bold,
+        spans.add(
+          TextSpan(
+            text: text[highlightIndex],
+            style: spanStyle.copyWith(
+              backgroundColor: Colors.yellow.withOpacity(0.3),
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ));
+        );
         lastSplit = highlightIndex + 1;
       }
-      
+
       // Add remaining text
       if (lastSplit < text.length) {
-        spans.add(TextSpan(
-          text: text.substring(lastSplit),
-          style: spanStyle,
-        ));
+        spans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
       }
-      
+
       currentPosition += text.length;
-      
+
       // Process child spans
       if (span.children != null) {
         for (final child in span.children!) {
@@ -1260,9 +1263,12 @@ class CodeEditorPlugin implements EditorPlugin {
         }
       }
     }
-    
+
     processSpan(textSpan);
-    return TextSpan(children: spans.isNotEmpty ? spans : [textSpan], style: style);
+    return TextSpan(
+      children: spans.isNotEmpty ? spans : [textSpan],
+      style: style,
+    );
   }
 
   CodeLineEditingController _getControllerFromContext(BuildContext context) {
@@ -1270,9 +1276,6 @@ class CodeEditorPlugin implements EditorPlugin {
     return editor?.controller as CodeLineEditingController;
   }
 
-  
-  
-  
   CodeCommentFormatter _getCommentFormatter(String uri) {
     final extension = uri.split('.').last.toLowerCase();
     switch (extension) {
@@ -1285,13 +1288,13 @@ class CodeEditorPlugin implements EditorPlugin {
       default:
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '//',
-          multiLinePrefix: '/*', 
+          multiLinePrefix: '/*',
           multiLineSuffix: '*/',
         );
     }
   }
-  
-@override
+
+  @override
   List<Command> getCommands() => [
     ..._fileCommands,
     ..._clipboardCommands,
@@ -1299,28 +1302,28 @@ class CodeEditorPlugin implements EditorPlugin {
     ..._selectionCommands,
     ..._historyCommands,
   ];
-  
+
   List<Command> get _fileCommands => [
     _createCommand(
-          id: 'save',
-          label: 'Save',
-          icon: Icons.save,
-          execute: (ref, _) {
-            final session = ref.read(sessionProvider);
-            final currentIndex = session.currentTabIndex;
-            if (currentIndex != -1) {
-              ref.read(sessionProvider.notifier).saveTab(currentIndex);
-            }
-          },
-         /*canExecute: (ref, _) => ref.watch(
+      id: 'save',
+      label: 'Save',
+      icon: Icons.save,
+      execute: (ref, _) {
+        final session = ref.read(sessionProvider);
+        final currentIndex = session.currentTabIndex;
+        if (currentIndex != -1) {
+          ref.read(sessionProvider.notifier).saveTab(currentIndex);
+        }
+      },
+      /*canExecute: (ref, _) => ref.watch(
             sessionProvider.select(
               (s) => s.currentTab?.isDirty ?? false
             )
           ),*/
-        ),
+    ),
   ];
 
-List<Command> get _clipboardCommands => [
+  List<Command> get _clipboardCommands => [
     _createCommand(
       id: 'copy',
       label: 'Copy',
@@ -1399,7 +1402,7 @@ List<Command> get _clipboardCommands => [
       icon: Icons.arrow_downward,
       execute: (ref, ctrl) => ctrl!.moveSelectionLinesDown(),
     ),
-    
+
     _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
@@ -1411,8 +1414,7 @@ List<Command> get _clipboardCommands => [
       label: 'Select to Mark',
       icon: Icons.bookmark_added,
       execute: _selectToMark,
-      canExecute: (ref, ctrl) => 
-            ref.watch(markProvider) != null,
+      canExecute: (ref, ctrl) => ref.watch(markProvider) != null,
     ),
   ];
 
@@ -1443,7 +1445,8 @@ List<Command> get _clipboardCommands => [
     required String id,
     required String label,
     required IconData icon,
-    required FutureOr<void> Function(WidgetRef, CodeLineEditingController) execute,
+    required FutureOr<void> Function(WidgetRef, CodeLineEditingController)
+    execute,
     bool Function(WidgetRef, CodeLineEditingController)? canExecute,
   }) {
     return BaseCommand(
@@ -1458,8 +1461,7 @@ List<Command> get _clipboardCommands => [
       },
       canExecute: (ref) {
         final ctrl = _getController(ref);
-        return ctrl != null && 
-          (canExecute?.call(ref, ctrl) ?? true);
+        return ctrl != null && (canExecute?.call(ref, ctrl) ?? true);
       },
     );
   }
@@ -1474,7 +1476,10 @@ List<Command> get _clipboardCommands => [
   }
 
   // Command implementations
-  Future<void> _toggleComments(WidgetRef ref, CodeLineEditingController ctrl) async {
+  Future<void> _toggleComments(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
       ctrl.value,
@@ -1484,52 +1489,58 @@ List<Command> get _clipboardCommands => [
     ctrl.runRevocableOp(() => ctrl.value = formatted);
   }
 
-  Future<void> _reformatDocument(WidgetRef ref, CodeLineEditingController ctrl) async {
+  Future<void> _reformatDocument(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
     try {
-    final formattedValue = _formatCodeValue(ctrl.value);
-      
+      final formattedValue = _formatCodeValue(ctrl.value);
+
       ctrl.runRevocableOp(() {
         ctrl.value = formattedValue.copyWith(
           selection: const CodeLineSelection.zero(),
           composing: TextRange.empty,
         );
       });
-      
+
       print('Document reformatted');
     } catch (e) {
       print('Formatting failed: ${e.toString()}');
     }
   }
-  
+
   CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     final buffer = StringBuffer();
     int indentLevel = 0;
     final indent = '  '; // 2 spaces
-    
+
     // Convert CodeLines to a list for iteration
     final codeLines = value.codeLines.toList();
-    
+
     for (final line in codeLines) {
       final trimmed = line.text.trim();
-      
+
       // Handle indentation decreases
-      if (trimmed.startsWith('}') || trimmed.startsWith(']')|| trimmed.startsWith(')'))
-      {
+      if (trimmed.startsWith('}') ||
+          trimmed.startsWith(']') ||
+          trimmed.startsWith(')')) {
         indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
       }
-      
+
       // Write indentation
       buffer.write(indent * indentLevel);
-      
+
       // Write line content
       buffer.writeln(trimmed);
-      
+
       // Handle indentation increases
-      if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
+      if (trimmed.endsWith('{') ||
+          trimmed.endsWith('[') ||
+          trimmed.endsWith('(')) {
         indentLevel++;
       }
     }
-    
+
     return CodeLineEditingValue(
       codeLines: CodeLines.fromText(buffer.toString().trim()),
       selection: value.selection,
@@ -1537,57 +1548,55 @@ List<Command> get _clipboardCommands => [
     );
   }
 
-  Future<void> _selectBetweenBrackets(WidgetRef ref, CodeLineEditingController ctrl) async {
+  Future<void> _selectBetweenBrackets(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
     final tab = _getTab(ref)!;
     final controller = tab.controller;
     final selection = controller.selection;
-    
+
     if (!selection.isCollapsed) {
       print('Selection already active');
       return;
     }
-    
+
     try {
       final position = selection.base;
       final brackets = {'(': ')', '[': ']', '{': '}'};
       CodeLinePosition? start;
       CodeLinePosition? end;
-      
+
       // Check both left and right of cursor
       for (int offset = 0; offset <= 1; offset++) {
         final index = position.offset - offset;
-        if (index >= 0 && index < controller.codeLines[position.index].text.length) {
+        if (index >= 0 &&
+            index < controller.codeLines[position.index].text.length) {
           final char = controller.codeLines[position.index].text[index];
           if (brackets.keys.contains(char) || brackets.values.contains(char)) {
             final match = _findMatchingBracket(
               controller.codeLines,
-              CodeLinePosition(
-                index: position.index,
-                offset: index,
-              ),
+              CodeLinePosition(index: position.index, offset: index),
               brackets,
             );
             if (match != null) {
-              start = CodeLinePosition(
-                index: position.index,
-                offset: index,
-              );
+              start = CodeLinePosition(index: position.index, offset: index);
               end = match;
               break;
             }
           }
         }
       }
-      
+
       if (start == null || end == null) {
         print('No matching bracket found');
         return;
       }
-      
+
       // Order positions correctly
       final orderedStart = _comparePositions(start, end) < 0 ? start : end;
       final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
-      
+
       controller.selection = CodeLineSelection(
         baseIndex: orderedStart.index,
         baseOffset: orderedStart.offset,
@@ -1600,7 +1609,7 @@ List<Command> get _clipboardCommands => [
       //_showError('Selection failed: ${e.toString()}');
     }
   }
-  
+
   CodeLinePosition? _findMatchingBracket(
     CodeLines codeLines,
     CodeLinePosition position,
@@ -1608,63 +1617,72 @@ List<Command> get _clipboardCommands => [
   ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
-    
+
     // Determine if we're looking at an opening or closing bracket
     final isOpen = brackets.keys.contains(char);
-    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
-      (k) => brackets[k] == char,
-      orElse: () => '',
-    );
-    
+    final target =
+        isOpen
+            ? brackets[char]
+            : brackets.keys.firstWhere(
+              (k) => brackets[k] == char,
+              orElse: () => '',
+            );
+
     if (target?.isEmpty ?? true) return null;
-    
+
     int stack = 1;
     int index = position.index;
     int offset = position.offset;
     final direction = isOpen ? 1 : -1;
-    
+
     while (index >= 0 && index < codeLines.length) {
       final currentLine = codeLines[index].text;
-      
+
       while (offset >= 0 && offset < currentLine.length) {
         // Skip the original position
         if (index == position.index && offset == position.offset) {
           offset += direction;
           continue;
         }
-        
+
         final currentChar = currentLine[offset];
-        
+
         if (currentChar == char) {
           stack += 1;
         } else if (currentChar == target) {
           stack -= 1;
         }
-        
+
         if (stack == 0) {
           return CodeLinePosition(index: index, offset: offset);
         }
-        
+
         offset += direction;
       }
-      
+
       // Move to next/previous line
       index += direction;
       offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
     }
-    
+
     return null; // No matching bracket found
   }
 
-  Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController ctrl) async {    final tab = _getTab(ref)!;
+  Future<void> _extendSelection(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
+    final tab = _getTab(ref)!;
     final controller = ctrl;
     final selection = controller.selection;
-    
+
     final newBaseOffset = 0;
-    final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
-    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+    final baseLineLength =
+        controller.codeLines[selection.baseIndex].text.length;
+    final extentLineLength =
+        controller.codeLines[selection.extentIndex].text.length;
     final newExtentOffset = extentLineLength;
-    
+
     controller.selection = CodeLineSelection(
       baseIndex: selection.baseIndex,
       baseOffset: newBaseOffset,
@@ -1673,39 +1691,47 @@ List<Command> get _clipboardCommands => [
     );
   }
 
-  Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController ctrl) async {
+  Future<void> _setMarkPosition(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
-  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController ctrl) async {
+  Future<void> _selectToMark(
+    WidgetRef ref,
+    CodeLineEditingController ctrl,
+  ) async {
     final mark = ref.read(markProvider);
     if (mark == null) {
       print('No mark set! Set a mark first');
       return;
     }
-    
+
     try {
       final currentPosition = ctrl.selection.base;
-      final start = _comparePositions(mark!, currentPosition) < 0
-      ? mark!
-      : currentPosition;
-      final end = _comparePositions(mark!, currentPosition) < 0
-      ? currentPosition
-      : mark!;
-      
+      final start =
+          _comparePositions(mark!, currentPosition) < 0
+              ? mark!
+              : currentPosition;
+      final end =
+          _comparePositions(mark!, currentPosition) < 0
+              ? currentPosition
+              : mark!;
+
       ctrl.selection = CodeLineSelection(
         baseIndex: start.index,
         baseOffset: start.offset,
         extentIndex: end.index,
         extentOffset: end.offset,
       );
-      
+
       //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
     } catch (e) {
       print('Selection error: ${e.toString()}');
     }
   }
-    
+
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
@@ -1714,15 +1740,12 @@ List<Command> get _clipboardCommands => [
 
   @override
   Widget buildToolbar(WidgetRef ref) {
-    final commands = ref.watch(commandProvider.notifier)
-      .getVisibleCommands(CommandPosition.pluginToolbar);
-    
-     return CodeEditorTapRegion(
-      child: BottomToolbar(),
-     );
-  }
+    final commands = ref
+        .watch(commandProvider.notifier)
+        .getVisibleCommands(CommandPosition.pluginToolbar);
 
-  
+    return CodeEditorTapRegion(child: BottomToolbar());
+  }
 
   Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     final extension = uri.split('.').last.toLowerCase();
@@ -1747,12 +1770,10 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CodeEditorMachine> createState() =>
-      _CodeEditorMachineState();
+  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
 }
 
-class _CodeEditorMachineState
-    extends ConsumerState<CodeEditorMachine> {
+class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   @override
   void initState() {
     super.initState();
@@ -1791,13 +1812,15 @@ class _CodeEditorMachineState
   }
 }
 
-
 class ListenerManager extends StateNotifier<void> {
   final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
 
   ListenerManager() : super(null);
 
-  void addListeners(CodeLineEditingController controller, NotifierProviderRef<SessionState> ref) {
+  void addListeners(
+    CodeLineEditingController controller,
+    NotifierProviderRef<SessionState> ref,
+  ) {
     // Remove existing listeners if any
     removeListeners(controller);
 
@@ -1805,22 +1828,26 @@ class ListenerManager extends StateNotifier<void> {
     final undoListener = () {
       ref.read(canUndoProvider.notifier).state = controller.canUndo;
     };
-    
+
     final redoListener = () {
       ref.read(canRedoProvider.notifier).state = controller.canRedo;
     };
-    
+
     final bracketListener = () {
-      ref.read(bracketHighlightProvider.notifier)
-        .handleBracketHighlight();
+      ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
     };
-    
+
     final changeListener = () {
-     ref.read(sessionProvider.notifier).markCurrentTabDirty();
+      ref.read(sessionProvider.notifier).markCurrentTabDirty();
     };
 
     // Store listeners
-    _listeners[controller] = [undoListener, redoListener, bracketListener, changeListener];
+    _listeners[controller] = [
+      undoListener,
+      redoListener,
+      bracketListener,
+      changeListener,
+    ];
 
     // Add listeners to controller
     controller.addListener(undoListener);
@@ -1868,10 +1895,9 @@ class BracketHighlightState {
 }
 
 class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
-
-  @override 
-  BracketHighlightState build(){
-      return BracketHighlightState();
+  @override
+  BracketHighlightState build() {
+    return BracketHighlightState();
   }
 
   void handleBracketHighlight() {
@@ -1885,7 +1911,7 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     final position = selection.base;
     final brackets = {'(': ')', '[': ']', '{': '}'};
     final line = controller.codeLines[position.index].text;
-    
+
     Set<CodeLinePosition> newPositions = {};
     CodeLinePosition? matchPosition;
     Set<int> newHighlightedLines = {};
@@ -1923,51 +1949,54 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
-    
+
     // Determine if we're looking at an opening or closing bracket
     final isOpen = brackets.keys.contains(char);
-    final target = isOpen ? brackets[char] : brackets.keys.firstWhere(
-      (k) => brackets[k] == char,
-      orElse: () => '',
-    );
-    
+    final target =
+        isOpen
+            ? brackets[char]
+            : brackets.keys.firstWhere(
+              (k) => brackets[k] == char,
+              orElse: () => '',
+            );
+
     if (target?.isEmpty ?? true) return null;
-    
+
     int stack = 1;
     int index = position.index;
     int offset = position.offset;
     final direction = isOpen ? 1 : -1;
-    
+
     while (index >= 0 && index < codeLines.length) {
       final currentLine = codeLines[index].text;
-      
+
       while (offset >= 0 && offset < currentLine.length) {
         // Skip the original position
         if (index == position.index && offset == position.offset) {
           offset += direction;
           continue;
         }
-        
+
         final currentChar = currentLine[offset];
-        
+
         if (currentChar == char) {
           stack += 1;
         } else if (currentChar == target) {
           stack -= 1;
         }
-        
+
         if (stack == 0) {
           return CodeLinePosition(index: index, offset: offset);
         }
-        
+
         offset += direction;
       }
-      
+
       // Move to next/previous line
       index += direction;
       offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
     }
-    
+
     return null; // No matching bracket found
   }
 }
@@ -2026,7 +2055,7 @@ class _CustomLineNumberWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    
+
     return ValueListenableBuilder<CodeIndicatorValue?>(
       valueListenable: notifier,
       builder: (context, value, child) {
@@ -2044,9 +2073,9 @@ class _CustomLineNumberWidget extends ConsumerWidget {
           ),
           customLineIndex2Text: (index) {
             final lineNumber = (index + 1).toString();
-            return highlightedLines.contains(index) 
-              ? '➤$lineNumber' 
-              : lineNumber;
+            return highlightedLines.contains(index)
+                ? '➤$lineNumber'
+                : lineNumber;
           },
         );
       },
@@ -2101,7 +2130,8 @@ class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   const CodeEditorSettingsUI({super.key, required this.settings});
 
   @override
-  ConsumerState<CodeEditorSettingsUI> createState() => _CodeEditorSettingsUIState();
+  ConsumerState<CodeEditorSettingsUI> createState() =>
+      _CodeEditorSettingsUIState();
 }
 
 class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
@@ -2169,17 +2199,16 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: _buildPluginSettingsList(context, ref),
     );
   }
-  
-    Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
+
+  Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
-    
+
     return ListView(
       children: [
         // Add a tile for command settings
@@ -2190,12 +2219,14 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => Navigator.pushNamed(context, '/command-settings'),
         ),
         // Existing plugin settings
-        ...plugins.where((p) => p.settings != null).map(
-          (plugin) => _PluginSettingsCard(
-            plugin: plugin,
-            settings: settings.pluginSettings[plugin.settings.runtimeType]!,
-          ),
-        ),
+        ...plugins
+            .where((p) => p.settings != null)
+            .map(
+              (plugin) => _PluginSettingsCard(
+                plugin: plugin,
+                settings: settings.pluginSettings[plugin.settings.runtimeType]!,
+              ),
+            ),
       ],
     );
   }
@@ -2751,7 +2782,7 @@ class SAFFileHandler implements FileHandler {
     return dir != null ? CustomSAFDocumentFile(dir) : null;
   }
 
- /* @override
+  /* @override
   Future<List<DocumentFile>> listDirectory(String? uri) async {
     try {
       final contents = await _safUtil.list(uri ?? '');
@@ -2770,8 +2801,8 @@ class SAFFileHandler implements FileHandler {
       return [];
     }
   }*/
-  
-    @override
+
+  @override
   Future<List<DocumentFile>> listDirectory(String? uri) async {
     try {
       if (uri == null) return [];
@@ -2799,25 +2830,26 @@ class SAFFileHandler implements FileHandler {
     return utf8.decode(bytes);
   }
 
-
   @override
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
     // Write file using SAF
     final parentUri = await _getParentUri(file);
     final result = await _safStream.writeFileBytes(
-      parentUri,    // Parent directory URI
-      file.name,          // Original file name
+      parentUri, // Parent directory URI
+      file.name, // Original file name
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
       overwrite: true,
     );
 
     // Get updated document metadata
-    final newFile = await _safUtil.documentFileFromUri(result.uri.toString(), false);
-    
+    final newFile = await _safUtil.documentFileFromUri(
+      result.uri.toString(),
+      false,
+    );
+
     return CustomSAFDocumentFile(newFile!);
   }
-
 
   @override
   Future<DocumentFile> createFile(String parentUri, String fileName) async {
@@ -2851,7 +2883,7 @@ class SAFFileHandler implements FileHandler {
     final prefs = await SharedPreferences.getInstance();
     final uri = prefs.getString(_prefsKey);
     if (uri == null) return null;
-    
+
     // Verify we still have access
     final file = await _safUtil.documentFileFromUri(uri, true);
     return file?.uri;
@@ -2874,16 +2906,15 @@ class SAFFileHandler implements FileHandler {
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
-  
-  Future<String> _getParentUri(DocumentFile docFile) async {
 
-  // Extract parent URI from the document URI
-  final uri = docFile.uri;
-  final lastSlash = uri.lastIndexOf('/');
-  if (lastSlash == -1) throw FormatException('No parent found');
-  
-  return uri.substring(0, lastSlash);
-}
+  Future<String> _getParentUri(DocumentFile docFile) async {
+    // Extract parent URI from the document URI
+    final uri = docFile.uri;
+    final lastSlash = uri.lastIndexOf('/');
+    if (lastSlash == -1) throw FormatException('No parent found');
+
+    return uri.substring(0, lastSlash);
+  }
 
   @override
   Future<List<DocumentFile>> pickFiles() async {
@@ -2891,7 +2922,6 @@ class SAFFileHandler implements FileHandler {
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
   }
 }
-
 
 // --------------------
 //   Command System
@@ -2928,7 +2958,8 @@ class BaseCommand extends Command {
     required super.sourcePlugin,
     required Future<void> Function(WidgetRef) execute,
     required bool Function(WidgetRef) canExecute,
-  }) : _execute = execute, _canExecute = canExecute;
+  }) : _execute = execute,
+       _canExecute = canExecute;
 
   @override
   Future<void> execute(WidgetRef ref) => _execute(ref);
@@ -2937,12 +2968,7 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-enum CommandPosition {
-  appBar,
-  pluginToolbar,
-  both,
-  hidden
-}
+enum CommandPosition { appBar, pluginToolbar, both, hidden }
 
 class CommandState {
   final List<String> appBarOrder;
@@ -2956,8 +2982,8 @@ class CommandState {
     this.hiddenOrder = const [],
     this.commandSources = const {},
   });
-  
-    CommandState copyWith({
+
+  CommandState copyWith({
     List<String>? appBarOrder,
     List<String>? pluginToolbarOrder,
     List<String>? hiddenOrder,
@@ -2993,36 +3019,34 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   Command? getCommand(String id) => _allCommands[id];
 
-
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
-      : _coreCommands = _buildCoreCommands(ref),
-        super(const CommandState()) {
+    : _coreCommands = _buildCoreCommands(ref),
+      super(const CommandState()) {
     _initializeCommands(plugins);
   }
-  
+
   List<Command> getVisibleCommands(CommandPosition position) {
     final commands = switch (position) {
       CommandPosition.appBar => [
-          ...state.appBarOrder,
-          ...state.pluginToolbarOrder.where((id) => 
-            _allCommands[id]?.defaultPosition == CommandPosition.both)
-        ],
+        ...state.appBarOrder,
+        ...state.pluginToolbarOrder.where(
+          (id) => _allCommands[id]?.defaultPosition == CommandPosition.both,
+        ),
+      ],
       CommandPosition.pluginToolbar => [
-          ...state.pluginToolbarOrder,
-          ...state.appBarOrder.where((id) => 
-            _allCommands[id]?.defaultPosition == CommandPosition.both)
-        ],
+        ...state.pluginToolbarOrder,
+        ...state.appBarOrder.where(
+          (id) => _allCommands[id]?.defaultPosition == CommandPosition.both,
+        ),
+      ],
       _ => [],
     };
-    
-    return commands
-        .map((id) => _allCommands[id])
-        .whereType<Command>()
-        .toList();
+
+    return commands.map((id) => _allCommands[id]).whereType<Command>().toList();
   }
-  
- static List<Command> _buildCoreCommands(Ref ref) => [
-   /* BaseCommand(
+
+  static List<Command> _buildCoreCommands(Ref ref) => [
+    /* BaseCommand(
       id: 'save',
       label: 'Save',
       icon: const Icon(Icons.save),
@@ -3034,28 +3058,31 @@ class CommandNotifier extends StateNotifier<CommandState> {
     ),*/
   ];
 
-void updateOrder(CommandPosition position, List<String> newOrder) {
-  switch (position) {
-    case CommandPosition.appBar:
-      state = state.copyWith(appBarOrder: newOrder);
-      break;
-    case CommandPosition.pluginToolbar:
-      state = state.copyWith(pluginToolbarOrder: newOrder);
-      break;
-    case CommandPosition.hidden:
-      state = state.copyWith(hiddenOrder: newOrder);
-      break;
-    case CommandPosition.both:
-      // Handle both position if needed
-      break;
+  void updateOrder(CommandPosition position, List<String> newOrder) {
+    switch (position) {
+      case CommandPosition.appBar:
+        state = state.copyWith(appBarOrder: newOrder);
+        break;
+      case CommandPosition.pluginToolbar:
+        state = state.copyWith(pluginToolbarOrder: newOrder);
+        break;
+      case CommandPosition.hidden:
+        state = state.copyWith(hiddenOrder: newOrder);
+        break;
+      case CommandPosition.both:
+        // Handle both position if needed
+        break;
+    }
+    _saveToPrefs();
   }
-  _saveToPrefs();
-}
 
   void _initializeCommands(Set<EditorPlugin> plugins) async {
     // Merge commands from core and plugins
-    final allCommands = [..._coreCommands, ...plugins.expand((p) => p.getCommands())];
-    
+    final allCommands = [
+      ..._coreCommands,
+      ...plugins.expand((p) => p.getCommands()),
+    ];
+
     for (final cmd in allCommands) {
       // Group by command ID
       if (_allCommands.containsKey(cmd.id)) {
@@ -3065,22 +3092,26 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
         _commandSources[cmd.id] = {cmd.sourcePlugin};
       }
     }
-    
+
     // Initial state setup
     state = CommandState(
-      appBarOrder: _coreCommands
-          .where((c) => c.defaultPosition == CommandPosition.appBar)
-          .map((c) => c.id)
-          .toList(),
-      pluginToolbarOrder: _coreCommands
-          .where((c) => c.defaultPosition == CommandPosition.pluginToolbar)
-          .map((c) => c.id)
-          .toList(),
+      appBarOrder:
+          _coreCommands
+              .where((c) => c.defaultPosition == CommandPosition.appBar)
+              .map((c) => c.id)
+              .toList(),
+      pluginToolbarOrder:
+          _coreCommands
+              .where((c) => c.defaultPosition == CommandPosition.pluginToolbar)
+              .map((c) => c.id)
+              .toList(),
       commandSources: _commandSources,
     );
-    await _loadFromPrefs(plugins); // Load saved positions after merging commands
+    await _loadFromPrefs(
+      plugins,
+    ); // Load saved positions after merging commands
   }
-  
+
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
     List<String> newAppBar = List.from(state.appBarOrder);
     List<String> newPluginToolbar = List.from(state.pluginToolbarOrder);
@@ -3114,49 +3145,66 @@ void updateOrder(CommandPosition position, List<String> newOrder) {
     _saveToPrefs();
   }
 
-  
-
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
+    await prefs.setStringList(
+      'command_plugin_toolbar',
+      state.pluginToolbarOrder,
+    );
     await prefs.setStringList('command_hidden', state.hiddenOrder);
   }
-  
-Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
+
+  Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
     final prefs = await SharedPreferences.getInstance();
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     final hidden = prefs.getStringList('command_hidden') ?? [];
 
-    final allCommands = [
+    final allCommands =
+        [
           ..._coreCommands,
-          ...ref.read(activePluginsProvider).expand((p) => p.getCommands())
+          ...ref.read(activePluginsProvider).expand((p) => p.getCommands()),
         ].map((c) => c.id).toSet();
 
     // Merge saved positions with default positions for new commands
     state = state.copyWith(
       appBarOrder: _mergePosition(
         saved: appBar,
-        defaultIds: allCommands
-            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.appBar)
-            .toList(),
+        defaultIds:
+            allCommands
+                .where(
+                  (id) =>
+                      _getCommand(id)?.defaultPosition ==
+                      CommandPosition.appBar,
+                )
+                .toList(),
       ),
       pluginToolbarOrder: _mergePosition(
         saved: pluginToolbar,
-        defaultIds: allCommands
-            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.pluginToolbar)
-            .toList(),
+        defaultIds:
+            allCommands
+                .where(
+                  (id) =>
+                      _getCommand(id)?.defaultPosition ==
+                      CommandPosition.pluginToolbar,
+                )
+                .toList(),
       ),
       hiddenOrder: _mergePosition(
         saved: hidden,
-        defaultIds: allCommands
-            .where((id) => _getCommand(id)?.defaultPosition == CommandPosition.hidden)
-            .toList(),
+        defaultIds:
+            allCommands
+                .where(
+                  (id) =>
+                      _getCommand(id)?.defaultPosition ==
+                      CommandPosition.hidden,
+                )
+                .toList(),
       ),
     );
   }
-  
+
   Command? _getCommand(String id) {
     return _allCommands[id];
   }
@@ -3167,16 +3215,14 @@ Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
   }) {
     // 1. Start with saved commands that still exist
     final validSaved = saved.where((id) => _getCommand(id) != null).toList();
-    
+
     // 2. Add default commands that weren't saved
-    final newDefaults = defaultIds
-        .where((id) => !validSaved.contains(id))
-        .toList();
-    
+    final newDefaults =
+        defaultIds.where((id) => !validSaved.contains(id)).toList();
+
     // 3. Preserve saved order + append new defaults
     return [...validSaved, ...newDefaults];
   }
-
 }
 
 // --------------------
@@ -3189,7 +3235,7 @@ class AppBarCommands extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final commands = ref.watch(appBarCommandsProvider);
-    
+
     return Row(
       children: commands.map((cmd) => CommandButton(command: cmd)).toList(),
     );
@@ -3203,7 +3249,7 @@ class BottomToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = ref.watch(bottomToolbarScrollProvider);
     final commands = ref.watch(pluginToolbarCommandsProvider);
-    
+
     return Container(
       height: 48,
       color: Colors.grey[900],
@@ -3212,10 +3258,9 @@ class BottomToolbar extends ConsumerWidget {
         controller: scrollController,
         scrollDirection: Axis.horizontal,
         itemCount: commands.length,
-        itemBuilder: (context, index) => CommandButton(
-          command: commands[index],
-          showLabel: true,
-        ),
+        itemBuilder:
+            (context, index) =>
+                CommandButton(command: commands[index], showLabel: true),
       ),
     );
   }
@@ -3224,7 +3269,7 @@ class BottomToolbar extends ConsumerWidget {
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
-  
+
   const CommandButton({
     super.key,
     required this.command,
@@ -3254,27 +3299,49 @@ class CommandSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
-    print('Current Command State: ${state.appBarOrder} | '
-      '${state.pluginToolbarOrder} | ${state.hiddenOrder}');
-    
+    print(
+      'Current Command State: ${state.appBarOrder} | '
+      '${state.pluginToolbarOrder} | ${state.hiddenOrder}',
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
       body: ListView(
         shrinkWrap: true,
         children: [
-          _buildSection(context, ref, 'App Bar Commands', 
-            state.appBarOrder, CommandPosition.appBar),
-          _buildSection(context, ref, 'Plugin Toolbar Commands',
-            state.pluginToolbarOrder, CommandPosition.pluginToolbar),
-          _buildSection(context, ref, 'Hidden Commands',
-            state.hiddenOrder, CommandPosition.hidden),
+          _buildSection(
+            context,
+            ref,
+            'App Bar Commands',
+            state.appBarOrder,
+            CommandPosition.appBar,
+          ),
+          _buildSection(
+            context,
+            ref,
+            'Plugin Toolbar Commands',
+            state.pluginToolbarOrder,
+            CommandPosition.pluginToolbar,
+          ),
+          _buildSection(
+            context,
+            ref,
+            'Hidden Commands',
+            state.hiddenOrder,
+            CommandPosition.hidden,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSection(BuildContext context, WidgetRef ref, String title, 
-      List<String> commandIds, CommandPosition position) {
+  Widget _buildSection(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+    List<String> commandIds,
+    CommandPosition position,
+  ) {
     final state = ref.watch(commandProvider);
     return ExpansionTile(
       title: Text(title),
@@ -3284,31 +3351,35 @@ class CommandSettingsScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: commandIds.length,
-          itemBuilder: (ctx, index) => _buildCommandItem(
-            context,
-            ref,
-            commandIds[index],
-            state.commandSources[commandIds[index]]!,
-          ),
-          onReorder: (oldIndex, newIndex) => 
-            _handleReorder(ref, position, oldIndex, newIndex, commandIds),
+          itemBuilder:
+              (ctx, index) => _buildCommandItem(
+                context,
+                ref,
+                commandIds[index],
+                state.commandSources[commandIds[index]]!,
+              ),
+          onReorder:
+              (oldIndex, newIndex) =>
+                  _handleReorder(ref, position, oldIndex, newIndex, commandIds),
         ),
       ],
     );
   }
 
-  Widget _buildCommandItem(BuildContext context, WidgetRef ref,
-      String commandId, Set<String> sources) {
+  Widget _buildCommandItem(
+    BuildContext context,
+    WidgetRef ref,
+    String commandId,
+    Set<String> sources,
+  ) {
     final notifier = ref.read(commandProvider.notifier);
     final command = notifier._allCommands[commandId]!;
-    
+
     return ListTile(
       key: ValueKey(commandId),
       leading: command.icon,
       title: Text(command.label),
-      subtitle: sources.length > 1 
-          ? Text('From: ${sources.join(', ')}')
-          : null,
+      subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
       trailing: IconButton(
         icon: const Icon(Icons.more_vert),
         onPressed: () => _showPositionMenu(context, ref, command),
@@ -3316,36 +3387,44 @@ class CommandSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _handleReorder(WidgetRef ref, CommandPosition position, 
-      int oldIndex, int newIndex, List<String> currentOrder) {
+  void _handleReorder(
+    WidgetRef ref,
+    CommandPosition position,
+    int oldIndex,
+    int newIndex,
+    List<String> currentOrder,
+  ) {
     if (oldIndex < newIndex) newIndex--;
     final item = currentOrder.removeAt(oldIndex);
     currentOrder.insert(newIndex, item);
 
-    ref.read(commandProvider.notifier).updateOrder(
-      position,
-      currentOrder,
-    );
+    ref.read(commandProvider.notifier).updateOrder(position, currentOrder);
   }
 
   void _showPositionMenu(BuildContext context, WidgetRef ref, Command command) {
     final notifier = ref.read(commandProvider.notifier);
-    
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Position for ${command.label}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: CommandPosition.values.map((pos) => ListTile(
-            title: Text(pos.toString().split('.').last),
-            onTap: () {
-              notifier.updateCommandPosition(command.id, pos);
-              Navigator.pop(ctx);
-            },
-          )).toList(),
-        ),
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Position for ${command.label}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children:
+                  CommandPosition.values
+                      .map(
+                        (pos) => ListTile(
+                          title: Text(pos.toString().split('.').last),
+                          onTap: () {
+                            notifier.updateCommandPosition(command.id, pos);
+                            Navigator.pop(ctx);
+                          },
+                        ),
+                      )
+                      .toList(),
+            ),
+          ),
     );
   }
 }
