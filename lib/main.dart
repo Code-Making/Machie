@@ -819,7 +819,7 @@ class CodeEditorTab extends EditorTab {
     return CodeEditorTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      isDirty: isDirty ?? this.isDirty,
+      isDirty: isDirty ?? super.isDirty,
       controller: controller ?? this.controller,
       commentFormatter: commentFormatter ?? this.commentFormatter,
     );
