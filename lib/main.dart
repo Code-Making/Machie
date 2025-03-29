@@ -972,7 +972,7 @@ class EditorScreen extends ConsumerWidget {
           Expanded(
             child:
                 currentTab != null
-                    ? EditorContentSwitcher(tab: currentTab)
+                    ? EditorContentSwitcher()
                     : const Center(child: Text('Open file')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
