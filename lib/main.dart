@@ -690,7 +690,7 @@ class SessionNotifier extends Notifier<SessionState> {
   final current = state;
   final currentTab = current.currentTab;
   
-  if (currentTab is! CodeEditorTab || currentTab.isDirty) return;
+  if (currentTab.isDirty == true) return;
   
   state = current.copyWith(
     tabs: current.tabs.map((t) => t == currentTab 
