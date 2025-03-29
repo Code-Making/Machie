@@ -689,8 +689,8 @@ class SessionNotifier extends Notifier<SessionState> {
   void markCurrentTabDirty() {
   final current = state;
   final currentTab = current.currentTab;
-  
-  if (currentTab.isDirty == true) return;
+  if (currentTab == null) return;
+  if (currentTab!.isDirty == true) return;
   
   state = current.copyWith(
     tabs: current.tabs.map((t) => t == currentTab 
