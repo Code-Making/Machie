@@ -679,13 +679,19 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   Future<void> openFile(DocumentFile file) async {
-    state = await _manager.openFile(state, file);
+    final newState = await _manager.openFile(state, file);
+    state = newState.copyWith(
+      currentPluginType: newState.currentTab?.plugin.runtimeType,
+    );
   }
 
   void switchTab(int index) {
     ref.read(focusNodeProvider).unfocus();
     final prevTab = state.currentTab;
-    state = state.copyWith(currentTabIndex: index);
+    state = state.copyWith(
+        currentTabIndex: index,
+        currentPluginType: state.tabs[index].plugin.runtimeType,
+    );
     _handlePluginLifecycle(prevTab, state.currentTab);
     ref.read(focusNodeProvider).unfocus();
   }
