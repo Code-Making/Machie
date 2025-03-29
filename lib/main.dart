@@ -2875,12 +2875,12 @@ class SAFFileHandler implements FileHandler {
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
   
-  Future<String?> _getParentUri(DocumentFile docFile) async {
+  Future<String> _getParentUri(DocumentFile docFile) async {
 
   // Extract parent URI from the document URI
   final uri = docFile.uri;
   final lastSlash = uri.lastIndexOf('/');
-  if (lastSlash == -1) return null;
+  if (lastSlash == -1) throw;
   
   return uri.substring(0, lastSlash);
 }
