@@ -538,7 +538,7 @@ class SessionManager {
     bool isDirty = tab.isDirty;
     try {
       // Save file content
-      await _fileHandler.writeFile(tab.file.uri, tab.contentString);
+      await _fileHandler.writeFile(tab.file.name, tab.contentString);
       isDirty = false;
       // Return updated tab with clean state
     } catch (e, st) {
