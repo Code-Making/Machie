@@ -1762,7 +1762,7 @@ class __CodeEditorMachineState extends State<_CodeEditorMachine> {
             fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
             codeTheme: CodeHighlightTheme(
               theme: atomOneDarkTheme,
-              languages: _getLanguageMode(widget.controller),
+              languages: _getLanguageMode("lol.dart"),
             ),
           ),
           wordWrap: settings?.wordWrap ?? false,
