@@ -1813,7 +1813,7 @@ class ListenerManager extends StateNotifier<void> {
         t == currentTab ? newTab : t
       ).toList();
       
-      _ref.read(sessionProvider.notifier).updateTabs(newTabs);
+      ref.read(sessionProvider.notifier).updateTabs(newTabs);
     };
 
     // Store listeners
