@@ -746,14 +746,6 @@ Future<void> saveTab(int index) async {
       tabs: newTabs,
       lastSaved: DateTime.now(),
     );
-    
-    // If saving current tab, ensure plugins get updated
-    if (index == current.currentTabIndex) {
-      _handlePluginLifecycle(
-        oldTab: savedTab,
-        newTab: newTab,
-      );
-    }
   } catch (e) {
     ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
   }
@@ -781,7 +773,7 @@ Future<void> saveTab(int index) async {
 abstract class EditorTab {
   final DocumentFile file;
   final EditorPlugin plugin;
-  bool isDirty;
+  bool isDirty = false;
 
   EditorTab({required this.file, required this.plugin, this.isDirty = false});
   String get contentString;
