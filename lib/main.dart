@@ -805,7 +805,7 @@ class CodeEditorTab extends EditorTab {
   
   @override
   String get contentString{
-      return this.controller?.value ?? "";
+      return this.controller?.text ?? "";
   }
 }
 
