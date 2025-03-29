@@ -963,7 +963,7 @@ class EditorScreen extends ConsumerWidget {
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
-        title: Text(currentTab != null ? currentTab.file.name : 'Code Editor'),
+        title: Text(currentUri != null ? currentUri : 'Code Editor'),
       ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
@@ -971,7 +971,7 @@ class EditorScreen extends ConsumerWidget {
           const TabBarView(),
           Expanded(
             child:
-                currentTab != null
+                currentUri != null
                     ? EditorContentSwitcher()
                     : const Center(child: Text('Open file')),
           ),
