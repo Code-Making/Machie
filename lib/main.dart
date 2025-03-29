@@ -2803,8 +2803,9 @@ class SAFFileHandler implements FileHandler {
   @override
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
     // Write file using SAF
+    final parentUri = await _getParentUri(file);
     final result = await _safStream.writeFileBytes(
-      file.uri,    // Parent directory URI
+      parentUri,    // Parent directory URI
       file.name,          // Original file name
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
@@ -2873,6 +2874,16 @@ class SAFFileHandler implements FileHandler {
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
+  
+  Future<String?> getParentUri(DocumentFile docFile) async {
+
+  // Extract parent URI from the document URI
+  final uri = docFile.uri;
+  final lastSlash = uri.lastIndexOf('/');
+  if (lastSlash == -1) return null;
+  
+  return uri.substring(0, lastSlash);
+}
 
   @override
   Future<List<DocumentFile>> pickFiles() async {
