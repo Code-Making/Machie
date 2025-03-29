@@ -399,14 +399,12 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
 class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
-  final Type? currentPluginType;
   final DocumentFile? currentDirectory;
   final DateTime? lastSaved;
 
   const SessionState({
     this.tabs = const [],
     this.currentTabIndex = 0,
-    this.currentPluginType,
     this.currentDirectory,
     this.lastSaved,
   });
@@ -416,14 +414,12 @@ class SessionState {
   SessionState copyWith({
     List<EditorTab>? tabs,
     int? currentTabIndex,
-    Type? currentPluginType,
     DocumentFile? currentDirectory,
     DateTime? lastSaved,
   }) {
     return SessionState(
       tabs: tabs ?? this.tabs,
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
-      currentPluginType: currentPluginType ?? this.currentPluginType,
       currentDirectory: currentDirectory ?? this.currentDirectory,
       lastSaved: lastSaved ?? this.lastSaved,
     );
@@ -679,19 +675,13 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   Future<void> openFile(DocumentFile file) async {
-    final newState = await _manager.openFile(state, file);
-    state = newState.copyWith(
-      currentPluginType: newState.currentTab?.plugin.runtimeType,
-    );
+    state = await _manager.openFile(state, file);
   }
 
   void switchTab(int index) {
     ref.read(focusNodeProvider).unfocus();
     final prevTab = state.currentTab;
-    state = state.copyWith(
-        currentTabIndex: index,
-        currentPluginType: state.tabs[index].plugin.runtimeType,
-    );
+    state = state.copyWith(currentTabIndex: index);
     _handlePluginLifecycle(prevTab, state.currentTab);
     ref.read(focusNodeProvider).unfocus();
   }
@@ -982,7 +972,7 @@ class EditorScreen extends ConsumerWidget {
           Expanded(
             child:
                 currentTab != null
-                    ? EditorContentSwitcher()
+                    ? EditorContentSwitcher(tab: currentTab)
                     : const Center(child: Text('Open file')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
@@ -1156,15 +1146,48 @@ class CodeEditorPlugin implements EditorPlugin {
     LogicalKeyboardKey.arrowRight: AxisDirection.right,
   };
 
-@override
-Widget buildEditor(EditorTab tab, WidgetRef ref) {
-  final codeTab = tab as CodeEditorTab;
-  return _CodeEditorMachine(
-    key: ValueKey(codeTab.file.uri), // Unique key per file
-    controller: codeTab.controller,
-    commentFormatter: codeTab.commentFormatter,
-  );
-}
+  @override
+  Widget buildEditor(EditorTab tab, WidgetRef ref) {
+    final codeTab = tab as CodeEditorTab;
+    final settings = ref.watch(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
+    final editorFocusNode = ref.watch(focusNodeProvider);
+    return Focus(
+      autofocus: false,
+      focusNode: editorFocusNode,
+      canRequestFocus: false,
+      onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
+      child: CodeEditor(
+        autofocus: false,
+        controller: codeTab.controller,
+        commentFormatter: codeTab.commentFormatter,
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
+          return _CustomEditorIndicator(
+            controller: editingController,
+            chunkController: chunkController,
+            notifier: notifier,
+          );
+        },
+        style: CodeEditorStyle(
+          fontSize: settings?.fontSize ?? 12,
+          fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            theme: atomOneDarkTheme,
+            languages: _getLanguageMode(codeTab.file.uri),
+          ),
+        ),
+        wordWrap: settings?.wordWrap ?? false,
+      ),
+    );
+  }
 
   TextSpan _buildHighlightingSpan({
     required BuildContext context,
@@ -1730,50 +1753,62 @@ Widget buildEditor(EditorTab tab, WidgetRef ref) {
   }
 }
 
-class _CodeEditorMachine extends StatefulWidget {
+class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
+  final CodeEditorStyle? style;
   final CodeCommentFormatter? commentFormatter;
+  final CodeIndicatorBuilder? indicatorBuilder;
+  final bool? wordWrap;
 
-  const _CodeEditorMachine({
+  const CodeEditorMachine({
     super.key,
     required this.controller,
+    this.style,
     this.commentFormatter,
+    this.indicatorBuilder,
+    this.wordWrap,
   });
 
   @override
-  State<_CodeEditorMachine> createState() => __CodeEditorMachineState();
+  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
 }
 
-class __CodeEditorMachineState extends State<_CodeEditorMachine> {
+class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) {
-        // Selective watching of settings
-        final settings = ref.watch(settingsProvider.select(
-          (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-        ));
-
-        return CodeEditor(
-          controller: widget.controller,
-          commentFormatter: widget.commentFormatter,
-          style: CodeEditorStyle(
-            fontSize: settings?.fontSize ?? 12,
-            fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-            codeTheme: CodeHighlightTheme(
-              theme: atomOneDarkTheme,
-              languages: _getLanguageMode("lol.dart"),
-            ),
-          ),
-          wordWrap: settings?.wordWrap ?? false,
-        );
-      },
-    );
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_updateUndoState);
   }
 
-  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
-    return {'dart': CodeHighlightThemeMode(mode: langDart)};
+  @override
+  void didUpdateWidget(CodeEditorMachine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_updateUndoState);
+      widget.controller.addListener(_updateUndoState);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_updateUndoState);
+    super.dispose();
+  }
+
+  void _updateUndoState() {
+    ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
+    ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CodeEditor(
+      controller: widget.controller,
+      style: widget.style,
+      commentFormatter: widget.commentFormatter,
+      indicatorBuilder: widget.indicatorBuilder,
+      wordWrap: widget.wordWrap,
+    );
   }
 }
 
@@ -2244,59 +2279,21 @@ class _PluginSettingsCard extends ConsumerWidget {
 // --------------------
 
 class EditorContentSwitcher extends ConsumerWidget {
-  const EditorContentSwitcher({super.key});
+  final EditorTab tab;
+
+  const EditorContentSwitcher({super.key, required this.tab});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTabPluginType = ref.watch(
-      sessionProvider.select((s) => s.currentTab?.plugin.runtimeType),
-    );
-    final currentTabUri = ref.watch(
-      sessionProvider.select((s) => s.currentTab?.file.uri),
-    );
-
-    return ProviderScope(
-      key: ValueKey(currentTabUri), // Preserve state for same URI
-      child: Consumer(
-        builder: (context, ref, _) {
-          final tab = ref.watch(sessionProvider
-              .select((s) => s.currentTab));
-          
-          if (tab == null) return const Center(child: Text('Open file'));
-          
-          return _EditorContentCache(
-            pluginType: tab.plugin.runtimeType,
-            child: tab.plugin.buildEditor(tab, ref),
-          );
-        },
-      ),
-    );
+    try {
+      return tab.plugin.buildEditor(tab, ref);
+    } catch (e) {
+      return ErrorWidget.withDetails(
+        message: 'Failed to load editor: ${e.toString()}',
+        error: FlutterError(e.toString()),
+      );
+    }
   }
-}
-
-class _EditorContentCache extends StatelessWidget {
-  final Type pluginType;
-  final Widget child;
-
-  const _EditorContentCache({
-    required this.pluginType,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return child;
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other is _EditorContentCache &&
-            other.pluginType == pluginType);
-  }
-
-  @override
-  int get hashCode => pluginType.hashCode;
 }
 
 class FileTypeIcon extends ConsumerWidget {
