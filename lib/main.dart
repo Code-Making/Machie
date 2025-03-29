@@ -1161,6 +1161,7 @@ class CodeEditorPlugin implements EditorPlugin {
       canRequestFocus: false,
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
+        key: ValueKey(codeTab.file.uri),
         autofocus: false,
         controller: codeTab.controller,
         commentFormatter: codeTab.commentFormatter,
@@ -2279,20 +2280,26 @@ class _PluginSettingsCard extends ConsumerWidget {
 // --------------------
 
 class EditorContentSwitcher extends ConsumerWidget {
-  final EditorTab tab;
-
-  const EditorContentSwitcher({super.key, required this.tab});
+  const EditorContentSwitcher({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    try {
-      return tab.plugin.buildEditor(tab, ref);
-    } catch (e) {
-      return ErrorWidget.withDetails(
-        message: 'Failed to load editor: ${e.toString()}',
-        error: FlutterError(e.toString()),
-      );
-    }
+    final currentUri = ref.watch(
+      sessionProvider.select((s) => s.currentTab?.file.uri),
+    );
+
+    return KeyedSubtree(
+      key: ValueKey(currentUri),
+      child: _EditorContentProxy(),
+    );
+  }
+}
+
+class _EditorContentProxy extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tab = ref.read(sessionProvider).currentTab;
+    return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }
 
