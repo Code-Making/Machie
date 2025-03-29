@@ -534,7 +534,7 @@ class SessionManager {
     );
   }
   
-  Future<EditorTab> saveTabFile(EditorTab tab) async {
+  Future<void> saveTabFile(EditorTab tab) async {
     bool isDirty = tab.isDirty;
     try {
       // Save file content
@@ -545,7 +545,7 @@ class SessionManager {
       print('Save failed: $e\n$st');
       //rethrow;
     } finally{
-        return tab.copyWith(isDirty: isDirty);
+        tab.isDirty = isDirty;
     }
   }
 
