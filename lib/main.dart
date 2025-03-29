@@ -773,7 +773,7 @@ Future<void> saveTab(int index) async {
 abstract class EditorTab {
   final DocumentFile file;
   final EditorPlugin plugin;
-  bool isDirty = false;
+  bool isDirty;
 
   EditorTab({required this.file, required this.plugin, this.isDirty = false});
   String get contentString;
@@ -796,6 +796,7 @@ class CodeEditorTab extends EditorTab {
     required this.controller,
     required super.plugin,
     required this.commentFormatter,
+    super.isDirty = false,
   });
 
   @override
