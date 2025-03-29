@@ -2685,7 +2685,7 @@ abstract class FileHandler {
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
-  Future<void> writeFile(String uri, String content);
+  Future<DocumentFile> writeFile(DocumentFile file, String content);
   Future<DocumentFile> createFile(String parentUri, String fileName);
   Future<void> deleteFile(String uri);
 
