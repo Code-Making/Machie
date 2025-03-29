@@ -2980,7 +2980,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   }
   
  static List<Command> _buildCoreCommands(Ref ref) => [
-    BaseCommand(
+   /* BaseCommand(
       id: 'save',
       label: 'Save',
       icon: const Icon(Icons.save),
@@ -2989,7 +2989,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
       execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
       canExecute: (ref) => ref.watch(sessionProvider
           .select((s) => s.currentTab?.isDirty ?? false)),
-    ),
+    ),*/
   ];
 
 void updateOrder(CommandPosition position, List<String> newOrder) {
