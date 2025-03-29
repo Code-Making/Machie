@@ -972,7 +972,7 @@ class EditorScreen extends ConsumerWidget {
           Expanded(
             child:
                 currentTab != null
-                    ? EditorContentSwitcher()
+                    ? EditorContentSwitcher(tab: currentTab)
                     : const Center(child: Text('Open file')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
@@ -1128,10 +1128,10 @@ class CodeEditorPlugin implements EditorPlugin {
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
-    WidgetsBinding.instance.addPostFrameCallback(
+
     (_){
        controller.makeCursorVisible();
- });
+    });
   }
 
   @override
@@ -1163,7 +1163,7 @@ class CodeEditorPlugin implements EditorPlugin {
       canRequestFocus: false,
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
-        key: ValueKey(codeTab.file.uri),
+    
         autofocus: false,
         controller: codeTab.controller,
         commentFormatter: codeTab.commentFormatter,
