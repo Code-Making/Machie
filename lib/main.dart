@@ -534,18 +534,17 @@ class SessionManager {
     );
   }
   
-  Future<EditorTab> saveTabFile(EditorTab tab) async {
-    bool isDirty = tab.isDirty;
+Future<EditorTab> saveTabFile(EditorTab tab) async {
     try {
-      // Save file content
-      await _fileHandler.writeFile(tab.file, tab.contentString);
-      isDirty = false;
-      // Return updated tab with clean state
+      final newFile = await _fileHandler.writeFile(tab.file, tab.contentString);
+
+      return tab.copyWith(
+        file: newFile,
+        isDirty: false,
+      );
     } catch (e, st) {
       print('Save failed: $e\n$st');
-      //rethrow;
-    } finally{
-        return tab.copyWith(isDirty: isDirty);
+      return tab;
     }
   }
 
