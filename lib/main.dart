@@ -2721,7 +2721,7 @@ class CustomSAFDocumentFile implements DocumentFile {
       DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
 
   @override
-  String? get mimeType {
+  String get mimeType {
     if (_safFile.isDir) return 'inode/directory';
     final ext = name.split('.').lastOrNull?.toLowerCase();
     return _mimeTypes[ext] ?? 'application/octet-stream';
