@@ -738,7 +738,7 @@ class SessionNotifier extends Notifier<SessionState> {
   
   try {
     await _manager.saveTabFile(savedTab);
-    /*
+    
     final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
     
     state = current.copyWith(
@@ -752,7 +752,7 @@ class SessionNotifier extends Notifier<SessionState> {
         oldTab: savedTab,
         newTab: newTab,
       );
-    }*/
+    }
   } catch (e) {
     ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
   }
