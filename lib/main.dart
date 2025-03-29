@@ -534,7 +534,7 @@ class SessionManager {
     );
   }
   
-  Future<void> saveTabFile(EditorTab tab) async {
+  Future<EditorTab> saveTabFile(EditorTab tab) async {
     bool isDirty = tab.isDirty;
     try {
       // Save file content
@@ -545,7 +545,7 @@ class SessionManager {
       print('Save failed: $e\n$st');
       //rethrow;
     } finally{
-        tab.isDirty = isDirty;
+        return tab.copyWith(isDirty: isDirty);
     }
   }
 
@@ -730,22 +730,30 @@ class SessionNotifier extends Notifier<SessionState> {
     }
   }
   
-  Future<void> saveTab(int index) async {
+Future<void> saveTab(int index) async {
   final current = state;
   if (index < 0 || index >= current.tabs.length) return;
 
   final savedTab = current.tabs[index];
   
   try {
-    await _manager.saveTabFile(savedTab);
+    final newTab = await _manager.saveTabFile(savedTab);
     
-    final newTabs = current.tabs;
+    // Create new immutable state
+    final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
     
     state = current.copyWith(
       tabs: newTabs,
       lastSaved: DateTime.now(),
     );
     
+    // If saving current tab, ensure plugins get updated
+    if (index == current.currentTabIndex) {
+      _handlePluginLifecycle(
+        oldTab: savedTab,
+        newTab: newTab,
+      );
+    }
   } catch (e) {
     ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
   }
@@ -778,6 +786,13 @@ abstract class EditorTab {
   EditorTab({required this.file, required this.plugin, this.isDirty = false});
   String get contentString;
   void dispose();
+  
+EditorTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+    bool? isDirty,
+  });
+    
 }
 
 class CodeEditorTab extends EditorTab {
@@ -799,6 +814,23 @@ class CodeEditorTab extends EditorTab {
   @override
   String get contentString{
       return this.controller?.text ?? "";
+  }
+  
+@override
+  CodeEditorTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+    bool? isDirty,
+    CodeLineEditingController? controller,
+    CodeCommentFormatter? commentFormatter,
+  }) {
+    return CodeEditorTab(
+      file: file ?? this.file,
+      plugin: plugin ?? this.plugin,
+      isDirty: isDirty ?? this.isDirty,
+      controller: controller ?? this.controller,
+      commentFormatter: commentFormatter ?? this.commentFormatter,
+    );
   }
 }
 
