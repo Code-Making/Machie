@@ -538,7 +538,7 @@ class SessionManager {
     bool isDirty = tab.isDirty;
     try {
       // Save file content
-      await _fileHandler.writeFile(tab.file.name, tab.contentString);
+      await _fileHandler.writeFile(tab.file, tab.contentString);
       isDirty = false;
       // Return updated tab with clean state
     } catch (e, st) {
@@ -2799,10 +2799,7 @@ class SAFFileHandler implements FileHandler {
 
 
   @override
-  Future<DocumentFile> writeFile({
-    required DocumentFile file,
-    required String content,
-  }) async {
+  Future<DocumentFile> writeFile(DocumentFile file, String content) async {
     // Write file using SAF
     final result = await _safStream.writeFileBytes(
       file.uri!,    // Parent directory URI
