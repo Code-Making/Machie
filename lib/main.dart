@@ -2797,10 +2797,6 @@ class SAFFileHandler implements FileHandler {
     return utf8.decode(bytes);
   }
 
-// In SAFFileHandler
-class SAFFileHandler implements FileHandler {
-  final SafUtil _safUtil = SafUtil();
-  final SafStream _safStream = SafStream();
 
   @override
   Future<DocumentFile> writeFile({
@@ -2821,30 +2817,7 @@ class SAFFileHandler implements FileHandler {
     
     return CustomSAFDocumentFile(newFile);
   }
-}
-// In SessionManager
-Future<EditorTab> saveTabFile(EditorTab tab) async {
-  try {
-    final handler = ref.read(fileHandlerProvider);
-    
-    // Get clean filename from DocumentFile.name
-    final fileName = tab.file.name;
-    
-    // Save using explicit filename and parent URI
-    final newFile = await handler.writeFile(
-      file: tab.file,
-      content: tab.contentString,
-    );
 
-    return tab.copyWith(
-      isDirty: false,
-      file: newFile,
-    );
-  } catch (e, st) {
-    print('Save failed: $e\n$st');
-    return tab;
-  }
-}
 
   @override
   Future<DocumentFile> createFile(String parentUri, String fileName) async {
