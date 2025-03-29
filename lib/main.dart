@@ -686,6 +686,20 @@ class SessionNotifier extends Notifier<SessionState> {
     ref.read(focusNodeProvider).unfocus();
   }
   
+  void markCurrentTabDirty() {
+  final current = state;
+  final currentTab = current.currentTab;
+  
+  if (currentTab is! CodeEditorTab || currentTab.isDirty) return;
+  
+  state = current.copyWith(
+    tabs: current.tabs.map((t) => t == currentTab 
+      ? currentTab.copyWith(isDirty: true) 
+      : t
+    ).toList()
+  );
+}
+  
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
 
     if (oldTab != null) {
@@ -1802,18 +1816,7 @@ class ListenerManager extends StateNotifier<void> {
     };
     
     final changeListener = () {
-      final currentState = ref.read(sessionProvider);
-      final currentTab = currentState.currentTab;
-      
-      if (currentTab is! CodeEditorTab || currentTab.isDirty) return;
-      
-      // Create new immutable tab and state
-      final newTab = currentTab.copyWith(isDirty: true);
-      final newTabs = currentState.tabs.map((t) => 
-        t == currentTab ? newTab : t
-      ).toList();
-      
-      ref.read(sessionProvider.notifier).updateTabs(newTabs);
+     ref.read(sessionProvider.notifier).markCurrentTabDirty();
     };
 
     // Store listeners
