@@ -2687,7 +2687,7 @@ abstract class FileHandler {
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
-  Future<DocumentFile> writeFile(DocumentFile file, String content);
+  Future<DocumentFile> writeFile(DocumentFile tree, DocumentFile file, String content);
   Future<DocumentFile> createFile(String parentUri, String fileName);
   Future<void> deleteFile(String uri);
 
@@ -2801,10 +2801,10 @@ class SAFFileHandler implements FileHandler {
 
 
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) async {
+  Future<DocumentFile> writeFile(DocumentFile tree, DocumentFile file, String content) async {
     // Write file using SAF
     final result = await _safStream.writeFileBytes(
-      file.uri!,    // Parent directory URI
+      tree.uri!,    // Parent directory URI
       file.name,          // Original file name
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
