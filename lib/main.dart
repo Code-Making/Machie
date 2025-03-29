@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 import 'package:collection/collection.dart';
+import 'flutter/scheduler.dart';
 
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
@@ -1128,8 +1129,10 @@ class CodeEditorPlugin implements EditorPlugin {
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
-
-    controller.makeCursorVisible();
+    SchedulerBinding.instance.addPostFrameCallback(
+    (_){
+       controller.makeCursorVisible();
+ })
   }
 
   @override
