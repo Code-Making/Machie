@@ -1146,48 +1146,15 @@ class CodeEditorPlugin implements EditorPlugin {
     LogicalKeyboardKey.arrowRight: AxisDirection.right,
   };
 
-  @override
-  Widget buildEditor(EditorTab tab, WidgetRef ref) {
-    final codeTab = tab as CodeEditorTab;
-    final settings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
-    final editorFocusNode = ref.watch(focusNodeProvider);
-    return Focus(
-      autofocus: false,
-      focusNode: editorFocusNode,
-      canRequestFocus: false,
-      onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
-      child: CodeEditor(
-        autofocus: false,
-        controller: codeTab.controller,
-        commentFormatter: codeTab.commentFormatter,
-        indicatorBuilder: (
-          context,
-          editingController,
-          chunkController,
-          notifier,
-        ) {
-          return _CustomEditorIndicator(
-            controller: editingController,
-            chunkController: chunkController,
-            notifier: notifier,
-          );
-        },
-        style: CodeEditorStyle(
-          fontSize: settings?.fontSize ?? 12,
-          fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-          codeTheme: CodeHighlightTheme(
-            theme: atomOneDarkTheme,
-            languages: _getLanguageMode(codeTab.file.uri),
-          ),
-        ),
-        wordWrap: settings?.wordWrap ?? false,
-      ),
-    );
-  }
+@override
+Widget buildEditor(EditorTab tab, WidgetRef ref) {
+  final codeTab = tab as CodeEditorTab;
+  return _CodeEditorMachine(
+    key: ValueKey(codeTab.file.uri), // Unique key per file
+    controller: codeTab.controller,
+    commentFormatter: codeTab.commentFormatter,
+  );
+}
 
   TextSpan _buildHighlightingSpan({
     required BuildContext context,
@@ -1753,62 +1720,50 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 }
 
-class CodeEditorMachine extends ConsumerStatefulWidget {
+class _CodeEditorMachine extends StatefulWidget {
   final CodeLineEditingController controller;
-  final CodeEditorStyle? style;
   final CodeCommentFormatter? commentFormatter;
-  final CodeIndicatorBuilder? indicatorBuilder;
-  final bool? wordWrap;
 
-  const CodeEditorMachine({
+  const _CodeEditorMachine({
     super.key,
     required this.controller,
-    this.style,
     this.commentFormatter,
-    this.indicatorBuilder,
-    this.wordWrap,
   });
 
   @override
-  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
+  State<_CodeEditorMachine> createState() => __CodeEditorMachineState();
 }
 
-class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_updateUndoState);
-  }
-
-  @override
-  void didUpdateWidget(CodeEditorMachine oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_updateUndoState);
-      widget.controller.addListener(_updateUndoState);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_updateUndoState);
-    super.dispose();
-  }
-
-  void _updateUndoState() {
-    ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
-    ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
-  }
-
+class __CodeEditorMachineState extends State<_CodeEditorMachine> {
   @override
   Widget build(BuildContext context) {
-    return CodeEditor(
-      controller: widget.controller,
-      style: widget.style,
-      commentFormatter: widget.commentFormatter,
-      indicatorBuilder: widget.indicatorBuilder,
-      wordWrap: widget.wordWrap,
+    return Consumer(
+      builder: (context, ref, _) {
+        // Selective watching of settings
+        final settings = ref.watch(settingsProvider.select(
+          (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+        ));
+
+        return CodeEditor(
+          controller: widget.controller,
+          commentFormatter: widget.commentFormatter,
+          style: CodeEditorStyle(
+            fontSize: settings?.fontSize ?? 12,
+            fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
+            codeTheme: CodeHighlightTheme(
+              theme: atomOneDarkTheme,
+              languages: _getLanguageMode(widget.controller),
+            ),
+          ),
+          wordWrap: settings?.wordWrap ?? false,
+        );
+      },
     );
+  }
+
+  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+    return {'dart': CodeHighlightThemeMode(mode: langDart)};
   }
 }
 
@@ -2279,21 +2234,59 @@ class _PluginSettingsCard extends ConsumerWidget {
 // --------------------
 
 class EditorContentSwitcher extends ConsumerWidget {
-  final EditorTab tab;
-
-  const EditorContentSwitcher({super.key, required this.tab});
+  const EditorContentSwitcher({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    try {
-      return tab.plugin.buildEditor(tab, ref);
-    } catch (e) {
-      return ErrorWidget.withDetails(
-        message: 'Failed to load editor: ${e.toString()}',
-        error: FlutterError(e.toString()),
-      );
-    }
+    final currentTabPluginType = ref.watch(
+      sessionProvider.select((s) => s.currentTab?.plugin.runtimeType),
+    );
+    final currentTabUri = ref.watch(
+      sessionProvider.select((s) => s.currentTab?.file.uri),
+    );
+
+    return ProviderScope(
+      key: ValueKey(currentTabUri), // Preserve state for same URI
+      child: Consumer(
+        builder: (context, ref, _) {
+          final tab = ref.watch(sessionProvider
+              .select((s) => s.currentTab));
+          
+          if (tab == null) return const Center(child: Text('Open file'));
+          
+          return _EditorContentCache(
+            pluginType: tab.plugin.runtimeType,
+            child: tab.plugin.buildEditor(tab, ref),
+          );
+        },
+      ),
+    );
   }
+}
+
+class _EditorContentCache extends StatelessWidget {
+  final Type pluginType;
+  final Widget child;
+
+  const _EditorContentCache({
+    required this.pluginType,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return child;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is _EditorContentCache &&
+            other.pluginType == pluginType);
+  }
+
+  @override
+  int get hashCode => pluginType.hashCode;
 }
 
 class FileTypeIcon extends ConsumerWidget {
