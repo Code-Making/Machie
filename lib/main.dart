@@ -739,7 +739,7 @@ class SessionNotifier extends Notifier<SessionState> {
   try {
     await _manager.saveTabFile(savedTab);
     
-    final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
+    final newTabs = current.tabs;
     
     state = current.copyWith(
       tabs: newTabs,
