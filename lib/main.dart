@@ -1129,7 +1129,7 @@ class CodeEditorPlugin implements EditorPlugin {
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
 
-    (_){
+    WidgetsBinding.instance.addPostFrameCallback((_) {
        controller.makeCursorVisible();
     });
   }
