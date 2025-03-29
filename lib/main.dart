@@ -2809,9 +2809,9 @@ class SAFFileHandler implements FileHandler {
   }) async {
     // Write file using SAF
     final result = await _safStream.writeFileBytes(
-      file.parentUri!,    // Parent directory URI
+      file.uri!,    // Parent directory URI
       file.name,          // Original file name
-      'text/plain',
+      file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
       overwrite: true,
     );
@@ -2831,15 +2831,14 @@ Future<EditorTab> saveTabFile(EditorTab tab) async {
     final fileName = tab.file.name;
     
     // Save using explicit filename and parent URI
-    final newUri = await handler.writeFile(
-      uri: tab.file.uri,
-      fileName: fileName,
+    final newFile = await handler.writeFile(
+      file: tab.file,
       content: tab.contentString,
     );
 
     return tab.copyWith(
       isDirty: false,
-      file: tab.file.copyWith(uri: newUri),
+      file: newFile,
     );
   } catch (e, st) {
     print('Save failed: $e\n$st');
