@@ -746,13 +746,6 @@ class SessionNotifier extends Notifier<SessionState> {
       lastSaved: DateTime.now(),
     );
     
-    // If saving current tab, ensure plugins get updated
-    if (index == current.currentTabIndex) {
-      _handlePluginLifecycle(
-        oldTab: savedTab,
-        newTab: newTab,
-      );
-    }
   } catch (e) {
     ref.read(logProvider.notifier).add('Save failed: ${e.toString()}');
   }
