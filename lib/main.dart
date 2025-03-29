@@ -2812,9 +2812,9 @@ class SAFFileHandler implements FileHandler {
     );
 
     // Get updated document metadata
-    final newFile = await _safUtil.documentFileFromUri(result.uri.toString());
+    final newFile = await _safUtil.documentFileFromUri(result.uri.toString(), false);
     
-    return CustomSAFDocumentFile(newFile, false);
+    return CustomSAFDocumentFile(newFile);
   }
 
 
