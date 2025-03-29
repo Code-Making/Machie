@@ -1803,11 +1803,18 @@ class ListenerManager extends StateNotifier<void> {
     };
     
     final changeListener = () {
-      final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
-        if (currentTab == null) {return;}
-        if (!currentTab.isDirty) {
-          currentTab.isDirty = true;      // Optionally notify state change
-         }
+      final currentState = _ref.read(sessionProvider);
+      final currentTab = currentState.currentTab;
+      
+      if (currentTab is! CodeEditorTab || currentTab.isDirty) return;
+      
+      // Create new immutable tab and state
+      final newTab = currentTab.copyWith(isDirty: true);
+      final newTabs = currentState.tabs.map((t) => 
+        t == currentTab ? newTab : t
+      ).toList();
+      
+      _ref.read(sessionProvider.notifier).updateTabs(newTabs);
     };
 
     // Store listeners
