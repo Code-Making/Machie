@@ -2674,7 +2674,7 @@ abstract class DocumentFile {
   bool get isDirectory;
   int get size;
   DateTime get modifiedDate;
-  String? get mimeType;
+  String get mimeType;
 }
 
 abstract class FileHandler {
