@@ -1802,7 +1802,7 @@ class ListenerManager extends StateNotifier<void> {
     };
     
     final changeListener = () {
-      final currentState = _ref.read(sessionProvider);
+      final currentState = ref.read(sessionProvider);
       final currentTab = currentState.currentTab;
       
       if (currentTab is! CodeEditorTab || currentTab.isDirty) return;
