@@ -1787,7 +1787,7 @@ class ListenerManager extends StateNotifier<void> {
     final changeListener = () {
       final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
         if (currentTab == null) {return;}
-        if (currentTab.isDirty) {
+        if (!currentTab.isDirty) {
           currentTab.isDirty = true;      // Optionally notify state change
          }
     };
