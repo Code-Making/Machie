@@ -750,7 +750,7 @@ Future<void> saveTab(int index) async {
   final savedTab = current.tabs[index];
   
   try {
-    final newTab = await _manager.saveTabFile(state.currentDirectory, savedTab);
+    final newTab = await _manager.saveTabFile(savedTab);
     
     // Create new immutable state
     final newTabs = current.tabs.map((t) => t == savedTab ? newTab : t).toList();
