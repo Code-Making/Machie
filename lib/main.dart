@@ -927,8 +927,8 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(
-      sessionProvider.select((s) => s.currentTab), // Use sessionProvider
+    final currentUri = ref.watch(
+      sessionProvider.select((s) => s.currentTab.file.uri), // Use sessionProvider
     );
     final currentDir = ref.watch(
       sessionProvider.select((s) => s.currentDirectory),
