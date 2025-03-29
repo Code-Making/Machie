@@ -399,12 +399,14 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
 class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
+  final Type? currentPluginType;
   final DocumentFile? currentDirectory;
   final DateTime? lastSaved;
 
   const SessionState({
     this.tabs = const [],
     this.currentTabIndex = 0,
+    this.currentPluginType,
     this.currentDirectory,
     this.lastSaved,
   });
@@ -414,12 +416,14 @@ class SessionState {
   SessionState copyWith({
     List<EditorTab>? tabs,
     int? currentTabIndex,
+    Type? currentPluginType,
     DocumentFile? currentDirectory,
     DateTime? lastSaved,
   }) {
     return SessionState(
       tabs: tabs ?? this.tabs,
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
+      currentPluginType: currentPluginType ?? this.currentPluginType,
       currentDirectory: currentDirectory ?? this.currentDirectory,
       lastSaved: lastSaved ?? this.lastSaved,
     );
