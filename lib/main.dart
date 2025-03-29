@@ -1131,7 +1131,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetsBinding.instance.addPostFrameCallback(
     (_){
        controller.makeCursorVisible();
- })
+ });
   }
 
   @override
