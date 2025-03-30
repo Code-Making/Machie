@@ -3480,7 +3480,7 @@ class RecipeTexPlugin implements EditorPlugin {
     final recipeData = RecipeData();
     
     final recipeMatch = RegExp(
-      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n}',
+      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n',
       dotAll: true
     ).firstMatch(content);
 
