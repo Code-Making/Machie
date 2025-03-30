@@ -3616,6 +3616,8 @@ Ingredient _parseIngredient(String line) {
   List<Command> getCommands() => [
     _copyCommand,
     _saveCommand,
+    _undoCommand,
+    _redoCommand,
   ];
 
   final Command _copyCommand = BaseCommand(
@@ -3652,44 +3654,74 @@ Ingredient _parseIngredient(String line) {
   );
   
   final Command _undoCommand = BaseCommand(
-    id: 'undo_recipe',
-    label: 'Undo',
-    icon: const Icon(Icons.undo),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final session = ref.read(sessionProvider);
-      final currentTab = session.currentTab;
-      if (currentTab is RecipeTexTab && currentTab.canUndo) {
-        final newTab = currentTab.undo();
-        ref.read(sessionProvider.notifier).updateTab(newTab);
-      }
-    },
-    canExecute: (ref) {
-      final currentTab = ref.watch(sessionProvider).currentTab;
-      return currentTab is RecipeTexTab && currentTab.canUndo;
-    },
-  );
+  id: 'undo_recipe',
+  label: 'Undo',
+  icon: const Icon(Icons.undo),
+  defaultPosition: CommandPosition.pluginToolbar,
+  sourcePlugin: 'RecipeTexPlugin',
+  execute: (ref) async {
+    final notifier = ref.read(sessionProvider.notifier);
+    final currentState = notifier.state;
+    final currentIndex = currentState.currentTabIndex;
+    
+    if (currentIndex == -1) return;
 
-  final Command _redoCommand = BaseCommand(
-    id: 'redo_recipe',
-    label: 'Redo',
-    icon: const Icon(Icons.redo),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final session = ref.read(sessionProvider);
-      final currentTab = session.currentTab;
-      if (currentTab is RecipeTexTab && currentTab.canRedo) {
-        final newTab = currentTab.redo();
-        ref.read(sessionProvider.notifier).updateTab(newTab);
-      }
-    },
-    canExecute: (ref) {
-      final currentTab = ref.watch(sessionProvider).currentTab;
-      return currentTab is RecipeTexTab && currentTab.canRedo;
-    },
-  );
+    final currentTab = currentState.currentTab;
+    if (currentTab is! RecipeTexTab || !currentTab.canUndo) return;
+
+    // Perform undo operation
+    final newTab = currentTab.undo().copyWith(isDirty: true);
+    final newTabs = currentState.tabs.map((t) => t == currentTab ? newTab : t).toList();
+
+    // Update session state
+    notifier.state = currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: currentIndex,
+    );
+
+    // Ensure dirty state is marked
+    notifier.markCurrentTabDirty();
+  },
+  canExecute: (ref) {
+    final currentTab = ref.watch(sessionProvider).currentTab;
+    return currentTab is RecipeTexTab && currentTab.canUndo;
+  },
+);
+
+final Command _redoCommand = BaseCommand(
+  id: 'redo_recipe',
+  label: 'Redo',
+  icon: const Icon(Icons.redo),
+  defaultPosition: CommandPosition.pluginToolbar,
+  sourcePlugin: 'RecipeTexPlugin',
+  execute: (ref) async {
+    final notifier = ref.read(sessionProvider.notifier);
+    final currentState = notifier.state;
+    final currentIndex = currentState.currentTabIndex;
+    
+    if (currentIndex == -1) return;
+
+    final currentTab = currentState.currentTab;
+    if (currentTab is! RecipeTexTab || !currentTab.canRedo) return;
+
+    // Perform redo operation
+    final newTab = currentTab.redo().copyWith(isDirty: true);
+    final newTabs = currentState.tabs.map((t) => t == currentTab ? newTab : t).toList();
+
+    // Update session state
+    notifier.state = currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: currentIndex,
+    );
+
+    // Ensure dirty state is marked
+    notifier.markCurrentTabDirty();
+  },
+  canExecute: (ref) {
+    final currentTab = ref.watch(sessionProvider).currentTab;
+    return currentTab is RecipeTexTab && currentTab.canRedo;
+  },
+);
 
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
