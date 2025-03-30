@@ -3570,7 +3570,43 @@ Ingredient _parseIngredient(String line) {
   }
 
   @override
-  List<Command> getCommands() => [];
+  List<Command> getCommands() => [
+    _copyCommand,
+    _saveCommand,
+  ];
+
+  final Command _copyCommand = BaseCommand(
+    id: 'recipe_copy',
+    label: 'Copy LaTeX',
+    icon: const Icon(Icons.copy),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'RecipeEditor',
+    execute: (ref) async {
+      final tab = ref.read(sessionProvider).currentTab as RecipeTexTab?;
+      if (tab != null) {
+        await Clipboard.setData(ClipboardData(text: tab.contentString));
+        ref.read(logProvider.notifier).add('Copied recipe to clipboard');
+      }
+    },
+    canExecute: (ref) => ref.read(sessionProvider).currentTab is RecipeTexTab,
+  );
+
+  final Command _saveCommand = BaseCommand(
+    id: 'recipe_save',
+    label: 'Save Recipe',
+    icon: const Icon(Icons.save),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'RecipeEditor',
+    execute: (ref) async {
+      final session = ref.read(sessionProvider);
+      final currentIndex = session.currentTabIndex;
+      if (currentIndex != -1) {
+        await ref.read(sessionProvider.notifier).saveTab(currentIndex);
+        ref.read(logProvider.notifier).add('Recipe saved successfully');
+      }
+    },
+    canExecute: (ref) => ref.read(sessionProvider).currentTab?.isDirty ?? false,
+  );
 
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
