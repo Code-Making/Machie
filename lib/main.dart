@@ -3558,10 +3558,19 @@ Ingredient _parseIngredient(String line) {
     final recipeTab = tab as RecipeTexTab;
     return RecipeEditorForm(data: recipeTab.data);
   }
-
+/*
   @override
   Widget buildToolbar(WidgetRef ref) {
     return const SizedBox.shrink();
+  }
+  */
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    final commands = ref
+        .watch(commandProvider.notifier)
+        .getVisibleCommands(CommandPosition.pluginToolbar);
+
+    return BottomToolbar();
   }
 
   @override
