@@ -3519,12 +3519,24 @@ class RecipeTexPlugin implements EditorPlugin {
     return match?.group(1);
   }
 
-  List<String> _extractListItems(String content) {
-    return RegExp(r'\\item\s*(.*?)\s*(?=\\item|$)')
-        .allMatches(content)
-        .map((m) => m.group(1)?.trim() ?? '')
-        .toList();
-  }
+  // Update parsing logic
+List<Ingredient> _extractListItems(String content) {
+  return RegExp(r'\\item\s+(.*?)\s*$')
+      .allMatches(content)
+      .map((m) => _parseIngredient(m.group(1)!))
+      .toList();
+}
+
+Ingredient _parseIngredient(String line) {
+  final match = RegExp(r'\\unit(?:\[(.*?)\])?\{(.*?)\}\s*(.*)').firstMatch(line);
+  return match != null
+      ? Ingredient(
+          match.group(1) ?? '', // Quantity
+          match.group(2) ?? '', // Unit
+          match.group(3) ?? '', // Name
+        )
+      : Ingredient('', '', line); // Fallback for invalid format
+}
   
   List<InstructionStep> _extractInstructionItems(String content) {
     return RegExp(r'\\instruction\{(.*)\}$', multiLine:true)
@@ -3581,12 +3593,14 @@ String _generateTexContent(RecipeData data) {
   buffer.writeln('}{');
   
   // Instructions
-  for (final instruction in data.instructions) {
-    if (instruction.title.isNotEmpty) {
-      buffer.writeln(r'  \instruction{\textbf{\large ${instruction.title}} ${instruction.content}');
-    } else {
-      buffer.writeln(r'  \instruction{${instruction.content}}');
-    }
+    // Ingredients
+  for (final ingredient in data.ingredients) {
+    final quantityPart = ingredient.quantity.isNotEmpty 
+        ? '[${ingredient.quantity}]'
+        : '';
+    buffer.writeln(
+      r'  \item \unit$quantityPart{${ingredient.unit}} ${ingredient.name}'
+    );
   }
   buffer.writeln('}{');
   
@@ -3641,7 +3655,7 @@ class RecipeData {
   String prepTime = '';
   String cookTime = '';
   String portions = '';
-  List<String> ingredients = [];
+  List<Ingredient> ingredients = [];
   List<InstructionStep> instructions = [];
   String notes = '';
   String rawImagesSection = '';
@@ -3753,7 +3767,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
       ...items.asMap().entries.map((entry) => 
         isInstruction 
           ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
-          : _buildListItem(entry.key, entry.value as String)
+          : _buildListItem(entry.key, entry.value as Ingredient)
       ),
       ElevatedButton(
         onPressed: () => setState(() {
@@ -3769,18 +3783,41 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
   );
 }
 
-// Add the ingredient item builder
-Widget _buildListItem(int index, String item) {
+Widget _buildListItem(int index, Ingredient ingredient) {
   return Row(
     children: [
+      SizedBox(
+        width: 80,
+        child: TextFormField(
+          initialValue: ingredient.quantity,
+          decoration: InputDecoration(
+            labelText: 'Qty',
+            hintText: '50',
+          ),
+          onChanged: (value) => ingredient.quantity = value,
+        ),
+      ),
+      SizedBox(width: 8),
+      SizedBox(
+        width: 120,
+        child: TextFormField(
+          initialValue: ingredient.unit,
+          decoration: InputDecoration(
+            labelText: 'Unit',
+            hintText: 'g',
+          ),
+          onChanged: (value) => ingredient.unit = value,
+        ),
+      ),
+      SizedBox(width: 8),
       Expanded(
         child: TextFormField(
-          initialValue: item,
+          initialValue: ingredient.name,
           decoration: InputDecoration(
-            hintText: 'Enter ingredient ${index + 1}',
-            labelText: 'Ingredient ${index + 1}'
+            labelText: 'Ingredient',
+            hintText: 'feta',
           ),
-          onChanged: (value) => widget.data.ingredients[index] = value,
+          onChanged: (value) => ingredient.name = value,
         ),
       ),
       IconButton(
