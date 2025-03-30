@@ -3814,50 +3814,118 @@ class RecipeData {
 
 // --------------------
 //  Recipe Editor UI
-// --------------------
 class RecipeEditorForm extends StatefulWidget {
-  final RecipeData data;
+  final RecipeTexTab tab;
 
-  const RecipeEditorForm({super.key, required this.data});
+  const RecipeEditorForm({super.key, required this.tab});
 
   @override
   _RecipeEditorFormState createState() => _RecipeEditorFormState();
 }
 
 class _RecipeEditorFormState extends State<RecipeEditorForm> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _prepTimeController;
-  late final TextEditingController _cookTimeController;
-  late final TextEditingController _portionsController;
-  late final TextEditingController _notesController;
+  late TextEditingController _titleController;
+  late TextEditingController _prepTimeController;
+  late TextEditingController _cookTimeController;
+  late TextEditingController _portionsController;
+  late TextEditingController _notesController;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.data.title);
-    _prepTimeController = TextEditingController(text: widget.data.prepTime);
-    _cookTimeController = TextEditingController(text: widget.data.cookTime);
-    _portionsController = TextEditingController(text: widget.data.portions);
-    _notesController = TextEditingController(text: widget.data.notes);
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _titleController = TextEditingController(text: widget.tab.data.title);
+    _prepTimeController = TextEditingController(text: widget.tab.data.prepTime);
+    _cookTimeController = TextEditingController(text: widget.tab.data.cookTime);
+    _portionsController = TextEditingController(text: widget.tab.data.portions);
+    _notesController = TextEditingController(text: widget.tab.data.notes);
+  }
+
+  @override
+  void didUpdateWidget(RecipeEditorForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tab.data != oldWidget.tab.data) {
+      _updateControllers();
+    }
+  }
+
+  void _updateControllers() {
+    _titleController.text = widget.tab.data.title;
+    _prepTimeController.text = widget.tab.data.prepTime;
+    _cookTimeController.text = widget.tab.data.cookTime;
+    _portionsController.text = widget.tab.data.portions;
+    _notesController.text = widget.tab.data.notes;
+  }
+
+  void _updateTab(RecipeData newData) {
+    final previousData = widget.tab.data.copyWith();
+    final newTab = widget.tab.copyWith(
+      data: newData,
+      isDirty: true,
+    ).saveStateForUndo(previousData);
+    
+    final session = context.read(sessionProvider.notifier);
+    session.updateTab(newTab);
+  }
+
+  void _handleFieldUpdate(String field, String value) {
+    final newData = widget.tab.data.copyWith();
+    switch (field) {
+      case 'title':
+        newData.title = value;
+        break;
+      case 'prepTime':
+        newData.prepTime = value;
+        break;
+      case 'cookTime':
+        newData.cookTime = value;
+        break;
+      case 'portions':
+        newData.portions = value;
+        break;
+      case 'notes':
+        newData.notes = value;
+        break;
+    }
+    _updateTab(newData);
+  }
+
+  void _updateIngredient(int index, Ingredient newIngredient) {
+    final newData = widget.tab.data.copyWith();
+    newData.ingredients[index] = newIngredient;
+    _updateTab(newData);
+  }
+
+  void _updateInstruction(int index, InstructionStep newInstruction) {
+    final newData = widget.tab.data.copyWith();
+    newData.instructions[index] = newInstruction;
+    _updateTab(newData);
   }
 
   @override
   Widget build(BuildContext context) {
-  return Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: ListView(
-      children: [
-        _buildHeaderSection(),
-        const SizedBox(height: 20),
-        _buildListSection('Ingredients', widget.data.ingredients, false),
-        const SizedBox(height: 20),
-        _buildListSection('Instructions', widget.data.instructions, true),
-        const SizedBox(height: 20),
-        _buildNotesSection(),
-      ],
-    ),
-  );
-}
+    return Consumer(
+      builder: (context, ref, _) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
+            children: [
+              _buildHeaderSection(),
+              const SizedBox(height: 20),
+              _buildIngredientsSection(),
+              const SizedBox(height: 20),
+              _buildInstructionsSection(),
+              const SizedBox(height: 20),
+              _buildNotesSection(),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildHeaderSection() {
     return Column(
@@ -3865,15 +3933,16 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
         TextFormField(
           controller: _titleController,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
-          onChanged: (value) => widget.data.title = value,
+          onChanged: (value) => _handleFieldUpdate('title', value),
         ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _prepTimeController,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
-                onChanged: (value) => widget.data.prepTime = value,
+                onChanged: (value) => _handleFieldUpdate('prepTime', value),
               ),
             ),
             const SizedBox(width: 10),
@@ -3881,7 +3950,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
               child: TextFormField(
                 controller: _cookTimeController,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
-                onChanged: (value) => widget.data.cookTime = value,
+                onChanged: (value) => _handleFieldUpdate('cookTime', value),
               ),
             ),
             const SizedBox(width: 10),
@@ -3889,7 +3958,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
               child: TextFormField(
                 controller: _portionsController,
                 decoration: const InputDecoration(labelText: 'Portions'),
-                onChanged: (value) => widget.data.portions = value,
+                onChanged: (value) => _handleFieldUpdate('portions', value),
               ),
             ),
           ],
@@ -3898,112 +3967,139 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
     );
   }
 
-  Widget _buildListSection(String title, List<dynamic> items, bool isInstruction) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(title, style: Theme.of(context).textTheme.titleMedium),
-      ...items.asMap().entries.map((entry) => 
-        isInstruction 
-          ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
-          : _buildListItem(entry.key, entry.value as Ingredient)
-      ),
-      ElevatedButton(
-        onPressed: () => setState(() {
-          if (isInstruction) {
-            widget.data.instructions.add(InstructionStep('', ''));
-          } else {
-             widget.data.ingredients.add(Ingredient('', '', '')); // Add Ingredient instance
-          }
+  Widget _buildIngredientsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
+        ...widget.tab.data.ingredients.asMap().entries.map((entry) {
+          final index = entry.key;
+          final ingredient = entry.value;
+          return _buildIngredientItem(index, ingredient);
         }),
-        child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
-      ),
-    ],
-  );
-}
+        ElevatedButton(
+          onPressed: () => _updateTab(
+            widget.tab.data.copyWith()
+              ..ingredients.add(Ingredient('', '', '')),
+          child: const Text('Add Ingredient'),
+        ),
+      ],
+    );
+  }
 
-Widget _buildListItem(int index, Ingredient ingredient) {
-  return Row(
-    children: [
-      SizedBox(
-        width: 80,
-        child: TextFormField(
-          initialValue: ingredient.quantity,
-          decoration: InputDecoration(
-            labelText: 'Qty',
-            hintText: '50',
+  Widget _buildIngredientItem(int index, Ingredient ingredient) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 80,
+          child: TextFormField(
+            initialValue: ingredient.quantity,
+            decoration: const InputDecoration(labelText: 'Qty'),
+            onChanged: (value) => _updateIngredient(
+              index,
+              Ingredient(value, ingredient.unit, ingredient.name)
+            ),
           ),
-          onChanged: (value) => ingredient.quantity = value,
         ),
-      ),
-      SizedBox(width: 8),
-      SizedBox(
-        width: 120,
-        child: TextFormField(
-          initialValue: ingredient.unit,
-          decoration: InputDecoration(
-            labelText: 'Unit',
-            hintText: 'g',
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 120,
+          child: TextFormField(
+            initialValue: ingredient.unit,
+            decoration: const InputDecoration(labelText: 'Unit'),
+            onChanged: (value) => _updateIngredient(
+              index,
+              Ingredient(ingredient.quantity, value, ingredient.name)
+            ),
           ),
-          onChanged: (value) => ingredient.unit = value,
         ),
-      ),
-      SizedBox(width: 8),
-      Expanded(
-        child: TextFormField(
-          initialValue: ingredient.name,
-          decoration: InputDecoration(
-            labelText: 'Ingredient',
-            hintText: 'feta',
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            initialValue: ingredient.name,
+            decoration: const InputDecoration(labelText: 'Ingredient'),
+            onChanged: (value) => _updateIngredient(
+              index,
+              Ingredient(ingredient.quantity, ingredient.unit, value)
+            ),
           ),
-          onChanged: (value) => ingredient.name = value,
         ),
-      ),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
-      ),
-    ],
-  );
-}
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => _updateTab(
+            widget.tab.data.copyWith()
+              ..ingredients.removeAt(index)
+          ),
+        ),
+      ],
+    );
+  }
 
-// Keep the existing instruction item builder
-Widget _buildInstructionItem(int index, InstructionStep instruction) {
-  return Column(
-    children: [
-      TextFormField(
-        initialValue: instruction.title,
-        decoration: InputDecoration(
-          labelText: 'Step ${index + 1} Title',
-          hintText: 'e.g., "Preparation"'
+  Widget _buildInstructionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
+        ...widget.tab.data.instructions.asMap().entries.map((entry) {
+          final index = entry.key;
+          final instruction = entry.value;
+          return _buildInstructionItem(index, instruction);
+        }),
+        ElevatedButton(
+          onPressed: () => _updateTab(
+            widget.tab.data.copyWith()
+              ..instructions.add(InstructionStep('', ''))),
+          child: const Text('Add Instruction'),
         ),
-        onChanged: (value) => instruction.title = value,
-      ),
-      TextFormField(
-        initialValue: instruction.content,
-        decoration: InputDecoration(
-          labelText: 'Step ${index + 1} Details',
-          hintText: 'Describe this step...'
+      ],
+    );
+  }
+
+  Widget _buildInstructionItem(int index, InstructionStep instruction) {
+    return Column(
+      children: [
+        TextFormField(
+          initialValue: instruction.title,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Title',
+            hintText: 'e.g., "Preparation"'
+          ),
+          onChanged: (value) => _updateInstruction(
+            index,
+            InstructionStep(value, instruction.content)
+          ),
         ),
-        maxLines: null, // Allows unlimited lines
-        minLines: 2, // Initial height
-        onChanged: (value) => instruction.content = value,
-      ),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
-      ),
-      const Divider(),
-    ],
-  );
-}
+        TextFormField(
+          initialValue: instruction.content,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Details',
+            hintText: 'Describe this step...'
+          ),
+          maxLines: null,
+          minLines: 2,
+          onChanged: (value) => _updateInstruction(
+            index,
+            InstructionStep(instruction.title, value)
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => _updateTab(
+            widget.tab.data.copyWith()
+              ..instructions.removeAt(index)
+          ),
+        ),
+        const Divider(),
+      ],
+    );
+  }
 
   Widget _buildNotesSection() {
     return TextFormField(
       controller: _notesController,
       decoration: const InputDecoration(labelText: 'Additional Notes'),
       maxLines: 3,
-      onChanged: (value) => widget.data.notes = value,
+      onChanged: (value) => _handleFieldUpdate('notes', value),
     );
   }
 
