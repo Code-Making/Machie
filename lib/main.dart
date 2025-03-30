@@ -2862,6 +2862,7 @@ class SAFFileHandler implements FileHandler {
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
     // Write file using SAF
     final treeAndFile = splitTreeAndFileUri(file);
+    print(treeAndFile);
     final result = await _safStream.writeFileBytes(
       treeAndFile.treeUri, // Parent directory URI
       treeAndFile.relativePath, // Original file name
