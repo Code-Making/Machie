@@ -3614,7 +3614,7 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    //canExecute: (ref) => ref.read(sessionProvider).currentTab?.isDirty ?? false,
+    canExecute: (ref) => true/*ref.read(sessionProvider).currentTab?.isDirty ?? false*/,
   );
 
   @override
