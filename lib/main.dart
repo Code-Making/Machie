@@ -3648,7 +3648,47 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    canExecute: (ref) => true/*ref.read(sessionProvider).currentTab?.isDirty ?? false*/,
+    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false*/,
+  );
+  
+  final Command _undoCommand = BaseCommand(
+    id: 'undo_recipe',
+    label: 'Undo',
+    icon: const Icon(Icons.undo),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'RecipeTexPlugin',
+    execute: (ref) async {
+      final session = ref.read(sessionProvider);
+      final currentTab = session.currentTab;
+      if (currentTab is RecipeTexTab && currentTab.canUndo) {
+        final newTab = currentTab.undo();
+        ref.read(sessionProvider.notifier).updateTab(newTab);
+      }
+    },
+    canExecute: (ref) {
+      final currentTab = ref.watch(sessionProvider).currentTab;
+      return currentTab is RecipeTexTab && currentTab.canUndo;
+    },
+  );
+
+  final Command _redoCommand = BaseCommand(
+    id: 'redo_recipe',
+    label: 'Redo',
+    icon: const Icon(Icons.redo),
+    defaultPosition: CommandPosition.pluginToolbar,
+    sourcePlugin: 'RecipeTexPlugin',
+    execute: (ref) async {
+      final session = ref.read(sessionProvider);
+      final currentTab = session.currentTab;
+      if (currentTab is RecipeTexTab && currentTab.canRedo) {
+        final newTab = currentTab.redo();
+        ref.read(sessionProvider.notifier).updateTab(newTab);
+      }
+    },
+    canExecute: (ref) {
+      final currentTab = ref.watch(sessionProvider).currentTab;
+      return currentTab is RecipeTexTab && currentTab.canRedo;
+    },
   );
 
   @override
