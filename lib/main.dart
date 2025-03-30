@@ -3739,6 +3739,11 @@ class RecipeTexTab extends EditorTab {
     );
 }
 
+  bool get canUndo => undoStack.isNotEmpty;
+  bool get canRedo => redoStack.isNotEmpty;
+
+ 
+
   RecipeTexTab saveStateForUndo(RecipeData previousData) {
     return this.copyWith(
       undoStack: List.from(undoStack)..add(previousData),
