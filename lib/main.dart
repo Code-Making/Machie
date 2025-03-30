@@ -2861,10 +2861,10 @@ class SAFFileHandler implements FileHandler {
   @override
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
     // Write file using SAF
-    final parentUri = await _getParentUri(file);
+    final treeAndFile = splitTreeAndFileUri(file);
     final result = await _safStream.writeFileBytes(
-      parentUri, // Parent directory URI
-      file.name, // Original file name
+      treeAndFile.treeUri, // Parent directory URI
+      treeAndFile.relativePath, // Original file name
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
       overwrite: true,
@@ -2935,15 +2935,31 @@ class SAFFileHandler implements FileHandler {
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
-  Future<String> _getParentUri(DocumentFile docFile) async {
-    // Extract parent URI from the document URI
-    final uri = Uri.decodeFull(docFile.uri);
-    final lastSlash = uri.lastIndexOf('/');
-    print(Uri.decodeFull(uri));
-    if (lastSlash == -1) throw FormatException('No parent found');
-    print("uri cut: "+ uri.substring(0, lastSlash));
-    return Uri.encodeFull(uri.substring(0, lastSlash));
+
+  ({String treeUri, String fileUri, String relativePath}) splitTreeAndFileUri(DocumentFile docFile) {
+  // Extract the Tree URI (everything before '/document/')
+  final fullUri = Uri.decodeFull(docFile.uri);
+  final documentIndex = fullUri.indexOf('/document/');
+  if (documentIndex == -1) {
+    throw ArgumentError("Invalid URI format: '/document/' not found.");
   }
+
+  final treeUri = fullUri.substring(0, documentIndex);
+  
+  // Extract the File URI (everything after '/document/')
+  final fileUri = fullUri.substring(documentIndex + '/document/'.length);
+  
+  // Extract the relative path (remove the repeated tree part if needed)
+  final treePath = treeUri.substring(treeUri.indexOf('/tree/') + '/tree/'.length);
+  String relativePath = fileUri;
+  
+  // If the fileUri starts with the same path as the treeUri, remove it
+  if (fileUri.startsWith(treePath)) {
+    relativePath = fileUri.substring(treePath.length);
+  }
+  
+  return (treeUri: treeUri, fileUri: fileUri, relativePath: relativePath);
+}
 
   @override
   Future<List<DocumentFile>> pickFiles() async {
