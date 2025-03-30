@@ -43,6 +43,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // --------------------
 final printStream = StreamController<String>.broadcast();
 
+ThemeData darkTheme = ThemeData(
+  useMaterial3: true, // This is not necessary or recommended anymore.
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: Colors.orange,
+    brightness: Brightness.dark,
+  ),
+);
+
 void main() {
   runZonedGuarded(
     () {
@@ -50,7 +58,7 @@ void main() {
         ProviderScope(
           child: LifecycleHandler(
             child: MaterialApp(
-              theme: ThemeData.dark(),
+              theme: darkTheme,
               home: AppStartupWidget(
                 onLoaded: (context) => const EditorScreen(),
               ),
@@ -3590,7 +3598,7 @@ Ingredient _parseIngredient(String line) {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final recipeTab = tab as RecipeTexTab;
-    return RecipeEditorForm(tab: recipeTab);
+    return RecipeEditorForm(data: recipeTab.data);
   }
 /*
   @override
@@ -3616,8 +3624,6 @@ Ingredient _parseIngredient(String line) {
   List<Command> getCommands() => [
     _copyCommand,
     _saveCommand,
-    _undoCommand,
-    _redoCommand,
   ];
 
   final Command _copyCommand = BaseCommand(
@@ -3650,78 +3656,8 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false,
+    canExecute: (ref) => true/*ref.read(sessionProvider).currentTab?.isDirty ?? false*/,
   );
-  
-  final Command _undoCommand = BaseCommand(
-  id: 'undo_recipe',
-  label: 'Undo',
-  icon: const Icon(Icons.undo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final notifier = ref.read(sessionProvider.notifier);
-    final currentState = notifier.state;
-    final currentIndex = currentState.currentTabIndex;
-    
-    if (currentIndex == -1) return;
-
-    final currentTab = currentState.currentTab;
-    if (currentTab is! RecipeTexTab || !currentTab.canUndo) return;
-
-    // Perform undo operation
-    final newTab = currentTab.undo().copyWith(isDirty: true);
-    final newTabs = currentState.tabs.map((t) => t == currentTab ? newTab : t).toList();
-
-    // Update session state
-    notifier.state = currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: currentIndex,
-    );
-
-    // Ensure dirty state is marked
-    notifier.markCurrentTabDirty();
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.canUndo;
-  },
-);
-
-final Command _redoCommand = BaseCommand(
-  id: 'redo_recipe',
-  label: 'Redo',
-  icon: const Icon(Icons.redo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final notifier = ref.read(sessionProvider.notifier);
-    final currentState = notifier.state;
-    final currentIndex = currentState.currentTabIndex;
-    
-    if (currentIndex == -1) return;
-
-    final currentTab = currentState.currentTab;
-    if (currentTab is! RecipeTexTab || !currentTab.canRedo) return;
-
-    // Perform redo operation
-    final newTab = currentTab.redo().copyWith(isDirty: true);
-    final newTabs = currentState.tabs.map((t) => t == currentTab ? newTab : t).toList();
-
-    // Update session state
-    notifier.state = currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: currentIndex,
-    );
-
-    // Ensure dirty state is marked
-    notifier.markCurrentTabDirty();
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.canRedo;
-  },
-);
 
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
@@ -3773,17 +3709,12 @@ String _generateTexContent(RecipeData data) {
 
 class RecipeTexTab extends EditorTab {
   RecipeData data;
-  final List<RecipeData> undoStack;
-  final List<RecipeData> redoStack;
-
 
   RecipeTexTab({
     required super.file,
     required super.plugin,
     required this.data,
     required super.isDirty,
-    this.undoStack = const [],
-    this.redoStack = const [],
   });
 
   @override
@@ -3793,53 +3724,12 @@ class RecipeTexTab extends EditorTab {
   void dispose() {}
 
   @override
-  RecipeTexTab copyWith({
-    DocumentFile? file,
-    EditorPlugin? plugin,
-    bool? isDirty,
-    RecipeData? data,
-    List<RecipeData>? undoStack,
-    List<RecipeData>? redoStack,
-  }) {
+  RecipeTexTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty}) {
     return RecipeTexTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      data: data ?? this.data.copyWith(),
+      data: data.copyWith(),
       isDirty: isDirty ?? this.isDirty,
-      undoStack: undoStack ?? List.from(this.undoStack),
-      redoStack: redoStack ?? List.from(this.redoStack),
-    );
-}
-
-  bool get canUndo => undoStack.isNotEmpty;
-  bool get canRedo => redoStack.isNotEmpty;
-
- 
-
-  RecipeTexTab saveStateForUndo(RecipeData previousData) {
-    return this.copyWith(
-      undoStack: List.from(undoStack)..add(previousData),
-      redoStack: [],
-    );
-  }
-
-  RecipeTexTab undo() {
-    if (!canUndo) return this;
-    final previousData = undoStack.last;
-    return this.copyWith(
-      data: previousData,
-      undoStack: List.from(undoStack)..removeLast(),
-      redoStack: List.from(redoStack)..add(data),
-    );
-  }
-
-  RecipeTexTab redo() {
-    if (!canRedo) return this;
-    final nextData = redoStack.last;
-    return this.copyWith(
-      data: nextData,
-      undoStack: List.from(undoStack)..add(data),
-      redoStack: List.from(redoStack)..removeLast(),
     );
   }
 }
@@ -3886,134 +3776,50 @@ class RecipeData {
 
 // --------------------
 //  Recipe Editor UI
-class RecipeEditorForm extends ConsumerStatefulWidget {
-  final RecipeTexTab tab;
+// --------------------
+class RecipeEditorForm extends StatefulWidget {
+  final RecipeData data;
 
-  const RecipeEditorForm({super.key, required this.tab});
+  const RecipeEditorForm({super.key, required this.data});
 
   @override
   _RecipeEditorFormState createState() => _RecipeEditorFormState();
 }
 
-class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
-  late TextEditingController _titleController;
-  late TextEditingController _prepTimeController;
-  late TextEditingController _cookTimeController;
-  late TextEditingController _portionsController;
-  late TextEditingController _notesController;
+class _RecipeEditorFormState extends State<RecipeEditorForm> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _prepTimeController;
+  late final TextEditingController _cookTimeController;
+  late final TextEditingController _portionsController;
+  late final TextEditingController _notesController;
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
-  }
-
-  void _initializeControllers() {
-    _titleController = TextEditingController(text: widget.tab.data.title);
-    _prepTimeController = TextEditingController(text: widget.tab.data.prepTime);
-    _cookTimeController = TextEditingController(text: widget.tab.data.cookTime);
-    _portionsController = TextEditingController(text: widget.tab.data.portions);
-    _notesController = TextEditingController(text: widget.tab.data.notes);
-  }
-
-  @override
-  void didUpdateWidget(RecipeEditorForm oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.tab.data != oldWidget.tab.data) {
-      _updateControllers();
-    }
-  }
-
-  void _updateControllers() {
-    _titleController.text = widget.tab.data.title;
-    _prepTimeController.text = widget.tab.data.prepTime;
-    _cookTimeController.text = widget.tab.data.cookTime;
-    _portionsController.text = widget.tab.data.portions;
-    _notesController.text = widget.tab.data.notes;
-  }
-
-  void _updateTab(RecipeData newData) {
-    final notifier = ref.read(sessionProvider.notifier);
-    final currentState = notifier.state;
-    final currentIndex = currentState.currentTabIndex;
-
-    if (currentIndex == -1) return;
-
-    final newTab = widget.tab.copyWith(
-      data: newData,
-      isDirty: true,
-    ).saveStateForUndo(widget.tab.data);
-
-    final newTabs = currentState.tabs.map((t) {
-      return t == widget.tab ? newTab : t;
-    }).toList();
-
-    notifier.state = currentState.copyWith(
-      tabs: newTabs,
-      currentTabIndex: currentIndex,
-    );
-
-    notifier.markCurrentTabDirty();
-  }
-
-  void _handleFieldUpdate(String field, String value) {
-    final newData = widget.tab.data.copyWith();
-    switch (field) {
-      case 'title':
-        newData.title = value;
-        break;
-      case 'prepTime':
-        newData.prepTime = value;
-        break;
-      case 'cookTime':
-        newData.cookTime = value;
-        break;
-      case 'portions':
-        newData.portions = value;
-        break;
-      case 'notes':
-        newData.notes = value;
-        break;
-    }
-    _updateTab(newData);
-  }
-
-  void _updateIngredient(int index, Ingredient newIngredient) {
-    final newData = widget.tab.data.copyWith();
-    newData.ingredients[index] = newIngredient;
-    _updateTab(newData);
-  }
-
-  void _updateInstruction(int index, InstructionStep newInstruction) {
-    final newData = widget.tab.data.copyWith();
-    newData.instructions[index] = newInstruction;
-    _updateTab(newData);
+    _titleController = TextEditingController(text: widget.data.title);
+    _prepTimeController = TextEditingController(text: widget.data.prepTime);
+    _cookTimeController = TextEditingController(text: widget.data.cookTime);
+    _portionsController = TextEditingController(text: widget.data.portions);
+    _notesController = TextEditingController(text: widget.data.notes);
   }
 
   @override
   Widget build(BuildContext context) {
-     final currentTab = ref.watch(
-      sessionProvider.select((s) => s.currentTab),
-    );
-    return Consumer(
-      builder: (context, ref, _) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            children: [
-              _buildHeaderSection(),
-              const SizedBox(height: 20),
-              _buildIngredientsSection(),
-              const SizedBox(height: 20),
-              _buildInstructionsSection(),
-              const SizedBox(height: 20),
-              _buildNotesSection(),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: ListView(
+      children: [
+        _buildHeaderSection(),
+        const SizedBox(height: 20),
+        _buildListSection('Ingredients', widget.data.ingredients, false),
+        const SizedBox(height: 20),
+        _buildListSection('Instructions', widget.data.instructions, true),
+        const SizedBox(height: 20),
+        _buildNotesSection(),
+      ],
+    ),
+  );
+}
 
   Widget _buildHeaderSection() {
     return Column(
@@ -4021,16 +3827,15 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
         TextFormField(
           controller: _titleController,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
-          onChanged: (value) => _handleFieldUpdate('title', value),
+          onChanged: (value) => widget.data.title = value,
         ),
-        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _prepTimeController,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
-                onChanged: (value) => _handleFieldUpdate('prepTime', value),
+                onChanged: (value) => widget.data.prepTime = value,
               ),
             ),
             const SizedBox(width: 10),
@@ -4038,7 +3843,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
               child: TextFormField(
                 controller: _cookTimeController,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
-                onChanged: (value) => _handleFieldUpdate('cookTime', value),
+                onChanged: (value) => widget.data.cookTime = value,
               ),
             ),
             const SizedBox(width: 10),
@@ -4046,7 +3851,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
               child: TextFormField(
                 controller: _portionsController,
                 decoration: const InputDecoration(labelText: 'Portions'),
-                onChanged: (value) => _handleFieldUpdate('portions', value),
+                onChanged: (value) => widget.data.portions = value,
               ),
             ),
           ],
@@ -4055,139 +3860,112 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     );
   }
 
-  Widget _buildIngredientsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
-        ...widget.tab.data.ingredients.asMap().entries.map((entry) {
-          final index = entry.key;
-          final ingredient = entry.value;
-          return _buildIngredientItem(index, ingredient);
+  Widget _buildListSection(String title, List<dynamic> items, bool isInstruction) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ...items.asMap().entries.map((entry) => 
+        isInstruction 
+          ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
+          : _buildListItem(entry.key, entry.value as Ingredient)
+      ),
+      ElevatedButton(
+        onPressed: () => setState(() {
+          if (isInstruction) {
+            widget.data.instructions.add(InstructionStep('', ''));
+          } else {
+             widget.data.ingredients.add(Ingredient('', '', '')); // Add Ingredient instance
+          }
         }),
-        ElevatedButton(
-          onPressed: () => _updateTab(
-            widget.tab.data.copyWith()
-              ..ingredients.add(Ingredient('', '', ''))),
-          child: const Text('Add Ingredient'),
-        ),
-      ],
-    );
-  }
+        child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
+      ),
+    ],
+  );
+}
 
-  Widget _buildIngredientItem(int index, Ingredient ingredient) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 80,
-          child: TextFormField(
-            initialValue: ingredient.quantity,
-            decoration: const InputDecoration(labelText: 'Qty'),
-            onChanged: (value) => _updateIngredient(
-              index,
-              Ingredient(value, ingredient.unit, ingredient.name)
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 120,
-          child: TextFormField(
-            initialValue: ingredient.unit,
-            decoration: const InputDecoration(labelText: 'Unit'),
-            onChanged: (value) => _updateIngredient(
-              index,
-              Ingredient(ingredient.quantity, value, ingredient.name)
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextFormField(
-            initialValue: ingredient.name,
-            decoration: const InputDecoration(labelText: 'Ingredient'),
-            onChanged: (value) => _updateIngredient(
-              index,
-              Ingredient(ingredient.quantity, ingredient.unit, value)
-            ),
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => _updateTab(
-            widget.tab.data.copyWith()
-              ..ingredients.removeAt(index)
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
-        ...widget.tab.data.instructions.asMap().entries.map((entry) {
-          final index = entry.key;
-          final instruction = entry.value;
-          return _buildInstructionItem(index, instruction);
-        }),
-        ElevatedButton(
-          onPressed: () => _updateTab(
-            widget.tab.data.copyWith()
-              ..instructions.add(InstructionStep('', ''))),
-          child: const Text('Add Instruction'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionItem(int index, InstructionStep instruction) {
-    return Column(
-      children: [
-        TextFormField(
-          initialValue: instruction.title,
+Widget _buildListItem(int index, Ingredient ingredient) {
+  return Row(
+    children: [
+      SizedBox(
+        width: 80,
+        child: TextFormField(
+          initialValue: ingredient.quantity,
           decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Title',
-            hintText: 'e.g., "Preparation"'
+            labelText: 'Qty',
+            hintText: '50',
           ),
-          onChanged: (value) => _updateInstruction(
-            index,
-            InstructionStep(value, instruction.content)
-          ),
+          onChanged: (value) => ingredient.quantity = value,
         ),
-        TextFormField(
-          initialValue: instruction.content,
+      ),
+      SizedBox(width: 8),
+      SizedBox(
+        width: 120,
+        child: TextFormField(
+          initialValue: ingredient.unit,
           decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Details',
-            hintText: 'Describe this step...'
+            labelText: 'Unit',
+            hintText: 'g',
           ),
-          maxLines: null,
-          minLines: 2,
-          onChanged: (value) => _updateInstruction(
-            index,
-            InstructionStep(instruction.title, value)
-          ),
+          onChanged: (value) => ingredient.unit = value,
         ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => _updateTab(
-            widget.tab.data.copyWith()
-              ..instructions.removeAt(index)
+      ),
+      SizedBox(width: 8),
+      Expanded(
+        child: TextFormField(
+          initialValue: ingredient.name,
+          decoration: InputDecoration(
+            labelText: 'Ingredient',
+            hintText: 'feta',
           ),
+          onChanged: (value) => ingredient.name = value,
         ),
-        const Divider(),
-      ],
-    );
-  }
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
+      ),
+    ],
+  );
+}
+
+// Keep the existing instruction item builder
+Widget _buildInstructionItem(int index, InstructionStep instruction) {
+  return Column(
+    children: [
+      TextFormField(
+        initialValue: instruction.title,
+        decoration: InputDecoration(
+          labelText: 'Step ${index + 1} Title',
+          hintText: 'e.g., "Preparation"'
+        ),
+        onChanged: (value) => instruction.title = value,
+      ),
+      TextFormField(
+        initialValue: instruction.content,
+        decoration: InputDecoration(
+          labelText: 'Step ${index + 1} Details',
+          hintText: 'Describe this step...'
+        ),
+        maxLines: null, // Allows unlimited lines
+        minLines: 2, // Initial height
+        onChanged: (value) => instruction.content = value,
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
+      ),
+      const Divider(),
+    ],
+  );
+}
 
   Widget _buildNotesSection() {
     return TextFormField(
       controller: _notesController,
       decoration: const InputDecoration(labelText: 'Additional Notes'),
       maxLines: 3,
-      onChanged: (value) => _handleFieldUpdate('notes', value),
+      onChanged: (value) => widget.data.notes = value,
     );
   }
 
