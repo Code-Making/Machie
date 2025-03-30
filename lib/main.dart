@@ -3590,7 +3590,7 @@ Ingredient _parseIngredient(String line) {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final recipeTab = tab as RecipeTexTab;
-    return RecipeEditorForm(data: recipeTab.data);
+    return RecipeEditorForm(tab: recipeTab);
   }
 /*
   @override
