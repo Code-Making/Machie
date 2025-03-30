@@ -3877,54 +3877,46 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 }
 
 Widget _buildListItem(int index, Ingredient ingredient) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  return Row(
     children: [
-      Row(
-        children: [
-          // Quantity Input
-          SizedBox(
-            width: 80,
-            child: TextFormField(
-              initialValue: ingredient.quantity,
-              decoration: const InputDecoration(
-                labelText: 'Qty',
-                hintText: '50',
-                isDense: true,
-              ),
-              onChanged: (value) => ingredient.quantity = value,
-            ),
+      SizedBox(
+        width: 80,
+        child: TextFormField(
+          initialValue: ingredient.quantity,
+          decoration: InputDecoration(
+            labelText: 'Qty',
+            hintText: '50',
           ),
-          const SizedBox(width: 8),
-          
-          // Unit Input
-          SizedBox(
-            width: 120,
-            child: TextFormField(
-              initialValue: ingredient.unit,
-              decoration: const InputDecoration(
-                labelText: 'Unit',
-                hintText: 'g',
-                isDense: true,
-              ),
-              onChanged: (value) => ingredient.unit = value,
-            ),
-          ),
-        ],
-      ),
-      
-      // Ingredient Name
-      TextFormField(
-        initialValue: ingredient.name,
-        decoration: InputDecoration(
-          labelText: 'Ingredient ${index + 1}',
-          hintText: 'feta cheese',
-          floatingLabelBehavior: FloatingLabelBehavior.always,
+          onChanged: (value) => ingredient.quantity = value,
         ),
-        textInputAction: TextInputAction.next,
-        onChanged: (value) => ingredient.name = value,
       ),
-      const SizedBox(height: 8),
+      SizedBox(width: 8),
+      SizedBox(
+        width: 120,
+        child: TextFormField(
+          initialValue: ingredient.unit,
+          decoration: InputDecoration(
+            labelText: 'Unit',
+            hintText: 'g',
+          ),
+          onChanged: (value) => ingredient.unit = value,
+        ),
+      ),
+      SizedBox(width: 8),
+      Expanded(
+        child: TextFormField(
+          initialValue: ingredient.name,
+          decoration: InputDecoration(
+            labelText: 'Ingredient',
+            hintText: 'feta',
+          ),
+          onChanged: (value) => ingredient.name = value,
+        ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
+      ),
     ],
   );
 }
