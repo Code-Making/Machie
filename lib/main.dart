@@ -3712,8 +3712,6 @@ class RecipeTexTab extends EditorTab {
     required super.isDirty,
     this.undoStack = const [],
     this.redoStack = const [],
-    List<RecipeData>? undoStack,
-    List<RecipeData>? redoStack,
   });
 
   @override
