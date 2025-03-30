@@ -3877,10 +3877,10 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 }
 
 Widget _buildListItem(int index, Ingredient ingredient) {
-  return Row(
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+     children: Row(
     children: [
-    Column(
-        children: [
       SizedBox(
         width: 80,
         child: TextFormField(
@@ -3905,8 +3905,14 @@ Widget _buildListItem(int index, Ingredient ingredient) {
         ),
       ),
       SizedBox(width: 8),
-      Expanded(
-        child: TextFormField(
+      
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
+      ),
+    ],
+  ),
+  TextFormField(
           initialValue: ingredient.name,
           decoration: InputDecoration(
             labelText: 'Ingredient',
@@ -3914,12 +3920,7 @@ Widget _buildListItem(int index, Ingredient ingredient) {
           ),
           onChanged: (value) => ingredient.name = value,
         ),
-      ),],),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
-      ),
-    ],
+  ],
   );
 }
 
