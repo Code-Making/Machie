@@ -3521,7 +3521,7 @@ class RecipeTexPlugin implements EditorPlugin {
 
   // Update parsing logic
 List<Ingredient> _extractListItems(String content) {
-  return RegExp(r'\\item\s+(.*?)\s*$')
+  return RegExp(r'\\item\s+(.*?)\s*$', multiLine:true)
       .allMatches(content)
       .map((m) => _parseIngredient(m.group(1)!))
       .toList();
