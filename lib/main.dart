@@ -3585,7 +3585,7 @@ Ingredient _parseIngredient(String line) {
   ];
 
   final Command _copyCommand = BaseCommand(
-    id: 'recipe_copy',
+    id: 'copy',
     label: 'Copy LaTeX',
     icon: const Icon(Icons.copy),
     defaultPosition: CommandPosition.pluginToolbar,
@@ -3601,7 +3601,7 @@ Ingredient _parseIngredient(String line) {
   );
 
   final Command _saveCommand = BaseCommand(
-    id: 'recipe_save',
+    id: 'save',
     label: 'Save Recipe',
     icon: const Icon(Icons.save),
     defaultPosition: CommandPosition.pluginToolbar,
@@ -3614,7 +3614,7 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    canExecute: (ref) => ref.read(sessionProvider).currentTab?.isDirty ?? false,
+    //canExecute: (ref) => ref.read(sessionProvider).currentTab?.isDirty ?? false,
   );
 
   @override
