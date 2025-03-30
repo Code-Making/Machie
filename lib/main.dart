@@ -2946,7 +2946,7 @@ class SAFFileHandler implements FileHandler {
   }
 
   final vTreeUri = Uri.decodeFull(fullUri).substring(0, documentIndex + '/document'.length);
-  final treeUri = fullUri.substring(0, documentIndex)+'/lib/document';
+  final treeUri = fullUri.substring(0, documentIndex)+'%2Flib/document';
   // Extract the File URI (everything after '/document/')
   final fileUri = Uri.decodeFull(fullUri).substring(documentIndex + '/document/'.length);
   
