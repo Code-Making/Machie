@@ -3868,37 +3868,17 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(title, style: Theme.of(context).textTheme.titleMedium),
-      if (isInstruction)
-        ...items.asMap().entries.map((entry) =>
-          _buildInstructionItem(entry.key, entry.value as InstructionStep))
-      else
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          onReorder: (oldIndex, newIndex) {
-            setState(() {
-              if (oldIndex < newIndex) newIndex -= 1;
-              final item = items.removeAt(oldIndex);
-              items.insert(newIndex, item);
-            });
-          },
-          itemBuilder: (context, index) {
-            return KeyedSubtree(
-              key: ValueKey(index),
-              child: ReorderableDragStartListener(
-                index: index,
-                child: _buildListItem(index, items[index] as Ingredient),
-              ),
-            );
-          },
-        ),
+      ...items.asMap().entries.map((entry) => 
+        isInstruction 
+          ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
+          : _buildListItem(entry.key, entry.value as Ingredient)
+      ),
       ElevatedButton(
         onPressed: () => setState(() {
           if (isInstruction) {
             widget.data.instructions.add(InstructionStep('', ''));
           } else {
-            widget.data.ingredients.add(Ingredient('', '', ''));
+             widget.data.ingredients.add(Ingredient('', '', '')); // Add Ingredient instance
           }
         }),
         child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
@@ -3909,37 +3889,38 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 
 Widget _buildListItem(int index, Ingredient ingredient) {
   return Row(
-    key: ValueKey(index), // Ensure key is here for ReorderableListView
     children: [
-      ReorderableDragStartListener(
-        index: index,
-        child: const Padding(
-          padding: EdgeInsets.only(right: 8.0),
-          child: Icon(Icons.drag_handle, color: Colors.grey),
-        ),
-      ),
       SizedBox(
         width: 80,
         child: TextFormField(
           initialValue: ingredient.quantity,
-          decoration: const InputDecoration(labelText: 'Qty'),
+          decoration: InputDecoration(
+            labelText: 'Qty',
+            hintText: '50',
+          ),
           onChanged: (value) => ingredient.quantity = value,
         ),
       ),
-      const SizedBox(width: 8),
+      SizedBox(width: 8),
       SizedBox(
         width: 120,
         child: TextFormField(
           initialValue: ingredient.unit,
-          decoration: const InputDecoration(labelText: 'Unit'),
+          decoration: InputDecoration(
+            labelText: 'Unit',
+            hintText: 'g',
+          ),
           onChanged: (value) => ingredient.unit = value,
         ),
       ),
-      const SizedBox(width: 8),
+      SizedBox(width: 8),
       Expanded(
         child: TextFormField(
           initialValue: ingredient.name,
-          decoration: const InputDecoration(labelText: 'Ingredient'),
+          decoration: InputDecoration(
+            labelText: 'Ingredient',
+            hintText: 'feta',
+          ),
           onChanged: (value) => ingredient.name = value,
         ),
       ),
