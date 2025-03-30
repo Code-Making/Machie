@@ -3444,6 +3444,9 @@ class CommandSettingsScreen extends ConsumerWidget {
 // --------------------
 //  Recipe Tex Plugin
 // --------------------
+// --------------------
+//  Recipe Tex Plugin
+// --------------------
 class RecipeTexPlugin implements EditorPlugin {
   @override
   String get name => 'Recipe Editor';
@@ -3459,12 +3462,7 @@ class RecipeTexPlugin implements EditorPlugin {
 
   @override
   bool supportsFile(DocumentFile file) {
-    return file.name.endsWith('.tex') || _isRecipeStructure(file);
-  }
-
-  bool _isRecipeStructure(DocumentFile file) async {
-    final content = await ref.read(fileHandlerProvider).readFile(file.uri);
-    return content.contains(r'\recipe{') && content.contains(r'\recipetitle{');
+    return file.name.endsWith('.tex');
   }
 
   @override
@@ -3481,37 +3479,29 @@ class RecipeTexPlugin implements EditorPlugin {
   RecipeData _parseRecipeContent(String content) {
     final recipeData = RecipeData();
     
-    // Parse main recipe structure
     final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}', dotAll: true)
         .firstMatch(content);
     if (recipeMatch != null) {
-      recipeData.image = recipeMatch.group(1);
+      recipeData.image = recipeMatch.group(1) ?? '';
       
-      // Parse header section
       final headerContent = recipeMatch.group(2)!;
       recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
       recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
       recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
       recipeData.portions = _extractCommandContent(headerContent, r'portion') ?? '';
 
-      // Parse ingredients
       recipeData.ingredients = _extractListItems(recipeMatch.group(3)!);
-
-      // Parse instructions
       recipeData.instructions = _extractListItems(recipeMatch.group(4)!);
-
-      // Parse notes
       recipeData.notes = _extractCommandContent(recipeMatch.group(5)!, r'info') ?? '';
     }
 
-    // Parse images
     final imageMatch = RegExp(r'\\imageFour{(.*?)}{(.*?)}{(.*?)}{(.*?)}').firstMatch(content);
     if (imageMatch != null) {
       recipeData.images = [
-        imageMatch.group(1)!,
-        imageMatch.group(2)!,
-        imageMatch.group(3)!,
-        imageMatch.group(4)!,
+        imageMatch.group(1) ?? '',
+        imageMatch.group(2) ?? '',
+        imageMatch.group(3) ?? '',
+        imageMatch.group(4) ?? '',
       ];
     }
 
@@ -3537,6 +3527,16 @@ class RecipeTexPlugin implements EditorPlugin {
   }
 
   @override
+  Widget buildToolbar(WidgetRef ref) {
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Future<void> dispose() async {
+    // Cleanup resources if needed
+  }
+
+  @override
   List<Command> getCommands() => [];
 
   @override
@@ -3548,29 +3548,24 @@ class RecipeTexPlugin implements EditorPlugin {
   String _generateTexContent(RecipeData data) {
     final buffer = StringBuffer();
     
-    // Main recipe command
     buffer.writeln(r'\recipe[${data.image}]{');
     buffer.writeln(r'\recipetitle{${data.title}}');
     buffer.writeln(r'\preptime{${data.prepTime}} \cooktime{${data.cookTime}}');
     buffer.writeln(r'}{\portion{${data.portions}}}{');
     
-    // Ingredients
     for (final ingredient in data.ingredients) {
       buffer.writeln(r'  \item $ingredient');
     }
     buffer.writeln('}{');
     
-    // Instructions
     for (final instruction in data.instructions) {
       buffer.writeln(r'  \instruction{$instruction}');
     }
     buffer.writeln('}{');
     
-    // Notes
     buffer.writeln(r' \info{${data.notes}}');
     buffer.writeln('}');
     
-    // Images
     if (data.images.length >= 4) {
       buffer.writeln(r'\imageFour{${data.images[0]}}{${data.images[1]}}{${data.images[2]}}{${data.images[3]}}');
     }
