@@ -3540,7 +3540,6 @@ class RecipeTexPlugin implements EditorPlugin {
 
   InstructionStep _parseInstruction(String instruction) {
     final titleMatch = RegExp(r'\\textbf\{\\large\s*(.*?)\}\s*(.*)',unicode: true).firstMatch(instruction);
-    print(titleMatch.toString());
     return titleMatch != null 
         ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim())
         : InstructionStep('', instruction);
