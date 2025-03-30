@@ -142,14 +142,26 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
 final appBarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()),
+
 
   return [
     ...state.appBarOrder,
     ...state.pluginToolbarOrder.where(
       (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
     ),
-  ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
+  ].map((id) => notifier.getCommand(id))
+  .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
+  .whereType<Command>()
+  .toList();
 });
+
+bool _shouldShowCommand(Command cmd, String? currentPlugin) {
+  // Always show core commands
+  if (cmd.sourcePlugin == 'Core') return true;
+  // Show plugin-specific commands only when their plugin is active
+  return cmd.sourcePlugin == currentPlugin;
+}
 
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
