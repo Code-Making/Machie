@@ -3502,6 +3502,7 @@ class RecipeTexPlugin implements EditorPlugin {
       recipeData.instructions = _extractInstructionItems(recipeMatch.group(5)!);
 
       // Parse notes
+      print(recipeMatch.group(6));
       recipeData.notes = _extractCommandContent(recipeMatch.group(6)!, r'info') ?? '';
     }
 
