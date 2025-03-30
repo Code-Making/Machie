@@ -142,7 +142,7 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
 final appBarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString())),
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
 
 
   return [
@@ -156,17 +156,11 @@ final appBarCommandsProvider = Provider<List<Command>>((ref) {
   .toList();
 });
 
-bool _shouldShowCommand(Command cmd, String? currentPlugin) {
-  // Always show core commands
-  if (cmd.sourcePlugin == 'Core') return true;
-  // Show plugin-specific commands only when their plugin is active
-  return cmd.sourcePlugin == currentPlugin;
-}
 
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString())),
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
 
   return [
     ...state.pluginToolbarOrder,
@@ -178,6 +172,13 @@ final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
   .toList();
 });
+
+bool _shouldShowCommand(Command cmd, String? currentPlugin) {
+  // Always show core commands
+  if (cmd.sourcePlugin == 'Core') return true;
+  // Show plugin-specific commands only when their plugin is active
+  return cmd.sourcePlugin == currentPlugin;
+}
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
