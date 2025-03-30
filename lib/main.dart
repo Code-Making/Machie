@@ -43,6 +43,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // --------------------
 final printStream = StreamController<String>.broadcast();
 
+ThemeData darkTheme = ThemeData(
+  useMaterial3: true, // This is not necessary or recommended anymore.
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: Colors.orange,
+    brightness: Brightness.dark,
+  ),
+);
+
 void main() {
   runZonedGuarded(
     () {
@@ -50,7 +58,7 @@ void main() {
         ProviderScope(
           child: LifecycleHandler(
             child: MaterialApp(
-              theme: ThemeData.dark(),
+              theme: darkTheme,
               home: AppStartupWidget(
                 onLoaded: (context) => const EditorScreen(),
               ),
