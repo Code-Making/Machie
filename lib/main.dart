@@ -2939,8 +2939,8 @@ class SAFFileHandler implements FileHandler {
     // Extract parent URI from the document URI
     final uri = docFile.uri;
     final lastSlash = uri.lastIndexOf('/');
+    print(Uri.parse(uri));
     if (lastSlash == -1) throw FormatException('No parent found');
-    print(uri);
     print("uri cut: "+ uri.substring(0, lastSlash));
     return uri.substring(0, lastSlash);
   }
