@@ -166,13 +166,17 @@ bool _shouldShowCommand(Command cmd, String? currentPlugin) {
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString())),
 
   return [
     ...state.pluginToolbarOrder,
     ...state.appBarOrder.where(
       (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
     ),
-  ].map((id) => notifier.getCommand(id)).whereType<Command>().toList();
+  ].map((id) => notifier.getCommand(id))
+  .whereType<Command>()
+  .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
+  .toList();
 });
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
