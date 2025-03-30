@@ -3980,7 +3980,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
         ElevatedButton(
           onPressed: () => _updateTab(
             widget.tab.data.copyWith()
-              ..ingredients.add(Ingredient('', '', '')),
+              ..ingredients.add(Ingredient('', '', ''))),
           child: const Text('Add Ingredient'),
         ),
       ],
