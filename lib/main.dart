@@ -3650,7 +3650,7 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false*/,
+    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false,
   );
   
   final Command _undoCommand = BaseCommand(
