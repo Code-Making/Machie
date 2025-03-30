@@ -2865,7 +2865,7 @@ class SAFFileHandler implements FileHandler {
     print(treeAndFile);
     final result = await _safStream.writeFileBytes(
       treeAndFile.treeUri, // Parent directory URI
-      treeAndFile.relativePath, // Original file name
+      file.name, // Original file name
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
       overwrite: true,
