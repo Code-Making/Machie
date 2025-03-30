@@ -3992,6 +3992,9 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
   @override
   Widget build(BuildContext context) {
+     final currentTab = ref.watch(
+      sessionProvider.select((s) => s.currentTab),
+    );
     return Consumer(
       builder: (context, ref, _) {
         return Padding(
