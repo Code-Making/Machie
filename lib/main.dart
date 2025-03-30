@@ -3674,7 +3674,7 @@ class RecipeData {
       ..prepTime = prepTime
       ..cookTime = cookTime
       ..portions = portions
-      ..ingredients = igr
+      ..ingredients = List<Ingredient>.from(ingredients) // Fix typo here
       ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
       ..notes = notes
       ..rawImagesSection = rawImagesSection;
