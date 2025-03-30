@@ -2939,13 +2939,13 @@ class SAFFileHandler implements FileHandler {
 
   ({String treeUri, String fileUri, String relativePath}) splitTreeAndFileUri(DocumentFile docFile) {
   // Extract the Tree URI (everything before '/document/')
-  final fullUri = Uri.decodeFull(docFile.uri);
+  final fullUri = docFile.uri;
   final documentIndex = fullUri.indexOf('/document/');
   if (documentIndex == -1) {
     throw ArgumentError("Invalid URI format: '/document/' not found.");
   }
 
-  final treeUri = Uri.encodeFull(fullUri.substring(0, documentIndex + '/document'.length));
+  final treeUri = fullUri.substring(0, documentIndex + '/document'.length);
   
   // Extract the File URI (everything after '/document/')
   final fileUri = fullUri.substring(documentIndex + '/document/'.length);
