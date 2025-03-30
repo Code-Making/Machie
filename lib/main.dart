@@ -3602,7 +3602,7 @@ Ingredient _parseIngredient(String line) {
   ];
 
   final Command _copyCommand = BaseCommand(
-    id: 'copy',
+    id: 'copy_recipe',
     label: 'Copy LaTeX',
     icon: const Icon(Icons.copy),
     defaultPosition: CommandPosition.pluginToolbar,
@@ -3618,7 +3618,7 @@ Ingredient _parseIngredient(String line) {
   );
 
   final Command _saveCommand = BaseCommand(
-    id: 'save',
+    id: 'save_recipe',
     label: 'Save Recipe',
     icon: const Icon(Icons.save),
     defaultPosition: CommandPosition.pluginToolbar,
