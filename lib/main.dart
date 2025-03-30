@@ -3889,6 +3889,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 
 Widget _buildListItem(int index, Ingredient ingredient) {
   return Row(
+    key: ValueKey(index),
     children: [
       SizedBox(
         width: 80,
@@ -3935,6 +3936,7 @@ Widget _buildListItem(int index, Ingredient ingredient) {
 // Keep the existing instruction item builder
 Widget _buildInstructionItem(int index, InstructionStep instruction) {
   return Column(
+    key: ValueKey(index),
     children: [
       TextFormField(
         initialValue: instruction.title,
