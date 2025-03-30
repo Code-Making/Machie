@@ -3861,7 +3861,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeData newData) {
-    final notifier = context.read(sessionProvider.notifier);
+    final notifier = ref.read(sessionProvider.notifier);
     final currentState = notifier.state;
     final currentIndex = currentState.currentTabIndex;
 
