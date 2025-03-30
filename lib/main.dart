@@ -2945,7 +2945,7 @@ class SAFFileHandler implements FileHandler {
     throw ArgumentError("Invalid URI format: '/document/' not found.");
   }
 
-  final treeUri = fullUri.substring(0, documentIndex + '/document'.length);
+  final treeUri = Uri.encodeFull(fullUri.substring(0, documentIndex + '/document'.length));
   
   // Extract the File URI (everything after '/document/')
   final fileUri = fullUri.substring(documentIndex + '/document/'.length);
