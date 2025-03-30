@@ -44,10 +44,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final printStream = StreamController<String>.broadcast();
 
 ThemeData darkTheme = ThemeData(
-  useMaterial3: true, // This is not necessary or recommended anymore.
+  useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(
-    seedColor: Colors.orange,
+    seedColor: const Color(0xFFF44336), // More reddish orange (#F44336 is Material "Red 500")
     brightness: Brightness.dark,
+  ).copyWith(
+    background: const Color(0xFF1A1A1A), // Lightened dark background
+    surface: const Color(0xFF242424),    // Lightened surface
   ),
 );
 
