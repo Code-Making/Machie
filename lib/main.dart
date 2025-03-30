@@ -2937,16 +2937,16 @@ class SAFFileHandler implements FileHandler {
   }
 
 
-  ({String treeUri, String fileUri, String relativePath}) splitTreeAndFileUri(DocumentFile docFile) {
+  ({String treeUri/*, String fileUri, String relativePath*/}) splitTreeAndFileUri(DocumentFile docFile) {
   // Extract the Tree URI (everything before '/document/')
   final fullUri = docFile.uri;
-  final documentIndex = fullUri.indexOf('/document/');
+  final documentIndex = fullUri.lastIndexOf('%2F');
   if (documentIndex == -1) {
     throw ArgumentError("Invalid URI format: '/document/' not found.");
   }
 
-  final treeUri = fullUri.substring(0, documentIndex)+'/document';
-  // Extract the File URI (everything after '/document/')
+  final treeUri = fullUri.substring(0, documentIndex);
+  /*// Extract the File URI (everything after '/document/')
   final fileUri = fullUri.substring(documentIndex + '/document/'.length);
   
   // Extract the relative path (remove the repeated tree part if needed)
@@ -2956,9 +2956,9 @@ class SAFFileHandler implements FileHandler {
   // If the fileUri starts with the same path as the treeUri, remove it
   if (fileUri.startsWith(treePath)) {
     relativePath = fileUri.substring(treePath.length);
-  }
+  }*/
   
-  return (treeUri: treeUri, fileUri: fileUri, relativePath: relativePath);
+  return (treeUri: treeUri);
 }
 
   @override
