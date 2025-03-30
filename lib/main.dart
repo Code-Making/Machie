@@ -3879,6 +3879,8 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 Widget _buildListItem(int index, Ingredient ingredient) {
   return Row(
     children: [
+    Column(
+        children: [
       SizedBox(
         width: 80,
         child: TextFormField(
@@ -3912,7 +3914,7 @@ Widget _buildListItem(int index, Ingredient ingredient) {
           ),
           onChanged: (value) => ingredient.name = value,
         ),
-      ),
+      ),],),
       IconButton(
         icon: const Icon(Icons.delete),
         onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
@@ -3939,7 +3941,8 @@ Widget _buildInstructionItem(int index, InstructionStep instruction) {
           labelText: 'Step ${index + 1} Details',
           hintText: 'Describe this step...'
         ),
-        maxLines: 2,
+        maxLines: null, // Allows unlimited lines
+        minLines: 2, // Initial height
         onChanged: (value) => instruction.content = value,
       ),
       IconButton(
