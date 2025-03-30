@@ -3634,19 +3634,22 @@ String _generateTexContent(RecipeData data) {
   
   // Ingredients
   for (final ingredient in data.ingredients) {
-    buffer.writeln(r'  \item $ingredient');
-  }
-  buffer.writeln('}{');
-  
-  // Instructions
-    // Ingredients
-  for (final ingredient in data.ingredients) {
     final quantityPart = ingredient.quantity.isNotEmpty 
         ? '[${ingredient.quantity}]'
         : '';
     buffer.writeln(
       r'  \item \unit$quantityPart{${ingredient.unit}} ${ingredient.name}'
     );
+  }
+  buffer.writeln('}{');
+  
+  // Instructions
+  for (final instruction in data.instructions) {
+    if (instruction.title.isNotEmpty) {
+      buffer.writeln('  \\instruction{\\textbf{\\large ${instruction.title}}: ${instruction.content}}');
+    } else {
+      buffer.writeln('  \\instruction{${instruction.content}}');
+    }
   }
   buffer.writeln('}{');
   
