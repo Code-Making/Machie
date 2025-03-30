@@ -43,14 +43,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // --------------------
 final printStream = StreamController<String>.broadcast();
 
-ThemeData darkTheme = ThemeData(
-  useMaterial3: true, // This is not necessary or recommended anymore.
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: Colors.orange,
-    brightness: Brightness.dark,
-  ),
-);
-
 void main() {
   runZonedGuarded(
     () {
@@ -58,7 +50,7 @@ void main() {
         ProviderScope(
           child: LifecycleHandler(
             child: MaterialApp(
-              theme: darkTheme,
+              theme: ThemeData.dark(),
               home: AppStartupWidget(
                 onLoaded: (context) => const EditorScreen(),
               ),
@@ -3709,12 +3701,19 @@ String _generateTexContent(RecipeData data) {
 
 class RecipeTexTab extends EditorTab {
   RecipeData data;
+  final List<RecipeData> undoStack;
+  final List<RecipeData> redoStack;
+
 
   RecipeTexTab({
     required super.file,
     required super.plugin,
     required this.data,
     required super.isDirty,
+    this.undoStack = const [],
+    this.redoStack = const [],
+    List<RecipeData>? undoStack,
+    List<RecipeData>? redoStack,
   });
 
   @override
@@ -3724,12 +3723,48 @@ class RecipeTexTab extends EditorTab {
   void dispose() {}
 
   @override
-  RecipeTexTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty}) {
+  RecipeTexTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+    bool? isDirty,
+    RecipeData? data,
+    List<RecipeData>? undoStack,
+    List<RecipeData>? redoStack,
+  }) {
     return RecipeTexTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      data: data.copyWith(),
+      data: data ?? this.data.copyWith(),
       isDirty: isDirty ?? this.isDirty,
+      undoStack: undoStack ?? List.from(this.undoStack),
+      redoStack: redoStack ?? List.from(this.redoStack),
+    );
+}
+
+  RecipeTexTab saveStateForUndo(RecipeData previousData) {
+    return this.copyWith(
+      undoStack: List.from(undoStack)..add(previousData),
+      redoStack: [],
+    );
+  }
+
+  RecipeTexTab undo() {
+    if (!canUndo) return this;
+    final previousData = undoStack.last;
+    return this.copyWith(
+      data: previousData,
+      undoStack: List.from(undoStack)..removeLast(),
+      redoStack: List.from(redoStack)..add(data),
+    );
+  }
+
+  RecipeTexTab redo() {
+    if (!canRedo) return this;
+    final nextData = redoStack.last;
+    return this.copyWith(
+      data: nextData,
+      undoStack: List.from(undoStack)..add(data),
+      redoStack: List.from(redoStack)..removeLast(),
     );
   }
 }
