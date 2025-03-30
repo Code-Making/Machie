@@ -3543,7 +3543,7 @@ class RecipeTexPlugin implements EditorPlugin {
     print(instruction);
     print(titleMatch?.toString());
     return titleMatch != null 
-        ? InstructionStep(titleMatch.group(0)!, titleMatch.group(1)!.trim())
+        ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim())
         : InstructionStep('', instruction);
   }
 
