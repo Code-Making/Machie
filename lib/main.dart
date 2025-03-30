@@ -2945,13 +2945,12 @@ class SAFFileHandler implements FileHandler {
     throw ArgumentError("Invalid URI format: '/document/' not found.");
   }
 
-  final vTreeUri = Uri.decodeFull(fullUri).substring(0, documentIndex + '/document'.length);
-  final treeUri = fullUri.substring(0, documentIndex)+'%2Flib/document';
+  final treeUri = fullUri.substring(0, documentIndex)+'/document';
   // Extract the File URI (everything after '/document/')
-  final fileUri = Uri.decodeFull(fullUri).substring(documentIndex + '/document/'.length);
+  final fileUri = fullUri.substring(documentIndex + '/document/'.length);
   
   // Extract the relative path (remove the repeated tree part if needed)
-  final treePath = vTreeUri.substring(treeUri.indexOf('/tree/') + '/tree/'.length);
+  final treePath = treeUri.substring(treeUri.indexOf('/tree/') + '/tree/'.length);
   String relativePath = fileUri;
   
   // If the fileUri starts with the same path as the treeUri, remove it
