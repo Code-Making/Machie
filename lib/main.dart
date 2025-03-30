@@ -3646,7 +3646,7 @@ String _generateTexContent(RecipeData data) {
   // Instructions
   for (final instruction in data.instructions) {
     if (instruction.title.isNotEmpty) {
-      buffer.writeln('  \\instruction{\\textbf{\\large ${instruction.title}}: ${instruction.content}}');
+      buffer.writeln('  \\instruction{\\textbf{\\large ${instruction.title}} ${instruction.content}}');
     } else {
       buffer.writeln('  \\instruction{${instruction.content}}');
     }
