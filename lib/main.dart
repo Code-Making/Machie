@@ -3698,21 +3698,21 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView(
-        children: [
-          _buildHeaderSection(),
-          const SizedBox(height: 20),
-          _buildListSection('Ingredients', widget.data.ingredients),
-          const SizedBox(height: 20),
-          _buildListSection('Instructions', widget.data.instructions),
-          const SizedBox(height: 20),
-          _buildNotesSection(),
-        ],
-      ),
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: ListView(
+      children: [
+        _buildHeaderSection(),
+        const SizedBox(height: 20),
+        _buildListSection('Ingredients', widget.data.ingredients, false),
+        const SizedBox(height: 20),
+        _buildListSection('Instructions', widget.data.instructions, true),
+        const SizedBox(height: 20),
+        _buildNotesSection(),
+      ],
+    ),
+  );
+}
 
   Widget _buildHeaderSection() {
     return Column(
@@ -3754,76 +3754,80 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
   }
 
   Widget _buildListSection(String title, List<dynamic> items, bool isInstruction) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        ...items.asMap().entries.map((entry) => 
-          isInstruction 
-            ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
-            : _buildIngredientItem(entry.key, entry.value as String)
-        ),
-        ElevatedButton(
-          onPressed: () => setState(() {
-            if (isInstruction) {
-              widget.data.instructions.add(InstructionStep('', ''));
-            } else {
-              widget.data.ingredients.add('');
-            }
-          }),
-          child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
-        ),
-      ],
-    );
-  }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ...items.asMap().entries.map((entry) => 
+        isInstruction 
+          ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
+          : _buildListItem(entry.key, entry.value as String)
+      ),
+      ElevatedButton(
+        onPressed: () => setState(() {
+          if (isInstruction) {
+            widget.data.instructions.add(InstructionStep('', ''));
+          } else {
+            widget.data.ingredients.add('');
+          }
+        }),
+        child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
+      ),
+    ],
+  );
+}
 
-  Widget _buildInstructionItem(int index, InstructionStep instruction) {
-    return Column(
-      children: [
-        TextFormField(
-          initialValue: instruction.title,
+// Add the ingredient item builder
+Widget _buildListItem(int index, String item) {
+  return Row(
+    children: [
+      Expanded(
+        child: TextFormField(
+          initialValue: item,
           decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Title',
-            hintText: 'e.g., "Preparation"'
+            hintText: 'Enter ingredient ${index + 1}',
+            labelText: 'Ingredient ${index + 1}'
           ),
-          onChanged: (value) => instruction.title = value,
+          onChanged: (value) => widget.data.ingredients[index] = value,
         ),
-        TextFormField(
-          initialValue: instruction.content,
-          decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Details',
-            hintText: 'Describe this step...'
-          ),
-          maxLines: 2,
-          onChanged: (value) => instruction.content = value,
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
-        ),
-        const Divider(),
-      ],
-    );
-  }
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
+      ),
+    ],
+  );
+}
 
-  Widget _buildListItem(List<String> items, String item) {
-    final index = items.indexOf(item);
-    return Row(
-      children: [
-        Expanded(
-          child: TextFormField(
-            initialValue: item,
-            decoration: InputDecoration(hintText: 'Enter ${items == widget.data.ingredients ? 'ingredient' : 'instruction'}'),
-            onChanged: (value) => items[index] = value,
-          ),
+// Keep the existing instruction item builder
+Widget _buildInstructionItem(int index, InstructionStep instruction) {
+  return Column(
+    children: [
+      TextFormField(
+        initialValue: instruction.title,
+        decoration: InputDecoration(
+          labelText: 'Step ${index + 1} Title',
+          hintText: 'e.g., "Preparation"'
         ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => setState(() => items.removeAt(index)),
+        onChanged: (value) => instruction.title = value,
+      ),
+      TextFormField(
+        initialValue: instruction.content,
+        decoration: InputDecoration(
+          labelText: 'Step ${index + 1} Details',
+          hintText: 'Describe this step...'
         ),
-      ],
-    );
-  }
+        maxLines: 2,
+        onChanged: (value) => instruction.content = value,
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
+      ),
+      const Divider(),
+    ],
+  );
+}
 
   Widget _buildNotesSection() {
     return TextFormField(
