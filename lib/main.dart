@@ -151,7 +151,7 @@ final appBarCommandsProvider = Provider<List<Command>>((ref) {
       (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
     ),
   ].map((id) => notifier.getCommand(id))
-  .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
+  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
   .whereType<Command>()
   .toList();
 });
@@ -169,7 +169,7 @@ final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
     ),
   ].map((id) => notifier.getCommand(id))
   .whereType<Command>()
-  .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
+  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
   .toList();
 });
 
