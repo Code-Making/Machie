@@ -3663,6 +3663,7 @@ class RecipeData {
   String prepTime = '';
   String cookTime = '';
   String portions = '';
+  String image = '';
   List<Ingredient> ingredients = [];
   List<InstructionStep> instructions = [];
   String notes = '';
@@ -3674,6 +3675,7 @@ class RecipeData {
       ..prepTime = prepTime
       ..cookTime = cookTime
       ..portions = portions
+      ..image = image
       ..ingredients = List<Ingredient>.from(ingredients) // Fix typo here
       ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
       ..notes = notes
@@ -3782,7 +3784,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
           if (isInstruction) {
             widget.data.instructions.add(InstructionStep('', ''));
           } else {
-            widget.data.ingredients.add('');
+             widget.data.ingredients.add(Ingredient('', '', '')); // Add Ingredient instance
           }
         }),
         child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
