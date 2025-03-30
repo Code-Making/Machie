@@ -3879,7 +3879,7 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
 Widget _buildListItem(int index, Ingredient ingredient) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-     children: Row(
+     children: [Row(
     children: [
       SizedBox(
         width: 80,
