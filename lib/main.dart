@@ -2937,12 +2937,12 @@ class SAFFileHandler implements FileHandler {
 
   Future<String> _getParentUri(DocumentFile docFile) async {
     // Extract parent URI from the document URI
-    final uri = docFile.uri;
+    final uri = Uri.decodeFull(docFile.uri);
     final lastSlash = uri.lastIndexOf('/');
-    print(Uri.parse(uri));
+    print(Uri.decodeFull(uri));
     if (lastSlash == -1) throw FormatException('No parent found');
     print("uri cut: "+ uri.substring(0, lastSlash));
-    return uri.substring(0, lastSlash);
+    return Uri.encodeFull(uri.substring(0, lastSlash));
   }
 
   @override
