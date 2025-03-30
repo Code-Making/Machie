@@ -3674,10 +3674,10 @@ class RecipeData {
       ..prepTime = prepTime
       ..cookTime = cookTime
       ..portions = portions
-      ..ingredients = List.from(ingredients)
+      ..ingredients = igr
       ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
       ..notes = notes
-      ..rawImagesSection = rawImagesSection
+      ..rawImagesSection = rawImagesSection;
   }
 }
 
