@@ -3479,22 +3479,33 @@ class RecipeTexPlugin implements EditorPlugin {
   RecipeData _parseRecipeContent(String content) {
     final recipeData = RecipeData();
     
-    final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}', dotAll: true)
-        .firstMatch(content);
+    final recipeMatch = RegExp(
+      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}',
+      dotAll: true
+    ).firstMatch(content);
+
     if (recipeMatch != null) {
+      // Parse basic info
       recipeData.image = recipeMatch.group(1) ?? '';
-      
+      recipeData.portions = _extractCommandContent(recipeMatch.group(3)!, r'portion') ?? '';
+
+      // Parse header
       final headerContent = recipeMatch.group(2)!;
       recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
       recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
       recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
-      recipeData.portions = _extractCommandContent(headerContent, r'portion') ?? '';
 
-      recipeData.ingredients = _extractListItems(recipeMatch.group(3)!);
-      recipeData.instructions = _extractListItems(recipeMatch.group(4)!);
-      recipeData.notes = _extractCommandContent(recipeMatch.group(5)!, r'info') ?? '';
+      // Parse ingredients
+      recipeData.ingredients = _extractListItems(recipeMatch.group(4)!);
+
+      // Parse instructions with titles
+      recipeData.instructions = _extractInstructionItems(recipeMatch.group(5)!);
+
+      // Parse notes
+      recipeData.notes = _extractCommandContent(recipeMatch.group(6)!, r'info') ?? '';
     }
 
+    // Parse images
     final imageMatch = RegExp(r'\\imageFour{(.*?)}{(.*?)}{(.*?)}{(.*?)}').firstMatch(content);
     if (imageMatch != null) {
       recipeData.images = [
@@ -3518,6 +3529,20 @@ class RecipeTexPlugin implements EditorPlugin {
         .allMatches(content)
         .map((m) => m.group(1)?.trim() ?? '')
         .toList();
+  }
+  
+  List<InstructionStep> _extractInstructionItems(String content) {
+    return RegExp(r'\\instruction{(.*?)}', dotAll: true)
+        .allMatches(content)
+        .map((m) => _parseInstruction(m.group(1)!))
+        .toList();
+  }
+
+  InstructionStep _parseInstruction(String instruction) {
+    final titleMatch = RegExp(r'\\textbf{\\large\s*(.*?)}\s*(.*)').firstMatch(instruction);
+    return titleMatch != null 
+        ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim())
+        : InstructionStep('', instruction);
   }
 
   @override
@@ -3545,33 +3570,42 @@ class RecipeTexPlugin implements EditorPlugin {
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
 
-  String _generateTexContent(RecipeData data) {
-    final buffer = StringBuffer();
-    
-    buffer.writeln(r'\recipe[${data.image}]{');
-    buffer.writeln(r'\recipetitle{${data.title}}');
-    buffer.writeln(r'\preptime{${data.prepTime}} \cooktime{${data.cookTime}}');
-    buffer.writeln(r'}{\portion{${data.portions}}}{');
-    
-    for (final ingredient in data.ingredients) {
-      buffer.writeln(r'  \item $ingredient');
-    }
-    buffer.writeln('}{');
-    
-    for (final instruction in data.instructions) {
-      buffer.writeln(r'  \instruction{$instruction}');
-    }
-    buffer.writeln('}{');
-    
-    buffer.writeln(r' \info{${data.notes}}');
-    buffer.writeln('}');
-    
-    if (data.images.length >= 4) {
-      buffer.writeln(r'\imageFour{${data.images[0]}}{${data.images[1]}}{${data.images[2]}}{${data.images[3]}}');
-    }
-    
-    return buffer.toString();
+  // Update the Tex generation
+String _generateTexContent(RecipeData data) {
+  final buffer = StringBuffer();
+  
+  buffer.writeln(r'\recipe[${data.image}]{');
+  buffer.writeln(r'\recipetitle{${data.title}}');
+  buffer.writeln(r'\preptime{${data.prepTime}} \cooktime{${data.cookTime}}');
+  buffer.writeln(r'}{\portion{${data.portions}}}{');
+  
+  // Ingredients
+  for (final ingredient in data.ingredients) {
+    buffer.writeln(r'  \item $ingredient');
   }
+  buffer.writeln('}{');
+  
+  // Instructions
+  for (final instruction in data.instructions) {
+    if (instruction.title.isNotEmpty) {
+      buffer.writeln(r'  \instruction{\textbf{\large ${instruction.title}} ${instruction.content}');
+    } else {
+      buffer.writeln(r'  \instruction{${instruction.content}}');
+    }
+  }
+  buffer.writeln('}{');
+  
+  // Notes
+  buffer.writeln(r' \info{${data.notes}}');
+  buffer.writeln('}');
+  
+  // Images
+  if (data.images.length >= 4) {
+    buffer.writeln(r'\imageFour{${data.images[0]}}{${data.images[1]}}{${data.images[2]}}{${data.images[3]}}');
+  }
+  
+  return buffer.toString();
+}
 }
 
 class RecipeTexTab extends EditorTab {
@@ -3601,13 +3635,20 @@ class RecipeTexTab extends EditorTab {
   }
 }
 
+class InstructionStep {
+  String title;
+  String content;
+
+  InstructionStep(this.title, this.content);
+}
+
 class RecipeData {
   String title = '';
   String prepTime = '';
   String cookTime = '';
   String portions = '';
   List<String> ingredients = [];
-  List<String> instructions = [];
+  List<InstructionStep> instructions = [];
   String notes = '';
   String image = '';
   List<String> images = [];
@@ -3619,7 +3660,7 @@ class RecipeData {
       ..cookTime = cookTime
       ..portions = portions
       ..ingredients = List.from(ingredients)
-      ..instructions = List.from(instructions)
+      ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
       ..notes = notes
       ..image = image
       ..images = List.from(images);
@@ -3712,16 +3753,55 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
     );
   }
 
-  Widget _buildListSection(String title, List<String> items) {
+  Widget _buildListSection(String title, List<dynamic> items, bool isInstruction) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleMedium),
-        ...items.map((item) => _buildListItem(items, item)).toList(),
-        ElevatedButton(
-          onPressed: () => setState(() => items.add('')),
-          child: Text('Add $title'),
+        ...items.asMap().entries.map((entry) => 
+          isInstruction 
+            ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
+            : _buildIngredientItem(entry.key, entry.value as String)
         ),
+        ElevatedButton(
+          onPressed: () => setState(() {
+            if (isInstruction) {
+              widget.data.instructions.add(InstructionStep('', ''));
+            } else {
+              widget.data.ingredients.add('');
+            }
+          }),
+          child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInstructionItem(int index, InstructionStep instruction) {
+    return Column(
+      children: [
+        TextFormField(
+          initialValue: instruction.title,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Title',
+            hintText: 'e.g., "Preparation"'
+          ),
+          onChanged: (value) => instruction.title = value,
+        ),
+        TextFormField(
+          initialValue: instruction.content,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Details',
+            hintText: 'Describe this step...'
+          ),
+          maxLines: 2,
+          onChanged: (value) => instruction.content = value,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
+        ),
+        const Divider(),
       ],
     );
   }
