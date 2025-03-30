@@ -17,6 +17,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
@@ -89,7 +91,7 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
 });
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {CodeEditorPlugin()},
+  (_) => {CodeEditorPlugin(), RecipeTexPlugin()},
 );
 
 final activePluginsProvider =
@@ -3435,5 +3437,335 @@ class CommandSettingsScreen extends ConsumerWidget {
             ),
           ),
     );
+  }
+}
+
+
+// --------------------
+//  Recipe Tex Plugin
+// --------------------
+class RecipeTexPlugin implements EditorPlugin {
+  @override
+  String get name => 'Recipe Editor';
+
+  @override
+  Widget get icon => const Icon(Icons.restaurant);
+
+  @override
+  final PluginSettings? settings = null;
+
+  @override
+  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
+
+  @override
+  bool supportsFile(DocumentFile file) {
+    return file.name.endsWith('.tex') || _isRecipeStructure(file);
+  }
+
+  bool _isRecipeStructure(DocumentFile file) async {
+    final content = await ref.read(fileHandlerProvider).readFile(file.uri);
+    return content.contains(r'\recipe{') && content.contains(r'\recipetitle{');
+  }
+
+  @override
+  Future<EditorTab> createTab(DocumentFile file, String content) async {
+    final recipeData = _parseRecipeContent(content);
+    return RecipeTexTab(
+      file: file,
+      plugin: this,
+      data: recipeData,
+      isDirty: false,
+    );
+  }
+
+  RecipeData _parseRecipeContent(String content) {
+    final recipeData = RecipeData();
+    
+    // Parse main recipe structure
+    final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}', dotAll: true)
+        .firstMatch(content);
+    if (recipeMatch != null) {
+      recipeData.image = recipeMatch.group(1);
+      
+      // Parse header section
+      final headerContent = recipeMatch.group(2)!;
+      recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
+      recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
+      recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
+      recipeData.portions = _extractCommandContent(headerContent, r'portion') ?? '';
+
+      // Parse ingredients
+      recipeData.ingredients = _extractListItems(recipeMatch.group(3)!);
+
+      // Parse instructions
+      recipeData.instructions = _extractListItems(recipeMatch.group(4)!);
+
+      // Parse notes
+      recipeData.notes = _extractCommandContent(recipeMatch.group(5)!, r'info') ?? '';
+    }
+
+    // Parse images
+    final imageMatch = RegExp(r'\\imageFour{(.*?)}{(.*?)}{(.*?)}{(.*?)}').firstMatch(content);
+    if (imageMatch != null) {
+      recipeData.images = [
+        imageMatch.group(1)!,
+        imageMatch.group(2)!,
+        imageMatch.group(3)!,
+        imageMatch.group(4)!,
+      ];
+    }
+
+    return recipeData;
+  }
+
+  String? _extractCommandContent(String content, String command) {
+    final match = RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content);
+    return match?.group(1);
+  }
+
+  List<String> _extractListItems(String content) {
+    return RegExp(r'\\item\s*(.*?)\s*(?=\\item|$)')
+        .allMatches(content)
+        .map((m) => m.group(1)?.trim() ?? '')
+        .toList();
+  }
+
+  @override
+  Widget buildEditor(EditorTab tab, WidgetRef ref) {
+    final recipeTab = tab as RecipeTexTab;
+    return RecipeEditorForm(data: recipeTab.data);
+  }
+
+  @override
+  List<Command> getCommands() => [];
+
+  @override
+  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
+  
+  @override
+  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
+
+  String _generateTexContent(RecipeData data) {
+    final buffer = StringBuffer();
+    
+    // Main recipe command
+    buffer.writeln(r'\recipe[${data.image}]{');
+    buffer.writeln(r'\recipetitle{${data.title}}');
+    buffer.writeln(r'\preptime{${data.prepTime}} \cooktime{${data.cookTime}}');
+    buffer.writeln(r'}{\portion{${data.portions}}}{');
+    
+    // Ingredients
+    for (final ingredient in data.ingredients) {
+      buffer.writeln(r'  \item $ingredient');
+    }
+    buffer.writeln('}{');
+    
+    // Instructions
+    for (final instruction in data.instructions) {
+      buffer.writeln(r'  \instruction{$instruction}');
+    }
+    buffer.writeln('}{');
+    
+    // Notes
+    buffer.writeln(r' \info{${data.notes}}');
+    buffer.writeln('}');
+    
+    // Images
+    if (data.images.length >= 4) {
+      buffer.writeln(r'\imageFour{${data.images[0]}}{${data.images[1]}}{${data.images[2]}}{${data.images[3]}}');
+    }
+    
+    return buffer.toString();
+  }
+}
+
+class RecipeTexTab extends EditorTab {
+  RecipeData data;
+
+  RecipeTexTab({
+    required super.file,
+    required super.plugin,
+    required this.data,
+    required super.isDirty,
+  });
+
+  @override
+  String get contentString => (plugin as RecipeTexPlugin)._generateTexContent(data);
+
+  @override
+  void dispose() {}
+
+  @override
+  RecipeTexTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty}) {
+    return RecipeTexTab(
+      file: file ?? this.file,
+      plugin: plugin ?? this.plugin,
+      data: data.copyWith(),
+      isDirty: isDirty ?? this.isDirty,
+    );
+  }
+}
+
+class RecipeData {
+  String title = '';
+  String prepTime = '';
+  String cookTime = '';
+  String portions = '';
+  List<String> ingredients = [];
+  List<String> instructions = [];
+  String notes = '';
+  String image = '';
+  List<String> images = [];
+
+  RecipeData copyWith() {
+    return RecipeData()
+      ..title = title
+      ..prepTime = prepTime
+      ..cookTime = cookTime
+      ..portions = portions
+      ..ingredients = List.from(ingredients)
+      ..instructions = List.from(instructions)
+      ..notes = notes
+      ..image = image
+      ..images = List.from(images);
+  }
+}
+
+// --------------------
+//  Recipe Editor UI
+// --------------------
+class RecipeEditorForm extends StatefulWidget {
+  final RecipeData data;
+
+  const RecipeEditorForm({super.key, required this.data});
+
+  @override
+  _RecipeEditorFormState createState() => _RecipeEditorFormState();
+}
+
+class _RecipeEditorFormState extends State<RecipeEditorForm> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _prepTimeController;
+  late final TextEditingController _cookTimeController;
+  late final TextEditingController _portionsController;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.data.title);
+    _prepTimeController = TextEditingController(text: widget.data.prepTime);
+    _cookTimeController = TextEditingController(text: widget.data.cookTime);
+    _portionsController = TextEditingController(text: widget.data.portions);
+    _notesController = TextEditingController(text: widget.data.notes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView(
+        children: [
+          _buildHeaderSection(),
+          const SizedBox(height: 20),
+          _buildListSection('Ingredients', widget.data.ingredients),
+          const SizedBox(height: 20),
+          _buildListSection('Instructions', widget.data.instructions),
+          const SizedBox(height: 20),
+          _buildNotesSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _titleController,
+          decoration: const InputDecoration(labelText: 'Recipe Title'),
+          onChanged: (value) => widget.data.title = value,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _prepTimeController,
+                decoration: const InputDecoration(labelText: 'Prep Time'),
+                onChanged: (value) => widget.data.prepTime = value,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _cookTimeController,
+                decoration: const InputDecoration(labelText: 'Cook Time'),
+                onChanged: (value) => widget.data.cookTime = value,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _portionsController,
+                decoration: const InputDecoration(labelText: 'Portions'),
+                onChanged: (value) => widget.data.portions = value,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListSection(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        ...items.map((item) => _buildListItem(items, item)).toList(),
+        ElevatedButton(
+          onPressed: () => setState(() => items.add('')),
+          child: Text('Add $title'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListItem(List<String> items, String item) {
+    final index = items.indexOf(item);
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            initialValue: item,
+            decoration: InputDecoration(hintText: 'Enter ${items == widget.data.ingredients ? 'ingredient' : 'instruction'}'),
+            onChanged: (value) => items[index] = value,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => setState(() => items.removeAt(index)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotesSection() {
+    return TextFormField(
+      controller: _notesController,
+      decoration: const InputDecoration(labelText: 'Additional Notes'),
+      maxLines: 3,
+      onChanged: (value) => widget.data.notes = value,
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _prepTimeController.dispose();
+    _cookTimeController.dispose();
+    _portionsController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 }
