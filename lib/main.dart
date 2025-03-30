@@ -3650,6 +3650,14 @@ class InstructionStep {
   InstructionStep(this.title, this.content);
 }
 
+class Ingredient {
+  String quantity;
+  String unit;
+  String name;
+  
+  Ingredient(this.quantity, this.unit, this.name);
+}
+
 class RecipeData {
   String title = '';
   String prepTime = '';
