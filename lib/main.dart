@@ -3814,7 +3814,7 @@ class RecipeData {
 
 // --------------------
 //  Recipe Editor UI
-class RecipeEditorForm extends StatefulWidget {
+class RecipeEditorForm extends ConsumerStatefulWidget {
   final RecipeTexTab tab;
 
   const RecipeEditorForm({super.key, required this.tab});
@@ -3823,7 +3823,7 @@ class RecipeEditorForm extends StatefulWidget {
   _RecipeEditorFormState createState() => _RecipeEditorFormState();
 }
 
-class _RecipeEditorFormState extends State<RecipeEditorForm> {
+class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   late TextEditingController _titleController;
   late TextEditingController _prepTimeController;
   late TextEditingController _cookTimeController;
@@ -3861,14 +3861,27 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeData newData) {
-    final previousData = widget.tab.data.copyWith();
+    final notifier = context.read(sessionProvider.notifier);
+    final currentState = notifier.state;
+    final currentIndex = currentState.currentTabIndex;
+
+    if (currentIndex == -1) return;
+
     final newTab = widget.tab.copyWith(
       data: newData,
       isDirty: true,
-    ).saveStateForUndo(previousData);
-    
-    final session = context.read(sessionProvider.notifier);
-    session.updateTab(newTab);
+    ).saveStateForUndo(widget.tab.data);
+
+    final newTabs = currentState.tabs.map((t) {
+      return t == widget.tab ? newTab : t;
+    }).toList();
+
+    notifier.state = currentState.copyWith(
+      tabs: newTabs,
+      currentTabIndex: currentIndex,
+    );
+
+    notifier.markCurrentTabDirty();
   }
 
   void _handleFieldUpdate(String field, String value) {
