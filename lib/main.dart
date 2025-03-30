@@ -3506,15 +3506,10 @@ class RecipeTexPlugin implements EditorPlugin {
     }
 
     // Parse images
-    final imageMatch = RegExp(r'\\imageFour{(.*?)}{(.*?)}{(.*?)}{(.*?)}').firstMatch(content);
-    if (imageMatch != null) {
-      recipeData.images = [
-        imageMatch.group(1) ?? '',
-        imageMatch.group(2) ?? '',
-        imageMatch.group(3) ?? '',
-        imageMatch.group(4) ?? '',
-      ];
-    }
+      final imagesMatch = RegExp(r'(% Images[\s\S]*)').firstMatch(content);
+      if (imagesMatch != null) {
+        recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
+      }
 
     return recipeData;
   }
@@ -3599,13 +3594,12 @@ String _generateTexContent(RecipeData data) {
   buffer.writeln(r' \info{${data.notes}}');
   buffer.writeln('}');
   
-  // Images
-  if (data.images.length >= 4) {
-    buffer.writeln(r'\imageFour{${data.images[0]}}{${data.images[1]}}{${data.images[2]}}{${data.images[3]}}');
+  if (data.rawImagesSection.isNotEmpty) {
+    buffer.writeln('\n${data.rawImagesSection}');
   }
   
   return buffer.toString();
-}
+  }
 }
 
 class RecipeTexTab extends EditorTab {
@@ -3650,8 +3644,7 @@ class RecipeData {
   List<String> ingredients = [];
   List<InstructionStep> instructions = [];
   String notes = '';
-  String image = '';
-  List<String> images = [];
+  String rawImagesSection = '';
 
   RecipeData copyWith() {
     return RecipeData()
@@ -3662,8 +3655,7 @@ class RecipeData {
       ..ingredients = List.from(ingredients)
       ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
       ..notes = notes
-      ..image = image
-      ..images = List.from(images);
+      ..rawImagesSection = rawImagesSection
   }
 }
 
