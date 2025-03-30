@@ -1471,7 +1471,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: label,
       icon: Icon(icon, size: 20),
       defaultPosition: CommandPosition.pluginToolbar,
-      sourcePlugin: 'CodeEditor',
+      sourcePlugin: this.runtimeType.toString(),
       execute: (ref) async {
         final ctrl = _getController(ref);
         if (ctrl != null) await execute(ref, ctrl);
@@ -3601,7 +3601,7 @@ Ingredient _parseIngredient(String line) {
     label: 'Copy LaTeX',
     icon: const Icon(Icons.copy),
     defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeEditor',
+    sourcePlugin: this.runtimeType.toString(),
     execute: (ref) async {
       final tab = ref.read(sessionProvider).currentTab as RecipeTexTab?;
       if (tab != null) {
@@ -3617,7 +3617,7 @@ Ingredient _parseIngredient(String line) {
     label: 'Save Recipe',
     icon: const Icon(Icons.save),
     defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeEditor',
+    sourcePlugin: this.runtimeType.toString(),
     execute: (ref) async {
       final session = ref.read(sessionProvider);
       final currentIndex = session.currentTabIndex;
