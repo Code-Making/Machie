@@ -3627,10 +3627,10 @@ Ingredient _parseIngredient(String line) {
 String _generateTexContent(RecipeData data) {
   final buffer = StringBuffer();
   
-  buffer.writeln('\recipe[${data.image}]{');
-  buffer.writeln('\recipetitle{${data.title}}');
-  buffer.writeln('\preptime{${data.prepTime}} \cooktime{${data.cookTime}}');
-  buffer.writeln('}{\portion{${data.portions}}}{');
+  buffer.writeln('\\recipe[${data.image}]{');
+  buffer.writeln('\\recipetitle{${data.title}}');
+  buffer.writeln('\\preptime{${data.prepTime}} \\cooktime{${data.cookTime}}');
+  buffer.writeln('}{\\portion{${data.portions}}}{');
   
   // Ingredients
   for (final ingredient in data.ingredients) {
@@ -3638,7 +3638,7 @@ String _generateTexContent(RecipeData data) {
         ? '[${ingredient.quantity}]'
         : '';
     buffer.writeln(
-      '  \item \unit$quantityPart{${ingredient.unit}} ${ingredient.name}'
+      '  \\item \\unit$quantityPart{${ingredient.unit}} ${ingredient.name}'
     );
   }
   buffer.writeln('}{');
@@ -3654,7 +3654,7 @@ String _generateTexContent(RecipeData data) {
   buffer.writeln('}{');
   
   // Notes
-  buffer.writeln(' \info{${data.notes}}');
+  buffer.writeln(' \\info{${data.notes}}');
   buffer.writeln('}');
   
   if (data.rawImagesSection.isNotEmpty) {
