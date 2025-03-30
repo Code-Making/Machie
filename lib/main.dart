@@ -3606,7 +3606,7 @@ Ingredient _parseIngredient(String line) {
     label: 'Copy LaTeX',
     icon: const Icon(Icons.copy),
     defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: this.runtimeType.toString(),
+    sourcePlugin: runtimeType.toString(),
     execute: (ref) async {
       final tab = ref.read(sessionProvider).currentTab as RecipeTexTab?;
       if (tab != null) {
@@ -3622,7 +3622,7 @@ Ingredient _parseIngredient(String line) {
     label: 'Save Recipe',
     icon: const Icon(Icons.save),
     defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: this.runtimeType.toString(),
+    sourcePlugin: runtimeType.toString(),
     execute: (ref) async {
       final session = ref.read(sessionProvider);
       final currentIndex = session.currentTabIndex;
