@@ -3532,7 +3532,7 @@ class RecipeTexPlugin implements EditorPlugin {
   }
   
   List<InstructionStep> _extractInstructionItems(String content) {
-    return RegExp(r'\\instruction{(.*)}$', multiLine:true)
+    return RegExp(r'\\instruction\{(.*)\}$', multiLine:true)
         .allMatches(content)
         .map((m) => _parseInstruction(m.group(1)!))
         .toList();
