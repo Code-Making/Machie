@@ -3749,6 +3749,16 @@ class InstructionStep {
   String content;
 
   InstructionStep(this.title, this.content);
+  
+  InstructionStep copyWith({
+    String? title,
+    String? content,
+  }) {
+    return InstructionStep(
+      title ?? this.title,
+      content ?? this.content,
+    );
+  }
 }
 
 class Ingredient {
@@ -3757,6 +3767,18 @@ class Ingredient {
   String name;
   
   Ingredient(this.quantity, this.unit, this.name);
+  
+  Ingredient copyWith({
+    String? quantity,
+    String? unit,
+    String? name,
+  }) {
+    return Ingredient(
+      quantity ?? this.quantity,
+      unit ?? this.unit,
+      name ?? this.name,
+    );
+  }
 }
 
 class RecipeData {
@@ -3770,17 +3792,27 @@ class RecipeData {
   String notes = '';
   String rawImagesSection = '';
 
-  RecipeData copyWith() {
+  RecipeData copyWith({
+    String? title,
+    String? prepTime,
+    String? cookTime,
+    String? portions,
+    String? image,
+    List<Ingredient>? ingredients,
+    List<InstructionStep>? instructions,
+    String? notes,
+    String? rawImagesSection,
+  }) {
     return RecipeData()
-      ..title = title
-      ..prepTime = prepTime
-      ..cookTime = cookTime
-      ..portions = portions
-      ..image = image
-      ..ingredients = List<Ingredient>.from(ingredients) // Fix typo here
-      ..instructions = instructions.map((i) => InstructionStep(i.title, i.content)).toList()
-      ..notes = notes
-      ..rawImagesSection = rawImagesSection;
+      ..title = title ?? this.title
+      ..prepTime = prepTime ?? this.prepTime
+      ..cookTime = cookTime ?? this.cookTime
+      ..portions = portions ?? this.portions
+      ..image = image ?? this.image
+      ..ingredients = ingredients ?? List.from(this.ingredients)
+      ..instructions = instructions ?? List.from(this.instructions)
+      ..notes = notes ?? this.notes
+      ..rawImagesSection = rawImagesSection ?? this.rawImagesSection;
   }
 }
 
