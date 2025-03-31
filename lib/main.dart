@@ -3705,7 +3705,7 @@ final _redoCommand = BaseCommand(
   icon: const Icon(Icons.redo),
   defaultPosition: CommandPosition.pluginToolbar,
   sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) {
+  execute: (ref) async {
     final session = ref.read(sessionProvider);
     final currentTab = session.currentTab;
     if (currentTab is! RecipeTexTab || currentTab.redoStack.isEmpty) return;
