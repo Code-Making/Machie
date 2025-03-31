@@ -4253,7 +4253,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           itemBuilder: (context, index) {
             final ingredient = tab.data.ingredients[index];
             return KeyedSubtree(
-              key: ValueKey('ingredient_${ingredient.hashCode}'),
+              key: ValueKey('ingredient_$index'),
               child: ReorderableDelayedDragStartListener(
                 index: index,
                 child: _buildIngredientRow(tab, index, ingredient),
