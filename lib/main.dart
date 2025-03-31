@@ -3897,10 +3897,17 @@ class InstructionStep {
 }
 
 class Ingredient {
+  final String id;
   String quantity;
   String unit;
   String name;
   
+Ingredient({
+    String? id,
+    required this.quantity,
+    required this.unit,
+    required this.name,
+  }) : id = id ?? const Uuid().v4(); // Generate UUID if not provided
   Ingredient(this.quantity, this.unit, this.name);
   
   @override
@@ -3912,7 +3919,7 @@ class Ingredient {
           name == other.name;
 
   @override
-  int get hashCode => Object.hash(quantity, unit, name);
+  int get hashCode => Object.hash(id);
 
   
   Ingredient copyWith({
@@ -3921,9 +3928,10 @@ class Ingredient {
     String? name,
   }) {
     return Ingredient(
-      quantity ?? this.quantity,
-      unit ?? this.unit,
-      name ?? this.name,
+      id: id,
+      quantity: quantity ?? this.quantity,
+      unit: unit ?? this.unit,
+      name: name ?? this.name,
     );
   }
 }
@@ -4274,6 +4282,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     final focusNodes = _ingredientFocusNodes[index]!;
 
     return Row(
+      key: ValueKey('ingredient_row_${ingredient.id}'),
       //key: ValueKey('ingredient_row_$index'),
       children: [
         const Icon(Icons.drag_handle, color: Colors.grey),
