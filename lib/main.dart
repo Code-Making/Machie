@@ -4142,7 +4142,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
       children: [
         TextFormField(
           controller: _titleController,
-          initialValue: tab.data.title,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
           onChanged: (value) => _updateTitle(tab, value),
         ),
@@ -4151,7 +4150,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _prepTimeController,
-                initialValue: tab.data.prepTime,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
                 onChanged: (value) => _updatePrepTime(tab, value),
               ),
@@ -4160,7 +4158,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _cookTimeController,
-                initialValue: tab.data.cookTime,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
                 onChanged: (value) => _updateCookTime(tab, value),
               ),
@@ -4169,7 +4166,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _portionsController,
-                initialValue: tab.data.portions,
                 decoration: const InputDecoration(labelText: 'Portions'),
                 onChanged: (value) => _updatePortions(tab, value),
               ),
