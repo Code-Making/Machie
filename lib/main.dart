@@ -3663,9 +3663,21 @@ Ingredient _parseIngredient(String line) {
     sourcePlugin: 'RecipeTexPlugin',
     execute: (ref) async {
       final session = ref.read(sessionProvider);
+      final currentTab = session.tabs[currentIndex] as RecipeTexTab;
       final currentIndex = session.currentTabIndex;
+      
       if (currentIndex != -1) {
         await ref.read(sessionProvider.notifier).saveTab(currentIndex);
+        
+        if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
+        final savedTab = currentTab.copyWith(
+        originalData: currentTab.data.copyWith(),
+        isDirty: false,
+        );
+      
+        ref.read(sessionProvider.notifier).updateTabState(currentTab, savedTab);
+      
+        
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
@@ -3689,7 +3701,7 @@ final _undoCommand = BaseCommand(
       data: previousData,
       undoStack: currentTab.undoStack.sublist(0, currentTab.undoStack.length - 1),
       redoStack: [currentTab.data, ...currentTab.redoStack],
-      isDirty: true,
+      isDirty: previousData != currentTab.originalData,
     );
 
     ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
@@ -3716,7 +3728,7 @@ final _redoCommand = BaseCommand(
       data: nextData,
       undoStack: [...currentTab.undoStack, currentTab.data],
       redoStack: currentTab.redoStack.sublist(1),
-      isDirty: true,
+      isDirty: nextData != currentTab.originalData,
     );
 
     ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
