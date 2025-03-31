@@ -47,11 +47,44 @@ final printStream = StreamController<String>.broadcast();
 ThemeData darkTheme = ThemeData(
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFFF44336), // More reddish orange (#F44336 is Material "Red 500")
+    seedColor: const Color(0xFFF44336), // Red-500
     brightness: Brightness.dark,
   ).copyWith(
-    background: const Color(0xFF2F2F2F), // Lightened dark background
-    surface: const Color(0xFF2B2B29),    // Lightened surface
+    background: const Color(0xFF2F2F2F),
+    surface: const Color(0xFF2B2B29),
+  ),
+  // Custom AppBar styling (smaller height & title)
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Color(0xFF2B2B29), // Matches surface color
+    elevation: 1, // Slight shadow
+    scrolledUnderElevation: 1, // Shadow when scrolling
+    centerTitle: true, // Optional: Center the title
+    titleTextStyle: TextStyle(
+      fontSize: 18, // Smaller title
+      fontWeight: FontWeight.w600,
+    ),
+    toolbarHeight: 56, // Less tall than default (default is 64 in M3)
+  ),
+  // Custom TabBar styling (matches AppBar background)
+  tabBarTheme: TabBarTheme(
+    indicator: UnderlineTabIndicator(
+      borderSide: BorderSide(
+        color: Color(0xFFF44336), // Matches seedColor
+        width: 2.0,
+      ),
+    ),
+    unselectedLabelColor: Colors.grey[400], // Unselected tab text
+    //dividerColor: Colors.transparent, // Removes top divider
+    //overlayColor: MaterialStateProperty.all(Colors.transparent), // Disables ripple
+    // Optional: Adjust tab height & padding
+    indicatorSize: TabBarIndicatorSize.tab,
+    labelPadding: EdgeInsets.symmetric(horizontal: 12.0),
+  ),
+  // Custom ElevatedButton styling (slightly lighter than background)
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF3A3A3A),
+    ),
   ),
 );
 
