@@ -3967,6 +3967,59 @@ class RecipeEditorForm extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
+  late final FocusNode _titleFocusNode;
+  late final FocusNode _prepTimeFocusNode;
+  late final FocusNode _cookTimeFocusNode;
+  late final FocusNode _portionsFocusNode;
+
+  // Ingredients section focus nodes (we'll manage these dynamically)
+  final Map<int, List<FocusNode>> _ingredientFocusNodes = {};
+
+  // Instructions section focus nodes (we'll manage these dynamically)
+  final Map<int, List<FocusNode>> _instructionFocusNodes = {};
+
+  // Notes section focus node
+  late final FocusNode _notesFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize header focus nodes
+    _titleFocusNode = FocusNode();
+    _prepTimeFocusNode = FocusNode();
+    _cookTimeFocusNode = FocusNode();
+    _portionsFocusNode = FocusNode();
+    
+    // Initialize notes focus node
+    _notesFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    // Dispose all focus nodes
+    _titleFocusNode.dispose();
+    _prepTimeFocusNode.dispose();
+    _cookTimeFocusNode.dispose();
+    _portionsFocusNode.dispose();
+    _notesFocusNode.dispose();
+    
+    // Dispose ingredient focus nodes
+    for (var nodes in _ingredientFocusNodes.values) {
+      for (var node in nodes) {
+        node.dispose();
+      }
+    }
+    
+    // Dispose instruction focus nodes
+    for (var nodes in _instructionFocusNodes.values) {
+      for (var node in nodes) {
+        node.dispose();
+      }
+    }
+    
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
     final currentTab = _getCurrentTab();
@@ -3999,6 +4052,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     return Column(
       children: [
         TextFormField(
+          focusNode: _titleFocusNode,
           initialValue: tab.data.title,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
           onChanged: (value) => _updateTitle(tab, value),
@@ -4007,6 +4061,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           children: [
             Expanded(
               child: TextFormField(
+                focusNode: _prepTimeFocusNode,
                 initialValue: tab.data.prepTime,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
                 onChanged: (value) => _updatePrepTime(tab, value),
@@ -4015,6 +4070,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
+                focusNode: _cookTimeFocusNode,
                 initialValue: tab.data.cookTime,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
                 onChanged: (value) => _updateCookTime(tab, value),
@@ -4023,6 +4079,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
+                focusNode: _portionsFocusNode,
                 initialValue: tab.data.portions,
                 decoration: const InputDecoration(labelText: 'Portions'),
                 onChanged: (value) => _updatePortions(tab, value),
