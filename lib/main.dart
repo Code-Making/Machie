@@ -3776,6 +3776,8 @@ String _generateTexContent(RecipeData data) {
 
 class RecipeTexTab extends EditorTab {
   RecipeData data;
+  final List<RecipeData> undoStack;
+  final List<RecipeData> redoStack;
 
   RecipeTexTab({
     required super.file,
