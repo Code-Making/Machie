@@ -4108,12 +4108,12 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
-    final newData = updater(oldTab.data.copyWith());
-    final newTab = oldTab.copyWith(
-      data: newData,
-      isDirty: true,
-    );
-    
-    ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
-  }
+  final newData = updater(oldTab.data.copyWith());
+  final newTab = oldTab.copyWith(
+    data: newData,
+    isDirty: true,
+  );
+  
+  ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
+}
 }
