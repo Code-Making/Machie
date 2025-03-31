@@ -3929,10 +3929,10 @@ Ingredient copyWith({
     String? name,
   }) {
     return Ingredient(
+      quantity ?? this.quantity,
+      unit ?? this.unit,
+      name ?? this.name,
       id: id,
-      quantity: quantity ?? this.quantity,
-      unit: unit ?? this.unit,
-      name: name ?? this.name,
     );
   }
 }
