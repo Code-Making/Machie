@@ -13,6 +13,7 @@ import 'package:saf_util/saf_util_platform_interface.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
