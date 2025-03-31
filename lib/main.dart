@@ -3897,7 +3897,6 @@ class InstructionStep {
 }
 
 class Ingredient {
-  final String id;
   String quantity;
   String unit;
   String name;
