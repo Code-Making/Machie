@@ -715,6 +715,13 @@ class SessionNotifier extends Notifier<SessionState> {
     _handlePluginLifecycle(prevTab, state.currentTab);
     ref.read(focusNodeProvider).unfocus();
   }
+  
+  void updateTabState(EditorTab oldTab, EditorTab newTab) {
+  state = state.copyWith(
+    tabs: state.tabs.map((t) => t == oldTab ? newTab : t).toList(),
+  );
+  markCurrentTabDirty();
+}
 
   void markCurrentTabDirty() {
     final current = state;
