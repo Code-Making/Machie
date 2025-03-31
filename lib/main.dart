@@ -799,7 +799,7 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   Future<void> changeDirectory(DocumentFile directory) async {
-    await _manager.persistDirectory(state);
+    //await _manager.persistDirectory(state);
     state = state.copyWith(currentDirectory: directory);
   }
 
