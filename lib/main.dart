@@ -4113,7 +4113,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   Widget build(BuildContext context) {
     final currentTab = _getCurrentTab();
     if (currentTab == null) return const SizedBox.shrink();
-    _initializeControllers(currentTab.data);
+    _syncControllersWithData(currentTab.data);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView(
