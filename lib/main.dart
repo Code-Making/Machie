@@ -4175,7 +4175,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     
     _syncControllersAndFocusNodes(currentTab.data);
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.only(left:16.0, right:8.0),
       child: ListView(
         children: [
           _buildHeaderSection(currentTab),
