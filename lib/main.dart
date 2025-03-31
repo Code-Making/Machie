@@ -3780,7 +3780,7 @@ class RecipeData {
 // --------------------
 //  Recipe Editor UI
 // --------------------
-class RecipeEditorForm extends StatefulWidget {
+class RecipeEditorForm extends ConsumerStatefulWidget {
   final RecipeData data;
 
   const RecipeEditorForm({super.key, required this.data});
@@ -3789,72 +3789,66 @@ class RecipeEditorForm extends StatefulWidget {
   _RecipeEditorFormState createState() => _RecipeEditorFormState();
 }
 
-class _RecipeEditorFormState extends State<RecipeEditorForm> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _prepTimeController;
-  late final TextEditingController _cookTimeController;
-  late final TextEditingController _portionsController;
-  late final TextEditingController _notesController;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.data.title);
-    _prepTimeController = TextEditingController(text: widget.data.prepTime);
-    _cookTimeController = TextEditingController(text: widget.data.cookTime);
-    _portionsController = TextEditingController(text: widget.data.portions);
-    _notesController = TextEditingController(text: widget.data.notes);
-  }
-
+class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   @override
   Widget build(BuildContext context) {
-  return Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: ListView(
-      children: [
-        _buildHeaderSection(),
-        const SizedBox(height: 20),
-        _buildListSection('Ingredients', widget.data.ingredients, false),
-        const SizedBox(height: 20),
-        _buildListSection('Instructions', widget.data.instructions, true),
-        const SizedBox(height: 20),
-        _buildNotesSection(),
-      ],
-    ),
-  );
-}
+    final currentTab = _getCurrentTab();
+    if (currentTab == null) return const SizedBox.shrink();
 
-  Widget _buildHeaderSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView(
+        children: [
+          _buildHeaderSection(currentTab),
+          const SizedBox(height: 20),
+          _buildIngredientsSection(currentTab),
+          const SizedBox(height: 20),
+          _buildInstructionsSection(currentTab),
+          const SizedBox(height: 20),
+          _buildNotesSection(currentTab),
+        ],
+      ),
+    );
+  }
+
+  RecipeTexTab? _getCurrentTab() {
+    final session = ref.watch(sessionProvider);
+    return session.currentTab is RecipeTexTab 
+        ? session.currentTab as RecipeTexTab
+        : null;
+  }
+
+  Widget _buildHeaderSection(RecipeTexTab tab) {
     return Column(
       children: [
         TextFormField(
-          controller: _titleController,
+          initialValue: tab.data.title,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
-          onChanged: (value) => widget.data.title = value,
+          onChanged: (value) => _updateTitle(tab, value),
         ),
         Row(
           children: [
             Expanded(
               child: TextFormField(
-                controller: _prepTimeController,
+                initialValue: tab.data.prepTime,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
-                onChanged: (value) => widget.data.prepTime = value,
+                onChanged: (value) => _updatePrepTime(tab, value),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                controller: _cookTimeController,
+                initialValue: tab.data.cookTime,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
-                onChanged: (value) => widget.data.cookTime = value,
+                onChanged: (value) => _updateCookTime(tab, value),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                controller: _portionsController,
+                initialValue: tab.data.portions,
                 decoration: const InputDecoration(labelText: 'Portions'),
-                onChanged: (value) => widget.data.portions = value,
+                onChanged: (value) => _updatePortions(tab, value),
               ),
             ),
           ],
@@ -3863,124 +3857,219 @@ class _RecipeEditorFormState extends State<RecipeEditorForm> {
     );
   }
 
-  Widget _buildListSection(String title, List<dynamic> items, bool isInstruction) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(title, style: Theme.of(context).textTheme.titleMedium),
-      ...items.asMap().entries.map((entry) => 
-        isInstruction 
-          ? _buildInstructionItem(entry.key, entry.value as InstructionStep)
-          : _buildListItem(entry.key, entry.value as Ingredient)
-      ),
-      ElevatedButton(
-        onPressed: () => setState(() {
-          if (isInstruction) {
-            widget.data.instructions.add(InstructionStep('', ''));
-          } else {
-             widget.data.ingredients.add(Ingredient('', '', '')); // Add Ingredient instance
-          }
-        }),
-        child: Text('Add ${isInstruction ? 'Instruction' : 'Ingredient'}'),
-      ),
-    ],
-  );
-}
-
-Widget _buildListItem(int index, Ingredient ingredient) {
-  return Row(
-    key: ValueKey(index),
-    children: [
-      SizedBox(
-        width: 80,
-        child: TextFormField(
-          initialValue: ingredient.quantity,
-          decoration: InputDecoration(
-            labelText: 'Qty',
-            hintText: '50',
-          ),
-          onChanged: (value) => ingredient.quantity = value,
+  Widget _buildIngredientsSection(RecipeTexTab tab) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: tab.data.ingredients.length,
+          onReorder: (oldIndex, newIndex) => _reorderIngredients(tab, oldIndex, newIndex),
+          itemBuilder: (context, index) {
+            final ingredient = tab.data.ingredients[index];
+            return KeyedSubtree(
+              key: ValueKey('ingredient_${ingredient.hashCode}'),
+              child: ReorderableDragStartListener(
+                index: index,
+                child: _buildIngredientRow(tab, index, ingredient),
+              ),
+            );
+          },
         ),
-      ),
-      SizedBox(width: 8),
-      SizedBox(
-        width: 120,
-        child: TextFormField(
-          initialValue: ingredient.unit,
-          decoration: InputDecoration(
-            labelText: 'Unit',
-            hintText: 'g',
-          ),
-          onChanged: (value) => ingredient.unit = value,
+        ElevatedButton(
+          onPressed: () => _addIngredient(tab),
+          child: const Text('Add Ingredient'),
         ),
-      ),
-      SizedBox(width: 8),
-      Expanded(
-        child: TextFormField(
-          initialValue: ingredient.name,
-          decoration: InputDecoration(
-            labelText: 'Ingredient',
-            hintText: 'feta',
-          ),
-          onChanged: (value) => ingredient.name = value,
-        ),
-      ),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => setState(() => widget.data.ingredients.removeAt(index)),
-      ),
-    ],
-  );
-}
-
-// Keep the existing instruction item builder
-Widget _buildInstructionItem(int index, InstructionStep instruction) {
-  return Column(
-    key: ValueKey(index),
-    children: [
-      TextFormField(
-        initialValue: instruction.title,
-        decoration: InputDecoration(
-          labelText: 'Step ${index + 1} Title',
-          hintText: 'e.g., "Preparation"'
-        ),
-        onChanged: (value) => instruction.title = value,
-      ),
-      TextFormField(
-        initialValue: instruction.content,
-        decoration: InputDecoration(
-          labelText: 'Step ${index + 1} Details',
-          hintText: 'Describe this step...'
-        ),
-        maxLines: null, // Allows unlimited lines
-        minLines: 2, // Initial height
-        onChanged: (value) => instruction.content = value,
-      ),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: () => setState(() => widget.data.instructions.removeAt(index)),
-      ),
-      const Divider(),
-    ],
-  );
-}
-
-  Widget _buildNotesSection() {
-    return TextFormField(
-      controller: _notesController,
-      decoration: const InputDecoration(labelText: 'Additional Notes'),
-      maxLines: 3,
-      onChanged: (value) => widget.data.notes = value,
+      ],
     );
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _prepTimeController.dispose();
-    _cookTimeController.dispose();
-    _portionsController.dispose();
-    _notesController.dispose();
-    super.dispose();
+  Widget _buildIngredientRow(RecipeTexTab tab, int index, Ingredient ingredient) {
+    return Row(
+      key: ValueKey('ingredient_row_${ingredient.hashCode}'),
+      children: [
+        const Icon(Icons.drag_handle, color: Colors.grey),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 80,
+          child: TextFormField(
+            initialValue: ingredient.quantity,
+            decoration: const InputDecoration(labelText: 'Qty'),
+            onChanged: (value) => _updateIngredientQuantity(tab, index, value),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 120,
+          child: TextFormField(
+            initialValue: ingredient.unit,
+            decoration: const InputDecoration(labelText: 'Unit'),
+            onChanged: (value) => _updateIngredientUnit(tab, index, value),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            initialValue: ingredient.name,
+            decoration: const InputDecoration(labelText: 'Ingredient'),
+            onChanged: (value) => _updateIngredientName(tab, index, value),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => _deleteIngredient(tab, index),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInstructionsSection(RecipeTexTab tab) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
+        ...tab.data.instructions.asMap().entries.map((entry) => 
+          _buildInstructionItem(tab, entry.key, entry.value)
+        ),
+        ElevatedButton(
+          onPressed: () => _addInstruction(tab),
+          child: const Text('Add Instruction'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInstructionItem(RecipeTexTab tab, int index, InstructionStep instruction) {
+    return Column(
+      key: ValueKey('instruction_${instruction.hashCode}'),
+      children: [
+        TextFormField(
+          initialValue: instruction.title,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Title',
+            hintText: 'e.g., "Preparation"'
+          ),
+          onChanged: (value) => _updateInstructionTitle(tab, index, value),
+        ),
+        TextFormField(
+          initialValue: instruction.content,
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Details',
+            hintText: 'Describe this step...'
+          ),
+          maxLines: null,
+          minLines: 2,
+          onChanged: (value) => _updateInstructionContent(tab, index, value),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => _deleteInstruction(tab, index),
+        ),
+        const Divider(),
+      ],
+    );
+  }
+
+  Widget _buildNotesSection(RecipeTexTab tab) {
+    return TextFormField(
+      initialValue: tab.data.notes,
+      decoration: const InputDecoration(labelText: 'Additional Notes'),
+      maxLines: 3,
+      onChanged: (value) => _updateNotes(tab, value),
+    );
+  }
+
+  // Immutable update methods
+  void _updateTitle(RecipeTexTab oldTab, String value) {
+    _updateTab(oldTab, (data) => data.copyWith(title: value));
+  }
+
+  void _updatePrepTime(RecipeTexTab oldTab, String value) {
+    _updateTab(oldTab, (data) => data.copyWith(prepTime: value));
+  }
+
+  void _updateCookTime(RecipeTexTab oldTab, String value) {
+    _updateTab(oldTab, (data) => data.copyWith(cookTime: value));
+  }
+
+  void _updatePortions(RecipeTexTab oldTab, String value) {
+    _updateTab(oldTab, (data) => data.copyWith(portions: value));
+  }
+
+  void _updateNotes(RecipeTexTab oldTab, String value) {
+    _updateTab(oldTab, (data) => data.copyWith(notes: value));
+  }
+
+  void _reorderIngredients(RecipeTexTab oldTab, int oldIndex, int newIndex) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
+    if (oldIndex < newIndex) newIndex--;
+    final item = ingredients.removeAt(oldIndex);
+    ingredients.insert(newIndex, item);
+    
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _addIngredient(RecipeTexTab oldTab) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)
+      ..add(Ingredient('', '', ''));
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _deleteIngredient(RecipeTexTab oldTab, int index) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)..removeAt(index);
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _updateIngredientQuantity(RecipeTexTab oldTab, int index, String value) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
+    ingredients[index] = ingredients[index].copyWith(quantity: value);
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _updateIngredientUnit(RecipeTexTab oldTab, int index, String value) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
+    ingredients[index] = ingredients[index].copyWith(unit: value);
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _updateIngredientName(RecipeTexTab oldTab, int index, String value) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
+    ingredients[index] = ingredients[index].copyWith(name: value);
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+  }
+
+  void _addInstruction(RecipeTexTab oldTab) {
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions)
+      ..add(InstructionStep('', ''));
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
+  }
+
+  void _deleteInstruction(RecipeTexTab oldTab, int index) {
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions)..removeAt(index);
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
+  }
+
+  void _updateInstructionTitle(RecipeTexTab oldTab, int index, String value) {
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions);
+    instructions[index] = instructions[index].copyWith(title: value);
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
+  }
+
+  void _updateInstructionContent(RecipeTexTab oldTab, int index, String value) {
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions);
+    instructions[index] = instructions[index].copyWith(content: value);
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
+  }
+
+  void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
+    final newData = updater(oldTab.data.copyWith());
+    final newTab = oldTab.copyWith(
+      data: newData,
+      isDirty: true,
+    );
+    
+    ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
   }
 }
