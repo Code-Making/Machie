@@ -2860,7 +2860,7 @@ class SAFFileHandler implements FileHandler {
   SAFFileHandler();
 
   @override
-  Future<DocumentFile?> pickDirectory() async {
+  Future<DocumentFile?> pickDirectory(persistablePermission: true, writePermission: true,) async {
     final dir = await _safUtil.pickDirectory();
     return dir != null ? CustomSAFDocumentFile(dir) : null;
   }
