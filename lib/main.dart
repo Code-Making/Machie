@@ -3663,9 +3663,9 @@ Ingredient _parseIngredient(String line) {
     sourcePlugin: 'RecipeTexPlugin',
     execute: (ref) async {
       final session = ref.read(sessionProvider);
-      final currentTab = session.tabs[currentIndex] as RecipeTexTab;
       final currentIndex = session.currentTabIndex;
-      
+      final currentTab = session.tabs[currentIndex] as RecipeTexTab;
+
       if (currentIndex != -1) {
         await ref.read(sessionProvider.notifier).saveTab(currentIndex);
         
