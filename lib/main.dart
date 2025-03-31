@@ -12,7 +12,6 @@ import 'package:saf_util/saf_util_method_channel.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -3903,14 +3902,8 @@ class Ingredient {
   String unit;
   String name;
   
-Ingredient(
-    this.quantity,
-    this.unit,
-    this.name,
-  {
-      String? id,
-  }) : id = id ?? const Uuid().v4(); // Generate UUID if not provided
-
+  Ingredient(this.quantity, this.unit, this.name);
+  
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3923,7 +3916,7 @@ Ingredient(
   int get hashCode => Object.hash(quantity, unit, name);
 
   
-Ingredient copyWith({
+  Ingredient copyWith({
     String? quantity,
     String? unit,
     String? name,
@@ -3932,7 +3925,6 @@ Ingredient copyWith({
       quantity ?? this.quantity,
       unit ?? this.unit,
       name ?? this.name,
-      id: id,
     );
   }
 }
