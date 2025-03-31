@@ -51,7 +51,7 @@ ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
   ).copyWith(
     background: const Color(0xFF1A1A1A), // Lightened dark background
-    surface: const Color(0xFF242424),    // Lightened surface
+    surface: const Color(0xFF343432),    // Lightened surface
   ),
 );
 
