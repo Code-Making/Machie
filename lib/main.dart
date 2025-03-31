@@ -3634,6 +3634,8 @@ Ingredient _parseIngredient(String line) {
   List<Command> getCommands() => [
     _copyCommand,
     _saveCommand,
+    _undoCommand,
+    _redoCommand,
   ];
 
   final Command _copyCommand = BaseCommand(
@@ -3666,8 +3668,63 @@ Ingredient _parseIngredient(String line) {
         ref.read(logProvider.notifier).add('Recipe saved successfully');
       }
     },
-    canExecute: (ref) => true/*ref.read(sessionProvider).currentTab?.isDirty ?? false*/,
+    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false,
   );
+  
+  // Update the RecipeTexPlugin commands
+final _undoCommand = BaseCommand(
+  id: 'undo_recipe',
+  label: 'Undo',
+  icon: const Icon(Icons.undo),
+  defaultPosition: CommandPosition.pluginToolbar,
+  sourcePlugin: 'RecipeTexPlugin',
+  execute: (ref) {
+    final session = ref.read(sessionProvider);
+    final currentTab = session.currentTab;
+    if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
+
+    final previousData = currentTab.undoStack.last;
+    final newTab = currentTab.copyWith(
+      data: previousData,
+      undoStack: currentTab.undoStack.sublist(0, currentTab.undoStack.length - 1),
+      redoStack: [currentTab.data, ...currentTab.redoStack],
+      isDirty: true,
+    );
+
+    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
+  },
+  canExecute: (ref) {
+    final currentTab = ref.watch(sessionProvider).currentTab;
+    return currentTab is RecipeTexTab && currentTab.undoStack.isNotEmpty;
+  },
+);
+
+final _redoCommand = BaseCommand(
+  id: 'redo_recipe',
+  label: 'Redo',
+  icon: const Icon(Icons.redo),
+  defaultPosition: CommandPosition.pluginToolbar,
+  sourcePlugin: 'RecipeTexPlugin',
+  execute: (ref) {
+    final session = ref.read(sessionProvider);
+    final currentTab = session.currentTab;
+    if (currentTab is! RecipeTexTab || currentTab.redoStack.isEmpty) return;
+
+    final nextData = currentTab.redoStack.first;
+    final newTab = currentTab.copyWith(
+      data: nextData,
+      undoStack: [...currentTab.undoStack, currentTab.data],
+      redoStack: currentTab.redoStack.sublist(1),
+      isDirty: true,
+    );
+
+    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
+  },
+  canExecute: (ref) {
+    final currentTab = ref.watch(sessionProvider).currentTab;
+    return currentTab is RecipeTexTab && currentTab.redoStack.isNotEmpty;
+  },
+);
 
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
@@ -3725,6 +3782,8 @@ class RecipeTexTab extends EditorTab {
     required super.plugin,
     required this.data,
     required super.isDirty,
+    this.undoStack = const [],
+    this.redoStack = const [],
   });
 
   @override
@@ -3739,12 +3798,16 @@ class RecipeTexTab extends EditorTab {
     EditorPlugin? plugin,
     RecipeData? data,
     bool? isDirty,
+    List<RecipeData>? undoStack,
+    List<RecipeData>? redoStack,
   }) {
     return RecipeTexTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
       data: data ?? this.data.copyWith(),
       isDirty: isDirty ?? this.isDirty,
+      undoStack: undoStack ?? List.from(this.undoStack),
+      redoStack: redoStack ?? List.from(this.redoStack),
     );
   }
 }
@@ -4108,12 +4171,16 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
-  final newData = updater(oldTab.data.copyWith());
+  final previousData = oldTab.data;
+  final newData = updater(previousData.copyWith());
+
   final newTab = oldTab.copyWith(
     data: newData,
+    undoStack: [...oldTab.undoStack, previousData],
+    redoStack: [],
     isDirty: true,
   );
-  
+
   ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
 }
 }
