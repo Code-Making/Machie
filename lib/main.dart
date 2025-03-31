@@ -3524,6 +3524,7 @@ class RecipeTexPlugin implements EditorPlugin {
       file: file,
       plugin: this,
       data: recipeData,
+      originalData: recipeData.copyWith(),
       isDirty: false,
     );
   }
@@ -3776,6 +3777,8 @@ String _generateTexContent(RecipeData data) {
 
 class RecipeTexTab extends EditorTab {
   RecipeData data;
+  final RecipeData originalData;
+  
   final List<RecipeData> undoStack;
   final List<RecipeData> redoStack;
 
@@ -3783,6 +3786,7 @@ class RecipeTexTab extends EditorTab {
     required super.file,
     required super.plugin,
     required this.data,
+    required this.originalData,
     required super.isDirty,
     this.undoStack = const [],
     this.redoStack = const [],
@@ -3799,6 +3803,7 @@ class RecipeTexTab extends EditorTab {
     DocumentFile? file,
     EditorPlugin? plugin,
     RecipeData? data,
+    RecipeData? originalData,
     bool? isDirty,
     List<RecipeData>? undoStack,
     List<RecipeData>? redoStack,
@@ -3807,6 +3812,7 @@ class RecipeTexTab extends EditorTab {
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
       data: data ?? this.data.copyWith(),
+      originalData: originalData ?? this.originalData.copyWith(),
       isDirty: isDirty ?? this.isDirty,
       undoStack: undoStack ?? List.from(this.undoStack),
       redoStack: redoStack ?? List.from(this.redoStack),
@@ -3819,6 +3825,16 @@ class InstructionStep {
   String content;
 
   InstructionStep(this.title, this.content);
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstructionStep &&
+          title == other.title &&
+          content == other.content;
+
+  @override
+  int get hashCode => Object.hash(title, content);
   
   InstructionStep copyWith({
     String? title,
@@ -3837,6 +3853,18 @@ class Ingredient {
   String name;
   
   Ingredient(this.quantity, this.unit, this.name);
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Ingredient &&
+          quantity == other.quantity &&
+          unit == other.unit &&
+          name == other.name;
+
+  @override
+  int get hashCode => Object.hash(quantity, unit, name);
+
   
   Ingredient copyWith({
     String? quantity,
@@ -3861,6 +3889,33 @@ class RecipeData {
   List<InstructionStep> instructions = [];
   String notes = '';
   String rawImagesSection = '';
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecipeData &&
+          title == other.title &&
+          prepTime == other.prepTime &&
+          cookTime == other.cookTime &&
+          portions == other.portions &&
+          image == other.image &&
+          listEquals(ingredients, other.ingredients) &&
+          listEquals(instructions, other.instructions) &&
+          notes == other.notes &&
+          rawImagesSection == other.rawImagesSection;
+
+  @override
+  int get hashCode => Object.hash(
+        title,
+        prepTime,
+        cookTime,
+        portions,
+        image,
+        Object.hashAll(ingredients),
+        Object.hashAll(instructions),
+        notes,
+        rawImagesSection,
+      );
 
   RecipeData copyWith({
     String? title,
@@ -4180,7 +4235,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     data: newData,
     undoStack: [...oldTab.undoStack, previousData],
     redoStack: [],
-    isDirty: true,
+    isDirty: newData != oldTab.originalData,
   );
 
   ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
