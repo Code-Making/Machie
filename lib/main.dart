@@ -3919,7 +3919,7 @@ Ingredient({
           name == other.name;
 
   @override
-  int get hashCode => Object.hash(id);
+  int get hashCode => Object.hash(quantity, unit, name);
 
   
   Ingredient copyWith({
