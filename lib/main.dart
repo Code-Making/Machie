@@ -4274,7 +4274,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     final focusNodes = _ingredientFocusNodes[index]!;
 
     return Row(
-      key: ValueKey('ingredient_row_${index}'),
+      key: ValueKey('ingredient_row_$index'),
       children: [
         const Icon(Icons.drag_handle, color: Colors.grey),
         const SizedBox(width: 8),
