@@ -2952,6 +2952,7 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<void> persistRootUri(String? uri) async {
+    if (true) return;
     if (uri != null) {
       // Take persistable permissions
       await _safUtil.pickDirectory(
