@@ -3967,83 +3967,94 @@ class RecipeEditorForm extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
-  // Controllers for header section
+  // Controllers
   late TextEditingController _titleController;
   late TextEditingController _prepTimeController;
   late TextEditingController _cookTimeController;
   late TextEditingController _portionsController;
-  
-  // Controllers for dynamic sections
+  late TextEditingController _notesController;
   final Map<int, List<TextEditingController>> _ingredientControllers = {};
   final Map<int, List<TextEditingController>> _instructionControllers = {};
-  late TextEditingController _notesController;
+
+  // Focus Nodes
+  late final FocusNode _titleFocusNode;
+  late final FocusNode _prepTimeFocusNode;
+  late final FocusNode _cookTimeFocusNode;
+  late final FocusNode _portionsFocusNode;
+  late final FocusNode _notesFocusNode;
+  final Map<int, List<FocusNode>> _ingredientFocusNodes = {};
+  final Map<int, List<FocusNode>> _instructionFocusNodes = {};
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers(widget.data);
+    _initializeControllersAndFocusNodes(widget.data);
   }
 
-  void _initializeControllers(RecipeData data) {
-    // Header section
+  void _initializeControllersAndFocusNodes(RecipeData data) {
+    // Initialize controllers
     _titleController = TextEditingController(text: data.title);
     _prepTimeController = TextEditingController(text: data.prepTime);
     _cookTimeController = TextEditingController(text: data.cookTime);
     _portionsController = TextEditingController(text: data.portions);
-    
-    // Ingredients
+    _notesController = TextEditingController(text: data.notes);
+
+    // Initialize focus nodes
+    _titleFocusNode = FocusNode();
+    _prepTimeFocusNode = FocusNode();
+    _cookTimeFocusNode = FocusNode();
+    _portionsFocusNode = FocusNode();
+    _notesFocusNode = FocusNode();
+
+    // Initialize ingredients
     for (var i = 0; i < data.ingredients.length; i++) {
       _ingredientControllers[i] = [
         TextEditingController(text: data.ingredients[i].quantity),
         TextEditingController(text: data.ingredients[i].unit),
         TextEditingController(text: data.ingredients[i].name),
       ];
+      _ingredientFocusNodes[i] = [FocusNode(), FocusNode(), FocusNode()];
     }
-    
-    // Instructions
+
+    // Initialize instructions
     for (var i = 0; i < data.instructions.length; i++) {
       _instructionControllers[i] = [
         TextEditingController(text: data.instructions[i].title),
         TextEditingController(text: data.instructions[i].content),
       ];
+      _instructionFocusNodes[i] = [FocusNode(), FocusNode()];
     }
-    
-    // Notes
-    _notesController = TextEditingController(text: data.notes);
   }
 
   @override
   void didUpdateWidget(RecipeEditorForm oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      _syncControllersWithData(widget.data);
+      _syncControllersAndFocusNodes(widget.data);
     }
   }
 
-  void _syncControllersWithData(RecipeData newData) {
-    // Helper function to update controller if needed
+  void _syncControllersAndFocusNodes(RecipeData newData) {
+    // Helper to update controllers
     void updateController(TextEditingController controller, String newValue) {
       if (controller.text != newValue) {
         final selection = controller.selection;
         controller.text = newValue;
-        if (selection.end > newValue.length) {
-          controller.selection = selection.copyWith(
-            baseOffset: newValue.length,
-            extentOffset: newValue.length,
-          );
-        } else {
-          controller.selection = selection;
-        }
+        controller.selection = selection.copyWith(
+          baseOffset: selection.baseOffset.clamp(0, newValue.length),
+          extentOffset: selection.extentOffset.clamp(0, newValue.length),
+        );
       }
     }
 
-    // Update header controllers
+    // Update header
     updateController(_titleController, newData.title);
     updateController(_prepTimeController, newData.prepTime);
     updateController(_cookTimeController, newData.cookTime);
     updateController(_portionsController, newData.portions);
+    updateController(_notesController, newData.notes);
 
-    // Update ingredients
+    // Sync ingredients
     for (var i = 0; i < newData.ingredients.length; i++) {
       final ingredient = newData.ingredients[i];
       if (!_ingredientControllers.containsKey(i)) {
@@ -4052,6 +4063,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           TextEditingController(text: ingredient.unit),
           TextEditingController(text: ingredient.name),
         ];
+        _ingredientFocusNodes[i] = [FocusNode(), FocusNode(), FocusNode()];
       } else {
         updateController(_ingredientControllers[i]![0], ingredient.quantity);
         updateController(_ingredientControllers[i]![1], ingredient.unit);
@@ -4059,10 +4071,16 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
       }
     }
 
-    // Remove extra ingredient controllers
-    _ingredientControllers.removeWhere((index, _) => index >= newData.ingredients.length);
+    // Remove extra ingredients
+    _ingredientControllers.keys.where((i) => i >= newData.ingredients.length).toList()
+      ..forEach((i) {
+        _ingredientControllers[i]?.forEach((c) => c.dispose());
+        _ingredientFocusNodes[i]?.forEach((f) => f.dispose());
+        _ingredientControllers.remove(i);
+        _ingredientFocusNodes.remove(i);
+      });
 
-    // Update instructions
+    // Sync instructions
     for (var i = 0; i < newData.instructions.length; i++) {
       final instruction = newData.instructions[i];
       if (!_instructionControllers.containsKey(i)) {
@@ -4070,50 +4088,56 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           TextEditingController(text: instruction.title),
           TextEditingController(text: instruction.content),
         ];
+        _instructionFocusNodes[i] = [FocusNode(), FocusNode()];
       } else {
         updateController(_instructionControllers[i]![0], instruction.title);
         updateController(_instructionControllers[i]![1], instruction.content);
       }
     }
 
-    // Remove extra instruction controllers
-    _instructionControllers.removeWhere((index, _) => index >= newData.instructions.length);
-
-    // Update notes
-    updateController(_notesController, newData.notes);
+    // Remove extra instructions
+    _instructionControllers.keys.where((i) => i >= newData.instructions.length).toList()
+      ..forEach((i) {
+        _instructionControllers[i]?.forEach((c) => c.dispose());
+        _instructionFocusNodes[i]?.forEach((f) => f.dispose());
+        _instructionControllers.remove(i);
+        _instructionFocusNodes.remove(i);
+      });
   }
 
   @override
   void dispose() {
-    // Dispose all controllers
+    // Dispose controllers
     _titleController.dispose();
     _prepTimeController.dispose();
     _cookTimeController.dispose();
     _portionsController.dispose();
     _notesController.dispose();
-    
-    // Dispose ingredient controllers
-    for (var controllers in _ingredientControllers.values) {
-      for (var controller in controllers) {
-        controller.dispose();
-      }
-    }
-    
-    // Dispose instruction controllers
-    for (var controllers in _instructionControllers.values) {
-      for (var controller in controllers) {
-        controller.dispose();
-      }
-    }
-    
+
+    // Dispose focus nodes
+    _titleFocusNode.dispose();
+    _prepTimeFocusNode.dispose();
+    _cookTimeFocusNode.dispose();
+    _portionsFocusNode.dispose();
+    _notesFocusNode.dispose();
+
+    // Dispose ingredient controllers and focus nodes
+    _ingredientControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
+    _ingredientFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
+
+    // Dispose instruction controllers and focus nodes
+    _instructionControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
+    _instructionFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
+
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final currentTab = _getCurrentTab();
     if (currentTab == null) return const SizedBox.shrink();
-    _syncControllersWithData(currentTab.data);
+    
+    _syncControllersAndFocusNodes(currentTab.data);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView(
@@ -4142,6 +4166,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
       children: [
         TextFormField(
           controller: _titleController,
+          focusNode: _titleFocusNode,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
           onChanged: (value) => _updateTitle(tab, value),
         ),
@@ -4150,6 +4175,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _prepTimeController,
+                focusNode: _prepTimeFocusNode,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
                 onChanged: (value) => _updatePrepTime(tab, value),
               ),
@@ -4158,6 +4184,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _cookTimeController,
+                focusNode: _cookTimeFocusNode,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
                 onChanged: (value) => _updateCookTime(tab, value),
               ),
@@ -4166,6 +4193,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             Expanded(
               child: TextFormField(
                 controller: _portionsController,
+                focusNode: _portionsFocusNode,
                 decoration: const InputDecoration(labelText: 'Portions'),
                 onChanged: (value) => _updatePortions(tab, value),
               ),
@@ -4206,6 +4234,9 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   Widget _buildIngredientRow(RecipeTexTab tab, int index, Ingredient ingredient) {
+    final controllers = _ingredientControllers[index]!;
+    final focusNodes = _ingredientFocusNodes[index]!;
+
     return Row(
       key: ValueKey('ingredient_row_${ingredient.hashCode}'),
       children: [
@@ -4214,26 +4245,34 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
         SizedBox(
           width: 80,
           child: TextFormField(
-            initialValue: ingredient.quantity,
+            controller: controllers[0],
+            focusNode: focusNodes[0],
             decoration: const InputDecoration(labelText: 'Qty'),
             onChanged: (value) => _updateIngredientQuantity(tab, index, value),
+            textInputAction: TextInputAction.next,
+            onEditingComplete: () => focusNodes[1].requestFocus(),
           ),
         ),
         const SizedBox(width: 8),
         SizedBox(
           width: 120,
           child: TextFormField(
-            initialValue: ingredient.unit,
+            controller: controllers[1],
+            focusNode: focusNodes[1],
             decoration: const InputDecoration(labelText: 'Unit'),
             onChanged: (value) => _updateIngredientUnit(tab, index, value),
+            textInputAction: TextInputAction.next,
+            onEditingComplete: () => focusNodes[2].requestFocus(),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: TextFormField(
-            initialValue: ingredient.name,
+            controller: controllers[2],
+            focusNode: focusNodes[2],
             decoration: const InputDecoration(labelText: 'Ingredient'),
             onChanged: (value) => _updateIngredientName(tab, index, value),
+            textInputAction: TextInputAction.done,
           ),
         ),
         IconButton(
@@ -4261,19 +4300,26 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   Widget _buildInstructionItem(RecipeTexTab tab, int index, InstructionStep instruction) {
+    final controllers = _instructionControllers[index]!;
+    final focusNodes = _instructionFocusNodes[index]!;
+
     return Column(
       key: ValueKey('instruction_${instruction.hashCode}'),
       children: [
         TextFormField(
-          initialValue: instruction.title,
+          controller: controllers[0],
+          focusNode: focusNodes[0],
           decoration: InputDecoration(
             labelText: 'Step ${index + 1} Title',
             hintText: 'e.g., "Preparation"'
           ),
           onChanged: (value) => _updateInstructionTitle(tab, index, value),
+          textInputAction: TextInputAction.next,
+          onEditingComplete: () => focusNodes[1].requestFocus(),
         ),
         TextFormField(
-          initialValue: instruction.content,
+          controller: controllers[1],
+          focusNode: focusNodes[1],
           decoration: InputDecoration(
             labelText: 'Step ${index + 1} Details',
             hintText: 'Describe this step...'
@@ -4293,51 +4339,73 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
   Widget _buildNotesSection(RecipeTexTab tab) {
     return TextFormField(
-      initialValue: tab.data.notes,
+      controller: _notesController,
+      focusNode: _notesFocusNode,
       decoration: const InputDecoration(labelText: 'Additional Notes'),
       maxLines: 3,
       onChanged: (value) => _updateNotes(tab, value),
     );
   }
 
-  // Immutable update methods
-  void _updateTitle(RecipeTexTab oldTab, String value) {
-    _updateTab(oldTab, (data) => data.copyWith(title: value));
+  // Add/Delete methods with focus management
+  void _addIngredient(RecipeTexTab oldTab) {
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)
+      ..add(Ingredient('', '', ''));
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final newIndex = oldTab.data.ingredients.length;
+      if (_ingredientFocusNodes.containsKey(newIndex)) {
+        FocusScope.of(context).requestFocus(_ingredientFocusNodes[newIndex]?[0]);
+      }
+    });
   }
 
-  void _updatePrepTime(RecipeTexTab oldTab, String value) {
-    _updateTab(oldTab, (data) => data.copyWith(prepTime: value));
+  void _deleteIngredient(RecipeTexTab oldTab, int index) {
+    _ingredientControllers[index]?.forEach((c) => c.dispose());
+    _ingredientFocusNodes[index]?.forEach((f) => f.dispose());
+    _ingredientControllers.remove(index);
+    _ingredientFocusNodes.remove(index);
+
+    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)..removeAt(index);
+    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
   }
 
-  void _updateCookTime(RecipeTexTab oldTab, String value) {
-    _updateTab(oldTab, (data) => data.copyWith(cookTime: value));
+  void _addInstruction(RecipeTexTab oldTab) {
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions)
+      ..add(InstructionStep('', ''));
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final newIndex = oldTab.data.instructions.length;
+      if (_instructionFocusNodes.containsKey(newIndex)) {
+        FocusScope.of(context).requestFocus(_instructionFocusNodes[newIndex]?[0]);
+      }
+    });
   }
 
-  void _updatePortions(RecipeTexTab oldTab, String value) {
-    _updateTab(oldTab, (data) => data.copyWith(portions: value));
+  void _deleteInstruction(RecipeTexTab oldTab, int index) {
+    _instructionControllers[index]?.forEach((c) => c.dispose());
+    _instructionFocusNodes[index]?.forEach((f) => f.dispose());
+    _instructionControllers.remove(index);
+    _instructionFocusNodes.remove(index);
+
+    final instructions = List<InstructionStep>.from(oldTab.data.instructions)..removeAt(index);
+    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
   }
 
-  void _updateNotes(RecipeTexTab oldTab, String value) {
-    _updateTab(oldTab, (data) => data.copyWith(notes: value));
-  }
+  // Existing update methods remain the same
+  void _updateTitle(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(title: value));
+  void _updatePrepTime(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(prepTime: value));
+  void _updateCookTime(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(cookTime: value));
+  void _updatePortions(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(portions: value));
+  void _updateNotes(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(notes: value));
 
   void _reorderIngredients(RecipeTexTab oldTab, int oldIndex, int newIndex) {
     final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
     if (oldIndex < newIndex) newIndex--;
     final item = ingredients.removeAt(oldIndex);
     ingredients.insert(newIndex, item);
-    
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _addIngredient(RecipeTexTab oldTab) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)
-      ..add(Ingredient('', '', ''));
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _deleteIngredient(RecipeTexTab oldTab, int index) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)..removeAt(index);
     _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
   }
 
@@ -4359,17 +4427,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
   }
 
-  void _addInstruction(RecipeTexTab oldTab) {
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions)
-      ..add(InstructionStep('', ''));
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-  }
-
-  void _deleteInstruction(RecipeTexTab oldTab, int index) {
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions)..removeAt(index);
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-  }
-
   void _updateInstructionTitle(RecipeTexTab oldTab, int index, String value) {
     final instructions = List<InstructionStep>.from(oldTab.data.instructions);
     instructions[index] = instructions[index].copyWith(title: value);
@@ -4383,16 +4440,16 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
-  final previousData = oldTab.data;
-  final newData = updater(previousData.copyWith());
+    final previousData = oldTab.data;
+    final newData = updater(previousData.copyWith());
 
-  final newTab = oldTab.copyWith(
-    data: newData,
-    undoStack: [...oldTab.undoStack, previousData],
-    redoStack: [],
-    isDirty: newData != oldTab.originalData,
-  );
+    final newTab = oldTab.copyWith(
+      data: newData,
+      undoStack: [...oldTab.undoStack, previousData],
+      redoStack: [],
+      isDirty: newData != oldTab.originalData,
+    );
 
-  ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
-}
+    ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
+  }
 }
