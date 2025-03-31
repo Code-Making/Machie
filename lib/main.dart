@@ -3734,11 +3734,16 @@ class RecipeTexTab extends EditorTab {
   void dispose() {}
 
   @override
-  RecipeTexTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty}) {
+  RecipeTexTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+    RecipeData? data,
+    bool? isDirty,
+  }) {
     return RecipeTexTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      data: data.copyWith(),
+      data: data ?? this.data.copyWith(),
       isDirty: isDirty ?? this.isDirty,
     );
   }
