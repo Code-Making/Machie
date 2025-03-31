@@ -3967,53 +3967,142 @@ class RecipeEditorForm extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
-  late final FocusNode _titleFocusNode;
-  late final FocusNode _prepTimeFocusNode;
-  late final FocusNode _cookTimeFocusNode;
-  late final FocusNode _portionsFocusNode;
-
-  // Ingredients section focus nodes (we'll manage these dynamically)
-  final Map<int, List<FocusNode>> _ingredientFocusNodes = {};
-
-  // Instructions section focus nodes (we'll manage these dynamically)
-  final Map<int, List<FocusNode>> _instructionFocusNodes = {};
-
-  // Notes section focus node
-  late final FocusNode _notesFocusNode;
+  // Controllers for header section
+  late TextEditingController _titleController;
+  late TextEditingController _prepTimeController;
+  late TextEditingController _cookTimeController;
+  late TextEditingController _portionsController;
+  
+  // Controllers for dynamic sections
+  final Map<int, List<TextEditingController>> _ingredientControllers = {};
+  final Map<int, List<TextEditingController>> _instructionControllers = {};
+  late TextEditingController _notesController;
 
   @override
   void initState() {
     super.initState();
-    // Initialize header focus nodes
-    _titleFocusNode = FocusNode();
-    _prepTimeFocusNode = FocusNode();
-    _cookTimeFocusNode = FocusNode();
-    _portionsFocusNode = FocusNode();
+    _initializeControllers(widget.data);
+  }
+
+  void _initializeControllers(RecipeData data) {
+    // Header section
+    _titleController = TextEditingController(text: data.title);
+    _prepTimeController = TextEditingController(text: data.prepTime);
+    _cookTimeController = TextEditingController(text: data.cookTime);
+    _portionsController = TextEditingController(text: data.portions);
     
-    // Initialize notes focus node
-    _notesFocusNode = FocusNode();
+    // Ingredients
+    for (var i = 0; i < data.ingredients.length; i++) {
+      _ingredientControllers[i] = [
+        TextEditingController(text: data.ingredients[i].quantity),
+        TextEditingController(text: data.ingredients[i].unit),
+        TextEditingController(text: data.ingredients[i].name),
+      ];
+    }
+    
+    // Instructions
+    for (var i = 0; i < data.instructions.length; i++) {
+      _instructionControllers[i] = [
+        TextEditingController(text: data.instructions[i].title),
+        TextEditingController(text: data.instructions[i].content),
+      ];
+    }
+    
+    // Notes
+    _notesController = TextEditingController(text: data.notes);
+  }
+
+  @override
+  void didUpdateWidget(RecipeEditorForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _syncControllersWithData(widget.data);
+    }
+  }
+
+  void _syncControllersWithData(RecipeData newData) {
+    // Helper function to update controller if needed
+    void updateController(TextEditingController controller, String newValue) {
+      if (controller.text != newValue) {
+        final selection = controller.selection;
+        controller.text = newValue;
+        if (selection.end > newValue.length) {
+          controller.selection = selection.copyWith(
+            baseOffset: newValue.length,
+            extentOffset: newValue.length,
+          );
+        } else {
+          controller.selection = selection;
+        }
+      }
+    }
+
+    // Update header controllers
+    updateController(_titleController, newData.title);
+    updateController(_prepTimeController, newData.prepTime);
+    updateController(_cookTimeController, newData.cookTime);
+    updateController(_portionsController, newData.portions);
+
+    // Update ingredients
+    for (var i = 0; i < newData.ingredients.length; i++) {
+      final ingredient = newData.ingredients[i];
+      if (!_ingredientControllers.containsKey(i)) {
+        _ingredientControllers[i] = [
+          TextEditingController(text: ingredient.quantity),
+          TextEditingController(text: ingredient.unit),
+          TextEditingController(text: ingredient.name),
+        ];
+      } else {
+        updateController(_ingredientControllers[i]![0], ingredient.quantity);
+        updateController(_ingredientControllers[i]![1], ingredient.unit);
+        updateController(_ingredientControllers[i]![2], ingredient.name);
+      }
+    }
+
+    // Remove extra ingredient controllers
+    _ingredientControllers.removeWhere((index, _) => index >= newData.ingredients.length);
+
+    // Update instructions
+    for (var i = 0; i < newData.instructions.length; i++) {
+      final instruction = newData.instructions[i];
+      if (!_instructionControllers.containsKey(i)) {
+        _instructionControllers[i] = [
+          TextEditingController(text: instruction.title),
+          TextEditingController(text: instruction.content),
+        ];
+      } else {
+        updateController(_instructionControllers[i]![0], instruction.title);
+        updateController(_instructionControllers[i]![1], instruction.content);
+      }
+    }
+
+    // Remove extra instruction controllers
+    _instructionControllers.removeWhere((index, _) => index >= newData.instructions.length);
+
+    // Update notes
+    updateController(_notesController, newData.notes);
   }
 
   @override
   void dispose() {
-    // Dispose all focus nodes
-    _titleFocusNode.dispose();
-    _prepTimeFocusNode.dispose();
-    _cookTimeFocusNode.dispose();
-    _portionsFocusNode.dispose();
-    _notesFocusNode.dispose();
+    // Dispose all controllers
+    _titleController.dispose();
+    _prepTimeController.dispose();
+    _cookTimeController.dispose();
+    _portionsController.dispose();
+    _notesController.dispose();
     
-    // Dispose ingredient focus nodes
-    for (var nodes in _ingredientFocusNodes.values) {
-      for (var node in nodes) {
-        node.dispose();
+    // Dispose ingredient controllers
+    for (var controllers in _ingredientControllers.values) {
+      for (var controller in controllers) {
+        controller.dispose();
       }
     }
     
-    // Dispose instruction focus nodes
-    for (var nodes in _instructionFocusNodes.values) {
-      for (var node in nodes) {
-        node.dispose();
+    // Dispose instruction controllers
+    for (var controllers in _instructionControllers.values) {
+      for (var controller in controllers) {
+        controller.dispose();
       }
     }
     
@@ -4052,7 +4141,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     return Column(
       children: [
         TextFormField(
-          focusNode: _titleFocusNode,
+          controller: _titleController,
           initialValue: tab.data.title,
           decoration: const InputDecoration(labelText: 'Recipe Title'),
           onChanged: (value) => _updateTitle(tab, value),
@@ -4061,7 +4150,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           children: [
             Expanded(
               child: TextFormField(
-                focusNode: _prepTimeFocusNode,
+                controller: _prepTimeController,
                 initialValue: tab.data.prepTime,
                 decoration: const InputDecoration(labelText: 'Prep Time'),
                 onChanged: (value) => _updatePrepTime(tab, value),
@@ -4070,7 +4159,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                focusNode: _cookTimeFocusNode,
+                controller: _cookTimeController,
                 initialValue: tab.data.cookTime,
                 decoration: const InputDecoration(labelText: 'Cook Time'),
                 onChanged: (value) => _updateCookTime(tab, value),
@@ -4079,7 +4168,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                focusNode: _portionsFocusNode,
+                controller: _portionsController,
                 initialValue: tab.data.portions,
                 decoration: const InputDecoration(labelText: 'Portions'),
                 onChanged: (value) => _updatePortions(tab, value),
