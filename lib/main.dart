@@ -3902,13 +3902,13 @@ class Ingredient {
   String unit;
   String name;
   
-Ingredient({
-    String? id,
-    required this.quantity,
-    required this.unit,
-    required this.name,
-  }) : id = id ?? const Uuid().v4(); // Generate UUID if not provided
-
+Ingredient(
+    this.quantity,
+    this.unit,
+    this.name,
+  ) : id = id ?? const Uuid().v4(); // Generate UUID if not provided
+  Ingredient(this.quantity, this.unit, this.name);
+  
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3921,7 +3921,7 @@ Ingredient({
   int get hashCode => Object.hash(quantity, unit, name);
 
   
-  Ingredient copyWith({
+Ingredient copyWith({
     String? quantity,
     String? unit,
     String? name,
