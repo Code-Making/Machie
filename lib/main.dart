@@ -60,8 +60,8 @@ ThemeData darkTheme = ThemeData(
     scrolledUnderElevation: 1, // Shadow when scrolling
     centerTitle: true, // Optional: Center the title
     titleTextStyle: TextStyle(
-      fontSize: 18, // Smaller title
-      fontWeight: FontWeight.w600,
+      fontSize: 14, // Smaller title
+      //fontWeight: FontWeight.w600,
     ),
     toolbarHeight: 56, // Less tall than default (default is 64 in M3)
   ),
@@ -1001,6 +1001,9 @@ class EditorScreen extends ConsumerWidget {
     final currentUri = ref.watch(
       sessionProvider.select((s) => s.currentTab?.file.uri), // Use sessionProvider
     );
+    final currentName = ref.read(
+      sessionProvider.select((s) => s.currentTab?.file.name), // Use sessionProvider
+    );
     final currentDir = ref.watch(
       sessionProvider.select((s) => s.currentDirectory),
     );
@@ -1034,7 +1037,7 @@ class EditorScreen extends ConsumerWidget {
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
-        title: Text(currentUri != null ? currentUri : 'Code Editor'),
+        title: Text(currentName != null ? currentName : 'Code Editor'),
       ),
       drawer: FileExplorerDrawer(currentDir: currentDir),
       body: Column(
@@ -4271,7 +4274,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     final focusNodes = _ingredientFocusNodes[index]!;
 
     return Row(
-      key: ValueKey('ingredient_row_${ingredient.hashCode}'),
+      key: ValueKey('ingredient_row_${index}'),
       children: [
         const Icon(Icons.drag_handle, color: Colors.grey),
         const SizedBox(width: 8),
