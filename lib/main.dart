@@ -51,7 +51,7 @@ ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
   ).copyWith(
     background: const Color(0xFF1A1A1A), // Lightened dark background
-    surface: const Color(0xFF343432),    // Lightened surface
+    surface: const Color(0xFF2B2B28),    // Lightened surface
   ),
 );
 
@@ -4243,7 +4243,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
         const Icon(Icons.drag_handle, color: Colors.grey),
         const SizedBox(width: 8),
         SizedBox(
-          width: 80,
+          width: 30,
           child: TextFormField(
             controller: controllers[0],
             focusNode: focusNodes[0],
@@ -4255,7 +4255,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
         ),
         const SizedBox(width: 8),
         SizedBox(
-          width: 120,
+          width: 60,
           child: TextFormField(
             controller: controllers[1],
             focusNode: focusNodes[1],
