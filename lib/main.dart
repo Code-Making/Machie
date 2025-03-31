@@ -50,8 +50,8 @@ ThemeData darkTheme = ThemeData(
     seedColor: const Color(0xFFF44336), // More reddish orange (#F44336 is Material "Red 500")
     brightness: Brightness.dark,
   ).copyWith(
-    background: const Color(0xFF1A1A1A), // Lightened dark background
-    surface: const Color(0xFF2B2B28),    // Lightened surface
+    background: const Color(0xFF2F2F2F), // Lightened dark background
+    surface: const Color(0xFF2B2B29),    // Lightened surface
   ),
 );
 
