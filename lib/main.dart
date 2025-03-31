@@ -4304,7 +4304,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     final focusNodes = _instructionFocusNodes[index]!;
 
     return Column(
-      key: ValueKey('instruction_${instruction.hashCode}'),
+      key: ValueKey('instruction_$index'),  // <-- This is the critical fix
       children: [
         TextFormField(
           controller: controllers[0],
