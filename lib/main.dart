@@ -1363,6 +1363,10 @@ class CodeEditorPlugin implements EditorPlugin {
           multiLinePrefix: '/*',
           multiLineSuffix: '*/',
         );
+      case 'dart':
+        return DefaultCodeCommentFormatter(
+          singleLinePrefix: '%',
+        );
       default:
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '//',
