@@ -28,6 +28,7 @@ import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/javascript.dart';
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/latex.dart';
 import 'package:re_highlight/languages/css.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/yaml.dart';
@@ -1829,10 +1830,46 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTapRegion(child: BottomToolbar());
   }
 
-  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
-    return {'dart': CodeHighlightThemeMode(mode: langDart)};
-  }
+Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+      final extension = uri.split('.').last.toLowerCase();
+      
+      // Explicitly handle each case with proper typing
+      switch (extension) {
+        case 'dart':
+        return {'dart': CodeHighlightThemeMode(mode: langDart)};
+        case 'js':
+        case 'jsx':
+        return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
+        case 'py':
+        return {'python': CodeHighlightThemeMode(mode: langPython)};
+        case 'java':
+        return {'java': CodeHighlightThemeMode(mode: langJava)};
+        case 'cpp':
+        case 'cc':
+        case 'h':
+        return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
+        case 'css':
+        return {'css': CodeHighlightThemeMode(mode: langCss)};
+        case 'kt':
+        return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
+        case 'json':
+        return {'json': CodeHighlightThemeMode(mode: langJson)};
+        case 'htm':
+        case 'html':
+        return {'html': CodeHighlightThemeMode(mode: langXml)};
+        case 'yaml':
+        case 'yml':
+        return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
+        case 'md':
+        return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
+        case 'sh':
+        return {'bash': CodeHighlightThemeMode(mode: langBash)};
+        case 'tex':
+        return {'latex': CodeHighlightThemeMode(mode: langLatex)};
+        default:
+        return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+      }
+    }
 }
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
