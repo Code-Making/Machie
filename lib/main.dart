@@ -2688,7 +2688,6 @@ class FileExplorerDrawer extends ConsumerWidget {
                       directory: currentDir!,
                       // Update the onOpenFile callback in FileExplorerDrawer's build method
                         onOpenFile: (file) async {
-                          Navigator.pop(context);
                           final plugins = ref.read(pluginRegistryProvider);
                           final supportedPlugins = plugins.where((p) => p.supportsFile(file)).toList();
                         
@@ -2710,6 +2709,7 @@ class FileExplorerDrawer extends ConsumerWidget {
                               ref.read(sessionProvider.notifier).openFile(file, plugin: selectedPlugin);
                             }
                           }
+                          Navigator.pop(context);
                         },
                     ),
           ),
