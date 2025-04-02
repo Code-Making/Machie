@@ -2635,7 +2635,7 @@ class PluginSelectionDialog extends StatelessWidget {
           shrinkWrap: true,
           children: plugins.map((plugin) {
             return ListTile(
-              leading: Icon(_getPluginIcon(plugin)),
+              leading: _getPluginIcon(plugin),
               title: Text(_getPluginName(plugin)),
               onTap: () => Navigator.pop(context, plugin),
             );
@@ -2650,9 +2650,9 @@ class PluginSelectionDialog extends StatelessWidget {
     return plugin.runtimeType.toString().replaceAll('Plugin', '');
   }
 
-  IconData _getPluginIcon(EditorPlugin plugin) {
+  Widget _getPluginIcon(EditorPlugin plugin) {
     // Implement logic to get plugin icon
-    return plugin.icon ?? Icons.extension; // Default icon
+    return plugin.icon ?? const Icon(Icons.extension); // Default icon
   }
 }
 
