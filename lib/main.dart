@@ -2658,14 +2658,14 @@ class FileExplorerDrawer extends ConsumerWidget {
                           }
                         
                           if (supportedPlugins.length == 1) {
-                            ref.read(sessionProvider.notifier).openFile(file, supportedPlugins.first);
+                            ref.read(sessionProvider.notifier).openFile(file, plugin:supportedPlugins.first);
                           } else {
                             final selectedPlugin = await showDialog<EditorPlugin>(
                               context: context,
                               builder: (context) => PluginSelectionDialog(plugins: supportedPlugins),
                             );
                             if (selectedPlugin != null) {
-                              ref.read(sessionProvider.notifier).openFile(file, selectedPlugin);
+                              ref.read(sessionProvider.notifier).openFile(file, plugin: selectedPlugin);
                             }
                           }
                         },
