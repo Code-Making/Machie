@@ -2576,6 +2576,42 @@ class UnsupportedFileType implements Exception {
   String toString() => 'Unsupported file type: $uri';
 }
 
+class PluginSelectionDialog extends StatelessWidget {
+  final List<EditorPlugin> plugins;
+
+  const PluginSelectionDialog({super.key, required this.plugins});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Open With'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          shrinkWrap: true,
+          children: plugins.map((plugin) {
+            return ListTile(
+              leading: Icon(_getPluginIcon(plugin)),
+              title: Text(_getPluginName(plugin)),
+              onTap: () => Navigator.pop(context, plugin),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String _getPluginName(EditorPlugin plugin) {
+    // Implement logic to get plugin display name
+    return plugin.runtimeType.toString().replaceAll('Plugin', '');
+  }
+
+  IconData _getPluginIcon(EditorPlugin plugin) {
+    // Implement logic to get plugin icon
+    return Icons.extension; // Default icon
+  }
+}
+
 class FileExplorerDrawer extends ConsumerWidget {
   final DocumentFile? currentDir;
 
@@ -2608,10 +2644,31 @@ class FileExplorerDrawer extends ConsumerWidget {
                     ? const Center(child: Text('No folder open'))
                     : _DirectoryView(
                       directory: currentDir!,
-                      onOpenFile: (file) {
-                        Navigator.pop(context);
-                        ref.read(sessionProvider.notifier).openFile(file);
-                      },
+                      // Update the onOpenFile callback in FileExplorerDrawer's build method
+                        onOpenFile: (file) async {
+                          Navigator.pop(context);
+                          final plugins = ref.read(pluginRegistryProvider);
+                          final supportedPlugins = plugins.where((p) => p.supportsFile(file)).toList();
+                        
+                          if (supportedPlugins.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('No available plugins support ${file.name}')),
+                            );
+                            return;
+                          }
+                        
+                          if (supportedPlugins.length == 1) {
+                            ref.read(sessionProvider.notifier).openFile(file, supportedPlugins.first);
+                          } else {
+                            final selectedPlugin = await showDialog<EditorPlugin>(
+                              context: context,
+                              builder: (context) => PluginSelectionDialog(plugins: supportedPlugins),
+                            );
+                            if (selectedPlugin != null) {
+                              ref.read(sessionProvider.notifier).openFile(file, selectedPlugin);
+                            }
+                          }
+                        },
                     ),
           ),
 
