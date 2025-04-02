@@ -1138,6 +1138,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final ext = file.name.split('.').last.toLowerCase();
     return const {
       'dart',
+      'tex'
       'js',
       'ts',
       'py',
