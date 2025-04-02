@@ -595,7 +595,7 @@ class SessionManager {
   final content = await _fileHandler.readFile(file.uri);
   final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
   final tab = await selectedPlugin.createTab(file, content);
-
+  
   return current.copyWith(
     tabs: [...current.tabs, tab],
     currentTabIndex: current.tabs.length,
@@ -2650,7 +2650,7 @@ class PluginSelectionDialog extends StatelessWidget {
 
   IconData _getPluginIcon(EditorPlugin plugin) {
     // Implement logic to get plugin icon
-    return Icons.extension; // Default icon
+    return plugin.icon ?? Icons.extension; // Default icon
   }
 }
 
