@@ -741,7 +741,7 @@ class SessionNotifier extends Notifier<SessionState> {
 
   Future<void> openFile(DocumentFile file, {EditorPlugin? plugin}) async {
     state = await _manager.openFile(state, file, plugin: plugin);
-}
+  }
 
   void switchTab(int index) {
     ref.read(focusNodeProvider).unfocus();
