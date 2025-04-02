@@ -583,23 +583,23 @@ class SessionManager {
        _plugins = plugins,
        _prefs = prefs;
 
-  Future<SessionState> openFile(SessionState current, DocumentFile file) async {
-    final existingIndex = current.tabs.indexWhere(
-      (t) => t.file.uri == file.uri,
-    );
-    if (existingIndex != -1)
-      return current.copyWith(currentTabIndex: existingIndex);
+  Future<SessionState> openFile(
+  SessionState current, 
+  DocumentFile file, 
+  {EditorPlugin? plugin}
+) async {
+  final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
+  if (existingIndex != -1) return current.copyWith(currentTabIndex: existingIndex);
 
-    final content = await _fileHandler.readFile(file.uri);
-    final plugin = _plugins.firstWhere((p) => p.supportsFile(file));
-    final tab = await plugin.createTab(file, content);
-    //await plugin.initializeTab(tab, content);
+  final content = await _fileHandler.readFile(file.uri);
+  final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
+  final tab = await selectedPlugin.createTab(file, content);
 
-    return current.copyWith(
-      tabs: [...current.tabs, tab],
-      currentTabIndex: current.tabs.length,
-    );
-  }
+  return current.copyWith(
+    tabs: [...current.tabs, tab],
+    currentTabIndex: current.tabs.length,
+  );
+}
 
   Future<EditorTab> saveTabFile(EditorTab tab) async {
     try {
