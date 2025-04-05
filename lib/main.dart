@@ -1225,6 +1225,12 @@ class CodeEditorPlugin implements EditorPlugin {
     LogicalKeyboardKey.arrowLeft: AxisDirection.left,
     LogicalKeyboardKey.arrowRight: AxisDirection.right,
   };
+  
+  void _handleFocus(bool focus, CodeLineEditingController ctrl){
+      if (focus == true){
+        ctrl.makeCursorVisible();
+      }
+  }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
@@ -1239,6 +1245,7 @@ class CodeEditorPlugin implements EditorPlugin {
       autofocus: false,
       focusNode: editorFocusNode,
       canRequestFocus: false,
+      onFocusChange: (bool focus) => _handleFocus(focus, codeTab.controller),
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
       child: CodeEditor(
         key: ValueKey(codeTab.file.uri), 
