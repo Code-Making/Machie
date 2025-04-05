@@ -4136,6 +4136,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   final Map<int, List<FocusNode>> _ingredientFocusNodes = {};
   final Map<int, List<FocusNode>> _instructionFocusNodes = {};
 
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
@@ -4280,6 +4282,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     _instructionControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
     _instructionFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
 
+    _debounceTimer.cancel();
+    
     super.dispose();
   }
 
@@ -4591,16 +4595,19 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
-    final previousData = oldTab.data;
-    final newData = updater(previousData.copyWith());
-
-    final newTab = oldTab.copyWith(
-      data: newData,
-      undoStack: [...oldTab.undoStack, previousData],
-      redoStack: [],
-      isDirty: newData != oldTab.originalData,
-    );
-
-    ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        final previousData = oldTab.data;
+        final newData = updater(previousData.copyWith());
+    
+        final newTab = oldTab.copyWith(
+          data: newData,
+          undoStack: [...oldTab.undoStack, previousData],
+          redoStack: [],
+          isDirty: newData != oldTab.originalData,
+        );
+    
+        ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
+    });
   }
 }
