@@ -4282,7 +4282,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     _instructionControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
     _instructionFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
 
-    _debounceTimer.cancel();
+    _debounceTimer?.cancel();
     
     super.dispose();
   }
