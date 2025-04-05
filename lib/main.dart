@@ -1245,7 +1245,6 @@ class CodeEditorPlugin implements EditorPlugin {
     final editorFocusNode = ref.watch(focusNodeProvider);
     return Focus(
       autofocus: false,
-      focusNode: editorFocusNode,
       canRequestFocus: false,
       onFocusChange: (bool focus) => _handleFocus(focus, codeTab.controller),
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
@@ -1253,6 +1252,7 @@ class CodeEditorPlugin implements EditorPlugin {
         key: ValueKey(codeTab.file.uri), 
         autofocus: false,
         controller: codeTab.controller,
+        focusNode: editorFocusNode,
         commentFormatter: codeTab.commentFormatter,
         indicatorBuilder: (
           context,
