@@ -1230,10 +1230,8 @@ class CodeEditorPlugin implements EditorPlugin {
     if (focus) {
       // Keyboard is starting to appear
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
         // Wait for keyboard animation (e.g., 300ms)
         Future.delayed(const Duration(milliseconds: 300), () {
-          if (!mounted) return;
           final viewInsets = MediaQuery.viewInsetsOf(context);
           if (viewInsets.bottom > 0) {
                ctrl.makeCursorVisible();
