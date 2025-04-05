@@ -1235,6 +1235,7 @@ class CodeEditorPlugin implements EditorPlugin {
                ctrl.makeCursorVisible();
         });
       });
+    }
   }
 
   @override
