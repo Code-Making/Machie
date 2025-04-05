@@ -4596,7 +4596,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
   void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 200), () {
         final previousData = oldTab.data;
         final newData = updater(previousData.copyWith());
     
