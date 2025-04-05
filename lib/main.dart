@@ -1228,8 +1228,10 @@ class CodeEditorPlugin implements EditorPlugin {
   
   void _handleFocus(bool focus, CodeLineEditingController ctrl){
       if (focus == true){
-        ctrl.makeCursorVisible();
-      }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+               ctrl.makeCursorVisible();
+            });
+        }
   }
 
   @override
