@@ -1254,7 +1254,6 @@ class CodeEditorPlugin implements EditorPlugin {
         autofocus: false,
         controller: codeTab.controller,
         commentFormatter: codeTab.commentFormatter,
-        focusNode: editorFocusNode,
         indicatorBuilder: (
           context,
           editingController,
