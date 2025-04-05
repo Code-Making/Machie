@@ -1232,13 +1232,9 @@ class CodeEditorPlugin implements EditorPlugin {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // Wait for keyboard animation (e.g., 300ms)
         Future.delayed(const Duration(milliseconds: 300), () {
-          final viewInsets = MediaQuery.viewInsetsOf(context);
-          if (viewInsets.bottom > 0) {
                ctrl.makeCursorVisible();
-          }
         });
       });
-    }
   }
 
   @override
