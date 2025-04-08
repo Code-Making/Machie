@@ -3725,7 +3725,7 @@ class RecipeTexPlugin implements EditorPlugin {
   
   List<String> _extractReflux(String latexContent) {
   final regex = RegExp(
-    r'\\acidreflux{([^}]+)}{([^}]*)}',
+    r'\\acidreflux{([^}]+)}\%\n{([^}]*)}',
     caseSensitive: false,
     multiLine: true,
   );
