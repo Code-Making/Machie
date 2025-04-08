@@ -4045,6 +4045,8 @@ class Ingredient {
 
 class RecipeData {
   String title = '';
+  int acidRefluxScore = 1;
+  String acidRefluxReason = '';
   String prepTime = '';
   String cookTime = '';
   String portions = '';
@@ -4059,6 +4061,8 @@ class RecipeData {
       identical(this, other) ||
       other is RecipeData &&
           title == other.title &&
+          acidRefluxScore == other.acidRefluxScore &&
+          acidRefluxReason == other.acidRefluxReason &&
           prepTime == other.prepTime &&
           cookTime == other.cookTime &&
           portions == other.portions &&
@@ -4071,6 +4075,8 @@ class RecipeData {
   @override
   int get hashCode => Object.hash(
         title,
+        acidRefluxScore,
+        acidRefluxReason,
         prepTime,
         cookTime,
         portions,
@@ -4083,6 +4089,8 @@ class RecipeData {
 
   RecipeData copyWith({
     String? title,
+    int? acidRefluxScore,
+    String? acidRefluxReason,
     String? prepTime,
     String? cookTime,
     String? portions,
@@ -4094,6 +4102,8 @@ class RecipeData {
   }) {
     return RecipeData()
       ..title = title ?? this.title
+      ..acidRefluxScore = acidRefluxScore ?? this.acidRefluxScore
+      ..acidRefluxReason = acidRefluxReason ?? this.acidRefluxReason
       ..prepTime = prepTime ?? this.prepTime
       ..cookTime = cookTime ?? this.cookTime
       ..portions = portions ?? this.portions
