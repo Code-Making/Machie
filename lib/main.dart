@@ -3924,7 +3924,7 @@ String _generateTexContent(RecipeData data) {
   
   buffer.writeln('\\recipe[${data.image}]{');
   buffer.writeln('\\recipetitle{${data.title}}');
-  buffer.writeln('\\acidreflux{${data.acidRefluxScore}}{${data.acidRefluxReason}}');
+  buffer.writeln('\\acidreflux{${data.acidRefluxScore}}%\n{${data.acidRefluxReason}}');
   buffer.writeln('\\preptime{${data.prepTime}} \\cooktime{${data.cookTime}}');
   buffer.writeln('}{\\portion{${data.portions}}}{');
   
