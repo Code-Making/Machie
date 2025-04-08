@@ -3697,6 +3697,9 @@ class RecipeTexPlugin implements EditorPlugin {
       // Parse header
       final headerContent = recipeMatch.group(2)!;
       recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
+      final acidRefluxContent =_extractReflux(headerContent);
+      recipeData.acidRefluxScore = int.tryParse(acidRefluxContent[0]) ?? 0;
+      recipeData.acidRefluxReason = acidRefluxContent[1]?? '';
       recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
       recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
 
@@ -3719,6 +3722,24 @@ class RecipeTexPlugin implements EditorPlugin {
 
     return recipeData;
   }
+  
+  List<String> _extractReflux(String latexContent) {
+  final regex = RegExp(
+    r'\\acidreflux{([^}]+)}{([^}]*)}',
+    caseSensitive: false,
+    multiLine: true,
+  );
+
+  final match = regex.firstMatch(latexContent);
+  if (match == null || match.groupCount < 2) {
+    return ['0', '']; // Default values if not found
+  }
+
+  final score = match.group(1)?.trim() ?? '0';
+  final reason = match.group(2)?.trim() ?? '';
+
+  return [score, reason];
+}
 
   String? _extractCommandContent(String content, String command) {
     final match = RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content);
