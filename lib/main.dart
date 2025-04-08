@@ -4152,6 +4152,8 @@ class RecipeEditorForm extends ConsumerStatefulWidget {
 class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   // Controllers
   late TextEditingController _titleController;
+  late TextEditingController _acidRefluxScoreController;
+  late TextEditingController _acidRefluxReasonController;
   late TextEditingController _prepTimeController;
   late TextEditingController _cookTimeController;
   late TextEditingController _portionsController;
@@ -4161,6 +4163,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
   // Focus Nodes
   late final FocusNode _titleFocusNode;
+  late final FocusNode _acidRefluxScoreFocusNode;
+  late final FocusNode _acidRefluxReasonFocusNode;
   late final FocusNode _prepTimeFocusNode;
   late final FocusNode _cookTimeFocusNode;
   late final FocusNode _portionsFocusNode;
@@ -4179,6 +4183,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   void _initializeControllersAndFocusNodes(RecipeData data) {
     // Initialize controllers
     _titleController = TextEditingController(text: data.title);
+    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
+    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
     _prepTimeController = TextEditingController(text: data.prepTime);
     _cookTimeController = TextEditingController(text: data.cookTime);
     _portionsController = TextEditingController(text: data.portions);
@@ -4186,6 +4192,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
     // Initialize focus nodes
     _titleFocusNode = FocusNode();
+    _acidRefluxScoreFocusNode = FocusNode();
+    _acidRefluxReasonFocusNode = FocusNode();
     _prepTimeFocusNode = FocusNode();
     _cookTimeFocusNode = FocusNode();
     _portionsFocusNode = FocusNode();
@@ -4294,6 +4302,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   void dispose() {
     // Dispose controllers
     _titleController.dispose();
+    _acidRefluxScoreController.dispose();
+    _acidRefluxReasonController.dispose();
     _prepTimeController.dispose();
     _cookTimeController.dispose();
     _portionsController.dispose();
@@ -4301,6 +4311,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
     // Dispose focus nodes
     _titleFocusNode.dispose();
+    _acidRefluxScoreFocusNode.dispose();
+    _acidRefluxReasonFocusNode.dispose();
     _prepTimeFocusNode.dispose();
     _cookTimeFocusNode.dispose();
     _portionsFocusNode.dispose();
@@ -4357,6 +4369,36 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           decoration: const InputDecoration(labelText: 'Recipe Title'),
           onChanged: (value) => _updateTitle(tab, value),
         ),
+              const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _acidRefluxScoreController,
+              focusNode: _acidRefluxScoreFocusNode,
+              decoration: const InputDecoration(
+                labelText: 'Acid Reflux Score (0-5)',
+                suffixText: '/5',
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (value) => _updateAcidRefluxScore(tab, value),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextFormField(
+              controller: _acidRefluxReasonController,
+              focusNode: _acidRefluxReasonFocusNode,
+              decoration: const InputDecoration(
+                labelText: 'Reason for Score',
+              ),
+              onChanged: (value) => _updateAcidRefluxReason(tab, value),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
