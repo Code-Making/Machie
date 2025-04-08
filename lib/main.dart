@@ -4240,8 +4240,9 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
       }
     }
 
-    // Update header
     updateController(_titleController, newData.title);
+    updateController(_acidRefluxScoreController, newData.acidRefluxScore.toString());
+    updateController(_acidRefluxReasonController, newData.acidRefluxReason);
     updateController(_prepTimeController, newData.prepTime);
     updateController(_cookTimeController, newData.cookTime);
     updateController(_portionsController, newData.portions);
@@ -4629,7 +4630,14 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   void _updateCookTime(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(cookTime: value));
   void _updatePortions(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(portions: value));
   void _updateNotes(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(notes: value));
-
+  void _updateAcidRefluxScore(RecipeTexTab oldTab, String value) {
+      final score = int.tryParse(value) ?? oldTab.data.acidRefluxScore;
+      _updateTab(oldTab, (data) => data.copyWith(acidRefluxScore: score.clamp(0, 5)));
+   }
+    
+  void _updateAcidRefluxReason(RecipeTexTab oldTab, String value) {
+      _updateTab(oldTab, (data) => data.copyWith(acidRefluxReason: value));
+  }
   void _reorderIngredients(RecipeTexTab oldTab, int oldIndex, int newIndex) {
     final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
     if (oldIndex < newIndex) newIndex--;
