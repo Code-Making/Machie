@@ -24,6 +24,7 @@ import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/javascript.dart';
+import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/latex.dart';
@@ -1142,6 +1143,10 @@ class CodeEditorPlugin implements EditorPlugin {
       'tex',
       'js',
       'ts',
+      'sh',
+      'gitignore',
+      'npmrc',
+      'mjs',
       'py',
       'java',
       'kt',
@@ -1852,7 +1857,11 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
         return {'dart': CodeHighlightThemeMode(mode: langDart)};
         case 'js':
         case 'jsx':
+        case 'mjs':
+        case 'npmrc':
         return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
+        case 'ts':
+        return {'typescript': CodeHighlightThemeMode(mode: langTypescript)};
         case 'py':
         return {'python': CodeHighlightThemeMode(mode: langPython)};
         case 'java':
