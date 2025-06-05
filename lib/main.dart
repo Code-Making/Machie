@@ -229,11 +229,12 @@ final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
 
-final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((
-  ref,
-) {
-  return ListenerManager();
-});
+// Removed ListenerManager provider
+// final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((
+//   ref,
+// ) {
+//   return ListenerManager();
+// });
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
@@ -584,8 +585,8 @@ class SessionManager {
        _prefs = prefs;
 
   Future<SessionState> openFile(
-  SessionState current, 
-  DocumentFile file, 
+  SessionState current,
+  DocumentFile file,
   {EditorPlugin? plugin}
 ) async {
   final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
@@ -594,7 +595,7 @@ class SessionManager {
   final content = await _fileHandler.readFile(file.uri);
   final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
   final tab = await selectedPlugin.createTab(file, content);
-  
+
   return current.copyWith(
     tabs: [...current.tabs, tab],
     currentTabIndex: current.tabs.length,
@@ -751,7 +752,7 @@ class SessionNotifier extends Notifier<SessionState> {
     _handlePluginLifecycle(prevTab, state.currentTab);
     ref.read(focusNodeProvider).unfocus();
   }
-  
+
   void updateTabState(EditorTab oldTab, EditorTab newTab) {
   state = state.copyWith(
     tabs: state.tabs.map((t) => t == oldTab ? newTab : t).toList(),
@@ -1203,12 +1204,13 @@ class CodeEditorPlugin implements EditorPlugin {
     if (tab is! CodeEditorTab) return;
 
     final controller = tab.controller;
-    ref.read(listenerManagerProvider.notifier).addListeners(controller, ref);
+    // Removed ListenerManager call: ref.read(listenerManagerProvider.notifier).addListeners(controller, ref);
 
     // Update initial state
     ref.read(canUndoProvider.notifier).state = controller.canUndo;
     ref.read(canRedoProvider.notifier).state = controller.canRedo;
     ref.read(markProvider.notifier).state = null;
+    ref.read(bracketHighlightProvider.notifier).handleBracketHighlight(); // Ensure bracket highlight is calculated on activation
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
        controller.makeCursorVisible();
@@ -1218,8 +1220,9 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    //ref.read(markProvider.notifier).state = null;
-    ref.read(listenerManagerProvider.notifier).removeListeners(tab.controller);
+    ref.read(markProvider.notifier).state = null; // Clear mark when deactivating
+    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear bracket highlights
+    // Removed ListenerManager call: ref.read(listenerManagerProvider.notifier).removeListeners(tab.controller);
   }
 
   late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections = {
@@ -1228,7 +1231,7 @@ class CodeEditorPlugin implements EditorPlugin {
     LogicalKeyboardKey.arrowLeft: AxisDirection.left,
     LogicalKeyboardKey.arrowRight: AxisDirection.right,
   };
-  
+
   void _handleFocus(bool focus, CodeLineEditingController ctrl){
     if (focus) {
       // Keyboard is starting to appear
@@ -1255,8 +1258,8 @@ class CodeEditorPlugin implements EditorPlugin {
       canRequestFocus: false,
       onFocusChange: (bool focus) => _handleFocus(focus, codeTab.controller),
       onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
-      child: CodeEditor(
-        key: ValueKey(codeTab.file.uri), 
+      child: CodeEditorMachine( // Changed to CodeEditorMachine
+        key: ValueKey(codeTab.file.uri),
         autofocus: false,
         controller: codeTab.controller,
         focusNode: editorFocusNode,
@@ -1382,7 +1385,7 @@ class CodeEditorPlugin implements EditorPlugin {
           multiLinePrefix: '/*',
           multiLineSuffix: '*/',
         );
-      case 'dart':
+      case 'tex': // Fixed case name
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '%',
         );
@@ -1850,7 +1853,7 @@ class CodeEditorPlugin implements EditorPlugin {
 
 Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
       final extension = uri.split('.').last.toLowerCase();
-      
+
       // Explicitly handle each case with proper typing
       switch (extension) {
         case 'dart':
@@ -1894,51 +1897,97 @@ Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
     }
 }
 
+// Renamed and refactored from `CodeEditorMachine` to be the actual editor widget
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
   final CodeEditorStyle? style;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
   final bool? wordWrap;
+  final FocusNode? focusNode;
+  final bool autofocus; // Added autofocus for consistency with CodeEditor
+  final Key? key; // Added key for consistency with CodeEditor
 
   const CodeEditorMachine({
-    super.key,
+    this.key, // Propagate key
     required this.controller,
     this.style,
     this.commentFormatter,
     this.indicatorBuilder,
     this.wordWrap,
-  });
+    this.focusNode,
+    this.autofocus = false, // Default to false
+  }) : super(key: key);
 
   @override
   ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
 }
 
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
+  // Listeners
+  late VoidCallback _undoRedoListener;
+  late VoidCallback _bracketHighlightListener;
+  late VoidCallback _dirtyStateListener;
+
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_updateUndoState);
+    _addListeners(widget.controller);
+    // Initial updates based on the controller's state
+    _updateUndoRedoState();
+    _handleBracketHighlight();
+    // No need to call _markTabDirty here, SessionNotifier handles initial dirty state on content load
   }
 
   @override
   void didUpdateWidget(CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_updateUndoState);
-      widget.controller.addListener(_updateUndoState);
+      _removeListeners(oldWidget.controller);
+      _addListeners(widget.controller);
+      // Update states for the new controller
+      _updateUndoRedoState();
+      _handleBracketHighlight();
     }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_updateUndoState);
+    _removeListeners(widget.controller);
     super.dispose();
   }
 
-  void _updateUndoState() {
+  void _addListeners(CodeLineEditingController controller) {
+    _undoRedoListener = () => _updateUndoRedoState();
+    _bracketHighlightListener = () => _handleBracketHighlight();
+    _dirtyStateListener = () => _markTabDirty();
+
+    controller.addListener(_undoRedoListener);
+    controller.addListener(_bracketHighlightListener);
+    controller.addListener(_dirtyStateListener);
+  }
+
+  void _removeListeners(CodeLineEditingController controller) {
+    controller.removeListener(_undoRedoListener);
+    controller.removeListener(_bracketHighlightListener);
+    controller.removeListener(_dirtyStateListener);
+  }
+
+  void _updateUndoRedoState() {
     ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
     ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
+  }
+
+  void _handleBracketHighlight() {
+    ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
+  }
+
+  void _markTabDirty() {
+    // Only mark dirty if the current tab is the one associated with this controller
+    final currentTab = ref.read(sessionProvider).currentTab;
+    if (currentTab is CodeEditorTab && currentTab.controller == widget.controller) {
+      ref.read(sessionProvider.notifier).markCurrentTabDirty();
+    }
   }
 
   @override
@@ -1949,75 +1998,78 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       commentFormatter: widget.commentFormatter,
       indicatorBuilder: widget.indicatorBuilder,
       wordWrap: widget.wordWrap,
+      focusNode: widget.focusNode,
+      autofocus: widget.autofocus,
     );
   }
 }
 
-class ListenerManager extends StateNotifier<void> {
-  final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
+// Removed ListenerManager class
+// class ListenerManager extends StateNotifier<void> {
+//   final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
 
-  ListenerManager() : super(null);
+//   ListenerManager() : super(null);
 
-  void addListeners(
-    CodeLineEditingController controller,
-    NotifierProviderRef<SessionState> ref,
-  ) {
-    // Remove existing listeners if any
-    removeListeners(controller);
+//   void addListeners(
+//     CodeLineEditingController controller,
+//     NotifierProviderRef<SessionState> ref,
+//   ) {
+//     // Remove existing listeners if any
+//     removeListeners(controller);
 
-    // Create new listeners
-    final undoListener = () {
-      ref.read(canUndoProvider.notifier).state = controller.canUndo;
-    };
+//     // Create new listeners
+//     final undoListener = () {
+//       ref.read(canUndoProvider.notifier).state = controller.canUndo;
+//     };
 
-    final redoListener = () {
-      ref.read(canRedoProvider.notifier).state = controller.canRedo;
-    };
+//     final redoListener = () {
+//       ref.read(canRedoProvider.notifier).state = controller.canRedo;
+//     };
 
-    final bracketListener = () {
-      ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
-    };
+//     final bracketListener = () {
+//       ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
+//     };
 
-    final changeListener = () {
-      ref.read(sessionProvider.notifier).markCurrentTabDirty();
-    };
+//     final changeListener = () {
+//       ref.read(sessionProvider.notifier).markCurrentTabDirty();
+//     };
 
-    // Store listeners
-    _listeners[controller] = [
-      undoListener,
-      redoListener,
-      bracketListener,
-      changeListener,
-    ];
+//     // Store listeners
+//     _listeners[controller] = [
+//       undoListener,
+//       redoListener,
+//       bracketListener,
+//       changeListener,
+//     ];
 
-    // Add listeners to controller
-    controller.addListener(undoListener);
-    controller.addListener(redoListener);
-    controller.addListener(bracketListener);
-    controller.addListener(changeListener);
-  }
+//     // Add listeners to controller
+//     controller.addListener(undoListener);
+//     controller.addListener(redoListener);
+//     controller.addListener(bracketListener);
+//     controller.addListener(changeListener);
+//   }
 
-  void removeListeners(CodeLineEditingController controller) {
-    final listeners = _listeners[controller];
-    if (listeners != null) {
-      for (final listener in listeners) {
-        controller.removeListener(listener);
-      }
-      _listeners.remove(controller);
-    }
-  }
+//   void removeListeners(CodeLineEditingController controller) {
+//     final listeners = _listeners[controller];
+//     if (listeners != null) {
+//       for (final listener in listeners) {
+//         controller.removeListener(listener);
+//       }
+//       _listeners.remove(controller);
+//     }
+//   }
 
-  @override
-  void dispose() {
-    for (final entry in _listeners.entries) {
-      for (final listener in entry.value) {
-        entry.key.removeListener(listener);
-      }
-    }
-    _listeners.clear();
-    super.dispose();
-  }
-}
+//   @override
+//   void dispose() {
+//     for (final entry in _listeners.entries) {
+//       for (final listener in entry.value) {
+//         entry.key.removeListener(listener);
+//       }
+//     }
+//     _listeners.clear();
+//     super.dispose();
+//   }
+// }
 
 // --------------------
 //  Bracket Highlight State
@@ -2042,7 +2094,11 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   }
 
   void handleBracketHighlight() {
-    final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
+    final currentTab = ref.read(sessionProvider).currentTab;
+    if (currentTab is! CodeEditorTab) {
+      state = BracketHighlightState(); // Clear if not a code tab
+      return;
+    }
     final controller = currentTab.controller;
     final selection = controller.selection;
     if (!selection.isCollapsed) {
@@ -2051,7 +2107,13 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     }
     final position = selection.base;
     final brackets = {'(': ')', '[': ']', '{': '}'};
+    // Ensure the position is valid for the current line
+    if (position.index < 0 || position.index >= controller.codeLines.length) {
+      state = BracketHighlightState();
+      return;
+    }
     final line = controller.codeLines[position.index].text;
+
 
     Set<CodeLinePosition> newPositions = {};
     CodeLinePosition? matchPosition;
@@ -2111,6 +2173,16 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     while (index >= 0 && index < codeLines.length) {
       final currentLine = codeLines[index].text;
 
+      // Adjust offset for new line if moving in positive direction
+      if (direction > 0 && index != position.index) {
+        offset = 0;
+      }
+      // Adjust offset for new line if moving in negative direction
+      else if (direction < 0 && index != position.index) {
+        offset = currentLine.length - 1;
+      }
+
+
       while (offset >= 0 && offset < currentLine.length) {
         // Skip the original position
         if (index == position.index && offset == position.offset) {
@@ -2135,7 +2207,8 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
 
       // Move to next/previous line
       index += direction;
-      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
+      // If moving to next/previous line, reset offset
+      // This is handled at the start of the inner loop now, so just continue
     }
 
     return null; // No matching bracket found
@@ -2712,14 +2785,14 @@ class FileExplorerDrawer extends ConsumerWidget {
                         onOpenFile: (file) async {
                           final plugins = ref.read(pluginRegistryProvider);
                           final supportedPlugins = plugins.where((p) => p.supportsFile(file)).toList();
-                        
+
                           if (supportedPlugins.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('No available plugins support ${file.name}')),
                             );
                             return;
                           }
-                        
+
                           if (supportedPlugins.length == 1) {
                             ref.read(sessionProvider.notifier).openFile(file, plugin:supportedPlugins.first);
                           } else {
@@ -3102,12 +3175,6 @@ class SAFFileHandler implements FileHandler {
   }
 
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.documentFileFromUri(uri, false);
-    return file != null ? CustomSAFDocumentFile(file) : null;
-  }
-
-  @override
   Future<DocumentFile?> pickFile() async {
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
@@ -3125,16 +3192,16 @@ class SAFFileHandler implements FileHandler {
   final treeUri = fullUri.substring(0, documentIndex);
   /*// Extract the File URI (everything after '/document/')
   final fileUri = fullUri.substring(documentIndex + '/document/'.length);
-  
+
   // Extract the relative path (remove the repeated tree part if needed)
   final treePath = treeUri.substring(treeUri.indexOf('/tree/') + '/tree/'.length);
   String relativePath = fileUri;
-  
+
   // If the fileUri starts with the same path as the treeUri, remove it
   if (fileUri.startsWith(treePath)) {
     relativePath = fileUri.substring(treePath.length);
   }*/
-  
+
   return (treeUri: treeUri);
 }
 
@@ -3648,1055 +3715,5 @@ class CommandSettingsScreen extends ConsumerWidget {
             ),
           ),
     );
-  }
-}
-
-
-// --------------------
-//  Recipe Tex Plugin
-// --------------------
-// --------------------
-//  Recipe Tex Plugin
-// --------------------
-class RecipeTexPlugin implements EditorPlugin {
-  @override
-  String get name => 'Recipe Editor';
-
-  @override
-  Widget get icon => const Icon(Icons.restaurant);
-
-  @override
-  final PluginSettings? settings = null;
-
-  @override
-  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
-
-  @override
-  bool supportsFile(DocumentFile file) {
-    return file.name.endsWith('.tex');
-  }
-
-  @override
-  Future<EditorTab> createTab(DocumentFile file, String content) async {
-    final recipeData = _parseRecipeContent(content);
-    return RecipeTexTab(
-      file: file,
-      plugin: this,
-      data: recipeData,
-      originalData: recipeData.copyWith(),
-      isDirty: false,
-    );
-  }
-
-  RecipeData _parseRecipeContent(String content) {
-    final recipeData = RecipeData();
-    
-    final recipeMatch = RegExp(
-      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n',
-      dotAll: true
-    ).firstMatch(content);
-
-    if (recipeMatch != null) {
-      // Parse basic info
-      recipeData.image = recipeMatch.group(1) ?? '';
-      recipeData.portions = _extractCommandContent(recipeMatch.group(3)!, r'portion') ?? '';
-
-      // Parse header
-      final headerContent = recipeMatch.group(2)!;
-      recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
-      final acidRefluxContent =_extractReflux(headerContent);
-      recipeData.acidRefluxScore = int.tryParse(acidRefluxContent[0]) ?? 0;
-      recipeData.acidRefluxReason = acidRefluxContent[1]?? '';
-      recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
-      recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
-
-      // Parse ingredients
-      recipeData.ingredients = _extractListItems(recipeMatch.group(4)!);
-
-      // Parse instructions with titles
-      recipeData.instructions = _extractInstructionItems(recipeMatch.group(5)!);
-
-      // Parse notes
-      print(recipeMatch.group(6));
-      recipeData.notes = _extractCommandContent(recipeMatch.group(6)!, r'info') ?? '';
-    }
-
-    // Parse images
-      final imagesMatch = RegExp(r'(% Images[\s\S]*)').firstMatch(content);
-      if (imagesMatch != null) {
-        recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
-      }
-
-    return recipeData;
-  }
-  
-  List<String> _extractReflux(String latexContent) {
-  final regex = RegExp(
-    r'\\acidreflux{([^}]+)}\%\n{([^}]*)}',
-    caseSensitive: false,
-    multiLine: true,
-  );
-
-  final match = regex.firstMatch(latexContent);
-  if (match == null || match.groupCount < 2) {
-    return ['0', '']; // Default values if not found
-  }
-
-  final score = match.group(1)?.trim() ?? '0';
-  final reason = match.group(2)?.trim() ?? '';
-
-  return [score, reason];
-}
-
-  String? _extractCommandContent(String content, String command) {
-    final match = RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content);
-    return match?.group(1);
-  }
-
-  // Update parsing logic
-List<Ingredient> _extractListItems(String content) {
-  return RegExp(r'\\item\s+(.*?)\s*$', multiLine:true)
-      .allMatches(content)
-      .map((m) => _parseIngredient(m.group(1)!))
-      .toList();
-}
-
-Ingredient _parseIngredient(String line) {
-  final match = RegExp(r'\\unit(?:\[(.*?)\])?\{(.*?)\}\s*(.*)').firstMatch(line);
-  return match != null
-      ? Ingredient(
-          match.group(1) ?? '', // Quantity
-          match.group(2) ?? '', // Unit
-          match.group(3) ?? '', // Name
-        )
-      : Ingredient('', '', line); // Fallback for invalid format
-}
-  
-  List<InstructionStep> _extractInstructionItems(String content) {
-    return RegExp(r'\\instruction\{(.*)\}$', multiLine:true)
-        .allMatches(content)
-        .map((m) => _parseInstruction(m.group(1)!))
-        .toList();
-  }
-
-  InstructionStep _parseInstruction(String instruction) {
-    final titleMatch = RegExp(r'\\textbf\{\\large\s*(.*?)\}\s*(.*)').firstMatch(instruction);
-    return titleMatch != null 
-        ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim())
-        : InstructionStep('', instruction);
-  }
-
-  @override
-  Widget buildEditor(EditorTab tab, WidgetRef ref) {
-    final recipeTab = tab as RecipeTexTab;
-    return RecipeEditorForm(data: recipeTab.data);
-  }
-/*
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    return const SizedBox.shrink();
-  }
-  */
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    final commands = ref
-        .watch(commandProvider.notifier)
-        .getVisibleCommands(CommandPosition.pluginToolbar);
-
-    return BottomToolbar();
-  }
-
-  @override
-  Future<void> dispose() async {
-    // Cleanup resources if needed
-  }
-
-  @override
-  List<Command> getCommands() => [
-    _copyCommand,
-    _saveCommand,
-    _undoCommand,
-    _redoCommand,
-  ];
-
-  final Command _copyCommand = BaseCommand(
-    id: 'copy_recipe',
-    label: 'Copy LaTeX',
-    icon: const Icon(Icons.copy),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final tab = ref.read(sessionProvider).currentTab as RecipeTexTab?;
-      if (tab != null) {
-        await Clipboard.setData(ClipboardData(text: tab.contentString));
-        ref.read(logProvider.notifier).add('Copied recipe to clipboard');
-      }
-    },
-    canExecute: (ref) => ref.read(sessionProvider).currentTab is RecipeTexTab,
-  );
-
-  final Command _saveCommand = BaseCommand(
-    id: 'save_recipe',
-    label: 'Save Recipe',
-    icon: const Icon(Icons.save),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final session = ref.read(sessionProvider);
-      final currentIndex = session.currentTabIndex;
-      final currentTab = session.tabs[currentIndex] as RecipeTexTab;
-
-      if (currentIndex != -1) {
-        await ref.read(sessionProvider.notifier).saveTab(currentIndex);
-        
-        if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
-        final savedTab = currentTab.copyWith(
-        originalData: currentTab.data.copyWith(),
-        isDirty: false,
-        );
-      
-        ref.read(sessionProvider.notifier).updateTabState(currentTab, savedTab);
-      
-        
-        ref.read(logProvider.notifier).add('Recipe saved successfully');
-      }
-    },
-    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false,
-  );
-  
-  // Update the RecipeTexPlugin commands
-final _undoCommand = BaseCommand(
-  id: 'undo_recipe',
-  label: 'Undo',
-  icon: const Icon(Icons.undo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final session = ref.read(sessionProvider);
-    final currentTab = session.currentTab;
-    if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
-
-    final previousData = currentTab.undoStack.last;
-    final newTab = currentTab.copyWith(
-      data: previousData,
-      undoStack: currentTab.undoStack.sublist(0, currentTab.undoStack.length - 1),
-      redoStack: [currentTab.data, ...currentTab.redoStack],
-      isDirty: previousData != currentTab.originalData,
-    );
-
-    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.undoStack.isNotEmpty;
-  },
-);
-
-final _redoCommand = BaseCommand(
-  id: 'redo_recipe',
-  label: 'Redo',
-  icon: const Icon(Icons.redo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final session = ref.read(sessionProvider);
-    final currentTab = session.currentTab;
-    if (currentTab is! RecipeTexTab || currentTab.redoStack.isEmpty) return;
-
-    final nextData = currentTab.redoStack.first;
-    final newTab = currentTab.copyWith(
-      data: nextData,
-      undoStack: [...currentTab.undoStack, currentTab.data],
-      redoStack: currentTab.redoStack.sublist(1),
-      isDirty: nextData != currentTab.originalData,
-    );
-
-    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.redoStack.isNotEmpty;
-  },
-);
-
-  @override
-  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
-  
-  @override
-  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
-
-  // Update the Tex generation
-String _generateTexContent(RecipeData data) {
-  final buffer = StringBuffer();
-  
-  buffer.writeln('\\recipe[${data.image}]{');
-  buffer.writeln('\\recipetitle{${data.title}}');
-  buffer.writeln('\\acidreflux{${data.acidRefluxScore}}%\n{${data.acidRefluxReason}}');
-  buffer.writeln('\\preptime{${data.prepTime}} \\cooktime{${data.cookTime}}');
-  buffer.writeln('}{\\portion{${data.portions}}}{');
-  
-  // Ingredients
-  for (final ingredient in data.ingredients) {
-    final quantityPart = ingredient.quantity.isNotEmpty 
-        ? '[${ingredient.quantity}]'
-        : '';
-    buffer.writeln(
-      '  \\item \\unit$quantityPart{${ingredient.unit}} ${ingredient.name}'
-    );
-  }
-  buffer.writeln('}{');
-  
-  // Instructions
-  for (final instruction in data.instructions) {
-    if (instruction.title.isNotEmpty) {
-      buffer.writeln('  \\instruction{\\textbf{\\large ${instruction.title}} ${instruction.content}}');
-    } else {
-      buffer.writeln('  \\instruction{${instruction.content}}');
-    }
-  }
-  buffer.writeln('}{');
-  
-  // Notes
-  buffer.writeln(' \\info{${data.notes}}');
-  buffer.writeln('}');
-  
-  if (data.rawImagesSection.isNotEmpty) {
-    buffer.writeln('\n${data.rawImagesSection}');
-  }
-  
-  return buffer.toString();
-  }
-}
-
-class RecipeTexTab extends EditorTab {
-  RecipeData data;
-  final RecipeData originalData;
-  
-  final List<RecipeData> undoStack;
-  final List<RecipeData> redoStack;
-
-  RecipeTexTab({
-    required super.file,
-    required super.plugin,
-    required this.data,
-    required this.originalData,
-    required super.isDirty,
-    this.undoStack = const [],
-    this.redoStack = const [],
-  });
-
-  @override
-  String get contentString => (plugin as RecipeTexPlugin)._generateTexContent(data);
-
-  @override
-  void dispose() {}
-
-  @override
-  RecipeTexTab copyWith({
-    DocumentFile? file,
-    EditorPlugin? plugin,
-    RecipeData? data,
-    RecipeData? originalData,
-    bool? isDirty,
-    List<RecipeData>? undoStack,
-    List<RecipeData>? redoStack,
-  }) {
-    return RecipeTexTab(
-      file: file ?? this.file,
-      plugin: plugin ?? this.plugin,
-      data: data ?? this.data.copyWith(),
-      originalData: originalData ?? this.originalData.copyWith(),
-      isDirty: isDirty ?? this.isDirty,
-      undoStack: undoStack ?? List.from(this.undoStack),
-      redoStack: redoStack ?? List.from(this.redoStack),
-    );
-  }
-}
-
-class InstructionStep {
-  String title;
-  String content;
-
-  InstructionStep(this.title, this.content);
-  
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is InstructionStep &&
-          title == other.title &&
-          content == other.content;
-
-  @override
-  int get hashCode => Object.hash(title, content);
-  
-  InstructionStep copyWith({
-    String? title,
-    String? content,
-  }) {
-    return InstructionStep(
-      title ?? this.title,
-      content ?? this.content,
-    );
-  }
-}
-
-class Ingredient {
-  String quantity;
-  String unit;
-  String name;
-  
-  Ingredient(this.quantity, this.unit, this.name);
-  
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Ingredient &&
-          quantity == other.quantity &&
-          unit == other.unit &&
-          name == other.name;
-
-  @override
-  int get hashCode => Object.hash(quantity, unit, name);
-
-  
-  Ingredient copyWith({
-    String? quantity,
-    String? unit,
-    String? name,
-  }) {
-    return Ingredient(
-      quantity ?? this.quantity,
-      unit ?? this.unit,
-      name ?? this.name,
-    );
-  }
-}
-
-class RecipeData {
-  String title = '';
-  int acidRefluxScore = 1;
-  String acidRefluxReason = '';
-  String prepTime = '';
-  String cookTime = '';
-  String portions = '';
-  String image = '';
-  List<Ingredient> ingredients = [];
-  List<InstructionStep> instructions = [];
-  String notes = '';
-  String rawImagesSection = '';
-  
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RecipeData &&
-          title == other.title &&
-          acidRefluxScore == other.acidRefluxScore &&
-          acidRefluxReason == other.acidRefluxReason &&
-          prepTime == other.prepTime &&
-          cookTime == other.cookTime &&
-          portions == other.portions &&
-          image == other.image &&
-          listEquals(ingredients, other.ingredients) &&
-          listEquals(instructions, other.instructions) &&
-          notes == other.notes &&
-          rawImagesSection == other.rawImagesSection;
-
-  @override
-  int get hashCode => Object.hash(
-        title,
-        acidRefluxScore,
-        acidRefluxReason,
-        prepTime,
-        cookTime,
-        portions,
-        image,
-        Object.hashAll(ingredients),
-        Object.hashAll(instructions),
-        notes,
-        rawImagesSection,
-      );
-
-  RecipeData copyWith({
-    String? title,
-    int? acidRefluxScore,
-    String? acidRefluxReason,
-    String? prepTime,
-    String? cookTime,
-    String? portions,
-    String? image,
-    List<Ingredient>? ingredients,
-    List<InstructionStep>? instructions,
-    String? notes,
-    String? rawImagesSection,
-  }) {
-    return RecipeData()
-      ..title = title ?? this.title
-      ..acidRefluxScore = acidRefluxScore ?? this.acidRefluxScore
-      ..acidRefluxReason = acidRefluxReason ?? this.acidRefluxReason
-      ..prepTime = prepTime ?? this.prepTime
-      ..cookTime = cookTime ?? this.cookTime
-      ..portions = portions ?? this.portions
-      ..image = image ?? this.image
-      ..ingredients = ingredients ?? List.from(this.ingredients)
-      ..instructions = instructions ?? List.from(this.instructions)
-      ..notes = notes ?? this.notes
-      ..rawImagesSection = rawImagesSection ?? this.rawImagesSection;
-  }
-}
-
-// --------------------
-//  Recipe Editor UI
-// --------------------
-class RecipeEditorForm extends ConsumerStatefulWidget {
-  final RecipeData data;
-
-  const RecipeEditorForm({super.key, required this.data});
-
-  @override
-  _RecipeEditorFormState createState() => _RecipeEditorFormState();
-}
-
-class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
-  // Controllers
-  late TextEditingController _titleController;
-  late TextEditingController _acidRefluxScoreController;
-  late TextEditingController _acidRefluxReasonController;
-  late TextEditingController _prepTimeController;
-  late TextEditingController _cookTimeController;
-  late TextEditingController _portionsController;
-  late TextEditingController _notesController;
-  final Map<int, List<TextEditingController>> _ingredientControllers = {};
-  final Map<int, List<TextEditingController>> _instructionControllers = {};
-
-  // Focus Nodes
-  late final FocusNode _titleFocusNode;
-  late final FocusNode _acidRefluxScoreFocusNode;
-  late final FocusNode _acidRefluxReasonFocusNode;
-  late final FocusNode _prepTimeFocusNode;
-  late final FocusNode _cookTimeFocusNode;
-  late final FocusNode _portionsFocusNode;
-  late final FocusNode _notesFocusNode;
-  final Map<int, List<FocusNode>> _ingredientFocusNodes = {};
-  final Map<int, List<FocusNode>> _instructionFocusNodes = {};
-
-  Timer? _debounceTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeControllersAndFocusNodes(widget.data);
-  }
-
-  void _initializeControllersAndFocusNodes(RecipeData data) {
-    // Initialize controllers
-    _titleController = TextEditingController(text: data.title);
-    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
-    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
-    _prepTimeController = TextEditingController(text: data.prepTime);
-    _cookTimeController = TextEditingController(text: data.cookTime);
-    _portionsController = TextEditingController(text: data.portions);
-    _notesController = TextEditingController(text: data.notes);
-
-    // Initialize focus nodes
-    _titleFocusNode = FocusNode();
-    _acidRefluxScoreFocusNode = FocusNode();
-    _acidRefluxReasonFocusNode = FocusNode();
-    _prepTimeFocusNode = FocusNode();
-    _cookTimeFocusNode = FocusNode();
-    _portionsFocusNode = FocusNode();
-    _notesFocusNode = FocusNode();
-
-    // Initialize ingredients
-    for (var i = 0; i < data.ingredients.length; i++) {
-      _ingredientControllers[i] = [
-        TextEditingController(text: data.ingredients[i].quantity),
-        TextEditingController(text: data.ingredients[i].unit),
-        TextEditingController(text: data.ingredients[i].name),
-      ];
-      _ingredientFocusNodes[i] = [FocusNode(), FocusNode(), FocusNode()];
-    }
-
-    // Initialize instructions
-    for (var i = 0; i < data.instructions.length; i++) {
-      _instructionControllers[i] = [
-        TextEditingController(text: data.instructions[i].title),
-        TextEditingController(text: data.instructions[i].content),
-      ];
-      _instructionFocusNodes[i] = [FocusNode(), FocusNode()];
-    }
-  }
-
-  @override
-  void didUpdateWidget(RecipeEditorForm oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
-      _syncControllersAndFocusNodes(widget.data);
-    }
-  }
-
-  void _syncControllersAndFocusNodes(RecipeData newData) {
-    // Helper to update controllers
-    void updateController(TextEditingController controller, String newValue) {
-      if (controller.text != newValue) {
-        final selection = controller.selection;
-        controller.text = newValue;
-        controller.selection = selection.copyWith(
-          baseOffset: selection.baseOffset.clamp(0, newValue.length),
-          extentOffset: selection.extentOffset.clamp(0, newValue.length),
-        );
-      }
-    }
-
-    updateController(_titleController, newData.title);
-    updateController(_acidRefluxScoreController, newData.acidRefluxScore.toString());
-    updateController(_acidRefluxReasonController, newData.acidRefluxReason);
-    updateController(_prepTimeController, newData.prepTime);
-    updateController(_cookTimeController, newData.cookTime);
-    updateController(_portionsController, newData.portions);
-    updateController(_notesController, newData.notes);
-
-    // Sync ingredients
-    for (var i = 0; i < newData.ingredients.length; i++) {
-      final ingredient = newData.ingredients[i];
-      if (!_ingredientControllers.containsKey(i)) {
-        _ingredientControllers[i] = [
-          TextEditingController(text: ingredient.quantity),
-          TextEditingController(text: ingredient.unit),
-          TextEditingController(text: ingredient.name),
-        ];
-        _ingredientFocusNodes[i] = [FocusNode(), FocusNode(), FocusNode()];
-      } else {
-        updateController(_ingredientControllers[i]![0], ingredient.quantity);
-        updateController(_ingredientControllers[i]![1], ingredient.unit);
-        updateController(_ingredientControllers[i]![2], ingredient.name);
-      }
-    }
-
-    // Remove extra ingredients
-    _ingredientControllers.keys.where((i) => i >= newData.ingredients.length).toList()
-      ..forEach((i) {
-        _ingredientControllers[i]?.forEach((c) => c.dispose());
-        _ingredientFocusNodes[i]?.forEach((f) => f.dispose());
-        _ingredientControllers.remove(i);
-        _ingredientFocusNodes.remove(i);
-      });
-
-    // Sync instructions
-    for (var i = 0; i < newData.instructions.length; i++) {
-      final instruction = newData.instructions[i];
-      if (!_instructionControllers.containsKey(i)) {
-        _instructionControllers[i] = [
-          TextEditingController(text: instruction.title),
-          TextEditingController(text: instruction.content),
-        ];
-        _instructionFocusNodes[i] = [FocusNode(), FocusNode()];
-      } else {
-        updateController(_instructionControllers[i]![0], instruction.title);
-        updateController(_instructionControllers[i]![1], instruction.content);
-      }
-    }
-
-    // Remove extra instructions
-    _instructionControllers.keys.where((i) => i >= newData.instructions.length).toList()
-      ..forEach((i) {
-        _instructionControllers[i]?.forEach((c) => c.dispose());
-        _instructionFocusNodes[i]?.forEach((f) => f.dispose());
-        _instructionControllers.remove(i);
-        _instructionFocusNodes.remove(i);
-      });
-  }
-
-  @override
-  void dispose() {
-    // Dispose controllers
-    _titleController.dispose();
-    _acidRefluxScoreController.dispose();
-    _acidRefluxReasonController.dispose();
-    _prepTimeController.dispose();
-    _cookTimeController.dispose();
-    _portionsController.dispose();
-    _notesController.dispose();
-
-    // Dispose focus nodes
-    _titleFocusNode.dispose();
-    _acidRefluxScoreFocusNode.dispose();
-    _acidRefluxReasonFocusNode.dispose();
-    _prepTimeFocusNode.dispose();
-    _cookTimeFocusNode.dispose();
-    _portionsFocusNode.dispose();
-    _notesFocusNode.dispose();
-
-    // Dispose ingredient controllers and focus nodes
-    _ingredientControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
-    _ingredientFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
-
-    // Dispose instruction controllers and focus nodes
-    _instructionControllers.values.forEach((controllers) => controllers.forEach((c) => c.dispose()));
-    _instructionFocusNodes.values.forEach((nodes) => nodes.forEach((f) => f.dispose()));
-
-    _debounceTimer?.cancel();
-    
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final currentTab = _getCurrentTab();
-    if (currentTab == null) return const SizedBox.shrink();
-    
-    _syncControllersAndFocusNodes(currentTab.data);
-    return Padding(
-      padding: const EdgeInsets.only(left:16.0, right:8.0),
-      child: ListView(
-        children: [
-          _buildHeaderSection(currentTab),
-          const SizedBox(height: 20),
-          _buildIngredientsSection(currentTab),
-          const SizedBox(height: 20),
-          _buildInstructionsSection(currentTab),
-          const SizedBox(height: 20),
-          _buildNotesSection(currentTab),
-        ],
-      ),
-    );
-  }
-
-  RecipeTexTab? _getCurrentTab() {
-    final session = ref.watch(sessionProvider);
-    return session.currentTab is RecipeTexTab 
-        ? session.currentTab as RecipeTexTab
-        : null;
-  }
-
-  Widget _buildHeaderSection(RecipeTexTab tab) {
-    return Column(
-      children: [
-        TextFormField(
-          controller: _titleController,
-          focusNode: _titleFocusNode,
-          decoration: const InputDecoration(labelText: 'Recipe Title'),
-          onChanged: (value) => _updateTitle(tab, value),
-        ),
-              const SizedBox(height: 10),
-      Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              controller: _acidRefluxScoreController,
-              focusNode: _acidRefluxScoreFocusNode,
-              decoration: const InputDecoration(
-                labelText: 'Acid Reflux Score (0-5)',
-                suffixText: '/5',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (value) => _updateAcidRefluxScore(tab, value),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextFormField(
-              controller: _acidRefluxReasonController,
-              focusNode: _acidRefluxReasonFocusNode,
-              decoration: const InputDecoration(
-                labelText: 'Reason for Score',
-              ),
-              onChanged: (value) => _updateAcidRefluxReason(tab, value),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _prepTimeController,
-                focusNode: _prepTimeFocusNode,
-                decoration: const InputDecoration(labelText: 'Prep Time'),
-                onChanged: (value) => _updatePrepTime(tab, value),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _cookTimeController,
-                focusNode: _cookTimeFocusNode,
-                decoration: const InputDecoration(labelText: 'Cook Time'),
-                onChanged: (value) => _updateCookTime(tab, value),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _portionsController,
-                focusNode: _portionsFocusNode,
-                decoration: const InputDecoration(labelText: 'Portions'),
-                onChanged: (value) => _updatePortions(tab, value),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIngredientsSection(RecipeTexTab tab) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: tab.data.ingredients.length,
-          onReorder: (oldIndex, newIndex) => _reorderIngredients(tab, oldIndex, newIndex),
-          itemBuilder: (context, index) {
-            final ingredient = tab.data.ingredients[index];
-            return KeyedSubtree(
-              key: ValueKey('ingredient_$index'),
-              child: ReorderableDelayedDragStartListener(
-                index: index,
-                child: _buildIngredientRow(tab, index, ingredient),
-              ),
-            );
-          },
-        ),
-        ElevatedButton(
-          onPressed: () => _addIngredient(tab),
-          child: const Text('Add Ingredient'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIngredientRow(RecipeTexTab tab, int index, Ingredient ingredient) {
-    final controllers = _ingredientControllers[index]!;
-    final focusNodes = _ingredientFocusNodes[index]!;
-
-    return Row(
-      key: ValueKey('ingredient_row_$index'),
-      children: [
-        const Icon(Icons.drag_handle, color: Colors.grey),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 30,
-          child: TextFormField(
-            controller: controllers[0],
-            focusNode: focusNodes[0],
-            decoration: const InputDecoration(labelText: 'Qty'),
-            onChanged: (value) => _updateIngredientQuantity(tab, index, value),
-            textInputAction: TextInputAction.next,
-            onEditingComplete: () => focusNodes[1].requestFocus(),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 60,
-          child: TextFormField(
-            controller: controllers[1],
-            focusNode: focusNodes[1],
-            decoration: const InputDecoration(labelText: 'Unit'),
-            onChanged: (value) => _updateIngredientUnit(tab, index, value),
-            textInputAction: TextInputAction.next,
-            onEditingComplete: () => focusNodes[2].requestFocus(),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextFormField(
-            controller: controllers[2],
-            focusNode: focusNodes[2],
-            decoration: const InputDecoration(labelText: 'Ingredient'),
-            onChanged: (value) => _updateIngredientName(tab, index, value),
-            textInputAction: TextInputAction.done,
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => _deleteIngredient(tab, index),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionsSection(RecipeTexTab tab) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
-        ...tab.data.instructions.asMap().entries.map((entry) => 
-          _buildInstructionItem(tab, entry.key, entry.value)
-        ),
-        ElevatedButton(
-          onPressed: () => _addInstruction(tab),
-          child: const Text('Add Instruction'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionItem(RecipeTexTab tab, int index, InstructionStep instruction) {
-    final controllers = _instructionControllers[index]!;
-    final focusNodes = _instructionFocusNodes[index]!;
-
-    return Column(
-      key: ValueKey('instruction_$index'),  // <-- This is the critical fix
-      children: [
-        TextFormField(
-          controller: controllers[0],
-          focusNode: focusNodes[0],
-          decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Title',
-            hintText: 'e.g., "Preparation"'
-          ),
-          onChanged: (value) => _updateInstructionTitle(tab, index, value),
-          textInputAction: TextInputAction.next,
-          onEditingComplete: () => focusNodes[1].requestFocus(),
-        ),
-        TextFormField(
-          controller: controllers[1],
-          focusNode: focusNodes[1],
-          decoration: InputDecoration(
-            labelText: 'Step ${index + 1} Details',
-            hintText: 'Describe this step...'
-          ),
-          maxLines: null,
-          minLines: 2,
-          onChanged: (value) => _updateInstructionContent(tab, index, value),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => _deleteInstruction(tab, index),
-        ),
-        const Divider(),
-      ],
-    );
-  }
-
-  Widget _buildNotesSection(RecipeTexTab tab) {
-    return TextFormField(
-      controller: _notesController,
-      focusNode: _notesFocusNode,
-      decoration: const InputDecoration(labelText: 'Additional Notes'),
-      maxLines: 3,
-      onChanged: (value) => _updateNotes(tab, value),
-    );
-  }
-
-  // Add/Delete methods with focus management
-  void _addIngredient(RecipeTexTab oldTab) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)
-      ..add(Ingredient('', '', ''));
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newIndex = oldTab.data.ingredients.length;
-      if (_ingredientFocusNodes.containsKey(newIndex)) {
-        FocusScope.of(context).requestFocus(_ingredientFocusNodes[newIndex]?[0]);
-      }
-    });
-  }
-
-  void _deleteIngredient(RecipeTexTab oldTab, int index) {
-    _ingredientControllers[index]?.forEach((c) => c.dispose());
-    _ingredientFocusNodes[index]?.forEach((f) => f.dispose());
-    _ingredientControllers.remove(index);
-    _ingredientFocusNodes.remove(index);
-
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients)..removeAt(index);
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _addInstruction(RecipeTexTab oldTab) {
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions)
-      ..add(InstructionStep('', ''));
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newIndex = oldTab.data.instructions.length;
-      if (_instructionFocusNodes.containsKey(newIndex)) {
-        FocusScope.of(context).requestFocus(_instructionFocusNodes[newIndex]?[0]);
-      }
-    });
-  }
-
-  void _deleteInstruction(RecipeTexTab oldTab, int index) {
-    _instructionControllers[index]?.forEach((c) => c.dispose());
-    _instructionFocusNodes[index]?.forEach((f) => f.dispose());
-    _instructionControllers.remove(index);
-    _instructionFocusNodes.remove(index);
-
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions)..removeAt(index);
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-  }
-
-  // Existing update methods remain the same
-  void _updateTitle(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(title: value));
-  void _updatePrepTime(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(prepTime: value));
-  void _updateCookTime(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(cookTime: value));
-  void _updatePortions(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(portions: value));
-  void _updateNotes(RecipeTexTab oldTab, String value) => _updateTab(oldTab, (data) => data.copyWith(notes: value));
-  void _updateAcidRefluxScore(RecipeTexTab oldTab, String value) {
-      final score = int.tryParse(value) ?? oldTab.data.acidRefluxScore;
-      _updateTab(oldTab, (data) => data.copyWith(acidRefluxScore: score.clamp(0, 5)));
-   }
-    
-  void _updateAcidRefluxReason(RecipeTexTab oldTab, String value) {
-      _updateTab(oldTab, (data) => data.copyWith(acidRefluxReason: value));
-  }
-  void _reorderIngredients(RecipeTexTab oldTab, int oldIndex, int newIndex) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
-    if (oldIndex < newIndex) newIndex--;
-    final item = ingredients.removeAt(oldIndex);
-    ingredients.insert(newIndex, item);
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _updateIngredientQuantity(RecipeTexTab oldTab, int index, String value) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
-    ingredients[index] = ingredients[index].copyWith(quantity: value);
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _updateIngredientUnit(RecipeTexTab oldTab, int index, String value) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
-    ingredients[index] = ingredients[index].copyWith(unit: value);
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _updateIngredientName(RecipeTexTab oldTab, int index, String value) {
-    final ingredients = List<Ingredient>.from(oldTab.data.ingredients);
-    ingredients[index] = ingredients[index].copyWith(name: value);
-    _updateTab(oldTab, (data) => data.copyWith(ingredients: ingredients));
-  }
-
-  void _updateInstructionTitle(RecipeTexTab oldTab, int index, String value) {
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions);
-    instructions[index] = instructions[index].copyWith(title: value);
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-  }
-
-  void _updateInstructionContent(RecipeTexTab oldTab, int index, String value) {
-    final instructions = List<InstructionStep>.from(oldTab.data.instructions);
-    instructions[index] = instructions[index].copyWith(content: value);
-    _updateTab(oldTab, (data) => data.copyWith(instructions: instructions));
-  }
-
-  void _updateTab(RecipeTexTab oldTab, RecipeData Function(RecipeData) updater) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 200), () {
-        final previousData = oldTab.data;
-        final newData = updater(previousData.copyWith());
-    
-        final newTab = oldTab.copyWith(
-          data: newData,
-          undoStack: [...oldTab.undoStack, previousData],
-          redoStack: [],
-          isDirty: newData != oldTab.originalData,
-        );
-    
-        ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
-    });
   }
 }
