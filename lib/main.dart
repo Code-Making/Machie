@@ -495,12 +495,14 @@ class SessionState {
     currentDirectory?.uri,
   );
 
+  // Modified: Call tab.toJson() directly
   Map<String, dynamic> toJson() => {
-    'tabs': tabs.map((t) => _tabToJson(t)).toList(),
+    'tabs': tabs.map((t) => t.toJson()).toList(),
     'currentIndex': currentTabIndex,
     'directory': currentDirectory?.uri,
   };
 
+  // Modified: Use EditorPlugin.createTabFromSerialization for deserialization
   static Future<SessionState> fromJson(
     Map<String, dynamic> json,
     Set<EditorPlugin> plugins,
@@ -513,47 +515,29 @@ class SessionState {
       directory = await fileHandler.getFileMetadata(directoryUri);
     }
 
+    final tabsJson = json['tabs'] as List<dynamic>? ?? [];
+    final loadedTabs = <EditorTab>[];
+
+    for (final item in tabsJson) {
+      try {
+        final tabMap = item as Map<String, dynamic>;
+        final pluginTypeString = tabMap['pluginType'] as String;
+        final plugin = plugins.firstWhere(
+          (p) => p.runtimeType.toString() == pluginTypeString,
+        );
+        final tab = await plugin.createTabFromSerialization(tabMap, fileHandler);
+        loadedTabs.add(tab);
+      } catch (e) {
+        // Log error and skip problematic tab
+        print('Error loading tab from JSON: $e');
+      }
+    }
+
     return SessionState(
-      tabs: await _tabsFromJson(json['tabs'], plugins, fileHandler),
+      tabs: loadedTabs,
       currentTabIndex: json['currentIndex'] ?? 0,
       currentDirectory: directory,
     );
-  }
-
-  static Map<String, dynamic> _tabToJson(EditorTab tab) => {
-    'fileUri': tab.file.uri,
-    'pluginType': tab.plugin.runtimeType.toString(),
-  };
-
-  static Future<List<EditorTab>> _tabsFromJson(
-    List<dynamic> json,
-    Set<EditorPlugin> plugins,
-    FileHandler fileHandler,
-  ) async {
-    final tabs = <EditorTab>[];
-    for (final item in json) {
-      final tab = await _tabFromJson(item, plugins, fileHandler);
-      if (tab != null) tabs.add(tab);
-    }
-    return tabs;
-  }
-
-  static Future<EditorTab?> _tabFromJson(
-    Map<String, dynamic> json,
-    Set<EditorPlugin> plugins,
-    FileHandler fileHandler,
-  ) async {
-    try {
-      final file = await fileHandler.getFileMetadata(json['fileUri']);
-      if (file == null) return null; // Add null check
-
-      final plugin = plugins.firstWhere(
-        (p) => p.runtimeType.toString() == json['pluginType'],
-      );
-      return plugin.createTab(file, '');
-    } catch (e) {
-      return null;
-    }
   }
 }
 
@@ -575,28 +559,31 @@ class SessionManager {
        _prefs = prefs;
 
   Future<SessionState> openFile(
-  SessionState current, 
-  DocumentFile file, 
-  {EditorPlugin? plugin}
-) async {
-  final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
-  if (existingIndex != -1) return current.copyWith(currentTabIndex: existingIndex);
+      SessionState current,
+      DocumentFile file,
+      {EditorPlugin? plugin}
+      ) async {
+    final existingIndex = current.tabs.indexWhere((t) => t.file.uri == file.uri);
+    if (existingIndex != -1) return current.copyWith(currentTabIndex: existingIndex);
 
-  final content = await _fileHandler.readFile(file.uri);
-  final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
-  final tab = await selectedPlugin.createTab(file, content);
-  
-  return current.copyWith(
-    tabs: [...current.tabs, tab],
-    currentTabIndex: current.tabs.length,
-  );
-}
+    final content = await _fileHandler.readFile(file.uri);
+    final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
+    final tab = await selectedPlugin.createTab(file, content); // This uses createTab
+    
+    return current.copyWith(
+      tabs: [...current.tabs, tab],
+      currentTabIndex: current.tabs.length,
+    );
+  }
 
   Future<EditorTab> saveTabFile(EditorTab tab) async {
     try {
       final newFile = await _fileHandler.writeFile(tab.file, tab.contentString);
 
-      return tab.copyWith(file: newFile, isDirty: false);
+      // Preserve existing tab properties, only update file and dirty state
+      final newTab = tab.copyWith(file: newFile, isDirty: false);
+      return newTab;
+
     } catch (e, st) {
       print('Save failed: $e\n$st');
       return tab;
@@ -637,55 +624,16 @@ class SessionManager {
       if (json == null) return const SessionState();
 
       final data = jsonDecode(json) as Map<String, dynamic>;
-      return await _deserializeState(data);
+      return await SessionState.fromJson(data, _plugins, _fileHandler); // Use static fromJson
     } catch (e) {
       print('Session load error: $e');
-      await _prefs.remove('session');
+      await _prefs.remove('session'); // Clear corrupt session data
       return const SessionState();
     }
   }
 
-  Future<SessionState> _deserializeState(Map<String, dynamic> data) async {
-    final tabs = await Future.wait(
-      (data['tabs'] as List).map((t) => _loadTabFromJson(t)),
-    );
-    final directoryUri = data['directory'];
-    if (directoryUri == null) return const SessionState();
-
-    // Verify directory access
-    final directory = await _fileHandler.getFileMetadata(directoryUri);
-    if (directory == null) {
-      await _fileHandler.persistRootUri(null);
-      return const SessionState();
-    }
-
-    return SessionState(
-      tabs: tabs.whereType<EditorTab>().toList(),
-      currentTabIndex: data['currentIndex'] ?? 0,
-      currentDirectory: await _loadDirectory(data['directory']),
-    );
-  }
-
-  Future<EditorTab?> _loadTabFromJson(Map<String, dynamic> tabJson) async {
-    try {
-      final uri = tabJson['fileUri'] as String;
-      final pluginType = tabJson['pluginType'] as String;
-
-      final file = await _fileHandler.getFileMetadata(uri);
-      final plugin = _plugins.firstWhere(
-        (p) => p.runtimeType.toString() == pluginType,
-      );
-
-      final content = await _fileHandler.readFile(uri);
-      final tab = await plugin.createTab(file!, content);
-      //await plugin.initializeTab(tab, content);
-
-      return tab;
-    } catch (e) {
-      print('Error loading tab: $e');
-      return null;
-    }
-  }
+  // REMOVED: _deserializeState is no longer needed, logic moved to SessionState.fromJson
+  // REMOVED: _loadTabFromJson is no longer needed, logic moved to SessionState.fromJson
 
   Future<DocumentFile?> _loadDirectory(String? uri) async {
     return uri != null ? await _fileHandler.getFileMetadata(uri) : null;
@@ -736,31 +684,49 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   void switchTab(int index) {
+    // FocusNode is now managed internally by CodeEditorMachine.
+    // Unfocusing is handled by the widget's lifecycle (dispose/recreate)
+    // and its internal focus listener.
     final prevTab = state.currentTab;
     state = state.copyWith(currentTabIndex: index);
     _handlePluginLifecycle(prevTab, state.currentTab);
   }
-  
+
   void updateTabState(EditorTab oldTab, EditorTab newTab) {
-  state = state.copyWith(
-    tabs: state.tabs.map((t) => t == oldTab ? newTab : t).toList(),
-  );
-  markCurrentTabDirty();
-}
+    state = state.copyWith(
+      tabs: state.tabs.map((t) => t == oldTab ? newTab : t).toList(),
+    );
+    // Note: markCurrentTabDirty should probably be called explicitly if the content changes,
+    // not necessarily just on tab state update if it's metadata.
+  }
+
+  // New: Update language key for a CodeEditorTab
+  void updateTabLanguageKey(int tabIndex, String newLanguageKey) {
+    final currentTabs = List<EditorTab>.from(state.tabs);
+    if (tabIndex < 0 || tabIndex >= currentTabs.length) return;
+
+    final targetTab = currentTabs[tabIndex];
+    if (targetTab is CodeEditorTab) {
+      final updatedTab = targetTab.copyWith(languageKey: newLanguageKey);
+      currentTabs[tabIndex] = updatedTab;
+      state = state.copyWith(tabs: currentTabs);
+    }
+  }
+
 
   void markCurrentTabDirty() {
     final current = state;
     final currentTab = current.currentTab;
     if (currentTab == null) return;
-    if (currentTab!.isDirty == true) return;
+    if (currentTab.isDirty == true) return; // Only update if not already dirty
 
     state = current.copyWith(
       tabs:
-          current.tabs
-              .map(
-                (t) => t == currentTab ? currentTab.copyWith(isDirty: true) : t,
-              )
-              .toList(),
+      current.tabs
+          .map(
+            (t) => t == currentTab ? currentTab.copyWith(isDirty: true) : t,
+      )
+          .toList(),
     );
   }
 
@@ -775,8 +741,11 @@ class SessionNotifier extends Notifier<SessionState> {
 
   void closeTab(int index) {
     final current = state;
+    if (index < 0 || index >= current.tabs.length) return; // Ensure index is valid
+
     final closedTab = current.tabs[index];
     closedTab.plugin.deactivateTab(closedTab, ref);
+    closedTab.dispose(); // Dispose the tab's resources
 
     state = _manager.closeTab(state, index);
 
@@ -798,9 +767,14 @@ class SessionNotifier extends Notifier<SessionState> {
     try {
       final loadedState = await _manager.loadSession();
       state = loadedState;
-      _handlePluginLifecycle(null, state.currentTab);
+      // Activate the current tab only if it exists after loading
+      if (state.currentTab != null) {
+        _handlePluginLifecycle(null, state.currentTab);
+      }
     } catch (e) {
       print('Error loading session: $e');
+      // If session load fails, ensure no tab is active
+      _handlePluginLifecycle(state.currentTab, null);
     }
   }
 
@@ -808,14 +782,14 @@ class SessionNotifier extends Notifier<SessionState> {
     final current = state;
     if (index < 0 || index >= current.tabs.length) return;
 
-    final savedTab = current.tabs[index];
+    final targetTab = current.tabs[index]; // Use a distinct variable name
 
     try {
-      final newTab = await _manager.saveTabFile(savedTab);
+      final newTab = await _manager.saveTabFile(targetTab);
 
       // Create new immutable state
       final newTabs =
-          current.tabs.map((t) => t == savedTab ? newTab : t).toList();
+          current.tabs.map((t) => t == targetTab ? newTab : t).toList();
 
       state = current.copyWith(tabs: newTabs, lastSaved: DateTime.now());
     } catch (e) {
@@ -852,11 +826,17 @@ abstract class EditorTab {
   void dispose();
 
   EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty});
+
+  // New: Abstract methods for serialization
+  Map<String, dynamic> toJson();
+  // Not a static factory here, as it needs plugin instance.
+  // The actual deserialization factory is on EditorPlugin.
 }
 
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
+  final String? languageKey; // New: Store the language key (e.g., 'dart', 'python')
 
   CodeEditorTab({
     required super.file,
@@ -864,6 +844,7 @@ class CodeEditorTab extends EditorTab {
     required super.plugin,
     required this.commentFormatter,
     super.isDirty = false,
+    this.languageKey, // Initialize new property
   });
 
   @override
@@ -873,7 +854,7 @@ class CodeEditorTab extends EditorTab {
 
   @override
   String get contentString {
-    return this.controller?.text ?? "";
+    return this.controller.text ?? ""; // Corrected to use `this.controller.text`
   }
 
   @override
@@ -883,6 +864,7 @@ class CodeEditorTab extends EditorTab {
     bool? isDirty,
     CodeLineEditingController? controller,
     CodeCommentFormatter? commentFormatter,
+    String? languageKey, // Include in copyWith
   }) {
     return CodeEditorTab(
       file: file ?? this.file,
@@ -890,8 +872,18 @@ class CodeEditorTab extends EditorTab {
       isDirty: isDirty ?? this.isDirty,
       controller: controller ?? this.controller,
       commentFormatter: commentFormatter ?? this.commentFormatter,
+      languageKey: languageKey ?? this.languageKey, // Copy new property
     );
   }
+
+  // New: Convert CodeEditorTab to JSON
+  @override
+  Map<String, dynamic> toJson() => {
+    'fileUri': file.uri,
+    'pluginType': plugin.runtimeType.toString(),
+    'languageKey': languageKey, // Serialize language key
+    'isDirty': isDirty, // Also serialize dirty state for initial load
+  };
 }
 
 // --------------------
@@ -1086,8 +1078,10 @@ abstract class EditorPlugin {
     return const SizedBox.shrink(); // Default empty implementation
   }
 
+  // New: Method for deserializing tabs
+  Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler);
+
   // Optional lifecycle hooks
-  //Future<void> initializeTab(EditorTab tab, String? content);
   Future<void> dispose() async {}
 }
 
@@ -1127,29 +1121,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
-    return const {
-      'dart',
-      'tex',
-      'js',
-      'ts',
-      'sh',
-      'gitignore',
-      'npmrc',
-      'mjs',
-      'py',
-      'java',
-      'kt',
-      'cpp',
-      'h',
-      'cs',
-      'html',
-      'css',
-      'xml',
-      'json',
-      'yaml',
-      'md',
-      'txt',
-    }.contains(ext);
+    return _languageExtToNameMap.containsKey(ext); // Use the new map
   }
 
   @override
@@ -1158,19 +1130,49 @@ class CodeEditorPlugin implements EditorPlugin {
       spanBuilder: _buildHighlightingSpan,
       codeLines: CodeLines.fromText(content ?? ''),
     );
+    final inferredLanguageKey = _inferLanguageKey(file.uri); // Infer language key
     return CodeEditorTab(
       file: file,
       plugin: this,
       controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
+      languageKey: inferredLanguageKey, // Store inferred key
     );
   }
+
+  // New: Implementation for deserializing CodeEditorTab
+  @override
+  Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler) async {
+    final fileUri = tabJson['fileUri'] as String;
+    final loadedLanguageKey = tabJson['languageKey'] as String?;
+    final isDirtyOnLoad = tabJson['isDirty'] as bool? ?? false; // Load dirty state
+
+    final file = await fileHandler.getFileMetadata(fileUri);
+    if (file == null) {
+      throw Exception('File not found for tab URI: $fileUri');
+    }
+
+    final content = await fileHandler.readFile(fileUri);
+    final controller = CodeLineEditingController(
+      spanBuilder: _buildHighlightingSpan,
+      codeLines: CodeLines.fromText(content ?? ''),
+    );
+
+    return CodeEditorTab(
+      file: file,
+      plugin: this,
+      controller: controller,
+      commentFormatter: _getCommentFormatter(file.uri),
+      languageKey: loadedLanguageKey ?? _inferLanguageKey(file.uri), // Use loaded or infer
+      isDirty: isDirtyOnLoad,
+    );
+  }
+
 
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
 
-    // Listener management is now handled by CodeEditorMachine itself.
     // Explicit state updates for mark/highlight can still be useful here.
     ref.read(markProvider.notifier).state = null; // Clear mark when tab changes
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
@@ -1179,7 +1181,6 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    // Listener management is now handled by CodeEditorMachine itself.
     ref.read(markProvider.notifier).state = null; // Clear mark when tab is deactivated
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
   }
@@ -1193,11 +1194,12 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
     );
 
-    // CodeEditorMachine now encapsulates the Focus widget and its associated logic.
+    // Pass the language key from the tab state to CodeEditorMachine
     return CodeEditorMachine(
-      key: ValueKey(codeTab.file.uri), // Key to ensure widget rebuilds when tab changes
+      key: ValueKey(codeTab.file.uri),
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
+      languageKey: codeTab.languageKey, // Pass the language key
       indicatorBuilder: (
           context,
           editingController,
@@ -1213,9 +1215,10 @@ class CodeEditorPlugin implements EditorPlugin {
       style: CodeEditorStyle(
         fontSize: settings?.fontSize ?? 12,
         fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
+        // Use _getHighlightThemeMode with the tab's language key
         codeTheme: CodeHighlightTheme(
           theme: atomOneDarkTheme,
-          languages: _getLanguageMode(codeTab.file.uri),
+          languages: _getHighlightThemeMode(codeTab.languageKey),
         ),
       ),
       wordWrap: settings?.wordWrap ?? false,
@@ -1232,7 +1235,6 @@ class CodeEditorPlugin implements EditorPlugin {
     final currentTab =
         ProviderScope.containerOf(context).read(sessionProvider).currentTab
             as CodeEditorTab;
-    final controller = currentTab.controller;
     final highlightState = ProviderScope.containerOf(
       context,
     ).read(bracketHighlightProvider);
@@ -1304,12 +1306,6 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // This method is no longer used directly by buildEditor as CodeEditorMachine manages its own controller
-  // CodeLineEditingController _getControllerFromContext(BuildContext context) {
-  //   final editor = context.findAncestorWidgetOfExactType<CodeEditor>();
-  //   return editor?.controller as CodeLineEditingController;
-  // }
-
   CodeCommentFormatter _getCommentFormatter(String uri) {
     final extension = uri.split('.').last.toLowerCase();
     switch (extension) {
@@ -1319,7 +1315,7 @@ class CodeEditorPlugin implements EditorPlugin {
           multiLinePrefix: '/*',
           multiLineSuffix: '*/',
         );
-      case 'tex': // Fixed typo
+      case 'tex':
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '%',
         );
@@ -1339,6 +1335,7 @@ class CodeEditorPlugin implements EditorPlugin {
     ..._formattingCommands,
     ..._selectionCommands,
     ..._historyCommands,
+    _switchLanguageCommand, // Add the new command
   ];
 
   List<Command> get _fileCommands => [
@@ -1472,20 +1469,31 @@ class CodeEditorPlugin implements EditorPlugin {
       canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
     ),
     _createCommand(
-      id: 'shoe_cursor',
+      id: 'show_cursor', // Corrected typo
       label: 'Show Cursor',
       icon: Icons.center_focus_strong,
       execute: (ref, ctrl) => ctrl.makeCursorVisible(),
     ),
   ];
 
+  // New Command: Switch Language
+  Command get _switchLanguageCommand => _createCommand(
+    id: 'switch_language',
+    label: 'Switch Language',
+    icon: Icons.language,
+    defaultPosition: CommandPosition.pluginToolbar,
+    execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
+    canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab, // Only for code editor tabs
+  );
+
+
   Command _createCommand({
     required String id,
     required String label,
     required IconData icon,
-    required FutureOr<void> Function(WidgetRef, CodeLineEditingController)
-    execute,
-    bool Function(WidgetRef, CodeLineEditingController)? canExecute,
+    required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
+    execute, // Made ctrl nullable
+    bool Function(WidgetRef, CodeLineEditingController?)? canExecute, // Made ctrl nullable
   }) {
     return BaseCommand(
       id: id,
@@ -1495,11 +1503,11 @@ class CodeEditorPlugin implements EditorPlugin {
       sourcePlugin: this.runtimeType.toString(),
       execute: (ref) async {
         final ctrl = _getController(ref);
-        if (ctrl != null) await execute(ref, ctrl);
+        await execute(ref, ctrl);
       },
       canExecute: (ref) {
         final ctrl = _getController(ref);
-        return ctrl != null && (canExecute?.call(ref, ctrl) ?? true);
+        return canExecute?.call(ref, ctrl) ?? true;
       },
     );
   }
@@ -1515,9 +1523,10 @@ class CodeEditorPlugin implements EditorPlugin {
 
   // Command implementations
   Future<void> _toggleComments(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
       ctrl.value,
@@ -1528,9 +1537,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _reformatDocument(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
     try {
       final formattedValue = _formatCodeValue(ctrl.value);
 
@@ -1587,11 +1597,11 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _selectBetweenBrackets(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
-    final tab = _getTab(ref)!;
-    final controller = tab.controller;
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
+    final controller = ctrl;
     final selection = controller.selection;
 
     if (!selection.isCollapsed) {
@@ -1649,10 +1659,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLinePosition? _findMatchingBracket(
-      CodeLines codeLines,
-      CodeLinePosition position,
-      Map<String, String> brackets,
-      ) {
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
@@ -1707,10 +1717,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _extendSelection(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
-    final tab = _getTab(ref)!;
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
     final controller = ctrl;
     final selection = controller.selection;
 
@@ -1730,16 +1740,18 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _setMarkPosition(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
   Future<void> _selectToMark(
-      WidgetRef ref,
-      CodeLineEditingController ctrl,
-      ) async {
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
+    if (ctrl == null) return;
     final mark = ref.read(markProvider);
     if (mark == null) {
       print('No mark set! Set a mark first');
@@ -1779,75 +1791,118 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildToolbar(WidgetRef ref) {
     // The commands are retrieved and displayed in BottomToolbar
-    // final commands = ref.watch(commandProvider.notifier).getVisibleCommands(CommandPosition.pluginToolbar);
     return CodeEditorTapRegion(child: BottomToolbar());
   }
 
-  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
+  // --- New Language Highlighting Logic ---
 
-    // Explicitly handle each case with proper typing
-    switch (extension) {
-      case 'dart':
-        return {'dart': CodeHighlightThemeMode(mode: langDart)};
-      case 'js':
-      case 'jsx':
-      case 'mjs':
-      case 'npmrc':
-        return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
-      case 'ts':
-        return {'typescript': CodeHighlightThemeMode(mode: langTypescript)};
-      case 'py':
-        return {'python': CodeHighlightThemeMode(mode: langPython)};
-      case 'java':
-        return {'java': CodeHighlightThemeMode(mode: langJava)};
-      case 'cpp':
-      case 'cc':
-      case 'h':
-        return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
-      case 'css':
-        return {'css': CodeHighlightThemeMode(mode: langCss)};
-      case 'kt':
-        return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
-      case 'json':
-        return {'json': CodeHighlightThemeMode(mode: langJson)};
-      case 'htm':
-      case 'html':
-        return {'html': CodeHighlightThemeMode(mode: langXml)};
-      case 'yaml':
-      case 'yml':
-        return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
-      case 'md':
-        return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
-      case 'sh':
-        return {'bash': CodeHighlightThemeMode(mode: langBash)};
-      case 'tex':
-        return {'latex': CodeHighlightThemeMode(mode: langLatex)};
-      default:
-        return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+  static const Map<String, dynamic> _languageNameToModeMap = {
+    'dart': langDart,
+    'python': langPython,
+    'javascript': langJavascript,
+    'typescript': langTypescript,
+    'java': langJava,
+    'cpp': langCpp,
+    'latex': langLatex,
+    'css': langCss,
+    'json': langJson,
+    'yaml': langYaml,
+    'markdown': langMarkdown,
+    'kotlin': langKotlin,
+    'bash': langBash,
+    'xml': langXml,
+    'plaintext': langPlaintext,
+  };
+
+  static const Map<String, String> _languageExtToNameMap = {
+    'dart': 'dart',
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'mjs': 'javascript',
+    'npmrc': 'javascript',
+    'ts': 'typescript',
+    'py': 'python',
+    'java': 'java',
+    'cpp': 'cpp',
+    'cc': 'cpp',
+    'h': 'cpp',
+    'css': 'css',
+    'kt': 'kotlin',
+    'json': 'json',
+    'htm': 'xml',
+    'html': 'xml',
+    'yaml': 'yaml',
+    'yml': 'yaml',
+    'md': 'markdown',
+    'sh': 'bash',
+    'tex': 'latex',
+    'gitignore': 'plaintext',
+    'txt': 'plaintext',
+    // Add more mappings as needed. Default will be plaintext.
+  };
+
+  String _inferLanguageKey(String uri) {
+    final ext = uri.split('.').last.toLowerCase();
+    return _languageExtToNameMap[ext] ?? 'plaintext';
+  }
+
+  Map<String, CodeHighlightThemeMode> _getHighlightThemeMode(String? langKey) {
+    final effectiveLangKey = langKey ?? 'plaintext'; // Fallback to plaintext if null
+    final mode = _languageNameToModeMap[effectiveLangKey];
+    if (mode != null) {
+      return {effectiveLangKey: CodeHighlightThemeMode(mode: mode)};
+    }
+    // If a specific key is requested but not found, default to plaintext
+    return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+  }
+
+  Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
+    final BuildContext? context = ref.context; // Get context from ref
+
+    if (context == null) {
+      print('Cannot show dialog, context is null.');
+      return;
+    }
+
+    final selectedLanguageKey = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Select Language'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _languageNameToModeMap.keys.length,
+              itemBuilder: (context, index) {
+                final langKey = _languageNameToModeMap.keys.elementAt(index);
+                return ListTile(
+                  title: Text(_formatLanguageName(langKey)),
+                  onTap: () => Navigator.pop(ctx, langKey),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedLanguageKey != null) {
+      final sessionNotifier = ref.read(sessionProvider.notifier);
+      final currentTabIndex = ref.read(sessionProvider).currentTabIndex;
+      sessionNotifier.updateTabLanguageKey(currentTabIndex, selectedLanguageKey);
     }
   }
-}
 
-class CodeEditorMachine extends ConsumerStatefulWidget {
-  final CodeLineEditingController controller;
-  final CodeEditorStyle? style;
-  final CodeCommentFormatter? commentFormatter;
-  final CodeIndicatorBuilder? indicatorBuilder;
-  final bool? wordWrap;
-  // FocusNode is now internal to _CodeEditorMachineState
-
-  const CodeEditorMachine({
-    super.key,
-    required this.controller,
-    this.style,
-    this.commentFormatter,
-    this.indicatorBuilder,
-    this.wordWrap,
-  });
-
-  @override
-  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
+  String _formatLanguageName(String key) {
+    // Simple formatting for display, e.g., 'cpp' -> 'C++', 'javascript' -> 'JavaScript'
+    if (key == 'cpp') return 'C++';
+    if (key == 'javascript') return 'JavaScript';
+    if (key == 'typescript') return 'TypeScript';
+    if (key == 'markdown') return 'Markdown';
+    if (key == 'kotlin') return 'Kotlin';
+    return key[0].toUpperCase() + key.substring(1);
+  }
 }
 
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
@@ -1880,6 +1935,12 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       _addControllerListeners(widget.controller);
       _updateAllStatesFromController(); // Update for new controller
     }
+    // No need to handle languageKey change explicitly here,
+    // as the `key` on CodeEditorMachine (ValueKey(codeTab.file.uri))
+    // ensures the whole widget subtree rebuilds when the tab changes,
+    // effectively re-initializing with the correct languageKey.
+    // If languageKey could change *without* the tab changing,
+    // we would need to manually trigger a rebuild or state update.
   }
 
   @override
