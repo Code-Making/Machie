@@ -1905,6 +1905,28 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 }
 
+class CodeEditorMachine extends ConsumerStatefulWidget {
+  final CodeLineEditingController controller;
+  final CodeEditorStyle? style;
+  final CodeCommentFormatter? commentFormatter;
+  final CodeIndicatorBuilder? indicatorBuilder;
+  final bool? wordWrap;
+  final String? languageKey; // New: languageKey is now passed in
+
+  const CodeEditorMachine({
+    super.key,
+    required this.controller,
+    this.style,
+    this.commentFormatter,
+    this.indicatorBuilder,
+    this.wordWrap,
+    this.languageKey, // Initialize languageKey
+  });
+
+  @override
+  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
+}
+
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   late final FocusNode _focusNode; // Internal FocusNode
   late final Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections; // Moved here
