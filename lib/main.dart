@@ -1836,7 +1836,7 @@ class CodeEditorPlugin implements EditorPlugin {
     return _languageExtToNameMap[ext] ?? 'plaintext';
   }
 
-  static Map<String, CodeHighlightThemeMode> _getHighlightThemeMode(String? langKey) {
+  static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(String? langKey) {
     final effectiveLangKey = langKey ?? 'plaintext'; // Fallback to plaintext if null
     final mode = _languageNameToModeMap[effectiveLangKey];
     if (mode != null) {
