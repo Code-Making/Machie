@@ -136,7 +136,7 @@ final fileHandlerProvider = Provider<FileHandler>((ref) {
 });
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {CodeEditorPlugin(), RecipeTexPlugin()},
+  (_) => {CodeEditorPlugin()},
 );
 
 final activePluginsProvider =
