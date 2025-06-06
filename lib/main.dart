@@ -1188,13 +1188,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    final settings = ref.watch(
-      settingsProvider.select(
-            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
 
-    // Pass the language key from the tab state to CodeEditorMachine
     return CodeEditorMachine(
       key: ValueKey(codeTab.file.uri), // Key remains tied to the file URI
       controller: codeTab.controller,
@@ -1211,13 +1205,6 @@ class CodeEditorPlugin implements EditorPlugin {
           notifier: notifier,
         );
       },
-      style: CodeEditorStyle(
-        fontSize: settings?.fontSize ?? 12,
-        fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-        // The language mode will be determined inside CodeEditorMachine's build method
-        // by watching the sessionProvider.
-      ),
-      wordWrap: settings?.wordWrap ?? false,
     );
   }
 
@@ -1897,20 +1884,15 @@ class CodeEditorPlugin implements EditorPlugin {
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
-  final CodeEditorStyle? style;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
-  final bool? wordWrap;
-  // REMOVED: final String? languageKey; // No longer passed as prop, will be watched internally
+  // Removed style and wordWrap parameters; they are now observed internally
 
   const CodeEditorMachine({
     super.key,
     required this.controller,
-    this.style,
     this.commentFormatter,
     this.indicatorBuilder,
-    this.wordWrap,
-    // REMOVED: this.languageKey,
   });
 
   @override
@@ -1946,8 +1928,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       _addControllerListeners(widget.controller);
       _updateAllStatesFromController();
     }
-    // No explicit handling for languageKey here;
-    // the `ref.watch` in `build` will handle it.
   }
 
   @override
@@ -1974,7 +1954,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _removeControllerListeners(CodeLineEditingController controller) {
-    controller.removeListener(_handleControllerChange);
+    controller.removeListener(this._handleControllerChange); // Explicitly use `this`
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
@@ -2006,6 +1986,13 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
+    // WATCH the CodeEditorSettings for font size/family and word wrap
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
+
     // WATCH the current tab's languageKey here!
     final currentLanguageKey = ref.watch(sessionProvider.select(
       (s) => (s.currentTab is CodeEditorTab) ? (s.currentTab as CodeEditorTab).languageKey : null,
@@ -2018,16 +2005,23 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       onKey: (n, e) => _handleKeyEvent(n, e),
       child: CodeEditor(
         controller: widget.controller,
-        style: widget.style?.copyWith(
-          codeTheme: CodeHighlightTheme(
-            theme: atomOneDarkTheme,
-            // Use the watched language key to get the theme mode
-            languages: CodeEditorPlugin.getHighlightThemeMode(currentLanguageKey),
-          ),
-        ),
         commentFormatter: widget.commentFormatter,
         indicatorBuilder: widget.indicatorBuilder,
-        wordWrap: widget.wordWrap,
+        // Construct CodeEditorStyle using watched settings and language key
+        style: CodeEditorStyle(
+          fontSize: codeEditorSettings?.fontSize ?? 12,
+          fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            theme: atomOneDarkTheme,
+            languages: CodeEditorPlugin.getHighlightThemeMode(currentLanguageKey),
+          ),
+          // Add other style properties from your CodeEditorSettings if they exist
+          // For example:
+          // lineHeight: codeEditorSettings?.lineHeight,
+          // selectionColor: codeEditorSettings?.selectionColor,
+          // etc.
+        ),
+        wordWrap: codeEditorSettings?.wordWrap ?? false,
         focusNode: _focusNode,
       ),
     );
