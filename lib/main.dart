@@ -229,11 +229,6 @@ final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
 
-final listenerManagerProvider = StateNotifierProvider<ListenerManager, void>((
-  ref,
-) {
-  return ListenerManager();
-});
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
@@ -241,10 +236,6 @@ final tabBarScrollProvider = Provider<ScrollController>((ref) {
 
 final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
-});
-
-final focusNodeProvider = Provider<FocusNode>((ref) {
-  return FocusNode();
 });
 
 // --------------------
@@ -745,11 +736,9 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   void switchTab(int index) {
-    ref.read(focusNodeProvider).unfocus();
     final prevTab = state.currentTab;
     state = state.copyWith(currentTabIndex: index);
     _handlePluginLifecycle(prevTab, state.currentTab);
-    ref.read(focusNodeProvider).unfocus();
   }
   
   void updateTabState(EditorTab oldTab, EditorTab newTab) {
@@ -1177,68 +1166,22 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  KeyEventResult _handleKeyEvent(
-    FocusNode node,
-    RawKeyEvent event,
-    CodeLineEditingController controller,
-  ) {
-    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-
-    final direction = _arrowKeyDirections[event.logicalKey];
-    final shiftPressed = event.isShiftPressed;
-
-    if (direction != null) {
-      if (shiftPressed) {
-        controller.extendSelection(direction);
-      } else {
-        controller.moveCursor(direction);
-      }
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
 
-    final controller = tab.controller;
-    ref.read(listenerManagerProvider.notifier).addListeners(controller, ref);
-
-    // Update initial state
-    ref.read(canUndoProvider.notifier).state = controller.canUndo;
-    ref.read(canRedoProvider.notifier).state = controller.canRedo;
-    ref.read(markProvider.notifier).state = null;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-       controller.makeCursorVisible();
-    });
+    // Listener management is now handled by CodeEditorMachine itself.
+    // Explicit state updates for mark/highlight can still be useful here.
+    ref.read(markProvider.notifier).state = null; // Clear mark when tab changes
+    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
   }
 
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    //ref.read(markProvider.notifier).state = null;
-    ref.read(listenerManagerProvider.notifier).removeListeners(tab.controller);
-  }
-
-  late Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections = {
-    LogicalKeyboardKey.arrowUp: AxisDirection.up,
-    LogicalKeyboardKey.arrowDown: AxisDirection.down,
-    LogicalKeyboardKey.arrowLeft: AxisDirection.left,
-    LogicalKeyboardKey.arrowRight: AxisDirection.right,
-  };
-  
-  void _handleFocus(bool focus, CodeLineEditingController ctrl){
-    if (focus) {
-      // Keyboard is starting to appear
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Wait for keyboard animation (e.g., 300ms)
-        Future.delayed(const Duration(milliseconds: 300), () {
-               ctrl.makeCursorVisible();
-        });
-      });
-    }
+    // Listener management is now handled by CodeEditorMachine itself.
+    ref.read(markProvider.notifier).state = null; // Clear mark when tab is deactivated
+    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
   }
 
   @override
@@ -1246,43 +1189,36 @@ class CodeEditorPlugin implements EditorPlugin {
     final codeTab = tab as CodeEditorTab;
     final settings = ref.watch(
       settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
-    final editorFocusNode = ref.watch(focusNodeProvider);
-    return Focus(
-      autofocus: false,
-      canRequestFocus: false,
-      onFocusChange: (bool focus) => _handleFocus(focus, codeTab.controller),
-      onKey: (n, e) => _handleKeyEvent(n, e, codeTab.controller),
-      child: CodeEditor(
-        key: ValueKey(codeTab.file.uri), 
-        autofocus: false,
-        controller: codeTab.controller,
-        focusNode: editorFocusNode,
-        commentFormatter: codeTab.commentFormatter,
-        indicatorBuilder: (
+
+    // CodeEditorMachine now encapsulates the Focus widget and its associated logic.
+    return CodeEditorMachine(
+      key: ValueKey(codeTab.file.uri), // Key to ensure widget rebuilds when tab changes
+      controller: codeTab.controller,
+      commentFormatter: codeTab.commentFormatter,
+      indicatorBuilder: (
           context,
           editingController,
           chunkController,
           notifier,
-        ) {
-          return _CustomEditorIndicator(
-            controller: editingController,
-            chunkController: chunkController,
-            notifier: notifier,
-          );
-        },
-        style: CodeEditorStyle(
-          fontSize: settings?.fontSize ?? 12,
-          fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-          codeTheme: CodeHighlightTheme(
-            theme: atomOneDarkTheme,
-            languages: _getLanguageMode(codeTab.file.uri),
-          ),
+          ) {
+        return _CustomEditorIndicator(
+          controller: editingController,
+          chunkController: chunkController,
+          notifier: notifier,
+        );
+      },
+      style: CodeEditorStyle(
+        fontSize: settings?.fontSize ?? 12,
+        fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
+        codeTheme: CodeHighlightTheme(
+          theme: atomOneDarkTheme,
+          languages: _getLanguageMode(codeTab.file.uri),
         ),
-        wordWrap: settings?.wordWrap ?? false,
       ),
+      wordWrap: settings?.wordWrap ?? false,
     );
   }
 
@@ -1368,10 +1304,11 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  CodeLineEditingController _getControllerFromContext(BuildContext context) {
-    final editor = context.findAncestorWidgetOfExactType<CodeEditor>();
-    return editor?.controller as CodeLineEditingController;
-  }
+  // This method is no longer used directly by buildEditor as CodeEditorMachine manages its own controller
+  // CodeLineEditingController _getControllerFromContext(BuildContext context) {
+  //   final editor = context.findAncestorWidgetOfExactType<CodeEditor>();
+  //   return editor?.controller as CodeLineEditingController;
+  // }
 
   CodeCommentFormatter _getCommentFormatter(String uri) {
     final extension = uri.split('.').last.toLowerCase();
@@ -1382,7 +1319,7 @@ class CodeEditorPlugin implements EditorPlugin {
           multiLinePrefix: '/*',
           multiLineSuffix: '*/',
         );
-      case 'dart':
+      case 'tex': // Fixed typo
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '%',
         );
@@ -1578,9 +1515,9 @@ class CodeEditorPlugin implements EditorPlugin {
 
   // Command implementations
   Future<void> _toggleComments(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
       ctrl.value,
@@ -1591,9 +1528,9 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _reformatDocument(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     try {
       final formattedValue = _formatCodeValue(ctrl.value);
 
@@ -1650,9 +1587,9 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _selectBetweenBrackets(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     final tab = _getTab(ref)!;
     final controller = tab.controller;
     final selection = controller.selection;
@@ -1712,10 +1649,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
+      CodeLines codeLines,
+      CodeLinePosition position,
+      Map<String, String> brackets,
+      ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
@@ -1770,9 +1707,9 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _extendSelection(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     final tab = _getTab(ref)!;
     final controller = ctrl;
     final selection = controller.selection;
@@ -1793,16 +1730,16 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _setMarkPosition(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
   Future<void> _selectToMark(
-    WidgetRef ref,
-    CodeLineEditingController ctrl,
-  ) async {
+      WidgetRef ref,
+      CodeLineEditingController ctrl,
+      ) async {
     final mark = ref.read(markProvider);
     if (mark == null) {
       print('No mark set! Set a mark first');
@@ -1841,57 +1778,55 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Widget buildToolbar(WidgetRef ref) {
-    final commands = ref
-        .watch(commandProvider.notifier)
-        .getVisibleCommands(CommandPosition.pluginToolbar);
-
+    // The commands are retrieved and displayed in BottomToolbar
+    // final commands = ref.watch(commandProvider.notifier).getVisibleCommands(CommandPosition.pluginToolbar);
     return CodeEditorTapRegion(child: BottomToolbar());
   }
 
-Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
-      final extension = uri.split('.').last.toLowerCase();
-      
-      // Explicitly handle each case with proper typing
-      switch (extension) {
-        case 'dart':
+  Map<String, CodeHighlightThemeMode> _getLanguageMode(String uri) {
+    final extension = uri.split('.').last.toLowerCase();
+
+    // Explicitly handle each case with proper typing
+    switch (extension) {
+      case 'dart':
         return {'dart': CodeHighlightThemeMode(mode: langDart)};
-        case 'js':
-        case 'jsx':
-        case 'mjs':
-        case 'npmrc':
+      case 'js':
+      case 'jsx':
+      case 'mjs':
+      case 'npmrc':
         return {'javascript': CodeHighlightThemeMode(mode: langJavascript)};
-        case 'ts':
+      case 'ts':
         return {'typescript': CodeHighlightThemeMode(mode: langTypescript)};
-        case 'py':
+      case 'py':
         return {'python': CodeHighlightThemeMode(mode: langPython)};
-        case 'java':
+      case 'java':
         return {'java': CodeHighlightThemeMode(mode: langJava)};
-        case 'cpp':
-        case 'cc':
-        case 'h':
+      case 'cpp':
+      case 'cc':
+      case 'h':
         return {'cpp': CodeHighlightThemeMode(mode: langCpp)};
-        case 'css':
+      case 'css':
         return {'css': CodeHighlightThemeMode(mode: langCss)};
-        case 'kt':
+      case 'kt':
         return {'kt': CodeHighlightThemeMode(mode: langKotlin)};
-        case 'json':
+      case 'json':
         return {'json': CodeHighlightThemeMode(mode: langJson)};
-        case 'htm':
-        case 'html':
+      case 'htm':
+      case 'html':
         return {'html': CodeHighlightThemeMode(mode: langXml)};
-        case 'yaml':
-        case 'yml':
+      case 'yaml':
+      case 'yml':
         return {'yaml': CodeHighlightThemeMode(mode: langYaml)};
-        case 'md':
+      case 'md':
         return {'markdown': CodeHighlightThemeMode(mode: langMarkdown)};
-        case 'sh':
+      case 'sh':
         return {'bash': CodeHighlightThemeMode(mode: langBash)};
-        case 'tex':
+      case 'tex':
         return {'latex': CodeHighlightThemeMode(mode: langLatex)};
-        default:
+      default:
         return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
-      }
     }
+  }
 }
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
@@ -1900,6 +1835,7 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
   final bool? wordWrap;
+  // FocusNode is now internal to _CodeEditorMachineState
 
   const CodeEditorMachine({
     super.key,
@@ -1915,109 +1851,120 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
 }
 
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
+  late final FocusNode _focusNode; // Internal FocusNode
+  late final Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections; // Moved here
+
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_updateUndoState);
+    _focusNode = FocusNode(); // Initialize internal FocusNode
+    _focusNode.addListener(_handleFocusChange); // Listen to its own focus changes
+
+    // Initialize arrow key directions map
+    _arrowKeyDirections = {
+      LogicalKeyboardKey.arrowUp: AxisDirection.up,
+      LogicalKeyboardKey.arrowDown: AxisDirection.down,
+      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+      LogicalKeyboardKey.arrowRight: AxisDirection.right,
+    };
+
+    _addControllerListeners(widget.controller); // Add listeners for the controller
+    _updateAllStatesFromController(); // Initial state update
   }
 
   @override
   void didUpdateWidget(CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_updateUndoState);
-      widget.controller.addListener(_updateUndoState);
+      _removeControllerListeners(oldWidget.controller);
+      _addControllerListeners(widget.controller);
+      _updateAllStatesFromController(); // Update for new controller
     }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_updateUndoState);
+    _removeControllerListeners(widget.controller); // Remove controller listeners
+    _focusNode.removeListener(_handleFocusChange); // Remove focus listener
+    _focusNode.dispose(); // Dispose internal FocusNode
     super.dispose();
   }
 
-  void _updateUndoState() {
+  void _updateAllStatesFromController() {
+    // Update Undo/Redo state
     ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
     ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
+
+    // Trigger bracket highlight update
+    ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
+    // No need to mark dirty on init, happens on first actual change
+  }
+
+  void _handleControllerChange() {
+    // This listener handles updates for Undo/Redo, Bracket Highlight, and Dirty state
+    ref.read(sessionProvider.notifier).markCurrentTabDirty();
+    _updateAllStatesFromController(); // Consolidated update
+  }
+
+  void _addControllerListeners(CodeLineEditingController controller) {
+    controller.addListener(_handleControllerChange);
+  }
+
+  void _removeControllerListeners(CodeLineEditingController controller) {
+    controller.removeListener(_handleControllerChange);
+  }
+
+  // Moved from CodeEditorPlugin, now uses internal _focusNode and widget.controller
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+
+    final direction = _arrowKeyDirections[event.logicalKey];
+    final shiftPressed = event.isShiftPressed;
+
+    if (direction != null) {
+      if (shiftPressed) {
+        widget.controller.extendSelection(direction);
+      } else {
+        widget.controller.moveCursor(direction);
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  // Moved from CodeEditorPlugin, now uses internal _focusNode and widget.controller
+  void _handleFocusChange(){
+    if (_focusNode.hasFocus) {
+      // Keyboard is starting to appear, or editor gained focus
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Wait for keyboard animation (e.g., 300ms)
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.controller.makeCursorVisible();
+        });
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CodeEditor(
-      controller: widget.controller,
-      style: widget.style,
-      commentFormatter: widget.commentFormatter,
-      indicatorBuilder: widget.indicatorBuilder,
-      wordWrap: widget.wordWrap,
+    return Focus( // Wrap CodeEditor with Focus
+      autofocus: false, // Managed by its parent, EditorScreen, or manually here if needed
+      canRequestFocus: true, // Allow focus
+      onFocusChange: (bool focus) => _handleFocusChange(), // Use internal focus handler
+      onKey: (n, e) => _handleKeyEvent(n, e), // Use internal key handler
+      child: CodeEditor(
+        controller: widget.controller,
+        style: widget.style,
+        commentFormatter: widget.commentFormatter,
+        indicatorBuilder: widget.indicatorBuilder,
+        wordWrap: widget.wordWrap,
+        focusNode: _focusNode, // Pass internal FocusNode to CodeEditor
+      ),
     );
   }
 }
 
-class ListenerManager extends StateNotifier<void> {
-  final Map<CodeLineEditingController, List<VoidCallback>> _listeners = {};
 
-  ListenerManager() : super(null);
-
-  void addListeners(
-    CodeLineEditingController controller,
-    NotifierProviderRef<SessionState> ref,
-  ) {
-    // Remove existing listeners if any
-    removeListeners(controller);
-
-    // Create new listeners
-    final undoListener = () {
-      ref.read(canUndoProvider.notifier).state = controller.canUndo;
-    };
-
-    final redoListener = () {
-      ref.read(canRedoProvider.notifier).state = controller.canRedo;
-    };
-
-    final bracketListener = () {
-      ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
-    };
-
-    final changeListener = () {
-      ref.read(sessionProvider.notifier).markCurrentTabDirty();
-    };
-
-    // Store listeners
-    _listeners[controller] = [
-      undoListener,
-      redoListener,
-      bracketListener,
-      changeListener,
-    ];
-
-    // Add listeners to controller
-    controller.addListener(undoListener);
-    controller.addListener(redoListener);
-    controller.addListener(bracketListener);
-    controller.addListener(changeListener);
-  }
-
-  void removeListeners(CodeLineEditingController controller) {
-    final listeners = _listeners[controller];
-    if (listeners != null) {
-      for (final listener in listeners) {
-        controller.removeListener(listener);
-      }
-      _listeners.remove(controller);
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final entry in _listeners.entries) {
-      for (final listener in entry.value) {
-        entry.key.removeListener(listener);
-      }
-    }
-    _listeners.clear();
-    super.dispose();
-  }
-}
 
 // --------------------
 //  Bracket Highlight State
