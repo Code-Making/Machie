@@ -1330,19 +1330,11 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-    ..._fileCommands,
-    ..._clipboardCommands,
-    ..._formattingCommands,
-    ..._selectionCommands,
-    ..._historyCommands,
-    _switchLanguageCommand, // Add the new command
-  ];
-
-  List<Command> get _fileCommands => [
-    _createCommand(
+    _createCommand( // Moved this command to the top level for clarity
       id: 'save',
       label: 'Save',
       icon: Icons.save,
+      defaultPosition: CommandPosition.appBar, // Default position in AppBar
       execute: (ref, _) {
         final session = ref.read(sessionProvider);
         final currentIndex = session.currentTabIndex;
@@ -1350,156 +1342,154 @@ class CodeEditorPlugin implements EditorPlugin {
           ref.read(sessionProvider.notifier).saveTab(currentIndex);
         }
       },
-      /*canExecute: (ref, _) => ref.watch(
-            sessionProvider.select(
-              (s) => s.currentTab?.isDirty ?? false
-            )
-          ),*/
     ),
-  ];
-
-  List<Command> get _clipboardCommands => [
     _createCommand(
       id: 'copy',
       label: 'Copy',
       icon: Icons.content_copy,
-      execute: (ref, ctrl) => ctrl.copy(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.copy(), // Null check
     ),
     _createCommand(
       id: 'cut',
       label: 'Cut',
       icon: Icons.content_cut,
-      execute: (ref, ctrl) => ctrl.cut(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.cut(), // Null check
     ),
     _createCommand(
       id: 'paste',
       label: 'Paste',
       icon: Icons.content_paste,
-      execute: (ref, ctrl) => ctrl.paste(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.paste(), // Null check
     ),
-  ];
-
-  List<Command> get _formattingCommands => [
     _createCommand(
       id: 'indent',
       label: 'Indent',
       icon: Icons.format_indent_increase,
-      execute: (ref, ctrl) => ctrl.applyIndent(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.applyIndent(), // Null check
     ),
     _createCommand(
       id: 'outdent',
       label: 'Outdent',
       icon: Icons.format_indent_decrease,
-      execute: (ref, ctrl) => ctrl.applyOutdent(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.applyOutdent(), // Null check
     ),
     _createCommand(
       id: 'toggle_comment',
       label: 'Toggle Comment',
       icon: Icons.comment,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _toggleComments,
     ),
     _createCommand(
       id: 'reformat',
       label: 'Reformat',
       icon: Icons.format_align_left,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _reformatDocument,
     ),
-  ];
-
-  List<Command> get _selectionCommands => [
     _createCommand(
       id: 'select_brackets',
       label: 'Select Brackets',
       icon: Icons.code,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _selectBetweenBrackets,
     ),
     _createCommand(
       id: 'extend_selection',
       label: 'Extend Selection',
       icon: Icons.horizontal_rule,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _extendSelection,
     ),
     _createCommand(
       id: 'select_all',
       label: 'Select All',
       icon: Icons.select_all,
-      execute: (ref, ctrl) => ctrl!.selectAll(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.selectAll(), // Null check
     ),
     _createCommand(
       id: 'move_line_up',
       label: 'Move Line Up',
       icon: Icons.arrow_upward,
-      execute: (ref, ctrl) => ctrl!.moveSelectionLinesUp(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(), // Null check
     ),
     _createCommand(
       id: 'move_line_down',
       label: 'Move Line Down',
       icon: Icons.arrow_downward,
-      execute: (ref, ctrl) => ctrl!.moveSelectionLinesDown(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(), // Null check
     ),
-
     _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
       icon: Icons.bookmark_add,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _setMarkPosition,
     ),
     _createCommand(
       id: 'select_to_mark',
       label: 'Select to Mark',
       icon: Icons.bookmark_added,
+      defaultPosition: CommandPosition.pluginToolbar,
       execute: _selectToMark,
       canExecute: (ref, ctrl) => ref.watch(markProvider) != null,
     ),
-  ];
-
-  List<Command> get _historyCommands => [
     _createCommand(
       id: 'undo',
       label: 'Undo',
       icon: Icons.undo,
-      execute: (ref, ctrl) => ctrl.undo(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.undo(), // Null check
       canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
     ),
     _createCommand(
       id: 'redo',
       label: 'Redo',
       icon: Icons.redo,
-      execute: (ref, ctrl) => ctrl.redo(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.redo(), // Null check
       canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
     ),
     _createCommand(
-      id: 'show_cursor', // Corrected typo
+      id: 'show_cursor',
       label: 'Show Cursor',
       icon: Icons.center_focus_strong,
-      execute: (ref, ctrl) => ctrl.makeCursorVisible(),
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.makeCursorVisible(), // Null check
+    ),
+    // New Command: Switch Language
+    _createCommand(
+      id: 'switch_language',
+      label: 'Switch Language',
+      icon: Icons.language,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
+      canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab, // Only for code editor tabs
     ),
   ];
-
-  // New Command: Switch Language
-  Command get _switchLanguageCommand => _createCommand(
-    id: 'switch_language',
-    label: 'Switch Language',
-    icon: Icons.language,
-    defaultPosition: CommandPosition.pluginToolbar,
-    execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
-    canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab, // Only for code editor tabs
-  );
-
 
   Command _createCommand({
     required String id,
     required String label,
     required IconData icon,
+    required CommandPosition defaultPosition, // Added parameter
     required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
-    execute, // Made ctrl nullable
-    bool Function(WidgetRef, CodeLineEditingController?)? canExecute, // Made ctrl nullable
+    execute,
+    bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
   }) {
     return BaseCommand(
       id: id,
       label: label,
       icon: Icon(icon, size: 20),
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: defaultPosition, // Pass the parameter
       sourcePlugin: this.runtimeType.toString(),
       execute: (ref) async {
         final ctrl = _getController(ref);
@@ -1513,9 +1503,12 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLineEditingController? _getController(WidgetRef ref) {
-    return _getTab(ref)?.controller;
+    final tab = ref.read(sessionProvider).currentTab; // Use read instead of watch here to avoid unnecessary rebuilds if only getting controller
+    return tab is CodeEditorTab ? tab.controller : null;
   }
 
+  // Use watch for _getTab if its return value might trigger a rebuild based on tab changes,
+  // but for command execution, _getController usually gets a *current* controller.
   CodeEditorTab? _getTab(WidgetRef ref) {
     final tab = ref.watch(sessionProvider).currentTab;
     return tab is CodeEditorTab ? tab : null;
@@ -1526,7 +1519,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
       ctrl.value,
@@ -1540,7 +1533,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     try {
       final formattedValue = _formatCodeValue(ctrl.value);
 
@@ -1600,7 +1593,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     final controller = ctrl;
     final selection = controller.selection;
 
@@ -1720,7 +1713,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     final controller = ctrl;
     final selection = controller.selection;
 
@@ -1743,7 +1736,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
@@ -1751,7 +1744,7 @@ class CodeEditorPlugin implements EditorPlugin {
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
+    if (ctrl == null) return; // Add null check
     final mark = ref.read(markProvider);
     if (mark == null) {
       print('No mark set! Set a mark first');
@@ -1796,7 +1789,8 @@ class CodeEditorPlugin implements EditorPlugin {
 
   // --- New Language Highlighting Logic ---
 
-  static const Map<String, dynamic> _languageNameToModeMap = {
+  // Changed to static final because `langDart` etc. are not const.
+  static final Map<String, dynamic> _languageNameToModeMap = {
     'dart': langDart,
     'python': langPython,
     'javascript': langJavascript,
@@ -2046,7 +2040,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
   }
 }
-
 
 
 // --------------------
