@@ -1196,10 +1196,9 @@ class CodeEditorPlugin implements EditorPlugin {
 
     // Pass the language key from the tab state to CodeEditorMachine
     return CodeEditorMachine(
-      key: ValueKey(codeTab.file.uri),
+      key: ValueKey(codeTab.file.uri), // Key remains tied to the file URI
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
-      languageKey: codeTab.languageKey, // Pass the language key
       indicatorBuilder: (
           context,
           editingController,
@@ -1215,11 +1214,8 @@ class CodeEditorPlugin implements EditorPlugin {
       style: CodeEditorStyle(
         fontSize: settings?.fontSize ?? 12,
         fontFamily: settings?.fontFamily ?? 'JetBrainsMono',
-        // Use _getHighlightThemeMode with the tab's language key
-        codeTheme: CodeHighlightTheme(
-          theme: atomOneDarkTheme,
-          languages: _getHighlightThemeMode(codeTab.languageKey),
-        ),
+        // The language mode will be determined inside CodeEditorMachine's build method
+        // by watching the sessionProvider.
       ),
       wordWrap: settings?.wordWrap ?? false,
     );
@@ -1840,7 +1836,7 @@ class CodeEditorPlugin implements EditorPlugin {
     return _languageExtToNameMap[ext] ?? 'plaintext';
   }
 
-  Map<String, CodeHighlightThemeMode> _getHighlightThemeMode(String? langKey) {
+  static Map<String, CodeHighlightThemeMode> _getHighlightThemeMode(String? langKey) {
     final effectiveLangKey = langKey ?? 'plaintext'; // Fallback to plaintext if null
     final mode = _languageNameToModeMap[effectiveLangKey];
     if (mode != null) {
@@ -1905,7 +1901,7 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
   final bool? wordWrap;
-  final String? languageKey; // New: languageKey is now passed in
+  // REMOVED: final String? languageKey; // No longer passed as prop, will be watched internally
 
   const CodeEditorMachine({
     super.key,
@@ -1914,7 +1910,7 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
     this.commentFormatter,
     this.indicatorBuilder,
     this.wordWrap,
-    this.languageKey, // Initialize languageKey
+    // REMOVED: this.languageKey,
   });
 
   @override
@@ -1922,16 +1918,15 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
 }
 
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
-  late final FocusNode _focusNode; // Internal FocusNode
-  late final Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections; // Moved here
+  late final FocusNode _focusNode;
+  late final Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode(); // Initialize internal FocusNode
-    _focusNode.addListener(_handleFocusChange); // Listen to its own focus changes
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChange);
 
-    // Initialize arrow key directions map
     _arrowKeyDirections = {
       LogicalKeyboardKey.arrowUp: AxisDirection.up,
       LogicalKeyboardKey.arrowDown: AxisDirection.down,
@@ -1939,8 +1934,8 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
 
-    _addControllerListeners(widget.controller); // Add listeners for the controller
-    _updateAllStatesFromController(); // Initial state update
+    _addControllerListeners(widget.controller);
+    _updateAllStatesFromController();
   }
 
   @override
@@ -1949,38 +1944,29 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (oldWidget.controller != widget.controller) {
       _removeControllerListeners(oldWidget.controller);
       _addControllerListeners(widget.controller);
-      _updateAllStatesFromController(); // Update for new controller
+      _updateAllStatesFromController();
     }
-    // No need to handle languageKey change explicitly here,
-    // as the `key` on CodeEditorMachine (ValueKey(codeTab.file.uri))
-    // ensures the whole widget subtree rebuilds when the tab changes,
-    // effectively re-initializing with the correct languageKey.
-    // If languageKey could change *without* the tab changing,
-    // we would need to manually trigger a rebuild or state update.
+    // No explicit handling for languageKey here;
+    // the `ref.watch` in `build` will handle it.
   }
 
   @override
   void dispose() {
-    _removeControllerListeners(widget.controller); // Remove controller listeners
-    _focusNode.removeListener(_handleFocusChange); // Remove focus listener
-    _focusNode.dispose(); // Dispose internal FocusNode
+    _removeControllerListeners(widget.controller);
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _updateAllStatesFromController() {
-    // Update Undo/Redo state
     ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
     ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
-
-    // Trigger bracket highlight update
     ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
-    // No need to mark dirty on init, happens on first actual change
   }
 
   void _handleControllerChange() {
-    // This listener handles updates for Undo/Redo, Bracket Highlight, and Dirty state
     ref.read(sessionProvider.notifier).markCurrentTabDirty();
-    _updateAllStatesFromController(); // Consolidated update
+    _updateAllStatesFromController();
   }
 
   void _addControllerListeners(CodeLineEditingController controller) {
@@ -1991,7 +1977,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     controller.removeListener(_handleControllerChange);
   }
 
-  // Moved from CodeEditorPlugin, now uses internal _focusNode and widget.controller
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
     if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
 
@@ -2009,12 +1994,9 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return KeyEventResult.ignored;
   }
 
-  // Moved from CodeEditorPlugin, now uses internal _focusNode and widget.controller
   void _handleFocusChange(){
     if (_focusNode.hasFocus) {
-      // Keyboard is starting to appear, or editor gained focus
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Wait for keyboard animation (e.g., 300ms)
         Future.delayed(const Duration(milliseconds: 300), () {
           widget.controller.makeCursorVisible();
         });
@@ -2024,18 +2006,29 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus( // Wrap CodeEditor with Focus
-      autofocus: false, // Managed by its parent, EditorScreen, or manually here if needed
-      canRequestFocus: true, // Allow focus
-      onFocusChange: (bool focus) => _handleFocusChange(), // Use internal focus handler
-      onKey: (n, e) => _handleKeyEvent(n, e), // Use internal key handler
+    // WATCH the current tab's languageKey here!
+    final currentLanguageKey = ref.watch(sessionProvider.select(
+      (s) => (s.currentTab is CodeEditorTab) ? (s.currentTab as CodeEditorTab).languageKey : null,
+    ));
+
+    return Focus(
+      autofocus: false,
+      canRequestFocus: true,
+      onFocusChange: (bool focus) => _handleFocusChange(),
+      onKey: (n, e) => _handleKeyEvent(n, e),
       child: CodeEditor(
         controller: widget.controller,
-        style: widget.style,
+        style: widget.style?.copyWith(
+          codeTheme: CodeHighlightTheme(
+            theme: atomOneDarkTheme,
+            // Use the watched language key to get the theme mode
+            languages: CodeEditorPlugin.getHighlightThemeMode(currentLanguageKey),
+          ),
+        ),
         commentFormatter: widget.commentFormatter,
         indicatorBuilder: widget.indicatorBuilder,
         wordWrap: widget.wordWrap,
-        focusNode: _focusNode, // Pass internal FocusNode to CodeEditor
+        focusNode: _focusNode,
       ),
     );
   }
