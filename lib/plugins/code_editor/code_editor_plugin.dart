@@ -55,6 +55,12 @@ class CodeEditorPlugin implements EditorPlugin {
     final ext = file.name.split('.').last.toLowerCase();
     return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
+  
+  @override
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item){
+      return [];
+  }
+
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
