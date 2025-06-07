@@ -154,6 +154,11 @@ class SAFFileHandler implements FileHandler {
     );
     return CustomSAFDocumentFile(newFile!);
   }
+  
+  String _inferMimeType(String fileName) { // Corrected: this is a method of SAFFileHandler
+    final ext = fileName.split('.').lastOrNull?.toLowerCase();
+    return CustomSAFDocumentFile._mimeTypes[ext] ?? 'application/octet-stream';
+  }
 
   @override
   Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}) async {
