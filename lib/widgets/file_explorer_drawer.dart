@@ -17,7 +17,6 @@ import '../project/project_models.dart'; // NEW: For ProjectMetadata, Project, F
 import '../screens/settings_screen.dart'; // For DebugLogView, SettingsScreen
 
 import 'package:uuid/uuid.dart'; // Add to pubspec.yaml if not already
-session_management.dart'; // For SessionState, SessionNotifier
 
 // --------------------
 // File Explorer Providers (Revised/Updated)
