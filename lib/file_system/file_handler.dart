@@ -1,15 +1,20 @@
-// lib/file_system/file_handler.dart
-
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:typed_data'; // For Uint8List
 
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart'; // For PlatformException
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // For Provider
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saf_util/saf_util_method_channel.dart';
+import 'package:saf_util/saf_util_platform_interface.dart';
 
-import '../project/project_models.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
+import '../project/project_models.dart'; // NEW: For ProjectMetadata
+
+
+final fileHandlerProvider = Provider<FileHandler>((ref) {
+  return SAFFileHandler();
+});
 
 abstract class DocumentFile {
   String get uri;
@@ -22,30 +27,31 @@ abstract class DocumentFile {
 
 abstract class FileHandler {
   Future<DocumentFile?> pickDirectory();
-  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false});
+  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false}); // MODIFIED
   Future<DocumentFile?> pickFile();
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
   Future<DocumentFile> writeFile(DocumentFile file, String content);
+  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // NEW
+  Future<void> deleteDocumentFile(DocumentFile file); // MODIFIED
 
-  Future<DocumentFile?> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // Changed return to nullable
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // Changed return to nullable
-  Future<void> deleteDocumentFile(DocumentFile file);
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // NEW
+  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
+  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
 
-  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
-  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
+  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri); // NEW
 
-  // These are for SAF internal permission persistence, not for project logic
   Future<void> persistRootUri(String? uri);
   Future<String?> getPersistedRootUri();
 
   Future<String?> getMimeType(String uri);
   Future<DocumentFile?> getFileMetadata(String uri);
-
-  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri);
 }
 
+// --------------------
+//  SAF Implementation
+// --------------------
 class CustomSAFDocumentFile implements DocumentFile {
   final SafDocumentFile _safFile;
 
