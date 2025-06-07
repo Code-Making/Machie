@@ -185,17 +185,3 @@ class _EditorContentProxy extends ConsumerWidget {
     return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }
-
-class FileTypeIcon extends ConsumerWidget {
-  final DocumentFile file;
-
-  const FileTypeIcon({super.key, required this.file});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plugins = ref.watch(activePluginsProvider);
-    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(file));
-
-    return plugin?.icon ?? const Icon(Icons.insert_drive_file);
-  }
-}
