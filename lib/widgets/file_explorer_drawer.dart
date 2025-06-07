@@ -605,43 +605,6 @@ class ManageProjectsScreen extends ConsumerWidget {
   }
 }
 
-class _FileOperationsHeader extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: ButtonBar(
-        alignment: MainAxisAlignment.center,
-        children: [
-          FilledButton.icon(
-            icon: const Icon(Icons.folder_open),
-            label: const Text('Open Folder'),
-            onPressed: () async {
-              final pickedDir =
-                  await ref.read(fileHandlerProvider).pickDirectory();
-              if (pickedDir != null) {
-                ref.read(rootUriProvider.notifier).state = pickedDir;
-                ref.read(sessionProvider.notifier).changeDirectory(pickedDir);
-                Navigator.pop(context);
-              }
-            },
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.file_open),
-            label: const Text('Open File'),
-            onPressed: () async {
-              final pickedFile = await ref.read(fileHandlerProvider).pickFile();
-              if (pickedFile != null) {
-                ref.read(sessionProvider.notifier).openFile(pickedFile);
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // MODIFIED: _FileOperationsFooter to use the new project structure
 class _FileOperationsFooter extends ConsumerWidget {
