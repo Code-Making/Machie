@@ -11,6 +11,8 @@ import '../main.dart'; // For sharedPreferencesProvider, printStream
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin, activePluginsProvider
 import '../screens/settings_screen.dart'; // For LogNotifier
 
+import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
+
 // --------------------
 // Session Management Providers
 // --------------------
