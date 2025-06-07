@@ -108,7 +108,7 @@ class CodeEditorPlugin implements EditorPlugin {
       plugin: this,
       controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
-      languageKey: loadedLanguageKey ?? _inferLanguageKey(file.uri), // Use loaded or infer
+      languageKey: loadedLanguageKey ?? CodeThemes.inferLanguageKey(file.uri),
       isDirty: isDirtyOnLoad,
     );
   }
