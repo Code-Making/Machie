@@ -23,7 +23,8 @@ final bracketHighlightProvider =
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
-final markProvider = StateProvider<
+final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
+
 // --------------------
 //  Code Editor Plugin
 // --------------------
