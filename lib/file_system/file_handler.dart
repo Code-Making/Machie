@@ -164,28 +164,31 @@ class SAFFileHandler implements FileHandler {
       }
       return CustomSAFDocumentFile(createdDir);
     } else {
-      // For files, use writeFileBytes, which creates the file if it doesn't exist.
-      // It returns SafNewFile, which contains the URI of the newly created file.
-      final SafNewFile result = await _safStream.writeFileBytes(
+      // For files, use writeFileBytes with initial content (or empty string)
+      // and then get its metadata.
+      final contentBytes = Uint8List.fromList(utf8.encode(initialContent ?? ''));
+      final mimeType = _inferMimeType(name);
+
+      final writeResponse = await _safStream.writeFileBytes(
         parentUri,
         name,
-        _inferMimeType(name), // Infer MIME type for new file
-        Uint8List.fromList(utf8.encode(initialContent ?? '')), // Write initial content (or empty string)
-        overwrite: false, // Don't overwrite if it somehow already exists during creation attempt
+        mimeType,
+        contentBytes,
+        overwrite: false, // Ensure it creates if not exists, but doesn't overwrite accidentally
       );
 
-      // Get the full metadata for the newly created file from its URI
-      final SafDocumentFile? createdSafFile = await _safUtil.documentFileFromUri(
-        result.uri.toString(),
-        false, // It's a file, not a directory
+      final createdFileMetadata = await _safUtil.documentFileFromUri(
+        writeResponse.uri.toString(),
+        false, // Specify isDir: false for a file
       );
-
-      if (createdSafFile == null) {
-        throw Exception('Failed to get metadata for created file: ${result.uri}');
+      if (createdFileMetadata == null) {
+        throw Exception('Failed to get metadata for created file: $name');
       }
-      return CustomSAFDocumentFile(createdSafFile);
+      return CustomSAFDocumentFile(createdFileMetadata);
     }
   }
+
+
 
   @override
   Future<void> deleteDocumentFile(DocumentFile file) async { // MODIFIED
@@ -193,8 +196,8 @@ class SAFFileHandler implements FileHandler {
   }
 
   @override
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName) async {
-    // Corrected: Pass file.isDirectory as the second argument
+  Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName) async {
+    // Corrected rename signature: uri, isDir, newName
     final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
     if (renamed == null) {
       throw Exception('Failed to rename ${file.name} to $newName');
