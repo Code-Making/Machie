@@ -1,20 +1,15 @@
-import 'dart:convert';
-import 'dart:typed_data'; // For Uint8List
+// lib/file_system/file_handler.dart
 
-import 'package:flutter/services.dart'; // For PlatformException
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // For Provider
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
-import 'package:saf_util/saf_util_method_channel.dart';
-import 'package:saf_util/saf_util_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
-import '../project/project_models.dart'; // NEW: For ProjectMetadata
-
-
-final fileHandlerProvider = Provider<FileHandler>((ref) {
-  return SAFFileHandler();
-});
+import '../project/project_models.dart';
 
 abstract class DocumentFile {
   String get uri;
@@ -27,31 +22,30 @@ abstract class DocumentFile {
 
 abstract class FileHandler {
   Future<DocumentFile?> pickDirectory();
-  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false}); // MODIFIED
+  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false});
   Future<DocumentFile?> pickFile();
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
   Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // NEW
-  Future<void> deleteDocumentFile(DocumentFile file); // MODIFIED
 
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // NEW
-  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
-  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
+  Future<DocumentFile?> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // Changed return to nullable
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // Changed return to nullable
+  Future<void> deleteDocumentFile(DocumentFile file);
 
-  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri); // NEW
+  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
+  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
 
+  // These are for SAF internal permission persistence, not for project logic
   Future<void> persistRootUri(String? uri);
   Future<String?> getPersistedRootUri();
 
   Future<String?> getMimeType(String uri);
   Future<DocumentFile?> getFileMetadata(String uri);
+
+  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri);
 }
 
-// --------------------
-//  SAF Implementation
-// --------------------
 class CustomSAFDocumentFile implements DocumentFile {
   final SafDocumentFile _safFile;
 
@@ -93,19 +87,24 @@ class CustomSAFDocumentFile implements DocumentFile {
 class SAFFileHandler implements FileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
-  static const _prefsKey = 'saf_root_uri';
-  static const _projectDataFolderName = '.machine'; // NEW: Hidden project folder
+  static const _prefsKey = 'saf_last_picked_uri'; // Renamed to clarify its role
+  static const String _projectDataFolderName = '.machine';
 
   SAFFileHandler();
 
   @override
   Future<DocumentFile?> pickDirectory() async {
+    // This is the core SAF function to get a directory URI with persistent permission.
+    // The URI itself is persisted internally by SAF and can be retrieved by getPersistedRootUri
+    // if the user explicitly allowed it and it's the most recently picked.
     final dir = await _safUtil.pickDirectory(persistablePermission: true, writePermission: true);
+    // Even if user cancels, it often returns null, so no need for explicit pop.
+    // The issue was on the Flutter side not dismissing UI.
     return dir != null ? CustomSAFDocumentFile(dir) : null;
   }
 
   @override
-  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false}) async { // MODIFIED
+  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false}) async {
     try {
       if (uri == null) return [];
       final files = await _safUtil.list(uri);
@@ -116,7 +115,6 @@ class SAFFileHandler implements FileHandler {
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
-      // Filter out hidden .machine folder if not explicitly requested
       if (!includeHidden) {
         files.removeWhere((f) => f.name == _projectDataFolderName && f.isDir);
       }
@@ -124,7 +122,9 @@ class SAFFileHandler implements FileHandler {
       return files.map((f) => CustomSAFDocumentFile(f)).toList();
     } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_DENIED') {
-        await persistRootUri(null); // Clear persisted URI if permission lost
+        // If permission is explicitly denied, clear the remembered URI
+        await _prefs.remove(_prefsKey);
+        print('SAF permission denied for $uri. Clearing persisted URI.');
         return [];
       }
       rethrow;
@@ -139,9 +139,9 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
-    final treeAndFile = splitTreeAndFileUri(file);
-    final result = await _safStream.writeFileBytes(
-      treeAndFile.treeUri,
+    final treeUri = splitTreeAndFileUri(file).treeUri;
+    final writeResponse = await _safStream.writeFileBytes(
+      treeUri,
       file.name,
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
@@ -149,28 +149,29 @@ class SAFFileHandler implements FileHandler {
     );
 
     final newFile = await _safUtil.documentFileFromUri(
-      result.uri.toString(),
+      writeResponse.uri.toString(),
       false,
     );
-    return CustomSAFDocumentFile(newFile!);
+    if (newFile == null) {
+      throw Exception('Failed to get metadata for written file: ${file.name}');
+    }
+    return CustomSAFDocumentFile(newFile);
   }
-  
-  String _inferMimeType(String fileName) { // Corrected: this is a method of SAFFileHandler
+
+  String _inferMimeType(String fileName) {
     final ext = fileName.split('.').lastOrNull?.toLowerCase();
     return CustomSAFDocumentFile._mimeTypes[ext] ?? 'application/octet-stream';
   }
 
   @override
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}) async {
+  Future<DocumentFile?> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}) async {
     if (isDirectory) {
-      final createdDir = await _safUtil.mkdirp(parentUri, [name]);
+      final createdDir = await _safUtil.mkdir(parentUri, name); // Corrected to mkdir, not mkdirp if parentUri is already the direct parent. If parent is missing, mkdirp is suitable.
       if (createdDir == null) {
         throw Exception('Failed to create directory: $name in $parentUri');
       }
       return CustomSAFDocumentFile(createdDir);
     } else {
-      // For files, use writeFileBytes with initial content (or empty string)
-      // and then get its metadata.
       final contentBytes = Uint8List.fromList(utf8.encode(initialContent ?? ''));
       final mimeType = _inferMimeType(name);
 
@@ -179,12 +180,12 @@ class SAFFileHandler implements FileHandler {
         name,
         mimeType,
         contentBytes,
-        overwrite: false, // Ensure it creates if not exists, but doesn't overwrite accidentally
+        overwrite: false, // This will ensure creation if file doesn't exist
       );
 
       final createdFileMetadata = await _safUtil.documentFileFromUri(
         writeResponse.uri.toString(),
-        false, // Specify isDir: false for a file
+        false,
       );
       if (createdFileMetadata == null) {
         throw Exception('Failed to get metadata for created file: $name');
@@ -193,16 +194,8 @@ class SAFFileHandler implements FileHandler {
     }
   }
 
-
-
   @override
-  Future<void> deleteDocumentFile(DocumentFile file) async { // MODIFIED
-    await _safUtil.delete(file.uri, file.isDirectory);
-  }
-
-  @override
-  Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName) async {
-    // Corrected rename signature: uri, isDir, newName
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName) async {
     final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
     if (renamed == null) {
       throw Exception('Failed to rename ${file.name} to $newName');
@@ -211,52 +204,78 @@ class SAFFileHandler implements FileHandler {
   }
 
   @override
-  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri) async { // NEW (simplified)
-    // SAF doesn't have a direct "copy" method for files/folders.
-    // This typically involves reading the source and writing to the destination.
-    // For simplicity in this example, we'll assume a basic copy operation.
-    // A full implementation would need to handle folders recursively.
-    if (source.isDirectory) {
-      // Recursive copy for folders is complex with SAF. Placeholder for now.
-      throw UnsupportedError('Recursive folder copy is not implemented for SAF.');
-    } else {
+  Future<void> deleteDocumentFile(DocumentFile file) async {
+    await _safUtil.delete(file.uri, file.isDirectory);
+  }
+
+  @override
+  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}) async {
+    final actualNewName = newName ?? source.name;
+
+    // Check if target exists and delete it to ensure a clean copy/overwrite
+    final existingTarget = await _safUtil.child(destinationParentUri, [actualNewName]);
+    if (existingTarget != null) {
+      await _safUtil.delete(existingTarget.uri, existingTarget.isDir);
+    }
+
+    if (!source.isDirectory) {
       final content = await readFile(source.uri);
-      return createDocumentFile(destinationParentUri, source.name, initialContent: content);
-    }
-  }
-
-  @override
-  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri) async { // NEW (simplified)
-    // Similar to copy, SAF doesn't have a direct "move"
-    // This would typically involve copy + delete.
-    if (source.isDirectory) {
-      throw UnsupportedError('Recursive folder move is not implemented for SAF.');
+      final writeResponse = await _safStream.writeFileBytes(
+        destinationParentUri,
+        actualNewName,
+        source.mimeType,
+        Uint8List.fromList(utf8.encode(content)),
+        overwrite: true, // Overwrite if it existed and was deleted, or create new.
+      );
+      return await _safUtil.documentFileFromUri(writeResponse.uri.toString(), false).then((f) => CustomSAFDocumentFile(f!));
     } else {
-      final copiedFile = await copyDocumentFile(source, destinationParentUri);
-      if (copiedFile != null) {
-        await deleteDocumentFile(source);
+      // Recursive copy for folders
+      final newDir = await _safUtil.mkdir(destinationParentUri, actualNewName);
+      if (newDir == null) throw Exception('Failed to create directory for copy destination');
+
+      final contents = await listDirectory(source.uri, includeHidden: true);
+      for (final child in contents) {
+        if (child.isDirectory) {
+          await copyDocumentFile(child, newDir.uri, newName: child.name); // Recursive call
+        } else {
+          final childContent = await readFile(child.uri);
+          await _safStream.writeFileBytes(
+            newDir.uri,
+            child.name,
+            child.mimeType,
+            Uint8List.fromList(utf8.encode(childContent)),
+            overwrite: true,
+          );
+        }
       }
-      return copiedFile;
+      return CustomSAFDocumentFile(newDir);
     }
   }
 
   @override
-  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri) async { // NEW
-    final projectDataDir = await _safUtil.child(projectRootUri, [_projectDataFolderName]);
-    if (projectDataDir != null) {
-      return CustomSAFDocumentFile(projectDataDir);
-    } else {
-      final createdDir = await _safUtil.mkdirp(projectRootUri, [_projectDataFolderName]);
-      return createdDir != null ? CustomSAFDocumentFile(createdDir) : null;
+  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}) async {
+    final actualNewName = newName ?? source.name;
+    final moved = await _safUtil.move(source.uri, destinationParentUri, actualNewName);
+    if (moved == null) {
+      // If direct move fails (e.g., across different SAF trees), try copy + delete
+      print('Direct SAF move failed for ${source.name}, attempting copy+delete fallback.');
+      final copied = await copyDocumentFile(source, destinationParentUri, newName: actualNewName);
+      if (copied != null) {
+        await deleteDocumentFile(source);
+        return copied;
+      }
+      throw Exception('Failed to move ${source.name} to $destinationParentUri even with copy+delete fallback.');
     }
+    return CustomSAFDocumentFile(moved);
   }
 
   @override
   Future<void> persistRootUri(String? uri) async {
     final prefs = await SharedPreferences.getInstance();
     if (uri != null) {
-      // SAF's pickDirectory with persistablePermission is the primary way
-      // to persist permissions for a URI. Calling it again ensures persistence.
+      // This is for SAF to remember the *last URI opened* across app restarts.
+      // It's mostly for the SAF picker to open at a familiar location.
+      // The explicit `pickDirectory` call below is essential for SAF permissions.
       await _safUtil.pickDirectory(
         initialUri: uri,
         persistablePermission: true,
@@ -274,41 +293,89 @@ class SAFFileHandler implements FileHandler {
     final uri = prefs.getString(_prefsKey);
     if (uri == null) return null;
 
-    final file = await _safUtil.documentFileFromUri(uri, true);
+    // Verify SAF still has access to this URI
+    // SAF usually maintains permissions itself, but explicit check is safer.
+    final file = await _safUtil.documentFileFromUri(uri, true); // Assuming it was a directory
     return file?.uri;
   }
 
   @override
   Future<String?> getMimeType(String uri) async {
-    final file = await _safUtil.documentFileFromUri(uri, false);
+    final file = await _safUtil.documentFileFromUri(uri, null);
     return file != null ? CustomSAFDocumentFile(file).mimeType : null;
   }
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.documentFileFromUri(uri, false);
+    final file = await _safUtil.documentFileFromUri(uri, null);
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
   @override
   Future<DocumentFile?> pickFile() async {
+    // This helper should also have a `finally` block to pop the Flutter UI if needed.
+    // However, the `saf_util` methods for picking typically handle their own UI.
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
   ({String treeUri}) splitTreeAndFileUri(DocumentFile docFile) {
     final fullUri = docFile.uri;
-    final documentIndex = fullUri.lastIndexOf('%2F');
-    if (documentIndex == -1) {
-      throw ArgumentError("Invalid URI format: '/document/' not found.");
+    final documentPathSegment = '/document/';
+    final treePathSegment = '/tree/'; // New base for SAF
+    final primaryPathSegment = 'primary%3A'; // Common for internal storage
+
+    final docIndex = fullUri.indexOf(documentPathSegment);
+    final treeIndex = fullUri.indexOf(treePathSegment);
+
+    if (docIndex != -1) {
+      // Case 1: Standard document URI (e.g., content://.../document/primary%3ADOCS%2Ffile.txt)
+      // The tree URI is everything BEFORE '/document/'
+      return (treeUri: fullUri.substring(0, docIndex));
+    } else if (treeIndex != -1) {
+      // Case 2: Direct tree URI (e.g., content://.../tree/primary%3ADOCS)
+      // This is often the URI returned by pickDirectory.
+      // It may or may not contain a path after 'primary%3A'.
+      // If it contains 'primary%3A' it's usually the root of the picked tree.
+      final pathAfterTree = fullUri.substring(treeIndex + treePathSegment.length);
+      final firstSlashAfterPrimary = pathAfterTree.indexOf('%2F');
+      
+      if (firstSlashAfterPrimary != -1) {
+        // It's like 'primary%3ADOCS%2Fsome_folder', so the tree root is 'primary%3ADOCS'
+        final rootTreeId = pathAfterTree.substring(0, firstSlashAfterPrimary);
+        return (treeUri: fullUri.substring(0, treeIndex + treePathSegment.length) + rootTreeId);
+      } else {
+        // It's just 'primary%3ADOCS', so the whole thing is the tree URI.
+        return (treeUri: fullUri);
+      }
+    } else {
+      // Fallback: If neither standard pattern is found, this URI might be malformed
+      // or refer to something non-SAF managed (e.g., a direct file path not via SAF).
+      // For this app, it implies an error in URI handling or assumption.
+      throw ArgumentError("Unsupported SAF URI format for tree extraction: $fullUri");
     }
-    final treeUri = fullUri.substring(0, documentIndex);
-    return (treeUri: treeUri);
   }
 
   @override
   Future<List<DocumentFile>> pickFiles() async {
     final files = await _safUtil.pickFiles();
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
+  }
+
+  @override
+  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri) async {
+    // The path to the .machine folder
+    final projectDataFolderPath = '$_projectDataFolderName'; // Directly under the root, not nested
+
+    // Try to get the existing .machine folder
+    final existingMachineFolder = await _safUtil.child(projectRootUri, [projectDataFolderPath]);
+
+    if (existingMachineFolder != null && existingMachineFolder.isDir) {
+      return CustomSAFDocumentFile(existingMachineFolder);
+    } else {
+      // If it doesn't exist or isn't a directory, create it
+      final createdDir = await _safUtil.mkdir(projectRootUri, projectDataFolderPath);
+      return createdDir != null ? CustomSAFDocumentFile(createdDir) : null;
+    }
   }
 }
