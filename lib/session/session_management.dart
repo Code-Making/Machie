@@ -1,19 +1,31 @@
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math'; // For max()
 
-import 'package:collection/collection.dart';
+import 'package:collection/collection.dart'; // For DeepCollectionEquality
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeCommentFormatter
+import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeCommentFormatter, CodeLinePosition
 
-import '../file_system/file_handler.dart';
-import '../plugins/plugin_architecture.dart';
+import '../file_system/file_handler.dart'; // For DocumentFile, FileHandler
+import '../main.dart'; // For sharedPreferencesProvider, printStream
+import '../plugins/plugin_architecture.dart'; // For EditorPlugin, activePluginsProvider
 import '../screens/settings_screen.dart'; // For LogNotifier
-import '../main.dart'; // For various providers
 
-import 'package:shared_preferences/shared_preferences.dart';
+// --------------------
+// Session Management Providers
+// --------------------
 
+final sessionManagerProvider = Provider<SessionManager>((ref) {
+  return SessionManager(
+    fileHandler: ref.watch(fileHandlerProvider),
+    plugins: ref.watch(activePluginsProvider),
+    prefs: ref.watch(sharedPreferencesProvider).requireValue,
+  );
+});
 
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
+  SessionNotifier.new,
+);
 // --------------------
 //  Lifecycle Handler
 // --------------------

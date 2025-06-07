@@ -1,28 +1,37 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
+import 'dart:math'; // For max in SessionState
 
-import 'package:collection/collection.dart';
+import 'package:collection/collection.dart'; // For DeepCollectionEquality
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:re_editor/re_editor.dart';
+import 'package:permission_handler/permission_handler.dart'; // Not strictly used by main.dart but good to keep if it was related to initial permissions
+import 'package:re_editor/re_editor.dart'; // For CodeLinePosition etc.
 
-import 'package:saf_stream/saf_stream.dart';
-import 'package:saf_util/saf_util.dart';
-import 'package:saf_util/saf_util_method_channel.dart';
-import 'package:saf_util/saf_util_platform_interface.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'file_system/file_handler.dart'; // For SAFFileHandler and DocumentFile
+import 'plugins/code_editor/code_editor_plugin.dart'; // For CodeEditorPlugin and BracketHighlightNotifier/State
+import 'plugins/plugin_architecture.dart'; // For PluginManager, EditorPlugin, Command, CommandNotifier, SettingsNotifier
+import 'screens/editor_screen.dart'; // For EditorScreen
+import 'screens/settings_screen.dart'; // For SettingsScreen, CommandSettingsScreen, LogNotifier, DebugLogView
+import 'session/session_management.dart'; // For LifecycleHandler, SessionManager, SessionNotifier, SessionState, EditorTab
 
-import 'file_system/file_handler.dart';
-import 'plugins/code_editor/code_editor_plugin.dart';
-import 'plugins/plugin_architecture.dart';
-import 'screens/editor_screen.dart';
-import 'screens/settings_screen.dart';
-import 'session/session_management.dart';
+
+// --------------------
+//   Global Providers
+// --------------------
+
+// Global provider for SharedPreferences, used across multiple features
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+  return await SharedPreferences.getInstance();
+});
+
+// Main application startup provider
+final appStartupProvider = FutureProvider<void>((ref) async {
+  await appStartup(ref);
+});
 
 // --------------------
 //     Main
@@ -105,123 +114,6 @@ void main() {
     ),
   );
 }
-
-// --------------------
-//   Providers
-// --------------------
-
-final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
-  ref,
-) async {
-  return await SharedPreferences.getInstance();
-});
-
-final fileHandlerProvider = Provider<FileHandler>((ref) {
-  return SAFFileHandler();
-});
-
-final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {CodeEditorPlugin()},
-);
-
-final activePluginsProvider =
-    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-      return PluginManager(ref.read(pluginRegistryProvider));
-    });
-
-final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
-
-final directoryContentsProvider = FutureProvider.autoDispose
-    .family<List<DocumentFile>, String?>((ref, uri) async {
-      final handler = ref.read(fileHandlerProvider);
-      final targetUri = uri ?? await handler.getPersistedRootUri();
-      return targetUri != null ? handler.listDirectory(targetUri) : [];
-    });
-
-final sessionManagerProvider = Provider<SessionManager>((ref) {
-  return SessionManager(
-    fileHandler: ref.watch(fileHandlerProvider),
-    plugins: ref.watch(activePluginsProvider),
-    prefs: ref.watch(sharedPreferencesProvider).requireValue,
-  );
-});
-
-final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
-  SessionNotifier.new,
-);
-
-final bracketHighlightProvider =
-    NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
-      BracketHighlightNotifier.new,
-    );
-
-final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
-  // Capture the print stream when provider initializes
-  final logNotifier = LogNotifier();
-  final subscription = printStream.stream.listen(logNotifier.add);
-  ref.onDispose(() => subscription.cancel());
-  return logNotifier;
-});
-
-final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
-  ref,
-) {
-  return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
-});
-
-final appBarCommandsProvider = Provider<List<Command>>((ref) {
-  final state = ref.watch(commandProvider);
-  final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
-
-
-  return [
-    ...state.appBarOrder,
-    ...state.pluginToolbarOrder.where(
-      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-    ),
-  ].map((id) => notifier.getCommand(id))
-  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
-  .whereType<Command>()
-  .toList();
-});
-
-
-final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
-  final state = ref.watch(commandProvider);
-  final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
-
-  return [
-    ...state.pluginToolbarOrder,
-    ...state.appBarOrder.where(
-      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-    ),
-  ].map((id) => notifier.getCommand(id))
-  .whereType<Command>()
-  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
-  .toList();
-});
-
-bool _shouldShowCommand(Command cmd, String? currentPlugin) {
-  // Always show core commands
-  if (cmd.sourcePlugin == 'Core') return true;
-  // Show plugin-specific commands only when their plugin is active
-  return cmd.sourcePlugin == currentPlugin;
-}
-
-final canUndoProvider = StateProvider<bool>((ref) => false);
-final canRedoProvider = StateProvider<bool>((ref) => false);
-final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
-
-
-final tabBarScrollProvider = Provider<ScrollController>((ref) {
-  return ScrollController();
-});
-
-final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
-  return ScrollController();
-});
 
 
 // --------------------

@@ -5,9 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../file_system/file_handler.dart';
-import '../main.dart'; // For sessionProvider, rootUriProvider, directoryContentsProvider
+import '../session/session_management.dart';
 import '../plugins/plugin_architecture.dart';
 
+
+final rootUriProvider = StateProvider<DocumentFile?>((_) => null);
+
+final directoryContentsProvider = FutureProvider.autoDispose
+    .family<List<DocumentFile>, String?>((ref, uri) async {
+      final handler = ref.read(fileHandlerProvider);
+      final targetUri = uri ?? await handler.getPersistedRootUri();
+      return targetUri != null ? handler.listDirectory(targetUri) : [];
+    });
 
 class UnsupportedFileType implements Exception {
   final String uri;

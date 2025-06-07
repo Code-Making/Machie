@@ -2,16 +2,17 @@ import 'package:collection/collection.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
+import 'package:re_editor/re_editor.dart'; // For CodeEditorTapRegion, CodeLineEditingController
 
-import '../file_system/file_handler.dart';
-import '../main.dart';
-import '../plugins/code_editor/code_editor_plugin.dart';
-import '../plugins/plugin_architecture.dart';
-import '../session/session_management.dart';
-
-import '../widgets/file_explorer_drawer.dart';
+import '../file_system/file_handler.dart'; // For DocumentFile
+import '../plugins/plugin_architecture.dart'; // For EditorPlugin
+import '../session/session_management.dart'; // For EditorTab
+import '../widgets/file_explorer_drawer.dart'; // For FileExplorerDrawer
 import 'settings_screen.dart'; // For DebugLogView
+
+final tabBarScrollProvider = Provider<ScrollController>((ref) {
+  return ScrollController();
+});
 
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});

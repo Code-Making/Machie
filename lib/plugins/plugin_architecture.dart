@@ -1,14 +1,72 @@
-import 'dart:async';
+import 'dart:async'; // For FutureOr
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
 
-import '../file_system/file_handler.dart';
-import '../main.dart'; // For sessionProvider, commandProvider
-import '../session/session_management.dart'; // For SessionState, EditorTab
+import '../file_system/file_handler.dart'; // For DocumentFile
+import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
+import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
 
-import 'dart:convert';
+
+// --------------------
+// Plugin Architecture Providers
+// --------------------
+
+final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
+  (_) => { /* Add plugins here, e.g., CodeEditorPlugin(), RecipeTexPlugin() */ },
+);
+
+final activePluginsProvider =
+    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
+  return PluginManager(ref.read(pluginRegistryProvider));
+});
+
+final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((ref) {
+  return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
+});
+
+final appBarCommandsProvider = Provider<List<Command>>((ref) {
+  final state = ref.watch(commandProvider);
+  final notifier = ref.read(commandProvider.notifier);
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
+
+  return [
+    ...state.appBarOrder,
+    ...state.pluginToolbarOrder.where(
+      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+    ),
+  ].map((id) => notifier.getCommand(id))
+  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
+  .whereType<Command>()
+  .toList();
+});
+
+final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
+  final state = ref.watch(commandProvider);
+  final notifier = ref.read(commandProvider.notifier);
+  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
+
+  return [
+    ...state.pluginToolbarOrder,
+    ...state.appBarOrder.where(
+      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+    ),
+  ].map((id) => notifier.getCommand(id))
+  .whereType<Command>()
+  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
+  .toList();
+});
+
+final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
+  return ScrollController();
+});
+
+// Settings Providers (kept here as they are tightly coupled with PluginSettings and AppSettings)
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+  final plugins = ref.watch(activePluginsProvider);
+  return SettingsNotifier(plugins: plugins);
+});
 
 // --------------------
 //   Plugin Registry

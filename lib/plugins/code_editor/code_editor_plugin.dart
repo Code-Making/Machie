@@ -1,20 +1,29 @@
-// lib/plugins/code_editor/code_editor_plugin.dart
-
-import 'dart:async';
-import 'dart:math';
+import 'dart:async'; // For FutureOr
+import 'dart:math'; // For max
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // For LogicalKeyboardKey, RawKeyDownEvent, AxisDirection
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
-// REMOVED: import 'package:re_highlight/styles/atom-one-dark.dart'; // Not needed directly here anymore
+import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeChunkController, CodeIndicatorValueNotifier, CodeLine, CodeLinePosition, CodeLineSelection, CodeEditor, CodeEditorStyle, CodeHighlightTheme, DefaultCodeChunkIndicator, DefaultCodeLineNumber, CodeCommentFormatter
+import 'package:re_highlight/styles/atom-one-dark.dart'; // Only needed for atomOneDarkTheme constant if directly referenced, otherwise through CodeThemes
 
-import '../../file_system/file_handler.dart';
-import '../../main.dart';
-import '../../session/session_management.dart';
-import '../plugin_architecture.dart';
-import 'code_themes.dart'; // Import the new file
+import '../../file_system/file_handler.dart'; // For DocumentFile
+import '../../session/session_management.dart'; // For SessionState, CodeEditorTab
+import '../plugin_architecture.dart'; // For EditorPlugin, PluginSettings, Command, CommandPosition, AppSettings, settingsProvider, CommandNotifier, CodeEditorTapRegion, BottomToolbar
+import 'code_themes.dart'; // For CodeThemes utility class
 
+// --------------------
+// Code Editor Plugin Providers
+// --------------------
+
+final bracketHighlightProvider =
+    NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
+      BracketHighlightNotifier.new,
+    );
+
+final canUndoProvider = StateProvider<bool>((ref) => false);
+final canRedoProvider = StateProvider<bool>((ref) => false);
+final markProvider = StateProvider<
 // --------------------
 //  Code Editor Plugin
 // --------------------
