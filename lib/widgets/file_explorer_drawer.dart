@@ -14,6 +14,7 @@ import '../plugins/code_editor/code_editor_plugin.dart'; // For FileTypeIcon
 import '../project/project_models.dart'; // NEW: For ProjectMetadata, Project, FileExplorerViewMode, ClipboardItem, ClipboardOperation, clipboardProvider
 import '../screens/settings_screen.dart'; // For DebugLogView, SettingsScreen
 
+import 'package:uuid/uuid.dart'; // Add to pubspec.yaml if not already
 
 
 // --------------------
