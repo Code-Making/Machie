@@ -158,7 +158,7 @@ class SAFFileHandler implements FileHandler {
   @override
   Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}) async {
     if (isDirectory) {
-      final createdDir = await _safUtil.mkdirp(parentUri, name);
+      final createdDir = await _safUtil.mkdirp(parentUri, [name]);
       if (createdDir == null) {
         throw Exception('Failed to create directory: $name in $parentUri');
       }
