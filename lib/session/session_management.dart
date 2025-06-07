@@ -14,6 +14,7 @@ import '../project/project_models.dart'; // NEW: Import ProjectMetadata, Project
 import '../screens/settings_screen.dart'; // For LogNotifier
 import '../widgets/file_explorer_drawer.dart'; // NEW: Import for rootUriProvider
 
+import 'package:uuid/uuid.dart'; // Add to pubspec.yaml if not already
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
 
 // --------------------
