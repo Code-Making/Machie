@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart'; // For logProvider
-import '../plugins/code_editor/code_editor_plugin.dart';
-import '../plugins/plugin_architecture.dart';
+import '../plugins/code_editor/code_editor_plugin.dart'; // For CodeEditorSettings
+import '../plugins/plugin_architecture.dart'; // For EditorPlugin, PluginSettings, CommandPosition, Command
+
+
+final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
+  final logNotifier = LogNotifier();
+  // Capture the print stream when provider initializes
+  final subscription = printStream.stream.listen(logNotifier.add);
+  ref.onDispose(() => subscription.cancel());
+  return logNotifier;
+});
+
 
 class LogNotifier extends StateNotifier<List<String>> {
   LogNotifier() : super([]);
