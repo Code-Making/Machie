@@ -64,7 +64,7 @@ class EditorScreen extends ConsumerWidget {
         ],
         title: Text(currentName != null ? currentName : 'Code Editor'),
       ),
-      drawer: FileExplorerDrawer(currentDir: currentDir),
+      drawer: FileExplorerDrawer(),
       body: Column(
         children: [
           const TabBarView(),
