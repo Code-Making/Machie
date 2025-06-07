@@ -239,10 +239,10 @@ class SessionManager {
         project.rootUri = projectMetadata.rootUri;
       } catch (e) {
         print('Error loading project data from file: $e. Re-initializing project.');
-        //project = _createDefaultProject(projectMetadata);
+        project = _createDefaultProject(projectMetadata);
       }
     } else {
-      //project = _createDefaultProject(projectMetadata);
+      project = _createDefaultProject(projectMetadata);
     }
     return project;
   }
