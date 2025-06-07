@@ -136,12 +136,7 @@ class AppSettings {
 // --------------------
 //  Settings Providers
 // --------------------
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
-  ref,
-) {
-  final plugins = ref.watch(activePluginsProvider);
-  return SettingsNotifier(plugins: plugins);
-});
+
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final Set<EditorPlugin> _plugins;

@@ -18,6 +18,8 @@ import 'screens/editor_screen.dart'; // For EditorScreen
 import 'screens/settings_screen.dart'; // For SettingsScreen, CommandSettingsScreen, LogNotifier, DebugLogView
 import 'session/session_management.dart'; // For LifecycleHandler, SessionManager, SessionNotifier, SessionState, EditorTab
 
+import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
+
 
 // --------------------
 //   Global Providers
@@ -119,9 +121,6 @@ void main() {
 // --------------------
 //        Startup
 // --------------------
-final appStartupProvider = FutureProvider<void>((ref) async {
-  await appStartup(ref);
-});
 
 Future<void> appStartup(Ref ref) async {
   try {
