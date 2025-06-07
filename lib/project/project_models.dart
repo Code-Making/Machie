@@ -3,7 +3,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart'; // For IconData
-iimport 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // --------------------
 // Project Data Models
