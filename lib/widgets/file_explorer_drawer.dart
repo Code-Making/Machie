@@ -991,46 +991,7 @@ class _FileExtensionTag extends ConsumerWidget {
 
 
 
-class _DirectoryExpansionTile extends ConsumerStatefulWidget {
-  final DocumentFile file;
-  final int depth;
-  final Function(DocumentFile) onOpenFile;
 
-  const _DirectoryExpansionTile({
-    required this.file,
-    required this.depth,
-    required this.onOpenFile,
-  });
-
-  @override
-  ConsumerState<_DirectoryExpansionTile> createState() =>
-      _DirectoryExpansionTileState();
-}
-
-class _DirectoryExpansionTileState
-    extends ConsumerState<_DirectoryExpansionTile> {
-  bool _isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return ExpansionTile(
-      leading: Icon(
-        _isExpanded ? Icons.folder_open : Icons.folder,
-        color: Colors.yellow,
-      ),
-      title: Text(widget.file.name),
-      childrenPadding: EdgeInsets.only(left: (widget.depth + 1) * 16.0),
-      onExpansionChanged: (expanded) => setState(() => _isExpanded = expanded),
-      children: [
-        _DirectoryView(
-          directory: widget.file,
-          onOpenFile: widget.onOpenFile,
-          depth: widget.depth + 1,
-        ),
-      ],
-    );
-  }
-}
 
 class _FileItem extends StatelessWidget {
   final DocumentFile file;
