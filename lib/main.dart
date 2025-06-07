@@ -12,8 +12,6 @@ import 'package:permission_handler/permission_handler.dart'; // Not strictly use
 import 'package:re_editor/re_editor.dart'; // For CodeLinePosition etc.
 
 import 'file_system/file_handler.dart'; // For SAFFileHandler and DocumentFile
-import 'plugins/code_editor/code_editor_plugin.dart'; // For CodeEditorPlugin and BracketHighlightNotifier/State
-import 'plugins/plugin_architecture.dart'; // For PluginManager, EditorPlugin, Command, CommandNotifier, SettingsNotifier
 import 'screens/editor_screen.dart'; // For EditorScreen
 import 'screens/settings_screen.dart'; // For SettingsScreen, CommandSettingsScreen, LogNotifier, DebugLogView
 import 'session/session_management.dart'; // For LifecycleHandler, SessionManager, SessionNotifier, SessionState, EditorTab

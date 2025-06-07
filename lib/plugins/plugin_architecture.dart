@@ -5,24 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
 
+iimport'plugin_registry.dart';
 import '../file_system/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
 import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
 
+
+
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
 
-// --------------------
-// Plugin Architecture Providers
-// --------------------
 
-final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => { /* Add plugins here, e.g., CodeEditorPlugin(), RecipeTexPlugin() */ },
-);
 
-final activePluginsProvider =
-    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-  return PluginManager(ref.read(pluginRegistryProvider));
-});
+
 
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((ref) {
   return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
@@ -69,18 +63,6 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((r
   final plugins = ref.watch(activePluginsProvider);
   return SettingsNotifier(plugins: plugins);
 });
-
-// --------------------
-//   Plugin Registry
-// --------------------
-
-class PluginManager extends StateNotifier<Set<EditorPlugin>> {
-  PluginManager(Set<EditorPlugin> plugins) : super(plugins);
-
-  void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
-  void unregisterPlugin(EditorPlugin plugin) =>
-      state = state.where((p) => p != plugin).toSet();
-}
 
 // --------------------
 //   Editor Plugin
