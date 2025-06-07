@@ -102,9 +102,7 @@ class CodeThemes {
     // Ensure the key matches the default theme name in CodeEditorSettings.
     'Atom One Dark': atomOneDarkTheme,
 
-    // GENERATED LIST OF THEMES:
-    'A11y Dark': a11yDarkTheme,
-    'A11y Light': a11yLightTheme,
+    // GENERATED LIST OF THEMES:    'A11y Dark': a11yDarkTheme,
     'Agate': agateTheme,
     'An Old Hope': anOldHopeTheme,
     'Android Studio': androidstudioTheme,
