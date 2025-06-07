@@ -2,6 +2,82 @@
 
 import 'package:flutter/material.dart'; // For TextStyle
 import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
+
+// IMPORTS FOR ALL THEMES
+import 'package:re_highlight/styles/a11y-dark.dart';
+import 'package:re_highlight/styles/a11y-light.dart';
+import 'package:re_highlight/styles/agate.dart';
+import 'package:re_highlight/styles/an-old-hope.dart';
+import 'package:re_highlight/styles/androidstudio.dart';
+import 'package:re_highlight/styles/arduino-light.dart';
+import 'package:re_highlight/styles/arta.dart';
+import 'package:re_highlight/styles/ascetic.dart';
+import 'package:re_highlight/styles/atom-one-dark-reasonable.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
+import 'package:re_highlight/styles/atom-one-light.dart';
+import 'package:re_highlight/styles/brown-paper.dart';
+import 'package:re_highlight/styles/codepen-embed.dart';
+import 'package:re_highlight/styles/color-brewer.dart';
+import 'package:re_highlight/styles/dark.dart';
+import 'package:re_highlight/styles/default.dart';
+import 'package:re_highlight/styles/devibeans.dart';
+import 'package:re_highlight/styles/docco.dart';
+import 'package:re_highlight/styles/far.dart';
+import 'package:re_highlight/styles/felipec.dart';
+import 'package:re_highlight/styles/foundation.dart';
+import 'package:re_highlight/styles/github-dark-dimmed.dart';
+import 'package:re_highlight/styles/github-dark.dart';
+import 'package:re_highlight/styles/github.dart';
+import 'package:re_highlight/styles/gml.dart';
+import 'package:re_highlight/styles/googlecode.dart';
+import 'package:re_highlight/styles/gradient-dark.dart';
+import 'package:re_highlight/styles/gradient-light.dart';
+import 'package:re_highlight/styles/grayscale.dart';
+import 'package:re_highlight/styles/hybrid.dart';
+import 'package:re_highlight/styles/idea.dart';
+import 'package:re_highlight/styles/intellij-light.dart';
+import 'package:re_highlight/styles/ir-black.dart';
+import 'package:re_highlight/styles/isbl-editor-dark.dart';
+import 'package:re_highlight/styles/isbl-editor-light.dart';
+import 'package:re_highlight/styles/kimbie-dark.dart';
+import 'package:re_highlight/styles/kimbie-light.dart';
+import 'package:re_highlight/styles/lightfair.dart';
+import 'package:re_highlight/styles/lioshi.dart';
+import 'package:re_highlight/styles/magula.dart';
+import 'package:re_highlight/styles/mono-blue.dart';
+import 'package:re_highlight/styles/monokai-sublime.dart';
+import 'package:re_highlight/styles/monokai.dart';
+import 'package:re_highlight/styles/night-owl.dart';
+import 'package:re_highlight/styles/nnfx-dark.dart';
+import 'package:re_highlight/styles/nnfx-light.dart';
+import 'package:re_highlight/styles/nord.dart';
+import 'package:re_highlight/styles/obsidian.dart';
+import 'package:re_highlight/styles/panda-syntax-dark.dart';
+import 'package:re_highlight/styles/panda-syntax-light.dart';
+import 'package:re_highlight/styles/paraiso-dark.dart';
+import 'package:re_highlight/styles/paraiso-light.dart';
+import 'package:re_highlight/styles/pojoaque.dart';
+import 'package:re_highlight/styles/purebasic.dart';
+import 'package:re_highlight/styles/qtcreator-dark.dart';
+import 'package:re_highlight/styles/qtcreator-light.dart';
+import 'package:re_highlight/styles/rainbow.dart';
+import 'package:re_highlight/styles/routeros.dart';
+import 'package:re_highlight/styles/school-book.dart';
+import 'package:re_highlight/styles/shades-of-purple.dart';
+import 'package:re_highlight/styles/srcery.dart';
+import 'package:re_highlight/styles/stackoverflow-dark.dart';
+import 'package:re_highlight/styles/stackoverflow-light.dart';
+import 'package:re_highlight/styles/sunburst.dart';
+import 'package:re_highlight/styles/tokyo-night-dark.dart';
+import 'package:re_highlight/styles/tokyo-night-light.dart';
+import 'package:re_highlight/styles/tomorrow-night-blue.dart';
+import 'package:re_highlight/styles/tomorrow-night-bright.dart';
+import 'package:re_highlight/styles/vs.dart';
+import 'package:re_highlight/styles/vs2015.dart';
+import 'package:re_highlight/styles/xcode.dart';
+import 'package:re_highlight/styles/xt256.dart';
+
+// IMPORTS FOR LANGUAGES (from previous step, still needed for languageNameToModeMap)
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/css.dart';
@@ -17,14 +93,87 @@ import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart'; // This is the actual theme map
+
 
 class CodeThemes {
   // Define available code themes as a map of theme names to their highlight maps
-  // These are Map<String, TextStyle> suitable for re_highlight's CodeHighlightTheme
   static final Map<String, Map<String, TextStyle>> availableCodeThemes = {
+    // Manually add Atom One Dark as a default, then auto-generate the rest.
+    // Ensure the key matches the default theme name in CodeEditorSettings.
     'Atom One Dark': atomOneDarkTheme,
-    // Add other themes here if you implement them, e.g., 'GitHub Dark': githubDarkTheme
+
+    // GENERATED LIST OF THEMES:
+    'A11y Dark': a11yDarkTheme,
+    'A11y Light': a11yLightTheme,
+    'Agate': agateTheme,
+    'An Old Hope': anOldHopeTheme,
+    'Android Studio': androidstudioTheme,
+    'Arduino Light': arduinoLightTheme,
+    'Arta': artaTheme,
+    'Ascetic': asceticTheme,
+    'Atom One Dark Reasonable': atomOneDarkReasonableTheme,
+    'Atom One Light': atomOneLightTheme,
+    'Brown Paper': brownPaperTheme,
+    'CodePen Embed': codepenEmbedTheme,
+    'Color Brewer': colorBrewerTheme,
+    'Dark': darkTheme, // Note: This clashes with Flutter's ThemeData.dark()
+    'Default': defaultTheme,
+    'Devibeans': devibeansTheme,
+    'Docco': doccoTheme,
+    'Far': farTheme,
+    'Felipec': felipecTheme,
+    'Foundation': foundationTheme,
+    'GitHub Dark Dimmed': githubDarkDimmedTheme,
+    'GitHub Dark': githubDarkTheme,
+    'GitHub': githubTheme,
+    'GML': gmlTheme,
+    'Google Code': googlecodeTheme,
+    'Gradient Dark': gradientDarkTheme,
+    'Gradient Light': gradientLightTheme,
+    'Grayscale': grayscaleTheme,
+    'Hybrid': hybridTheme,
+    'Idea': ideaTheme,
+    'IntelliJ Light': intellijLightTheme,
+    'IR Black': irBlackTheme,
+    'ISBL Editor Dark': isblEditorDarkTheme,
+    'ISBL Editor Light': isblEditorLightTheme,
+    'Kimbie Dark': kimbieDarkTheme,
+    'Kimbie Light': kimbieLightTheme,
+    'Lightfair': lightfairTheme,
+    'Lioshi': lioshiTheme,
+    'Magula': magulaTheme,
+    'Mono Blue': monoBlueTheme,
+    'Monokai Sublime': monokaiSublimeTheme,
+    'Monokai': monokaiTheme,
+    'Night Owl': nightOwlTheme,
+    'NNFX Dark': nnfxDarkTheme,
+    'NNFX Light': nnfxLightTheme,
+    'Nord': nordTheme,
+    'Obsidian': obsidianTheme,
+    'Panda Syntax Dark': pandaSyntaxDarkTheme,
+    'Panda Syntax Light': pandaSyntaxLightTheme,
+    'Paraiso Dark': paraisoDarkTheme,
+    'Paraiso Light': paraisoLightTheme,
+    'Pojoaque': pojoaqueTheme,
+    'PureBasic': purebasicTheme,
+    'QtCreator Dark': qtcreatorDarkTheme,
+    'QtCreator Light': qtcreatorLightTheme,
+    'Rainbow': rainbowTheme,
+    'RouterOS': routerosTheme,
+    'School Book': schoolBookTheme,
+    'Shades of Purple': shadesOfPurpleTheme,
+    'Srcery': srceryTheme,
+    'StackOverflow Dark': stackoverflowDarkTheme,
+    'StackOverflow Light': stackoverflowLightTheme,
+    'Sunburst': sunburstTheme,
+    'Tokyo Night Dark': tokyoNightDarkTheme,
+    'Tokyo Night Light': tokyoNightLightTheme,
+    'Tomorrow Night Blue': tomorrowNightBlueTheme,
+    'Tomorrow Night Bright': tomorrowNightBrightTheme,
+    'VS': vsTheme,
+    'VS2015': vs2015Theme,
+    'Xcode': xcodeTheme,
+    'XT256': xt256Theme,
   };
 
   // Map of language keys to their highlight modes (as before)
