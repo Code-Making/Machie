@@ -276,7 +276,7 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<String?> getMimeType(String uri) async {
-    final file = await _safUtil.stat(uri, false);
+    final file = await _safUtil.documentFileFromUri(uri, false);
     return file != null ? CustomSAFDocumentFile(file).mimeType : null;
   }
 
