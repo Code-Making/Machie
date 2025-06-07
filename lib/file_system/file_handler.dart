@@ -27,26 +27,28 @@ abstract class DocumentFile {
 
 abstract class FileHandler {
   Future<DocumentFile?> pickDirectory();
-  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false}); // MODIFIED
+  Future<List<DocumentFile>> listDirectory(String? uri, {bool includeHidden = false});
   Future<DocumentFile?> pickFile();
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
   Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // NEW
-  Future<void> deleteDocumentFile(DocumentFile file); // MODIFIED
 
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // NEW
-  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
-  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri); // NEW (simplified)
+  Future<DocumentFile?> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // Changed return to nullable
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // Changed return to nullable
+  Future<void> deleteDocumentFile(DocumentFile file);
 
-  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri); // NEW
+  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
+  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri, {String? newName}); // Added newName for recursion
 
+  // These are for SAF internal permission persistence, not for project logic
   Future<void> persistRootUri(String? uri);
   Future<String?> getPersistedRootUri();
 
   Future<String?> getMimeType(String uri);
   Future<DocumentFile?> getFileMetadata(String uri);
+
+  Future<DocumentFile?> ensureProjectDataFolder(String projectRootUri);
 }
 
 // --------------------
