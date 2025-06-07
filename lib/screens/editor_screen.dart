@@ -7,6 +7,7 @@ import 'package:re_editor/re_editor.dart'; // For CodeEditorTapRegion, CodeLineE
 import '../file_system/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For sessionProvider, tabBarScrollProvider
 import '../plugins/code_editor/code_editor_plugin.dart'; // NEW: For CodeEditorPlugin type check
+import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin
 import '../session/session_management.dart'; // For EditorTab
 import '../widgets/file_explorer_drawer.dart'; // For FileExplorerDrawer

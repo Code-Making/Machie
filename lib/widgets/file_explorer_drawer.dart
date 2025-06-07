@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../file_system/file_handler.dart';
 import '../session/session_management.dart';
 import '../plugins/plugin_architecture.dart';
+import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
 
 
 final rootUriProvider = StateProvider<DocumentFile?>((_) => null);

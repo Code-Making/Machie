@@ -9,6 +9,7 @@ import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, Cod
 import '../file_system/file_handler.dart'; // For DocumentFile, FileHandler
 import '../main.dart'; // For sharedPreferencesProvider, printStream
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin, activePluginsProvider
+import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
 import '../screens/settings_screen.dart'; // For LogNotifier
 import '../widgets/file_explorer_drawer.dart'; // NEW: Import for rootUriProvider
 
