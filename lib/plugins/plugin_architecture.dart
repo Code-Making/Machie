@@ -8,6 +8,7 @@ import '../file_system/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
 import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
 
+import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
 
 // --------------------
 // Plugin Architecture Providers
