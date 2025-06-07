@@ -10,6 +10,7 @@ import '../file_system/file_handler.dart'; // For DocumentFile, FileHandler
 import '../main.dart'; // For sharedPreferencesProvider, printStream
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin, activePluginsProvider
 import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
+import '../project/project_models.dart'; // NEW: Import ProjectMetadata, Project, FileExplorerViewMode
 import '../screens/settings_screen.dart'; // For LogNotifier
 import '../widgets/file_explorer_drawer.dart'; // NEW: Import for rootUriProvider
 
@@ -30,20 +31,18 @@ final sessionManagerProvider = Provider<SessionManager>((ref) {
 final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(
   SessionNotifier.new,
 );
+
 // --------------------
 //  Lifecycle Handler
 // --------------------
 class LifecycleHandler extends StatefulWidget {
   final Widget child;
-
   const LifecycleHandler({super.key, required this.child});
-
   @override
   State<LifecycleHandler> createState() => _LifecycleHandlerState();
 }
 
-class _LifecycleHandlerState extends State<LifecycleHandler>
-    with WidgetsBindingObserver {
+class _LifecycleHandlerState extends State<LifecycleHandler> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -66,11 +65,12 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
         await container.read(sessionProvider.notifier).saveSession();
         break;
       case AppLifecycleState.resumed:
-        final currentDir = container.read(rootUriProvider);
-        if (currentDir != null) {
+        // On resume, ensure root URI is persisted for the current project
+        final currentProject = container.read(sessionProvider).currentProject; // NEW: Access currentProject
+        if (currentProject != null) {
           await container
               .read(fileHandlerProvider)
-              .persistRootUri(currentDir.uri);
+              .persistRootUri(currentProject.rootUri); // MODIFIED: Persist rootUri of currentProject
         }
         break;
       default:
@@ -78,16 +78,11 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
     }
   }
 
-  Future<void> _debouncedSave(ProviderContainer container) async {
-    await container.read(sessionProvider.notifier).saveSession();
-  }
-
   @override
   Widget build(BuildContext context) {
     return widget.child;
   }
 }
-
 // --------------------
 //      Session State
 // --------------------
@@ -95,13 +90,15 @@ class _LifecycleHandlerState extends State<LifecycleHandler>
 class SessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
-  final DocumentFile? currentDirectory;
+  final Project? currentProject; // MODIFIED: Use Project instead of DocumentFile
+  final List<ProjectMetadata> knownProjects; // NEW: List of all known projects
   final DateTime? lastSaved;
 
   const SessionState({
     this.tabs = const [],
     this.currentTabIndex = 0,
-    this.currentDirectory,
+    this.currentProject,
+    this.knownProjects = const [], // Initialize
     this.lastSaved,
   });
 
@@ -110,13 +107,15 @@ class SessionState {
   SessionState copyWith({
     List<EditorTab>? tabs,
     int? currentTabIndex,
-    DocumentFile? currentDirectory,
+    Project? currentProject, // MODIFIED
+    List<ProjectMetadata>? knownProjects, // NEW
     DateTime? lastSaved,
   }) {
     return SessionState(
       tabs: tabs ?? this.tabs,
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
-      currentDirectory: currentDirectory ?? this.currentDirectory,
+      currentProject: currentProject ?? this.currentProject,
+      knownProjects: knownProjects ?? this.knownProjects, // NEW
       lastSaved: lastSaved ?? this.lastSaved,
     );
   }
@@ -127,57 +126,78 @@ class SessionState {
       other is SessionState &&
           currentTabIndex == other.currentTabIndex &&
           const DeepCollectionEquality().equals(tabs, other.tabs) &&
-          currentDirectory?.uri == other.currentDirectory?.uri;
+          currentProject?.id == other.currentProject?.id; // MODIFIED: Compare by Project ID
 
   @override
   int get hashCode => Object.hash(
     currentTabIndex,
     const DeepCollectionEquality().hash(tabs),
-    currentDirectory?.uri,
+    currentProject?.id, // MODIFIED
   );
 
-  // Modified: Call tab.toJson() directly
-  Map<String, dynamic> toJson() => {
-    'tabs': tabs.map((t) => t.toJson()).toList(),
-    'currentIndex': currentTabIndex,
-    'directory': currentDirectory?.uri,
-  };
+  Map<String, dynamic> toJson() {
+    // Only persist currentProject's metadata and knownProjects
+    final currentProjectMetadata = currentProject != null
+        ? currentProject!.toMetadata() // Convert Project to ProjectMetadata for global persistence
+        : null;
 
-  // Modified: Use EditorPlugin.createTabFromSerialization for deserialization
+    final updatedKnownProjects = List<ProjectMetadata>.from(knownProjects);
+    if (currentProjectMetadata != null) {
+      final existingIndex = updatedKnownProjects.indexWhere((p) => p.id == currentProjectMetadata.id);
+      if (existingIndex != -1) {
+        updatedKnownProjects[existingIndex] = currentProjectMetadata; // Update existing
+      } else {
+        updatedKnownProjects.add(currentProjectMetadata); // Add new
+      }
+    }
+
+    return {
+      'lastOpenedProjectId': currentProject?.id, // NEW: Persist ID of last opened project
+      'knownProjects': updatedKnownProjects.map((p) => p.toJson()).toList(), // NEW: Persist list of known projects
+      // Tabs are no longer directly persisted in global session state,
+      // but managed within the Project's sessionData.
+    };
+  }
+
   static Future<SessionState> fromJson(
     Map<String, dynamic> json,
     Set<EditorPlugin> plugins,
     FileHandler fileHandler,
   ) async {
-    final directoryUri = json['directory'];
-    DocumentFile? directory;
-
-    if (directoryUri != null) {
-      directory = await fileHandler.getFileMetadata(directoryUri);
-    }
-
-    final tabsJson = json['tabs'] as List<dynamic>? ?? [];
-    final loadedTabs = <EditorTab>[];
-
-    for (final item in tabsJson) {
-      try {
-        final tabMap = item as Map<String, dynamic>;
-        final pluginTypeString = tabMap['pluginType'] as String;
-        final plugin = plugins.firstWhere(
-          (p) => p.runtimeType.toString() == pluginTypeString,
-        );
-        final tab = await plugin.createTabFromSerialization(tabMap, fileHandler);
-        loadedTabs.add(tab);
-      } catch (e) {
-        // Log error and skip problematic tab
-        print('Error loading tab from JSON: $e');
-      }
-    }
+    // Deserialize known projects
+    final knownProjectsJson = json['knownProjects'] as List<dynamic>? ?? [];
+    final knownProjects = knownProjectsJson.map((p) => ProjectMetadata.fromJson(p)).toList();
 
     return SessionState(
-      tabs: loadedTabs,
-      currentTabIndex: json['currentIndex'] ?? 0,
-      currentDirectory: directory,
+      tabs: [], // Tabs are loaded with the specific project
+      currentTabIndex: 0, // Reset to 0 when loading a project
+      currentProject: null, // Project will be loaded by SessionNotifier later
+      knownProjects: knownProjects,
+    );
+  }
+}
+
+// NEW: Extension to convert Project to ProjectMetadata
+extension ProjectToMetadata on Project {
+  ProjectMetadata toMetadata({int? lastOpenedTabIndex, String? lastOpenedFileUri}) {
+    // Find the current tab's info to store in metadata
+    int? currentTabIndexToStore;
+    String? currentFileUriToStore;
+
+    // This extension needs context of the current session state.
+    // However, for serialization, it's safer to pass this explicitly
+    // or assume the caller will provide it. For simplicity, we'll assume
+    // sessionManager will pass this correctly.
+    // A more robust solution might pass the SessionState to this method
+    // or have SessionNotifier handle populating this data.
+
+    return ProjectMetadata(
+      id: id,
+      name: name,
+      rootUri: rootUri,
+      lastOpenedDateTime: DateTime.now(),
+      lastOpenedTabIndex: lastOpenedTabIndex,
+      lastOpenedFileUri: lastOpenedFileUri,
     );
   }
 }
@@ -189,15 +209,97 @@ class SessionState {
 class SessionManager {
   final FileHandler _fileHandler;
   final Set<EditorPlugin> _plugins;
-  final SharedPreferences _prefs;
+  final SharedPreferences _prefs; // Changed type from dynamic
 
   SessionManager({
     required FileHandler fileHandler,
     required Set<EditorPlugin> plugins,
-    required SharedPreferences prefs,
+    required SharedPreferences prefs, // Changed type
   }) : _fileHandler = fileHandler,
        _plugins = plugins,
        _prefs = prefs;
+
+  // NEW: Open a project by its metadata
+  Future<Project> openProject(ProjectMetadata projectMetadata) async {
+    final projectDataFolder = await _fileHandler.ensureProjectDataFolder(projectMetadata.rootUri);
+    if (projectDataFolder == null) {
+      throw Exception('Could not access or create .machine folder for project ${projectMetadata.name}');
+    }
+
+    final projectDataFile = await _fileHandler.getFileMetadata('${projectDataFolder.uri}/project_data.json');
+    Project project;
+
+    if (projectDataFile != null) {
+      try {
+        final content = await _fileHandler.readFile(projectDataFile.uri);
+        project = Project.fromJson(jsonDecode(content));
+        // Ensure properties from metadata override in-file data for name/rootUri
+        project.name = projectMetadata.name;
+        project.rootUri = projectMetadata.rootUri;
+      } catch (e) {
+        print('Error loading project data from file: $e. Re-initializing project.');
+        project = _createDefaultProject(projectMetadata);
+      }
+    } else {
+      project = _createDefaultProject(projectMetadata);
+    }
+    return project;
+  }
+
+  // NEW: Create a brand new project structure
+  Future<Project> createProject(String parentUri, String name) async {
+    final projectRoot = await _fileHandler.createDocumentFile(parentUri, name, isDirectory: true);
+    if (projectRoot == null) {
+      throw Exception('Could not create project folder "$name" in $parentUri');
+    }
+
+    final projectDataDir = await _fileHandler.ensureProjectDataFolder(projectRoot.uri);
+    if (projectDataDir == null) {
+      throw Exception('Could not create .machine folder for new project at ${projectRoot.uri}');
+    }
+
+    final projectId = const Uuid().v4(); // Generate a unique ID for the project
+    final project = Project(
+      id: projectId,
+      name: name,
+      rootUri: projectRoot.uri,
+      projectDataPath: projectDataDir.uri,
+      expandedFolders: {projectRoot.uri}, // Start with root expanded
+    );
+
+    await saveProject(project); // Save initial project data
+    return project;
+  }
+
+  // NEW: Save current project state to its .machine folder
+  Future<void> saveProject(Project project) async {
+    final projectDataFolder = await _fileHandler.ensureProjectDataFolder(project.rootUri);
+    if (projectDataFolder == null) {
+      print('Warning: Could not access .machine folder for project ${project.name}. Project data not saved.');
+      return;
+    }
+
+    final projectDataFile = await _fileHandler.createDocumentFile(
+      projectDataFolder.uri,
+      'project_data.json',
+      initialContent: jsonEncode(project.toJson()),
+    );
+    if (projectDataFile == null) {
+      print('Warning: Could not create/write project_data.json for ${project.name}.');
+    }
+  }
+
+  // Helper to create a default project object if no saved data exists
+  Project _createDefaultProject(ProjectMetadata metadata) {
+    return Project(
+      id: metadata.id,
+      name: metadata.name,
+      rootUri: metadata.rootUri,
+      projectDataPath: '${metadata.rootUri}/.machine', // Assuming .machine exists or can be created
+      expandedFolders: {metadata.rootUri}, // Default to root expanded
+      sessionData: {},
+    );
+  }
 
   Future<SessionState> openFile(
       SessionState current,
@@ -209,7 +311,7 @@ class SessionManager {
 
     final content = await _fileHandler.readFile(file.uri);
     final selectedPlugin = plugin ?? _plugins.firstWhere((p) => p.supportsFile(file));
-    final tab = await selectedPlugin.createTab(file, content); // This uses createTab
+    final tab = await selectedPlugin.createTab(file, content);
     
     return current.copyWith(
       tabs: [...current.tabs, tab],
@@ -220,11 +322,7 @@ class SessionManager {
   Future<EditorTab> saveTabFile(EditorTab tab) async {
     try {
       final newFile = await _fileHandler.writeFile(tab.file, tab.contentString);
-
-      // Preserve existing tab properties, only update file and dirty state
-      final newTab = tab.copyWith(file: newFile, isDirty: false);
-      return newTab;
-
+      return tab.copyWith(file: newFile, isDirty: false);
     } catch (e, st) {
       print('Save failed: $e\n$st');
       return tab;
@@ -253,9 +351,12 @@ class SessionManager {
   int _calculateNewIndex(int currentIndex, int closedIndex) =>
       currentIndex == closedIndex ? max(0, closedIndex - 1) : currentIndex;
 
-  Future<void> persistDirectory(SessionState state) async {
-    if (state.currentDirectory != null) {
-      await _fileHandler.persistRootUri(state.currentDirectory!.uri);
+  Future<void> persistRootUri(String? uri) async {
+    // This is typically handled by SAFFileHandler's internal persistence.
+    // This method might be deprecated or used for app-level root folder selection.
+    // For project-based persistence, save it within the Project object.
+    if (uri != null) {
+      await _fileHandler.persistRootUri(uri);
     }
   }
 
@@ -265,27 +366,57 @@ class SessionManager {
       if (json == null) return const SessionState();
 
       final data = jsonDecode(json) as Map<String, dynamic>;
-      return await SessionState.fromJson(data, _plugins, _fileHandler); // Use static fromJson
+      // SessionState.fromJson now only loads knownProjects
+      return await SessionState.fromJson(data, _plugins, _fileHandler);
     } catch (e) {
       print('Session load error: $e');
-      await _prefs.remove('session'); // Clear corrupt session data
+      await _prefs.remove('session');
       return const SessionState();
     }
   }
 
-  // REMOVED: _deserializeState is no longer needed, logic moved to SessionState.fromJson
-  // REMOVED: _loadTabFromJson is no longer needed, logic moved to SessionState.fromJson
-
-  Future<DocumentFile?> _loadDirectory(String? uri) async {
-    return uri != null ? await _fileHandler.getFileMetadata(uri) : null;
-  }
-
   Future<void> saveSession(SessionState state) async {
     try {
+      // Pass the current tab info for metadata update
+      final currentTab = state.currentTab;
+      final currentTabIndex = state.currentTabIndex;
+      final currentFileUri = currentTab?.file.uri;
+
+      // Update current project metadata before saving known projects list
+      if (state.currentProject != null) {
+        state.currentProject!.sessionData['lastOpenedTabIndex'] = currentTabIndex;
+        state.currentProject!.sessionData['lastOpenedFileUri'] = currentFileUri;
+        await saveProject(state.currentProject!); // Save current project's detailed state
+      }
+
       await _prefs.setString('session', jsonEncode(state.toJson()));
     } catch (e) {
       print('Error saving session: $e');
     }
+  }
+
+  // NEW: Add a project to the known projects list
+  Future<void> addKnownProject(ProjectMetadata projectMetadata) async {
+    final currentSession = await loadSession(); // Load current known projects
+    final updatedKnownProjects = List<ProjectMetadata>.from(currentSession.knownProjects);
+    final existingIndex = updatedKnownProjects.indexWhere((p) => p.id == projectMetadata.id);
+
+    if (existingIndex != -1) {
+      updatedKnownProjects[existingIndex] = projectMetadata; // Update if exists
+    } else {
+      updatedKnownProjects.add(projectMetadata); // Add new
+    }
+    final newState = currentSession.copyWith(knownProjects: updatedKnownProjects);
+    await saveSession(newState); // Save the updated list
+  }
+
+  // NEW: Remove a project from the known projects list
+  Future<void> removeKnownProject(String projectId) async {
+    final currentSession = await loadSession();
+    final updatedKnownProjects = List<ProjectMetadata>.from(currentSession.knownProjects)
+      ..removeWhere((p) => p.id == projectId);
+    final newState = currentSession.copyWith(knownProjects: updatedKnownProjects);
+    await saveSession(newState);
   }
 }
 
@@ -298,6 +429,7 @@ class SessionNotifier extends Notifier<SessionState> {
   bool _loaded = false;
   bool _isSaving = false;
   bool _initialized = false;
+  final Uuid _uuid = const Uuid(); // NEW: For generating project IDs
 
   @override
   SessionState build() {
@@ -318,6 +450,183 @@ class SessionNotifier extends Notifier<SessionState> {
     }
   }
 
+  @override
+  Future<void> loadSession() async { // MODIFIED to integrate with new Project loading
+    try {
+      final loadedState = await _manager.loadSession();
+      state = loadedState;
+
+      final lastOpenedProjectId = _manager._prefs.getString('lastOpenedProjectId');
+      if (lastOpenedProjectId != null) {
+        final lastProjectMetadata = state.knownProjects.firstWhereOrNull((p) => p.id == lastOpenedProjectId);
+        if (lastProjectMetadata != null) {
+          await openProject(lastProjectMetadata.id); // Attempt to open last project
+        }
+      }
+      // If no project is opened (or couldn't be loaded), currentProject will be null.
+      _handlePluginLifecycle(null, state.currentTab);
+    } catch (e) {
+      print('Error loading session: $e');
+      _handlePluginLifecycle(state.currentTab, null);
+    }
+  }
+
+  // NEW: Open an existing project by its ID
+  Future<void> openProject(String projectId) async {
+    final projectMetadata = state.knownProjects.firstWhereOrNull((p) => p.id == projectId);
+    if (projectMetadata == null) {
+      print('Project with ID $projectId not found in known projects.');
+      return;
+    }
+
+    try {
+      final project = await _manager.openProject(projectMetadata);
+      state = state.copyWith(currentProject: project);
+
+      // Open last opened tabs/files for this project
+      final lastOpenedTabIndex = project.sessionData['lastOpenedTabIndex'] as int?;
+      final lastOpenedFileUri = project.sessionData['lastOpenedFileUri'] as String?;
+
+      if (lastOpenedFileUri != null) {
+        final file = await ref.read(fileHandlerProvider).getFileMetadata(lastOpenedFileUri);
+        if (file != null) {
+          await openFile(file); // Re-open the file
+          if (lastOpenedTabIndex != null && lastOpenedTabIndex < state.tabs.length) {
+            switchTab(lastOpenedTabIndex); // Switch to the specific tab
+          }
+        }
+      }
+      // Ensure the project's root URI is persisted for SAF permissions
+      await ref.read(fileHandlerProvider).persistRootUri(project.rootUri);
+
+      print('Project "${project.name}" opened successfully.');
+    } catch (e, st) {
+      print('Error opening project $projectId: $e\n$st');
+      ref.read(logProvider.notifier).add('Error opening project: $e');
+      state = state.copyWith(currentProject: null); // Clear current project on error
+    }
+  }
+
+  // NEW: Create a new project and set it as current
+  Future<void> createProject(String parentUri, String name) async {
+    try {
+      final newProject = await _manager.createProject(parentUri, name);
+      state = state.copyWith(currentProject: newProject);
+
+      // Add to known projects
+      await _manager.addKnownProject(newProject.toMetadata());
+
+      print('Project "${newProject.name}" created and opened.');
+      await ref.read(fileHandlerProvider).persistRootUri(newProject.rootUri);
+
+    } catch (e, st) {
+      print('Error creating project: $e\n$st');
+      ref.read(logProvider.notifier).add('Error creating project: $e');
+    }
+  }
+
+  // NEW: Close the current project
+  Future<void> closeProject() async {
+    if (state.currentProject == null) return;
+
+    // Save current project state before closing
+    await _manager.saveProject(state.currentProject!);
+
+    // Close all open tabs for the current project
+    for (var tab in state.tabs) {
+      tab.dispose();
+    }
+
+    state = state.copyWith(
+      tabs: [], // Clear all tabs
+      currentTabIndex: 0,
+      currentProject: null, // Clear current project
+    );
+    print('Project closed.');
+    await ref.read(fileHandlerProvider).persistRootUri(null); // Clear persisted URI
+  }
+
+  // NEW: Delete a project from known projects and optionally its folder
+  Future<void> deleteProject(String projectId, {bool deleteFolder = false}) async {
+    final projectToDeleteMetadata = state.knownProjects.firstWhereOrNull((p) => p.id == projectId);
+    if (projectToDeleteMetadata == null) return;
+
+    if (state.currentProject?.id == projectId) {
+      await closeProject(); // Close if it's the current project
+    }
+
+    try {
+      if (deleteFolder) {
+        final rootFile = await ref.read(fileHandlerProvider).getFileMetadata(projectToDeleteMetadata.rootUri);
+        if (rootFile != null) {
+          await ref.read(fileHandlerProvider).deleteDocumentFile(rootFile);
+        } else {
+          print('Warning: Project folder not found at ${projectToDeleteMetadata.rootUri}. Skipping folder deletion.');
+        }
+      }
+      await _manager.removeKnownProject(projectId); // Remove from global list
+      state = state.copyWith(
+        knownProjects: state.knownProjects.where((p) => p.id != projectId).toList(),
+      );
+      print('Project "${projectToDeleteMetadata.name}" deleted from history. Folder deletion: $deleteFolder');
+    } catch (e, st) {
+      print('Error deleting project: $e\n$st');
+      ref.read(logProvider.notifier).add('Error deleting project: $e');
+    }
+  }
+
+  // NEW: Update project explorer view mode
+  void updateProjectExplorerMode(FileExplorerViewMode mode) {
+    if (state.currentProject != null) {
+      state = state.copyWith(
+        currentProject: state.currentProject!.copyWith(fileExplorerViewMode: mode),
+      );
+    }
+  }
+
+  // NEW: Toggle folder expansion state
+  void toggleFolderExpansion(String folderUri) {
+    if (state.currentProject != null) {
+      final updatedExpandedFolders = Set<String>.from(state.currentProject!.expandedFolders);
+      if (updatedExpandedFolders.contains(folderUri)) {
+        updatedExpandedFolders.remove(folderUri);
+      } else {
+        updatedExpandedFolders.add(folderUri);
+      }
+      state = state.copyWith(
+        currentProject: state.currentProject!.copyWith(expandedFolders: updatedExpandedFolders),
+      );
+    }
+  }
+
+  // NEW: Toggle all folder expansion (for expand/collapse all buttons)
+  Future<void> toggleAllFolderExpansion({required bool expand}) async {
+    if (state.currentProject == null) return;
+
+    final handler = ref.read(fileHandlerProvider);
+    final Set<String> newExpandedFolders = {};
+
+    if (expand) {
+      // Recursively add all subdirectories to expandedFolders
+      Future<void> expandRecursive(String uri) async {
+        newExpandedFolders.add(uri);
+        final contents = await handler.listDirectory(uri, includeHidden: true);
+        for (final item in contents) {
+          if (item.isDirectory && item.name != '.machine') { // Don't expand .machine
+            await expandRecursive(item.uri);
+          }
+        }
+      }
+      await expandRecursive(state.currentProject!.rootUri);
+    }
+    // If expand is false, newExpandedFolders will remain empty.
+
+    state = state.copyWith(
+      currentProject: state.currentProject!.copyWith(expandedFolders: newExpandedFolders),
+    );
+  }
+
+
   Future<void> openFile(DocumentFile file, {EditorPlugin? plugin}) async {
     final prevTab = state.currentTab;
     state = await _manager.openFile(state, file, plugin: plugin);
@@ -325,9 +634,6 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   void switchTab(int index) {
-    // FocusNode is now managed internally by CodeEditorMachine.
-    // Unfocusing is handled by the widget's lifecycle (dispose/recreate)
-    // and its internal focus listener.
     final prevTab = state.currentTab;
     state = state.copyWith(currentTabIndex: index);
     _handlePluginLifecycle(prevTab, state.currentTab);
@@ -337,11 +643,8 @@ class SessionNotifier extends Notifier<SessionState> {
     state = state.copyWith(
       tabs: state.tabs.map((t) => t == oldTab ? newTab : t).toList(),
     );
-    // Note: markCurrentTabDirty should probably be called explicitly if the content changes,
-    // not necessarily just on tab state update if it's metadata.
   }
 
-  // New: Update language key for a CodeEditorTab
   void updateTabLanguageKey(int tabIndex, String newLanguageKey) {
     final currentTabs = List<EditorTab>.from(state.tabs);
     if (tabIndex < 0 || tabIndex >= currentTabs.length) return;
@@ -359,7 +662,7 @@ class SessionNotifier extends Notifier<SessionState> {
     final current = state;
     final currentTab = current.currentTab;
     if (currentTab == null) return;
-    if (currentTab.isDirty == true) return; // Only update if not already dirty
+    if (currentTab.isDirty == true) return;
 
     state = current.copyWith(
       tabs:
@@ -382,11 +685,11 @@ class SessionNotifier extends Notifier<SessionState> {
 
   void closeTab(int index) {
     final current = state;
-    if (index < 0 || index >= current.tabs.length) return; // Ensure index is valid
+    if (index < 0 || index >= current.tabs.length) return;
 
     final closedTab = current.tabs[index];
     closedTab.plugin.deactivateTab(closedTab, ref);
-    closedTab.dispose(); // Dispose the tab's resources
+    closedTab.dispose();
 
     state = _manager.closeTab(state, index);
 
@@ -399,36 +702,17 @@ class SessionNotifier extends Notifier<SessionState> {
     state = _manager.reorderTabs(state, oldIndex, newIndex);
   }
 
-  Future<void> changeDirectory(DocumentFile directory) async {
-    //await _manager.persistDirectory(state);
-    state = state.copyWith(currentDirectory: directory);
-  }
-
-  Future<void> loadSession() async {
-    try {
-      final loadedState = await _manager.loadSession();
-      state = loadedState;
-      // Activate the current tab only if it exists after loading
-      if (state.currentTab != null) {
-        _handlePluginLifecycle(null, state.currentTab);
-      }
-    } catch (e) {
-      print('Error loading session: $e');
-      // If session load fails, ensure no tab is active
-      _handlePluginLifecycle(state.currentTab, null);
-    }
-  }
+  // REMOVED: changeDirectory(DocumentFile directory) is replaced by openProject
 
   Future<void> saveTab(int index) async {
     final current = state;
     if (index < 0 || index >= current.tabs.length) return;
 
-    final targetTab = current.tabs[index]; // Use a distinct variable name
+    final targetTab = current.tabs[index];
 
     try {
       final newTab = await _manager.saveTabFile(targetTab);
 
-      // Create new immutable state
       final newTabs =
           current.tabs.map((t) => t == targetTab ? newTab : t).toList();
 

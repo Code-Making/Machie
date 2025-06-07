@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
 
-import'plugin_registry.dart';
 import '../file_system/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
 import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
-
+import '../project/project_models.dart'; // NEW: For ProjectMetadata, ClipboardOperation
+import'plugin_registry.dart';
 
 
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
@@ -73,6 +73,7 @@ abstract class EditorPlugin {
   String get name;
   Widget get icon;
   List<Command> getCommands();
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
   // File type support
   bool supportsFile(DocumentFile file);
@@ -237,7 +238,47 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-enum CommandPosition { appBar, pluginToolbar, both, hidden }
+// NEW: Abstract class for context-specific commands on files
+abstract class FileContextCommand {
+  final String id;
+  final String label;
+  final Widget icon;
+  final String sourcePlugin;
+
+  const FileContextCommand({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.sourcePlugin,
+  });
+
+  bool canExecuteFor(WidgetRef ref, DocumentFile item);
+  Future<void> executeFor(WidgetRef ref, DocumentFile item);
+}
+
+// NEW: Concrete implementation for FileContextCommand
+class BaseFileContextCommand extends FileContextCommand {
+  final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
+  final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
+
+  const BaseFileContextCommand({
+    required super.id,
+    required super.label,
+    required super.icon,
+    required super.sourcePlugin,
+    required bool Function(WidgetRef, DocumentFile) canExecuteFor,
+    required Future<void> Function(WidgetRef, DocumentFile) executeFor,
+  })  : _canExecuteFor = canExecuteFor,
+        _executeFor = executeFor;
+
+  @override
+  bool canExecuteFor(WidgetRef ref, DocumentFile item) => _canExecuteFor(ref, item);
+
+  @override
+  Future<void> executeFor(WidgetRef ref, DocumentFile item) => _executeFor(ref, item);
+}
+
+enum CommandPosition { appBar, pluginToolbar, both, hidden, contextMenu } // MODIFIED
 
 class CommandState {
   final List<String> appBarOrder;
@@ -274,8 +315,10 @@ class CommandState {
         return pluginToolbarOrder;
       case CommandPosition.hidden:
         return hiddenOrder;
-      default:
-        return [];
+      case CommandPosition.contextMenu:
+        return []; // Context menu commands are not ordered globally by CommandNotifier
+      case CommandPosition.both:
+        return []; // 'both' is a property, not a list of commands
     }
   }
 }
@@ -339,21 +382,20 @@ class CommandNotifier extends StateNotifier<CommandState> {
         state = state.copyWith(hiddenOrder: newOrder);
         break;
       case CommandPosition.both:
-        // Handle both position if needed
+      case CommandPosition.contextMenu:
+        // These positions are not ordered via CommandNotifier state
         break;
     }
     _saveToPrefs();
   }
 
   void _initializeCommands(Set<EditorPlugin> plugins) async {
-    // Merge commands from core and plugins
     final allCommands = [
       ..._coreCommands,
       ...plugins.expand((p) => p.getCommands()),
     ];
 
     for (final cmd in allCommands) {
-      // Group by command ID
       if (_allCommands.containsKey(cmd.id)) {
         _commandSources[cmd.id]!.add(cmd.sourcePlugin);
       } else {
@@ -378,7 +420,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     );
     await _loadFromPrefs(
       plugins,
-    ); // Load saved positions after merging commands
+    );
   }
 
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
@@ -400,9 +442,12 @@ class CommandNotifier extends StateNotifier<CommandState> {
       case CommandPosition.hidden:
         newHidden.add(commandId);
         break;
-      case CommandPosition.both: // Handle both case
+      case CommandPosition.both:
         newAppBar.add(commandId);
         newPluginToolbar.add(commandId);
+        break;
+      case CommandPosition.contextMenu:
+        // Context menu commands are not globally movable/orderable
         break;
     }
 
@@ -436,7 +481,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
           ...ref.read(activePluginsProvider).expand((p) => p.getCommands()),
         ].map((c) => c.id).toSet();
 
-    // Merge saved positions with default positions for new commands
     state = state.copyWith(
       appBarOrder: _mergePosition(
         saved: appBar,
