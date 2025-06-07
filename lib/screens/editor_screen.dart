@@ -23,14 +23,12 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
     final currentUri = ref.watch(
       sessionProvider.select((s) => s.currentTab?.file.uri), // Use sessionProvider
     );
     final currentName = ref.read(
       sessionProvider.select((s) => s.currentTab?.file.name), // Use sessionProvider
-    );
-    final currentDir = ref.watch(
-      sessionProvider.select((s) => s.currentDirectory),
     );
     final currentPlugin = ref.watch(
       sessionProvider.select((s) => s.currentTab?.plugin),
@@ -64,7 +62,7 @@ class EditorScreen extends ConsumerWidget {
         ],
         title: Text(currentName != null ? currentName : 'Code Editor'),
       ),
-      drawer: FileExplorerDrawer(),
+      drawer: FileExplorerDrawer(currentProject: currentProject),
       body: Column(
         children: [
           const TabBarView(),
