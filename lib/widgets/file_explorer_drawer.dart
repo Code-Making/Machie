@@ -12,9 +12,10 @@ import '../session/session_management.dart';
 import '../main.dart'; // For sessionProvider, fileHandlerProvider, logProvider, commandProvider, activePluginsProvider
 import '../plugins/plugin_architecture.dart';
 import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
-import '../plugins/code_editor/code_editor_plugin.dart'; // For FileTypeIcon
+import '../plugins/code_editor/code_editor_plugin.dart'; // For CodeEditorPlugin (used in FileTypeIcon if moved here later, or for context commands)
 import '../project/project_models.dart'; // For ProjectMetadata, Project, FileExplorerViewMode, ClipboardItem, ClipboardOperation, clipboardProvider
 import '../screens/settings_screen.dart'; // For DebugLogView, SettingsScreen
+import '../screens/editor_screen.dart'; // NEW: Import for FileTypeIcon
 
 import 'package:uuid/uuid.dart';
 
@@ -191,14 +192,16 @@ class ProjectSelectionScreen extends ConsumerWidget {
                 icon: const Icon(Icons.folder_open),
                 label: const Text('Open Existing Project'),
                 onPressed: () async {
-                  // This block always tries to close the drawer in its finally block.
                   try {
                     final pickedDir = await fileHandler.pickDirectory();
                     if (pickedDir != null) {
+                      // Check if this picked directory is already a known project
                       final existingProject = knownProjects.firstWhereOrNull((p) => p.rootUri == pickedDir.uri);
                       if (existingProject != null) {
                           await sessionNotifier.openProject(existingProject.id);
                       } else {
+                          // If it's a new directory, create a new project entry for it
+                          // Note: createProject now handles ID generation internally
                           await sessionNotifier.createProject(pickedDir.uri, pickedDir.name);
                       }
                     }
@@ -223,7 +226,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
                         context,
                         title: 'New Project Name',
                         labelText: 'Project Name',
-                        initialValue: 'MyNewProject',
+                        initialValue: 'MyNewProject', // Provide a default
                       );
                       if (newProjectName != null && newProjectName.isNotEmpty) {
                         await sessionNotifier.createProject(parentDir.uri, newProjectName);
@@ -342,14 +345,14 @@ class ProjectExplorerView extends ConsumerWidget {
         ),
         // Main File Tree Body
         Expanded(
-          child: _DirectoryView( // Corrected: Direct constructor call
+          child: _DirectoryView( // Corrected constructor call
             directory: currentProject.rootUri,
             projectRootUri: currentProject.rootUri,
             expandedFolders: currentProject.expandedFolders,
           ),
         ),
         // Bottom File Operations Bar
-        _FileOperationsFooter(projectRootUri: currentProject.rootUri), // Corrected: Direct constructor call
+        _FileOperationsFooter(projectRootUri: currentProject.rootUri), // Corrected constructor call
       ],
     );
   }
@@ -386,7 +389,7 @@ class ProjectDropdown extends ConsumerWidget {
               isScrollControlled: true,
               builder: (ctx) => FractionallySizedBox(
                 heightFactor: 0.9,
-                child: ManageProjectsScreen(), // Corrected: Direct constructor call
+                child: ManageProjectsScreen(), // Corrected constructor call
               ),
             );
           } else if (projectId != null && projectId != currentProject.id) {
@@ -394,6 +397,7 @@ class ProjectDropdown extends ConsumerWidget {
           }
         },
         items: [
+          // Other Known Projects (excluding the current one)
           ...knownProjects.map((proj) => DropdownMenuItem(
             value: proj.id,
             child: Text(proj.name, style: Theme.of(context).textTheme.titleLarge),
@@ -499,10 +503,7 @@ class FileExplorerContextCommands {
               final currentProject = ref.read(sessionProvider).currentProject;
               if (currentProject != null && item.uri == currentProject.rootUri && renamedFile != null) {
                 final sessionNotifier = ref.read(sessionProvider.notifier);
-                // The SessionNotifier.openProject will update the currentProject in state
-                // and also update its metadata in the knownProjects list.
-                // We'll call openProject with the current project's ID to trigger this update.
-                await sessionNotifier.openProject(currentProject.id); // This will reload with new name/URI
+                await sessionNotifier.openProject(currentProject.id);
               }
 
             } catch (e, st) {
@@ -601,9 +602,9 @@ class FileExplorerContextCommands {
 
           try {
             if (clipboard.operation == ClipboardOperation.copy) {
-              await fileHandler.copyDocumentFile(sourceFile, destinationFolder.uri); // Corrected call
+              await fileHandler.copyDocumentFile(sourceFile, destinationFolder.uri); // Removed newName
             } else { // Cut operation
-              await fileHandler.moveDocumentFile(sourceFile, destinationFolder.uri); // Corrected call
+              await fileHandler.moveDocumentFile(sourceFile, destinationFolder.uri); // Removed newName
             }
             ref.read(clipboardProvider.notifier).state = null;
             ref.invalidate(currentProjectDirectoryContentsProvider(destinationFolder.uri));
@@ -624,53 +625,42 @@ class FileExplorerContextCommands {
   static String _getParentUri(String uri) {
     try {
       final parsedUri = Uri.parse(uri);
-      // Decode the path component to handle '%2F' as actual slashes
       final decodedPath = Uri.decodeComponent(parsedUri.path);
       
-      // Look for the last actual path separator
       final lastSlashIndex = decodedPath.lastIndexOf('/');
-      if (lastSlashIndex <= 0) { // Handles root like "/primary%3ADOCS" or malformed
-        return parsedUri.origin + (parsedUri.path.contains('/tree/') ? parsedUri.path.substring(0, parsedUri.path.indexOf('/tree/') + 5) : parsedUri.path); // Return origin or base tree path
+      if (lastSlashIndex <= 0) {
+        return parsedUri.origin + (parsedUri.path.contains('/tree/') ? parsedUri.path.substring(0, parsedUri.path.indexOf('/tree/') + 5) : parsedUri.path);
       }
 
-      // Reconstruct the parent path, then encode it back for URI
       final parentDecodedPath = decodedPath.substring(0, lastSlashIndex);
-      final parentEncodedPath = Uri.encodeComponent(parentDecodedPath).replaceAll('%2F', '/'); // Re-encode, but keep / as /
-
-      // Reconstruct the full parent URI, preserving scheme, authority, and "tree/document" parts
+      
       final schemeAuthority = '${parsedUri.scheme}://${parsedUri.authority}';
       
-      // Find the specific SAF document/tree prefix to preserve it
       final documentPrefixIndex = parsedUri.path.indexOf('/document/');
       final treePrefixIndex = parsedUri.path.indexOf('/tree/');
 
       if (documentPrefixIndex != -1) {
-        // Example: content://.../document/primary%3Apath%2Fto%2Ffile
-        // Parent: content://.../document/primary%3Apath%2Fto
         final docPath = parsedUri.path.substring(documentPrefixIndex + '/document/'.length);
-        final parentDocPath = docPath.substring(0, docPath.lastIndexOf('%2F')); // Find the last %2F
+        final parentDocPath = docPath.substring(0, docPath.lastIndexOf('%2F'));
         return '$schemeAuthority/document/$parentDocPath';
       } else if (treePrefixIndex != -1) {
-        // Example: content://.../tree/primary%3Apath%2Fto%2Ffolder (where folder is not the root)
-        // Parent: content://.../tree/primary%3Apath%2Fto
         final treePath = parsedUri.path.substring(treePrefixIndex + '/tree/'.length);
         final parentTreePath = treePath.substring(0, treePath.lastIndexOf('%2F'));
         return '$schemeAuthority/tree/$parentTreePath';
       } else {
-        // Fallback for URIs that don't match typical SAF patterns (e.g., initial root selection)
         return uri;
       }
     } catch (e) {
       print('Error getting parent URI for $uri: $e');
-      return uri; // Return original URI as a safe fallback
+      return uri;
     }
   }
 }
 
 
 // NEW: Manage Projects Screen
-class ManageProjectsScreen extends ConsumerWidget {
-  const ManageProjects({super.key}); // Corrected constructor
+class ManageProjectsScreen extends ConsumerWidget { // Corrected class name
+  const ManageProjectsScreen({super.key}); // Corrected constructor name and removed const from definition
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -709,7 +699,7 @@ class ManageProjectsScreen extends ConsumerWidget {
             ),
             onTap: isCurrent ? null : () async {
               await sessionNotifier.openProject(project.id);
-              Navigator.pop(context);
+              Navigator.pop(context); // Close manage screen after opening
             },
           );
         },
@@ -812,8 +802,6 @@ class _FileOperationsFooter extends ConsumerWidget {
             tooltip: 'Paste',
             onPressed: clipboardContent != null
                 ? () async {
-                    // Try to paste into the root of the current project
-                    // The actual paste logic is also in FileExplorerContextCommands for context menus
                     final pasteCommand = FileExplorerContextCommands.getCommands(ref, DocumentFilePlaceholder(uri: projectRootUri, isDirectory: true))
                                             .firstWhereOrNull((cmd) => cmd.id == 'paste');
                     if (pasteCommand != null && pasteCommand.canExecuteFor(ref, DocumentFilePlaceholder(uri: projectRootUri, isDirectory: true))) {
@@ -987,7 +975,7 @@ class _DirectoryItem extends ConsumerWidget {
         childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
         children: [
           if (isExpanded && currentProject != null)
-            _DirectoryView(
+            _DirectoryView( // Corrected constructor call
               directory: item.uri,
               projectRootUri: currentProject.rootUri,
               expandedFolders: currentProject.expandedFolders,
@@ -997,7 +985,7 @@ class _DirectoryItem extends ConsumerWidget {
     } else {
       childWidget = ListTile(
         contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
-        leading: FileTypeIcon(file: item),
+        leading: FileTypeIcon(file: item), // Corrected: Direct constructor call
         title: Row(
           children: [
             Expanded(child: Text(item.name, overflow: TextOverflow.ellipsis)),
