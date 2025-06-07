@@ -1,3 +1,5 @@
+// lib/plugins/code_editor/code_editor_plugin.dart
+
 import 'dart:async';
 import 'dart:math';
 
@@ -5,29 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/languages/bash.dart';
-import 'package:re_highlight/languages/cpp.dart';
-import 'package:re_highlight/languages/css.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/languages/java.dart';
-import 'package:re_highlight/languages/javascript.dart';
-import 'package:re_highlight/languages/json.dart';
-import 'package:re_highlight/languages/kotlin.dart';
-import 'package:re_highlight/languages/latex.dart';
-import 'package:re_highlight/languages/markdown.dart';
-import 'package:re_highlight/languages/plaintext.dart';
-import 'package:re_highlight/languages/python.dart';
-import 'package:re_highlight/languages/typescript.dart';
-import 'package:re_highlight/languages/xml.dart';
-import 'package:re_highlight/languages/yaml.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
+// REMOVED: import 'package:re_highlight/styles/atom-one-dark.dart'; // Not needed directly here anymore
 
 import '../../file_system/file_handler.dart';
-import '../../main.dart'; // For various providers
+import '../../main.dart';
 import '../../session/session_management.dart';
 import '../plugin_architecture.dart';
-
-import 'code_themes.dart'; // NEW: Import the new file
+import 'code_themes.dart'; // Import the new file
 
 // --------------------
 //  Code Editor Plugin
@@ -48,23 +34,14 @@ class CodeEditorPlugin implements EditorPlugin {
     final editorSettings = settings as CodeEditorSettings;
     return CodeEditorSettingsUI(settings: editorSettings);
   }
-  /*
-  @override
-  Future<void> initializeTab(EditorTab tab, String? content) async {
-    if (tab is CodeEditorTab) {
-      tab.controller.codeLines = CodeLines.fromText(content ?? '');
-    }
-  }*/
 
   @override
   Future<void> dispose() async {
-    // Cleanup logic here
     print("dispose code editor");
   }
 
   @override
   bool supportsFile(DocumentFile file) {
-    // Use the map from the new CodeThemes file
     final ext = file.name.split('.').last.toLowerCase();
     return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
@@ -81,16 +58,15 @@ class CodeEditorPlugin implements EditorPlugin {
       plugin: this,
       controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
-      languageKey: inferredLanguageKey, // Store inferred key
+      languageKey: inferredLanguageKey,
     );
   }
 
-  // New: Implementation for deserializing CodeEditorTab
   @override
   Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler) async {
     final fileUri = tabJson['fileUri'] as String;
     final loadedLanguageKey = tabJson['languageKey'] as String?;
-    final isDirtyOnLoad = tabJson['isDirty'] as bool? ?? false; // Load dirty state
+    final isDirtyOnLoad = tabJson['isDirty'] as bool? ?? false;
 
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
@@ -117,25 +93,25 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-
-    // Explicit state updates for mark/highlight can still be useful here.
-    ref.read(markProvider.notifier).state = null; // Clear mark when tab changes
-    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
+    ref.read(markProvider.notifier).state = null;
+    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
   }
 
   @override
   void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(markProvider.notifier).state = null; // Clear mark when tab is deactivated
-    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState(); // Clear highlights
+    ref.read(markProvider.notifier).state = null;
+    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
   }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
+    // Settings are watched inside CodeEditorMachine now
+    // final settings = ref.watch(settingsProvider.select(...));
 
     return CodeEditorMachine(
-      key: ValueKey(codeTab.file.uri), // Key remains tied to the file URI
+      key: ValueKey(codeTab.file.uri),
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (
@@ -174,20 +150,17 @@ class CodeEditorPlugin implements EditorPlugin {
             .where((pos) => pos.index == index)
             .map((pos) => pos.offset)
             .toSet();
-    //print(highlightState.bracketPositions.toString());
     void processSpan(TextSpan span) {
       final text = span.text ?? '';
       final spanStyle = span.style ?? style;
       List<int> highlightIndices = [];
 
-      // Find highlight positions within this span
       for (var i = 0; i < text.length; i++) {
         if (highlightPositions.contains(currentPosition + i)) {
           highlightIndices.add(i);
         }
       }
 
-      // Split span into non-highlight and highlight segments
       int lastSplit = 0;
       for (final highlightIndex in highlightIndices) {
         if (highlightIndex > lastSplit) {
@@ -210,14 +183,12 @@ class CodeEditorPlugin implements EditorPlugin {
         lastSplit = highlightIndex + 1;
       }
 
-      // Add remaining text
       if (lastSplit < text.length) {
         spans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
       }
 
       currentPosition += text.length;
 
-      // Process child spans
       if (span.children != null) {
         for (final child in span.children!) {
           if (child is TextSpan) {
@@ -258,11 +229,11 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-    _createCommand( // Moved this command to the top level for clarity
+    _createCommand(
       id: 'save',
       label: 'Save',
       icon: Icons.save,
-      defaultPosition: CommandPosition.appBar, // Default position in AppBar
+      defaultPosition: CommandPosition.appBar,
       execute: (ref, _) {
         final session = ref.read(sessionProvider);
         final currentIndex = session.currentTabIndex;
@@ -276,35 +247,35 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Copy',
       icon: Icons.content_copy,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.copy(), // Null check
+      execute: (ref, ctrl) => ctrl?.copy(),
     ),
     _createCommand(
       id: 'cut',
       label: 'Cut',
       icon: Icons.content_cut,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.cut(), // Null check
+      execute: (ref, ctrl) => ctrl?.cut(),
     ),
     _createCommand(
       id: 'paste',
       label: 'Paste',
       icon: Icons.content_paste,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.paste(), // Null check
+      execute: (ref, ctrl) => ctrl?.paste(),
     ),
     _createCommand(
       id: 'indent',
       label: 'Indent',
       icon: Icons.format_indent_increase,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.applyIndent(), // Null check
+      execute: (ref, ctrl) => ctrl?.applyIndent(),
     ),
     _createCommand(
       id: 'outdent',
       label: 'Outdent',
       icon: Icons.format_indent_decrease,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.applyOutdent(), // Null check
+      execute: (ref, ctrl) => ctrl?.applyOutdent(),
     ),
     _createCommand(
       id: 'toggle_comment',
@@ -339,21 +310,21 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Select All',
       icon: Icons.select_all,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.selectAll(), // Null check
+      execute: (ref, ctrl) => ctrl?.selectAll(),
     ),
     _createCommand(
       id: 'move_line_up',
       label: 'Move Line Up',
       icon: Icons.arrow_upward,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(), // Null check
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(),
     ),
     _createCommand(
       id: 'move_line_down',
       label: 'Move Line Down',
       icon: Icons.arrow_downward,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(), // Null check
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(),
     ),
     _createCommand(
       id: 'set_mark',
@@ -375,7 +346,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Undo',
       icon: Icons.undo,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.undo(), // Null check
+      execute: (ref, ctrl) => ctrl?.undo(),
       canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
     ),
     _createCommand(
@@ -383,7 +354,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Redo',
       icon: Icons.redo,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.redo(), // Null check
+      execute: (ref, ctrl) => ctrl?.redo(),
       canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
     ),
     _createCommand(
@@ -391,16 +362,15 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Show Cursor',
       icon: Icons.center_focus_strong,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.makeCursorVisible(), // Null check
+      execute: (ref, ctrl) => ctrl?.makeCursorVisible(),
     ),
-    // New Command: Switch Language
     _createCommand(
       id: 'switch_language',
       label: 'Switch Language',
       icon: Icons.language,
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
-      canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab, // Only for code editor tabs
+      canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab,
     ),
   ];
 
@@ -408,7 +378,7 @@ class CodeEditorPlugin implements EditorPlugin {
     required String id,
     required String label,
     required IconData icon,
-    required CommandPosition defaultPosition, // Added parameter
+    required CommandPosition defaultPosition,
     required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
     execute,
     bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
@@ -417,7 +387,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: id,
       label: label,
       icon: Icon(icon, size: 20),
-      defaultPosition: defaultPosition, // Pass the parameter
+      defaultPosition: defaultPosition,
       sourcePlugin: this.runtimeType.toString(),
       execute: (ref) async {
         final ctrl = _getController(ref);
@@ -431,23 +401,17 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLineEditingController? _getController(WidgetRef ref) {
-    final tab = ref.read(sessionProvider).currentTab; // Use read instead of watch here to avoid unnecessary rebuilds if only getting controller
+    final tab = ref.read(sessionProvider).currentTab;
     return tab is CodeEditorTab ? tab.controller : null;
   }
 
-  // Use watch for _getTab if its return value might trigger a rebuild based on tab changes,
-  // but for command execution, _getController usually gets a *current* controller.
   CodeEditorTab? _getTab(WidgetRef ref) {
     final tab = ref.watch(sessionProvider).currentTab;
     return tab is CodeEditorTab ? tab : null;
   }
 
-  // Command implementations
-  Future<void> _toggleComments(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _toggleComments(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
       ctrl.value,
@@ -457,21 +421,16 @@ class CodeEditorPlugin implements EditorPlugin {
     ctrl.runRevocableOp(() => ctrl.value = formatted);
   }
 
-  Future<void> _reformatDocument(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _reformatDocument(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     try {
       final formattedValue = _formatCodeValue(ctrl.value);
-
       ctrl.runRevocableOp(() {
         ctrl.value = formattedValue.copyWith(
           selection: const CodeLineSelection.zero(),
           composing: TextRange.empty,
         );
       });
-
       print('Document reformatted');
     } catch (e) {
       print('Formatting failed: ${e.toString()}');
@@ -481,35 +440,28 @@ class CodeEditorPlugin implements EditorPlugin {
   CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
     final buffer = StringBuffer();
     int indentLevel = 0;
-    final indent = '  '; // 2 spaces
+    final indent = '  ';
 
-    // Convert CodeLines to a list for iteration
     final codeLines = value.codeLines.toList();
 
     for (final line in codeLines) {
       final trimmed = line.text.trim();
 
-      // Handle indentation decreases
       if (trimmed.startsWith('}') ||
           trimmed.startsWith(']') ||
           trimmed.startsWith(')')) {
         indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
       }
 
-      // Write indentation
       buffer.write(indent * indentLevel);
-
-      // Write line content
       buffer.writeln(trimmed);
 
-      // Handle indentation increases
       if (trimmed.endsWith('{') ||
           trimmed.endsWith('[') ||
           trimmed.endsWith('(')) {
         indentLevel++;
       }
     }
-
     return CodeLineEditingValue(
       codeLines: CodeLines.fromText(buffer.toString().trim()),
       selection: value.selection,
@@ -517,11 +469,8 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  Future<void> _selectBetweenBrackets(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _selectBetweenBrackets(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     final controller = ctrl;
     final selection = controller.selection;
 
@@ -536,11 +485,9 @@ class CodeEditorPlugin implements EditorPlugin {
       CodeLinePosition? start;
       CodeLinePosition? end;
 
-      // Check both left and right of cursor
       for (int offset = 0; offset <= 1; offset++) {
         final index = position.offset - offset;
-        if (index >= 0 &&
-            index < controller.codeLines[position.index].text.length) {
+        if (index >= 0 && index < controller.codeLines[position.index].text.length) {
           final char = controller.codeLines[position.index].text[index];
           if (brackets.keys.contains(char) || brackets.values.contains(char)) {
             final match = _findMatchingBracket(
@@ -562,7 +509,6 @@ class CodeEditorPlugin implements EditorPlugin {
         return;
       }
 
-      // Order positions correctly
       final orderedStart = _comparePositions(start, end) < 0 ? start : end;
       final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
 
@@ -570,24 +516,18 @@ class CodeEditorPlugin implements EditorPlugin {
         baseIndex: orderedStart.index,
         baseOffset: orderedStart.offset,
         extentIndex: orderedEnd.index,
-        extentOffset: orderedEnd.offset + 1, // Include the bracket itself
+        extentOffset: orderedEnd.offset + 1,
       );
       _extendSelection(ref, ctrl);
-      //_showSuccess('Selected between brackets');
     } catch (e) {
-      //_showError('Selection failed: ${e.toString()}');
+      print('Selection failed: ${e.toString()}');
     }
   }
 
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
+  CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
-    // Determine if we're looking at an opening or closing bracket
     final isOpen = brackets.keys.contains(char);
     final target =
         isOpen
@@ -608,7 +548,6 @@ class CodeEditorPlugin implements EditorPlugin {
       final currentLine = codeLines[index].text;
 
       while (offset >= 0 && offset < currentLine.length) {
-        // Skip the original position
         if (index == position.index && offset == position.offset) {
           offset += direction;
           continue;
@@ -629,27 +568,20 @@ class CodeEditorPlugin implements EditorPlugin {
         offset += direction;
       }
 
-      // Move to next/previous line
       index += direction;
       offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
     }
-
-    return null; // No matching bracket found
+    return null;
   }
 
-  Future<void> _extendSelection(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     final controller = ctrl;
     final selection = controller.selection;
 
     final newBaseOffset = 0;
-    final baseLineLength =
-        controller.codeLines[selection.baseIndex].text.length;
-    final extentLineLength =
-        controller.codeLines[selection.extentIndex].text.length;
+    final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
+    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
     final newExtentOffset = extentLineLength;
 
     controller.selection = CodeLineSelection(
@@ -660,19 +592,13 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  Future<void> _setMarkPosition(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
-  Future<void> _selectToMark(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return; // Add null check
+  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
+    if (ctrl == null) return;
     final mark = ref.read(markProvider);
     if (mark == null) {
       print('No mark set! Set a mark first');
@@ -696,8 +622,6 @@ class CodeEditorPlugin implements EditorPlugin {
         extentIndex: end.index,
         extentOffset: end.offset,
       );
-
-      //_showSuccess('Selected from line ${start.index + 1} to ${end.index + 1}');
     } catch (e) {
       print('Selection error: ${e.toString()}');
     }
@@ -711,13 +635,8 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Widget buildToolbar(WidgetRef ref) {
-    // The commands are retrieved and displayed in BottomToolbar
     return CodeEditorTapRegion(child: BottomToolbar());
   }
-
-
-
-  
 
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
     final BuildContext? context = ref.context;
@@ -736,11 +655,11 @@ class CodeEditorPlugin implements EditorPlugin {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: CodeThemes.languageNameToModeMap.keys.length, // Use from CodeThemes
+              itemCount: CodeThemes.languageNameToModeMap.keys.length,
               itemBuilder: (context, index) {
-                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index); // Use from CodeThemes
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index);
                 return ListTile(
-                  title: Text(CodeThemes.formatLanguageName(langKey)), // Use from CodeThemes
+                  title: Text(CodeThemes.formatLanguageName(langKey)),
                   onTap: () => Navigator.pop(ctx, langKey),
                 );
               },
@@ -756,23 +675,12 @@ class CodeEditorPlugin implements EditorPlugin {
       sessionNotifier.updateTabLanguageKey(currentTabIndex, selectedLanguageKey);
     }
   }
-
-  String _formatLanguageName(String key) {
-    // Simple formatting for display, e.g., 'cpp' -> 'C++', 'javascript' -> 'JavaScript'
-    if (key == 'cpp') return 'C++';
-    if (key == 'javascript') return 'JavaScript';
-    if (key == 'typescript') return 'TypeScript';
-    if (key == 'markdown') return 'Markdown';
-    if (key == 'kotlin') return 'Kotlin';
-    return key[0].toUpperCase() + key.substring(1);
-  }
 }
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
-  // Removed style and wordWrap parameters; they are now observed internally
 
   const CodeEditorMachine({
     super.key,
@@ -840,7 +748,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _removeControllerListeners(CodeLineEditingController controller) {
-    controller.removeListener(this._handleControllerChange); // Explicitly use `this`
+    controller.removeListener(this._handleControllerChange);
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
@@ -872,17 +780,18 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
-    // WATCH the CodeEditorSettings for font size/family and word wrap
     final codeEditorSettings = ref.watch(
       settingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
 
-    // WATCH the current tab's languageKey here!
     final currentLanguageKey = ref.watch(sessionProvider.select(
       (s) => (s.currentTab is CodeEditorTab) ? (s.currentTab as CodeEditorTab).languageKey : null,
     ));
+
+    // Get the selected theme name from settings
+    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark'; // Default theme
 
     return Focus(
       autofocus: false,
@@ -893,19 +802,14 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         controller: widget.controller,
         commentFormatter: widget.commentFormatter,
         indicatorBuilder: widget.indicatorBuilder,
-        // Construct CodeEditorStyle using watched settings and language key
         style: CodeEditorStyle(
           fontSize: codeEditorSettings?.fontSize ?? 12,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
-            theme: CodeThemes.atomOneDarkThemeData,
+            // Retrieve the theme map using the selectedThemeName
+            theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
             languages: CodeThemes.getHighlightThemeMode(currentLanguageKey),
           ),
-          // Add other style properties from your CodeEditorSettings if they exist
-          // For example:
-          // lineHeight: codeEditorSettings?.lineHeight,
-          // selectionColor: codeEditorSettings?.selectionColor,
-          // etc.
         ),
         wordWrap: codeEditorSettings?.wordWrap ?? false,
         focusNode: _focusNode,
@@ -922,20 +826,12 @@ class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final CodeLinePosition? matchingBracketPosition;
   final Set<int> highlightedLines;
-
-  BracketHighlightState({
-    this.bracketPositions = const {},
-    this.matchingBracketPosition,
-    this.highlightedLines = const {},
-  });
+  BracketHighlightState({this.bracketPositions = const {}, this.matchingBracketPosition, this.highlightedLines = const {}});
 }
 
 class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   @override
-  BracketHighlightState build() {
-    return BracketHighlightState();
-  }
-
+  BracketHighlightState build() { return BracketHighlightState(); }
   void handleBracketHighlight() {
     final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
     final controller = currentTab.controller;
@@ -969,7 +865,6 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
         }
       }
     }
-    //print("highlighting for realsies "+newPositions.toString());
 
     state = BracketHighlightState(
       bracketPositions: newPositions,
@@ -978,15 +873,10 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     );
   }
 
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
+  CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
-    // Determine if we're looking at an opening or closing bracket
     final isOpen = brackets.keys.contains(char);
     final target =
         isOpen
@@ -1007,7 +897,6 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
       final currentLine = codeLines[index].text;
 
       while (offset >= 0 && offset < currentLine.length) {
-        // Skip the original position
         if (index == position.index && offset == position.offset) {
           offset += direction;
           continue;
@@ -1028,12 +917,10 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
         offset += direction;
       }
 
-      // Move to next/previous line
       index += direction;
       offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
     }
-
-    return null; // No matching bracket found
+    return null;
   }
 }
 
@@ -1058,7 +945,7 @@ class _CustomEditorIndicator extends ConsumerWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {}, // Absorb taps
+      onTap: () {},
       child: Row(
         children: [
           _CustomLineNumberWidget(
@@ -1126,11 +1013,13 @@ class CodeEditorSettings extends PluginSettings {
   bool wordWrap;
   double fontSize;
   String fontFamily;
+  String themeName; // NEW: Added theme name
 
   CodeEditorSettings({
     this.wordWrap = false,
     this.fontSize = 14,
     this.fontFamily = 'JetBrainsMono',
+    this.themeName = 'Atom One Dark', // NEW: Default theme
   });
 
   @override
@@ -1138,6 +1027,7 @@ class CodeEditorSettings extends PluginSettings {
     'wordWrap': wordWrap,
     'fontSize': fontSize,
     'fontFamily': fontFamily,
+    'themeName': themeName, // NEW: Serialize themeName
   };
 
   @override
@@ -1145,17 +1035,20 @@ class CodeEditorSettings extends PluginSettings {
     wordWrap = json['wordWrap'] ?? false;
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
+    themeName = json['themeName'] ?? 'Atom One Dark'; // NEW: Deserialize themeName
   }
 
   CodeEditorSettings copyWith({
     bool? wordWrap,
     double? fontSize,
     String? fontFamily,
+    String? themeName, // NEW: copyWith themeName
   }) {
     return CodeEditorSettings(
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,
       fontFamily: fontFamily ?? this.fontFamily,
+      themeName: themeName ?? this.themeName, // NEW: copyWith themeName
     );
   }
 }
@@ -1208,18 +1101,32 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
               child: Text('JetBrains Mono'),
             ),
             DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
-            // DropdownMenuItem(value: 'SourceSans3', child: Text('Source Sans')),
             DropdownMenuItem(value: 'RobotoMono', child: Text('Roboto Mono')),
           ],
           onChanged:
               (value) =>
                   _updateSettings(_currentSettings.copyWith(fontFamily: value)),
         ),
+        // NEW: Theme selection dropdown
+        DropdownButtonFormField<String>(
+          value: _currentSettings.themeName,
+          decoration: const InputDecoration(labelText: 'Editor Theme'),
+          items: CodeThemes.availableCodeThemes.keys.map((themeName) {
+            return DropdownMenuItem(
+              value: themeName,
+              child: Text(themeName),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              _updateSettings(_currentSettings.copyWith(themeName: value));
+            }
+          },
+        ),
       ],
     );
   }
 
-  // In _CodeEditorSettingsUIState
   void _updateSettings(CodeEditorSettings newSettings) {
     setState(() => _currentSettings = newSettings);
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
