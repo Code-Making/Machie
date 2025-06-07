@@ -6,6 +6,8 @@ import '../file_system/file_handler.dart';
 import '../main.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
 import '../plugins/plugin_architecture.dart';
+import '../session/session_management.dart';
+
 import '../widgets/file_explorer_drawer.dart';
 import 'settings_screen.dart'; // For DebugLogView
 
