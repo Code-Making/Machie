@@ -239,10 +239,10 @@ class SessionManager {
         project.rootUri = projectMetadata.rootUri;
       } catch (e) {
         print('Error loading project data from file: $e. Re-initializing project.');
-        project = _createDefaultProject(projectMetadata);
+        //project = _createDefaultProject(projectMetadata);
       }
     } else {
-      project = _createDefaultProject(projectMetadata);
+      //project = _createDefaultProject(projectMetadata);
     }
     return project;
   }
@@ -491,7 +491,7 @@ class SessionNotifier extends Notifier<SessionState> {
       if (lastOpenedFileUri != null) {
         final file = await ref.read(fileHandlerProvider).getFileMetadata(lastOpenedFileUri);
         if (file != null) {
-          await openFile(file); // Re-open the file
+          //await openFile(file); // Re-open the file
           if (lastOpenedTabIndex != null && lastOpenedTabIndex < state.tabs.length) {
             switchTab(lastOpenedTabIndex); // Switch to the specific tab
           }
