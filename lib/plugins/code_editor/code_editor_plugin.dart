@@ -27,6 +27,8 @@ import '../../main.dart'; // For various providers
 import '../../session/session_management.dart';
 import '../plugin_architecture.dart';
 
+import 'code_themes.dart'; // NEW: Import the new file
+
 // --------------------
 //  Code Editor Plugin
 // --------------------
@@ -62,8 +64,9 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   bool supportsFile(DocumentFile file) {
+    // Use the map from the new CodeThemes file
     final ext = file.name.split('.').last.toLowerCase();
-    return _languageExtToNameMap.containsKey(ext); // Use the new map
+    return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
 
   @override
@@ -72,7 +75,7 @@ class CodeEditorPlugin implements EditorPlugin {
       spanBuilder: _buildHighlightingSpan,
       codeLines: CodeLines.fromText(content ?? ''),
     );
-    final inferredLanguageKey = _inferLanguageKey(file.uri); // Infer language key
+    final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
     return CodeEditorTab(
       file: file,
       plugin: this,
@@ -712,71 +715,12 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTapRegion(child: BottomToolbar());
   }
 
-  // --- New Language Highlighting Logic ---
 
-  // Changed to static final because `langDart` etc. are not const.
-  static final Map<String, dynamic> _languageNameToModeMap = {
-    'dart': langDart,
-    'python': langPython,
-    'javascript': langJavascript,
-    'typescript': langTypescript,
-    'java': langJava,
-    'cpp': langCpp,
-    'latex': langLatex,
-    'css': langCss,
-    'json': langJson,
-    'yaml': langYaml,
-    'markdown': langMarkdown,
-    'kotlin': langKotlin,
-    'bash': langBash,
-    'xml': langXml,
-    'plaintext': langPlaintext,
-  };
 
-  static const Map<String, String> _languageExtToNameMap = {
-    'dart': 'dart',
-    'js': 'javascript',
-    'jsx': 'javascript',
-    'mjs': 'javascript',
-    'npmrc': 'javascript',
-    'ts': 'typescript',
-    'py': 'python',
-    'java': 'java',
-    'cpp': 'cpp',
-    'cc': 'cpp',
-    'h': 'cpp',
-    'css': 'css',
-    'kt': 'kotlin',
-    'json': 'json',
-    'htm': 'xml',
-    'html': 'xml',
-    'yaml': 'yaml',
-    'yml': 'yaml',
-    'md': 'markdown',
-    'sh': 'bash',
-    'tex': 'latex',
-    'gitignore': 'plaintext',
-    'txt': 'plaintext',
-    // Add more mappings as needed. Default will be plaintext.
-  };
-
-  String _inferLanguageKey(String uri) {
-    final ext = uri.split('.').last.toLowerCase();
-    return _languageExtToNameMap[ext] ?? 'plaintext';
-  }
-
-  static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(String? langKey) {
-    final effectiveLangKey = langKey ?? 'plaintext'; // Fallback to plaintext if null
-    final mode = _languageNameToModeMap[effectiveLangKey];
-    if (mode != null) {
-      return {effectiveLangKey: CodeHighlightThemeMode(mode: mode)};
-    }
-    // If a specific key is requested but not found, default to plaintext
-    return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
-  }
+  
 
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
-    final BuildContext? context = ref.context; // Get context from ref
+    final BuildContext? context = ref.context;
 
     if (context == null) {
       print('Cannot show dialog, context is null.');
@@ -792,11 +736,11 @@ class CodeEditorPlugin implements EditorPlugin {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: _languageNameToModeMap.keys.length,
+              itemCount: CodeThemes.languageNameToModeMap.keys.length, // Use from CodeThemes
               itemBuilder: (context, index) {
-                final langKey = _languageNameToModeMap.keys.elementAt(index);
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index); // Use from CodeThemes
                 return ListTile(
-                  title: Text(_formatLanguageName(langKey)),
+                  title: Text(CodeThemes.formatLanguageName(langKey)), // Use from CodeThemes
                   onTap: () => Navigator.pop(ctx, langKey),
                 );
               },
@@ -954,8 +898,8 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontSize: codeEditorSettings?.fontSize ?? 12,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
-            theme: atomOneDarkTheme,
-            languages: CodeEditorPlugin.getHighlightThemeMode(currentLanguageKey),
+            theme: CodeThemes.atomOneDarkThemeData,
+            languages: CodeThemes.getHighlightThemeMode(currentLanguageKey),
           ),
           // Add other style properties from your CodeEditorSettings if they exist
           // For example:
