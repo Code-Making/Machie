@@ -11,6 +11,9 @@ import '../plugins/plugin_architecture.dart';
 import '../screens/settings_screen.dart'; // For LogNotifier
 import '../main.dart'; // For various providers
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+
 // --------------------
 //  Lifecycle Handler
 // --------------------
