@@ -8,6 +8,8 @@ import 'package:saf_util/saf_util.dart';
 import 'package:saf_util/saf_util_method_channel.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
 
+import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
+
 
 final fileHandlerProvider = Provider<FileHandler>((ref) {
   return SAFFileHandler();
