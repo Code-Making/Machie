@@ -218,7 +218,7 @@ class CommandSettingsScreen extends ConsumerWidget {
     Set<String> sources,
   ) {
     final notifier = ref.read(commandProvider.notifier);
-    final command = notifier._allCommands[commandId]!;
+    final command = notifier.getCommand(commandId)!;
 
     return ListTile(
       key: ValueKey(commandId),
