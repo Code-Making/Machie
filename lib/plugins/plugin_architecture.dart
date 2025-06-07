@@ -8,6 +8,7 @@ import '../file_system/file_handler.dart';
 import '../main.dart'; // For sessionProvider, commandProvider
 import '../session/session_management.dart'; // For SessionState, EditorTab
 
+import 'dart:convert';
 
 // --------------------
 //   Plugin Registry
