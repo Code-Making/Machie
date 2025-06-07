@@ -1,5 +1,3 @@
-// lib/widgets/file_explorer_drawer.dart
-
 import 'dart:math';
 import 'dart:async'; // For Future.delayed
 
@@ -18,323 +16,42 @@ import '../screens/settings_screen.dart'; // For DebugLogView, SettingsScreen
 
 import 'package:uuid/uuid.dart'; // Add to pubspec.yaml if not already
 
+
 // --------------------
-// File Explorer Providers (Revised/Updated)
+// File Explorer Providers
 // --------------------
 
-// REMOVED: rootUriProvider - now part of Project model within SessionState
-// REMOVED: directoryContentsProvider - now handled by _DirectoryView based on current project/path
+// REMOVED: rootUriProvider (now managed within Project)
+// REMOVED: directoryContentsProvider (now managed locally within ProjectExplorerView)
 
-// NEW: Provider for current directory content (family provider, depends on current project and path)
-final currentDirectoryContentsProvider = FutureProvider.autoDispose
-    .family<List<DocumentFile>, String?>((ref, uri) async {
+// New provider for current directory contents in file explorer (scoped to ProjectExplorerView)
+final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
+    .family<List<DocumentFile>, String>((ref, uri) async {
   final handler = ref.read(fileHandlerProvider);
-  // Get the includeHidden status from the current project's view mode if applicable
-  final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
-  final includeHidden = currentProject?.fileExplorerViewMode == FileExplorerViewMode.showAllFiles;
-
-  return uri != null ? handler.listDirectory(uri, includeHidden: includeHidden) : [];
-});
-
-
-// NEW: Provider for total file/folder counts in the current project
-final projectStatsProvider = FutureProvider.autoDispose<({int files, int folders})>((ref) async {
-  final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
-  if (currentProject == null) return (files: 0, folders: 0);
-
-  final fileHandler = ref.read(fileHandlerProvider);
-  int totalFiles = 0;
-  int totalFolders = 0;
-
-  Future<void> countContents(String uri) async {
-    final contents = await fileHandler.listDirectory(uri, includeHidden: true); // Count hidden for total stats
-    for (final item in contents) {
-      if (item.isDirectory) {
-        totalFolders++;
-        await countContents(item.uri); // Recursively count sub-folders
-      } else {
-        totalFiles++;
-      }
+  final project = ref.watch(sessionProvider.select((s) => s.currentProject));
+  if (project == null || project.rootUri != uri) {
+    // Only list if the URI is within the current project or is the root
+    if (!uri.startsWith(project?.rootUri ?? '')) {
+      return []; // Don't allow listing arbitrary URIs outside project
     }
   }
-
-  await countContents(currentProject.rootUri);
-  return (files: totalFiles, folders: totalFolders);
+  return handler.listDirectory(uri);
 });
 
-
-// --------------------
-// File Explorer Specific Commands
-// --------------------
-
-abstract class FileContextCommand extends BaseCommand {
-  const FileContextCommand({
-    required super.id,
-    required super.label,
-    required super.icon,
-    required super.sourcePlugin,
-  }) : super(defaultPosition: CommandPosition.contextMenu); // Force default position
-
-  // New abstract methods for context-specific execution
-  bool canExecuteFor(WidgetRef ref, DocumentFile item);
-  Future<void> executeFor(WidgetRef ref, DocumentFile item);
-
-  // Override execute to prevent global calls and ensure context-specific usage
-  @override
-  Future<void> execute(WidgetRef ref) async {
-    // This should ideally not be called directly.
-    // Context commands are meant for executeFor.
-    print('Error: FileContextCommand executed without context.');
-  }
-
-  // Override canExecute to prevent global calls and ensure context-specific usage
-  @override
-  bool canExecute(WidgetRef ref) {
-    // This should ideally not be called directly.
-    // Context commands are meant for canExecuteFor.
-    return false;
-  }
-}
-
-class BaseFileContextCommand extends FileContextCommand {
-  final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
-  final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
-
-  const BaseFileContextCommand({
-    required super.id,
-    required super.label,
-    required super.icon,
-    required super.sourcePlugin,
-    required bool Function(WidgetRef, DocumentFile) canExecuteFor,
-    required Future<void> Function(WidgetRef, DocumentFile) executeFor,
-  }) : _canExecuteFor = canExecuteFor,
-       _executeFor = executeFor;
-
-  @override
-  bool canExecuteFor(WidgetRef ref, DocumentFile item) => _canExecuteFor(ref, item);
-
-  @override
-  Future<void> executeFor(WidgetRef ref, DocumentFile item) => _executeFor(ref, item);
-}
-
-
-// NEW: Class to define generic file explorer context commands
-class FileExplorerContextCommands {
-  static List<FileContextCommand> getCommands() {
-    return [
-      _createFileCommand(
-        id: 'file_rename',
-        label: 'Rename',
-        icon: Icons.edit,
-        executeFor: (ref, item) async {
-          final context = ref.context;
-          if (context == null) return;
-          final newName = await _promptForNewName(context, item.name);
-          if (newName != null && newName != item.name) {
-            final fileHandler = ref.read(fileHandlerProvider);
-            try {
-              await fileHandler.renameDocumentFile(item, newName);
-              // Invalidate current directory contents to refresh UI
-              ref.invalidate(currentDirectoryContentsProvider(item.isDirectory ? item.uri : _getParentUri(item.uri)));
-              ref.invalidate(projectStatsProvider);
-              print('Renamed ${item.name} to $newName');
-            } catch (e, st) {
-              print('Failed to rename: $e\n$st');
-              _showSnackbar(context, 'Failed to rename: $e');
-            }
-          }
-        },
-        canExecuteFor: (ref, item) => true, // Can always rename files/folders
-      ),
-      _createFileCommand(
-        id: 'file_delete',
-        label: 'Delete',
-        icon: Icons.delete_forever,
-        executeFor: (ref, item) async {
-          final context = ref.context;
-          if (context == null) return;
-          final confirmed = await _confirmDeletion(context, item.name, item.isDirectory);
-          if (confirmed) {
-            final fileHandler = ref.read(fileHandlerProvider);
-            try {
-              await fileHandler.deleteDocumentFile(item);
-              // Invalidate current directory contents to refresh UI
-              ref.invalidate(currentDirectoryContentsProvider(item.isDirectory ? item.uri : _getParentUri(item.uri)));
-              ref.invalidate(projectStatsProvider);
-              print('Deleted ${item.name}');
-            } catch (e, st) {
-              print('Failed to delete: $e\n$st');
-              _showSnackbar(context, 'Failed to delete: $e');
-            }
-          }
-        },
-        canExecuteFor: (ref, item) => true, // Can always delete files/folders
-      ),
-      _createFileCommand(
-        id: 'file_cut',
-        label: 'Cut',
-        icon: Icons.content_cut,
-        executeFor: (ref, item) async {
-          ref.read(clipboardProvider.notifier).state = ClipboardItem(
-            uri: item.uri,
-            isFolder: item.isDirectory,
-            operation: ClipboardOperation.cut,
-          );
-          print('Cut ${item.name}');
-          _showSnackbar(ref.context!, 'Cut ${item.name}');
-        },
-        canExecuteFor: (ref, item) => true,
-      ),
-      _createFileCommand(
-        id: 'file_copy',
-        label: 'Copy',
-        icon: Icons.content_copy,
-        executeFor: (ref, item) async {
-          ref.read(clipboardProvider.notifier).state = ClipboardItem(
-            uri: item.uri,
-            isFolder: item.isDirectory,
-            operation: ClipboardOperation.copy,
-          );
-          print('Copied ${item.name}');
-          _showSnackbar(ref.context!, 'Copied ${item.name}');
-        },
-        canExecuteFor: (ref, item) => true,
-      ),
-      _createFileCommand(
-        id: 'file_paste',
-        label: 'Paste',
-        icon: Icons.content_paste,
-        // Paste is only enabled on folders when clipboard has content
-        canExecuteFor: (ref, item) {
-          final clipboard = ref.watch(clipboardProvider);
-          return item.isDirectory && clipboard != null;
-        },
-        executeFor: (ref, destinationFolder) async {
-          final clipboard = ref.read(clipboardProvider);
-          if (clipboard == null) return;
-
-          final context = ref.context;
-          if (context == null) return;
-
-          final fileHandler = ref.read(fileHandlerProvider);
-          final sourceFile = await fileHandler.getFileMetadata(clipboard.uri);
-
-          if (sourceFile == null) {
-            _showSnackbar(context, 'Clipboard item not found!');
-            ref.read(clipboardProvider.notifier).state = null;
-            return;
-          }
-
-          try {
-            if (clipboard.operation == ClipboardOperation.copy) {
-              await fileHandler.copyDocumentFile(sourceFile, destinationFolder.uri);
-              _showSnackbar(context, 'Copied ${sourceFile.name} to ${destinationFolder.name}');
-            } else { // Cut operation
-              await fileHandler.moveDocumentFile(sourceFile, destinationFolder.uri);
-              _showSnackbar(context, 'Moved ${sourceFile.name} to ${destinationFolder.name}');
-            }
-            ref.read(clipboardProvider.notifier).state = null; // Clear clipboard after paste
-            // Invalidate destination folder contents to refresh UI
-            ref.invalidate(currentDirectoryContentsProvider(destinationFolder.uri));
-            ref.invalidate(projectStatsProvider); // Stats might change
-            print('Pasted ${sourceFile.name}');
-          } catch (e, st) {
-            print('Failed to paste: $e\n$st');
-            _showSnackbar(context, 'Failed to paste: $e');
-          }
-        },
-      ),
-    ];
-  }
-
-  static FileContextCommand _createFileCommand({
-    required String id,
-    required String label,
-    required IconData icon,
-    required bool Function(WidgetRef, DocumentFile) canExecuteFor,
-    required Future<void> Function(WidgetRef, DocumentFile) executeFor,
-  }) {
-    return BaseFileContextCommand(
-      id: id,
-      label: label,
-      icon: Icon(icon),
-      sourcePlugin: 'FileExplorer', // Source plugin for generic commands
-      canExecuteFor: canExecuteFor,
-      executeFor: executeFor,
-    );
-  }
-
-  static String _getParentUri(String uri) {
-    // Basic way to get parent URI for file invalidation
-    final segments = Uri.parse(uri).pathSegments;
-    if (segments.length <= 1) return uri; // Root or single-level file/folder
-    return Uri.parse(uri).resolve('..').toString();
-  }
-
-  static Future<String?> _promptForNewName(BuildContext context, String currentName) async {
-    TextEditingController controller = TextEditingController(text: currentName);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter New Name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          onSubmitted: (value) => Navigator.of(ctx).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: const Text('Rename'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static Future<bool> _confirmDeletion(BuildContext context, String name, bool isFolder) async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete ${isFolder ? 'Folder' : 'File'}?'),
-        content: Text('Are you sure you want to delete "${name}"? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    ) ?? false;
-  }
-
-  static void _showSnackbar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-}
 
 class UnsupportedFileType implements Exception {
   final String uri;
   UnsupportedFileType(this.uri);
+
   @override
-  String toString() {
-    return 'Unsupported file type: $uri';
-  }
+  String toString() => 'Unsupported file type: $uri';
 }
 
 class PluginSelectionDialog extends StatelessWidget {
   final List<EditorPlugin> plugins;
+
   const PluginSelectionDialog({super.key, required this.plugins});
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -345,8 +62,8 @@ class PluginSelectionDialog extends StatelessWidget {
           shrinkWrap: true,
           children: plugins.map((plugin) {
             return ListTile(
-              leading: plugin.icon, // Use plugin's icon
-              title: Text(plugin.name), // Use plugin's name
+              leading: _getPluginIcon(plugin),
+              title: Text(_getPluginName(plugin)),
               onTap: () => Navigator.pop(context, plugin),
             );
           }).toList(),
@@ -354,426 +71,474 @@ class PluginSelectionDialog extends StatelessWidget {
       ),
     );
   }
-}
 
-class FileExplorerDrawer extends ConsumerWidget {
-  final Project? currentProject; // Now takes a Project object
-  const FileExplorerDrawer({super.key, this.currentProject});
+  String _getPluginName(EditorPlugin plugin) {
+    // Implement logic to get plugin display name
+    return plugin.runtimeType.toString().replaceAll('Plugin', '');
+  }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // If no project is open, show ProjectSelectionScreen
-    if (currentProject == null) {
-      return const ProjectSelectionScreen();
-    } else {
-      // If a project is open, show the ProjectExplorerView
-      return ProjectExplorerView(project: currentProject!);
-    }
+  Widget _getPluginIcon(EditorPlugin plugin) {
+    // Implement logic to get plugin icon
+    return plugin.icon ?? const Icon(Icons.extension); // Default icon
   }
 }
 
-// NEW: Project Selection Screen
+class FileExplorerDrawer extends ConsumerWidget {
+  // REMOVED: final DocumentFile? currentDir;
+
+  const FileExplorerDrawer({super.key}); // Removed currentDir parameter
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
+
+    return Drawer(
+      child: currentProject == null
+          ? const ProjectSelectionScreen() // NEW: Show project selection when no project is open
+          : const ProjectExplorerView(), // NEW: Show project explorer when a project is open
+    );
+  }
+}
+
+
+// NEW: Project selection screen widget
 class ProjectSelectionScreen extends ConsumerWidget {
   const ProjectSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Drawer(
-      child: Column(
-        children: [
-          AppBar(
-            title: const Text('No Project Open'),
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
+    final knownProjects = ref.watch(sessionProvider.select((s) => s.knownProjects));
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    final fileHandler = ref.read(fileHandlerProvider);
+
+    return Column(
+      children: [
+        AppBar(
+          title: const Text('Open Project'),
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              // Open Existing Project
+              ElevatedButton.icon(
+                icon: const Icon(Icons.folder_open),
+                label: const Text('Open Existing Project'),
+                onPressed: () async {
+                  final pickedDir = await fileHandler.pickDirectory();
+                  if (pickedDir != null) {
+                    final newProjectId = const Uuid().v4(); // Generate a new ID
+                    final projectMetadata = ProjectMetadata(
+                      id: newProjectId,
+                      name: pickedDir.name,
+                      rootUri: pickedDir.uri,
+                      lastOpenedDateTime: DateTime.now(),
+                    );
+                    await sessionNotifier.createProject(pickedDir.uri, pickedDir.name); // Treat as new project initially
+                    Navigator.pop(context); // Close drawer
+                  }
+                },
               ),
+              const SizedBox(height: 16),
+              // Create New Project
+              ElevatedButton.icon(
+                icon: const Icon(Icons.create_new_folder),
+                label: const Text('Create New Project'),
+                onPressed: () async {
+                  final parentDir = await fileHandler.pickDirectory();
+                  if (parentDir != null) {
+                    final newProjectName = await _showTextInputDialog(
+                      context,
+                      title: 'New Project Name',
+                      labelText: 'Project Name',
+                    );
+                    if (newProjectName != null && newProjectName.isNotEmpty) {
+                      await sessionNotifier.createProject(parentDir.uri, newProjectName);
+                      Navigator.pop(context); // Close drawer
+                    }
+                  }
+                },
+              ),
+              const Divider(height: 32),
+              Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
+              if (knownProjects.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text('No recent projects. Open or create one!'),
+                ),
+              ...knownProjects.map((projectMetadata) {
+                return ListTile(
+                  leading: const Icon(Icons.folder),
+                  title: Text(projectMetadata.name),
+                  subtitle: Text(projectMetadata.rootUri, overflow: TextOverflow.ellipsis),
+                  onTap: () async {
+                    await sessionNotifier.openProject(projectMetadata.id);
+                    Navigator.pop(context); // Close drawer
+                  },
+                );
+              }).toList(),
             ],
           ),
-          Expanded(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Welcome! Open an existing project or create a new one.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Open Existing Project'),
-                      onPressed: () async {
-                        final pickedDir = await ref.read(fileHandlerProvider).pickDirectory();
-                        if (pickedDir != null) {
-                          final uuid = Uuid(); // For generating project ID
-                          await ref.read(sessionProvider.notifier).createProject(
-                            pickedDir.uri,
-                            pickedDir.name,
-                            id: uuid.v4(), // Generate a new UUID
-                          );
-                          Navigator.pop(context); // Close drawer
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.create_new_folder),
-                      label: const Text('Create New Project'),
-                      onPressed: () async {
-                        final pickedParentDir = await ref.read(fileHandlerProvider).pickDirectory();
-                        if (pickedParentDir != null) {
-                          final newProjectName = await _promptForText(
-                            context,
-                            title: 'New Project Name',
-                            labelText: 'Project Name',
-                            initialText: 'MyNewProject',
-                          );
-                          if (newProjectName != null && newProjectName.isNotEmpty) {
-                            final uuid = Uuid();
-                            await ref.read(sessionProvider.notifier).createProject(
-                              pickedParentDir.uri,
-                              newProjectName,
-                              id: uuid.v4(),
-                            );
-                            Navigator.pop(context); // Close drawer
-                          }
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Utility to prompt for text input (like project name)
-  static Future<String?> _promptForText(BuildContext context, {String title = '', String labelText = '', String initialText = ''}) async {
-    TextEditingController controller = TextEditingController(text: initialText);
+  // Helper for text input dialog
+  Future<String?> _showTextInputDialog(BuildContext context, {required String title, required String labelText}) {
+    TextEditingController controller = TextEditingController();
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
         content: TextField(
           controller: controller,
-          autofocus: true,
           decoration: InputDecoration(labelText: labelText),
-          onSubmitted: (value) => Navigator.of(ctx).pop(value),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.pop(ctx, value),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: const Text('OK'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Create')),
         ],
       ),
     );
   }
 }
 
-// NEW: Project Explorer View (main content when project is open)
+// NEW: Main project explorer view widget
 class ProjectExplorerView extends ConsumerWidget {
-  final Project project;
-  const ProjectExplorerView({super.key, required this.project});
+  const ProjectExplorerView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync = ref.watch(projectStatsProvider);
-    final fileHandler = ref.read(fileHandlerProvider); // To pick files for import
+    final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
+    if (currentProject == null) {
+      return const Center(child: Text('No project selected.')); // Should not happen if this is rendered conditionally
+    }
 
-    return Drawer(
-      child: Column(
-        children: [
-          // Top Header Area (Mimicking Screenshot)
-          Container(
-            color: Theme.of(context).appBarTheme.backgroundColor,
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Project Name Dropdown
-                    ProjectDropdown(project: project),
-                    // Settings Gear Icon
-                    IconButton(
-                      icon: const Icon(Icons.settings),
-                      onPressed: () {
-                        Navigator.pop(context); // Close drawer
-                        Navigator.pushNamed(context, '/settings');
-                      },
-                    ),
-                  ],
-                ),
-                // Project Stats
-                statsAsync.when(
-                  data: (stats) => Text(
-                    '${stats.files} files, ${stats.folders} folders',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+    // Number of files and folders (can be calculated or cached in Project state)
+    final fileCountFuture = ref.watch(currentProjectDirectoryContentsProvider(currentProject.rootUri));
+    final fileCount = fileCountFuture.when(
+      data: (files) => files.where((f) => !f.isDirectory).length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final folderCount = fileCountFuture.when(
+      data: (files) => files.where((f) => f.isDirectory).length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+
+    return Column(
+      children: [
+        // Top Header
+        Container(
+          color: Theme.of(context).appBarTheme.backgroundColor,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ProjectDropdown(currentProject: currentProject), // NEW: Project dropdown
+                  IconButton(
+                    icon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
+                    onPressed: () {
+                      Navigator.pop(context); // Close drawer first
+                      Navigator.pushNamed(context, '/settings');
+                    },
                   ),
-                  loading: () => Text(
-                    'Loading stats...',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
-                  ),
-                  error: (err, stack) => Text(
-                    'Error loading stats',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Files/Filter Bar (Mimicking Screenshot)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _getModeDisplayName(project.fileExplorerViewMode), // Show current mode name
-                        style: Theme.of(context).textTheme.titleMedium,
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$fileCount files, $folderCount folders',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Files',
+                        prefixIcon: Icon(Icons.search),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 8),
                       ),
+                      style: TextStyle(fontSize: 14),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.swap_vert), // Sort/Filter icon
-                      onPressed: () {
-                        // Show menu to change FileExplorerViewMode
-                        _showViewModeMenu(context, ref);
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  FileExplorerModeDropdown(currentMode: currentProject.fileExplorerViewMode), // NEW: View Mode dropdown
+                ],
+              ),
+            ],
           ),
-
-          // Main Directory Tree
-          Expanded(
-            child: _DirectoryView(
-              directory: project.rootUri,
-              // No onOpenFile callback directly here. It's handled inside _DirectoryItem.
-              // Instead, _DirectoryView takes the expandedFolders set from the project state.
-            ),
+        ),
+        // Main File Tree Body
+        Expanded(
+          child: _DirectoryView(
+            directory: currentProject.rootUri,
+            projectRootUri: currentProject.rootUri,
+            expandedFolders: currentProject.expandedFolders,
           ),
+        ),
+        // Bottom File Operations Bar
+        _FileOperationsFooter(projectRootUri: currentProject.rootUri), // MODIFIED: Pass projectRootUri
+      ],
+    );
+  }
+}
 
-          // Bottom File Operations Bar
-          Container(
-            color: Theme.of(context).appBarTheme.backgroundColor,
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // Create File
-                IconButton(
-                  icon: const Icon(Icons.edit_note), // More fitting icon for new file
-                  tooltip: 'Create New File',
-                  onPressed: () async {
-                    final newFileName = await FileExplorerContextCommands._promptForNewName(context, 'NewFile.txt');
-                    if (newFileName != null && newFileName.isNotEmpty) {
-                      try {
-                        await fileHandler.createDocumentFile(project.rootUri, newFileName, isDirectory: false, initialContent: '');
-                        ref.invalidate(currentDirectoryContentsProvider(project.rootUri)); // Refresh root
-                        ref.invalidate(projectStatsProvider);
-                        _showSnackbar(context, 'Created $newFileName');
-                      } catch (e) {
-                        _showSnackbar(context, 'Failed to create file: $e');
-                      }
-                    }
-                  },
-                ),
-                // Create Folder
-                IconButton(
-                  icon: const Icon(Icons.create_new_folder),
-                  tooltip: 'Create New Folder',
-                  onPressed: () async {
-                    final newFolderName = await FileExplorerContextCommands._promptForNewName(context, 'NewFolder');
-                    if (newFolderName != null && newFolderName.isNotEmpty) {
-                      try {
-                        await fileHandler.createDocumentFile(project.rootUri, newFolderName, isDirectory: true);
-                        ref.invalidate(currentDirectoryContentsProvider(project.rootUri)); // Refresh root
-                        ref.invalidate(projectStatsProvider);
-                        _showSnackbar(context, 'Created $newFolderName');
-                      } catch (e) {
-                        _showSnackbar(context, 'Failed to create folder: $e');
-                      }
-                    }
-                  },
-                ),
-                // Import File
-                IconButton(
-                  icon: const Icon(Icons.upload_file), // Arrow up icon for import
-                  tooltip: 'Import File into Project',
-                  onPressed: () async {
-                    final pickedFile = await fileHandler.pickFile();
-                    if (pickedFile != null) {
-                      try {
-                        await fileHandler.copyDocumentFile(pickedFile, project.rootUri);
-                        ref.invalidate(currentDirectoryContentsProvider(project.rootUri)); // Refresh root
-                        ref.invalidate(projectStatsProvider);
-                        _showSnackbar(context, 'Imported ${pickedFile.name}');
-                      } catch (e) {
-                        _showSnackbar(context, 'Failed to import file: $e');
-                      }
-                    }
-                  },
-                ),
-                // Expand/Collapse All
-                IconButton(
-                  icon: const Icon(Icons.unfold_more), // A generic icon for expand/collapse all
-                  tooltip: 'Toggle All Folders',
-                  onPressed: () {
-                    ref.read(sessionProvider.notifier).toggleAllFolderExpansion();
-                  },
-                ),
-                // Paste (conditionally enabled)
-                Consumer(
-                  builder: (context, watch, child) {
-                    final clipboardItem = watch.watch(clipboardProvider);
-                    final isPasteEnabled = clipboardItem != null;
-                    return IconButton(
-                      icon: const Icon(Icons.content_paste), // Paste icon
-                      tooltip: 'Paste Here',
-                      onPressed: isPasteEnabled
-                          ? () async {
-                        // Directly execute the paste command for the project root
-                        final pasteCommand = FileExplorerContextCommands.getCommands().firstWhere((cmd) => cmd.id == 'file_paste');
-                        if (pasteCommand.canExecuteFor(ref, await fileHandler.getFileMetadata(project.rootUri) ??
-                            // Fallback to a dummy dir if root metadata cannot be retrieved
-                            CustomSAFDocumentFile(SafDocumentFile(uri: project.rootUri, name: project.name, isDir: true, length: 0, lastModified: 0))) ) {
-                          await pasteCommand.executeFor(ref, await fileHandler.getFileMetadata(project.rootUri) ??
-                              CustomSAFDocumentFile(SafDocumentFile(uri: project.rootUri, name: project.name, isDir: true, length: 0, lastModified: 0)));
-                        }
-                      }
-                          : null,
-                    );
-                  },
-                ),
+// NEW: Project Name Dropdown
+class ProjectDropdown extends ConsumerWidget {
+  final Project currentProject;
+  const ProjectDropdown({super.key, required this.currentProject});
 
-                // Close Drawer
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Close Explorer',
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final knownProjects = ref.watch(sessionProvider.select((s) => s.knownProjects));
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: currentProject.id,
+        onChanged: (projectId) {
+          if (projectId == '_manage_projects') {
+            Navigator.pop(context); // Close drawer
+            showModalBottomSheet( // Or navigate to a dedicated screen
+              context: context,
+              builder: (ctx) => ManageProjectsScreen(), // NEW: ManageProjectsScreen
+            );
+          } else if (projectId != null && projectId != currentProject.id) {
+            sessionNotifier.openProject(projectId);
+          }
+        },
+        items: [
+          ...knownProjects.map((proj) => DropdownMenuItem(
+            value: proj.id,
+            child: Text(proj.name, style: Theme.of(context).textTheme.titleLarge),
+          )).toList(),
+          const DropdownMenuItem(
+            value: '_manage_projects',
+            child: Text('Manage Projects...', style: TextStyle(fontStyle: FontStyle.italic)),
           ),
         ],
+        selectedItemBuilder: (BuildContext context) {
+          return knownProjects.map<Widget>((proj) {
+            return Row(
+              children: [
+                Text(proj.name, style: Theme.of(context).textTheme.titleLarge),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            );
+          }).toList();
+        },
+        iconSize: 0, // Hide default dropdown icon as it's part of selectedItemBuilder
+        isDense: true,
+        // Optional: style the dropdown button itself for consistency with screenshot
+        // For instance, by wrapping in a GestureDetector with an explicit icon
+      ),
+    );
+  }
+}
+
+// NEW: File Explorer Mode Dropdown
+class FileExplorerModeDropdown extends ConsumerWidget {
+  final FileExplorerViewMode currentMode;
+  const FileExplorerModeDropdown({super.key, required this.currentMode});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<FileExplorerViewMode>(
+        value: currentMode,
+        onChanged: (mode) {
+          if (mode != null) {
+            sessionNotifier.updateProjectExplorerMode(mode);
+          }
+        },
+        items: FileExplorerViewMode.values.map((mode) {
+          return DropdownMenuItem(
+            value: mode,
+            child: Text(_getModeDisplayName(mode)),
+          );
+        }).toList(),
+        icon: const Icon(Icons.sort), // Use sort icon
+        isDense: true,
       ),
     );
   }
 
   String _getModeDisplayName(FileExplorerViewMode mode) {
     switch (mode) {
-      case FileExplorerViewMode.sortByNameAsc: return 'Files (A-Z)';
-      case FileExplorerViewMode.sortByNameDesc: return 'Files (Z-A)';
-      case FileExplorerViewMode.sortByDateModifiedAsc: return 'Oldest First';
-      case FileExplorerViewMode.sortByDateModifiedDesc: return 'Newest First';
-      case FileExplorerViewMode.showAllFiles: return 'All Files';
-      case FileExplorerViewMode.showOnlyCodeFiles: return 'Code Files';
-      default: return 'Files';
+      case FileExplorerViewMode.sortByNameAsc:
+        return 'Sort by Name (A-Z)';
+      case FileExplorerViewMode.sortByNameDesc:
+        return 'Sort by Name (Z-A)';
+      case FileExplorerViewMode.sortByDateModified:
+        return 'Sort by Date Modified';
+      case FileExplorerViewMode.showAllFiles:
+        return 'Show All Files';
+      case FileExplorerViewMode.showOnlyCode:
+        return 'Show Only Code';
     }
-  }
-
-  void _showViewModeMenu(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: FileExplorerViewMode.values.map((mode) {
-            return ListTile(
-              title: Text(_getModeDisplayName(mode)),
-              onTap: () {
-                ref.read(sessionProvider.notifier).updateProjectExplorerMode(mode);
-                Navigator.pop(ctx);
-              },
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  // Utility to show snackbar
-  void _showSnackbar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 }
 
+// NEW: Manager for generic file explorer context commands
+class FileExplorerContextCommands {
+  static List<FileContextCommand> getCommands(WidgetRef ref, DocumentFile item) {
+    final fileHandler = ref.read(fileHandlerProvider);
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    final clipboardContent = ref.watch(clipboardProvider);
 
-// NEW: Project Name Dropdown Widget
-class ProjectDropdown extends ConsumerWidget {
-  final Project project;
-  const ProjectDropdown({super.key, required this.project});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final knownProjects = ref.watch(sessionProvider.select((s) => s.knownProjects));
-
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: project.id, // Current project's ID as value
-        icon: const Icon(Icons.arrow_drop_down),
-        iconSize: 24,
-        style: Theme.of(context).textTheme.headlineSmall, // Matches "Notes Personnelles" style
-        onChanged: (String? newProjectId) async {
-          if (newProjectId != null && newProjectId != project.id) {
-            if (newProjectId == 'manage_projects') {
-              Navigator.pop(context); // Close drawer
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (ctx) => const ManageProjectsScreen()),
-              );
-            } else {
-              ref.read(sessionProvider.notifier).openProject(newProjectId);
-            }
+    return [
+      BaseFileContextCommand(
+        id: 'rename',
+        label: 'Rename',
+        icon: const Icon(Icons.edit),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true, // Always available
+        executeFor: (ref, item) async {
+          final newName = await _showTextInputDialog(
+            ref.context,
+            title: 'Rename ${item.isDirectory ? 'Folder' : 'File'}',
+            labelText: 'New Name',
+            initialValue: item.name,
+          );
+          if (newName != null && newName.isNotEmpty && newName != item.name) {
+            await fileHandler.renameDocumentFile(item, newName);
+            ref.invalidate(currentProjectDirectoryContentsProvider(item.uri.split('%2F').sublist(0, item.uri.split('%2F').length - 1).join('%2F'))); // Invalidate parent
           }
         },
-        items: [
-          // Current Project Name
-          DropdownMenuItem(
-            value: project.id,
-            child: Text(project.name),
-          ),
-          // Separator
-          const DropdownMenuItem<String>(
-            enabled: false, // Make it non-selectable
-            child: Divider(),
-          ),
-          // Other Known Projects
-          ...knownProjects.where((p) => p.id != project.id).map((p) =>
-              DropdownMenuItem(
-                value: p.id,
-                child: Text(p.name),
-              ),
-          ),
-          // Separator
-          const DropdownMenuItem<String>(
-            enabled: false,
-            child: Divider(),
-          ),
-          // Manage Projects Option
-          const DropdownMenuItem<String>(
-            value: 'manage_projects',
-            child: Text('Manage Projects...'),
-          ),
+      ),
+      BaseFileContextCommand(
+        id: 'delete',
+        label: 'Delete',
+        icon: const Icon(Icons.delete),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true, // Always available
+        executeFor: (ref, item) async {
+          final confirm = await _showConfirmDialog(
+            ref.context,
+            title: 'Delete ${item.name}?',
+            content: 'This action cannot be undone.',
+          );
+          if (confirm) {
+            await fileHandler.deleteDocumentFile(item);
+            ref.invalidate(currentProjectDirectoryContentsProvider(item.uri.split('%2F').sublist(0, item.uri.split('%2F').length - 1).join('%2F'))); // Invalidate parent
+          }
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'cut',
+        label: 'Cut',
+        icon: const Icon(Icons.content_cut),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(
+            uri: item.uri,
+            isFolder: item.isDirectory,
+            operation: ClipboardOperation.cut,
+          );
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'copy',
+        label: 'Copy',
+        icon: const Icon(Icons.content_copy),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(
+            uri: item.uri,
+            isFolder: item.isDirectory,
+            operation: ClipboardOperation.copy,
+          );
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'paste',
+        label: 'Paste',
+        icon: const Icon(Icons.content_paste),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => item.isDirectory && clipboardContent != null, // Only paste into folders
+        executeFor: (ref, item) async {
+          if (clipboardContent == null) return;
+          final sourceFile = await fileHandler.getFileMetadata(clipboardContent.uri);
+          if (sourceFile == null) {
+            print('Clipboard source file not found.');
+            ref.read(clipboardProvider.notifier).state = null; // Clear invalid clipboard
+            return;
+          }
+
+          try {
+            if (clipboardContent.operation == ClipboardOperation.copy) {
+              await fileHandler.copyDocumentFile(sourceFile, item.uri);
+            } else { // Cut operation
+              await fileHandler.moveDocumentFile(sourceFile, item.uri);
+            }
+            ref.read(clipboardProvider.notifier).state = null; // Clear clipboard after paste
+            ref.invalidate(currentProjectDirectoryContentsProvider(item.uri)); // Invalidate destination folder
+          } catch (e) {
+            print('Paste failed: $e');
+            ref.read(logProvider.notifier).add('Paste failed: $e');
+          }
+        },
+      ),
+    ];
+  }
+
+  // Helper for text input dialog
+  static Future<String?> _showTextInputDialog(BuildContext context, {required String title, required String labelText, String? initialValue}) {
+    TextEditingController controller = TextEditingController(text: initialValue);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(labelText: labelText),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.pop(ctx, value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('OK')),
         ],
       ),
     );
   }
+
+  // Helper for confirmation dialog
+  static Future<bool> _showConfirmDialog(BuildContext context, {required String title, required String content}) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+            ],
+          ),
+        ) ?? false;
+  }
 }
+
 
 // NEW: Manage Projects Screen
 class ManageProjectsScreen extends ConsumerWidget {
@@ -782,304 +547,570 @@ class ManageProjectsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects = ref.watch(sessionProvider.select((s) => s.knownProjects));
-    final currentProjectId = ref.watch(sessionProvider.select((s) => s.currentProject?.id));
+    final sessionNotifier = ref.read(sessionProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Projects'),
-      ),
+    return Scaffold( // Use Scaffold for a full-screen bottom sheet or new route
+      appBar: AppBar(title: const Text('Manage Projects')),
       body: ListView.builder(
         itemCount: knownProjects.length,
         itemBuilder: (context, index) {
           final project = knownProjects[index];
-          final isCurrent = project.id == currentProjectId;
+          final isCurrent = ref.watch(sessionProvider.select((s) => s.currentProject?.id == project.id));
           return ListTile(
-            leading: const Icon(Icons.folder_outlined),
+            leading: Icon(isCurrent ? Icons.folder_open : Icons.folder),
             title: Text(project.name + (isCurrent ? ' (Current)' : '')),
-            subtitle: Text(project.rootUri),
+            subtitle: Text(project.rootUri, overflow: TextOverflow.ellipsis),
             trailing: IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: isCurrent ? null : () async { // Disable delete if it's the current project
-                final confirmed = await FileExplorerContextCommands._confirmDeletion(context, project.name, true); // Treat as folder
-                if (confirmed) {
-                  ref.read(sessionProvider.notifier).deleteProject(project.id, deleteFolder: false); // Just remove from history
-                  // Optionally add another dialog to ask "also delete files on disk?"
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${project.name} removed from history.')));
+              onPressed: () async {
+                final confirm = await _showConfirmDialog(
+                  context,
+                  title: 'Delete "${project.name}"?',
+                  content: 'This will remove the project from your history. '
+                           'Do you also want to delete the folder from your device?',
+                );
+                if (confirm) { // User confirmed deletion from history
+                  final confirmFolderDelete = await _showConfirmDialog(
+                    context,
+                    title: 'Confirm Folder Deletion',
+                    content: 'This will PERMANENTLY delete the project folder "${project.name}" from your device. This cannot be undone!',
+                  );
+                  await sessionNotifier.deleteProject(project.id, deleteFolder: confirmFolderDelete);
                 }
               },
             ),
-            onTap: isCurrent ? null : () {
-              ref.read(sessionProvider.notifier).openProject(project.id);
-              Navigator.pop(context); // Pop ManageProjectsScreen
-              Navigator.pop(context); // Pop FileExplorerDrawer
+            onTap: isCurrent ? null : () async { // Only allow tapping if not current
+              await sessionNotifier.openProject(project.id);
+              Navigator.pop(context); // Close manage screen after opening
             },
           );
         },
       ),
     );
   }
+
+  // Helper for confirmation dialog (duplicated, ideally centralized)
+  Future<bool> _showConfirmDialog(BuildContext context, {required String title, required String content}) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+            ],
+          ),
+        ) ?? false;
+  }
 }
 
+class _FileOperationsHeader extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: ButtonBar(
+        alignment: MainAxisAlignment.center,
+        children: [
+          FilledButton.icon(
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Open Folder'),
+            onPressed: () async {
+              final pickedDir =
+                  await ref.read(fileHandlerProvider).pickDirectory();
+              if (pickedDir != null) {
+                ref.read(rootUriProvider.notifier).state = pickedDir;
+                ref.read(sessionProvider.notifier).changeDirectory(pickedDir);
+                Navigator.pop(context);
+              }
+            },
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.file_open),
+            label: const Text('Open File'),
+            onPressed: () async {
+              final pickedFile = await ref.read(fileHandlerProvider).pickFile();
+              if (pickedFile != null) {
+                ref.read(sessionProvider.notifier).openFile(pickedFile);
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-// --------------------
-// Directory View (Updated to use Project state)
-// --------------------
+// MODIFIED: _FileOperationsFooter to use the new project structure
+class _FileOperationsFooter extends ConsumerWidget {
+  final String projectRootUri; // NEW: Pass projectRootUri
 
+  const _FileOperationsFooter({required this.projectRootUri}); // NEW: Constructor
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    final fileHandler = ref.read(fileHandlerProvider);
+    final clipboardContent = ref.watch(clipboardProvider); // Watch clipboard
+
+    return Container(
+      color: Theme.of(context).appBarTheme.backgroundColor, // Match app bar color
+      height: 60, // Fixed height for the bar
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Create File
+          IconButton(
+            icon: Icon(Icons.edit_document, color: Theme.of(context).colorScheme.primary),
+            tooltip: 'Create New File',
+            onPressed: () async {
+              final newFileName = await FileExplorerContextCommands._showTextInputDialog(
+                context,
+                title: 'New File Name',
+                labelText: 'File Name (e.g., my_script.dart)',
+              );
+              if (newFileName != null && newFileName.isNotEmpty) {
+                try {
+                  await fileHandler.createDocumentFile(projectRootUri, newFileName, isDirectory: false);
+                  ref.invalidate(currentProjectDirectoryContentsProvider(projectRootUri)); // Invalidate to refresh list
+                } catch (e) {
+                  ref.read(logProvider.notifier).add('Error creating file: $e');
+                }
+              }
+            },
+          ),
+          // Create Folder
+          IconButton(
+            icon: Icon(Icons.create_new_folder, color: Theme.of(context).colorScheme.primary),
+            tooltip: 'Create New Folder',
+            onPressed: () async {
+              final newFolderName = await FileExplorerContextCommands._showTextInputDialog(
+                context,
+                title: 'New Folder Name',
+                labelText: 'Folder Name',
+              );
+              if (newFolderName != null && newFolderName.isNotEmpty) {
+                try {
+                  await fileHandler.createDocumentFile(projectRootUri, newFolderName, isDirectory: true);
+                  ref.invalidate(currentProjectDirectoryContentsProvider(projectRootUri));
+                } catch (e) {
+                  ref.read(logProvider.notifier).add('Error creating folder: $e');
+                }
+              }
+            },
+          ),
+          // Import File into Project
+          IconButton(
+            icon: Icon(Icons.file_upload, color: Theme.of(context).colorScheme.primary),
+            tooltip: 'Import File',
+            onPressed: () async {
+              final pickedFile = await fileHandler.pickFile();
+              if (pickedFile != null) {
+                try {
+                  await fileHandler.copyDocumentFile(pickedFile, projectRootUri);
+                  ref.invalidate(currentProjectDirectoryContentsProvider(projectRootUri));
+                } catch (e) {
+                  ref.read(logProvider.notifier).add('Error importing file: $e');
+                }
+              }
+            },
+          ),
+          // Expand All
+          IconButton(
+            icon: Icon(Icons.unfold_more, color: Theme.of(context).colorScheme.primary),
+            tooltip: 'Expand All Folders',
+            onPressed: () => sessionNotifier.toggleAllFolderExpansion(expand: true),
+          ),
+          // Collapse All
+          IconButton(
+            icon: Icon(Icons.unfold_less, color: Theme.of(context).colorScheme.primary),
+            tooltip: 'Collapse All Folders',
+            onPressed: () => sessionNotifier.toggleAllFolderExpansion(expand: false),
+          ),
+          // Paste (only active if clipboard has content)
+          IconButton(
+            icon: Icon(Icons.content_paste, color: clipboardContent != null ? Theme.of(context).colorScheme.primary : Colors.grey),
+            tooltip: 'Paste',
+            onPressed: clipboardContent != null
+                ? () async {
+                    // Try to paste into the root of the current project
+                    // The actual paste logic is also in FileExplorerContextCommands for context menus
+                    final pasteCommand = FileExplorerContextCommands.getCommands(ref, DocumentFilePlaceholder(uri: projectRootUri, isDirectory: true))
+                                            .firstWhereOrNull((cmd) => cmd.id == 'paste');
+                    if (pasteCommand != null && pasteCommand.canExecuteFor(ref, DocumentFilePlaceholder(uri: projectRootUri, isDirectory: true))) {
+                      await pasteCommand.executeFor(ref, DocumentFilePlaceholder(uri: projectRootUri, isDirectory: true));
+                    } else {
+                      print('Paste command not executable for project root.');
+                    }
+                  }
+                : null,
+          ),
+          // Close Drawer
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Close File Explorer',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Temporary placeholder for DocumentFile when only URI and isDirectory are known for context menu checks
+class DocumentFilePlaceholder implements DocumentFile {
+  @override
+  final String uri;
+  @override
+  final bool isDirectory;
+  @override
+  String get name => '';
+  @override
+  int get size => 0;
+  @override
+  DateTime get modifiedDate => DateTime.now();
+  @override
+  String get mimeType => '';
+  DocumentFilePlaceholder({required this.uri, required this.isDirectory});
+}
+
+// MODIFIED: _DirectoryView to use project structure and expansion state
 class _DirectoryView extends ConsumerWidget {
-  final String directory; // This is now a URI
-  // REMOVED: final Function(DocumentFile) onOpenFile; - Handled internally by _DirectoryItem
+  final String directory; // Current directory URI
+  final String projectRootUri; // Root of the entire project
+  final Set<String> expandedFolders; // Set of expanded folder URIs
 
   const _DirectoryView({
     required this.directory,
-    super.key, // Add key to support auto-scrolling
+    required this.projectRootUri,
+    required this.expandedFolders,
+    // REMOVED: int depth
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the current project to get expanded folders and view mode
+    // Watch for changes in directory contents based on current project and path
+    final contentsAsync = ref.watch(currentProjectDirectoryContentsProvider(directory));
     final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
-    final expandedFolders = currentProject?.expandedFolders ?? {};
-    final viewMode = currentProject?.fileExplorerViewMode ?? FileExplorerViewMode.sortByNameAsc;
-
-    final contentsAsync = ref.watch(currentDirectoryContentsProvider(directory));
 
     return contentsAsync.when(
-      loading: () => _buildLoadingState(),
-      error: (error, _) => _buildErrorState(error), // Pass error object
-      data: (contents) => _buildDirectoryList(contents, expandedFolders, viewMode, ref), // Pass viewMode and ref
+      loading: () => _buildLoadingState(context),
+      error: (error, stack) => _buildErrorState(context, error, stack),
+      data: (contents) {
+        // Apply sorting/filtering based on currentProject.fileExplorerViewMode
+        List<DocumentFile> filteredContents = _applyFiltering(contents, currentProject?.fileExplorerViewMode);
+        _applySorting(filteredContents, currentProject?.fileExplorerViewMode); // Sort in place
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
+          itemCount: filteredContents.length,
+          itemBuilder: (context, index) {
+            final item = filteredContents[index];
+            // Calculate depth based on URI path relative to projectRootUri
+            final depth = item.uri.split('%2F').length - projectRootUri.split('%2F').length;
+
+            return _DirectoryItem(
+              item: item,
+              depth: depth,
+              isExpanded: expandedFolders.contains(item.uri), // Pass expansion state
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildDirectoryList(List<DocumentFile> contents, Set<String> expandedFolders, FileExplorerViewMode viewMode, WidgetRef ref) {
-    // Apply sorting/filtering based on viewMode
-    List<DocumentFile> sortedContents = List.from(contents);
-    switch (viewMode) {
-      case FileExplorerViewMode.sortByNameAsc:
-        sortedContents.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        break;
-      case FileExplorerViewMode.sortByNameDesc:
-        sortedContents.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
-        break;
-      case FileExplorerViewMode.sortByDateModifiedAsc:
-        sortedContents.sort((a, b) => a.modifiedDate.compareTo(b.modifiedDate));
-        break;
-      case FileExplorerViewMode.sortByDateModifiedDesc:
-        sortedContents.sort((a, b) => b.modifiedDate.compareTo(a.modifiedDate));
-        break;
-      case FileExplorerViewMode.showOnlyCodeFiles:
-        sortedContents = sortedContents.where((f) => !f.isDirectory && ref.read(pluginRegistryProvider).any((p) => p.supportsFile(f))).toList();
-        break;
-      case FileExplorerViewMode.showAllFiles:
-      // Handled by includeHidden in currentDirectoryContentsProvider, no further filtering here
-        break;
+  List<DocumentFile> _applyFiltering(List<DocumentFile> contents, FileExplorerViewMode? mode) {
+    if (mode == FileExplorerViewMode.showOnlyCode) {
+      return contents.where((file) => !file.isDirectory && _isCodeFile(file.name)).toList();
     }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const ClampingScrollPhysics(),
-      itemCount: sortedContents.length,
-      itemBuilder:
-          (context, index) => _DirectoryItem(
-            item: sortedContents[index],
-            isExpanded: expandedFolders.contains(sortedContents[index].uri),
-          ),
-    );
+    return contents;
   }
 
-  Widget _buildLoadingState() {
+  bool _isCodeFile(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    // This logic should ideally use CodeThemes.languageExtToNameMap.containsKey(ext)
+    // but importing CodeThemes here would create a circular dependency.
+    // For now, a hardcoded list or passing a predicate from CodeEditorPlugin is needed.
+    // For simplicity, just use a common set of code extensions.
+    return const {
+      'dart', 'js', 'ts', 'py', 'java', 'kt', 'cpp', 'c', 'h', 'html', 'css', 'json', 'xml', 'md', 'sh', 'yaml', 'yml', 'tex'
+    }.contains(ext);
+  }
+
+
+  void _applySorting(List<DocumentFile> contents, FileExplorerViewMode? mode) {
+    contents.sort((a, b) {
+      // Always put directories first
+      if (a.isDirectory != b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+
+      // Then apply sorting based on mode
+      switch (mode) {
+        case FileExplorerViewMode.sortByNameDesc:
+          return b.name.toLowerCase().compareTo(a.name.toLowerCase());
+        case FileExplorerViewMode.sortByDateModified:
+          return b.modifiedDate.compareTo(a.modifiedDate); // Newest first
+        case FileExplorerViewMode.sortByNameAsc: // Default
+        default:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      }
+    });
+  }
+
+  Widget _buildLoadingState(BuildContext context) {
     return ListView(
       shrinkWrap: true,
-      children: const [_DirectoryLoadingTile()],
+      children: [_DirectoryLoadingTile(depth: 0)], // Depth might need adjustment
     );
   }
 
-  Widget _buildErrorState(Object error) {
+  Widget _buildErrorState(BuildContext context, Object error, StackTrace stack) {
     return ListView(
       shrinkWrap: true,
       children: [
         ListTile(
           leading: const Icon(Icons.error, color: Colors.red),
           title: const Text('Error loading directory'),
-          subtitle: Text(error.toString()),
+          subtitle: Text(error.toString(), maxLines: 2, overflow: TextOverflow.ellipsis),
         ),
       ],
     );
   }
 }
 
+// MODIFIED: _DirectoryItem for context menus and proper expansion
 class _DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
-  final bool isExpanded; // NEW: Pass expanded state
-  final int depth; // Retain depth for visual indentation
+  final int depth;
+  final bool isExpanded; // NEW: Receive expansion state
 
   const _DirectoryItem({
     required this.item,
-    required this.isExpanded,
-    this.depth = 0,
-    super.key,
+    required this.depth,
+    required this.isExpanded, // Initialize
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Common padding for both files and folders
-    final itemPadding = EdgeInsets.only(left: (depth * 16.0) + 8.0); // Base padding + indentation
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
 
-    // Gesture detector for long press (context menu)
-    return GestureDetector(
-      onLongPressStart: (details) {
-        _showContextMenu(context, ref, item, details.globalPosition);
-      },
-      child: item.isDirectory
-          ? _DirectoryTile(
-              file: item,
-              isExpanded: isExpanded,
-              onTap: () => ref.read(sessionProvider.notifier).toggleFolderExpansion(item.uri),
-              depth: depth,
-            )
-          : _FileTile(
-              file: item,
-              onTap: () => ref.read(sessionProvider.notifier).openFile(item),
-              depth: depth,
+    Widget childWidget;
+    if (item.isDirectory) {
+      childWidget = ExpansionTile(
+        key: ValueKey(item.uri), // Key important for ReorderableListView if used
+        leading: Icon(
+          isExpanded ? Icons.folder_open : Icons.folder,
+          color: Colors.yellow,
+        ),
+        title: Text(item.name),
+        initiallyExpanded: isExpanded, // Set initial state
+        onExpansionChanged: (expanded) {
+          sessionNotifier.toggleFolderExpansion(item.uri); // Update project state
+        },
+        childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+        children: [
+          if (isExpanded) // Only render children if expanded
+            _DirectoryView(
+              directory: item.uri, // Pass URI for child directory
+              projectRootUri: currentProject!.rootUri,
+              expandedFolders: currentProject.expandedFolders,
             ),
+        ],
+      );
+    } else {
+      childWidget = ListTile(
+        contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+        leading: FileTypeIcon(file: item), // Uses plugin architecture for icon
+        title: Row(
+          children: [
+            Expanded(child: Text(item.name, overflow: TextOverflow.ellipsis)),
+            _FileExtensionTag(file: item), // Optional: JS/Dart tag
+          ],
+        ),
+        onTap: () {
+          sessionNotifier.openFile(item);
+          Navigator.pop(context); // Close drawer after opening file
+        },
+      );
+    }
+
+    // Wrap with GestureDetector for long-press context menu
+    return GestureDetector(
+      onLongPress: () => _showContextMenu(context, ref, item),
+      child: childWidget,
     );
   }
 
-  // Context Menu logic moved into a helper function
-  void _showContextMenu(BuildContext context, WidgetRef ref, DocumentFile item, Offset position) async {
-    final List<PopupMenuEntry<FileContextCommand>> menuItems = [];
+  void _showContextMenu(BuildContext context, WidgetRef ref, DocumentFile item) {
+    // 1. Gather Generic File Explorer Commands
+    final List<FileContextCommand> genericCommands =
+        FileExplorerContextCommands.getCommands(ref, item);
 
-    // 1. Add Generic File Explorer Commands
-    for (final cmd in FileExplorerContextCommands.getCommands()) {
-      if (cmd.canExecuteFor(ref, item)) {
-        menuItems.add(
-          PopupMenuItem<FileContextCommand>(
-            value: cmd,
-            child: Row(
-              children: [
-                cmd.icon,
-                const SizedBox(width: 8),
-                Text(cmd.label),
-              ],
-            ),
-          ),
-        );
-      }
-    }
-
-    // 2. Add Plugin-Specific Commands
+    // 2. Gather Plugin-Specific Commands
+    final List<FileContextCommand> pluginCommands = [];
     final activePlugins = ref.read(activePluginsProvider);
     for (final plugin in activePlugins) {
-      final pluginCommands = plugin.getFileContextMenuCommands(item);
-      for (final cmd in pluginCommands) {
-        if (cmd.canExecuteFor(ref, item)) {
-          menuItems.add(
-            PopupMenuItem<FileContextCommand>(
-              value: cmd,
-              child: Row(
-                children: [
-                  cmd.icon,
-                  const SizedBox(width: 8),
-                  Text(cmd.label),
-                ],
-              ),
-            ),
-          );
-        }
-      }
+      pluginCommands.addAll(plugin.getFileContextMenuCommands(item));
     }
 
-    if (menuItems.isEmpty) return; // No commands available
+    // 3. Combine and filter
+    final List<FileContextCommand> allCommands = [
+      ...genericCommands,
+      ...pluginCommands,
+    ].where((cmd) => cmd.canExecuteFor(ref, item)).toList();
 
-    final selectedCommand = await showMenu<FileContextCommand>(
+    showModalBottomSheet( // Using modal bottom sheet for better mobile UX
       context: context,
-      position: RelativeRect.fromRect(
-        position & const Size(40, 40), // Position from tap
-        Offset.zero & MediaQuery.of(context).size, // Bounding box
-      ),
-      items: menuItems,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(item.name, style: Theme.of(context).textTheme.titleLarge),
+              ),
+              const Divider(),
+              ...allCommands.map((command) => ListTile(
+                leading: command.icon,
+                title: Text(command.label),
+                onTap: () {
+                  Navigator.pop(ctx); // Close sheet
+                  command.executeFor(ref, item); // Execute command
+                },
+              )).toList(),
+            ],
+          ),
+        );
+      },
     );
-
-    if (selectedCommand != null) {
-      await selectedCommand.executeFor(ref, item);
-    }
   }
 }
 
-class _DirectoryTile extends ConsumerWidget {
+// NEW: Widget for file extension tag (JS, DART etc.)
+class _FileExtensionTag extends ConsumerWidget {
   final DocumentFile file;
-  final bool isExpanded;
-  final VoidCallback onTap;
-  final int depth;
 
-  const _DirectoryTile({
-    required this.file,
-    required this.isExpanded,
-    required this.onTap,
-    required this.depth,
-  });
+  const _FileExtensionTag({required this.file});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.only(left: (depth * 16.0) + 8.0),
-          leading: Icon(
-            isExpanded ? Icons.folder_open : Icons.folder,
-            color: Colors.yellow[700],
-          ),
-          title: Text(file.name),
-          trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
-          onTap: onTap,
+    if (file.isDirectory) return const SizedBox.shrink(); // No tag for folders
+
+    final ext = file.name.split('.').last.toUpperCase();
+    if (ext.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(left: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(4.0),
+      ),
+      child: Text(
+        ext,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.orange[300],
         ),
-        if (isExpanded)
-          // Recursively build _DirectoryView for expanded folders
-          _DirectoryView(
-            directory: file.uri,
-            key: ValueKey(file.uri), // Key important for list changes
-          ),
+      ),
+    );
+  }
+}
+
+
+
+class _DirectoryExpansionTile extends ConsumerStatefulWidget {
+  final DocumentFile file;
+  final int depth;
+  final Function(DocumentFile) onOpenFile;
+
+  const _DirectoryExpansionTile({
+    required this.file,
+    required this.depth,
+    required this.onOpenFile,
+  });
+
+  @override
+  ConsumerState<_DirectoryExpansionTile> createState() =>
+      _DirectoryExpansionTileState();
+}
+
+class _DirectoryExpansionTileState
+    extends ConsumerState<_DirectoryExpansionTile> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: Icon(
+        _isExpanded ? Icons.folder_open : Icons.folder,
+        color: Colors.yellow,
+      ),
+      title: Text(widget.file.name),
+      childrenPadding: EdgeInsets.only(left: (widget.depth + 1) * 16.0),
+      onExpansionChanged: (expanded) => setState(() => _isExpanded = expanded),
+      children: [
+        _DirectoryView(
+          directory: widget.file,
+          onOpenFile: widget.onOpenFile,
+          depth: widget.depth + 1,
+        ),
       ],
     );
   }
 }
 
-class _FileTile extends ConsumerWidget {
+class _FileItem extends StatelessWidget {
   final DocumentFile file;
-  final VoidCallback onTap;
   final int depth;
+  final VoidCallback onTap;
 
-  const _FileTile({
+  const _FileItem({
     required this.file,
-    required this.onTap,
     required this.depth,
+    required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: EdgeInsets.only(left: (depth * 16.0) + 8.0),
-      leading: FileTypeIcon(file: file), // Uses plugin architecture for icon
+      contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+      leading: const Icon(Icons.insert_drive_file),
       title: Text(file.name),
       onTap: onTap,
     );
   }
 }
 
+// MODIFIED: _DirectoryLoadingTile
 class _DirectoryLoadingTile extends StatelessWidget {
-  final int depth; // Add depth for consistent indentation
+  final int depth;
 
-  const _DirectoryLoadingTile({this.depth = 0});
+  const _DirectoryLoadingTile({required this.depth});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: (depth * 16.0) + 8.0),
-      child: const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+      padding: EdgeInsets.only(left: (depth + 1) * 16.0, top: 8.0, bottom: 8.0),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 16),
+          Text('Loading...')
+        ],
       ),
     );
   }
