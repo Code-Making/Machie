@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
 
-iimport'plugin_registry.dart';
+import'plugin_registry.dart';
 import '../file_system/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
 import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
