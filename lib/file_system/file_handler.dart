@@ -257,11 +257,7 @@ class SAFFileHandler implements FileHandler {
     if (uri != null) {
       // SAF's pickDirectory with persistablePermission is the primary way
       // to persist permissions for a URI. Calling it again ensures persistence.
-      await _safUtil.pickDirectory(
-        initialUri: uri,
-        persistablePermission: true,
-        writePermission: true,
-      );
+      
       await prefs.setString(_prefsKey, uri);
     } else {
       await prefs.remove(_prefsKey);
@@ -280,7 +276,7 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<String?> getMimeType(String uri) async {
-    final file = await _safUtil.documentFileFromUri(uri, false);
+    final file = await _safUtil.stat(uri, false);
     return file != null ? CustomSAFDocumentFile(file).mimeType : null;
   }
 
