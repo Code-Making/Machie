@@ -10,6 +10,7 @@ import '../file_system/file_handler.dart'; // For DocumentFile, FileHandler
 import '../main.dart'; // For sharedPreferencesProvider, printStream
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin, activePluginsProvider
 import '../screens/settings_screen.dart'; // For LogNotifier
+import '../widgets/file_explorer_drawer.dart'; // NEW: Import for rootUriProvider
 
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
 
