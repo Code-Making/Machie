@@ -299,11 +299,11 @@ class ProjectExplorerView extends ConsumerWidget {
                 onPressed: () => _importFileIntoProject(context, ref, currentProject.rootUri),
               ),
               // Toggle All Expansion
-              IconButton(
+              /*IconButton(
                 icon: const Icon(Icons.unfold_more, color: Colors.deepOrange), // Double arrow icon from screenshot
                 tooltip: 'Expand/Collapse All Folders',
                 onPressed: () => ref.read(sessionProvider.notifier).toggleAllFolderExpansion(),
-              ),
+              ),*/
               // Paste
               IconButton(
                 icon: const Icon(Icons.content_paste, color: Colors.deepOrange), // Clipboard icon from screenshot
