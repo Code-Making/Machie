@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/file_system/file_handler.dart
+// =========================================
+
 import 'dart:convert';
 import 'dart:typed_data'; // For Uint8List
 
@@ -33,7 +37,8 @@ abstract class FileHandler {
 
   Future<String> readFile(String uri);
   Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}); // NEW
+  // MODIFIED: Added overwrite parameter
+  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent, bool overwrite = false});
   Future<void> deleteDocumentFile(DocumentFile file); // MODIFIED
 
   Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName); // NEW
@@ -160,8 +165,9 @@ class SAFFileHandler implements FileHandler {
     return CustomSAFDocumentFile._mimeTypes[ext] ?? 'application/octet-stream';
   }
 
+  // MODIFIED: Added overwrite parameter and pass it to writeFileBytes
   @override
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent}) async {
+  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent, bool overwrite = false}) async {
     if (isDirectory) {
       final createdDir = await _safUtil.mkdirp(parentUri, [name]);
       if (createdDir == null) {
@@ -179,7 +185,7 @@ class SAFFileHandler implements FileHandler {
         name,
         mimeType,
         contentBytes,
-        overwrite: false, // Ensure it creates if not exists, but doesn't overwrite accidentally
+        overwrite: overwrite, // Pass the overwrite flag
       );
 
       final createdFileMetadata = await _safUtil.documentFileFromUri(
@@ -282,8 +288,14 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.stat(uri, false);
-    return file != null ? CustomSAFDocumentFile(file) : null;
+    try {
+      final file = await _safUtil.stat(uri, false);
+      return file != null ? CustomSAFDocumentFile(file) : null;
+    } catch (e) {
+      // This can fail if the URI is malformed or permission is lost.
+      print('Error getting file metadata for $uri: $e');
+      return null;
+    }
   }
 
   @override
