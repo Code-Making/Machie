@@ -231,7 +231,7 @@ class SessionManager {
       throw Exception('Could not access or create .machine folder for project ${projectMetadata.name}');
     }
 
-    final projectDataFile = await _fileHandler.getFileMetadata('${projectDataFolder.uri}/project_data.json');
+    final projectDataFile = await _fileHandler.getFileMetadata('${projectDataFolder.uri}%2Fproject_data.json');
     Project project;
 
     if (projectDataFile != null) {
@@ -246,7 +246,7 @@ class SessionManager {
         project = _createDefaultProject(projectMetadata);
       }
     } else {
-        print('creating project from scratch: ${projectDataFolder.uri}/project_data.json');
+        print('creating project from scratch: ${projectDataFolder.uri}%2Fproject_data.json');
       project = _createDefaultProject(projectMetadata);
     }
     return project;
