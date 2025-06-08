@@ -246,7 +246,7 @@ class SessionManager {
         project = _createDefaultProject(projectMetadata);
       }
     } else {
-        print("creating project from scratch");
+        print('creating project from scratch: ${projectDataFolder.uri}/project_data.json');
       project = _createDefaultProject(projectMetadata);
     }
     return project;
