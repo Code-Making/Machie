@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/session/session_management.dart
+// =========================================
+
 import 'dart:convert';
 import 'dart:math'; // For max()
 
@@ -247,22 +251,17 @@ class SessionManager {
     return project;
   }
 
-  // NEW: Create a brand new project structure
-  Future<Project> createProject(String parentUri, String name) async {
-    final projectRoot = await _fileHandler.createDocumentFile(parentUri, name, isDirectory: true);
-    if (projectRoot == null) {
-      throw Exception('Could not create project folder "$name" in $parentUri');
-    }
-
+  // NEW: Create a project object from an existing folder
+  Future<Project> createProjectFromFolder(DocumentFile projectRoot) async {
     final projectDataDir = await _fileHandler.ensureProjectDataFolder(projectRoot.uri);
     if (projectDataDir == null) {
-      throw Exception('Could not create .machine folder for new project at ${projectRoot.uri}');
+      throw Exception('Could not create .machine folder for project at ${projectRoot.uri}');
     }
 
     final projectId = const Uuid().v4(); // Generate a unique ID for the project
     final project = Project(
       id: projectId,
-      name: name,
+      name: projectRoot.name,
       rootUri: projectRoot.uri,
       projectDataPath: projectDataDir.uri,
       expandedFolders: {projectRoot.uri}, // Start with root expanded
@@ -271,6 +270,8 @@ class SessionManager {
     await saveProject(project); // Save initial project data
     return project;
   }
+
+  // REMOVED: createProject that created a subfolder is no longer needed from the UI.
 
   // NEW: Save current project state to its .machine folder
   Future<void> saveProject(Project project) async {
@@ -508,23 +509,44 @@ class SessionNotifier extends Notifier<SessionState> {
     }
   }
 
-  // NEW: Create a new project and set it as current
-  Future<void> createProject(String parentUri, String name) async {
+  // NEW: Open a folder as a project. If it's a known project, open it.
+  // If it's a new folder, create a project from it and open it.
+  Future<void> openProjectFromFolder(DocumentFile folder) async {
     try {
-      final newProject = await _manager.createProject(parentUri, name);
-      state = state.copyWith(currentProject: newProject);
+      // Check if a project with this root URI already exists
+      final existingMeta = state.knownProjects.firstWhereOrNull((p) => p.rootUri == folder.uri);
 
-      // Add to known projects
-      await _manager.addKnownProject(newProject.toMetadata());
+      if (existingMeta != null) {
+        // If it exists, just open it
+        await openProject(existingMeta.id);
+        return;
+      }
 
-      print('Project "${newProject.name}" created and opened.');
+      // If it doesn't exist, create a new project from the folder
+      final newProject = await _manager.createProjectFromFolder(folder);
+      final newMeta = newProject.toMetadata();
+
+      // Add to known projects list in state and persist the list
+      final updatedKnownProjects = [...state.knownProjects, newMeta];
+      state = state.copyWith(
+        currentProject: newProject,
+        knownProjects: updatedKnownProjects,
+      );
+
+      // Persist the session which now includes the new project in the known list
+      await _manager.saveSession(state);
+
+      // Persist SAF permissions for the new project root
       await ref.read(fileHandlerProvider).persistRootUri(newProject.rootUri);
 
+      print('Project "${newProject.name}" created and opened from folder.');
     } catch (e, st) {
-      print('Error creating project: $e\n$st');
-      ref.read(logProvider.notifier).add('Error creating project: $e');
+      print('Error opening project from folder: $e\n$st');
+      ref.read(logProvider.notifier).add('Error opening project: $e');
     }
   }
+
+  // REMOVED: `createProject(String parentUri, String name)` is no longer needed.
 
   // NEW: Close the current project
   Future<void> closeProject() async {
@@ -547,8 +569,8 @@ class SessionNotifier extends Notifier<SessionState> {
     await ref.read(fileHandlerProvider).persistRootUri(null); // Clear persisted URI
   }
 
-  // NEW: Delete a project from known projects and optionally its folder
-  Future<void> deleteProject(String projectId, {bool deleteFolder = false}) async {
+  // MODIFIED: `deleteProject` no longer deletes the folder, only removes it from history.
+  Future<void> deleteProject(String projectId) async {
     final projectToDeleteMetadata = state.knownProjects.firstWhereOrNull((p) => p.id == projectId);
     if (projectToDeleteMetadata == null) return;
 
@@ -557,22 +579,14 @@ class SessionNotifier extends Notifier<SessionState> {
     }
 
     try {
-      if (deleteFolder) {
-        final rootFile = await ref.read(fileHandlerProvider).getFileMetadata(projectToDeleteMetadata.rootUri);
-        if (rootFile != null) {
-          await ref.read(fileHandlerProvider).deleteDocumentFile(rootFile);
-        } else {
-          print('Warning: Project folder not found at ${projectToDeleteMetadata.rootUri}. Skipping folder deletion.');
-        }
-      }
       await _manager.removeKnownProject(projectId); // Remove from global list
       state = state.copyWith(
         knownProjects: state.knownProjects.where((p) => p.id != projectId).toList(),
       );
-      print('Project "${projectToDeleteMetadata.name}" deleted from history. Folder deletion: $deleteFolder');
+      print('Project "${projectToDeleteMetadata.name}" removed from history.');
     } catch (e, st) {
-      print('Error deleting project: $e\n$st');
-      ref.read(logProvider.notifier).add('Error deleting project: $e');
+      print('Error removing project from history: $e\n$st');
+      ref.read(logProvider.notifier).add('Error removing project: $e');
     }
   }
 
