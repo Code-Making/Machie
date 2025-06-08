@@ -130,42 +130,16 @@ class ProjectSelectionScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Open Existing Project
+          // Open Project button
           ElevatedButton.icon(
             icon: const Icon(Icons.folder_open),
-            label: const Text('Open Existing Project'),
+            label: const Text('Open Project'),
             onPressed: () async {
               final pickedDir = await fileHandler.pickDirectory();
               if (pickedDir != null) {
-                final newProjectId = const Uuid().v4(); // Generate a new ID
-                final projectMetadata = ProjectMetadata(
-                  id: newProjectId,
-                  name: pickedDir.name,
-                  rootUri: pickedDir.uri,
-                  lastOpenedDateTime: DateTime.now(),
-                );
-                await sessionNotifier.createProject(pickedDir.uri, pickedDir.name); // Treat as new project initially
+                // This method will either open an existing project or create a new one from the folder.
+                await sessionNotifier.openProjectFromFolder(pickedDir);
                 Navigator.pop(context); // Close drawer
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          // Create New Project
-          ElevatedButton.icon(
-            icon: const Icon(Icons.create_new_folder),
-            label: const Text('Create New Project'),
-            onPressed: () async {
-              final parentDir = await fileHandler.pickDirectory();
-              if (parentDir != null) {
-                final newProjectName = await _showTextInputDialog(
-                  context,
-                  title: 'New Project Name',
-                  labelText: 'Project Name',
-                );
-                if (newProjectName != null && newProjectName.isNotEmpty) {
-                  await sessionNotifier.createProject(parentDir.uri, newProjectName);
-                  Navigator.pop(context); // Close drawer
-                }
               }
             },
           ),
@@ -174,7 +148,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
           if (knownProjects.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 8.0),
-              child: Text('No recent projects. Open or create one!'),
+              child: Text('No recent projects. Open one to get started!'),
             ),
           ...knownProjects.map((projectMetadata) {
             return ListTile(
@@ -187,27 +161,6 @@ class ProjectSelectionScreen extends ConsumerWidget {
               },
             );
           }).toList(),
-        ],
-      ),
-    );
-  }
-
-  // Helper for text input dialog
-  Future<String?> _showTextInputDialog(BuildContext context, {required String title, required String labelText}) {
-    TextEditingController controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(labelText: labelText),
-          autofocus: true,
-          onSubmitted: (value) => Navigator.pop(ctx, value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Create')),
         ],
       ),
     );
@@ -557,17 +510,11 @@ class ManageProjectsScreen extends ConsumerWidget {
               onPressed: () async {
                 final confirm = await _showConfirmDialog(
                   context,
-                  title: 'Delete "${project.name}"?',
-                  content: 'This will remove the project from your history. '
-                           'Do you also want to delete the folder from your device?',
+                  title: 'Remove "${project.name}"?',
+                  content: 'This will remove the project from your recent projects list. The folder and its contents will not be deleted.',
                 );
-                if (confirm) { // User confirmed deletion from history
-                  final confirmFolderDelete = await _showConfirmDialog(
-                    context,
-                    title: 'Confirm Folder Deletion',
-                    content: 'This will PERMANENTLY delete the project folder "${project.name}" from your device. This cannot be undone!',
-                  );
-                  await sessionNotifier.deleteProject(project.id, deleteFolder: confirmFolderDelete);
+                if (confirm) {
+                  await sessionNotifier.deleteProject(project.id);
                 }
               },
             ),
