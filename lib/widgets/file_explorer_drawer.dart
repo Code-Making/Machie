@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/widgets/file_explorer_drawer.dart
+// =========================================
+
 import 'dart:math';
 import 'dart:async'; // For Future.delayed
 
@@ -93,6 +97,7 @@ class FileExplorerDrawer extends ConsumerWidget {
     final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
 
     return Drawer(
+      width: MediaQuery.of(context).size.width, // Set full width of the screen
       child: currentProject == null
           ? const ProjectSelectionScreen() // NEW: Show project selection when no project is open
           : const ProjectExplorerView(), // NEW: Show project explorer when a project is open
@@ -111,83 +116,79 @@ class ProjectSelectionScreen extends ConsumerWidget {
     final sessionNotifier = ref.read(sessionProvider.notifier);
     final fileHandler = ref.read(fileHandlerProvider);
 
-    return Column(
-      children: [
-        AppBar(
-          title: const Text('Open Project'),
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              // Open Existing Project
-              ElevatedButton.icon(
-                icon: const Icon(Icons.folder_open),
-                label: const Text('Open Existing Project'),
-                onPressed: () async {
-                  final pickedDir = await fileHandler.pickDirectory();
-                  if (pickedDir != null) {
-                    final newProjectId = const Uuid().v4(); // Generate a new ID
-                    final projectMetadata = ProjectMetadata(
-                      id: newProjectId,
-                      name: pickedDir.name,
-                      rootUri: pickedDir.uri,
-                      lastOpenedDateTime: DateTime.now(),
-                    );
-                    await sessionNotifier.createProject(pickedDir.uri, pickedDir.name); // Treat as new project initially
-                    Navigator.pop(context); // Close drawer
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              // Create New Project
-              ElevatedButton.icon(
-                icon: const Icon(Icons.create_new_folder),
-                label: const Text('Create New Project'),
-                onPressed: () async {
-                  final parentDir = await fileHandler.pickDirectory();
-                  if (parentDir != null) {
-                    final newProjectName = await _showTextInputDialog(
-                      context,
-                      title: 'New Project Name',
-                      labelText: 'Project Name',
-                    );
-                    if (newProjectName != null && newProjectName.isNotEmpty) {
-                      await sessionNotifier.createProject(parentDir.uri, newProjectName);
-                      Navigator.pop(context); // Close drawer
-                    }
-                  }
-                },
-              ),
-              const Divider(height: 32),
-              Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
-              if (knownProjects.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text('No recent projects. Open or create one!'),
-                ),
-              ...knownProjects.map((projectMetadata) {
-                return ListTile(
-                  leading: const Icon(Icons.folder),
-                  title: Text(projectMetadata.name),
-                  subtitle: Text(projectMetadata.rootUri, overflow: TextOverflow.ellipsis),
-                  onTap: () async {
-                    await sessionNotifier.openProject(projectMetadata.id);
-                    Navigator.pop(context); // Close drawer
-                  },
-                );
-              }).toList(),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Open Project'),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
           ),
-        ),
-      ],
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          // Open Existing Project
+          ElevatedButton.icon(
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Open Existing Project'),
+            onPressed: () async {
+              final pickedDir = await fileHandler.pickDirectory();
+              if (pickedDir != null) {
+                final newProjectId = const Uuid().v4(); // Generate a new ID
+                final projectMetadata = ProjectMetadata(
+                  id: newProjectId,
+                  name: pickedDir.name,
+                  rootUri: pickedDir.uri,
+                  lastOpenedDateTime: DateTime.now(),
+                );
+                await sessionNotifier.createProject(pickedDir.uri, pickedDir.name); // Treat as new project initially
+                Navigator.pop(context); // Close drawer
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          // Create New Project
+          ElevatedButton.icon(
+            icon: const Icon(Icons.create_new_folder),
+            label: const Text('Create New Project'),
+            onPressed: () async {
+              final parentDir = await fileHandler.pickDirectory();
+              if (parentDir != null) {
+                final newProjectName = await _showTextInputDialog(
+                  context,
+                  title: 'New Project Name',
+                  labelText: 'Project Name',
+                );
+                if (newProjectName != null && newProjectName.isNotEmpty) {
+                  await sessionNotifier.createProject(parentDir.uri, newProjectName);
+                  Navigator.pop(context); // Close drawer
+                }
+              }
+            },
+          ),
+          const Divider(height: 32),
+          Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
+          if (knownProjects.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text('No recent projects. Open or create one!'),
+            ),
+          ...knownProjects.map((projectMetadata) {
+            return ListTile(
+              leading: const Icon(Icons.folder),
+              title: Text(projectMetadata.name),
+              subtitle: Text(projectMetadata.rootUri, overflow: TextOverflow.ellipsis),
+              onTap: () async {
+                await sessionNotifier.openProject(projectMetadata.id);
+                Navigator.pop(context); // Close drawer
+              },
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 
@@ -237,65 +238,42 @@ class ProjectExplorerView extends ConsumerWidget {
       error: (_, __) => 0,
     );
 
-    return Column(
-      children: [
-        // Top Header
-        Container(
-          color: Theme.of(context).appBarTheme.backgroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ProjectDropdown(currentProject: currentProject), // NEW: Project dropdown
-                  IconButton(
-                    icon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
-                    onPressed: () {
-                      Navigator.pop(context); // Close drawer first
-                      Navigator.pushNamed(context, '/settings');
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$fileCount files, $folderCount folders',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Files',
-                        prefixIcon: Icon(Icons.search),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
-                      ),
-                      style: TextStyle(fontSize: 14),
-                    ),
-                  ),
-                  FileExplorerModeDropdown(currentMode: currentProject.fileExplorerViewMode), // NEW: View Mode dropdown
-                ],
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false, // The drawer is opened via a menu button, don't show a back arrow.
+        title: ProjectDropdown(currentProject: currentProject),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
+            onPressed: () {
+              Navigator.pop(context); // Close drawer
+              Navigator.pushNamed(context, '/settings');
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(30.0), // Adjust height for this row
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$fileCount files, $folderCount folders',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                FileExplorerModeDropdown(currentMode: currentProject.fileExplorerViewMode),
+              ],
+            ),
           ),
         ),
-        // Main File Tree Body
-        Expanded(
-          child: _DirectoryView(
-            directory: currentProject.rootUri,
-            projectRootUri: currentProject.rootUri,
-            expandedFolders: currentProject.expandedFolders,
-          ),
-        ),
-        // Bottom File Operations Bar
-        _FileOperationsFooter(projectRootUri: currentProject.rootUri), // MODIFIED: Pass projectRootUri
-      ],
+      ),
+      body: _DirectoryView(
+        directory: currentProject.rootUri,
+        projectRootUri: currentProject.rootUri,
+        expandedFolders: currentProject.expandedFolders,
+      ),
+      bottomNavigationBar: _FileOperationsFooter(projectRootUri: currentProject.rootUri),
     );
   }
 }
@@ -681,18 +659,6 @@ class _FileOperationsFooter extends ConsumerWidget {
               }
             },
           ),
-          // Expand All
-          IconButton(
-            icon: Icon(Icons.unfold_more, color: Theme.of(context).colorScheme.primary),
-            tooltip: 'Expand All Folders',
-            onPressed: () => sessionNotifier.toggleAllFolderExpansion(expand: true),
-          ),
-          // Collapse All
-          IconButton(
-            icon: Icon(Icons.unfold_less, color: Theme.of(context).colorScheme.primary),
-            tooltip: 'Collapse All Folders',
-            onPressed: () => sessionNotifier.toggleAllFolderExpansion(expand: false),
-          ),
           // Paste (only active if clipboard has content)
           IconButton(
             icon: Icon(Icons.content_paste, color: clipboardContent != null ? Theme.of(context).colorScheme.primary : Colors.grey),
@@ -760,7 +726,7 @@ class _DirectoryView extends ConsumerWidget {
     final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
 
     return contentsAsync.when(
-      loading: () => _buildLoadingState(context),
+      loading: () => const SizedBox.shrink(), // No more flickering loading indicator
       error: (error, stack) => _buildErrorState(context, error, stack),
       data: (contents) {
         // Apply sorting/filtering based on currentProject.fileExplorerViewMode
@@ -824,13 +790,6 @@ class _DirectoryView extends ConsumerWidget {
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
     });
-  }
-
-  Widget _buildLoadingState(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      children: [_DirectoryLoadingTile(depth: 0)], // Depth might need adjustment
-    );
   }
 
   Widget _buildErrorState(BuildContext context, Object error, StackTrace stack) {
@@ -1011,31 +970,6 @@ class _FileItem extends StatelessWidget {
       leading: const Icon(Icons.insert_drive_file),
       title: Text(file.name),
       onTap: onTap,
-    );
-  }
-}
-
-// MODIFIED: _DirectoryLoadingTile
-class _DirectoryLoadingTile extends StatelessWidget {
-  final int depth;
-
-  const _DirectoryLoadingTile({required this.depth});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: (depth + 1) * 16.0, top: 8.0, bottom: 8.0),
-      child: const Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 16),
-          Text('Loading...')
-        ],
-      ),
     );
   }
 }
