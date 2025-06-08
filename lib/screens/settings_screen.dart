@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ADDED: For Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../main.dart'; // For logProvider, settingsProvider, activePluginsProvider, commandProvider, printStream
