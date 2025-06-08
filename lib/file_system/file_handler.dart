@@ -282,7 +282,7 @@ class SAFFileHandler implements FileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.documentFileFromUri(uri, false);
+    final file = await _safUtil.stat(uri, false);
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
