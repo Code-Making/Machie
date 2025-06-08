@@ -33,21 +33,6 @@ class LogNotifier extends StateNotifier<List<String>> {
   }
 }
 
-class LogNotifier extends StateNotifier<List<String>> {
-  LogNotifier() : super([]);
-
-  void add(String message) {
-    state = [...state, '${DateTime.now().toIso8601String()}: $message'];
-    if (state.length > 200) {
-      state = state.sublist(state.length - 100); // Keep last 100 entries
-    }
-  }
-
-  void clearLogs() {
-    state = [];
-  }
-}
-
 class DebugLogView extends ConsumerWidget {
   const DebugLogView({super.key});
 
