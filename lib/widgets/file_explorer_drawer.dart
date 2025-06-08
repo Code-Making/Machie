@@ -241,7 +241,11 @@ class ProjectExplorerView extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false, // The drawer is opened via a menu button, don't show a back arrow.
-        title: ProjectDropdown(currentProject: currentProject),
+        leadingWidth: MediaQuery.of(context).size.width * 0.75, // Give it enough space
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0), // Control left margin
+          child: ProjectDropdown(currentProject: currentProject),
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
@@ -302,10 +306,11 @@ class ProjectDropdown extends ConsumerWidget {
             sessionNotifier.openProject(projectId);
           }
         },
+        isExpanded: true,
         items: [
           ...knownProjects.map((proj) => DropdownMenuItem(
             value: proj.id,
-            child: Text(proj.name, style: Theme.of(context).textTheme.titleLarge),
+            child: Text(proj.name, overflow: TextOverflow.ellipsis),
           )).toList(),
           const DropdownMenuItem(
             value: '_manage_projects',
@@ -313,19 +318,28 @@ class ProjectDropdown extends ConsumerWidget {
           ),
         ],
         selectedItemBuilder: (BuildContext context) {
-          return knownProjects.map<Widget>((proj) {
-            return Row(
-              children: [
-                Text(proj.name, style: Theme.of(context).textTheme.titleLarge),
-                const Icon(Icons.arrow_drop_down),
-              ],
-            );
-          }).toList();
+          return [
+            ...knownProjects.map<Widget>((proj) {
+              return Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      proj.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              );
+            }).toList(),
+            // Placeholder for the "Manage Projects" item in the builder
+            const Text('Manage Projects...', style: TextStyle(fontStyle: FontStyle.italic)),
+          ];
         },
-        iconSize: 0, // Hide default dropdown icon as it's part of selectedItemBuilder
+        iconSize: 0, // We provide our own icon in the selectedItemBuilder
         isDense: true,
-        // Optional: style the dropdown button itself for consistency with screenshot
-        // For instance, by wrapping in a GestureDetector with an explicit icon
       ),
     );
   }
