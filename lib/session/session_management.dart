@@ -246,6 +246,7 @@ class SessionManager {
         project = _createDefaultProject(projectMetadata);
       }
     } else {
+        print("creating project from scratch");
       project = _createDefaultProject(projectMetadata);
     }
     return project;
