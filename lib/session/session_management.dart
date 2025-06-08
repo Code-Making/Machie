@@ -224,14 +224,16 @@ class SessionManager {
        _plugins = plugins,
        _prefs = prefs;
 
-  // NEW: Open a project by its metadata
+  // MODIFIED: openProject to robustly find project_data.json
   Future<Project> openProject(ProjectMetadata projectMetadata) async {
     final projectDataFolder = await _fileHandler.ensureProjectDataFolder(projectMetadata.rootUri);
     if (projectDataFolder == null) {
       throw Exception('Could not access or create .machine folder for project ${projectMetadata.name}');
     }
 
-    final projectDataFile = await _fileHandler.getFileMetadata('${projectDataFolder.uri}%2Fproject_data.json');
+    // Robustly find the project_data.json file instead of building the path manually
+    final filesInMachineDir = await _fileHandler.listDirectory(projectDataFolder.uri, includeHidden: true);
+    final projectDataFile = filesInMachineDir.firstWhereOrNull((f) => f.name == 'project_data.json');
     Project project;
 
     if (projectDataFile != null) {
@@ -246,7 +248,7 @@ class SessionManager {
         project = _createDefaultProject(projectMetadata);
       }
     } else {
-        print('creating project from scratch: ${projectDataFolder.uri}%2Fproject_data.json');
+      print('creating project from scratch: ${projectDataFolder.uri}/project_data.json');
       project = _createDefaultProject(projectMetadata);
     }
     return project;
@@ -272,9 +274,7 @@ class SessionManager {
     return project;
   }
 
-  // REMOVED: createProject that created a subfolder is no longer needed from the UI.
-
-  // NEW: Save current project state to its .machine folder
+  // MODIFIED: saveProject now correctly overwrites the project data file.
   Future<void> saveProject(Project project) async {
     final projectDataFolder = await _fileHandler.ensureProjectDataFolder(project.rootUri);
     if (projectDataFolder == null) {
@@ -286,7 +286,9 @@ class SessionManager {
       projectDataFolder.uri,
       'project_data.json',
       initialContent: jsonEncode(project.toJson()),
+      overwrite: true, // IMPORTANT: Overwrite the file instead of creating duplicates
     );
+
     if (projectDataFile == null) {
       print('Warning: Could not create/write project_data.json for ${project.name}.');
     }
