@@ -1,16 +1,18 @@
-import 'dart:async'; // For FutureOr
-import 'dart:math'; // For max
+import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For LogicalKeyboardKey, RawKeyDownEvent, AxisDirection
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeChunkController, CodeIndicatorValueNotifier, CodeLine, CodeLinePosition, CodeLineSelection, CodeEditor, CodeEditorStyle, CodeHighlightTheme, DefaultCodeChunkIndicator, DefaultCodeLineNumber, CodeCommentFormatter
-import 'package:re_highlight/styles/atom-one-dark.dart'; // Only needed for atomOneDarkTheme constant if directly referenced, otherwise through CodeThemes
+import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
 
-import '../../project/file_handler/file_handler.dart'; // For DocumentFile
-import '../../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
-import '../plugin_architecture.dart'; // For EditorPlugin, PluginSettings, Command, CommandPosition, AppSettings, settingsProvider, CommandNotifier, CodeEditorTapRegion, BottomToolbar
-import 'code_themes.dart'; // For CodeThemes utility class
+import '../../app/app_notifier.dart';
+import '../../project/file_handler/file_handler.dart';
+import '../../project/project_models.dart';
+import '../../session/session_models.dart';
+import '../plugin_architecture.dart';
+import 'code_themes.dart';
 
 // --------------------
 // Code Editor Plugin Providers
@@ -106,15 +108,17 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
 
+  // CORRECTED: Update signature to use `Ref`
   @override
-  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
+  void activateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
     ref.read(markProvider.notifier).state = null;
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
   }
 
+  // CORRECTED: Update signature to use `Ref`
   @override
-  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {
+  void deactivateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
     ref.read(markProvider.notifier).state = null;
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
@@ -152,10 +156,9 @@ class CodeEditorPlugin implements EditorPlugin {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final currentTab =
-        ProviderScope.containerOf(context).read(sessionProvider).currentTab
-            as CodeEditorTab;
-    final highlightState = ProviderScope.containerOf(
+    final currentTab = ProviderScope.containerOf(context).read(appNotifierProvider).value?.currentProject?.session.currentTab as CodeEditorTab?;
+    if (currentTab == null) return textSpan;
+        final highlightState = ProviderScope.containerOf(
       context,
     ).read(bracketHighlightProvider);
 
@@ -250,13 +253,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Save',
       icon: Icons.save,
       defaultPosition: CommandPosition.appBar,
-      execute: (ref, _) {
-        final session = ref.read(sessionProvider);
-        final currentIndex = session.currentTabIndex;
-        if (currentIndex != -1) {
-          ref.read(sessionProvider.notifier).saveTab(currentIndex);
-        }
-      },
+      execute: (ref, _) async => ref.read(appNotifierProvider.notifier).saveCurrentTab(),
     ),
     _createCommand(
       id: 'copy',
@@ -395,8 +392,7 @@ class CodeEditorPlugin implements EditorPlugin {
     required String label,
     required IconData icon,
     required CommandPosition defaultPosition,
-    required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
-    execute,
+    required FutureOr<void> Function(WidgetRef, CodeLineEditingController?) execute,
     bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
   }) {
     return BaseCommand(
@@ -404,25 +400,26 @@ class CodeEditorPlugin implements EditorPlugin {
       label: label,
       icon: Icon(icon, size: 20),
       defaultPosition: defaultPosition,
-      sourcePlugin: this.runtimeType.toString(),
+      sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final ctrl = _getController(ref);
         await execute(ref, ctrl);
       },
       canExecute: (ref) {
         final ctrl = _getController(ref);
-        return canExecute?.call(ref, ctrl) ?? true;
+        return canExecute?.call(ref, ctrl) ?? (ctrl != null);
       },
     );
   }
 
   CodeLineEditingController? _getController(WidgetRef ref) {
-    final tab = ref.read(sessionProvider).currentTab;
+    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     return tab is CodeEditorTab ? tab.controller : null;
   }
-
+  
+  // CORRECTED: Helper to get the full tab object
   CodeEditorTab? _getTab(WidgetRef ref) {
-    final tab = ref.watch(sessionProvider).currentTab;
+    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
     return tab is CodeEditorTab ? tab : null;
   }
 
@@ -755,7 +752,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _handleControllerChange() {
-    ref.read(sessionProvider.notifier).markCurrentTabDirty();
+    ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
     _updateAllStatesFromController();
   }
 
@@ -802,9 +799,13 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       ),
     );
 
-    final currentLanguageKey = ref.watch(sessionProvider.select(
-      (s) => (s.currentTab is CodeEditorTab) ? (s.currentTab as CodeEditorTab).languageKey : null,
-    ));
+        // CORRECTED: Get language key from AppNotifier state
+        final currentLanguageKey = ref.watch(appNotifierProvider.select(
+          (s) {
+            final tab = s.value?.currentProject?.session.currentTab;
+            return (tab is CodeEditorTab) ? tab.languageKey : null;
+          },
+        ));
 
     // Get the selected theme name from settings
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark'; // Default theme
@@ -849,8 +850,11 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   @override
   BracketHighlightState build() { return BracketHighlightState(); }
   void handleBracketHighlight() {
-    final currentTab = ref.read(sessionProvider).currentTab as CodeEditorTab;
-    final controller = currentTab.controller;
+  final currentTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+      if (currentTab is! CodeEditorTab) {
+          state = BracketHighlightState();
+          return;
+      }    final controller = currentTab.controller;
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
