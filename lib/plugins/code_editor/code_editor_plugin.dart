@@ -658,6 +658,10 @@ class CodeEditorPlugin implements EditorPlugin {
       print('Cannot show dialog, context is null.');
       return;
     }
+    
+    final currentTab = _getTab(ref);
+    if (currentTab == null) return;
+
 
     final selectedLanguageKey = await showDialog<String>(
       context: context,
