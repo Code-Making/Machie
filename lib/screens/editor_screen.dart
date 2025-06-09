@@ -1,18 +1,15 @@
-import 'package:collection/collection.dart';
+// lib/screens/editor_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // For CodeEditorTapRegion, CodeLineEditingController
+import 'package:re_editor/re_editor.dart';
 
-import '../project/file_handler/file_handler.dart'; // For DocumentFile
-import '../main.dart'; // For sessionProvider, tabBarScrollProvider
-import '../plugins/code_editor/code_editor_plugin.dart'; // NEW: For CodeEditorPlugin type check
-import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
-import '../plugins/plugin_architecture.dart'; // For EditorPlugin
-import '../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
-import '../widgets/file_explorer_drawer.dart'; // For FileExplorerDrawer
-import 'settings_screen.dart'; // For DebugLogView
-import 'settings_screen.dart'; // For DebugLogView
+import '../app/app_notifier.dart';
+import '../plugins/code_editor/code_editor_plugin.dart';
+import '../plugins/plugin_architecture.dart';
+import '../session/session_models.dart';
+import '../widgets/file_explorer_drawer.dart';
+import 'settings_screen.dart';
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
@@ -23,21 +20,13 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // final currentProject = ref.watch(sessionProvider.select((s) => s.currentProject));
-    final currentUri = ref.watch(
-      sessionProvider.select((s) => s.currentTab?.file.uri), // Use sessionProvider
-    );
-    final currentName = ref.read(
-      sessionProvider.select((s) => s.currentTab?.file.name), // Use sessionProvider
-    );
-    final currentPlugin = ref.watch(
-      sessionProvider.select((s) => s.currentTab?.plugin),
-    );
-
-    final scaffoldKey = GlobalKey<ScaffoldState>(); // Add key here
+    // CORRECTED: Select data from the new AppNotifier state
+    final currentTab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    final currentPlugin = currentTab?.plugin;
+    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(
-      key: scaffoldKey, // Assign key to Scaffold
+      key: scaffoldKey,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.menu),
@@ -49,28 +38,23 @@ class EditorScreen extends ConsumerWidget {
               : const AppBarCommands(),
           IconButton(
             icon: const Icon(Icons.bug_report),
-            onPressed:
-                () => showDialog(
-                  context: context,
-                  builder: (_) => const DebugLogView(),
-                ),
+            onPressed: () => showDialog(context: context, builder: (_) => const DebugLogView()),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
-        title: Text(currentName != null ? currentName : 'Code Editor'),
+        title: Text(currentTab?.file.name ?? 'Code Editor'),
       ),
-      drawer: FileExplorerDrawer(),
+      drawer: const FileExplorerDrawer(),
       body: Column(
         children: [
           const TabBarView(),
           Expanded(
-            child:
-                currentUri != null
-                    ? EditorContentSwitcher()
-                    : const Center(child: Text('Open file')),
+            child: currentTab != null
+                ? EditorContentSwitcher()
+                : const Center(child: Text('Open a file to start editing')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
@@ -85,7 +69,12 @@ class TabBarView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = ref.watch(tabBarScrollProvider);
-    final tabs = ref.watch(sessionProvider.select((state) => state.tabs));
+    // CORRECTED: Select tabs from the new AppNotifier state
+    final tabs = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.tabs)) ?? [];
+
+    if (tabs.isEmpty) {
+      return const SizedBox.shrink(); // Don't show the tab bar if there are no tabs
+    }
 
     return Container(
       color: Colors.grey[900],
@@ -95,17 +84,14 @@ class TabBarView extends ConsumerWidget {
           key: const PageStorageKey<String>('tabBarScrollPosition'),
           scrollController: scrollController,
           scrollDirection: Axis.horizontal,
-          onReorder:
-              (oldIndex, newIndex) => ref
-                  .read(sessionProvider.notifier)
-                  .reorderTabs(oldIndex, newIndex),
+          onReorder: (oldIndex, newIndex) => ref.read(appNotifierProvider.notifier).reorderTabs(oldIndex, newIndex),
           buildDefaultDragHandles: false,
           children: [
-            for (final tab in tabs)
+            for (int i = 0; i < tabs.length; i++)
               ReorderableDelayedDragStartListener(
-                key: ValueKey(tab.file),
-                index: tabs.indexOf(tab),
-                child: FileTab(tab: tab, index: tabs.indexOf(tab)),
+                key: ValueKey(tabs[i].file.uri),
+                index: i,
+                child: FileTab(tab: tabs[i], index: i),
               ),
           ],
         ),
@@ -122,24 +108,22 @@ class FileTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(
-      sessionProvider.select((s) => s.currentTabIndex == index),
-    );
+    // CORRECTED: Select active state from AppNotifier
+    final isActive = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index));
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
-          onTap: () => ref.read(sessionProvider.notifier).switchTab(index),
+          onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  onPressed:
-                      () => ref.read(sessionProvider.notifier).closeTab(index),
+                  onPressed: () => ref.read(appNotifierProvider.notifier).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -157,9 +141,6 @@ class FileTab extends ConsumerWidget {
       ),
     );
   }
-
-  String _getFileName(String uri) =>
-      Uri.parse(uri).pathSegments.last.split('/').last;
 }
 
 class EditorContentSwitcher extends ConsumerWidget {
@@ -167,9 +148,8 @@ class EditorContentSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUri = ref.watch(
-      sessionProvider.select((s) => s.currentTab?.file.uri),
-    );
+    // CORRECTED: Select the URI from the new AppNotifier state to use as a key
+    final currentUri = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.file.uri));
 
     return KeyedSubtree(
       key: ValueKey(currentUri),
@@ -181,7 +161,8 @@ class EditorContentSwitcher extends ConsumerWidget {
 class _EditorContentProxy extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.read(sessionProvider).currentTab;
+    // CORRECTED: Read the current tab from the AppNotifier
+    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }
