@@ -11,6 +11,8 @@ import '../session/session_models.dart';
 import '../session/session_service.dart';
 import 'app_state.dart';
 
+final clipboardProvider = StateProvider<ClipboardItem?>((ref) => null);
+
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(AppNotifier.new);
 
 class AppNotifier extends AsyncNotifier<AppState> {
@@ -39,6 +41,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
     return initialState;
   }
+  
+  
 
   Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;
