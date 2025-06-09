@@ -51,7 +51,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
   // --- Project Lifecycle ---
   Future<void> openProjectFromFolder(DocumentFile folder) async {
     await _updateState((previousState) async {
-      // CORRECTED: Use firstWhereOrNull to handle not found case.
       ProjectMetadata? existingMeta = previousState.knownProjects.firstWhereOrNull((p) => p.rootUri == folder.uri);
       final ProjectMetadata metaToOpen = existingMeta ?? await _projectManager.createNewProjectMetadata(folder.uri, folder.name);
 
@@ -113,7 +112,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return;
     }
 
-    // CORRECTED: Read activePluginsProvider inside the method.
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     final content = await project.fileHandler.readFile(file.uri);
@@ -131,6 +129,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
     });
 
     _handlePluginLifecycle(oldTab, newTab);
+  }
+  
+  // NEW: Generic method to update the state of the currently active tab.
+  Future<void> updateCurrentTab(EditorTab newTab) async {
+    await _updateState((previousState) async {
+      final project = previousState.currentProject as LocalProject;
+      final session = project.session;
+      
+      final newTabs = List<EditorTab>.from(session.tabs);
+      newTabs[session.currentTabIndex] = newTab;
+
+      final newSession = session.copyWith(tabs: newTabs);
+      final newProject = project.copyWith(session: newSession);
+      
+      return previousState.copyWith(currentProject: newProject);
+    });
   }
 
   Future<void> switchTab(int index) async {
@@ -219,8 +233,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     final newTab = currentTab.copyWith(isDirty: true);
 
-    // This is a UI-only state change, so we don't need the full async update.
-    // A synchronous update is faster and prevents a loading flash.
     if (state.value != null) {
       final newTabs = state.value!.currentProject!.session.tabs.map((t) => t == currentTab ? newTab : t).toList();
       final newProject = (state.value!.currentProject as LocalProject).copyWith(

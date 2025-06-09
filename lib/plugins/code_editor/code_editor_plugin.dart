@@ -683,9 +683,10 @@ class CodeEditorPlugin implements EditorPlugin {
     );
 
     if (selectedLanguageKey != null) {
-      final sessionNotifier = ref.read(sessionProvider.notifier);
-      final currentTabIndex = ref.read(sessionProvider).currentTabIndex;
-      sessionNotifier.updateTabLanguageKey(currentTabIndex, selectedLanguageKey);
+      // Create a new tab with the updated language key
+      final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
+      // Ask the AppNotifier to update the current tab state
+      await ref.read(appNotifierProvider.notifier).updateCurrentTab(updatedTab);
     }
   }
 }
