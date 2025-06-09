@@ -1,22 +1,18 @@
-import 'dart:async'; // For FutureOr
+// lib/plugins/plugin_architecture.dart
+
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
+import 'package:re_editor/re_editor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../project/file_handler/file_handler.dart'; // For DocumentFile
-import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
-import '../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
-import '../project/project_models.dart'; // NEW: For ProjectMetadata, ClipboardOperation
-import 'plugin_registry.dart';
-
-
-import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
-
-
-
-
+import '../app/app_notifier.dart';
+import '../project/file_handler/file_handler.dart';
+import '../project/project_models.dart';
+import '../session/session_models.dart';
+import'plugin_registry.dart';
 
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((ref) {
   return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
@@ -25,7 +21,8 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((re
 final appBarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
+  // CORRECTED: Watch the new AppNotifier for the current plugin type
+  final currentPlugin = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()));
 
   return [
     ...state.appBarOrder,
@@ -41,7 +38,8 @@ final appBarCommandsProvider = Provider<List<Command>>((ref) {
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPlugin = ref.watch(sessionProvider.select((s) => s.currentTab?.plugin.runtimeType.toString()));
+  // CORRECTED: Watch the new AppNotifier
+  final currentPlugin = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()));
 
   return [
     ...state.pluginToolbarOrder,
@@ -58,7 +56,6 @@ final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
 });
 
-// Settings Providers (kept here as they are tightly coupled with PluginSettings and AppSettings)
 final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
   final plugins = ref.watch(activePluginsProvider);
   return SettingsNotifier(plugins: plugins);
@@ -69,33 +66,29 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((r
 // --------------------
 
 abstract class EditorPlugin {
-  // Metadata
   String get name;
   Widget get icon;
   List<Command> getCommands();
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
-  // File type support
   bool supportsFile(DocumentFile file);
 
-  // Tab management
   Future<EditorTab> createTab(DocumentFile file, String content);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
-  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
-  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref);
+  // CORRECTED: Signature now uses the more generic `Ref`
+  void activateTab(EditorTab tab, Ref ref);
+  void deactivateTab(EditorTab tab, Ref ref);
 
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
   Widget buildToolbar(WidgetRef ref) {
-    return const SizedBox.shrink(); // Default empty implementation
+    return const SizedBox.shrink();
   }
 
-  // New: Method for deserializing tabs
   Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler);
 
-  // Optional lifecycle hooks
   Future<void> dispose() async {}
 }
 

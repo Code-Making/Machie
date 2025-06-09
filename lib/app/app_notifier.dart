@@ -1,10 +1,12 @@
 // lib/app/app_notifier.dart
+
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../main.dart'; // For sharedPreferencesProvider
 import '../plugins/plugin_architecture.dart';
+import '../plugins/plugin_registry.dart'; // For activePluginsProvider
 import '../project/file_handler/file_handler.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
@@ -40,19 +42,21 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
+    final previousState = state.value;
+    if (previousState == null) return;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async => await updater(state.value!));
+    state = await AsyncValue.guard(() async => await updater(previousState));
   }
 
   // --- Project Lifecycle ---
   Future<void> openProjectFromFolder(DocumentFile folder) async {
     await _updateState((previousState) async {
-      ProjectMetadata metaToOpen = previousState.knownProjects.firstWhere(
-            (p) => p.rootUri == folder.uri, orElse: () => null) ??
-            await _projectManager.createNewProjectMetadata(folder.uri, folder.name);
+      // CORRECTED: Use firstWhereOrNull to handle not found case.
+      ProjectMetadata? existingMeta = previousState.knownProjects.firstWhereOrNull((p) => p.rootUri == folder.uri);
+      final ProjectMetadata metaToOpen = existingMeta ?? await _projectManager.createNewProjectMetadata(folder.uri, folder.name);
 
       var knownProjects = previousState.knownProjects;
-      if (!knownProjects.any((p) => p.id == metaToOpen.id)) {
+      if (existingMeta == null) {
         knownProjects = [...knownProjects, metaToOpen];
       }
 
@@ -83,16 +87,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _updateState((previousState) async {
       return previousState.copyWith(clearCurrentProject: true);
     });
-    // Don't save global state here, let a more explicit action do it.
   }
 
   Future<void> removeKnownProject(String projectId) async {
      await _updateState((previousState) async {
         if (previousState.currentProject?.id == projectId) {
-          // This will save the project being closed before clearing it.
-          await closeProject(); 
-          // Re-fetch state because closeProject updates it
-          previousState = state.value!; 
+          await closeProject();
+          previousState = state.value!;
         }
         return previousState.copyWith(
             knownProjects: previousState.knownProjects.where((p) => p.id != projectId).toList()
@@ -104,22 +105,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
   // --- Tab Lifecycle ---
   Future<void> openFile(DocumentFile file, {EditorPlugin? plugin}) async {
     final project = state.value?.currentProject;
-    if (project == null) return;
+    if (project is! LocalProject) return;
     
-    // Check if tab is already open
     final existingIndex = project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
       await switchTab(existingIndex);
       return;
     }
 
-    // Create new tab
+    // CORRECTED: Read activePluginsProvider inside the method.
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     final content = await project.fileHandler.readFile(file.uri);
     final newTab = await selectedPlugin.createTab(file, content);
 
-    // Update state
+    final oldTab = project.session.currentTab;
+
     await _updateState((previousState) async {
       final oldProject = previousState.currentProject as LocalProject;
       final newSession = oldProject.session.copyWith(
@@ -128,27 +129,120 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       return previousState.copyWith(currentProject: oldProject.copyWith(session: newSession));
     });
+
+    _handlePluginLifecycle(oldTab, newTab);
   }
 
   Future<void> switchTab(int index) async {
+    final project = state.value?.currentProject as LocalProject?;
+    if (project == null) return;
+    
+    final oldTab = project.session.currentTab;
     await _updateState((previousState) async {
       final oldProject = previousState.currentProject as LocalProject;
       final newSession = oldProject.session.copyWith(currentTabIndex: index);
       return previousState.copyWith(currentProject: oldProject.copyWith(session: newSession));
     });
+    final newTab = (state.value!.currentProject as LocalProject).session.currentTab;
+    _handlePluginLifecycle(oldTab, newTab);
   }
 
-  // ... Other methods like closeTab, markDirty would follow a similar pattern ...
-  // void closeTab(int index) {
-  //   _updateState((previousState) { ... deep copy logic ... });
-  // }
+  Future<void> closeTab(int index) async {
+    final project = state.value?.currentProject as LocalProject?;
+    if (project == null || index < 0 || index >= project.session.tabs.length) return;
+
+    final closedTab = project.session.tabs[index];
+    final oldTab = project.session.currentTab;
+
+    await _updateState((previousState) async {
+      final oldProject = previousState.currentProject as LocalProject;
+      final newTabs = List<EditorTab>.from(oldProject.session.tabs)..removeAt(index);
+      final newIndex = (oldProject.session.currentTabIndex == index)
+        ? (index - 1).clamp(0, newTabs.length - 1)
+        : oldProject.session.currentTabIndex;
+
+      return previousState.copyWith(
+        currentProject: oldProject.copyWith(
+          session: oldProject.session.copyWith(tabs: newTabs, currentTabIndex: newIndex)
+        )
+      );
+    });
+
+    closedTab.plugin.deactivateTab(closedTab, ref);
+    closedTab.dispose();
+
+    final newTab = (state.value!.currentProject as LocalProject).session.currentTab;
+    if (oldTab != newTab) {
+      newTab?.plugin.activateTab(newTab, ref);
+    }
+  }
+  
+  Future<void> reorderTabs(int oldIndex, int newIndex) async {
+     await _updateState((previousState) async {
+        final project = previousState.currentProject as LocalProject;
+        final newTabs = List<EditorTab>.from(project.session.tabs);
+        final movedTab = newTabs.removeAt(oldIndex);
+        if (oldIndex < newIndex) newIndex--;
+        newTabs.insert(newIndex, movedTab);
+        
+        return previousState.copyWith(
+          currentProject: project.copyWith(
+            session: project.session.copyWith(tabs: newTabs)
+          )
+        );
+     });
+  }
+
+  Future<void> saveCurrentTab() async {
+    final project = state.value?.currentProject as LocalProject?;
+    final currentTab = project?.session.currentTab;
+    if (project == null || currentTab == null) return;
+    
+    final newFile = await project.fileHandler.writeFile(currentTab.file, currentTab.contentString);
+    final newTab = currentTab.copyWith(file: newFile, isDirty: false);
+    
+    await _updateState((previousState) async {
+      final oldProject = previousState.currentProject as LocalProject;
+      final newTabs = oldProject.session.tabs.map((t) => t == currentTab ? newTab : t).toList();
+      return previousState.copyWith(
+        currentProject: oldProject.copyWith(
+          session: oldProject.session.copyWith(tabs: newTabs)
+        )
+      );
+    });
+  }
+  
+  void markCurrentTabDirty() {
+    final project = state.value?.currentProject as LocalProject?;
+    final currentTab = project?.session.currentTab;
+    if (project == null || currentTab == null || currentTab.isDirty) return;
+
+    final newTab = currentTab.copyWith(isDirty: true);
+
+    // This is a UI-only state change, so we don't need the full async update.
+    // A synchronous update is faster and prevents a loading flash.
+    if (state.value != null) {
+      final newTabs = state.value!.currentProject!.session.tabs.map((t) => t == currentTab ? newTab : t).toList();
+      final newProject = (state.value!.currentProject as LocalProject).copyWith(
+        session: state.value!.currentProject!.session.copyWith(tabs: newTabs),
+      );
+      state = AsyncData(state.value!.copyWith(currentProject: newProject));
+    }
+  }
+
+  void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
+    if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, ref);
+    if (newTab != null) newTab.plugin.activateTab(newTab, ref);
+  }
   
   // --- Persistence ---
   Future<void> saveAppState() async {
-    if (state.value == null) return;
-    if (state.value!.currentProject != null) {
-      await _projectManager.saveProject(state.value!.currentProject!);
+    final appState = state.value;
+    if (appState == null) return;
+
+    if (appState.currentProject != null) {
+      await _projectManager.saveProject(appState.currentProject!);
     }
-    await _persistenceService.saveAppState(state.value!);
+    await _persistenceService.saveAppState(appState);
   }
 }
