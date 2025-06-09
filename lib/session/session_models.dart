@@ -1,15 +1,10 @@
 // lib/session/session_models.dart
-import 'dart:math';
-
 import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../project/file_handler/file_handler.dart'; // For DocumentFile
 import '../plugins/plugin_architecture.dart';
-import '../project/project_models.dart';
+import '../project/file_handler/file_handler.dart';
 
-// Represents the state of an editing session within a single project.
 @immutable
 class SessionState {
   final List<EditorTab> tabs;
@@ -33,23 +28,19 @@ class SessionState {
     );
   }
 
-  // --- Serialization ---
   Map<String, dynamic> toJson() => {
         'tabs': tabs.map((t) => t.toJson()).toList(),
         'currentTabIndex': currentTabIndex,
       };
-
-  // Deserialization happens in ProjectManager as it needs access to plugins
 }
 
-// --- Editor Tab Models (Mostly Unchanged) ---
-
+@immutable
 abstract class EditorTab {
   final DocumentFile file;
   final EditorPlugin plugin;
-  bool isDirty;
+  final bool isDirty; // CORRECTED: Made final for immutability
 
-  EditorTab({required this.file, required this.plugin, this.isDirty = false});
+  const EditorTab({required this.file, required this.plugin, this.isDirty = false});
 
   String get contentString;
   void dispose();
@@ -59,12 +50,13 @@ abstract class EditorTab {
   Map<String, dynamic> toJson();
 }
 
+@immutable
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
   final String? languageKey;
 
-  CodeEditorTab({
+  const CodeEditorTab({
     required super.file,
     required this.controller,
     required super.plugin,
@@ -99,7 +91,7 @@ class CodeEditorTab extends EditorTab {
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'code', // Add a type for deserialization
+        'type': 'code',
         'fileUri': file.uri,
         'pluginType': plugin.runtimeType.toString(),
         'languageKey': languageKey,
