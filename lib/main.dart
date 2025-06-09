@@ -27,7 +27,7 @@ final appStartupProvider = FutureProvider<void>((ref) async {
   // This provider's job is to ensure the main AppNotifier is initialized.
   // By depending on the `.future`, we wait for the initial `build` method
   // of AppNotifier to complete.
-  await ref.watch(appNotifierProvider.future);
+  await ref.read(appNotifierProvider.future);
 });
 
 
