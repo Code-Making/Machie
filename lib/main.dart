@@ -1,46 +1,39 @@
 // lib/main.dart
-
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math'; // For max in SessionState
 
-import 'package:collection/collection.dart'; // For DeepCollectionEquality
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart'; // Not strictly used by main.dart but good to keep if it was related to initial permissions
-import 'package:re_editor/re_editor.dart'; // For CodeLinePosition etc.
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app_state/app_state.dart';
-import 'file_system/file_handler.dart'; // For SAFFileHandler and DocumentFile
-import 'plugins/plugin_architecture.dart'; // For PluginManager, EditorPlugin, Command, CommandNotifier, SettingsNotifier
-import 'screens/editor_screen.dart'; // For EditorScreen
-import 'screens/settings_screen.dart'; // For SettingsScreen, CommandSettingsScreen, LogNotifier, DebugLogView
-import 'session/session_management.dart'; // For LifecycleHandler, SessionNotifier, SessionState, EditorTab
-
-import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
-
+import 'app/app_notifier.dart';
+import 'plugins/plugin_architecture.dart'; // For CommandSettingsScreen
+import 'screens/editor_screen.dart';
+import 'screens/settings_screen.dart';
 
 // --------------------
 //   Global Providers
 // --------------------
 
-// Global provider for SharedPreferences, used across multiple features
+// Global provider for SharedPreferences, used by the PersistenceService.
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
   return await SharedPreferences.getInstance();
 });
 
-// Main application startup provider
+// The broadcast stream for capturing log messages from `print()`.
+final printStream = StreamController<String>.broadcast();
+
+// NEW: A dedicated provider for the app's one-time startup logic.
 final appStartupProvider = FutureProvider<void>((ref) async {
-  await appStartup(ref);
+  // This provider's job is to ensure the main AppNotifier is initialized.
+  // By depending on the `.future`, we wait for the initial `build` method
+  // of AppNotifier to complete.
+  await ref.watch(appNotifierProvider.future);
 });
 
+
 // --------------------
-//     Main
+//     ThemeData
 // --------------------
-final printStream = StreamController<String>.broadcast();
 
 ThemeData darkTheme = ThemeData(
   useMaterial3: true,
@@ -51,40 +44,35 @@ ThemeData darkTheme = ThemeData(
     background: const Color(0xFF2F2F2F),
     surface: const Color(0xFF2B2B29),
   ),
-  // Custom AppBar styling (smaller height & title)
   appBarTheme: const AppBarTheme(
-    backgroundColor: Color(0xFF2B2B29), // Matches surface color
-    elevation: 1, // Slight shadow
-    scrolledUnderElevation: 1, // Shadow when scrolling
-    centerTitle: true, // Optional: Center the title
-    titleTextStyle: TextStyle(
-      fontSize: 14, // Smaller title
-      //fontWeight: FontWeight.w600,
-    ),
-    toolbarHeight: 56, // Less tall than default (default is 64 in M3)
+    backgroundColor: Color(0xFF2B2B29),
+    elevation: 1,
+    scrolledUnderElevation: 1,
+    centerTitle: true,
+    titleTextStyle: TextStyle(fontSize: 14),
+    toolbarHeight: 56,
   ),
-  // Custom TabBar styling (matches AppBar background)
   tabBarTheme: TabBarTheme(
-    indicator: UnderlineTabIndicator(
+    indicator: const UnderlineTabIndicator(
       borderSide: BorderSide(
-        color: Color(0xFFF44336), // Matches seedColor
+        color: Color(0xFFF44336),
         width: 2.0,
       ),
     ),
-    unselectedLabelColor: Colors.grey[400], // Unselected tab text
-    //dividerColor: Colors.transparent, // Removes top divider
-    //overlayColor: MaterialStateProperty.all(Colors.transparent), // Disables ripple
-    // Optional: Adjust tab height & padding
+    unselectedLabelColor: Colors.grey[400],
     indicatorSize: TabBarIndicatorSize.tab,
-    labelPadding: EdgeInsets.symmetric(horizontal: 12.0),
+    labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
   ),
-  // Custom ElevatedButton styling (slightly lighter than background)
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: const Color(0xFF3A3A3A),
     ),
   ),
 );
+
+// --------------------
+//     Main
+// --------------------
 
 void main() {
   runZonedGuarded(
@@ -107,38 +95,60 @@ void main() {
       );
     },
     (error, stack) {
-      printStream.add('[ERROR] $error\n$stack');
+      // Forward unhandled framework errors to the log stream.
+      printStream.add('[UNHANDLED_ERROR] $error\n$stack');
     },
     zoneSpecification: ZoneSpecification(
+      // Intercept all calls to `print()` and redirect them to our stream.
       print: (self, parent, zone, message) {
         final formatted = '[${DateTime.now()}] $message';
-        parent.print(zone, formatted);
+        parent.print(zone, formatted); // Also print to the original console for debugging.
         printStream.add(formatted);
       },
     ),
   );
 }
 
-
 // --------------------
-//        Startup
+//    Lifecycle & Startup
 // --------------------
 
-Future<void> appStartup(Ref ref) async {
-  try {
-    // Ensure SharedPreferences is ready
-    await ref.read(sharedPreferencesProvider.future);
-    
-    // Initialize primary notifiers
-    ref.read(logProvider.notifier);
-    await ref.read(settingsProvider.notifier).loadSettings();
-    await ref.read(appStateProvider.notifier).initialize();
-  } catch (e, st) {
-    print('App startup error: $e\n$st');
-    rethrow;
+// Handles app lifecycle events, primarily for saving state.
+class LifecycleHandler extends ConsumerStatefulWidget {
+  final Widget child;
+  const LifecycleHandler({super.key, required this.child});
+  @override
+  ConsumerState<LifecycleHandler> createState() => _LifecycleHandlerState();
+}
+
+class _LifecycleHandlerState extends ConsumerState<LifecycleHandler> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    // When the app is paused or detached, trigger a save of the entire app state.
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      await ref.read(appNotifierProvider.notifier).saveAppState();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 
+// Manages the UI during the initial app loading process.
 class AppStartupWidget extends ConsumerWidget {
   final WidgetBuilder onLoaded;
 
@@ -146,23 +156,23 @@ class AppStartupWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // CORRECTED: Watch the dedicated startup provider. This will only run once.
     final startupState = ref.watch(appStartupProvider);
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error:
-          (error, stack) => AppStartupErrorWidget(
-            error: error,
-            onRetry: () => ref.invalidate(appStartupProvider),
-          ),
-      data: (_) {
-        // No post-frame callback needed, initialization is handled in appStartup
-        return onLoaded(context);
-      },
+      error: (error, stack) => AppStartupErrorWidget(
+        error: error,
+        // Invalidate the startup provider to re-run the initialization.
+        onRetry: () => ref.invalidate(appStartupProvider),
+      ),
+      // Once the startup provider completes successfully, the app is ready.
+      data: (_) => onLoaded(context),
     );
   }
 }
 
+// Simple loading screen UI.
 class AppStartupLoadingWidget extends StatelessWidget {
   const AppStartupLoadingWidget({super.key});
 
@@ -183,6 +193,7 @@ class AppStartupLoadingWidget extends StatelessWidget {
   }
 }
 
+// UI to show if the initial loading fails.
 class AppStartupErrorWidget extends StatelessWidget {
   final Object error;
   final VoidCallback onRetry;
