@@ -102,6 +102,24 @@ class AppNotifier extends AsyncNotifier<AppState> {
      });
      await saveAppState();
   }
+  
+    // NEW: Add a method to handle file system operations that require UI refresh.
+  Future<void> performFileOperation(Future<void> Function(FileHandler) operation) async {
+    final project = state.value?.currentProject;
+    if (project == null) return;
+    
+    // Perform the operation (e.g., delete, rename).
+    await operation(project.fileHandler);
+    
+    // Invalidate providers to force a refresh of the file tree.
+    // This is a simple but effective way to ensure the UI updates.
+    ref.invalidate(currentProjectDirectoryContentsProvider);
+  }
+
+  // NEW: Method to clear the clipboard.
+  void clearClipboard() {
+    ref.read(clipboardProvider.notifier).state = null;
+  }
 
   // NEW: Delegate folder expansion logic
   void toggleFolderExpansion(String folderUri) {
