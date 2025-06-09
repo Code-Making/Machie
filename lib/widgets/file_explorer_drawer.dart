@@ -314,6 +314,121 @@ class ManageProjectsScreen extends ConsumerWidget {
   }
 }
 
+class FileExplorerContextCommands {
+  static List<FileContextCommand> getCommands(WidgetRef ref, DocumentFile item) {
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final clipboardContent = ref.watch(clipboardProvider);
+    final currentProject = ref.read(appNotifierProvider).value?.currentProject;
+
+    return [
+      BaseFileContextCommand(
+        id: 'rename',
+        label: 'Rename',
+        icon: const Icon(Icons.edit),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          final newName = await _showTextInputDialog(ref.context, title: 'Rename', initialValue: item.name);
+          if (newName != null && newName.isNotEmpty && newName != item.name) {
+            await appNotifier.performFileOperation(
+              (handler) => handler.renameDocumentFile(item, newName)
+            );
+          }
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'delete',
+        label: 'Delete',
+        icon: const Icon(Icons.delete, color: Colors.redAccent),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          final confirm = await _showConfirmDialog(ref.context, title: 'Delete ${item.name}?', content: 'This action cannot be undone.');
+          if (confirm) {
+            await appNotifier.performFileOperation(
+              (handler) => handler.deleteDocumentFile(item)
+            );
+          }
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'cut',
+        label: 'Cut',
+        icon: const Icon(Icons.content_cut),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(uri: item.uri, isFolder: item.isDirectory, operation: ClipboardOperation.cut);
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'copy',
+        label: 'Copy',
+        icon: const Icon(Icons.content_copy),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => true,
+        executeFor: (ref, item) async {
+          ref.read(clipboardProvider.notifier).state = ClipboardItem(uri: item.uri, isFolder: item.isDirectory, operation: ClipboardOperation.copy);
+        },
+      ),
+      BaseFileContextCommand(
+        id: 'paste',
+        label: 'Paste',
+        icon: const Icon(Icons.content_paste),
+        sourcePlugin: 'FileExplorer',
+        canExecuteFor: (ref, item) => item.isDirectory && clipboardContent != null,
+        executeFor: (ref, item) async {
+          if (clipboardContent == null || currentProject == null) return;
+          final sourceFile = await currentProject.fileHandler.getFileMetadata(clipboardContent.uri);
+          if (sourceFile == null) {
+            ref.read(logProvider.notifier).add('Clipboard source file not found.');
+            appNotifier.clearClipboard();
+            return;
+          }
+
+          await appNotifier.performFileOperation((handler) async {
+            if (clipboardContent.operation == ClipboardOperation.copy) {
+              await handler.copyDocumentFile(sourceFile, item.uri);
+            } else { // Cut
+              await handler.moveDocumentFile(sourceFile, item.uri);
+            }
+          });
+          appNotifier.clearClipboard();
+        },
+      ),
+    ];
+  }
+
+  static Future<String?> _showTextInputDialog(BuildContext context, {required String title, String? initialValue}) {
+    TextEditingController controller = TextEditingController(text: initialValue);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'New Name')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+  
+  static Future<bool> _showConfirmDialog(BuildContext context, {required String title, required String content}) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+        ],
+      ),
+    ) ?? false;
+  }
+}
+
 class _DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
@@ -330,10 +445,9 @@ class _DirectoryView extends ConsumerWidget {
     final contentsAsync = ref.watch(currentProjectDirectoryContentsProvider(directory));
 
     return contentsAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
       data: (contents) {
-        // Apply sorting based on the current project's view mode.
         final viewMode = (ref.read(appNotifierProvider).value?.currentProject as LocalProject?)?.fileExplorerViewMode;
         _applySorting(contents, viewMode);
 
@@ -378,34 +492,32 @@ class _DirectoryItem extends ConsumerWidget {
   const _DirectoryItem({required this.item, required this.depth, required this.isExpanded});
 
   void _showContextMenu(BuildContext context, WidgetRef ref, DocumentFile item) {
-    final List<FileContextCommand> genericCommands = FileExplorerContextCommands.getCommands(ref, item);
-    final List<FileContextCommand> pluginCommands = []; // Add plugin commands if any
-    final allCommands = [...genericCommands, ...pluginCommands].where((cmd) => cmd.canExecuteFor(ref, item)).toList();
+    final allCommands = FileExplorerContextCommands.getCommands(ref, item)
+      .where((cmd) => cmd.canExecuteFor(ref, item))
+      .toList();
 
     showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(item.name, style: Theme.of(context).textTheme.titleLarge),
-              ),
-              const Divider(),
-              ...allCommands.map((command) => ListTile(
-                leading: command.icon,
-                title: Text(command.label),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  command.executeFor(ref, item);
-                },
-              )).toList(),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(item.name, style: Theme.of(context).textTheme.titleLarge),
+            ),
+            const Divider(),
+            ...allCommands.map((command) => ListTile(
+              leading: command.icon,
+              title: Text(command.label),
+              onTap: () {
+                Navigator.pop(ctx);
+                command.executeFor(ref, item);
+              },
+            )).toList(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -418,11 +530,9 @@ class _DirectoryItem extends ConsumerWidget {
     if (item.isDirectory) {
       childWidget = ExpansionTile(
         key: ValueKey(item.uri),
-        // CORRECTED: Icon logic now depends on the passed-in `isExpanded` state.
         leading: Icon(isExpanded ? Icons.folder_open : Icons.folder, color: Colors.yellow),
         title: Text(item.name),
         initiallyExpanded: isExpanded,
-        // CORRECTED: Wire up the onExpansionChanged callback.
         onExpansionChanged: (expanded) {
           appNotifier.toggleFolderExpansion(item.uri);
         },
@@ -448,7 +558,6 @@ class _DirectoryItem extends ConsumerWidget {
       );
     }
     
-    // RE-ADDED: GestureDetector for the context menu.
     return GestureDetector(
       onLongPress: () => _showContextMenu(context, ref, item),
       child: childWidget,
@@ -458,12 +567,11 @@ class _DirectoryItem extends ConsumerWidget {
 
 class _FileOperationsFooter extends ConsumerWidget {
   final LocalProject project;
-
   const _FileOperationsFooter({required this.project});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This footer provides quick actions for file/folder creation.
+    final clipboardContent = ref.watch(clipboardProvider);
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
       height: 60,
@@ -471,10 +579,19 @@ class _FileOperationsFooter extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          // These would be implemented using the same performFileOperation pattern
           IconButton(icon: const Icon(Icons.note_add_outlined), tooltip: 'New File', onPressed: () {}),
           IconButton(icon: const Icon(Icons.create_new_folder_outlined), tooltip: 'New Folder', onPressed: () {}),
           IconButton(icon: const Icon(Icons.file_upload_outlined), tooltip: 'Import File', onPressed: () {}),
-          IconButton(icon: const Icon(Icons.content_paste), tooltip: 'Paste', onPressed: null), // Disabled for now
+          IconButton(
+            icon: Icon(Icons.content_paste, color: clipboardContent != null ? Theme.of(context).colorScheme.primary : Colors.grey),
+            tooltip: 'Paste',
+            onPressed: clipboardContent != null ? () {
+              final pasteCommand = FileExplorerContextCommands.getCommands(ref, project.fileHandler as DocumentFile)
+                  .firstWhere((cmd) => cmd.id == 'paste');
+              pasteCommand.executeFor(ref, project.fileHandler as DocumentFile);
+            } : null,
+          ),
           IconButton(icon: const Icon(Icons.close), tooltip: 'Close', onPressed: () => Navigator.pop(context)),
         ],
       ),
