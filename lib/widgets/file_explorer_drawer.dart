@@ -281,6 +281,21 @@ class ManageProjectsScreen extends ConsumerWidget {
           );
         },
       ),
+      // NEW: Add a FloatingActionButton to open new projects.
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final fileHandler = LocalFileHandlerFactory.create();
+          final pickedDir = await fileHandler.pickDirectory();
+          if (pickedDir != null && context.mounted) {
+            // Delegate opening logic to the notifier.
+            await appNotifier.openProjectFromFolder(pickedDir);
+            // Close the manage screen after opening.
+            Navigator.pop(context);
+          }
+        },
+        tooltip: 'Open Project',
+        child: const Icon(Icons.folder_open),
+      ),
     );
   }
 
