@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeEditorTapRegion
 
-import '../file_system/file_handler.dart'; // For DocumentFile
+import '../project/file_handler/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For printStream, sessionProvider, canUndoProvider, canRedoProvider, markProvider
-import '../session/session_management.dart'; // For SessionState, EditorTab, CodeEditorTab
+import '../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
 import '../project/project_models.dart'; // NEW: For ProjectMetadata, ClipboardOperation
-import'plugin_registry.dart';
+import 'plugin_registry.dart';
 
 
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences

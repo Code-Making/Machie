@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeEditorTapRegion, CodeLineEditingController
 
-import '../file_system/file_handler.dart'; // For DocumentFile
+import '../project/file_handler/file_handler.dart'; // For DocumentFile
 import '../main.dart'; // For sessionProvider, tabBarScrollProvider
 import '../plugins/code_editor/code_editor_plugin.dart'; // NEW: For CodeEditorPlugin type check
 import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
 import '../plugins/plugin_architecture.dart'; // For EditorPlugin
-import '../session/session_management.dart'; // For EditorTab
+import '../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
 import '../widgets/file_explorer_drawer.dart'; // For FileExplorerDrawer
 import 'settings_screen.dart'; // For DebugLogView
 import 'settings_screen.dart'; // For DebugLogView
