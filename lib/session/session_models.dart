@@ -5,7 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../file_system/file_handler.dart'; // Will be moved to project/file_handler
+import '../project/file_handler/file_handler.dart'; // For DocumentFile
 import '../plugins/plugin_architecture.dart';
 import '../project/project_models.dart';
 

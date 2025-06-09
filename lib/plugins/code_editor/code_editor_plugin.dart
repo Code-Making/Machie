@@ -7,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart'; // For CodeLineEditingController, CodeChunkController, CodeIndicatorValueNotifier, CodeLine, CodeLinePosition, CodeLineSelection, CodeEditor, CodeEditorStyle, CodeHighlightTheme, DefaultCodeChunkIndicator, DefaultCodeLineNumber, CodeCommentFormatter
 import 'package:re_highlight/styles/atom-one-dark.dart'; // Only needed for atomOneDarkTheme constant if directly referenced, otherwise through CodeThemes
 
-import '../../file_system/file_handler.dart'; // For DocumentFile
-import '../../session/session_management.dart'; // For SessionState, CodeEditorTab
+import '../../project/file_handler/file_handler.dart'; // For DocumentFile
+import '../../session/session_models.dart'; // For SessionState, EditorTab, CodeEditorTab
 import '../plugin_architecture.dart'; // For EditorPlugin, PluginSettings, Command, CommandPosition, AppSettings, settingsProvider, CommandNotifier, CodeEditorTapRegion, BottomToolbar
 import 'code_themes.dart'; // For CodeThemes utility class
 
