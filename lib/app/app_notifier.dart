@@ -86,7 +86,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _updateState((s) async => s.copyWith(clearCurrentProject: true));
   }
 
-  // NEW: Added removeKnownProject
   Future<void> removeKnownProject(String projectId) async {
      await _updateState((previousState) async {
         if (previousState.currentProject?.id == projectId) {
@@ -100,6 +99,14 @@ class AppNotifier extends AsyncNotifier<AppState> {
      await saveAppState();
   }
 
+  // NEW: Delegate folder expansion logic
+  void toggleFolderExpansion(String folderUri) {
+    _updateStateSync((s) {
+      final newProject = _sessionService.toggleFolderExpansionInProject(s.currentProject!, folderUri);
+      return s.copyWith(currentProject: newProject);
+    });
+  }
+
   // --- Tab Lifecycle (Delegation) ---
   Future<void> openFile(DocumentFile file) async {
     await _updateState((s) async {
@@ -108,7 +115,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     });
   }
   
-  // NEW: Added switchTab
   void switchTab(int index) {
     _updateStateSync((s) {
       final newProject = _sessionService.switchTabInProject(s.currentProject!, index);
@@ -116,7 +122,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     });
   }
   
-  // NEW: Added reorderTabs
   void reorderTabs(int oldIndex, int newIndex) {
     _updateStateSync((s) {
       final newProject = _sessionService.reorderTabsInProject(s.currentProject!, oldIndex, newIndex);
@@ -124,7 +129,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     });
   }
 
-  // NEW: Added saveCurrentTab
   Future<void> saveCurrentTab() async {
     final project = state.value?.currentProject;
     if (project == null) return;
