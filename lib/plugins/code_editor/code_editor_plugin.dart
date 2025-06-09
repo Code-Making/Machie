@@ -653,31 +653,42 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
-        final BuildContext? context = ref.context;
-        if (context == null) return;
+    final BuildContext? context = ref.context;
+    if (context == null) return;
 
-        final currentTab = _getTab(ref);
-        if (currentTab == null) return;
+    final currentTab = _getTab(ref);
+    if (currentTab == null) return;
 
-        final selectedLanguageKey = await showDialog<String>(
-            context: context,
-            builder: (ctx) { /* ... dialog UI is the same ... */ }
+    final selectedLanguageKey = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        // CORRECTED: The dialog UI needs to be returned.
+        return AlertDialog(
+          title: const Text('Select Language'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: CodeThemes.languageNameToModeMap.keys.length,
+              itemBuilder: (context, index) {
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index);
+                return ListTile(
+                  title: Text(CodeThemes.formatLanguageName(langKey)),
+                  onTap: () => Navigator.pop(ctx, langKey),
+                );
+              },
+            ),
+          ),
         );
+      },
+    );
 
-        if (selectedLanguageKey != null) {
-            final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
-            
-            // CORRECTED: Call the session service to perform the update
-            final sessionService = ref.read(sessionServiceProvider);
-            final project = ref.read(appNotifierProvider).value!.currentProject!;
-            final newProject = sessionService.updateTabInProject(project, project.session.currentTabIndex, updatedTab);
-            
-            // Update the main app state
-            ref.read(appNotifierProvider.notifier).state = AsyncData(
-                ref.read(appNotifierProvider).value!.copyWith(currentProject: newProject)
-            );
-        }
+    if (selectedLanguageKey != null) {
+      final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
+      // This now correctly calls the generic update method
+      ref.read(appNotifierProvider.notifier).updateCurrentTab(updatedTab);
     }
+  }
 }
 
 class CodeEditorMachine extends ConsumerStatefulWidget {

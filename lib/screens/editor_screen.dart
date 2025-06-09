@@ -1,5 +1,4 @@
 // lib/screens/editor_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
@@ -20,7 +19,6 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // CORRECTED: Select data from the new AppNotifier state
     final currentTab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
     final currentPlugin = currentTab?.plugin;
     final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -53,7 +51,7 @@ class EditorScreen extends ConsumerWidget {
           const TabBarView(),
           Expanded(
             child: currentTab != null
-                ? EditorContentSwitcher()
+                ? const EditorContentSwitcher()
                 : const Center(child: Text('Open a file to start editing')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
@@ -69,11 +67,10 @@ class TabBarView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = ref.watch(tabBarScrollProvider);
-    // CORRECTED: Select tabs from the new AppNotifier state
     final tabs = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.tabs)) ?? [];
 
     if (tabs.isEmpty) {
-      return const SizedBox.shrink(); // Don't show the tab bar if there are no tabs
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -84,6 +81,7 @@ class TabBarView extends ConsumerWidget {
           key: const PageStorageKey<String>('tabBarScrollPosition'),
           scrollController: scrollController,
           scrollDirection: Axis.horizontal,
+          // CORRECTED: Call the right method
           onReorder: (oldIndex, newIndex) => ref.read(appNotifierProvider.notifier).reorderTabs(oldIndex, newIndex),
           buildDefaultDragHandles: false,
           children: [
@@ -108,7 +106,6 @@ class FileTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // CORRECTED: Select active state from AppNotifier
     final isActive = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index));
 
     return ConstrainedBox(
@@ -116,6 +113,7 @@ class FileTab extends ConsumerWidget {
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
+          // CORRECTED: Call the right method
           onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -148,21 +146,21 @@ class EditorContentSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // CORRECTED: Select the URI from the new AppNotifier state to use as a key
     final currentUri = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.file.uri));
 
     return KeyedSubtree(
       key: ValueKey(currentUri),
-      child: _EditorContentProxy(),
+      child: const _EditorContentProxy(),
     );
   }
 }
 
 class _EditorContentProxy extends ConsumerWidget {
+  const _EditorContentProxy();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // CORRECTED: Read the current tab from the AppNotifier
-    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
     return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }

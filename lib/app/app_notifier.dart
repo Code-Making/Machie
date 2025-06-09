@@ -7,6 +7,7 @@ import '../main.dart';
 import '../project/file_handler/file_handler.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
+import '../session/session_models.dart';
 import '../session/session_service.dart';
 import 'app_state.dart';
 
@@ -85,10 +86,51 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _updateState((s) async => s.copyWith(clearCurrentProject: true));
   }
 
+  // NEW: Added removeKnownProject
+  Future<void> removeKnownProject(String projectId) async {
+     await _updateState((previousState) async {
+        if (previousState.currentProject?.id == projectId) {
+          await closeProject();
+          previousState = state.value!;
+        }
+        return previousState.copyWith(
+            knownProjects: previousState.knownProjects.where((p) => p.id != projectId).toList()
+        );
+     });
+     await saveAppState();
+  }
+
   // --- Tab Lifecycle (Delegation) ---
   Future<void> openFile(DocumentFile file) async {
     await _updateState((s) async {
       final newProject = await _sessionService.openFileInProject(s.currentProject!, file);
+      return s.copyWith(currentProject: newProject);
+    });
+  }
+  
+  // NEW: Added switchTab
+  void switchTab(int index) {
+    _updateStateSync((s) {
+      final newProject = _sessionService.switchTabInProject(s.currentProject!, index);
+      return s.copyWith(currentProject: newProject);
+    });
+  }
+  
+  // NEW: Added reorderTabs
+  void reorderTabs(int oldIndex, int newIndex) {
+    _updateStateSync((s) {
+      final newProject = _sessionService.reorderTabsInProject(s.currentProject!, oldIndex, newIndex);
+      return s.copyWith(currentProject: newProject);
+    });
+  }
+
+  // NEW: Added saveCurrentTab
+  Future<void> saveCurrentTab() async {
+    final project = state.value?.currentProject;
+    if (project == null) return;
+    
+    await _updateState((s) async {
+      final newProject = await _sessionService.saveTabInProject(s.currentProject!, s.currentProject!.session.currentTabIndex);
       return s.copyWith(currentProject: newProject);
     });
   }
@@ -103,6 +145,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void markCurrentTabDirty() {
     _updateStateSync((s) {
       final newProject = _sessionService.markCurrentTabDirty(s.currentProject!);
+      return s.copyWith(currentProject: newProject);
+    });
+  }
+
+  void updateCurrentTab(EditorTab newTab) {
+     _updateStateSync((s) {
+      final newProject = _sessionService.updateTabInProject(s.currentProject!, s.currentProject!.session.currentTabIndex, newTab);
       return s.copyWith(currentProject: newProject);
     });
   }
