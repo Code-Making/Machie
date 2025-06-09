@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -11,11 +13,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart'; // Not strictly used by main.dart but good to keep if it was related to initial permissions
 import 'package:re_editor/re_editor.dart'; // For CodeLinePosition etc.
 
+import 'app_state/app_state.dart';
 import 'file_system/file_handler.dart'; // For SAFFileHandler and DocumentFile
 import 'plugins/plugin_architecture.dart'; // For PluginManager, EditorPlugin, Command, CommandNotifier, SettingsNotifier
 import 'screens/editor_screen.dart'; // For EditorScreen
 import 'screens/settings_screen.dart'; // For SettingsScreen, CommandSettingsScreen, LogNotifier, DebugLogView
-import 'session/session_management.dart'; // For LifecycleHandler, SessionManager, SessionNotifier, SessionState, EditorTab
+import 'session/session_management.dart'; // For LifecycleHandler, SessionNotifier, SessionState, EditorTab
 
 import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
 
@@ -123,11 +126,13 @@ void main() {
 
 Future<void> appStartup(Ref ref) async {
   try {
-    final prefs = await ref.read(sharedPreferencesProvider.future);
-
+    // Ensure SharedPreferences is ready
+    await ref.read(sharedPreferencesProvider.future);
+    
+    // Initialize primary notifiers
     ref.read(logProvider.notifier);
     await ref.read(settingsProvider.notifier).loadSettings();
-    await ref.read(sessionProvider.notifier).initialize();
+    await ref.read(appStateProvider.notifier).initialize();
   } catch (e, st) {
     print('App startup error: $e\n$st');
     rethrow;
@@ -151,9 +156,7 @@ class AppStartupWidget extends ConsumerWidget {
             onRetry: () => ref.invalidate(appStartupProvider),
           ),
       data: (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(sessionProvider.notifier).loadSession();
-        });
+        // No post-frame callback needed, initialization is handled in appStartup
         return onLoaded(context);
       },
     );
