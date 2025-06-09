@@ -377,21 +377,54 @@ class _DirectoryItem extends ConsumerWidget {
 
   const _DirectoryItem({required this.item, required this.depth, required this.isExpanded});
 
+  void _showContextMenu(BuildContext context, WidgetRef ref, DocumentFile item) {
+    final List<FileContextCommand> genericCommands = FileExplorerContextCommands.getCommands(ref, item);
+    final List<FileContextCommand> pluginCommands = []; // Add plugin commands if any
+    final allCommands = [...genericCommands, ...pluginCommands].where((cmd) => cmd.canExecuteFor(ref, item)).toList();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(item.name, style: Theme.of(context).textTheme.titleLarge),
+              ),
+              const Divider(),
+              ...allCommands.map((command) => ListTile(
+                leading: command.icon,
+                title: Text(command.label),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  command.executeFor(ref, item);
+                },
+              )).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final project = ref.watch(appNotifierProvider).value!.currentProject as LocalProject;
+    final project = ref.watch(appNotifierProvider.select((s) => s.value!.currentProject! as LocalProject));
 
     Widget childWidget;
     if (item.isDirectory) {
       childWidget = ExpansionTile(
         key: ValueKey(item.uri),
+        // CORRECTED: Icon logic now depends on the passed-in `isExpanded` state.
         leading: Icon(isExpanded ? Icons.folder_open : Icons.folder, color: Colors.yellow),
         title: Text(item.name),
         initiallyExpanded: isExpanded,
+        // CORRECTED: Wire up the onExpansionChanged callback.
         onExpansionChanged: (expanded) {
-          // This will be implemented in the notifier
-          // appNotifier.toggleFolderExpansion(item.uri);
+          appNotifier.toggleFolderExpansion(item.uri);
         },
         childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
         children: [
@@ -414,7 +447,12 @@ class _DirectoryItem extends ConsumerWidget {
         },
       );
     }
-    return childWidget;
+    
+    // RE-ADDED: GestureDetector for the context menu.
+    return GestureDetector(
+      onLongPress: () => _showContextMenu(context, ref, item),
+      child: childWidget,
+    );
   }
 }
 
