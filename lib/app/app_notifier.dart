@@ -8,6 +8,7 @@ import '../project/file_handler/file_handler.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_service.dart';
+import 'app_state.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(AppNotifier.new);
 
