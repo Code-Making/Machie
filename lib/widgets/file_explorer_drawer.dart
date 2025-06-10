@@ -13,25 +13,6 @@ import '../project/file_handler/local_file_handler.dart';
 import '../project/project_models.dart';
 import '../screens/settings_screen.dart';
 
-// --------------------
-// File Explorer Providers
-// --------------------
-
-// This provider fetches the contents of a specific directory URI.
-// It gets the correct FileHandler from the currently active project in AppState.
-final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
-    .family<List<DocumentFile>, String>((ref, uri) async {
-  final handler = ref.watch(appNotifierProvider).value?.currentProject?.fileHandler;
-  if (handler == null) return [];
-
-  // Prevent listing arbitrary URIs outside the current project's scope.
-  final projectRoot = ref.watch(appNotifierProvider).value?.currentProject?.rootUri;
-  if (projectRoot != null && !uri.startsWith(projectRoot)) {
-    return [];
-  }
-
-  return handler.listDirectory(uri);
-});
 
 // --------------------
 // Main Drawer Widget
@@ -572,6 +553,13 @@ class _FileOperationsFooter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final logNotifier = ref.read(logProvider.notifier);
+    
+    final rootDoc = _RootPlaceholder(project.rootUri);
+    final pasteCommand = FileExplorerContextCommands.getCommands(ref, rootDoc)
+      .firstWhereOrNull((cmd) => cmd.id == 'paste');
+
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
       height: 60,
@@ -579,19 +567,69 @@ class _FileOperationsFooter extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          // These would be implemented using the same performFileOperation pattern
-          IconButton(icon: const Icon(Icons.note_add_outlined), tooltip: 'New File', onPressed: () {}),
-          IconButton(icon: const Icon(Icons.create_new_folder_outlined), tooltip: 'New Folder', onPressed: () {}),
-          IconButton(icon: const Icon(Icons.file_upload_outlined), tooltip: 'Import File', onPressed: () {}),
+          // --- New File ---
+          IconButton(
+            icon: const Icon(Icons.note_add_outlined),
+            tooltip: 'New File',
+            onPressed: () async {
+              final newFileName = await FileExplorerContextCommands._showTextInputDialog(context, title: 'New File');
+              if (newFileName != null && newFileName.isNotEmpty) {
+                try {
+                  await appNotifier.performFileOperation(
+                    (handler) => handler.createDocumentFile(project.rootUri, newFileName, isDirectory: false)
+                  );
+                } catch (e) {
+                  logNotifier.add('Error creating file: $e');
+                }
+              }
+            },
+          ),
+          // --- New Folder ---
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            tooltip: 'New Folder',
+            onPressed: () async {
+              final newFolderName = await FileExplorerContextCommands._showTextInputDialog(context, title: 'New Folder');
+              if (newFolderName != null && newFolderName.isNotEmpty) {
+                try {
+                  await appNotifier.performFileOperation(
+                    (handler) => handler.createDocumentFile(project.rootUri, newFolderName, isDirectory: true)
+                  );
+                } catch (e) {
+                  logNotifier.add('Error creating folder: $e');
+                }
+              }
+            },
+          ),
+          // --- Import File ---
+          IconButton(
+            icon: const Icon(Icons.file_upload_outlined),
+            tooltip: 'Import File',
+            onPressed: () async {
+              // Use a temporary handler to pick a file from anywhere on the device.
+              final pickerHandler = LocalFileHandlerFactory.create();
+              final pickedFile = await pickerHandler.pickFile();
+              if (pickedFile != null) {
+                try {
+                  // Use the project's handler to copy the picked file into the project root.
+                  await appNotifier.performFileOperation(
+                    (projectHandler) => projectHandler.copyDocumentFile(pickedFile, project.rootUri)
+                  );
+                } catch (e) {
+                  logNotifier.add('Error importing file: $e');
+                }
+              }
+            },
+          ),
+          // --- Paste ---
           IconButton(
             icon: Icon(Icons.content_paste, color: clipboardContent != null ? Theme.of(context).colorScheme.primary : Colors.grey),
             tooltip: 'Paste',
-            onPressed: clipboardContent != null ? () {
-              final pasteCommand = FileExplorerContextCommands.getCommands(ref, project.fileHandler as DocumentFile)
-                  .firstWhere((cmd) => cmd.id == 'paste');
-              pasteCommand.executeFor(ref, project.fileHandler as DocumentFile);
-            } : null,
+            onPressed: (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
+              ? () => pasteCommand.executeFor(ref, rootDoc)
+              : null,
           ),
+          // --- Close Drawer ---
           IconButton(icon: const Icon(Icons.close), tooltip: 'Close', onPressed: () => Navigator.pop(context)),
         ],
       ),

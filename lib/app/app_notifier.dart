@@ -15,6 +15,18 @@ final clipboardProvider = StateProvider<ClipboardItem?>((ref) => null);
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(AppNotifier.new);
 
+// NEW LOCATION: This provider is now here to avoid circular dependencies.
+final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
+    .family<List<DocumentFile>, String>((ref, uri) async {
+  final handler = ref.watch(appNotifierProvider).value?.currentProject?.fileHandler;
+  if (handler == null) return [];
+
+  final projectRoot = ref.watch(appNotifierProvider).value?.currentProject?.rootUri;
+  if (projectRoot != null && !uri.startsWith(projectRoot)) return [];
+  
+  return handler.listDirectory(uri);
+});
+
 class AppNotifier extends AsyncNotifier<AppState> {
   late PersistenceService _persistenceService;
   late ProjectManager _projectManager;
