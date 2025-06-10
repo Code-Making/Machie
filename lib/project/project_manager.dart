@@ -4,11 +4,11 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../plugins/plugin_architecture.dart';
+import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
-import 'file_handler/file_handler.dart';
-import 'file_handler/local_file_handler.dart';
+import '../data/file_handler/file_handler.dart';
+import '../data/file_handler/local_file_handler.dart';
 import 'project_models.dart';
 
 final projectManagerProvider = Provider<ProjectManager>((ref) {

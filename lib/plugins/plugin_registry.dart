@@ -2,7 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'plugin_architecture.dart'; // For EditorPlugin
+import 'plugin_models.dart'; // For EditorPlugin
 
 import 'code_editor/code_editor_plugin.dart';
 
