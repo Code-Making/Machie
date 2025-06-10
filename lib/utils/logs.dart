@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ADDED: For Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// The broadcast stream for capturing log messages from `print()`.
+final printStream = StreamController<String>.broadcast();
+
 final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   final logNotifier = LogNotifier();
   // Capture the print stream when provider initializes

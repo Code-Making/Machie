@@ -20,8 +20,6 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async 
   return await SharedPreferences.getInstance();
 });
 
-// The broadcast stream for capturing log messages from `print()`.
-final printStream = StreamController<String>.broadcast();
 
 // NEW: A dedicated provider for the app's one-time startup logic.
 final appStartupProvider = FutureProvider<void>((ref) async {
