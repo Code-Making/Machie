@@ -10,6 +10,7 @@ import '../session/session_models.dart';
 import '../data/file_handler/file_handler.dart';
 import '../data/file_handler/local_file_handler.dart';
 import 'project_models.dart';
+import 'local_file_system_project.dart';
 
 final projectManagerProvider = Provider<ProjectManager>((ref) {
   return ProjectManager(ref);

@@ -10,6 +10,8 @@ import '../app/app_notifier.dart';
 import '../data/file_handler/file_handler.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
+import '../project/project_models.dart';
+import '../plugins/plugin_models.dart';
 
 
 
