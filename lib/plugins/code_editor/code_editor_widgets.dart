@@ -289,7 +289,7 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
 //  Custom Line Number Widget
 // --------------------
 
-class _CustomEditorIndicator extends ConsumerWidget {
+class CustomEditorIndicator extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;

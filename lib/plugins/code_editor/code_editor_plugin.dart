@@ -8,6 +8,8 @@ import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
 import '../../app/app_notifier.dart';
+import '../../command/command_models.dart';
+import '../../command/command_widgets.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import '../../session/session_models.dart';
@@ -132,7 +134,7 @@ class CodeEditorPlugin implements EditorPlugin {
           chunkController,
           notifier,
           ) {
-        return _CustomEditorIndicator(
+        return CustomEditorIndicator(
           controller: editingController,
           chunkController: chunkController,
           notifier: notifier,
