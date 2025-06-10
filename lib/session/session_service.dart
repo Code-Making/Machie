@@ -2,9 +2,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
-import '../plugins/plugin_architecture.dart';
+import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
-import '../project/file_handler/file_handler.dart';
+import '../data/file_handler/file_handler.dart';
 import '../project/project_models.dart';
 import 'session_models.dart';
 
