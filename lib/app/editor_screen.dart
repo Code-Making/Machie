@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../app/app_notifier.dart';
+import 'app_notifier.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
-import '../plugins/plugin_architecture.dart';
+import '../plugins/plugin_models.dart';
 import '../session/session_models.dart';
-import '../widgets/file_explorer_drawer.dart';
-import 'settings_screen.dart';
+import '../explorer/file_explorer_drawer.dart';
+import '../settings/settings_screen.dart';
+import '../utils/logs.dart';
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
