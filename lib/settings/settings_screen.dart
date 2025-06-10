@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../main.dart'; // For logProvider, settingsProvider, activePluginsProvider, commandProvider, printStream
 import '../plugins/code_editor/code_editor_plugin.dart'; // For CodeEditorSettings
-import '../plugins/plugin_architecture.dart'; // For EditorPlugin, PluginSettings, CommandPosition, Command
+import '../plugins/plugin_models.dart'; // For EditorPlugin, PluginSettings, CommandPosition, Command
 import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
-
+import '../utils/logs.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
