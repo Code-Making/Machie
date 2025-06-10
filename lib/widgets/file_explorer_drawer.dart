@@ -637,6 +637,22 @@ class _FileOperationsFooter extends ConsumerWidget {
   }
 }
 
+class _RootPlaceholder implements DocumentFile {
+  @override
+  final String uri;
+  @override
+  final bool isDirectory = true;
+  @override
+  String get name => '';
+  @override
+  int get size => 0;
+  @override
+  DateTime get modifiedDate => DateTime.now();
+  @override
+  String get mimeType => 'inode/directory';
+  _RootPlaceholder(this.uri);
+}
+
 // Helper to get an appropriate icon for a file type.
 class FileTypeIcon extends ConsumerWidget {
   final DocumentFile file;
