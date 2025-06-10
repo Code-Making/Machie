@@ -12,6 +12,8 @@ import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import '../../session/session_models.dart';
 import '../../session/session_service.dart';
+import '../../settings/settings_notifier.dart';
+import '../../settings/settings_models.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
@@ -294,7 +296,7 @@ class CustomEditorIndicator extends ConsumerWidget {
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
 
-  const _CustomEditorIndicator({
+  const CustomEditorIndicator({
     required this.controller,
     required this.chunkController,
     required this.notifier,
