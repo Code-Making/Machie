@@ -12,7 +12,7 @@ import '../../project/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import '../../session/session_models.dart';
 import '../../session/session_service.dart';
-import '../plugin_architecture.dart';
+import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 
