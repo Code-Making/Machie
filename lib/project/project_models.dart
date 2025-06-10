@@ -1,6 +1,6 @@
 // lib/project/project_models.dart
 import '../session/session_models.dart';
-import 'file_handler/file_handler.dart';
+import '../data/file_handler/file_handler.dart';
 
 // --- Enums ---
 enum ProjectType { local } // Ready for future types like 'remoteSsh'
