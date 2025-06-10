@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
+import '../command/command_models.dart';
+import '../command/command_widgets.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
 import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../data/file_handler/file_handler.dart';
 import '../data/file_handler/local_file_handler.dart';
+import '../project/local_file_system_project.dart';
 import '../project/project_models.dart';
 import '../settings/settings_screen.dart';
 import '../utils/clipboard.dart';
