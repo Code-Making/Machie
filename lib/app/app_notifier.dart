@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../main.dart';
-import '../project/file_handler/file_handler.dart';
+import '../data/file_handler/file_handler.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
 import '../session/session_service.dart';
-import '../utils/clipboard.dart'
+import '../utils/clipboard.dart';
 import 'app_state.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(AppNotifier.new);
