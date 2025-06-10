@@ -14,6 +14,7 @@ import '../../session/session_models.dart';
 import '../../session/session_service.dart';
 import '../plugin_architecture.dart';
 import 'code_themes.dart';
+import 'code_editor_models.dart';
 
 // --------------------
 // Code Editor Plugin Providers
