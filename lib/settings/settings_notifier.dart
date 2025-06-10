@@ -11,8 +11,10 @@ import '../data/file_handler/file_handler.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
 
-import '../plugin/plugin_models.dart';
-import '../plugin/plugin_registry.dart';
+import '../plugins/plugin_models.dart';
+import '../plugins/plugin_registry.dart';
+
+import 'settings_models.dart';
 
 // --------------------
 //  Settings Providers

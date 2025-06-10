@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../data/file_handler/file_handler.dart';
+import '../project/local_file_system_project.dart';
 import '../project/project_models.dart';
 import 'session_models.dart';
 
