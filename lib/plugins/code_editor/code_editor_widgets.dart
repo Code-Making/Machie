@@ -1,23 +1,14 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
 
 import '../../app/app_notifier.dart';
-import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
-import '../../session/session_models.dart';
-import '../../session/session_service.dart';
 import '../../settings/settings_notifier.dart';
-import '../../settings/settings_models.dart';
-import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
-
 
 // --------------------
 // Code Editor Plugin Providers
@@ -31,7 +22,6 @@ final bracketHighlightProvider =
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
-
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
@@ -104,7 +94,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _removeControllerListeners(CodeLineEditingController controller) {
-    controller.removeListener(this._handleControllerChange);
+    controller.removeListener(_handleControllerChange);
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
@@ -124,7 +114,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return KeyEventResult.ignored;
   }
 
-  void _handleFocusChange(){
+  void _handleFocusChange() {
     if (_focusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -138,20 +128,21 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   Widget build(BuildContext context) {
     final codeEditorSettings = ref.watch(
       settingsProvider.select(
-            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
 
-        // CORRECTED: Get language key from AppNotifier state
-        final currentLanguageKey = ref.watch(appNotifierProvider.select(
-          (s) {
-            final tab = s.value?.currentProject?.session.currentTab;
-            return (tab is CodeEditorTab) ? tab.languageKey : null;
-          },
-        ));
+    // CORRECTED: Get language key from AppNotifier state
+    final currentLanguageKey = ref.watch(
+      appNotifierProvider.select((s) {
+        final tab = s.value?.currentProject?.session.currentTab;
+        return (tab is CodeEditorTab) ? tab.languageKey : null;
+      }),
+    );
 
     // Get the selected theme name from settings
-    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark'; // Default theme
+    final selectedThemeName =
+        codeEditorSettings?.themeName ?? 'Atom One Dark'; // Default theme
 
     return Focus(
       autofocus: false,
@@ -167,7 +158,9 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
             // Retrieve the theme map using the selectedThemeName
-            theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
+            theme:
+                CodeThemes.availableCodeThemes[selectedThemeName] ??
+                CodeThemes.availableCodeThemes['Atom One Dark']!,
             languages: CodeThemes.getHighlightThemeMode(currentLanguageKey),
           ),
         ),
@@ -186,18 +179,27 @@ class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final CodeLinePosition? matchingBracketPosition;
   final Set<int> highlightedLines;
-  BracketHighlightState({this.bracketPositions = const {}, this.matchingBracketPosition, this.highlightedLines = const {}});
+  BracketHighlightState({
+    this.bracketPositions = const {},
+    this.matchingBracketPosition,
+    this.highlightedLines = const {},
+  });
 }
 
 class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   @override
-  BracketHighlightState build() { return BracketHighlightState(); }
+  BracketHighlightState build() {
+    return BracketHighlightState();
+  }
+
   void handleBracketHighlight() {
-  final currentTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-      if (currentTab is! CodeEditorTab) {
-          state = BracketHighlightState();
-          return;
-      }    final controller = currentTab.controller;
+    final currentTab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    if (currentTab is! CodeEditorTab) {
+      state = BracketHighlightState();
+      return;
+    }
+    final controller = currentTab.controller;
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
@@ -236,7 +238,11 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     );
   }
 
-  CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
@@ -297,6 +303,7 @@ class CustomEditorIndicator extends ConsumerWidget {
   final CodeIndicatorValueNotifier notifier;
 
   const CustomEditorIndicator({
+    super.key,
     required this.controller,
     required this.chunkController,
     required this.notifier,

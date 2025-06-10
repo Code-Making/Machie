@@ -1,6 +1,5 @@
 // lib/session/session_service.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 
 import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
@@ -19,16 +18,23 @@ class SessionService {
   final Ref _ref;
   SessionService(this._ref);
 
-  Future<Project> openFileInProject(Project project, DocumentFile file, {EditorPlugin? plugin}) async {
+  Future<Project> openFileInProject(
+    Project project,
+    DocumentFile file, {
+    EditorPlugin? plugin,
+  }) async {
     if (project is! LocalProject) return project;
 
-    final existingIndex = project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
+    final existingIndex = project.session.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
     if (existingIndex != -1) {
       return switchTabInProject(project, existingIndex);
     }
 
     final plugins = _ref.read(activePluginsProvider);
-    final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
+    final selectedPlugin =
+        plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     final content = await project.fileHandler.readFile(file.uri);
     final newTab = await selectedPlugin.createTab(file, content);
 
@@ -44,7 +50,7 @@ class SessionService {
 
   Project switchTabInProject(Project project, int index) {
     if (project is! LocalProject) return project;
-    
+
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);
     final newProject = project.copyWith(session: newSession);
@@ -53,37 +59,49 @@ class SessionService {
     _handlePluginLifecycle(oldTab, newTab);
     return newProject;
   }
-  
+
   Project reorderTabsInProject(Project project, int oldIndex, int newIndex) {
     if (project is! LocalProject) return project;
-    
+
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
-    
+
     if (oldIndex < newIndex) newIndex--;
     newTabs.insert(newIndex, movedTab);
 
-    final newCurrentIndex = currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
+    final newCurrentIndex =
+        currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
 
     return project.copyWith(
-      session: project.session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex)
+      session: project.session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
     );
   }
 
   Future<Project> saveTabInProject(Project project, int tabIndex) async {
-    if (project is! LocalProject || tabIndex < 0 || tabIndex >= project.session.tabs.length) return project;
-    
+    if (project is! LocalProject ||
+        tabIndex < 0 ||
+        tabIndex >= project.session.tabs.length)
+      return project;
+
     final tabToSave = project.session.tabs[tabIndex];
-    final newFile = await project.fileHandler.writeFile(tabToSave.file, tabToSave.contentString);
+    final newFile = await project.fileHandler.writeFile(
+      tabToSave.file,
+      tabToSave.contentString,
+    );
     final newTab = tabToSave.copyWith(file: newFile, isDirty: false);
-    
+
     return updateTabInProject(project, tabIndex, newTab);
   }
 
   // CORRECTED: This logic now correctly handles the last tab being closed.
   Project closeTabInProject(Project project, int index) {
-    if (project is! LocalProject || index < 0 || index >= project.session.tabs.length) {
+    if (project is! LocalProject ||
+        index < 0 ||
+        index >= project.session.tabs.length) {
       return project;
     }
 
@@ -104,11 +122,14 @@ class SessionService {
         newCurrentIndex = oldIndex;
       }
     }
-    
+
     final newProject = project.copyWith(
-      session: project.session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex)
+      session: project.session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
     );
-    
+
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.dispose();
 
@@ -116,7 +137,7 @@ class SessionService {
     if (oldTab != newTab) {
       newTab?.plugin.activateTab(newTab, _ref);
     }
-    
+
     return newProject;
   }
 
@@ -128,16 +149,19 @@ class SessionService {
     final newTab = currentTab.copyWith(isDirty: true);
     return updateTabInProject(project, project.session.currentTabIndex, newTab);
   }
-  
+
   Project updateTabInProject(Project project, int tabIndex, EditorTab newTab) {
-    if (project is! LocalProject || tabIndex < 0 || tabIndex >= project.session.tabs.length) return project;
-    
+    if (project is! LocalProject ||
+        tabIndex < 0 ||
+        tabIndex >= project.session.tabs.length)
+      return project;
+
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[tabIndex] = newTab;
 
     return project.copyWith(session: project.session.copyWith(tabs: newTabs));
   }
-  
+
   // NEW: Add folder expansion logic
   Project toggleFolderExpansionInProject(Project project, String folderUri) {
     if (project is! LocalProject) return project;
@@ -148,7 +172,7 @@ class SessionService {
     } else {
       newExpanded.add(folderUri);
     }
-    
+
     return project.copyWith(expandedFolders: newExpanded);
   }
 

@@ -1,25 +1,19 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
 
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../../command/command_widgets.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
 import '../../session/session_models.dart';
-import '../../session/session_service.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
-
 
 // --------------------
 //  Code Editor Plugin
@@ -51,12 +45,11 @@ class CodeEditorPlugin implements EditorPlugin {
     final ext = file.name.split('.').last.toLowerCase();
     return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
-  
-  @override
-  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item){
-      return [];
-  }
 
+  @override
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) {
+    return [];
+  }
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
@@ -75,7 +68,10 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler) async {
+  Future<EditorTab> createTabFromSerialization(
+    Map<String, dynamic> tabJson,
+    FileHandler fileHandler,
+  ) async {
     final fileUri = tabJson['fileUri'] as String;
     final loadedLanguageKey = tabJson['languageKey'] as String?;
     final isDirtyOnLoad = tabJson['isDirty'] as bool? ?? false;
@@ -100,7 +96,6 @@ class CodeEditorPlugin implements EditorPlugin {
       isDirty: isDirtyOnLoad,
     );
   }
-
 
   // CORRECTED: Update signature to use `Ref`
   @override
@@ -129,11 +124,11 @@ class CodeEditorPlugin implements EditorPlugin {
       controller: codeTab.controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (
-          context,
-          editingController,
-          chunkController,
-          notifier,
-          ) {
+        context,
+        editingController,
+        chunkController,
+        notifier,
+      ) {
         return CustomEditorIndicator(
           controller: editingController,
           chunkController: chunkController,
@@ -150,9 +145,16 @@ class CodeEditorPlugin implements EditorPlugin {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final currentTab = ProviderScope.containerOf(context).read(appNotifierProvider).value?.currentProject?.session.currentTab as CodeEditorTab?;
+    final currentTab =
+        ProviderScope.containerOf(context)
+                .read(appNotifierProvider)
+                .value
+                ?.currentProject
+                ?.session
+                .currentTab
+            as CodeEditorTab?;
     if (currentTab == null) return textSpan;
-        final highlightState = ProviderScope.containerOf(
+    final highlightState = ProviderScope.containerOf(
       context,
     ).read(bracketHighlightProvider);
 
@@ -228,9 +230,7 @@ class CodeEditorPlugin implements EditorPlugin {
           multiLineSuffix: '*/',
         );
       case 'tex':
-        return DefaultCodeCommentFormatter(
-          singleLinePrefix: '%',
-        );
+        return DefaultCodeCommentFormatter(singleLinePrefix: '%');
       default:
         return DefaultCodeCommentFormatter(
           singleLinePrefix: '//',
@@ -247,7 +247,9 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Save',
       icon: Icons.save,
       defaultPosition: CommandPosition.appBar,
-      execute: (ref, _) async => ref.read(appNotifierProvider.notifier).saveCurrentTab(),
+      execute:
+          (ref, _) async =>
+              ref.read(appNotifierProvider.notifier).saveCurrentTab(),
     ),
     _createCommand(
       id: 'copy',
@@ -386,7 +388,8 @@ class CodeEditorPlugin implements EditorPlugin {
     required String label,
     required IconData icon,
     required CommandPosition defaultPosition,
-    required FutureOr<void> Function(WidgetRef, CodeLineEditingController?) execute,
+    required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
+    execute,
     bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
   }) {
     return BaseCommand(
@@ -407,17 +410,25 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLineEditingController? _getController(WidgetRef ref) {
-    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final tab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     return tab is CodeEditorTab ? tab.controller : null;
   }
-  
+
   // CORRECTED: Helper to get the full tab object
   CodeEditorTab? _getTab(WidgetRef ref) {
-    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     return tab is CodeEditorTab ? tab : null;
   }
 
-  Future<void> _toggleComments(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _toggleComments(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     final tab = _getTab(ref)!;
     final formatted = tab.commentFormatter.format(
@@ -428,7 +439,10 @@ class CodeEditorPlugin implements EditorPlugin {
     ctrl.runRevocableOp(() => ctrl.value = formatted);
   }
 
-  Future<void> _reformatDocument(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _reformatDocument(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     try {
       final formattedValue = _formatCodeValue(ctrl.value);
@@ -476,7 +490,10 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  Future<void> _selectBetweenBrackets(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _selectBetweenBrackets(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     final controller = ctrl;
     final selection = controller.selection;
@@ -494,7 +511,8 @@ class CodeEditorPlugin implements EditorPlugin {
 
       for (int offset = 0; offset <= 1; offset++) {
         final index = position.offset - offset;
-        if (index >= 0 && index < controller.codeLines[position.index].text.length) {
+        if (index >= 0 &&
+            index < controller.codeLines[position.index].text.length) {
           final char = controller.codeLines[position.index].text[index];
           if (brackets.keys.contains(char) || brackets.values.contains(char)) {
             final match = _findMatchingBracket(
@@ -531,7 +549,11 @@ class CodeEditorPlugin implements EditorPlugin {
     }
   }
 
-  CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
 
@@ -581,14 +603,19 @@ class CodeEditorPlugin implements EditorPlugin {
     return null;
   }
 
-  Future<void> _extendSelection(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _extendSelection(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     final controller = ctrl;
     final selection = controller.selection;
 
     final newBaseOffset = 0;
-    final baseLineLength = controller.codeLines[selection.baseIndex].text.length;
-    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+    final baseLineLength =
+        controller.codeLines[selection.baseIndex].text.length;
+    final extentLineLength =
+        controller.codeLines[selection.extentIndex].text.length;
     final newExtentOffset = extentLineLength;
 
     controller.selection = CodeLineSelection(
@@ -599,12 +626,18 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _setMarkPosition(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     ref.read(markProvider.notifier).state = ctrl.selection.base;
   }
 
-  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
+  Future<void> _selectToMark(
+    WidgetRef ref,
+    CodeLineEditingController? ctrl,
+  ) async {
     if (ctrl == null) return;
     final mark = ref.read(markProvider);
     if (mark == null) {
@@ -615,13 +648,9 @@ class CodeEditorPlugin implements EditorPlugin {
     try {
       final currentPosition = ctrl.selection.base;
       final start =
-          _comparePositions(mark!, currentPosition) < 0
-              ? mark!
-              : currentPosition;
+          _comparePositions(mark, currentPosition) < 0 ? mark : currentPosition;
       final end =
-          _comparePositions(mark!, currentPosition) < 0
-              ? currentPosition
-              : mark!;
+          _comparePositions(mark, currentPosition) < 0 ? currentPosition : mark;
 
       ctrl.selection = CodeLineSelection(
         baseIndex: start.index,
@@ -646,8 +675,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
-    final BuildContext? context = ref.context;
-    if (context == null) return;
+    final BuildContext context = ref.context;
 
     final currentTab = _getTab(ref);
     if (currentTab == null) return;
@@ -664,7 +692,9 @@ class CodeEditorPlugin implements EditorPlugin {
               shrinkWrap: true,
               itemCount: CodeThemes.languageNameToModeMap.keys.length,
               itemBuilder: (context, index) {
-                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index);
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
+                  index,
+                );
                 return ListTile(
                   title: Text(CodeThemes.formatLanguageName(langKey)),
                   onTap: () => Navigator.pop(ctx, langKey),
@@ -683,4 +713,3 @@ class CodeEditorPlugin implements EditorPlugin {
     }
   }
 }
-

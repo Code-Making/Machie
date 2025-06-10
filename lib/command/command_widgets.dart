@@ -1,54 +1,59 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_notifier.dart';
-import '../data/file_handler/file_handler.dart';
-import '../project/project_models.dart';
-import '../session/session_models.dart';
-
-import '../plugins/plugin_models.dart';
 
 import 'command_models.dart';
 import 'command_notifier.dart';
-
 
 final appBarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   // CORRECTED: Watch the new AppNotifier for the current plugin type
-  final currentPlugin = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()));
+  final currentPlugin = ref.watch(
+    appNotifierProvider.select(
+      (s) =>
+          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
+              .toString(),
+    ),
+  );
 
   return [
-    ...state.appBarOrder,
-    ...state.pluginToolbarOrder.where(
-      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-    ),
-  ].map((id) => notifier.getCommand(id))
-  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
-  .whereType<Command>()
-  .toList();
+        ...state.appBarOrder,
+        ...state.pluginToolbarOrder.where(
+          (id) =>
+              notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+        ),
+      ]
+      .map((id) => notifier.getCommand(id))
+      .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
+      .whereType<Command>()
+      .toList();
 });
 
 final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
   final state = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   // CORRECTED: Watch the new AppNotifier
-  final currentPlugin = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()));
+  final currentPlugin = ref.watch(
+    appNotifierProvider.select(
+      (s) =>
+          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
+              .toString(),
+    ),
+  );
 
   return [
-    ...state.pluginToolbarOrder,
-    ...state.appBarOrder.where(
-      (id) => notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-    ),
-  ].map((id) => notifier.getCommand(id))
-  .whereType<Command>()
-  .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
-  .toList();
+        ...state.pluginToolbarOrder,
+        ...state.appBarOrder.where(
+          (id) =>
+              notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
+        ),
+      ]
+      .map((id) => notifier.getCommand(id))
+      .whereType<Command>()
+      .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
+      .toList();
 });
 
 final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {

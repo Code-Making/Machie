@@ -18,15 +18,15 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
 
 final activePluginsProvider =
     StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-  return PluginManager(ref.read(pluginRegistryProvider));
-});
+      return PluginManager(ref.read(pluginRegistryProvider));
+    });
 
 // --------------------
 //   Plugin Registry
 // --------------------
 
 class PluginManager extends StateNotifier<Set<EditorPlugin>> {
-  PluginManager(Set<EditorPlugin> plugins) : super(plugins);
+  PluginManager(super.plugins);
 
   void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
   void unregisterPlugin(EditorPlugin plugin) =>

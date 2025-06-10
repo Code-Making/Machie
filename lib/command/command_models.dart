@@ -1,18 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../app/app_notifier.dart';
 import '../data/file_handler/file_handler.dart';
-import '../project/project_models.dart';
-import '../session/session_models.dart';
-
-import '../plugins/plugin_models.dart';
-
 
 // --------------------
 //   Command System
@@ -89,17 +80,25 @@ class BaseFileContextCommand extends FileContextCommand {
     required super.sourcePlugin,
     required bool Function(WidgetRef, DocumentFile) canExecuteFor,
     required Future<void> Function(WidgetRef, DocumentFile) executeFor,
-  })  : _canExecuteFor = canExecuteFor,
-        _executeFor = executeFor;
+  }) : _canExecuteFor = canExecuteFor,
+       _executeFor = executeFor;
 
   @override
-  bool canExecuteFor(WidgetRef ref, DocumentFile item) => _canExecuteFor(ref, item);
+  bool canExecuteFor(WidgetRef ref, DocumentFile item) =>
+      _canExecuteFor(ref, item);
 
   @override
-  Future<void> executeFor(WidgetRef ref, DocumentFile item) => _executeFor(ref, item);
+  Future<void> executeFor(WidgetRef ref, DocumentFile item) =>
+      _executeFor(ref, item);
 }
 
-enum CommandPosition { appBar, pluginToolbar, both, hidden, contextMenu } // MODIFIED
+enum CommandPosition {
+  appBar,
+  pluginToolbar,
+  both,
+  hidden,
+  contextMenu,
+} // MODIFIED
 
 class CommandState {
   final List<String> appBarOrder;

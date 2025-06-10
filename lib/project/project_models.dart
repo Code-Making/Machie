@@ -5,12 +5,7 @@ import '../data/file_handler/file_handler.dart';
 // --- Enums ---
 enum ProjectType { local } // Ready for future types like 'remoteSsh'
 
-enum FileExplorerViewMode {
-  sortByNameAsc,
-  sortByNameDesc,
-  sortByDateModified,
-}
-
+enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
 
 // --- Models ---
 
@@ -32,14 +27,15 @@ class ProjectMetadata {
 
   // Serialization for SharedPreferences
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'rootUri': rootUri,
-        'projectType': projectType.name,
-        'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'rootUri': rootUri,
+    'projectType': projectType.name,
+    'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
+  };
 
-  factory ProjectMetadata.fromJson(Map<String, dynamic> json) => ProjectMetadata(
+  factory ProjectMetadata.fromJson(Map<String, dynamic> json) =>
+      ProjectMetadata(
         id: json['id'],
         name: json['name'],
         rootUri: json['rootUri'],

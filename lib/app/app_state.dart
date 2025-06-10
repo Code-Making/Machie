@@ -28,38 +28,40 @@ class AppState {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
-      currentProject: clearCurrentProject ? null : (currentProject ?? this.currentProject),
+      currentProject:
+          clearCurrentProject ? null : (currentProject ?? this.currentProject),
     );
   }
 
   // --- Serialization for PersistenceService ---
   Map<String, dynamic> toJson() => {
-        'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
-        'lastOpenedProjectId': lastOpenedProjectId,
-      };
+    'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
+    'lastOpenedProjectId': lastOpenedProjectId,
+  };
 
   factory AppState.fromJson(Map<String, dynamic> json) => AppState(
-        knownProjects: (json['knownProjects'] as List)
+    knownProjects:
+        (json['knownProjects'] as List)
             .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
             .toList(),
-        lastOpenedProjectId: json['lastOpenedProjectId'],
-      );
+    lastOpenedProjectId: json['lastOpenedProjectId'],
+  );
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     final listEquals = const DeepCollectionEquality().equals;
-  
+
     return other is AppState &&
-      listEquals(other.knownProjects, knownProjects) &&
-      other.lastOpenedProjectId == lastOpenedProjectId &&
-      other.currentProject == currentProject;
+        listEquals(other.knownProjects, knownProjects) &&
+        other.lastOpenedProjectId == lastOpenedProjectId &&
+        other.currentProject == currentProject;
   }
 
   @override
   int get hashCode => Object.hash(
     const DeepCollectionEquality().hash(knownProjects),
     lastOpenedProjectId,
-    currentProject
+    currentProject,
   );
 }

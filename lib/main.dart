@@ -3,11 +3,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app_notifier.dart';
 import 'app/lifecycle.dart';
-import 'plugins/plugin_models.dart'; // For CommandSettingsScreen
+// For CommandSettingsScreen
 import 'app/editor_screen.dart';
 import 'settings/settings_screen.dart';
 import 'utils/logs.dart';
@@ -16,7 +15,6 @@ import 'utils/logs.dart';
 //   Global Providers
 // --------------------
 
-
 // NEW: A dedicated provider for the app's one-time startup logic.
 final appStartupProvider = FutureProvider<void>((ref) async {
   // This provider's job is to ensure the main AppNotifier is initialized.
@@ -24,7 +22,6 @@ final appStartupProvider = FutureProvider<void>((ref) async {
   // of AppNotifier to complete.
   await ref.read(appNotifierProvider.future);
 });
-
 
 // --------------------
 //     ThemeData
@@ -35,10 +32,7 @@ ThemeData darkTheme = ThemeData(
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xFFF44336), // Red-500
     brightness: Brightness.dark,
-  ).copyWith(
-    background: const Color(0xFF2F2F2F),
-    surface: const Color(0xFF2B2B29),
-  ),
+  ).copyWith(surface: const Color(0xFF2B2B29)),
   appBarTheme: const AppBarTheme(
     backgroundColor: Color(0xFF2B2B29),
     elevation: 1,
@@ -49,19 +43,14 @@ ThemeData darkTheme = ThemeData(
   ),
   tabBarTheme: TabBarTheme(
     indicator: const UnderlineTabIndicator(
-      borderSide: BorderSide(
-        color: Color(0xFFF44336),
-        width: 2.0,
-      ),
+      borderSide: BorderSide(color: Color(0xFFF44336), width: 2.0),
     ),
     unselectedLabelColor: Colors.grey[400],
     indicatorSize: TabBarIndicatorSize.tab,
     labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF3A3A3A),
-    ),
+    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A3A3A)),
   ),
 );
 
@@ -97,7 +86,10 @@ void main() {
       // Intercept all calls to `print()` and redirect them to our stream.
       print: (self, parent, zone, message) {
         final formatted = '[${DateTime.now()}] $message';
-        parent.print(zone, formatted); // Also print to the original console for debugging.
+        parent.print(
+          zone,
+          formatted,
+        ); // Also print to the original console for debugging.
         printStream.add(formatted);
       },
     ),
@@ -107,8 +99,6 @@ void main() {
 // --------------------
 //    Lifecycle & Startup
 // --------------------
-
-
 
 // Manages the UI during the initial app loading process.
 class AppStartupWidget extends ConsumerWidget {
@@ -123,11 +113,12 @@ class AppStartupWidget extends ConsumerWidget {
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error: (error, stack) => AppStartupErrorWidget(
-        error: error,
-        // Invalidate the startup provider to re-run the initialization.
-        onRetry: () => ref.invalidate(appStartupProvider),
-      ),
+      error:
+          (error, stack) => AppStartupErrorWidget(
+            error: error,
+            // Invalidate the startup provider to re-run the initialization.
+            onRetry: () => ref.invalidate(appStartupProvider),
+          ),
       // Once the startup provider completes successfully, the app is ready.
       data: (_) => onLoaded(context),
     );

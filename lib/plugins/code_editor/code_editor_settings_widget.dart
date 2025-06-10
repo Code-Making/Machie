@@ -1,20 +1,7 @@
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
 
-import '../../app/app_notifier.dart';
-import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
-import '../../session/session_models.dart';
-import '../../session/session_service.dart';
 import '../../settings/settings_notifier.dart';
-import '../../settings/settings_models.dart';
-import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 
@@ -76,12 +63,13 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
         DropdownButtonFormField<String>(
           value: _currentSettings.themeName,
           decoration: const InputDecoration(labelText: 'Editor Theme'),
-          items: CodeThemes.availableCodeThemes.keys.map((themeName) {
-            return DropdownMenuItem(
-              value: themeName,
-              child: Text(themeName),
-            );
-          }).toList(),
+          items:
+              CodeThemes.availableCodeThemes.keys.map((themeName) {
+                return DropdownMenuItem(
+                  value: themeName,
+                  child: Text(themeName),
+                );
+              }).toList(),
           onChanged: (value) {
             if (value != null) {
               _updateSettings(_currentSettings.copyWith(themeName: value));

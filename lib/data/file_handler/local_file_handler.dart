@@ -17,7 +17,9 @@ class LocalFileHandlerFactory {
     //   return IOFileHandler(); // Future desktop implementation
     // }
     else {
-      throw UnsupportedError('Local file handling is not supported on this platform.');
+      throw UnsupportedError(
+        'Local file handling is not supported on this platform.',
+      );
     }
   }
 }

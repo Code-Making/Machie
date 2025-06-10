@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:flutter/material.dart';
 
@@ -47,12 +46,12 @@ class CodeEditorTab extends EditorTab {
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'code',
-        'fileUri': file.uri,
-        'pluginType': plugin.runtimeType.toString(),
-        'languageKey': languageKey,
-        'isDirty': isDirty,
-      };
+    'type': 'code',
+    'fileUri': file.uri,
+    'pluginType': plugin.runtimeType.toString(),
+    'languageKey': languageKey,
+    'isDirty': isDirty,
+  };
 }
 
 // --------------------
@@ -84,7 +83,8 @@ class CodeEditorSettings extends PluginSettings {
     wordWrap = json['wordWrap'] ?? false;
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
-    themeName = json['themeName'] ?? 'Atom One Dark'; // NEW: Deserialize themeName
+    themeName =
+        json['themeName'] ?? 'Atom One Dark'; // NEW: Deserialize themeName
   }
 
   CodeEditorSettings copyWith({

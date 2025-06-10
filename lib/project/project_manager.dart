@@ -4,7 +4,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import '../data/file_handler/file_handler.dart';
@@ -30,14 +29,27 @@ class ProjectManager {
         break;
     }
 
-    final projectDataDir = await _ensureProjectDataFolder(handler, metadata.rootUri);
-    final files = await handler.listDirectory(projectDataDir.uri, includeHidden: true);
-    final projectDataFile = files.firstWhereOrNull((f) => f.name == 'project_data.json');
+    final projectDataDir = await _ensureProjectDataFolder(
+      handler,
+      metadata.rootUri,
+    );
+    final files = await handler.listDirectory(
+      projectDataDir.uri,
+      includeHidden: true,
+    );
+    final projectDataFile = files.firstWhereOrNull(
+      (f) => f.name == 'project_data.json',
+    );
 
     if (projectDataFile != null) {
       final content = await handler.readFile(projectDataFile.uri);
       final json = jsonDecode(content);
-      return await _createLocalProjectFromJson(metadata, handler, projectDataDir.uri, json);
+      return await _createLocalProjectFromJson(
+        metadata,
+        handler,
+        projectDataDir.uri,
+        json,
+      );
     } else {
       return LocalProject(
         metadata: metadata,
@@ -50,7 +62,8 @@ class ProjectManager {
   }
 
   Future<void> saveProject(Project project) async {
-    if (project is! LocalProject) return; // Only local projects can be saved for now
+    if (project is! LocalProject)
+      return; // Only local projects can be saved for now
 
     final content = jsonEncode(project.toJson());
     await project.fileHandler.createDocumentFile(
@@ -61,7 +74,10 @@ class ProjectManager {
     );
   }
 
-  Future<ProjectMetadata> createNewProjectMetadata(String rootUri, String name) async {
+  Future<ProjectMetadata> createNewProjectMetadata(
+    String rootUri,
+    String name,
+  ) async {
     return ProjectMetadata(
       id: const Uuid().v4(),
       name: name,
@@ -71,13 +87,31 @@ class ProjectManager {
     );
   }
 
-  Future<DocumentFile> _ensureProjectDataFolder(FileHandler handler, String projectRootUri) async {
-    final files = await handler.listDirectory(projectRootUri, includeHidden: true);
-    final machineDir = files.firstWhereOrNull((f) => f.name == '.machine' && f.isDirectory);
-    return machineDir ?? await handler.createDocumentFile(projectRootUri, '.machine', isDirectory: true);
+  Future<DocumentFile> _ensureProjectDataFolder(
+    FileHandler handler,
+    String projectRootUri,
+  ) async {
+    final files = await handler.listDirectory(
+      projectRootUri,
+      includeHidden: true,
+    );
+    final machineDir = files.firstWhereOrNull(
+      (f) => f.name == '.machine' && f.isDirectory,
+    );
+    return machineDir ??
+        await handler.createDocumentFile(
+          projectRootUri,
+          '.machine',
+          isDirectory: true,
+        );
   }
 
-  Future<Project> _createLocalProjectFromJson(ProjectMetadata metadata, FileHandler handler, String projectDataPath, Map<String, dynamic> json) async {
+  Future<Project> _createLocalProjectFromJson(
+    ProjectMetadata metadata,
+    FileHandler handler,
+    String projectDataPath,
+    Map<String, dynamic> json,
+  ) async {
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
     final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
     final plugins = _ref.read(activePluginsProvider);
@@ -86,8 +120,10 @@ class ProjectManager {
     for (final tabJson in tabsJson) {
       final pluginType = tabJson['pluginType'] as String?;
       if (pluginType == null) continue;
-      
-      final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+
+      final plugin = plugins.firstWhereOrNull(
+        (p) => p.runtimeType.toString() == pluginType,
+      );
       if (plugin != null) {
         try {
           final tab = await plugin.createTabFromSerialization(tabJson, handler);
