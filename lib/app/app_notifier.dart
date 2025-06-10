@@ -125,7 +125,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     
     // Invalidate providers to force a refresh of the file tree.
     // This is a simple but effective way to ensure the UI updates.
-    //ref.invalidate(currentProjectDirectoryContentsProvider);
+    ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   // NEW: Method to clear the clipboard.
