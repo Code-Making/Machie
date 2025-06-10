@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_notifier.dart';
-
 
 // Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {
@@ -13,7 +11,8 @@ class LifecycleHandler extends ConsumerStatefulWidget {
   ConsumerState<LifecycleHandler> createState() => _LifecycleHandlerState();
 }
 
-class _LifecycleHandlerState extends ConsumerState<LifecycleHandler> with WidgetsBindingObserver {
+class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -29,7 +28,8 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler> with Widget
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     // When the app is paused or detached, trigger a save of the entire app state.
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       await ref.read(appNotifierProvider.notifier).saveAppState();
     }
   }

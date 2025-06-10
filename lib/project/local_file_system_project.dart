@@ -1,7 +1,6 @@
 // lib/project/local_file_system_project.dart
 
 import '../session/session_models.dart';
-import '../data/file_handler/file_handler.dart';
 import 'project_models.dart';
 
 // Concrete implementation for projects on the local device file system.
@@ -27,7 +26,8 @@ class LocalProject extends Project {
   }) {
     return LocalProject(
       metadata: metadata ?? this.metadata,
-      fileHandler: fileHandler, // File handler is immutable per project instance
+      fileHandler:
+          fileHandler, // File handler is immutable per project instance
       session: session ?? this.session.copyWith(),
       projectDataPath: projectDataPath,
       expandedFolders: expandedFolders ?? Set.from(this.expandedFolders),
@@ -37,9 +37,9 @@ class LocalProject extends Project {
 
   // Serialization for .machine/project_data.json
   Map<String, dynamic> toJson() => {
-        'id': metadata.id, // For verification
-        'session': session.toJson(),
-        'expandedFolders': expandedFolders.toList(),
-        'fileExplorerViewMode': fileExplorerViewMode.name,
-      };
+    'id': metadata.id, // For verification
+    'session': session.toJson(),
+    'expandedFolders': expandedFolders.toList(),
+    'fileExplorerViewMode': fileExplorerViewMode.name,
+  };
 }

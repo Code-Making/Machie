@@ -1,12 +1,9 @@
 // lib/project/file_handler/local_file_handler_saf.dart
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
-import 'package:saf_util/saf_util_method_channel.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'file_handler.dart';
 import 'local_file_handler.dart';
 
@@ -16,12 +13,18 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<DocumentFile?> pickDirectory() async {
-    final dir = await _safUtil.pickDirectory(persistablePermission: true, writePermission: true);
+    final dir = await _safUtil.pickDirectory(
+      persistablePermission: true,
+      writePermission: true,
+    );
     return dir != null ? CustomSAFDocumentFile(dir) : null;
   }
 
   @override
-  Future<List<DocumentFile>> listDirectory(String uri, {bool includeHidden = false}) async {
+  Future<List<DocumentFile>> listDirectory(
+    String uri, {
+    bool includeHidden = false,
+  }) async {
     try {
       final files = await _safUtil.list(uri);
       files.sort((a, b) {
@@ -54,7 +57,10 @@ class SafFileHandler implements LocalFileHandler {
       Uint8List.fromList(utf8.encode(content)),
       overwrite: true,
     );
-    final newFile = await _safUtil.documentFileFromUri(result.uri.toString(), false);
+    final newFile = await _safUtil.documentFileFromUri(
+      result.uri.toString(),
+      false,
+    );
     return CustomSAFDocumentFile(newFile!);
   }
 
@@ -64,17 +70,34 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile> createDocumentFile(String parentUri, String name, {bool isDirectory = false, String? initialContent, bool overwrite = false}) async {
+  Future<DocumentFile> createDocumentFile(
+    String parentUri,
+    String name, {
+    bool isDirectory = false,
+    String? initialContent,
+    bool overwrite = false,
+  }) async {
     if (isDirectory) {
       final createdDir = await _safUtil.mkdirp(parentUri, [name]);
-      if (createdDir == null) throw Exception('Failed to create directory: $name');
       return CustomSAFDocumentFile(createdDir);
     } else {
-      final contentBytes = Uint8List.fromList(utf8.encode(initialContent ?? ''));
+      final contentBytes = Uint8List.fromList(
+        utf8.encode(initialContent ?? ''),
+      );
       final mimeType = _inferMimeType(name);
-      final writeResponse = await _safStream.writeFileBytes(parentUri, name, mimeType, contentBytes, overwrite: overwrite);
-      final createdFile = await _safUtil.documentFileFromUri(writeResponse.uri.toString(), false);
-      if (createdFile == null) throw Exception('Failed to get metadata for created file: $name');
+      final writeResponse = await _safStream.writeFileBytes(
+        parentUri,
+        name,
+        mimeType,
+        contentBytes,
+        overwrite: overwrite,
+      );
+      final createdFile = await _safUtil.documentFileFromUri(
+        writeResponse.uri.toString(),
+        false,
+      );
+      if (createdFile == null)
+        throw Exception('Failed to get metadata for created file: $name');
       return CustomSAFDocumentFile(createdFile);
     }
   }
@@ -85,21 +108,36 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName) async {
+  Future<DocumentFile?> renameDocumentFile(
+    DocumentFile file,
+    String newName,
+  ) async {
     final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
     return renamed != null ? CustomSAFDocumentFile(renamed) : null;
   }
 
   @override
-  Future<DocumentFile?> copyDocumentFile(DocumentFile source, String destinationParentUri) async {
-    if (source.isDirectory) throw UnsupportedError('Recursive folder copy not supported.');
+  Future<DocumentFile?> copyDocumentFile(
+    DocumentFile source,
+    String destinationParentUri,
+  ) async {
+    if (source.isDirectory)
+      throw UnsupportedError('Recursive folder copy not supported.');
     final content = await readFile(source.uri);
-    return createDocumentFile(destinationParentUri, source.name, initialContent: content);
+    return createDocumentFile(
+      destinationParentUri,
+      source.name,
+      initialContent: content,
+    );
   }
 
   @override
-  Future<DocumentFile?> moveDocumentFile(DocumentFile source, String destinationParentUri) async {
-    if (source.isDirectory) throw UnsupportedError('Recursive folder move not supported.');
+  Future<DocumentFile?> moveDocumentFile(
+    DocumentFile source,
+    String destinationParentUri,
+  ) async {
+    if (source.isDirectory)
+      throw UnsupportedError('Recursive folder move not supported.');
     final copied = await copyDocumentFile(source, destinationParentUri);
     if (copied != null) await deleteDocumentFile(source);
     return copied;
@@ -108,7 +146,10 @@ class SafFileHandler implements LocalFileHandler {
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
     try {
-      final file = await _safUtil.documentFileFromUri(uri, false); // Assume it might be a file or dir
+      final file = await _safUtil.documentFileFromUri(
+        uri,
+        false,
+      ); // Assume it might be a file or dir
       return file != null ? CustomSAFDocumentFile(file) : null;
     } catch (e) {
       print('Error getting file metadata for $uri: $e');
@@ -142,9 +183,14 @@ class CustomSAFDocumentFile implements DocumentFile {
   @override
   int get size => _safFile.length;
   @override
-  DateTime get modifiedDate => DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
+  DateTime get modifiedDate =>
+      DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
   @override
-  String get mimeType => _safFile.isDir ? 'inode/directory' : (_mimeTypes[name.split('.').lastOrNull?.toLowerCase()] ?? 'application/octet-stream');
+  String get mimeType =>
+      _safFile.isDir
+          ? 'inode/directory'
+          : (_mimeTypes[name.split('.').lastOrNull?.toLowerCase()] ??
+              'application/octet-stream');
 
   static const _mimeTypes = {
     'txt': 'text/plain',

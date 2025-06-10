@@ -1,15 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../app/app_notifier.dart';
-import '../data/file_handler/file_handler.dart';
-import '../project/project_models.dart';
-import '../session/session_models.dart';
 
 import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
@@ -20,8 +13,9 @@ import 'settings_models.dart';
 //  Settings Providers
 // --------------------
 
-
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
+  ref,
+) {
   final plugins = ref.watch(activePluginsProvider);
   return SettingsNotifier(plugins: plugins);
 });

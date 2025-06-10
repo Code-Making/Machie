@@ -4,8 +4,6 @@ import 'package:flutter/material.dart'; // For TextStyle
 import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
 
 // IMPORTS FOR ALL THEMES
-import 'package:re_highlight/styles/a11y-dark.dart';
-import 'package:re_highlight/styles/a11y-light.dart';
 import 'package:re_highlight/styles/agate.dart';
 import 'package:re_highlight/styles/an-old-hope.dart';
 import 'package:re_highlight/styles/androidstudio.dart';
@@ -93,7 +91,6 @@ import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
-
 
 class CodeThemes {
   // Define available code themes as a map of theme names to their highlight maps
@@ -225,7 +222,9 @@ class CodeThemes {
     return languageExtToNameMap[ext] ?? 'plaintext';
   }
 
-  static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(String? langKey) {
+  static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(
+    String? langKey,
+  ) {
     final effectiveLangKey = langKey ?? 'plaintext';
     final mode = languageNameToModeMap[effectiveLangKey];
     if (mode != null) {

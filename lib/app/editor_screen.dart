@@ -5,12 +5,9 @@ import 'package:re_editor/re_editor.dart';
 
 import 'app_notifier.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
-import '../plugins/plugin_models.dart';
 import '../session/session_models.dart';
 import '../explorer/file_explorer_drawer.dart';
-import '../settings/settings_screen.dart';
 import '../utils/logs.dart';
-import '../command/command_models.dart';
 import '../command/command_widgets.dart';
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
@@ -22,7 +19,11 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    final currentTab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     final currentPlugin = currentTab?.plugin;
     final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -39,7 +40,11 @@ class EditorScreen extends ConsumerWidget {
               : const AppBarCommands(),
           IconButton(
             icon: const Icon(Icons.bug_report),
-            onPressed: () => showDialog(context: context, builder: (_) => const DebugLogView()),
+            onPressed:
+                () => showDialog(
+                  context: context,
+                  builder: (_) => const DebugLogView(),
+                ),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -53,9 +58,10 @@ class EditorScreen extends ConsumerWidget {
         children: [
           const TabBarView(),
           Expanded(
-            child: currentTab != null
-                ? const EditorContentSwitcher()
-                : const Center(child: Text('Open a file to start editing')),
+            child:
+                currentTab != null
+                    ? const EditorContentSwitcher()
+                    : const Center(child: Text('Open a file to start editing')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
@@ -70,7 +76,13 @@ class TabBarView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scrollController = ref.watch(tabBarScrollProvider);
-    final tabs = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.tabs)) ?? [];
+    final tabs =
+        ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.tabs,
+          ),
+        ) ??
+        [];
 
     if (tabs.isEmpty) {
       return const SizedBox.shrink();
@@ -85,7 +97,10 @@ class TabBarView extends ConsumerWidget {
           scrollController: scrollController,
           scrollDirection: Axis.horizontal,
           // CORRECTED: Call the right method
-          onReorder: (oldIndex, newIndex) => ref.read(appNotifierProvider.notifier).reorderTabs(oldIndex, newIndex),
+          onReorder:
+              (oldIndex, newIndex) => ref
+                  .read(appNotifierProvider.notifier)
+                  .reorderTabs(oldIndex, newIndex),
           buildDefaultDragHandles: false,
           children: [
             for (int i = 0; i < tabs.length; i++)
@@ -109,7 +124,11 @@ class FileTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isActive = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index));
+    final isActive = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTabIndex == index,
+      ),
+    );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
@@ -124,7 +143,10 @@ class FileTab extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => ref.read(appNotifierProvider.notifier).closeTab(index),
+                  onPressed:
+                      () => ref
+                          .read(appNotifierProvider.notifier)
+                          .closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -149,7 +171,11 @@ class EditorContentSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUri = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.file.uri));
+    final currentUri = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.file.uri,
+      ),
+    );
 
     return KeyedSubtree(
       key: ValueKey(currentUri),
@@ -163,7 +189,11 @@ class _EditorContentProxy extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }

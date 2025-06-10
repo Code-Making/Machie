@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ADDED: For Clipboard
@@ -15,7 +14,6 @@ final logProvider = StateNotifierProvider<LogNotifier, List<String>>((ref) {
   ref.onDispose(() => subscription.cancel());
   return logNotifier;
 });
-
 
 class LogNotifier extends StateNotifier<List<String>> {
   LogNotifier() : super([]);
@@ -43,19 +41,23 @@ class DebugLogView extends ConsumerWidget {
       title: const Text('Debug Logs'),
       // The content of the dialog is a scrollable list of logs.
       // AlertDialog automatically makes its content scrollable if it's too big.
-      content: Container(
+      content: SizedBox(
         width: double.maxFinite, // Use the full width of the dialog
         child: ListView.builder(
           itemCount: logs.length,
           shrinkWrap: true, // Necessary for ListView inside a dialog
-          itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0),
-            // Use SelectableText to allow users to copy individual lines
-            child: SelectableText(
-              logs[index],
-              style: const TextStyle(fontSize: 12.0, fontFamily: 'monospace'),
-            ),
-          ),
+          itemBuilder:
+              (context, index) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                // Use SelectableText to allow users to copy individual lines
+                child: SelectableText(
+                  logs[index],
+                  style: const TextStyle(
+                    fontSize: 12.0,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
         ),
       ),
       actions: <Widget>[
