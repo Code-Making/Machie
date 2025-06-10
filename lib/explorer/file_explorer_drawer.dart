@@ -13,6 +13,7 @@ import '../data/file_handler/local_file_handler.dart';
 import '../project/project_models.dart';
 import '../settings/settings_screen.dart';
 import '../utils/clipboard.dart';
+import '../utils/logs.dart';
 
 
 // --------------------
