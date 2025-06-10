@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../app/app_notifier.dart';
 import '../data/file_handler/file_handler.dart';
 import '../project/project_models.dart';
+import '../command/command_models.dart';
 import '../session/session_models.dart';
 import 'plugin_registry.dart';
 

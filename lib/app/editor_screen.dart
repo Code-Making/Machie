@@ -10,6 +10,7 @@ import '../session/session_models.dart';
 import '../explorer/file_explorer_drawer.dart';
 import '../settings/settings_screen.dart';
 import '../utils/logs.dart';
+import '../command/command_models.dart'
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
