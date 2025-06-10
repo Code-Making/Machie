@@ -16,6 +16,7 @@ import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
+import 'code_editor_settings_widget.dart';
 
 
 // --------------------

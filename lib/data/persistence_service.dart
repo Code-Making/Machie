@@ -4,6 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_state.dart';
 
+// Global provider for SharedPreferences, used by the PersistenceService.
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+  return await SharedPreferences.getInstance();
+});
+
 // Manages saving and loading the global application state.
 class PersistenceService {
   static const _appStateKey = 'app_state';
