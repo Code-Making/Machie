@@ -10,6 +10,13 @@ import '../plugins/plugin_models.dart'; // For EditorPlugin, PluginSettings, Com
 import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
 import '../utils/logs.dart';
 
+import '../command/command_models.dart';
+import '../command/command_widgets.dart';
+
+import 'settings_models.dart';
+import 'settings_notifier.dart';
+
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
