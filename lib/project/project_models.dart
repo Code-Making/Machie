@@ -11,7 +11,6 @@ enum FileExplorerViewMode {
   sortByDateModified,
 }
 
-enum ClipboardOperation { cut, copy }
 
 // --- Models ---
 
@@ -109,9 +108,3 @@ class LocalProject extends Project {
       };
 }
 
-class ClipboardItem {
-  final String uri;
-  final bool isFolder;
-  final ClipboardOperation operation;
-  ClipboardItem({required this.uri, required this.isFolder, required this.operation});
-}

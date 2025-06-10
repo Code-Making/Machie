@@ -9,9 +9,8 @@ import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
 import '../session/session_service.dart';
+import '../utils/clipboard.dart'
 import 'app_state.dart';
-
-final clipboardProvider = StateProvider<ClipboardItem?>((ref) => null);
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(AppNotifier.new);
 
