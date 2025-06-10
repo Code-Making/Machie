@@ -2,7 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:flutter/material.dart';
 
-import '../plugin_architecture.dart';
+import '../plugin_models.dart';
 import '../../session/session_models.dart';
 
 @immutable
