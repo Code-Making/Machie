@@ -11,6 +11,7 @@ import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProv
 import '../utils/logs.dart';
 
 import '../command/command_models.dart';
+import '../command/command_notifier.dart';
 import '../command/command_widgets.dart';
 
 import 'settings_models.dart';
