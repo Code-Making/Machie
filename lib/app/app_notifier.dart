@@ -71,18 +71,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     state = AsyncData(updater(previousState));
   }
   
-    // NEW: Method to update the file explorer view mode.
-  void setFileExplorerViewMode(FileExplorerViewMode mode) {
-    _updateStateSync((s) {
-      final project = s.currentProject;
-      if (project is! LocalProject) return s;
-
-      // Use the copyWith method on LocalProject to create an updated instance.
-      final newProject = project.copyWith(fileExplorerViewMode: mode);
-      return s.copyWith(currentProject: newProject);
-    });
-    // No need to save the entire app state here, as this is project-specific data
-    // that gets saved when the project is closed or the app is paused.
+  void updateProject(Project newProject) {
+    _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
   // ... (openProjectFromFolder, openKnownProject are unchanged) ...
