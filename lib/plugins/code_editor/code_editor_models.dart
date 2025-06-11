@@ -5,7 +5,7 @@ import '../plugin_models.dart';
 import '../../session/session_models.dart';
 import '../../data/file_handler/file_handler.dart';
 
-immutable
+@immutable
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
