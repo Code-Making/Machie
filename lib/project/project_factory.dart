@@ -122,7 +122,6 @@ class LocalProjectFactory implements ProjectFactory {
   }
 
   Future<Project> _createLocalProjectFromJson(
-      /* ... same as before ... */
     ProjectMetadata metadata,
     FileHandler handler,
     String projectDataPath,
@@ -139,6 +138,7 @@ class LocalProjectFactory implements ProjectFactory {
         currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
       ),
       projectDataPath: projectDataPath,
+      // Pass the deserialized values here.
       expandedFolders: Set<String>.from(json['expandedFolders'] ?? []),
       fileExplorerViewMode: FileExplorerViewMode.values.firstWhere(
         (e) => e.name == json['fileExplorerViewMode'],

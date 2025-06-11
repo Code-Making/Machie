@@ -7,7 +7,7 @@ import '../data/file_handler/local_file_handler.dart';
 import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'explorer_plugin_registry.dart';
-import 'new_project_screen.dart'; // NEW IMPORT
+import 'new_project_screen.dart';
 
 // --------------------
 // Main Drawer Widget (The "Host")
@@ -23,7 +23,7 @@ class FileExplorerDrawer extends ConsumerWidget {
     );
 
     return Drawer(
-      width: MediaQuery.of(context).size.width,
+      width: MediaQuery.of(context).size.width * 0.85, // A bit wider for better usability
       child: currentProject == null
           ? const ProjectSelectionScreen()
           : ExplorerHostView(project: currentProject),
@@ -48,9 +48,7 @@ class ExplorerHostView extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        // MODIFIED: Use the title for the project dropdown for better alignment.
         title: ProjectSwitcherDropdown(currentProject: project),
-        // Global actions like settings are still here.
         actions: [
           IconButton(
             icon: Icon(
@@ -63,12 +61,10 @@ class ExplorerHostView extends ConsumerWidget {
             },
           ),
         ],
-        // MODIFIED: Use the 'bottom' property for the second line of controls.
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48.0),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            // The explorer type dropdown is now here.
             child: ExplorerTypeDropdown(currentProject: project),
           ),
         ),
@@ -79,8 +75,10 @@ class ExplorerHostView extends ConsumerWidget {
   }
 }
 
-// --- UI Components ---
-// MODIFIED: ExplorerTypeDropdown is now simpler, as it's just one line.
+// --------------------
+// UI Components
+// --------------------
+
 class ExplorerTypeDropdown extends ConsumerWidget {
   final Project currentProject;
   const ExplorerTypeDropdown({super.key, required this.currentProject});
@@ -116,7 +114,6 @@ class ExplorerTypeDropdown extends ConsumerWidget {
   }
 }
 
-// MODIFIED: ProjectSwitcherDropdown's selected item builder uses a larger font.
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
   const ProjectSwitcherDropdown({super.key, required this.currentProject});
@@ -124,8 +121,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects =
-        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
-            [];
+        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ?? [];
     final appNotifier = ref.read(appNotifierProvider.notifier);
 
     return DropdownButtonHideUnderline(
@@ -133,7 +129,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
         value: currentProject.id,
         onChanged: (projectId) {
           if (projectId == '_manage_projects') {
-            Navigator.pop(context);
+            Navigator.pop(context); // Close drawer before opening modal
             showModalBottomSheet(
               context: context,
               builder: (ctx) => const ManageProjectsScreen(),
@@ -159,14 +155,11 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
           ),
         ],
         selectedItemBuilder: (BuildContext context) {
-          // Find the current project to display its name
           final displayedProject = knownProjects.firstWhere(
             (p) => p.id == currentProject.id,
-            orElse: () => currentProject.metadata, // Fallback
+            orElse: () => currentProject.metadata,
           );
-          // The builder must return a list of widgets matching the items length
           return knownProjects.map<Widget>((item) {
-            // This widget is only shown for the selected item
             return Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -175,7 +168,8 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             );
-          }).toList()..add(const SizedBox.shrink()); // Add placeholder for manage item
+          }).toList()
+            ..add(const SizedBox.shrink());
         },
         icon: const Icon(Icons.arrow_drop_down),
         iconSize: 24,
@@ -187,11 +181,10 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
 class ProjectSelectionScreen extends ConsumerWidget {
   const ProjectSelectionScreen({super.key});
 
-  // NEW helper method to show the new project screen
   void _showNewProjectScreen(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the sheet to take up more space
+      isScrollControlled: true,
       builder: (ctx) => const NewProjectScreen(),
     );
   }
@@ -203,7 +196,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Machine'), // A more generic title
+        title: const Text('Machine'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -215,7 +208,6 @@ class ProjectSelectionScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // MODIFIED: This button now opens the new project type selector.
           ElevatedButton.icon(
             icon: const Icon(Icons.folder_open),
             label: const Text('Create or Open Project'),
@@ -237,22 +229,18 @@ class ProjectSelectionScreen extends ConsumerWidget {
             ),
           ...knownProjects.map((projectMeta) {
             return ListTile(
-              leading: Icon(
-                  projectMeta.projectTypeId == 'simple_local'
-                      ? Icons.folder_copy_outlined
-                      : Icons.folder_special_outlined),
+              leading: Icon(projectMeta.projectTypeId == 'simple_local'
+                  ? Icons.folder_copy_outlined
+                  : Icons.folder_special_outlined),
               title: Text(projectMeta.name),
               subtitle: Text(
                 projectMeta.rootUri,
                 overflow: TextOverflow.ellipsis,
               ),
               onTap: () async {
-                // The openKnownProject logic already works correctly as it uses
-                // the metadata to find the right factory.
                 await ref
                     .read(appNotifierProvider.notifier)
                     .openKnownProject(projectMeta.id);
-                // Pop the drawer after opening.
                 if (context.mounted) Navigator.pop(context);
               },
             );
@@ -289,10 +277,11 @@ class ManageProjectsScreen extends ConsumerWidget {
           final isCurrent = appState?.currentProject?.id == project.id;
           return ListTile(
             leading: Icon(
-              isCurrent ? Icons.folder_open :
-              project.projectTypeId == 'simple_local'
-                  ? Icons.folder_copy_outlined
-                  : Icons.folder_special_outlined,
+              isCurrent
+                  ? Icons.folder_open
+                  : project.projectTypeId == 'simple_local'
+                      ? Icons.folder_copy_outlined
+                      : Icons.folder_special_outlined,
             ),
             title: Text(project.name + (isCurrent ? ' (Current)' : '')),
             subtitle: Text(project.rootUri, overflow: TextOverflow.ellipsis),
@@ -300,7 +289,15 @@ class ManageProjectsScreen extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
               tooltip: 'Remove from list',
               onPressed: () async {
-                // ... (confirm dialog logic unchanged)
+                final confirm = await _showConfirmDialog(
+                  context,
+                  title: 'Remove "${project.name}"?',
+                  content:
+                      'This will only remove the project from your recent projects list. The folder and its contents on your device will not be deleted.',
+                );
+                if (confirm) {
+                  await appNotifier.removeKnownProject(project.id);
+                }
               },
             ),
             onTap: isCurrent
@@ -312,12 +309,9 @@ class ManageProjectsScreen extends ConsumerWidget {
           );
         },
       ),
-      // MODIFIED: FAB now opens the new project type selector.
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Close the current 'Manage Projects' sheet first
           Navigator.pop(context);
-          // Then open the new project screen
           _showNewProjectScreen(ref.context);
         },
         tooltip: 'Create or Open Project',
@@ -326,28 +320,27 @@ class ManageProjectsScreen extends ConsumerWidget {
     );
   }
 
-Future<bool> _showConfirmDialog(
+  Future<bool> _showConfirmDialog(
     BuildContext context, {
     required String title,
     required String content,
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: Text(title),
-                content: Text(content),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Confirm'),
-                  ),
-                ],
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
               ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
         ) ??
         false;
   }

@@ -11,8 +11,8 @@ import 'project_models.dart';
 class LocalProject extends Project {
   // ... (no changes in properties) ...
   String projectDataPath;
-  Set<String> expandedFolders;
-  FileExplorerViewMode fileExplorerViewMode;
+  final Set<String> expandedFolders;
+  final FileExplorerViewMode fileExplorerViewMode;
 
   LocalProject({
     required super.metadata,
@@ -23,7 +23,7 @@ class LocalProject extends Project {
     this.fileExplorerViewMode = FileExplorerViewMode.sortByNameAsc,
   });
 
-  // ... (no changes in copyWith or toggleFolderExpansion) ...
+  // MODIFIED: The copyWith method no longer needs to handle this state.
   LocalProject copyWith({
     ProjectMetadata? metadata,
     SessionState? session,
@@ -32,25 +32,15 @@ class LocalProject extends Project {
   }) {
     return LocalProject(
       metadata: metadata ?? this.metadata,
-      fileHandler:
-          fileHandler, // File handler is immutable per project instance
+      fileHandler: fileHandler,
       session: session ?? this.session.copyWith(),
       projectDataPath: projectDataPath,
-      expandedFolders: expandedFolders ?? Set.from(this.expandedFolders),
+      expandedFolders: expandedFolders ?? this.expandedFolders,
       fileExplorerViewMode: fileExplorerViewMode ?? this.fileExplorerViewMode,
     );
   }
 
-  // --- NEW: Project-specific logic (not on abstract class) ---
-  LocalProject toggleFolderExpansion(String folderUri) {
-    final newExpanded = Set<String>.from(expandedFolders);
-    if (newExpanded.contains(folderUri)) {
-      newExpanded.remove(folderUri);
-    } else {
-      newExpanded.add(folderUri);
-    }
-    return copyWith(expandedFolders: newExpanded);
-  }
+
 
   // --- NEW: Lifecycle Implementations ---
 

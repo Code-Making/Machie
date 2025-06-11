@@ -19,21 +19,25 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This view is specific to LocalProject, so a cast is safe here.
-    // A more advanced implementation might use a type check to show a different UI
-    // for non-local projects.
-    final localProject = project as LocalProject;
+    // We no longer cast the project, we just use its properties and ID.
+    final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
 
     return Column(
       children: [
         Expanded(
           child: _DirectoryView(
-            directory: localProject.rootUri,
-            projectRootUri: localProject.rootUri,
-            expandedFolders: localProject.expandedFolders,
+            directory: project.rootUri,
+            projectRootUri: project.rootUri,
+            expandedFolders: fileExplorerState.expandedFolders,
+            viewMode: fileExplorerState.viewMode,
+            // Pass the project ID for state management context.
+            projectId: project.id,
           ),
         ),
-        _FileOperationsFooter(project: localProject),
+        _FileOperationsFooter(
+          projectRootUri: project.rootUri,
+          projectId: project.id,
+        ),
       ],
     );
   }
@@ -42,12 +46,16 @@ class FileExplorerView extends ConsumerWidget {
 class _DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
+  final String projectId;
   final Set<String> expandedFolders;
+  final FileExplorerViewMode viewMode;
 
   const _DirectoryView({
     required this.directory,
     required this.projectRootUri,
+    required this.projectId,
     required this.expandedFolders,
+    required this.viewMode,
   });
 
   @override
@@ -56,8 +64,6 @@ class _DirectoryView extends ConsumerWidget {
       currentProjectDirectoryContentsProvider(directory),
     );
 
-    final viewMode = ref.watch(fileExplorerStateProvider);
-
     return contentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
@@ -65,18 +71,18 @@ class _DirectoryView extends ConsumerWidget {
         _applySorting(contents, viewMode);
 
         return ListView.builder(
+          key: PageStorageKey(directory), // Preserve scroll position
           shrinkWrap: true,
           physics: const ClampingScrollPhysics(),
           itemCount: contents.length,
           itemBuilder: (context, index) {
             final item = contents[index];
-            final depth =
-                item.uri.split('%2F').length -
-                projectRootUri.split('%2F').length;
+            final depth = item.uri.split('%2F').length - projectRootUri.split('%2F').length;
             return _DirectoryItem(
               item: item,
               depth: depth,
               isExpanded: expandedFolders.contains(item.uri),
+              projectId: projectId,
             );
           },
         );
@@ -84,7 +90,7 @@ class _DirectoryView extends ConsumerWidget {
     );
   }
 
-  void _applySorting(List<DocumentFile> contents, FileExplorerViewMode? mode) {
+  void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
       switch (mode) {
@@ -103,11 +109,13 @@ class _DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
+  final String projectId;
 
   const _DirectoryItem({
     required this.item,
     required this.depth,
     required this.isExpanded,
+    required this.projectId,
   });
 
   void _showContextMenu(
@@ -154,11 +162,7 @@ class _DirectoryItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final project = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value!.currentProject! as LocalProject,
-      ),
-    );
+    final fileExplorerNotifier = ref.read(fileExplorerStateProvider(projectId).notifier);
 
     Widget childWidget;
     if (item.isDirectory) {
@@ -171,16 +175,22 @@ class _DirectoryItem extends ConsumerWidget {
         title: Text(item.name),
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
-          appNotifier.toggleFolderExpansion(item.uri);
+          fileExplorerNotifier.toggleFolderExpansion(item.uri);
         },
         childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
           if (isExpanded)
-            _DirectoryView(
-              directory: item.uri,
-              projectRootUri: project.rootUri,
-              expandedFolders: project.expandedFolders,
-            ),
+            Consumer(builder: (context, ref, _) {
+              final state = ref.watch(fileExplorerStateProvider(projectId));
+              final project = ref.watch(appNotifierProvider).value!.currentProject!;
+              return _DirectoryView(
+                directory: item.uri,
+                projectRootUri: project.rootUri,
+                projectId: projectId,
+                expandedFolders: state.expandedFolders,
+                viewMode: state.viewMode,
+              );
+            }),
         ],
       );
     } else {
@@ -203,8 +213,9 @@ class _DirectoryItem extends ConsumerWidget {
 }
 
 class _FileOperationsFooter extends ConsumerWidget {
-  final LocalProject project;
-  const _FileOperationsFooter({required this.project});
+  final String projectRootUri;
+  final String projectId;
+  const _FileOperationsFooter({required this.projectRootUri, required this.projectId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -212,7 +223,7 @@ class _FileOperationsFooter extends ConsumerWidget {
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final logNotifier = ref.read(logProvider.notifier);
 
-    final rootDoc = _RootPlaceholder(project.rootUri);
+    final rootDoc = _RootPlaceholder(projectRootUri);
     final pasteCommand = FileExplorerContextCommands.getCommands(ref, rootDoc)
         .firstWhereOrNull((cmd) => cmd.id == 'paste');
 
@@ -237,7 +248,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                 try {
                   await appNotifier.performFileOperation(
                     (handler) => handler.createDocumentFile(
-                      project.rootUri,
+                      projectRootUri,
                       newFileName,
                       isDirectory: false,
                     ),
@@ -262,7 +273,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                 try {
                   await appNotifier.performFileOperation(
                     (handler) => handler.createDocumentFile(
-                      project.rootUri,
+                      projectRootUri,
                       newFolderName,
                       isDirectory: true,
                     ),
@@ -285,7 +296,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                   await appNotifier.performFileOperation(
                     (projectHandler) => projectHandler.copyDocumentFile(
                       pickedFile,
-                      project.rootUri,
+                      projectRootUri,
                     ),
                   );
                 } catch (e) {
@@ -303,10 +314,9 @@ class _FileOperationsFooter extends ConsumerWidget {
                   : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed:
-                (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
-                    ? () => pasteCommand.executeFor(ref, rootDoc)
-                    : null,
+            onPressed: (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
+                ? () => pasteCommand.executeFor(ref, rootDoc)
+                : null,
           ),
           // --- Sort ---
           IconButton(
@@ -336,8 +346,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerStateProvider.notifier)
+                  ref.read(fileExplorerStateProvider(projectId).notifier)
                       .setViewMode(FileExplorerViewMode.sortByNameAsc);
                   Navigator.pop(ctx);
                 },
@@ -346,8 +355,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (Z-A)'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerStateProvider.notifier)
+                  ref.read(fileExplorerStateProvider(projectId).notifier)
                       .setViewMode(FileExplorerViewMode.sortByNameDesc);
                   Navigator.pop(ctx);
                 },
@@ -356,8 +364,7 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.schedule),
                 title: const Text('Sort by Date Modified'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerStateProvider.notifier)
+                  ref.read(fileExplorerStateProvider(projectId).notifier)
                       .setViewMode(FileExplorerViewMode.sortByDateModified);
                   Navigator.pop(ctx);
                 },
