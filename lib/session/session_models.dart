@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import '../plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
-// NEW: Top-level abstraction for any tab in the workspace.
+// MODIFIED: 'title' is now an abstract getter, not a final field.
 @immutable
 abstract class WorkspaceTab {
-  final String title;
+  String get title; // MODIFIED
   final EditorPlugin plugin;
 
   const WorkspaceTab({
-    required this.title,
     required this.plugin,
   });
 
@@ -44,20 +43,25 @@ class SessionState {
 }
 
 @immutable
-abstract class EditorTab extends WorkspaceTab { // MODIFIED: extends WorkspaceTab
+abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
   final bool isDirty;
 
-  // MODIFIED: Removed 'const' because file.name is not a compile-time constant.
+  // MODIFIED: Constructor is 'const' again and no longer calls super with a title.
   const EditorTab({
     required this.file,
     required super.plugin,
     this.isDirty = false,
-  }) : super(title: file.name);
+  });
+
+  // MODIFIED: Implement the 'title' getter here.
+  @override
+  String get title => file.name;
 
   String get contentString;
-  
-  // dispose() is already in WorkspaceTab
+
+  @override
+  void dispose();
 
   EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty});
 
