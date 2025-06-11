@@ -16,7 +16,9 @@ import 'simple_local_file_project.dart';
 
 abstract class ProjectFactory {
   String get projectTypeId;
-  // MODIFIED: Added json parameter for deserialization from AppState
+  String get name; // NEW: User-friendly name for the UI
+  String get description; // NEW: Description for the UI
+
   Future<Project> open(
     ProjectMetadata metadata,
     Ref ref, {
@@ -40,6 +42,13 @@ final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((re
 class SimpleLocalProjectFactory implements ProjectFactory {
   @override
   String get projectTypeId => 'simple_local';
+
+  @override
+  String get name => 'Simple Project'; // NEW
+
+  @override
+  String get description =>
+      'A temporary project. No files are created in the project folder. Session is discarded when another project is opened.'; // NEW
 
   @override
   Future<Project> open(
@@ -72,6 +81,13 @@ class SimpleLocalProjectFactory implements ProjectFactory {
 class LocalProjectFactory implements ProjectFactory {
   @override
   String get projectTypeId => 'local_persistent';
+
+  @override
+  String get name => 'Persistent Project'; // NEW
+
+  @override
+  String get description =>
+      'Saves session data and settings in a hidden ".machine" folder within your project directory.'; // NEW
 
   @override
   Future<Project> open(
