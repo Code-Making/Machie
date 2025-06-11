@@ -10,31 +10,75 @@ import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'local_file_system_project.dart';
 import 'project_models.dart';
+import 'simple_local_file_project.dart';
 
 // --- Abstraction ---
 
 abstract class ProjectFactory {
-  ProjectType get type;
-  Future<Project> open(ProjectMetadata metadata, Ref ref);
+  String get projectTypeId;
+  // MODIFIED: Added json parameter for deserialization from AppState
+  Future<Project> open(
+    ProjectMetadata metadata,
+    Ref ref, {
+    Map<String, dynamic>? projectStateJson,
+  });
 }
 
 // --- Registry ---
 
-final projectFactoryRegistryProvider = Provider<Map<ProjectType, ProjectFactory>>((ref) {
-  // Register all known project factories here. This makes the system pluggable.
+final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((ref) {
   return {
-    ProjectType.local: LocalProjectFactory(),
+    // MODIFIED: Use the factories' IDs as keys.
+    LocalProjectFactory().projectTypeId: LocalProjectFactory(),
+    SimpleLocalProjectFactory().projectTypeId: SimpleLocalProjectFactory(),
   };
 });
 
-// --- Concrete Implementation ---
+// --- Concrete Implementations ---
 
+// NEW Factory for SimpleLocalFileProject
+class SimpleLocalProjectFactory implements ProjectFactory {
+  @override
+  String get projectTypeId => 'simple_local';
+
+  @override
+  Future<Project> open(
+    ProjectMetadata metadata,
+    Ref ref, {
+    Map<String, dynamic>? projectStateJson,
+  }) async {
+    final handler = LocalFileHandlerFactory.create();
+    SessionState session = const SessionState();
+
+    if (projectStateJson != null) {
+      // Rehydrate session from AppState
+      final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
+      final tabs = await _rehydrateTabs(sessionJson, handler, ref);
+      session = SessionState(
+        tabs: tabs,
+        currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
+      );
+    }
+
+    return SimpleLocalFileProject(
+      metadata: metadata,
+      fileHandler: handler,
+      session: session,
+    );
+  }
+}
+
+// MODIFIED LocalProjectFactory to align with new interface
 class LocalProjectFactory implements ProjectFactory {
   @override
-  ProjectType get type => ProjectType.local;
+  String get projectTypeId => 'local_persistent';
 
   @override
-  Future<Project> open(ProjectMetadata metadata, Ref ref) async {
+  Future<Project> open(
+    ProjectMetadata metadata,
+    Ref ref, {
+    Map<String, dynamic>? projectStateJson, // This will be ignored for this type
+  }) async {
     final handler = LocalFileHandlerFactory.create();
     final projectDataDir = await _ensureProjectDataFolder(handler, metadata.rootUri);
     final files = await handler.listDirectory(projectDataDir.uri, includeHidden: true);
@@ -62,6 +106,7 @@ class LocalProjectFactory implements ProjectFactory {
   }
 
   Future<Project> _createLocalProjectFromJson(
+      /* ... same as before ... */
     ProjectMetadata metadata,
     FileHandler handler,
     String projectDataPath,
@@ -69,25 +114,7 @@ class LocalProjectFactory implements ProjectFactory {
     Ref ref,
   ) async {
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
-    final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
-    final plugins = ref.read(activePluginsProvider);
-
-    final List<EditorTab> tabs = [];
-    for (final tabJson in tabsJson) {
-      final pluginType = tabJson['pluginType'] as String?;
-      if (pluginType == null) continue;
-
-      final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
-      if (plugin != null) {
-        try {
-          final tab = await plugin.createTabFromSerialization(tabJson, handler);
-          tabs.add(tab);
-        } catch (e) {
-          print('Could not restore tab: $e');
-        }
-      }
-    }
-
+    final tabs = await _rehydrateTabs(sessionJson, handler, ref);
     return LocalProject(
       metadata: metadata,
       fileHandler: handler,
@@ -103,4 +130,29 @@ class LocalProjectFactory implements ProjectFactory {
       ),
     );
   }
+}
+
+// --- Helper function (extracted and shared) ---
+Future<List<EditorTab>> _rehydrateTabs(
+  Map<String, dynamic> sessionJson,
+  FileHandler handler,
+  Ref ref,
+) async {
+  final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
+  final plugins = ref.read(activePluginsProvider);
+  final List<EditorTab> tabs = [];
+  for (final tabJson in tabsJson) {
+    final pluginType = tabJson['pluginType'] as String?;
+    if (pluginType == null) continue;
+    final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+    if (plugin != null) {
+      try {
+        final tab = await plugin.createTabFromSerialization(tabJson, handler);
+        tabs.add(tab);
+      } catch (e) {
+        print('Could not restore tab: $e');
+      }
+    }
+  }
+  return tabs;
 }

@@ -40,14 +40,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _persistenceService = PersistenceService(prefs);
     _projectManager = ref.watch(projectManagerProvider);
 
-    final initialState = await _persistenceService.loadAppState();
+        final initialState = await _persistenceService.loadAppState();
+    
+    // MODIFIED: Rehydration logic
     if (initialState.lastOpenedProjectId != null) {
       final meta = initialState.knownProjects.firstWhereOrNull(
         (p) => p.id == initialState.lastOpenedProjectId,
       );
       if (meta != null) {
         try {
-          final project = await _projectManager.openProject(meta);
+          // Pass the saved state from AppState to the project manager.
+          final project = await _projectManager.openProject(
+            meta,
+            projectStateJson: initialState.currentProjectState,
+          );
           return initialState.copyWith(currentProject: project);
         } catch (e) {
           print('Failed to auto-open last project: $e');
@@ -75,35 +81,47 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
-  // ... (openProjectFromFolder, openKnownProject are unchanged) ...
-  Future<void> openProjectFromFolder(DocumentFile folder) async {
+    // MODIFIED: This method is now a pure controller.
+  Future<void> openProjectFromFolder({
+    required DocumentFile folder,
+    required String projectTypeId,
+  }) async {
     await _updateState((s) async {
-      ProjectMetadata? meta = s.knownProjects.firstWhereOrNull(
-        (p) => p.rootUri == folder.uri,
-      );
-      final isNew = meta == null;
-      meta ??= await _projectManager.createNewProjectMetadata(
-        folder.uri,
-        folder.name,
+      // 1. Delegate the complex business logic to the ProjectManager.
+      //    Pass it the data it needs (the current list of known projects).
+      final result = await _projectManager.openFromFolder(
+        folder: folder,
+        projectTypeId: projectTypeId,
+        knownProjects: s.knownProjects,
       );
 
-      final project = await _projectManager.openProject(meta);
+      // 2. Use the result to update the state. The controller's only job
+      //    is to orchestrate this state update.
       return s.copyWith(
-        currentProject: project,
-        lastOpenedProjectId: project.id,
-        knownProjects: isNew ? [...s.knownProjects, meta] : s.knownProjects,
+        currentProject: result.project,
+        lastOpenedProjectId: result.project.id,
+        // If the project was new, add its metadata to the list.
+        knownProjects:
+            result.isNew ? [...s.knownProjects, result.metadata] : s.knownProjects,
       );
     });
+    // 3. Persist the new state.
     await saveAppState();
   }
 
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
-      final project = await _projectManager.openProject(meta);
+      // We pass projectStateJson as null because we're opening a known project,
+      // not rehydrating from a previous session state stored in AppState.
+      // The project will load its own state from disk if it's persistent.
+      final project = await _projectManager.openProject(meta, projectStateJson: null);
       return s.copyWith(
         currentProject: project,
         lastOpenedProjectId: project.id,
+        // When opening a known project, its state is *not* loaded from AppState,
+        // so we clear it to prevent stale data from being used later.
+        clearCurrentProject: true, // This clears both project and projectState
       );
     });
     await saveAppState();
@@ -240,10 +258,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<void> saveAppState() async {
     final appState = state.value;
     if (appState == null) return;
+    
+    // For persistent projects, explicitly call save().
     if (appState.currentProject != null) {
-      // MODIFIED: Use the decoupled ProjectManager
       await _projectManager.saveProject(appState.currentProject!);
     }
+    
+    // This will now correctly serialize the currentProject's state into AppState.
     await _persistenceService.saveAppState(appState);
   }
 }

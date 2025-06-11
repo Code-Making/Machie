@@ -213,7 +213,8 @@ class LocalProject extends Project {
     return copyWith(session: session.copyWith(tabs: newTabs));
   }
 
-  // Serialization for .machine/project_data.json
+  // MODIFIED: Implement the toJson method from the abstract class.
+  @override
   Map<String, dynamic> toJson() => {
     'id': metadata.id, // For verification
     'session': session.toJson(),
