@@ -46,13 +46,14 @@ class SessionState {
 @immutable
 abstract class EditorTab extends WorkspaceTab { // MODIFIED: extends WorkspaceTab
   final DocumentFile file;
-  final bool isDirty; // CORRECTED: Made final for immutability
+  final bool isDirty;
 
-  const EditorTab({
+  // MODIFIED: Removed 'const' because file.name is not a compile-time constant.
+  EditorTab({
     required this.file,
     required super.plugin,
     this.isDirty = false,
-  }) : super(title: file.name); // MODIFIED: pass title to super constructor
+  }) : super(title: file.name);
 
   String get contentString;
   

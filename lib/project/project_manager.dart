@@ -2,7 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'project_factory.dart'; // NEW
+import 'project_factory.dart';
 import 'project_models.dart';
 
 final projectManagerProvider = Provider<ProjectManager>((ref) {
@@ -16,7 +16,6 @@ class ProjectManager {
   ProjectManager(this._ref);
 
   Future<Project> openProject(ProjectMetadata metadata) async {
-    // MODIFIED: Use the factory to delegate project creation.
     final factories = _ref.read(projectFactoryRegistryProvider);
     final factory = factories[metadata.projectType];
     if (factory == null) {
@@ -26,14 +25,12 @@ class ProjectManager {
   }
 
   Future<void> saveProject(Project project) async {
-    // MODIFIED: Delegate saving to the project itself.
     await project.save();
   }
 
-  // NEW: Add a corresponding close method for consistency.
-  Future<void> closeProject(Project project) async {
-    // MODIFIED: Delegate closing to the project itself.
-    await project.close();
+  // MODIFIED: Update signature to accept and pass the ref.
+  Future<void> closeProject(Project project, {required Ref ref}) async {
+    await project.close(ref: ref);
   }
 
   Future<ProjectMetadata> createNewProjectMetadata(
@@ -48,6 +45,4 @@ class ProjectManager {
       lastOpenedDateTime: DateTime.now(),
     );
   }
-
-  // DELETED: _ensureProjectDataFolder and _createLocalProjectFromJson are now in LocalProjectFactory.
 }

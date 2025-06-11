@@ -1,6 +1,6 @@
 // lib/project/project_models.dart
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // NEW
-import '../plugins/plugin_models.dart'; // NEW
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../plugins/plugin_models.dart';
 import '../session/session_models.dart';
 import '../data/file_handler/file_handler.dart';
 
@@ -13,6 +13,7 @@ enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
 
 // Lightweight reference to a project, stored in global app state.
 class ProjectMetadata {
+  // ... (no changes here) ...
   final String id;
   final String name;
   final String rootUri;
@@ -67,7 +68,8 @@ abstract class Project {
 
   // NEW: Lifecycle methods defining the contract for all project types.
   Future<void> save();
-  Future<void> close();
+  // MODIFIED: Signature now requires a Ref to pass down to plugins.
+  Future<void> close({required Ref ref});
 
   // NEW: Session manipulation methods, returning a new immutable Project instance.
   // The responsibility for this logic is moved from SessionService to here.
