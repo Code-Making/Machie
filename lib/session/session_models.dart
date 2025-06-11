@@ -49,7 +49,7 @@ abstract class EditorTab extends WorkspaceTab { // MODIFIED: extends WorkspaceTa
   final bool isDirty;
 
   // MODIFIED: Removed 'const' because file.name is not a compile-time constant.
-  EditorTab({
+  const EditorTab({
     required this.file,
     required super.plugin,
     this.isDirty = false,
