@@ -11,6 +11,7 @@ import '../../../project/local_file_system_project.dart';
 import '../../../project/project_models.dart';
 import '../../../utils/clipboard.dart';
 import '../../../utils/logs.dart';
+import 'file_explorer_state.dart';
 
 class FileExplorerView extends ConsumerWidget {
   final Project project;
@@ -18,11 +19,13 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // This view is specific to LocalProject, so a cast is safe here.
+    // A more advanced implementation might use a type check to show a different UI
+    // for non-local projects.
     final localProject = project as LocalProject;
 
     return Column(
       children: [
-        // DELETED: The header row with the sort dropdown is now gone.
         Expanded(
           child: _DirectoryView(
             directory: localProject.rootUri,
@@ -36,7 +39,6 @@ class FileExplorerView extends ConsumerWidget {
   }
 }
 
-// ... (_DirectoryView, _DirectoryItem, etc. are unchanged) ...
 class _DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
@@ -54,13 +56,12 @@ class _DirectoryView extends ConsumerWidget {
       currentProjectDirectoryContentsProvider(directory),
     );
 
+    final viewMode = ref.watch(fileExplorerStateProvider);
+
     return contentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
       data: (contents) {
-        // MODIFIED: Read the view mode from the project state directly.
-        final viewMode = (ref.watch(appNotifierProvider).value?.currentProject as LocalProject?)
-            ?.fileExplorerViewMode;
         _applySorting(contents, viewMode);
 
         return ListView.builder(
@@ -91,7 +92,7 @@ class _DirectoryView extends ConsumerWidget {
           return b.name.toLowerCase().compareTo(a.name.toLowerCase());
         case FileExplorerViewMode.sortByDateModified:
           return b.modifiedDate.compareTo(a.modifiedDate);
-        default: // Also handles null case
+        default: // Also handles null and sortByNameAsc
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
     });
@@ -108,46 +109,45 @@ class _DirectoryItem extends ConsumerWidget {
     required this.depth,
     required this.isExpanded,
   });
-  
-    void _showContextMenu(
+
+  void _showContextMenu(
     BuildContext context,
     WidgetRef ref,
     DocumentFile item,
   ) {
     final allCommands =
-        FileExplorerContextCommands.getCommands(
-          ref,
-          item,
-        ).where((cmd) => cmd.canExecuteFor(ref, item)).toList();
+        FileExplorerContextCommands.getCommands(ref, item)
+            .where((cmd) => cmd.canExecuteFor(ref, item))
+            .toList();
 
     showModalBottomSheet(
       context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    item.name,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                const Divider(),
-                ...allCommands.map(
-                  (command) => ListTile(
-                    leading: command.icon,
-                    title: Text(command.label),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      command.executeFor(ref, item);
-                    },
-                  ),
-                ),
-              ],
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                item.name,
+                style: Theme.of(context).textTheme.titleLarge,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
+            const Divider(),
+            ...allCommands.map(
+              (command) => ListTile(
+                leading: command.icon,
+                title: Text(command.label),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  command.executeFor(ref, item);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -166,14 +166,14 @@ class _DirectoryItem extends ConsumerWidget {
         key: ValueKey(item.uri),
         leading: Icon(
           isExpanded ? Icons.folder_open : Icons.folder,
-          color: Colors.yellow,
+          color: Colors.yellow.shade700,
         ),
         title: Text(item.name),
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
           appNotifier.toggleFolderExpansion(item.uri);
         },
-        childrenPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+        childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
           if (isExpanded)
             _DirectoryView(
@@ -185,12 +185,12 @@ class _DirectoryItem extends ConsumerWidget {
       );
     } else {
       childWidget = ListTile(
-        contentPadding: EdgeInsets.only(left: (depth + 1) * 16.0),
+        contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         onTap: () {
           appNotifier.openFile(item);
-          Navigator.pop(context);
+          Navigator.pop(context); // Close the drawer after opening a file
         },
       );
     }
@@ -202,7 +202,6 @@ class _DirectoryItem extends ConsumerWidget {
   }
 }
 
-// MODIFIED: _FileOperationsFooter now includes the Sort button
 class _FileOperationsFooter extends ConsumerWidget {
   final LocalProject project;
   const _FileOperationsFooter({required this.project});
@@ -214,10 +213,8 @@ class _FileOperationsFooter extends ConsumerWidget {
     final logNotifier = ref.read(logProvider.notifier);
 
     final rootDoc = _RootPlaceholder(project.rootUri);
-    final pasteCommand = FileExplorerContextCommands.getCommands(
-      ref,
-      rootDoc,
-    ).firstWhereOrNull((cmd) => cmd.id == 'paste');
+    final pasteCommand = FileExplorerContextCommands.getCommands(ref, rootDoc)
+        .firstWhereOrNull((cmd) => cmd.id == 'paste');
 
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -226,21 +223,78 @@ class _FileOperationsFooter extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          // --- New File ---
           IconButton(
             icon: const Icon(Icons.note_add_outlined),
             tooltip: 'New File',
-            onPressed: () async {/*...omitted for brevity...*/},
+            onPressed: () async {
+              final newFileName =
+                  await FileExplorerContextCommands._showTextInputDialog(
+                context,
+                title: 'New File',
+              );
+              if (newFileName != null && newFileName.isNotEmpty) {
+                try {
+                  await appNotifier.performFileOperation(
+                    (handler) => handler.createDocumentFile(
+                      project.rootUri,
+                      newFileName,
+                      isDirectory: false,
+                    ),
+                  );
+                } catch (e) {
+                  logNotifier.add('Error creating file: $e');
+                }
+              }
+            },
           ),
+          // --- New Folder ---
           IconButton(
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'New Folder',
-            onPressed: () async {/*...omitted for brevity...*/},
+            onPressed: () async {
+              final newFolderName =
+                  await FileExplorerContextCommands._showTextInputDialog(
+                context,
+                title: 'New Folder',
+              );
+              if (newFolderName != null && newFolderName.isNotEmpty) {
+                try {
+                  await appNotifier.performFileOperation(
+                    (handler) => handler.createDocumentFile(
+                      project.rootUri,
+                      newFolderName,
+                      isDirectory: true,
+                    ),
+                  );
+                } catch (e) {
+                  logNotifier.add('Error creating folder: $e');
+                }
+              }
+            },
           ),
+          // --- Import File ---
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Import File',
-            onPressed: () async {/*...omitted for brevity...*/},
+            onPressed: () async {
+              final pickerHandler = LocalFileHandlerFactory.create();
+              final pickedFile = await pickerHandler.pickFile();
+              if (pickedFile != null) {
+                try {
+                  await appNotifier.performFileOperation(
+                    (projectHandler) => projectHandler.copyDocumentFile(
+                      pickedFile,
+                      project.rootUri,
+                    ),
+                  );
+                } catch (e) {
+                  logNotifier.add('Error importing file: $e');
+                }
+              }
+            },
           ),
+          // --- Paste ---
           IconButton(
             icon: Icon(
               Icons.content_paste,
@@ -249,16 +303,18 @@ class _FileOperationsFooter extends ConsumerWidget {
                   : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed: (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
-                ? () => pasteCommand.executeFor(ref, rootDoc)
-                : null,
+            onPressed:
+                (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
+                    ? () => pasteCommand.executeFor(ref, rootDoc)
+                    : null,
           ),
-          // NEW: Sort button
+          // --- Sort ---
           IconButton(
             icon: const Icon(Icons.sort_by_alpha),
             tooltip: 'Sort',
             onPressed: () => _showSortOptions(context, ref),
           ),
+          // --- Close Drawer ---
           IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'Close',
@@ -269,7 +325,6 @@ class _FileOperationsFooter extends ConsumerWidget {
     );
   }
 
-  // NEW: Method to show the sorting options modal sheet.
   void _showSortOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -281,8 +336,9 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
-                  ref.read(appNotifierProvider.notifier)
-                      .setFileExplorerViewMode(FileExplorerViewMode.sortByNameAsc);
+                  ref
+                      .read(fileExplorerStateProvider.notifier)
+                      .setViewMode(FileExplorerViewMode.sortByNameAsc);
                   Navigator.pop(ctx);
                 },
               ),
@@ -290,8 +346,9 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (Z-A)'),
                 onTap: () {
-                  ref.read(appNotifierProvider.notifier)
-                      .setFileExplorerViewMode(FileExplorerViewMode.sortByNameDesc);
+                  ref
+                      .read(fileExplorerStateProvider.notifier)
+                      .setViewMode(FileExplorerViewMode.sortByNameDesc);
                   Navigator.pop(ctx);
                 },
               ),
@@ -299,8 +356,9 @@ class _FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.schedule),
                 title: const Text('Sort by Date Modified'),
                 onTap: () {
-                  ref.read(appNotifierProvider.notifier)
-                      .setFileExplorerViewMode(FileExplorerViewMode.sortByDateModified);
+                  ref
+                      .read(fileExplorerStateProvider.notifier)
+                      .setViewMode(FileExplorerViewMode.sortByDateModified);
                   Navigator.pop(ctx);
                 },
               ),
@@ -311,7 +369,6 @@ class _FileOperationsFooter extends ConsumerWidget {
     );
   }
 }
-
 
 class FileExplorerContextCommands {
   static List<FileContextCommand> getCommands(
@@ -433,25 +490,24 @@ class FileExplorerContextCommands {
     );
     return showDialog<String>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(title),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'New Name'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, controller.text),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'New Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -462,21 +518,20 @@ class FileExplorerContextCommands {
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: Text(title),
-                content: Text(content),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Confirm'),
-                  ),
-                ],
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
               ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
         ) ??
         false;
   }
