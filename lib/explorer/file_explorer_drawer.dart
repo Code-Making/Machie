@@ -47,16 +47,8 @@ class ExplorerHostView extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        // The AppBar is split into two main sections now.
-        title: Row(
-          children: [
-            // Dropdown for switching between explorer types (File, Git, etc.)
-            Expanded(child: ExplorerTypeDropdown(currentProject: project)),
-            const VerticalDivider(width: 20, thickness: 1),
-            // Dropdown for switching between projects
-            Expanded(child: ProjectSwitcherDropdown(currentProject: project)),
-          ],
-        ),
+        // MODIFIED: Use the title for the project dropdown for better alignment.
+        title: ProjectSwitcherDropdown(currentProject: project),
         // Global actions like settings are still here.
         actions: [
           IconButton(
@@ -70,6 +62,15 @@ class ExplorerHostView extends ConsumerWidget {
             },
           ),
         ],
+        // MODIFIED: Use the 'bottom' property for the second line of controls.
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48.0),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            // The explorer type dropdown is now here.
+            child: ExplorerTypeDropdown(currentProject: project),
+          ),
+        ),
       ),
       // The body dynamically builds the widget from the active explorer plugin.
       body: activeExplorer.build(ref, project),
@@ -77,11 +78,8 @@ class ExplorerHostView extends ConsumerWidget {
   }
 }
 
-// --------------------
-// UI Components
-// --------------------
-
-/// A dropdown for selecting the active explorer type.
+// --- UI Components ---
+// MODIFIED: ExplorerTypeDropdown is now simpler, as it's just one line.
 class ExplorerTypeDropdown extends ConsumerWidget {
   final Project currentProject;
   const ExplorerTypeDropdown({super.key, required this.currentProject});
@@ -106,32 +104,18 @@ class ExplorerTypeDropdown extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(plugin.icon, size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Text(plugin.name, overflow: TextOverflow.ellipsis),
               ],
             ),
           );
         }).toList(),
-        selectedItemBuilder: (context) {
-          return registry.map<Widget>((plugin) {
-            return Row(
-              children: [
-                Icon(plugin.icon, size: 22),
-                const SizedBox(width: 8),
-                Text(plugin.name, style: Theme.of(context).textTheme.titleMedium),
-                const Spacer(),
-                const Icon(Icons.arrow_drop_down),
-              ],
-            );
-          }).toList();
-        },
-        iconSize: 0,
       ),
     );
   }
 }
 
-/// The original project dropdown, renamed for clarity.
+// MODIFIED: ProjectSwitcherDropdown's selected item builder uses a larger font.
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
   const ProjectSwitcherDropdown({super.key, required this.currentProject});
@@ -174,36 +158,32 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
           ),
         ],
         selectedItemBuilder: (BuildContext context) {
-          return [
-            ...knownProjects.map<Widget>((proj) {
-              return Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      proj.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              );
-            }),
-            const Text(''), // Placeholder for 'Manage Projects'
-          ];
+          // Find the current project to display its name
+          final displayedProject = knownProjects.firstWhere(
+            (p) => p.id == currentProject.id,
+            orElse: () => currentProject.metadata, // Fallback
+          );
+          // The builder must return a list of widgets matching the items length
+          return knownProjects.map<Widget>((item) {
+            // This widget is only shown for the selected item
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                displayedProject.name,
+                style: Theme.of(context).textTheme.titleLarge,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }).toList()..add(const SizedBox.shrink()); // Add placeholder for manage item
         },
-        iconSize: 0,
+        icon: const Icon(Icons.arrow_drop_down),
+        iconSize: 24,
       ),
     );
   }
 }
 
-
-// These widgets are for the "no project open" state and project management,
-// so they can remain in this file as they are part of the drawer's overall responsibility.
-// --- (Code for ProjectSelectionScreen and ManageProjectsScreen is unchanged and goes here) ---
-
+// ... (ProjectSelectionScreen and ManageProjectsScreen are unchanged) ...
 class ProjectSelectionScreen extends ConsumerWidget {
   const ProjectSelectionScreen({super.key});
 
