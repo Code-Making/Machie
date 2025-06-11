@@ -7,10 +7,9 @@ import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
 
-// Concrete implementation for projects on the local device file system.
 class LocalProject extends Project {
-  // ... (no changes in properties) ...
-  String projectDataPath;
+  final String projectDataPath;
+  // RESTORED: These properties are the source of truth for persistence.
   final Set<String> expandedFolders;
   final FileExplorerViewMode fileExplorerViewMode;
 
@@ -23,7 +22,7 @@ class LocalProject extends Project {
     this.fileExplorerViewMode = FileExplorerViewMode.sortByNameAsc,
   });
 
-  // MODIFIED: The copyWith method no longer needs to handle this state.
+  // copyWith is the correct way to create a new immutable instance.
   LocalProject copyWith({
     ProjectMetadata? metadata,
     SessionState? session,
@@ -40,10 +39,7 @@ class LocalProject extends Project {
     );
   }
 
-
-
-  // --- NEW: Lifecycle Implementations ---
-
+  // --- Lifecycle and Session Logic (Unchanged) ---
   @override
   Future<void> save() async {
     final content = jsonEncode(toJson());
@@ -54,9 +50,9 @@ class LocalProject extends Project {
       overwrite: true,
     );
   }
-
+  
+  // ... (close, openFile, etc. are unchanged)
   @override
-  // MODIFIED: Implement new signature and correctly pass the ref.
   Future<void> close({required Ref ref}) async {
     await save();
     for (final tab in session.tabs) {
@@ -64,9 +60,6 @@ class LocalProject extends Project {
       tab.dispose();
     }
   }
-
-  // ... (rest of the file is unchanged) ...
-  // --- NEW: Session Logic Implementations (from the old SessionService) ---
 
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab, Ref ref) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, ref);
@@ -107,7 +100,7 @@ class LocalProject extends Project {
     _handlePluginLifecycle(oldTab, newTab, ref);
     return newProject;
   }
-
+  
   @override
   Project reorderTabs(int oldIndex, int newIndex) {
     final currentOpenTab = session.currentTab;
@@ -202,11 +195,10 @@ class LocalProject extends Project {
 
     return copyWith(session: session.copyWith(tabs: newTabs));
   }
-
-  // MODIFIED: Implement the toJson method from the abstract class.
+  
   @override
   Map<String, dynamic> toJson() => {
-    'id': metadata.id, // For verification
+    'id': metadata.id,
     'session': session.toJson(),
     'expandedFolders': expandedFolders.toList(),
     'fileExplorerViewMode': fileExplorerViewMode.name,
