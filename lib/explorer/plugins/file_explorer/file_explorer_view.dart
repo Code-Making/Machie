@@ -19,7 +19,7 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // We no longer cast the project, we just use its properties and ID.
+    // Watch the state provider for this specific project ID.
     final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
 
     return Column(
@@ -28,10 +28,10 @@ class FileExplorerView extends ConsumerWidget {
           child: _DirectoryView(
             directory: project.rootUri,
             projectRootUri: project.rootUri,
+            projectId: project.id,
+            // Pass the state down to the widgets.
             expandedFolders: fileExplorerState.expandedFolders,
             viewMode: fileExplorerState.viewMode,
-            // Pass the project ID for state management context.
-            projectId: project.id,
           ),
         ),
         _FileOperationsFooter(
@@ -43,6 +43,12 @@ class FileExplorerView extends ConsumerWidget {
   }
 }
 
+// _DirectoryView is now simpler as it just receives state.
+// lib/explorer/plugins/file_explorer/file_explorer_view.dart
+
+// ... (FileExplorerView is unchanged) ...
+
+// MODIFIED: Changed to a ConsumerWidget for better clarity.
 class _DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
@@ -60,6 +66,7 @@ class _DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The logic is the same, but now `ref` is a direct parameter.
     final contentsAsync = ref.watch(
       currentProjectDirectoryContentsProvider(directory),
     );
@@ -71,7 +78,7 @@ class _DirectoryView extends ConsumerWidget {
         _applySorting(contents, viewMode);
 
         return ListView.builder(
-          key: PageStorageKey(directory), // Preserve scroll position
+          key: PageStorageKey(directory),
           shrinkWrap: true,
           physics: const ClampingScrollPhysics(),
           itemCount: contents.length,
@@ -98,7 +105,7 @@ class _DirectoryView extends ConsumerWidget {
           return b.name.toLowerCase().compareTo(a.name.toLowerCase());
         case FileExplorerViewMode.sortByDateModified:
           return b.modifiedDate.compareTo(a.modifiedDate);
-        default: // Also handles null and sortByNameAsc
+        default:
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
     });
@@ -118,7 +125,7 @@ class _DirectoryItem extends ConsumerWidget {
     required this.projectId,
   });
 
-  void _showContextMenu(
+void _showContextMenu(
     BuildContext context,
     WidgetRef ref,
     DocumentFile item,
@@ -158,15 +165,19 @@ class _DirectoryItem extends ConsumerWidget {
       ),
     );
   }
-
+  
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appNotifier = ref.read(appNotifierProvider.notifier);
     final fileExplorerNotifier = ref.read(fileExplorerStateProvider(projectId).notifier);
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    
+    // The child _DirectoryView needs the latest state.
+    // We can watch it here and pass it down.
+    final fileExplorerState = ref.watch(fileExplorerStateProvider(projectId));
+    final project = ref.watch(appNotifierProvider).value!.currentProject!;
 
-    Widget childWidget;
     if (item.isDirectory) {
-      childWidget = ExpansionTile(
+      return ExpansionTile(
         key: ValueKey(item.uri),
         leading: Icon(
           isExpanded ? Icons.folder_open : Icons.folder,
@@ -180,37 +191,32 @@ class _DirectoryItem extends ConsumerWidget {
         childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
           if (isExpanded)
-            Consumer(builder: (context, ref, _) {
-              final state = ref.watch(fileExplorerStateProvider(projectId));
-              final project = ref.watch(appNotifierProvider).value!.currentProject!;
-              return _DirectoryView(
-                directory: item.uri,
-                projectRootUri: project.rootUri,
-                projectId: projectId,
-                expandedFolders: state.expandedFolders,
-                viewMode: state.viewMode,
-              );
-            }),
+            _DirectoryView(
+              directory: item.uri,
+              projectRootUri: project.rootUri,
+              projectId: projectId,
+              // Pass the state we just watched.
+              expandedFolders: fileExplorerState.expandedFolders,
+              viewMode: fileExplorerState.viewMode,
+            ),
         ],
       );
     } else {
-      childWidget = ListTile(
+      return ListTile(
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         onTap: () {
           appNotifier.openFile(item);
-          Navigator.pop(context); // Close the drawer after opening a file
+          Navigator.pop(context);
         },
       );
     }
-
-    return GestureDetector(
-      onLongPress: () => _showContextMenu(context, ref, item),
-      child: childWidget,
-    );
   }
 }
+
+
+
 
 class _FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
