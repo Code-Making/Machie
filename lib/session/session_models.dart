@@ -4,6 +4,20 @@ import 'package:flutter/material.dart';
 import '../plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
+// NEW: Top-level abstraction for any tab in the workspace.
+@immutable
+abstract class WorkspaceTab {
+  final String title;
+  final EditorPlugin plugin;
+
+  const WorkspaceTab({
+    required this.title,
+    required this.plugin,
+  });
+
+  void dispose();
+}
+
 @immutable
 class SessionState {
   final List<EditorTab> tabs;
@@ -30,19 +44,19 @@ class SessionState {
 }
 
 @immutable
-abstract class EditorTab {
+abstract class EditorTab extends WorkspaceTab { // MODIFIED: extends WorkspaceTab
   final DocumentFile file;
-  final EditorPlugin plugin;
   final bool isDirty; // CORRECTED: Made final for immutability
 
   const EditorTab({
     required this.file,
-    required this.plugin,
+    required super.plugin,
     this.isDirty = false,
-  });
+  }) : super(title: file.name); // MODIFIED: pass title to super constructor
 
   String get contentString;
-  void dispose();
+  
+  // dispose() is already in WorkspaceTab
 
   EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty});
 

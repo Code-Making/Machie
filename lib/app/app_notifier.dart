@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
+import '../project/local_file_system_project.dart'; // NEW
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
-import '../session/session_service.dart';
+// import '../session/session_service.dart'; // DELETED
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 
@@ -32,14 +33,14 @@ final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
 class AppNotifier extends AsyncNotifier<AppState> {
   late PersistenceService _persistenceService;
   late ProjectManager _projectManager;
-  late SessionService _sessionService;
+  // late SessionService _sessionService; // DELETED
 
   @override
   Future<AppState> build() async {
     final prefs = await ref.watch(sharedPreferencesProvider.future);
     _persistenceService = PersistenceService(prefs);
     _projectManager = ref.watch(projectManagerProvider);
-    _sessionService = ref.watch(sessionServiceProvider);
+    // _sessionService = ref.watch(sessionServiceProvider); // DELETED
 
     final initialState = await _persistenceService.loadAppState();
     if (initialState.lastOpenedProjectId != null) {
@@ -106,9 +107,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   Future<void> closeProject() async {
-    final projectToSave = state.value?.currentProject;
-    if (projectToSave == null) return;
-    await _projectManager.saveProject(projectToSave);
+    final projectToClose = state.value?.currentProject;
+    if (projectToClose == null) return;
+    // MODIFIED: Use the new ProjectManager method which delegates to the project.
+    await _projectManager.closeProject(projectToClose);
     await _updateState((s) async => s.copyWith(clearCurrentProject: true));
   }
 
@@ -148,45 +150,42 @@ class AppNotifier extends AsyncNotifier<AppState> {
     ref.read(clipboardProvider.notifier).state = null;
   }
 
-  // NEW: Delegate folder expansion logic
+  // MODIFIED: Delegate folder expansion logic to the concrete project implementation
   void toggleFolderExpansion(String folderUri) {
     _updateStateSync((s) {
-      final newProject = _sessionService.toggleFolderExpansionInProject(
-        s.currentProject!,
-        folderUri,
-      );
+      final project = s.currentProject;
+      // This is a feature of LocalProject, so we check the type.
+      if (project is! LocalProject) return s;
+
+      final newProject = project.toggleFolderExpansion(folderUri);
       return s.copyWith(currentProject: newProject);
     });
   }
 
-  // --- Tab Lifecycle (Delegation) ---
+  // --- Tab Lifecycle (Delegation to Project) ---
   Future<void> openFile(DocumentFile file) async {
     await _updateState((s) async {
-      final newProject = await _sessionService.openFileInProject(
-        s.currentProject!,
-        file,
-      );
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = await s.currentProject!.openFile(file, ref: ref);
       return s.copyWith(currentProject: newProject);
     });
   }
 
   void switchTab(int index) {
     _updateStateSync((s) {
-      final newProject = _sessionService.switchTabInProject(
-        s.currentProject!,
-        index,
-      );
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = s.currentProject!.switchTab(index, ref: ref);
       return s.copyWith(currentProject: newProject);
     });
   }
 
   void reorderTabs(int oldIndex, int newIndex) {
     _updateStateSync((s) {
-      final newProject = _sessionService.reorderTabsInProject(
-        s.currentProject!,
-        oldIndex,
-        newIndex,
-      );
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = s.currentProject!.reorderTabs(oldIndex, newIndex);
       return s.copyWith(currentProject: newProject);
     });
   }
@@ -196,35 +195,36 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (project == null) return;
 
     await _updateState((s) async {
-      final newProject = await _sessionService.saveTabInProject(
-        s.currentProject!,
-        s.currentProject!.session.currentTabIndex,
-      );
+      // MODIFIED: Call method directly on project
+      final newProject = await s.currentProject!
+          .saveTab(s.currentProject!.session.currentTabIndex);
       return s.copyWith(currentProject: newProject);
     });
   }
 
   void closeTab(int index) {
     _updateStateSync((s) {
-      final newProject = _sessionService.closeTabInProject(
-        s.currentProject!,
-        index,
-      );
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = s.currentProject!.closeTab(index, ref: ref);
       return s.copyWith(currentProject: newProject);
     });
   }
 
   void markCurrentTabDirty() {
     _updateStateSync((s) {
-      final newProject = _sessionService.markCurrentTabDirty(s.currentProject!);
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = s.currentProject!.markCurrentTabDirty();
       return s.copyWith(currentProject: newProject);
     });
   }
 
   void updateCurrentTab(EditorTab newTab) {
     _updateStateSync((s) {
-      final newProject = _sessionService.updateTabInProject(
-        s.currentProject!,
+      if (s.currentProject == null) return s;
+      // MODIFIED: Call method directly on project
+      final newProject = s.currentProject!.updateTab(
         s.currentProject!.session.currentTabIndex,
         newTab,
       );
@@ -237,6 +237,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final appState = state.value;
     if (appState == null) return;
     if (appState.currentProject != null) {
+      // MODIFIED: Use the decoupled ProjectManager
       await _projectManager.saveProject(appState.currentProject!);
     }
     await _persistenceService.saveAppState(appState);
