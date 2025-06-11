@@ -5,12 +5,13 @@ import '../plugin_models.dart';
 import '../../session/session_models.dart';
 import '../../data/file_handler/file_handler.dart';
 
-@immutable
+immutable
 class CodeEditorTab extends EditorTab {
   final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
   final String? languageKey;
 
+  // MODIFIED: Constructor signature updated to match superclass. 'const' is preserved.
   const CodeEditorTab({
     required super.file,
     required this.controller,
