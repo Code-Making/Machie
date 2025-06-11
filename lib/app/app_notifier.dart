@@ -172,17 +172,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     ref.read(clipboardProvider.notifier).state = null;
   }
 
-  // MODIFIED: Delegate folder expansion logic to the concrete project implementation
-  void toggleFolderExpansion(String folderUri) {
-    _updateStateSync((s) {
-      final project = s.currentProject;
-      // This is a feature of LocalProject, so we check the type.
-      if (project is! LocalProject) return s;
 
-      final newProject = project.toggleFolderExpansion(folderUri);
-      return s.copyWith(currentProject: newProject);
-    });
-  }
 
   // --- Tab Lifecycle (Delegation to Project) ---
   Future<void> openFile(DocumentFile file) async {
