@@ -1,4 +1,6 @@
 // lib/project/project_models.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // NEW
+import '../plugins/plugin_models.dart'; // NEW
 import '../session/session_models.dart';
 import '../data/file_handler/file_handler.dart';
 
@@ -62,4 +64,18 @@ abstract class Project {
   String get id => metadata.id;
   String get name => metadata.name;
   String get rootUri => metadata.rootUri;
+
+  // NEW: Lifecycle methods defining the contract for all project types.
+  Future<void> save();
+  Future<void> close();
+
+  // NEW: Session manipulation methods, returning a new immutable Project instance.
+  // The responsibility for this logic is moved from SessionService to here.
+  Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref});
+  Project switchTab(int index, {required Ref ref});
+  Project reorderTabs(int oldIndex, int newIndex);
+  Future<Project> saveTab(int tabIndex);
+  Project closeTab(int index, {required Ref ref});
+  Project markCurrentTabDirty();
+  Project updateTab(int tabIndex, EditorTab newTab);
 }
