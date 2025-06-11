@@ -4,11 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
-import '../project/local_file_system_project.dart'; // NEW
+import '../project/local_file_system_project.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
-// import '../session/session_service.dart'; // DELETED
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 
@@ -16,7 +15,7 @@ final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
 
-// NEW LOCATION: This provider is now here to avoid circular dependencies.
+// ... (currentProjectDirectoryContentsProvider is unchanged) ...
 final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String>((ref, uri) async {
       final handler =
@@ -33,14 +32,13 @@ final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
 class AppNotifier extends AsyncNotifier<AppState> {
   late PersistenceService _persistenceService;
   late ProjectManager _projectManager;
-  // late SessionService _sessionService; // DELETED
 
   @override
   Future<AppState> build() async {
+    // ... (build method is unchanged) ...
     final prefs = await ref.watch(sharedPreferencesProvider.future);
     _persistenceService = PersistenceService(prefs);
     _projectManager = ref.watch(projectManagerProvider);
-    // _sessionService = ref.watch(sessionServiceProvider); // DELETED
 
     final initialState = await _persistenceService.loadAppState();
     if (initialState.lastOpenedProjectId != null) {
@@ -59,6 +57,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
+  // ... (updater methods are unchanged) ...
   Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;
     if (previousState == null) return;
@@ -72,7 +71,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     state = AsyncData(updater(previousState));
   }
 
-  // --- Project Lifecycle ---
+  // ... (openProjectFromFolder, openKnownProject are unchanged) ...
   Future<void> openProjectFromFolder(DocumentFile folder) async {
     await _updateState((s) async {
       ProjectMetadata? meta = s.knownProjects.firstWhereOrNull(
@@ -109,11 +108,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<void> closeProject() async {
     final projectToClose = state.value?.currentProject;
     if (projectToClose == null) return;
-    // MODIFIED: Use the new ProjectManager method which delegates to the project.
-    await _projectManager.closeProject(projectToClose);
+    // MODIFIED: Pass the notifier's ref down to the manager.
+    await _projectManager.closeProject(projectToClose, ref: ref);
     await _updateState((s) async => s.copyWith(clearCurrentProject: true));
   }
-
+  
+  // ... (the rest of the file is unchanged) ...
   Future<void> removeKnownProject(String projectId) async {
     await _updateState((previousState) async {
       if (previousState.currentProject?.id == projectId) {

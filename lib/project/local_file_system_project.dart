@@ -1,14 +1,15 @@
 // lib/project/local_file_system_project.dart
-import 'dart:convert'; // NEW
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // NEW
-import '../data/file_handler/file_handler.dart'; // NEW
-import '../plugins/plugin_models.dart'; // NEW
-import '../plugins/plugin_registry.dart'; // NEW
+import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/file_handler/file_handler.dart';
+import '../plugins/plugin_models.dart';
+import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
 
 // Concrete implementation for projects on the local device file system.
 class LocalProject extends Project {
+  // ... (no changes in properties) ...
   String projectDataPath;
   Set<String> expandedFolders;
   FileExplorerViewMode fileExplorerViewMode;
@@ -22,6 +23,7 @@ class LocalProject extends Project {
     this.fileExplorerViewMode = FileExplorerViewMode.sortByNameAsc,
   });
 
+  // ... (no changes in copyWith or toggleFolderExpansion) ...
   LocalProject copyWith({
     ProjectMetadata? metadata,
     SessionState? session,
@@ -64,14 +66,16 @@ class LocalProject extends Project {
   }
 
   @override
-  Future<void> close() async {
+  // MODIFIED: Implement new signature and correctly pass the ref.
+  Future<void> close({required Ref ref}) async {
     await save();
     for (final tab in session.tabs) {
-      tab.plugin.deactivateTab(tab, ProviderScope.containerOf(GlobalKey().currentContext!));
+      tab.plugin.deactivateTab(tab, ref);
       tab.dispose();
     }
   }
 
+  // ... (rest of the file is unchanged) ...
   // --- NEW: Session Logic Implementations (from the old SessionService) ---
 
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab, Ref ref) {
