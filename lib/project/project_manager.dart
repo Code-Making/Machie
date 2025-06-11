@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import 'project_factory.dart';
 import 'project_models.dart';
 
+import '../data/file_handler/file_handler.dart';
+
 final projectManagerProvider = Provider<ProjectManager>((ref) {
   return ProjectManager(ref);
 });
