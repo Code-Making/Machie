@@ -6,8 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_notifier.dart';
 import 'app/lifecycle.dart';
-// For CommandSettingsScreen
 import 'app/editor_screen.dart';
+import 'command/command_notifier.dart'; // NEW IMPORT
+import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 import 'utils/logs.dart';
 
@@ -15,18 +16,20 @@ import 'utils/logs.dart';
 //   Global Providers
 // --------------------
 
-// NEW: A dedicated provider for the app's one-time startup logic.
+// MODIFIED: This is now the single, robust provider for all app initialization.
 final appStartupProvider = FutureProvider<void>((ref) async {
-  // This provider's job is to ensure the main AppNotifier is initialized.
-  // By depending on the `.future`, we wait for the initial `build` method
-  // of AppNotifier to complete.
+  await Future.wait([
+    ref.read(settingsProvider.future),
+    ref.read(commandProvider.future),
+  ]);
+
   await ref.read(appNotifierProvider.future);
 });
 
 // --------------------
 //     ThemeData
 // --------------------
-
+// ... (no changes to ThemeData)
 ThemeData darkTheme = ThemeData(
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(
@@ -79,17 +82,12 @@ void main() {
       );
     },
     (error, stack) {
-      // Forward unhandled framework errors to the log stream.
       printStream.add('[UNHANDLED_ERROR] $error\n$stack');
     },
     zoneSpecification: ZoneSpecification(
-      // Intercept all calls to `print()` and redirect them to our stream.
       print: (self, parent, zone, message) {
         final formatted = '[${DateTime.now()}] $message';
-        parent.print(
-          zone,
-          formatted,
-        ); // Also print to the original console for debugging.
+        parent.print(zone, formatted);
         printStream.add(formatted);
       },
     ),
@@ -100,7 +98,6 @@ void main() {
 //    Lifecycle & Startup
 // --------------------
 
-// Manages the UI during the initial app loading process.
 class AppStartupWidget extends ConsumerWidget {
   final WidgetBuilder onLoaded;
 
@@ -108,24 +105,21 @@ class AppStartupWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // CORRECTED: Watch the dedicated startup provider. This will only run once.
+    // This logic is already correct and does not need to change.
     final startupState = ref.watch(appStartupProvider);
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error:
-          (error, stack) => AppStartupErrorWidget(
-            error: error,
-            // Invalidate the startup provider to re-run the initialization.
-            onRetry: () => ref.invalidate(appStartupProvider),
-          ),
-      // Once the startup provider completes successfully, the app is ready.
+      error: (error, stack) => AppStartupErrorWidget(
+        error: error,
+        onRetry: () => ref.invalidate(appStartupProvider),
+      ),
       data: (_) => onLoaded(context),
     );
   }
 }
 
-// Simple loading screen UI.
+// ... (AppStartupLoadingWidget and AppStartupErrorWidget are unchanged)
 class AppStartupLoadingWidget extends StatelessWidget {
   const AppStartupLoadingWidget({super.key});
 
@@ -146,7 +140,6 @@ class AppStartupLoadingWidget extends StatelessWidget {
   }
 }
 
-// UI to show if the initial loading fails.
 class AppStartupErrorWidget extends StatelessWidget {
   final Object error;
   final VoidCallback onRetry;
