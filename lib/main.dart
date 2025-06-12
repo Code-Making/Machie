@@ -20,8 +20,8 @@ import 'data/persistence_service.dart';
 // MODIFIED: This is now the single, robust provider for all app initialization.
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(sharedPreferencesProvider.future);
-  ref.read(settingsProvider.future);
-  ref.read(commandProvider.future);
+  ref.read(settingsProvider);
+  ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
 });
 
