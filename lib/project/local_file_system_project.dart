@@ -58,26 +58,22 @@ class LocalProject extends Project {
       };
       
   @override
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref}) {
-    final workspaceService = ref.read(workspaceServiceProvider);
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService}) {
     return workspaceService.loadPluginState(fileHandler, projectDataPath, pluginId);
   }
 
   @override
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref}) {
-    final workspaceService = ref.read(workspaceServiceProvider);
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService}) {
     return workspaceService.savePluginState(fileHandler, projectDataPath, pluginId, stateJson);
   }
 
   @override
-  Future<void> saveActiveExplorer(String pluginId, {required Ref ref}) {
-    final workspaceService = ref.read(workspaceServiceProvider);
+  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService}) {
     return workspaceService.saveActiveExplorer(fileHandler, projectDataPath, pluginId);
   }
 
   @override
-  Future<String?> loadActiveExplorer({required Ref ref}) async {
-    final workspaceService = ref.read(workspaceServiceProvider);
+  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService}) async {
     final state = await workspaceService.loadFullState(fileHandler, projectDataPath);
     return state.activeExplorerPluginId;
   }
