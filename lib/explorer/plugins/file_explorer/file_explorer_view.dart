@@ -19,31 +19,27 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // MODIFIED: The state is now asynchronous.
-    final asyncState = ref.watch(fileExplorerStateProvider(project.id));
+    // MODIFIED: The state is now synchronous. We watch it directly.
+    final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
 
-    return asyncState.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error loading explorer state: $err')),
-      data: (fileExplorerState) {
-        return Column(
-          children: [
-            Expanded(
-              child: _DirectoryView(
-                directory: project.rootUri,
-                projectRootUri: project.rootUri,
-                projectId: project.id,
-                expandedFolders: fileExplorerState.expandedFolders,
-                viewMode: fileExplorerState.viewMode,
-              ),
-            ),
-            _FileOperationsFooter(
-              projectRootUri: project.rootUri,
-              projectId: project.id,
-            ),
-          ],
-        );
-      },
+    // The UI will build with the default state first, then rebuild
+    // once the notifier's async _initState completes.
+    return Column(
+      children: [
+        Expanded(
+          child: _DirectoryView(
+            directory: project.rootUri,
+            projectRootUri: project.rootUri,
+            projectId: project.id,
+            expandedFolders: fileExplorerState.expandedFolders,
+            viewMode: fileExplorerState.fileExplorerViewMode, // MODIFIED: Correct property name
+          ),
+        ),
+        _FileOperationsFooter(
+          projectRootUri: project.rootUri,
+          projectId: project.id,
+        ),
+      ],
     );
   }
 }
