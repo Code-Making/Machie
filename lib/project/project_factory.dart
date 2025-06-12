@@ -16,8 +16,8 @@ import 'simple_local_file_project.dart';
 
 abstract class ProjectFactory {
   String get projectTypeId;
-  String get name; // NEW: User-friendly name for the UI
-  String get description; // NEW: Description for the UI
+  String get name;
+  String get description;
 
   Future<Project> open(
     ProjectMetadata metadata,
@@ -30,7 +30,6 @@ abstract class ProjectFactory {
 
 final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((ref) {
   return {
-    // MODIFIED: Use the factories' IDs as keys.
     LocalProjectFactory().projectTypeId: LocalProjectFactory(),
     SimpleLocalProjectFactory().projectTypeId: SimpleLocalProjectFactory(),
   };
@@ -38,17 +37,16 @@ final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((re
 
 // --- Concrete Implementations ---
 
-// NEW Factory for SimpleLocalFileProject
 class SimpleLocalProjectFactory implements ProjectFactory {
   @override
   String get projectTypeId => 'simple_local';
 
   @override
-  String get name => 'Simple Project'; // NEW
+  String get name => 'Simple Project';
 
   @override
   String get description =>
-      'A temporary project. No files are created in the project folder. Session is discarded when another project is opened.'; // NEW
+      'A temporary project. No files are created in the project folder. Session is discarded when another project is opened.';
 
   @override
   Future<Project> open(
@@ -60,7 +58,6 @@ class SimpleLocalProjectFactory implements ProjectFactory {
     SessionState session = const SessionState();
 
     if (projectStateJson != null) {
-      // Rehydrate session from AppState
       final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
       final tabs = await _rehydrateTabs(sessionJson, handler, ref);
       session = SessionState(
@@ -77,28 +74,28 @@ class SimpleLocalProjectFactory implements ProjectFactory {
   }
 }
 
-// MODIFIED LocalProjectFactory to align with new interface
 class LocalProjectFactory implements ProjectFactory {
   @override
   String get projectTypeId => 'local_persistent';
 
   @override
-  String get name => 'Persistent Project'; // NEW
+  String get name => 'Persistent Project';
 
   @override
   String get description =>
-      'Saves session data and settings in a hidden ".machine" folder within your project directory.'; // NEW
+      'Saves session data and settings in a hidden ".machine" folder within your project directory.';
 
   @override
   Future<Project> open(
     ProjectMetadata metadata,
     Ref ref, {
-    Map<String, dynamic>? projectStateJson, // This will be ignored for this type
+    Map<String, dynamic>? projectStateJson,
   }) async {
     final handler = LocalFileHandlerFactory.create();
     final projectDataDir = await _ensureProjectDataFolder(handler, metadata.rootUri);
     final files = await handler.listDirectory(projectDataDir.uri, includeHidden: true);
-    final projectDataFile = files.firstWhereOrNull((f) => f.name == 'project_data.json');
+    final projectDataFile =
+        files.firstWhereOrNull((f) => f.name == 'project_data.json');
 
     if (projectDataFile != null) {
       final content = await handler.readFile(projectDataFile.uri);
@@ -110,15 +107,18 @@ class LocalProjectFactory implements ProjectFactory {
         fileHandler: handler,
         session: const SessionState(),
         projectDataPath: projectDataDir.uri,
-        expandedFolders: {metadata.rootUri},
       );
     }
   }
 
-  Future<DocumentFile> _ensureProjectDataFolder(FileHandler handler, String projectRootUri) async {
+  Future<DocumentFile> _ensureProjectDataFolder(
+      FileHandler handler, String projectRootUri) async {
     final files = await handler.listDirectory(projectRootUri, includeHidden: true);
-    final machineDir = files.firstWhereOrNull((f) => f.name == '.machine' && f.isDirectory);
-    return machineDir ?? await handler.createDocumentFile(projectRootUri, '.machine', isDirectory: true);
+    final machineDir =
+        files.firstWhereOrNull((f) => f.name == '.machine' && f.isDirectory);
+    return machineDir ??
+        await handler.createDocumentFile(projectRootUri, '.machine',
+            isDirectory: true);
   }
 
   Future<Project> _createLocalProjectFromJson(
@@ -130,7 +130,7 @@ class LocalProjectFactory implements ProjectFactory {
   ) async {
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
     final tabs = await _rehydrateTabs(sessionJson, handler, ref);
-    // MODIFIED: No longer passes UI state to the constructor.
+    
     return LocalProject(
       metadata: metadata,
       fileHandler: handler,
