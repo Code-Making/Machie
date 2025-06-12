@@ -19,11 +19,14 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // MODIFIED: The state is now synchronous. We watch it directly.
+    // MODIFIED: Watch the new nullable state provider.
     final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
 
-    // The UI will build with the default state first, then rebuild
-    // once the notifier's async _initState completes.
+    // MODIFIED: Handle the initial loading state (when state is null).
+    if (fileExplorerState == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Column(
       children: [
         Expanded(
@@ -32,7 +35,7 @@ class FileExplorerView extends ConsumerWidget {
             projectRootUri: project.rootUri,
             projectId: project.id,
             expandedFolders: fileExplorerState.expandedFolders,
-            viewMode: fileExplorerState.fileExplorerViewMode, // MODIFIED: Correct property name
+            viewMode: fileExplorerState.viewMode,
           ),
         ),
         _FileOperationsFooter(

@@ -6,10 +6,9 @@ import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
+import 'simple_local_file_project.dart';
 
-// Concrete implementation for projects on the local device file system.
 class LocalProject extends Project {
-  // ... (no changes in properties) ...
   String projectDataPath;
 
   LocalProject({
@@ -19,7 +18,6 @@ class LocalProject extends Project {
     required this.projectDataPath,
   });
 
-  // MODIFIED: The copyWith method no longer needs to handle this state.
   LocalProject copyWith({
     ProjectMetadata? metadata,
     SessionState? session,
@@ -31,10 +29,6 @@ class LocalProject extends Project {
       projectDataPath: projectDataPath,
     );
   }
-
-
-
-  // --- NEW: Lifecycle Implementations ---
 
   @override
   Future<void> save() async {
@@ -48,7 +42,6 @@ class LocalProject extends Project {
   }
 
   @override
-  // MODIFIED: Implement new signature and correctly pass the ref.
   Future<void> close({required Ref ref}) async {
     await save();
     for (final tab in session.tabs) {
@@ -57,9 +50,14 @@ class LocalProject extends Project {
     }
   }
 
-  // ... (rest of the file is unchanged) ...
-  // --- NEW: Session Logic Implementations (from the old SessionService) ---
+  @override
+  Map<String, dynamic> toJson() => {
+        'id': metadata.id,
+        'session': session.toJson(),
+      };
 
+  // ALL SESSION LOGIC (openFile, closeTab, etc.) remains here as before.
+  // ...
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab, Ref ref) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
@@ -67,25 +65,20 @@ class LocalProject extends Project {
 
   @override
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
-    final existingIndex = session.tabs.indexWhere(
-      (t) => t.file.uri == file.uri,
-    );
+    final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
       return switchTab(existingIndex, ref: ref);
     }
-
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     final content = await fileHandler.readFile(file.uri);
     final newTab = await selectedPlugin.createTab(file, content);
-
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
       tabs: [...session.tabs, newTab],
       currentTabIndex: session.tabs.length,
     );
     _handlePluginLifecycle(oldTab, newTab, ref);
-
     return copyWith(session: newSession);
   }
 
@@ -95,8 +88,33 @@ class LocalProject extends Project {
     final newSession = session.copyWith(currentTabIndex: index);
     final newProject = copyWith(session: newSession);
     final newTab = newProject.session.currentTab;
-
     _handlePluginLifecycle(oldTab, newTab, ref);
+    return newProject;
+  }
+
+  @override
+  Project closeTab(int index, {required Ref ref}) {
+    final closedTab = session.tabs[index];
+    final oldTab = session.currentTab;
+    final newTabs = List<EditorTab>.from(session.tabs)..removeAt(index);
+    int newCurrentIndex;
+    if (newTabs.isEmpty) {
+      newCurrentIndex = 0;
+    } else {
+      final oldIndex = session.currentTabIndex;
+      if (oldIndex > index) newCurrentIndex = oldIndex - 1;
+      else if (oldIndex == index) newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
+      else newCurrentIndex = oldIndex;
+    }
+    final newProject = copyWith(
+      session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex),
+    );
+    closedTab.plugin.deactivateTab(closedTab, ref);
+    closedTab.dispose();
+    final newTab = newProject.session.currentTab;
+    if (oldTab != newTab) {
+      newTab?.plugin.activateTab(newTab, ref);
+    }
     return newProject;
   }
 
@@ -105,100 +123,32 @@ class LocalProject extends Project {
     final currentOpenTab = session.currentTab;
     final newTabs = List<EditorTab>.from(session.tabs);
     final movedTab = newTabs.removeAt(oldIndex);
-
     if (oldIndex < newIndex) newIndex--;
     newTabs.insert(newIndex, movedTab);
-
-    final newCurrentIndex =
-        currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
-
-    return copyWith(
-      session: session.copyWith(
-        tabs: newTabs,
-        currentTabIndex: newCurrentIndex,
-      ),
-    );
+    final newCurrentIndex = currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
+    return copyWith(session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex));
   }
 
   @override
   Future<Project> saveTab(int tabIndex) async {
-    if (tabIndex < 0 || tabIndex >= session.tabs.length) return this;
-
     final tabToSave = session.tabs[tabIndex];
-    final newFile = await fileHandler.writeFile(
-      tabToSave.file,
-      tabToSave.contentString,
-    );
+    final newFile = await fileHandler.writeFile(tabToSave.file, tabToSave.contentString);
     final newTab = tabToSave.copyWith(file: newFile, isDirty: false);
-
     return updateTab(tabIndex, newTab);
-  }
-
-  @override
-  Project closeTab(int index, {required Ref ref}) {
-    if (index < 0 || index >= session.tabs.length) {
-      return this;
-    }
-
-    final closedTab = session.tabs[index];
-    final oldTab = session.currentTab;
-    final newTabs = List<EditorTab>.from(session.tabs)..removeAt(index);
-
-    int newCurrentIndex;
-    if (newTabs.isEmpty) {
-      newCurrentIndex = 0; // No tabs left, reset index.
-    } else {
-      final oldIndex = session.currentTabIndex;
-      if (oldIndex > index) {
-        newCurrentIndex = oldIndex - 1;
-      } else if (oldIndex == index) {
-        newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
-      } else {
-        newCurrentIndex = oldIndex;
-      }
-    }
-
-    final newProject = copyWith(
-      session: session.copyWith(
-        tabs: newTabs,
-        currentTabIndex: newCurrentIndex,
-      ),
-    );
-
-    closedTab.plugin.deactivateTab(closedTab, ref);
-    closedTab.dispose();
-
-    final newTab = newProject.session.currentTab;
-    if (oldTab != newTab) {
-      newTab?.plugin.activateTab(newTab, ref);
-    }
-
-    return newProject;
   }
 
   @override
   Project markCurrentTabDirty() {
     final currentTab = session.currentTab;
     if (currentTab == null || currentTab.isDirty) return this;
-
     final newTab = currentTab.copyWith(isDirty: true);
     return updateTab(session.currentTabIndex, newTab);
   }
 
   @override
   Project updateTab(int tabIndex, EditorTab newTab) {
-    if (tabIndex < 0 || tabIndex >= session.tabs.length) return this;
-
     final newTabs = List<EditorTab>.from(session.tabs);
     newTabs[tabIndex] = newTab;
-
     return copyWith(session: session.copyWith(tabs: newTabs));
   }
-
-  // MODIFIED: Implement the toJson method from the abstract class.
-  @override
-  Map<String, dynamic> toJson() => {
-    'id': metadata.id, // For verification
-    'session': session.toJson(),
-  };
 }

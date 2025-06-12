@@ -93,7 +93,7 @@ class ExplorerTypeDropdown extends ConsumerWidget {
         value: activeExplorer,
         onChanged: (plugin) {
           if (plugin != null) {
-            ref.read(activeExplorerProvider.notifier).state = plugin;
+            ref.read(activeExplorerProvider.notifier).setActiveExplorer(plugin);
           }
         },
         isExpanded: true,
@@ -113,6 +113,7 @@ class ExplorerTypeDropdown extends ConsumerWidget {
     );
   }
 }
+
 
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
