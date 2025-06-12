@@ -45,23 +45,19 @@ class SimpleLocalFileProject extends Project {
   
     // This project type does not persist workspace state, so these are no-ops.
   @override
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref}) async {
-    return null; // Always return null, forcing default state.
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService}) async {
+    return null;
   }
 
   @override
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref}) async {
-    // Do nothing.
-  }
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService}) async {}
 
   @override
-  Future<void> saveActiveExplorer(String pluginId, {required Ref ref}) async {
-    // Do nothing.
-  }
+  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService}) async {}
 
   @override
-  Future<String?> loadActiveExplorer({required Ref ref}) async {
-    return null; // Always return null, forcing default explorer.
+  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService}) async {
+    return null;
   }
 
   // --- Session Logic ---

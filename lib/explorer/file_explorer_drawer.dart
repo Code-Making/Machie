@@ -58,8 +58,9 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   }
 
   Future<void> _initializeActiveExplorer() async {
-    // Access the project via the 'widget' property.
-    final activePluginId = await widget.project.loadActiveExplorer(ref: ref);
+    // CORRECTED: Read the service first, then pass it to the project method.
+    final workspaceService = ref.read(workspaceServiceProvider);
+    final activePluginId = await widget.project.loadActiveExplorer(workspaceService: workspaceService);
 
     if (mounted && activePluginId != null) {
       final registry = ref.read(explorerRegistryProvider);
@@ -125,8 +126,9 @@ class ExplorerTypeDropdown extends ConsumerWidget {
         onChanged: (plugin) {
           if (plugin != null) {
             ref.read(activeExplorerProvider.notifier).state = plugin;
-            // CORRECTED: Pass the correct ref.
-            currentProject.saveActiveExplorer(plugin.id, ref: ref);
+            // CORRECTED: Read the service first, then pass it to the project method.
+            final workspaceService = ref.read(workspaceServiceProvider);
+            currentProject.saveActiveExplorer(plugin.id, workspaceService: workspaceService);
           }
         },
         isExpanded: true,

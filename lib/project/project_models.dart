@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../plugins/plugin_models.dart';
 import '../session/session_models.dart';
 import '../data/file_handler/file_handler.dart';
+import 'workspace_service.dart'; // NEW IMPORT
 
 // DELETED: The enum is no longer needed. We'll use string IDs.
 // enum ProjectType { local }
@@ -60,16 +61,15 @@ abstract class Project {
   String get rootUri => metadata.rootUri;
   String get projectTypeId => metadata.projectTypeId; // NEW: Expose the type ID.
 
-  // NEW: Contract for serializing internal state (session, etc.)
   Map<String, dynamic> toJson();
 
   Future<void> save();
   Future<void> close({required Ref ref});
 
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref});
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref});
-  Future<void> saveActiveExplorer(String pluginId, {required Ref ref});
-  Future<String?> loadActiveExplorer({required Ref ref});
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService});
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService});
+  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService});
+  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService});
 
 
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref});

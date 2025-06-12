@@ -61,10 +61,11 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
   Future<void> _initState() async {
     final project = _ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || project.id != _projectId) return;
-
-    // DECOUPLED: Ask the project to load our state.
-    final pluginJson = await project.loadPluginState(_pluginId, ref: _ref);
     
+    // CORRECTED: Read service and pass it to project.
+    final workspaceService = _ref.read(workspaceServiceProvider);
+    final pluginJson = await project.loadPluginState(_pluginId, workspaceService: workspaceService);
+
     if (mounted) {
       state = pluginJson != null
           ? FileExplorerSettings.fromJson(pluginJson)
@@ -94,8 +95,9 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
     if (state == null) return;
     final project = _ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || project.id != _projectId) return;
-    
-    // DECOUPLED: Tell the project to save our state.
-    project.savePluginState(_pluginId, state!.toJson(), ref: _ref);
+
+    // CORRECTED: Read service and pass it to project.
+    final workspaceService = _ref.read(workspaceServiceProvider);
+    project.savePluginState(_pluginId, state!.toJson(), workspaceService: workspaceService);
   }
 }
