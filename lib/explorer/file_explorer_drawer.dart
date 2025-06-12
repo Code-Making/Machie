@@ -9,6 +9,7 @@ import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'new_project_screen.dart';
+import '../project/workspace_service.dart';
 
 // --------------------
 // Main Drawer Widget (The "Host")
