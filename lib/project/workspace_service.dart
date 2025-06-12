@@ -11,12 +11,10 @@ final workspaceServiceProvider = Provider<WorkspaceService>((ref) {
   return WorkspaceService();
 });
 
-/// A service to manage loading and saving the UI-specific workspace state
-/// for a project, such as expanded folders and sort orders.
+/// A generic service to manage loading and saving the UI workspace state
+/// for a project, including the state of individual plugins.
 class WorkspaceService {
-  /// Loads the workspace state from `.machine/workspace.json`.
-  /// If the file doesn't exist, returns a default state.
-  Future<WorkspaceState> loadState(FileHandler fileHandler, String projectDataPath) async {
+  Future<WorkspaceState> _loadFullState(FileHandler fileHandler, String projectDataPath) async {
     try {
       final files = await fileHandler.listDirectory(projectDataPath, includeHidden: true);
       final workspaceFile = files.firstWhereOrNull((f) => f.name == _workspaceFileName);
@@ -28,12 +26,10 @@ class WorkspaceService {
     } catch (e) {
       print('Could not load workspace state: $e');
     }
-    // Return default state if anything fails
-    return const WorkspaceState();
+    return const WorkspaceState(activeExplorerPluginId: 'com.machine.file_explorer'); // Default
   }
 
-  /// Saves the workspace state to `.machine/workspace.json`.
-  Future<void> saveState(
+  Future<void> _saveFullState(
     FileHandler fileHandler,
     String projectDataPath,
     WorkspaceState state,
@@ -48,5 +44,46 @@ class WorkspaceService {
     } catch (e) {
       print('Could not save workspace state: $e');
     }
+  }
+
+  /// Loads the specific state for a single plugin.
+  Future<Map<String, dynamic>?> loadPluginState(
+    FileHandler fileHandler,
+    String projectDataPath,
+    String pluginId,
+  ) async {
+    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    return fullState.pluginStates[pluginId];
+  }
+
+  /// Saves the state for a single plugin without overwriting others.
+  Future<void> savePluginState(
+    FileHandler fileHandler,
+    String projectDataPath,
+    String pluginId,
+    Map<String, dynamic> pluginStateJson,
+  ) async {
+    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    final newPluginStates = Map<String, dynamic>.from(fullState.pluginStates);
+    newPluginStates[pluginId] = pluginStateJson;
+    final newFullState = WorkspaceState(
+      activeExplorerPluginId: fullState.activeExplorerPluginId,
+      pluginStates: newPluginStates,
+    );
+    await _saveFullState(fileHandler, projectDataPath, newFullState);
+  }
+
+  /// Saves just the active explorer ID.
+  Future<void> saveActiveExplorer(
+    FileHandler fileHandler,
+    String projectDataPath,
+    String pluginId,
+  ) async {
+    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    final newFullState = WorkspaceState(
+      activeExplorerPluginId: pluginId,
+      pluginStates: fullState.pluginStates,
+    );
+    await _saveFullState(fileHandler, projectDataPath, newFullState);
   }
 }

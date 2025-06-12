@@ -1,39 +1,27 @@
 // lib/project/workspace_state.dart
 import 'package:flutter/foundation.dart';
-import 'project_models.dart';
 
 @immutable
 class WorkspaceState {
-  final Set<String> expandedFolders;
-  final FileExplorerViewMode fileExplorerViewMode;
+  /// The ID of the last active explorer plugin for this project.
+  final String activeExplorerPluginId;
+  /// A generic map to hold the persisted state for each plugin, keyed by plugin ID.
+  final Map<String, dynamic> pluginStates;
 
   const WorkspaceState({
-    this.expandedFolders = const {},
-    this.fileExplorerViewMode = FileExplorerViewMode.sortByNameAsc,
+    required this.activeExplorerPluginId,
+    this.pluginStates = const {},
   });
-
-  WorkspaceState copyWith({
-    Set<String>? expandedFolders,
-    FileExplorerViewMode? fileExplorerViewMode,
-  }) {
-    return WorkspaceState(
-      expandedFolders: expandedFolders ?? this.expandedFolders,
-      fileExplorerViewMode: fileExplorerViewMode ?? this.fileExplorerViewMode,
-    );
-  }
 
   factory WorkspaceState.fromJson(Map<String, dynamic> json) {
     return WorkspaceState(
-      expandedFolders: Set<String>.from(json['expandedFolders'] ?? []),
-      fileExplorerViewMode: FileExplorerViewMode.values.firstWhere(
-        (e) => e.name == json['fileExplorerViewMode'],
-        orElse: () => FileExplorerViewMode.sortByNameAsc,
-      ),
+      activeExplorerPluginId: json['activeExplorerPluginId'] ?? 'com.machine.file_explorer',
+      pluginStates: Map<String, dynamic>.from(json['pluginStates'] ?? {}),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'expandedFolders': expandedFolders.toList(),
-        'fileExplorerViewMode': fileExplorerViewMode.name,
+        'activeExplorerPluginId': activeExplorerPluginId,
+        'pluginStates': pluginStates,
       };
 }
