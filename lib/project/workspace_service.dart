@@ -14,7 +14,7 @@ final workspaceServiceProvider = Provider<WorkspaceService>((ref) {
 /// A generic service to manage loading and saving the UI workspace state
 /// for a project, including the state of individual plugins.
 class WorkspaceService {
-  Future<WorkspaceState> _loadFullState(FileHandler fileHandler, String projectDataPath) async {
+  Future<WorkspaceState> loadFullState(FileHandler fileHandler, String projectDataPath) async {
     try {
       final files = await fileHandler.listDirectory(projectDataPath, includeHidden: true);
       final workspaceFile = files.firstWhereOrNull((f) => f.name == _workspaceFileName);
@@ -52,7 +52,7 @@ class WorkspaceService {
     String projectDataPath,
     String pluginId,
   ) async {
-    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    final fullState = await loadFullState(fileHandler, projectDataPath);
     return fullState.pluginStates[pluginId];
   }
 
@@ -63,7 +63,7 @@ class WorkspaceService {
     String pluginId,
     Map<String, dynamic> pluginStateJson,
   ) async {
-    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    final fullState = await loadFullState(fileHandler, projectDataPath);
     final newPluginStates = Map<String, dynamic>.from(fullState.pluginStates);
     newPluginStates[pluginId] = pluginStateJson;
     final newFullState = WorkspaceState(
@@ -79,7 +79,7 @@ class WorkspaceService {
     String projectDataPath,
     String pluginId,
   ) async {
-    final fullState = await _loadFullState(fileHandler, projectDataPath);
+    final fullState = await loadFullState(fileHandler, projectDataPath);
     final newFullState = WorkspaceState(
       activeExplorerPluginId: pluginId,
       pluginStates: fullState.pluginStates,

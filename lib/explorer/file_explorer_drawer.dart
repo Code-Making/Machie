@@ -1,6 +1,7 @@
 // lib/explorer/file_explorer_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart'; // NEW IMPORT
 
 import '../app/app_notifier.dart';
 import '../data/file_handler/local_file_handler.dart';
@@ -35,10 +36,33 @@ class FileExplorerDrawer extends ConsumerWidget {
 // Explorer Host View (A Project Is Open)
 // --------------------
 
-class ExplorerHostView extends ConsumerWidget {
+class ExplorerHostView extends ConsumerStatefulWidget {
   final Project project;
-
   const ExplorerHostView({super.key, required this.project});
+
+  @override
+  ConsumerState<ExplorerHostView> createState() => _ExplorerHostViewState();
+}
+
+class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
+  @override
+  void initState() {
+    super.initState();
+    _initializeActiveExplorer();
+  }
+
+  Future<void> _initializeActiveExplorer() async {
+    // DECOUPLED: Call the method directly on the project object.
+    final activePluginId = await widget.project.loadActiveExplorer(ref: ref);
+    
+    if (mounted && activePluginId != null) {
+      final registry = ref.read(explorerRegistryProvider);
+      final activePlugin = registry.firstWhereOrNull((p) => p.id == activePluginId);
+      if (activePlugin != null) {
+        ref.read(activeExplorerProvider.notifier).state = activePlugin;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,8 +117,9 @@ class ExplorerTypeDropdown extends ConsumerWidget {
         value: activeExplorer,
         onChanged: (plugin) {
           if (plugin != null) {
-            ref.read(activeExplorerProvider.notifier).setActiveExplorer(plugin);
-          }
+          ref.read(activeExplorerProvider.notifier).state = plugin;
+          currentProject.saveActiveExplorer(plugin.id, ref: ref);
+        }
         },
         isExpanded: true,
         items: registry.map((plugin) {

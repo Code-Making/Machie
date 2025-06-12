@@ -5,6 +5,7 @@ import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
+import 'workspace_service.dart'; // NEW IMPORT
 
 /// An implementation for projects that don't have persistent state on disk
 /// (like a .machine folder). Their state is managed by AppState instead.
@@ -40,6 +41,27 @@ class SimpleLocalFileProject extends Project {
       tab.plugin.deactivateTab(tab, ref);
       tab.dispose();
     }
+  }
+  
+    // This project type does not persist workspace state, so these are no-ops.
+  @override
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref}) async {
+    return null; // Always return null, forcing default state.
+  }
+
+  @override
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref}) async {
+    // Do nothing.
+  }
+
+  @override
+  Future<void> saveActiveExplorer(String pluginId, {required Ref ref}) async {
+    // Do nothing.
+  }
+
+  @override
+  Future<String?> loadActiveExplorer({required Ref ref}) async {
+    return null; // Always return null, forcing default explorer.
   }
 
   // --- Session Logic ---

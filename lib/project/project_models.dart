@@ -66,6 +66,12 @@ abstract class Project {
   Future<void> save();
   Future<void> close({required Ref ref});
 
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref});
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref});
+  Future<void> saveActiveExplorer(String pluginId, {required Ref ref});
+  Future<String?> loadActiveExplorer({required Ref ref});
+
+
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref});
   Project switchTab(int index, {required Ref ref});
   Project reorderTabs(int oldIndex, int newIndex);

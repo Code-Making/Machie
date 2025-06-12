@@ -7,6 +7,7 @@ import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
 import 'simple_local_file_project.dart';
+import 'workspace_service.dart'; // NEW IMPORT
 
 class LocalProject extends Project {
   String projectDataPath;
@@ -55,6 +56,31 @@ class LocalProject extends Project {
         'id': metadata.id,
         'session': session.toJson(),
       };
+      
+  @override
+  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required Ref ref}) {
+    final workspaceService = ref.read(workspaceServiceProvider);
+    return workspaceService.loadPluginState(fileHandler, projectDataPath, pluginId);
+  }
+
+  @override
+  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required Ref ref}) {
+    final workspaceService = ref.read(workspaceServiceProvider);
+    return workspaceService.savePluginState(fileHandler, projectDataPath, pluginId, stateJson);
+  }
+
+  @override
+  Future<void> saveActiveExplorer(String pluginId, {required Ref ref}) {
+    final workspaceService = ref.read(workspaceServiceProvider);
+    return workspaceService.saveActiveExplorer(fileHandler, projectDataPath, pluginId);
+  }
+
+  @override
+  Future<String?> loadActiveExplorer({required Ref ref}) async {
+    final workspaceService = ref.read(workspaceServiceProvider);
+    final state = await workspaceService.loadFullState(fileHandler, projectDataPath);
+    return state.activeExplorerPluginId;
+  }
 
   // ALL SESSION LOGIC (openFile, closeTab, etc.) remains here as before.
   // ...
