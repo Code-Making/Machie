@@ -11,6 +11,7 @@ import 'command/command_notifier.dart'; // NEW IMPORT
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 import 'utils/logs.dart';
+import 'data/persistence_service.dart';
 
 // --------------------
 //   Global Providers
@@ -18,11 +19,9 @@ import 'utils/logs.dart';
 
 // MODIFIED: This is now the single, robust provider for all app initialization.
 final appStartupProvider = FutureProvider<void>((ref) async {
-  await Future.wait([
-    ref.read(settingsProvider.future),
-    ref.read(commandProvider.future),
-  ]);
-
+  await ref.read(sharedPreferencesProvider.future);
+  ref.read(settingsProvider.future);
+  ref.read(commandProvider.future);
   await ref.read(appNotifierProvider.future);
 });
 
