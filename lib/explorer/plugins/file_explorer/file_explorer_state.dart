@@ -3,59 +3,53 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
 import '../../../project/local_file_system_project.dart';
 import '../../../project/project_models.dart';
+import '../../../project/workspace_service.dart'; // NEW
+import '../../../project/workspace_state.dart';   // NEW
 
-// NEW: A class to hold all state for the file explorer UI.
-class FileExplorerState {
-  final FileExplorerViewMode viewMode;
-  final Set<String> expandedFolders;
-
-  FileExplorerState({
-    this.viewMode = FileExplorerViewMode.sortByNameAsc,
-    this.expandedFolders = const {},
+// MODIFIED: State is now WorkspaceState
+class FileExplorerState extends WorkspaceState {
+  const FileExplorerState({
+    super.viewMode,
+    super.expandedFolders,
   });
-
-  FileExplorerState copyWith({
-    FileExplorerViewMode? viewMode,
-    Set<String>? expandedFolders,
-  }) {
-    return FileExplorerState(
-      viewMode: viewMode ?? this.viewMode,
-      expandedFolders: expandedFolders ?? this.expandedFolders,
-    );
-  }
 }
 
-// MODIFIED: This is now a family provider, keyed by the project's unique ID.
-final fileExplorerStateProvider = StateNotifierProvider.family<
-    FileExplorerStateNotifier, FileExplorerState, String>((ref, projectId) {
-      
-  final project = ref.watch(appNotifierProvider.select((app) => app.value?.currentProject));
-
-  // Initialize state based on project type.
-  if (project != null && project.id == projectId) {
-    if (project is LocalProject) {
-      // For persistent projects, initialize from the project's saved data.
-      return FileExplorerStateNotifier(
-        ref,
-        initialState: FileExplorerState(
-          viewMode: project.fileExplorerViewMode,
-          expandedFolders: project.expandedFolders,
-        ),
-      );
-    }
-  }
-  // For Simple projects or if no project is found, use a default state.
-  return FileExplorerStateNotifier(ref, initialState: FileExplorerState());
+// MODIFIED: Provider now returns a Future because it loads state asynchronously.
+final fileExplorerStateProvider = StateNotifierProvider.family
+    .autoDispose<FileExplorerStateNotifier, FileExplorerState, String>(
+        (ref, projectId) {
+  return FileExplorerStateNotifier(ref, projectId);
 });
 
 class FileExplorerStateNotifier extends StateNotifier<FileExplorerState> {
   final Ref _ref;
+  final String _projectId;
 
-  FileExplorerStateNotifier(this._ref, {required FileExplorerState initialState}) : super(initialState);
+  FileExplorerStateNotifier(this._ref, this._projectId) : super(const FileExplorerState()) {
+    _initState();
+  }
+
+  // NEW: Asynchronous initialization method.
+  Future<void> _initState() async {
+    final project = _ref.read(appNotifierProvider).value?.currentProject;
+    final workspaceService = _ref.read(workspaceServiceProvider);
+
+    if (project is LocalProject && project.id == _projectId) {
+      // Load persisted state for LocalProject
+      final loadedState = await workspaceService.loadState(
+        project.fileHandler,
+        project.projectDataPath,
+      );
+      if (mounted) state = loadedState;
+    } else if (project is SimpleLocalFileProject && project.id == _projectId) {
+      // Simple projects start with a default, non-persistent state
+      if (mounted) state = const FileExplorerState();
+    }
+  }
 
   void setViewMode(FileExplorerViewMode newMode) {
-    if (state.viewMode == newMode) return;
-    state = state.copyWith(viewMode: newMode);
+    if (state.fileExplorerViewMode == newMode) return;
+    state = state.copyWith(fileExplorerViewMode: newMode);
     _persistStateIfNecessary();
   }
 
@@ -70,20 +64,13 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerState> {
     _persistStateIfNecessary();
   }
 
-  // This is the key: the plugin's local state change triggers an update
-  // to the persistent project model if needed.
   void _persistStateIfNecessary() {
-    final appNotifier = _ref.read(appNotifierProvider.notifier);
     final project = _ref.read(appNotifierProvider).value?.currentProject;
+    final workspaceService = _ref.read(workspaceServiceProvider);
 
-    if (project is LocalProject) {
-      // Create an updated project model with the new state and pass it to the AppNotifier.
-      final updatedProject = project.copyWith(
-        fileExplorerViewMode: state.viewMode,
-        expandedFolders: state.expandedFolders,
-      );
-      appNotifier.updateProject(updatedProject);
+    // Only persist the state for LocalProject
+    if (project is LocalProject && project.id == _projectId) {
+      workspaceService.saveState(project.fileHandler, project.projectDataPath, state);
     }
-    // If it's a SimpleLocalFileProject, we do nothing. The state lives and dies with the provider.
   }
 }
