@@ -4,7 +4,7 @@ import '../../../app/app_notifier.dart';
 import '../../../project/local_file_system_project.dart';
 import '../../../project/project_models.dart';
 
-// No change to the state class
+// NEW: A class to hold all state for the file explorer UI.
 class FileExplorerState {
   final FileExplorerViewMode viewMode;
   final Set<String> expandedFolders;
@@ -25,50 +25,38 @@ class FileExplorerState {
   }
 }
 
-// MODIFIED: Provider now just creates the notifier.
-// We select the data we need inside the view instead.
-final fileExplorerStateProvider = StateNotifierProvider.autoDispose
-    .family<FileExplorerStateNotifier, FileExplorerState, String>((ref, projectId) {
-  return FileExplorerStateNotifier(ref, projectId);
+// MODIFIED: This is now a family provider, keyed by the project's unique ID.
+final fileExplorerStateProvider = StateNotifierProvider.family<
+    FileExplorerStateNotifier, FileExplorerState, String>((ref, projectId) {
+      
+  final project = ref.watch(appNotifierProvider.select((app) => app.value?.currentProject));
+
+  // Initialize state based on project type.
+  if (project != null && project.id == projectId) {
+    if (project is LocalProject) {
+      // For persistent projects, initialize from the project's saved data.
+      return FileExplorerStateNotifier(
+        ref,
+        initialState: FileExplorerState(
+          viewMode: project.fileExplorerViewMode,
+          expandedFolders: project.expandedFolders,
+        ),
+      );
+    }
+  }
+  // For Simple projects or if no project is found, use a default state.
+  return FileExplorerStateNotifier(ref, initialState: FileExplorerState());
 });
 
 class FileExplorerStateNotifier extends StateNotifier<FileExplorerState> {
   final Ref _ref;
-  final String _projectId;
 
-  FileExplorerStateNotifier(this._ref, this._projectId) : super(FileExplorerState()) {
-    // Initialize the state when the notifier is created.
-    _initialize();
-  }
-  
-  void _initialize() {
-    final project = _ref.read(appNotifierProvider).value?.currentProject;
-    if (project != null && project.id == _projectId) {
-      if (project is LocalProject) {
-        // For persistent projects, initialize from its data.
-        state = FileExplorerState(
-          viewMode: project.fileExplorerViewMode,
-          expandedFolders: project.expandedFolders,
-        );
-      } else {
-        // For simple projects, initialize with defaults (including root expanded).
-        state = FileExplorerState(expandedFolders: {project.rootUri});
-      }
-    }
-  }
+  FileExplorerStateNotifier(this._ref, {required FileExplorerState initialState}) : super(initialState);
 
   void setViewMode(FileExplorerViewMode newMode) {
     if (state.viewMode == newMode) return;
-    
-    // Update the local UI state immediately.
     state = state.copyWith(viewMode: newMode);
-
-    // Now, update the persistent model in the background.
-    final project = _ref.read(appNotifierProvider).value?.currentProject;
-    if (project is LocalProject) {
-      final updatedProject = project.copyWith(fileExplorerViewMode: newMode);
-      _ref.read(appNotifierProvider.notifier).updateProject(updatedProject);
-    }
+    _persistStateIfNecessary();
   }
 
   void toggleFolderExpansion(String folderUri) {
@@ -78,15 +66,24 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerState> {
     } else {
       newExpanded.add(folderUri);
     }
-    
-    // Update local UI state.
     state = state.copyWith(expandedFolders: newExpanded);
+    _persistStateIfNecessary();
+  }
 
-    // Update persistent model.
+  // This is the key: the plugin's local state change triggers an update
+  // to the persistent project model if needed.
+  void _persistStateIfNecessary() {
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
     final project = _ref.read(appNotifierProvider).value?.currentProject;
+
     if (project is LocalProject) {
-      final updatedProject = project.copyWith(expandedFolders: newExpanded);
-      _ref.read(appNotifierProvider.notifier).updateProject(updatedProject);
+      // Create an updated project model with the new state and pass it to the AppNotifier.
+      final updatedProject = project.copyWith(
+        fileExplorerViewMode: state.viewMode,
+        expandedFolders: state.expandedFolders,
+      );
+      appNotifier.updateProject(updatedProject);
     }
+    // If it's a SimpleLocalFileProject, we do nothing. The state lives and dies with the provider.
   }
 }
