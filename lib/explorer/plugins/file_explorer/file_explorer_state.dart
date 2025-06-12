@@ -1,7 +1,6 @@
 // lib/explorer/plugins/file_explorer/file_explorer_state.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
-import '../../../project/local_file_system_project.dart';
 import '../../../project/project_models.dart';
 import '../../../project/workspace_service.dart';
 import '../file_explorer/file_explorer_plugin.dart';
@@ -61,22 +60,15 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
 
   Future<void> _initState() async {
     final project = _ref.read(appNotifierProvider).value?.currentProject;
-    final workspaceService = _ref.read(workspaceServiceProvider);
+    if (project == null || project.id != _projectId) return;
 
-    if (project is LocalProject && project.id == _projectId) {
-      final pluginJson = await workspaceService.loadPluginState(
-        project.fileHandler,
-        project.projectDataPath,
-        _pluginId,
-      );
-      if (mounted) {
-        state = pluginJson != null
-            ? FileExplorerSettings.fromJson(pluginJson)
-            : const FileExplorerSettings();
-      }
-    } else {
-      // Simple projects are not persisted, so they always start with default settings.
-      if (mounted) state = const FileExplorerSettings();
+    // DECOUPLED: Ask the project to load our state.
+    final pluginJson = await project.loadPluginState(_pluginId, ref: _ref);
+    
+    if (mounted) {
+      state = pluginJson != null
+          ? FileExplorerSettings.fromJson(pluginJson)
+          : const FileExplorerSettings();
     }
   }
 
@@ -101,15 +93,9 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
   void _persistStateIfNecessary() {
     if (state == null) return;
     final project = _ref.read(appNotifierProvider).value?.currentProject;
-    final workspaceService = _ref.read(workspaceServiceProvider);
-
-    if (project is LocalProject && project.id == _projectId) {
-      workspaceService.savePluginState(
-        project.fileHandler,
-        project.projectDataPath,
-        _pluginId,
-        state!.toJson(),
-      );
-    }
+    if (project == null || project.id != _projectId) return;
+    
+    // DECOUPLED: Tell the project to save our state.
+    project.savePluginState(_pluginId, state!.toJson(), ref: _ref);
   }
 }
