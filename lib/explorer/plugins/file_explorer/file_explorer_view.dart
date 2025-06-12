@@ -34,8 +34,7 @@ class FileExplorerView extends ConsumerWidget {
             directory: project.rootUri,
             projectRootUri: project.rootUri,
             projectId: project.id,
-            expandedFolders: fileExplorerState.expandedFolders,
-            viewMode: fileExplorerState.viewMode,
+            state: fileExplorerState,
           ),
         ),
         _FileOperationsFooter(
@@ -51,15 +50,13 @@ class _DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
   final String projectId;
-  final Set<String> expandedFolders;
-  final FileExplorerViewMode viewMode;
+  final FileExplorerSettings state;
 
   const _DirectoryView({
     required this.directory,
     required this.projectRootUri,
     required this.projectId,
-    required this.expandedFolders,
-    required this.viewMode,
+    required this.state,
   });
 
   @override
@@ -72,7 +69,7 @@ class _DirectoryView extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
       data: (contents) {
-        _applySorting(contents, viewMode);
+        _applySorting(contents, state.viewMode);
 
         return ListView.builder(
           key: PageStorageKey(directory), // Preserve scroll position
@@ -85,7 +82,7 @@ class _DirectoryView extends ConsumerWidget {
             return _DirectoryItem(
               item: item,
               depth: depth,
-              isExpanded: expandedFolders.contains(item.uri),
+              isExpanded: state.expandedFolders.contains(item.uri),
               projectId: projectId,
             );
           },
@@ -185,14 +182,14 @@ class _DirectoryItem extends ConsumerWidget {
         children: [
           if (isExpanded)
             Consumer(builder: (context, ref, _) {
-              final state = ref.watch(fileExplorerStateProvider(projectId));
+              final currentState = ref.watch(fileExplorerStateProvider(projectId));
               final project = ref.watch(appNotifierProvider).value!.currentProject!;
+              if (currentState == null) return const SizedBox.shrink();
               return _DirectoryView(
                 directory: item.uri,
                 projectRootUri: project.rootUri,
                 projectId: projectId,
-                expandedFolders: state.expandedFolders,
-                viewMode: state.viewMode,
+                state: currentState,
               );
             }),
         ],
