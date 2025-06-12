@@ -130,6 +130,7 @@ class LocalProjectFactory implements ProjectFactory {
   ) async {
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
     final tabs = await _rehydrateTabs(sessionJson, handler, ref);
+    // MODIFIED: No longer passes UI state to the constructor.
     return LocalProject(
       metadata: metadata,
       fileHandler: handler,
@@ -138,12 +139,6 @@ class LocalProjectFactory implements ProjectFactory {
         currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
       ),
       projectDataPath: projectDataPath,
-      // Pass the deserialized values here.
-      expandedFolders: Set<String>.from(json['expandedFolders'] ?? []),
-      fileExplorerViewMode: FileExplorerViewMode.values.firstWhere(
-        (e) => e.name == json['fileExplorerViewMode'],
-        orElse: () => FileExplorerViewMode.sortByNameAsc,
-      ),
     );
   }
 }

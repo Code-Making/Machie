@@ -11,32 +11,24 @@ import 'project_models.dart';
 class LocalProject extends Project {
   // ... (no changes in properties) ...
   String projectDataPath;
-  final Set<String> expandedFolders;
-  final FileExplorerViewMode fileExplorerViewMode;
 
   LocalProject({
     required super.metadata,
     required super.fileHandler,
     required super.session,
     required this.projectDataPath,
-    this.expandedFolders = const {},
-    this.fileExplorerViewMode = FileExplorerViewMode.sortByNameAsc,
   });
 
   // MODIFIED: The copyWith method no longer needs to handle this state.
   LocalProject copyWith({
     ProjectMetadata? metadata,
     SessionState? session,
-    Set<String>? expandedFolders,
-    FileExplorerViewMode? fileExplorerViewMode,
   }) {
     return LocalProject(
       metadata: metadata ?? this.metadata,
       fileHandler: fileHandler,
       session: session ?? this.session.copyWith(),
       projectDataPath: projectDataPath,
-      expandedFolders: expandedFolders ?? this.expandedFolders,
-      fileExplorerViewMode: fileExplorerViewMode ?? this.fileExplorerViewMode,
     );
   }
 
@@ -208,7 +200,5 @@ class LocalProject extends Project {
   Map<String, dynamic> toJson() => {
     'id': metadata.id, // For verification
     'session': session.toJson(),
-    'expandedFolders': expandedFolders.toList(),
-    'fileExplorerViewMode': fileExplorerViewMode.name,
   };
 }
