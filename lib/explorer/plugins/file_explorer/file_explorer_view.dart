@@ -168,7 +168,7 @@ class _DirectoryItem extends ConsumerWidget {
     Widget childWidget;
     if (item.isDirectory) {
       childWidget = ExpansionTile(
-        key: ValueKey(item.uri),
+        key: PageStorageKey<String>(item.uri),
         leading: Icon(
           isExpanded ? Icons.folder_open : Icons.folder,
           color: Colors.yellow.shade700,
