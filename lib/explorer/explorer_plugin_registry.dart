@@ -6,10 +6,12 @@ import '../project/local_file_system_project.dart';
 import '../project/workspace_service.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
+import 'plugins/search_explorer/search_explorer_plugin.dart'; // NEW IMPORT
 
 final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [
     FileExplorerPlugin(),
+    SearchExplorerPlugin(), // NEW: Register the search plugin
   ];
 });
 
