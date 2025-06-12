@@ -15,17 +15,13 @@ final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   ];
 });
 
-// MODIFIED: This provider now initializes from and saves to the WorkspaceService.
+// MODIFIED: This is now a simple StateProvider. It holds the current
+// active plugin, but the logic to initialize it is moved to the UI.
 final activeExplorerProvider =
-    StateNotifierProvider.autoDispose<ActiveExplorerNotifier, ExplorerPlugin>((ref) {
-  final project = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject));
-  final registry = ref.read(explorerRegistryProvider);
-
-  if (project == null) {
-    return ActiveExplorerNotifier(ref, registry.first);
-  }
-  // Initialize asynchronously.
-  return ActiveExplorerNotifier(ref, registry.first, project: project);
+    StateProvider.autoDispose<ExplorerPlugin>((ref) {
+  // Default to the first registered explorer. The UI will override this
+  // with the persisted value upon initialization.
+  return ref.watch(explorerRegistryProvider).first;
 });
 
 class ActiveExplorerNotifier extends StateNotifier<ExplorerPlugin> {
