@@ -1,19 +1,26 @@
 // lib/app/app_notifier.dart
+import 'package:flutter/material.dart'; // NEW IMPORT
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
-import '../project/local_file_system_project.dart';
+import '../plugins/plugin_models.dart'; // NEW IMPORT
+import '../plugins/plugin_registry.dart'; // NEW IMPORT
+import '../plugins/recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT for our custom exception
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
+import '../utils/logs.dart'; // NEW IMPORT for logging
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
+
+final navigatorKeyProvider = Provider((ref) => GlobalKey<NavigatorState>());
+final rootScaffoldMessengerKeyProvider = Provider((ref) => GlobalKey<ScaffoldMessengerState>());
 
 // ... (currentProjectDirectoryContentsProvider is unchanged) ...
 final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose

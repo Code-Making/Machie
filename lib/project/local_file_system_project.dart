@@ -85,41 +85,82 @@ class LocalProject extends Project {
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
   }
 
-  @override
-  Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
-    final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
-    if (existingIndex != -1) {
-      return switchTab(existingIndex, ref: ref);
-    }
-
-    final plugins = ref.read(activePluginsProvider);
-    EditorPlugin selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file), orElse: () => CodeEditorPlugin());
+  @  // MODIFIED: This method now contains the core orchestration logic.
+  Future<void> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
+    final project = state.value?.currentProject;
+    if (project == null) return;
     
-    final content = await fileHandler.readFile(file.uri);
-    EditorTab newTab;
+    EditorPlugin? chosenPlugin = explicitPlugin;
 
-    try {
-      // Attempt to create the tab with the selected plugin
-      newTab = await selectedPlugin.createTab(file, content);
-    } on InvalidRecipeFormatException {
-      // FALLBACK: If it was a RecipeTexPlugin that failed, use the CodeEditorPlugin instead.
-      print('Invalid recipe format. Opening with Code Editor.');
-      selectedPlugin = plugins.firstWhere((p) => p is CodeEditorPlugin);
-      newTab = await selectedPlugin.createTab(file, content);
-    } catch (e) {
-      // Handle other potential errors during tab creation
-      print('Error creating tab: $e');
-      // Optionally, show an error to the user
-      return this; // Return original project state
+    if (chosenPlugin == null) {
+      // Find all compatible plugins for this file type.
+      final compatiblePlugins = ref.read(activePluginsProvider)
+          .where((p) => p.supportsFile(file))
+          .toList();
+
+      if (compatiblePlugins.isEmpty) {
+        _showErrorSnackbar("No plugin available to open '${file.name}'.");
+        return;
+      } else if (compatiblePlugins.length > 1) {
+        // More than one plugin, ask the user to choose.
+        chosenPlugin = await _showOpenWithDialog(compatiblePlugins);
+        if (chosenPlugin == null) return; // User cancelled
+      } else {
+        // Only one compatible plugin found.
+        chosenPlugin = compatiblePlugins.first;
+      }
     }
 
-    final oldTab = session.currentTab;
-    final newSession = session.copyWith(
-      tabs: [...session.tabs, newTab],
-      currentTabIndex: session.tabs.length,
+    // Now, attempt to open the file with the chosen plugin.
+    try {
+      await _updateState((s) async {
+        final newProject = await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
+        return s.copyWith(currentProject: newProject);
+      });
+    } on InvalidRecipeFormatException {
+      _showErrorSnackbar("Could not open '${file.name}'. The file is not a valid recipe format.");
+    } catch (e, st) {
+      ref.read(logProvider.notifier).add("Failed to open file '${file.name}': $e\n$st");
+      _showErrorSnackbar("Failed to open file: $e");
+    }
+  }
+
+  // NEW: Helper method to show a snackbar (requires a BuildContext).
+  // We can get this from a NavigatorKey or pass it from the UI.
+  // For simplicity, let's assume a global key for now.
+  // A better solution would involve a dedicated "messenger" service.
+  void _showErrorSnackbar(String message) {
+    // This is a simplified approach. In a real app, use a service that
+    // doesn't depend on BuildContext.
+    final scaffoldMessenger = ref.read(rootScaffoldMessengerKeyProvider).currentState;
+    scaffoldMessenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+      ),
     );
-    _handlePluginLifecycle(oldTab, newTab, ref);
-    return copyWith(session: newSession);
+  }
+
+  // NEW: Helper method to show the "Open With..." dialog.
+  Future<EditorPlugin?> _showOpenWithDialog(List<EditorPlugin> plugins) async {
+    // This also requires a context.
+    final context = ref.read(navigatorKeyProvider).currentContext;
+    if (context == null) return null;
+
+    return await showDialog<EditorPlugin>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Open with...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: plugins.map((p) => ListTile(
+            leading: p.icon,
+            title: Text(p.name),
+            onTap: () => Navigator.of(ctx).pop(p),
+          )).toList(),
+        ),
+      ),
+    );
   }
 
   @override
