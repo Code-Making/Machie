@@ -2,9 +2,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:machine/plugins/recipe_tex/recipe_tex_plugin.dart';
 
-import '../../../data/file_handler/file_handler.dart';
-import '../../../session/session_models.dart';
-import '../../plugin_models.dart';
+import '../../data/file_handler/file_handler.dart';
+import '../../session/session_models.dart';
+import '../plugin_models.dart';
 
 class RecipeTexTab extends EditorTab {
   final RecipeData data;
