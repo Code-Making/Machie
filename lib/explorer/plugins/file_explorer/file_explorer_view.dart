@@ -168,7 +168,7 @@ class _DirectoryItem extends ConsumerWidget {
                 ),
               ),
               const Divider(),
-              ...allCommands.map(
+              ...allCommands.map((command) {
         if (command is _DividerCommand) {
             return const Divider(height: 1, indent: 16, endIndent: 16);
         }
@@ -180,7 +180,7 @@ class _DirectoryItem extends ConsumerWidget {
                 command.executeFor(ref, item);
             },
         );
-    ),
+    }),
             ],
           ),
         ),
@@ -407,9 +407,11 @@ class _FileOperationsFooter extends ConsumerWidget {
 }
 
 class FileExplorerContextCommands {
+  // MODIFIED: getCommands now accepts the list of compatible plugins.
   static List<FileContextCommand> getCommands(
     WidgetRef ref,
     DocumentFile item,
+    List<EditorPlugin> compatiblePlugins,
   ) {
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final clipboardContent = ref.watch(clipboardProvider);
