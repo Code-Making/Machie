@@ -1,10 +1,9 @@
 // lib/plugins/plugin_registry.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'plugin_models.dart'; // For EditorPlugin
-
 import 'code_editor/code_editor_plugin.dart';
+import 'recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT
 
 // --------------------
 // Plugin Registry Providers
@@ -13,7 +12,10 @@ import 'code_editor/code_editor_plugin.dart';
 /// Manages the set of all available EditorPlugins in the application.
 /// Plugins register themselves here.
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
-  (_) => {CodeEditorPlugin()},
+  (_) => {
+      CodeEditorPlugin(),
+      RecipeTexPlugin(), // NEW: Add the recipe plugin
+  },
 );
 
 final activePluginsProvider =
