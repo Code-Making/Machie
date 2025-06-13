@@ -91,10 +91,28 @@ class LocalProject extends Project {
     if (existingIndex != -1) {
       return switchTab(existingIndex, ref: ref);
     }
+
     final plugins = ref.read(activePluginsProvider);
-    final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
+    EditorPlugin selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file), orElse: () => CodeEditorPlugin());
+    
     final content = await fileHandler.readFile(file.uri);
-    final newTab = await selectedPlugin.createTab(file, content);
+    EditorTab newTab;
+
+    try {
+      // Attempt to create the tab with the selected plugin
+      newTab = await selectedPlugin.createTab(file, content);
+    } on InvalidRecipeFormatException {
+      // FALLBACK: If it was a RecipeTexPlugin that failed, use the CodeEditorPlugin instead.
+      print('Invalid recipe format. Opening with Code Editor.');
+      selectedPlugin = plugins.firstWhere((p) => p is CodeEditorPlugin);
+      newTab = await selectedPlugin.createTab(file, content);
+    } catch (e) {
+      // Handle other potential errors during tab creation
+      print('Error creating tab: $e');
+      // Optionally, show an error to the user
+      return this; // Return original project state
+    }
+
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
       tabs: [...session.tabs, newTab],
