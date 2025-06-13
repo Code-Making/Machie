@@ -106,6 +106,23 @@ class _DirectoryView extends ConsumerWidget {
   }
 }
 
+// NEW: A private dummy command class to represent a divider in the list.
+class _DividerCommand extends FileContextCommand {
+  const _DividerCommand()
+      : super(
+          id: 'divider',
+          label: '',
+          icon: const SizedBox.shrink(),
+          sourcePlugin: '',
+        );
+
+  @override
+  bool canExecuteFor(WidgetRef ref, DocumentFile item) => true;
+
+  @override
+  Future<void> executeFor(WidgetRef ref, DocumentFile item) async {}
+}
+
 class _DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
@@ -124,37 +141,48 @@ class _DirectoryItem extends ConsumerWidget {
     WidgetRef ref,
     DocumentFile item,
   ) {
+    // 1. Find all plugins that can open this file.
+    final compatiblePlugins = ref.read(activePluginsProvider)
+        .where((p) => p.supportsFile(item))
+        .toList();
+
+    // 2. Get all commands, including the dynamically generated "Open With..." commands.
     final allCommands =
-        FileExplorerContextCommands.getCommands(ref, item)
+        FileExplorerContextCommands.getCommands(ref, item, compatiblePlugins)
             .where((cmd) => cmd.canExecuteFor(ref, item))
             .toList();
 
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                item.name,
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
+        child: SingleChildScrollView( // Use a scroll view in case of many options
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  item.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const Divider(),
-            ...allCommands.map(
-              (command) => ListTile(
-                leading: command.icon,
-                title: Text(command.label),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  command.executeFor(ref, item);
-                },
-              ),
-            ),
-          ],
+              const Divider(),
+              ...allCommands.map(
+        if (command is _DividerCommand) {
+            return const Divider(height: 1, indent: 16, endIndent: 16);
+        }
+        return ListTile(
+            leading: command.icon,
+            title: Text(command.label),
+            onTap: () {
+                Navigator.pop(ctx);
+                command.executeFor(ref, item);
+            },
+        );
+    ),
+            ],
+          ),
         ),
       ),
     );
@@ -387,7 +415,36 @@ class FileExplorerContextCommands {
     final clipboardContent = ref.watch(clipboardProvider);
     final currentProject = ref.read(appNotifierProvider).value?.currentProject;
 
-    return [
+    final List<FileContextCommand> commands = [];
+
+    // NEW: Dynamically generate "Open With..." commands if there are multiple options.
+    if (!item.isDirectory && compatiblePlugins.length > 1) {
+      for (final plugin in compatiblePlugins) {
+        commands.add(
+          BaseFileContextCommand(
+            id: 'open_with_${plugin.name.replaceAll(' ', '_')}',
+            label: 'Open with ${plugin.name}',
+            icon: plugin.icon,
+            sourcePlugin: 'FileExplorer',
+            canExecuteFor: (ref, item) => true,
+            executeFor: (ref, item) async {
+              // Call the AppNotifier with the explicitly chosen plugin.
+              await appNotifier.openFile(item, explicitPlugin: plugin);
+              // Pop the drawer if the file opens successfully.
+              final context = ref.context;
+              if (context.mounted) {
+                  Navigator.pop(context);
+              }
+            },
+          )
+        );
+      }
+      // Add a divider to separate from other actions.
+      commands.add(const _DividerCommand());
+    }
+
+    // Add the standard file operation commands.
+    commands.addAll([
       BaseFileContextCommand(
         id: 'rename',
         label: 'Rename',
@@ -485,8 +542,10 @@ class FileExplorerContextCommands {
           appNotifier.clearClipboard();
         },
       ),
-    ];
-  }
+    ]);
+    
+    return commands;
+}
 
   static Future<String?> _showTextInputDialog(
     BuildContext context, {
