@@ -85,7 +85,8 @@ class LocalProject extends Project {
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
   }
 
-  @  // MODIFIED: This method now contains the core orchestration logic.
+  // MODIFIED: This method now contains the core orchestration logic.
+  @override
   Future<void> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     final project = state.value?.currentProject;
     if (project == null) return;
