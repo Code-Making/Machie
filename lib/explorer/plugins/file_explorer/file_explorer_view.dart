@@ -6,8 +6,8 @@ import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/file_handler/local_file_handler.dart';
+import '../../../plugins/plugin_models.dart'; // NEW IMPORT
 import '../../../plugins/plugin_registry.dart';
-import '../../../project/local_file_system_project.dart';
 import '../../../project/project_models.dart';
 import '../../../utils/clipboard.dart';
 import '../../../utils/logs.dart';
