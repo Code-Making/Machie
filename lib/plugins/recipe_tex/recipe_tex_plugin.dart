@@ -171,139 +171,115 @@ Ingredient _parseIngredient(String line) {
     final recipeTab = tab as RecipeTexTab;
     return RecipeEditorForm(data: recipeTab.data);
   }
-/*
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    return const SizedBox.shrink();
-  }
-  */
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    final commands = ref
-        .watch(commandProvider.notifier)
-        .getVisibleCommands(CommandPosition.pluginToolbar);
 
-    return BottomToolbar();
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    return const BottomToolbar();
   }
 
   @override
-  Future<void> dispose() async {
-    // Cleanup resources if needed
-  }
+  Future<void> dispose() async {}
+
+  @override
+  void activateTab(EditorTab tab, Ref ref) {}
+
+  @override
+  void deactivateTab(EditorTab tab, Ref ref) {}
+
+
 
   @override
   List<Command> getCommands() => [
-    _copyCommand,
-    _saveCommand,
-    _undoCommand,
-    _redoCommand,
-  ];
+        BaseCommand(
+          id: 'copy_recipe',
+          label: 'Copy LaTeX',
+          icon: const Icon(Icons.copy),
+          defaultPosition: CommandPosition.pluginToolbar,
+          sourcePlugin: runtimeType.toString(),
+          execute: (ref) async {
+            final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+            if (tab is RecipeTexTab) {
+              await Clipboard.setData(ClipboardData(text: tab.contentString));
+              ref.read(logProvider.notifier).add('Copied recipe to clipboard');
+            }
+          },
+          canExecute: (ref) => ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab is RecipeTexTab)),
+        ),
+        BaseCommand(
+          id: 'save_recipe',
+          label: 'Save Recipe',
+          icon: const Icon(Icons.save),
+          defaultPosition: CommandPosition.pluginToolbar,
+          sourcePlugin: runtimeType.toString(),
+          execute: (ref) async {
+            final appNotifier = ref.read(appNotifierProvider.notifier);
+            final oldTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab as RecipeTexTab;
+            
+            await appNotifier.saveCurrentTab();
 
-  final Command _copyCommand = BaseCommand(
-    id: 'copy_recipe',
-    label: 'Copy LaTeX',
-    icon: const Icon(Icons.copy),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final tab = ref.read(sessionProvider).currentTab as RecipeTexTab?;
-      if (tab != null) {
-        await Clipboard.setData(ClipboardData(text: tab.contentString));
-        ref.read(logProvider.notifier).add('Copied recipe to clipboard');
-      }
-    },
-    canExecute: (ref) => ref.read(sessionProvider).currentTab is RecipeTexTab,
-  );
+            // After saving, update the originalData to reset the dirty state.
+            final savedTab = oldTab.copyWith(
+              originalData: oldTab.data.copyWith(),
+              isDirty: false,
+            );
+            appNotifier.updateCurrentTab(savedTab);
+            
+            ref.read(logProvider.notifier).add('Recipe saved successfully');
+          },
+          canExecute: (ref) => ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.isDirty ?? false)),
+        ),
+        BaseCommand(
+          id: 'undo_recipe',
+          label: 'Undo',
+          icon: const Icon(Icons.undo),
+          defaultPosition: CommandPosition.pluginToolbar,
+          sourcePlugin: runtimeType.toString(),
+          execute: (ref) async {
+            final appNotifier = ref.read(appNotifierProvider.notifier);
+            final currentTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab;
+            if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
 
-  final Command _saveCommand = BaseCommand(
-    id: 'save_recipe',
-    label: 'Save Recipe',
-    icon: const Icon(Icons.save),
-    defaultPosition: CommandPosition.pluginToolbar,
-    sourcePlugin: 'RecipeTexPlugin',
-    execute: (ref) async {
-      final session = ref.read(sessionProvider);
-      final currentIndex = session.currentTabIndex;
-      final currentTab = session.tabs[currentIndex] as RecipeTexTab;
-
-      if (currentIndex != -1) {
-        await ref.read(sessionProvider.notifier).saveTab(currentIndex);
-        
-        if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
-        final savedTab = currentTab.copyWith(
-        originalData: currentTab.data.copyWith(),
-        isDirty: false,
-        );
+            final previousData = currentTab.undoStack.last;
+            final newTab = currentTab.copyWith(
+              data: previousData,
+              undoStack: currentTab.undoStack.sublist(0, currentTab.undoStack.length - 1),
+              redoStack: [currentTab.data, ...currentTab.redoStack],
+              isDirty: previousData != currentTab.originalData,
+            );
+            appNotifier.updateCurrentTab(newTab);
+          },
+          canExecute: (ref) {
+            final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+            return tab is RecipeTexTab && tab.undoStack.isNotEmpty;
+          },
+        ),
+        BaseCommand(
+          id: 'redo_recipe',
+          label: 'Redo',
+          icon: const Icon(Icons.redo),
+          defaultPosition: CommandPosition.pluginToolbar,
+          sourcePlugin: runtimeType.toString(),
+          execute: (ref) async {
+            final appNotifier = ref.read(appNotifierProvider.notifier);
+            final currentTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab;
+            if (currentTab is! RecipeTexTab || currentTab.redoStack.isEmpty) return;
+            
+            final nextData = currentTab.redoStack.first;
+            final newTab = currentTab.copyWith(
+              data: nextData,
+              undoStack: [...currentTab.undoStack, currentTab.data],
+              redoStack: currentTab.redoStack.sublist(1),
+              isDirty: nextData != currentTab.originalData,
+            );
+            appNotifier.updateCurrentTab(newTab);
+          },
+          canExecute: (ref) {
+            final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+            return tab is RecipeTexTab && tab.redoStack.isNotEmpty;
+          },
+        ),
+      ];
       
-        ref.read(sessionProvider.notifier).updateTabState(currentTab, savedTab);
-      
-        
-        ref.read(logProvider.notifier).add('Recipe saved successfully');
-      }
-    },
-    canExecute: (ref) => ref.watch(sessionProvider).currentTab?.isDirty ?? false,
-  );
-  
-  // Update the RecipeTexPlugin commands
-final _undoCommand = BaseCommand(
-  id: 'undo_recipe',
-  label: 'Undo',
-  icon: const Icon(Icons.undo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final session = ref.read(sessionProvider);
-    final currentTab = session.currentTab;
-    if (currentTab is! RecipeTexTab || currentTab.undoStack.isEmpty) return;
-
-    final previousData = currentTab.undoStack.last;
-    final newTab = currentTab.copyWith(
-      data: previousData,
-      undoStack: currentTab.undoStack.sublist(0, currentTab.undoStack.length - 1),
-      redoStack: [currentTab.data, ...currentTab.redoStack],
-      isDirty: previousData != currentTab.originalData,
-    );
-
-    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.undoStack.isNotEmpty;
-  },
-);
-
-final _redoCommand = BaseCommand(
-  id: 'redo_recipe',
-  label: 'Redo',
-  icon: const Icon(Icons.redo),
-  defaultPosition: CommandPosition.pluginToolbar,
-  sourcePlugin: 'RecipeTexPlugin',
-  execute: (ref) async {
-    final session = ref.read(sessionProvider);
-    final currentTab = session.currentTab;
-    if (currentTab is! RecipeTexTab || currentTab.redoStack.isEmpty) return;
-
-    final nextData = currentTab.redoStack.first;
-    final newTab = currentTab.copyWith(
-      data: nextData,
-      undoStack: [...currentTab.undoStack, currentTab.data],
-      redoStack: currentTab.redoStack.sublist(1),
-      isDirty: nextData != currentTab.originalData,
-    );
-
-    ref.read(sessionProvider.notifier).updateTabState(currentTab, newTab);
-  },
-  canExecute: (ref) {
-    final currentTab = ref.watch(sessionProvider).currentTab;
-    return currentTab is RecipeTexTab && currentTab.redoStack.isNotEmpty;
-  },
-);
-
-  @override
-  void activateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
-  
-  @override
-  void deactivateTab(EditorTab tab, NotifierProviderRef<SessionState> ref) {}
 
   // Update the Tex generation
 String generateTexContent(RecipeData data) {
