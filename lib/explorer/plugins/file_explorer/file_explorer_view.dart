@@ -253,7 +253,7 @@ class _FileOperationsFooter extends ConsumerWidget {
     final logNotifier = ref.read(logProvider.notifier);
 
     final rootDoc = _RootPlaceholder(projectRootUri);
-    final pasteCommand = FileExplorerContextCommands.getCommands(ref, rootDoc)
+    final pasteCommand = FileExplorerContextCommands.getCommands(ref, rootDoc, [])
         .firstWhereOrNull((cmd) => cmd.id == 'paste');
 
     return Container(
