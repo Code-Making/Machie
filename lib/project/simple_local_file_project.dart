@@ -72,29 +72,16 @@ class SimpleLocalFileProject extends Project {
 
   @override
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
-    // This logic is identical to LocalProject and can be copied.
-    // In a real large-scale app, this would be extracted into a mixin.
     final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
       return switchTab(existingIndex, ref: ref);
     }
 
     final plugins = ref.read(activePluginsProvider);
-    EditorPlugin selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file), orElse: () => CodeEditorPlugin());
+    final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     
     final content = await fileHandler.readFile(file.uri);
-    EditorTab newTab;
-
-    try {
-      newTab = await selectedPlugin.createTab(file, content);
-    } on InvalidRecipeFormatException {
-      print('Invalid recipe format. Opening with Code Editor.');
-      selectedPlugin = plugins.firstWhere((p) => p is CodeEditorPlugin);
-      newTab = await selectedPlugin.createTab(file, content);
-    } catch (e) {
-      print('Error creating tab: $e');
-      return this;
-    }
+    final newTab = await selectedPlugin.createTab(file, content);
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(

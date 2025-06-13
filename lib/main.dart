@@ -66,15 +66,23 @@ void main() {
       runApp(
         ProviderScope(
           child: LifecycleHandler(
-            child: MaterialApp(
-              theme: darkTheme,
-              home: AppStartupWidget(
-                onLoaded: (context) => const EditorScreen(),
-              ),
-              routes: {
-                '/settings': (_) => const SettingsScreen(),
-                '/command-settings': (_) => const CommandSettingsScreen(),
-              },
+            // MODIFIED: Wrap MaterialApp to provide the keys
+            child: Consumer( // Use a consumer to read the providers
+              builder: (context, ref, child) {
+                return MaterialApp(
+                  // NEW: Assign the global keys
+                  navigatorKey: ref.watch(navigatorKeyProvider),
+                  scaffoldMessengerKey: ref.watch(rootScaffoldMessengerKeyProvider),
+                  theme: darkTheme,
+                  home: AppStartupWidget(
+                    onLoaded: (context) => const EditorScreen(),
+                  ),
+                  routes: {
+                    '/settings': (_) => const SettingsScreen(),
+                    '/command-settings': (_) => const CommandSettingsScreen(),
+                  },
+                );
+              }
             ),
           ),
         ),
