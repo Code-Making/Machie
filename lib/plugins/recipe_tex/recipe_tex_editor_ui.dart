@@ -225,10 +225,9 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   }
 
   RecipeTexTab? _getCurrentTab() {
-    final session = ref.watch(sessionProvider);
-    return session.currentTab is RecipeTexTab 
-        ? session.currentTab as RecipeTexTab
-        : null;
+    final project = ref.watch(appNotifierProvider).value?.currentProject;
+    final tab = project?.session.currentTab;
+    return tab is RecipeTexTab ? tab : null;
   }
 
   Widget _buildHeaderSection(RecipeTexTab tab) {
@@ -559,7 +558,7 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           isDirty: newData != oldTab.originalData,
         );
     
-        ref.read(sessionProvider.notifier).updateTabState(oldTab, newTab);
+      ref.read(appNotifierProvider.notifier).updateCurrentTab(newTab);
     });
   }
 }
