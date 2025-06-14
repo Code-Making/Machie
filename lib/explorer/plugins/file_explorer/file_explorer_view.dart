@@ -136,18 +136,21 @@ class _DirectoryItem extends ConsumerWidget {
     required this.projectId,
   });
   
-  Future<EditorPlugin?> _showOpenWithDialog(BuildContext context, List<EditorPlugin> plugins) async {
+  Future<EditorPlugin?> _showOpenWithDialog(
+      BuildContext context, List<EditorPlugin> plugins) async {
     return await showDialog<EditorPlugin>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Open with...'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: plugins.map((p) => ListTile(
-            leading: p.icon,
-            title: Text(p.name),
-            onTap: () => Navigator.of(ctx).pop(p),
-          )).toList(),
+          children: plugins
+              .map((p) => ListTile(
+                    leading: p.icon,
+                    title: Text(p.name),
+                    onTap: () => Navigator.of(ctx).pop(p),
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -206,11 +209,11 @@ class _DirectoryItem extends ConsumerWidget {
   }
   
     // NEW: A helper to show a snackbar from the UI context.
-  void _showErrorSnackbar(BuildContext context, String message) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
-      ));
+void _showErrorSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.redAccent,
+    ));
   }
 
   @override
@@ -253,28 +256,28 @@ class _DirectoryItem extends ConsumerWidget {
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
-        // MODIFIED: The onTap is now async and handles the result from the notifier.
+        // MODIFIED: This is the corrected onTap logic.
         onTap: () async {
           final notifier = ref.read(appNotifierProvider.notifier);
-          final result = await notifier.handleFileOpenRequest(item);
+          // Call the single public method.
+          final result = await notifier.openFile(item);
 
-          // The UI layer now handles the result.
+          // Handle the result in the UI layer.
+          if (!context.mounted) return;
           switch (result) {
             case OpenFileSuccess():
-              if (context.mounted) Navigator.pop(context); // Close drawer
+              Navigator.pop(context); // Close drawer
             case OpenFileError(message: final msg):
-              if (context.mounted) _showErrorSnackbar(context, msg);
+              _showErrorSnackbar(context, msg);
             case OpenFileShowChooser(plugins: final plugins):
-              if (context.mounted) {
-                final chosenPlugin = await _showOpenWithDialog(context, plugins);
-                if (chosenPlugin != null) {
-                  // After user chooses, we call the private execution method.
-                  final openResult = await notifier.allProjectsByAnyMeansNecessary(item, chosenPlugin);
-                  if (openResult is OpenFileSuccess && context.mounted) {
-                    Navigator.pop(context); // Close drawer
-                  } else if (openResult is OpenFileError && context.mounted) {
-                    _showErrorSnackbar(context, openResult.message);
-                  }
+              final chosenPlugin = await _showOpenWithDialog(context, plugins);
+              if (chosenPlugin != null) {
+                // If the user chose a plugin, call openFile again with the explicit choice.
+                final openResult = await notifier.openFile(item, explicitPlugin: chosenPlugin);
+                if (openResult is OpenFileSuccess && context.mounted) {
+                  Navigator.pop(context); // Close drawer
+                } else if (openResult is OpenFileError && context.mounted) {
+                  _showErrorSnackbar(context, openResult.message);
                 }
               }
           }

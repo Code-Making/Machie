@@ -181,42 +181,38 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
 
 
-Future<void> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
-    final project = state.value?.currentProject;
-    if (project == null) return;
-    
+Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     EditorPlugin? chosenPlugin = explicitPlugin;
 
+    // 1. Determine which plugin to use.
     if (chosenPlugin == null) {
-      // Find all compatible plugins for this file type.
-      final compatiblePlugins = ref.read(activePluginsProvider)
+      final compatiblePlugins = ref
+          .read(activePluginsProvider)
           .where((p) => p.supportsFile(file))
           .toList();
 
       if (compatiblePlugins.isEmpty) {
-        _showErrorSnackbar("No plugin available to open '${file.name}'.");
-        return;
+        return OpenFileError("No plugin available to open '${file.name}'.");
       } else if (compatiblePlugins.length > 1) {
-        // More than one plugin, ask the user to choose.
-        chosenPlugin = await _showOpenWithDialog(compatiblePlugins);
-        if (chosenPlugin == null) return; // User cancelled
+        // If there are multiple, return an instruction to show the chooser.
+        return OpenFileShowChooser(compatiblePlugins);
       } else {
-        // Only one compatible plugin found.
         chosenPlugin = compatiblePlugins.first;
       }
     }
 
-    // Now, attempt to open the file with the chosen plugin.
+    // 2. Attempt to open the file with the chosen plugin.
     try {
       await _updateState((s) async {
         final newProject = await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
         return s.copyWith(currentProject: newProject);
       });
+      return OpenFileSuccess();
     } on InvalidRecipeFormatException {
-      _showErrorSnackbar("Could not open '${file.name}'. The file is not a valid recipe format.");
+      return OpenFileError("Could not open '${file.name}'. The file is not a valid recipe format.");
     } catch (e, st) {
       ref.read(logProvider.notifier).add("Failed to open file '${file.name}': $e\n$st");
-      _showErrorSnackbar("Failed to open file: $e");
+      return OpenFileError("Failed to open file: $e");
     }
   }
 
