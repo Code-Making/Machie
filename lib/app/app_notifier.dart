@@ -332,3 +332,18 @@ Future<void> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     await _persistenceService.saveAppState(appState);
   }
 }
+
+@immutable
+sealed class OpenFileResult {}
+
+class OpenFileSuccess extends OpenFileResult {}
+
+class OpenFileShowChooser extends OpenFileResult {
+  final List<EditorPlugin> plugins;
+  OpenFileShowChooser(this.plugins);
+}
+
+class OpenFileError extends OpenFileResult {
+  final String message;
+  OpenFileError(this.message);
+}
