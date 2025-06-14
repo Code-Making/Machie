@@ -208,7 +208,7 @@ class RecipeTexPlugin implements EditorPlugin {
             await Clipboard.setData(ClipboardData(text: content));
             ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Copied LaTeX to clipboard')));
-            return;
+            return void;
           },
           canExecute: (ref) =>
               ref.read(appNotifierProvider).value?.currentProject?.session.currentTab
@@ -239,7 +239,7 @@ class RecipeTexPlugin implements EditorPlugin {
               );
               ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Recipe saved.')));
-            return;
+            return void;
             },
             canExecute: (ref) {
               final tab = ref
@@ -281,7 +281,7 @@ class RecipeTexPlugin implements EditorPlugin {
                 ...ref.read(tabStateProvider),
                 tab.file.uri: isDirty
               };
-            return;
+            return void;
             },
             canExecute: (ref) {
               final tab = ref
@@ -322,7 +322,7 @@ class RecipeTexPlugin implements EditorPlugin {
                 ...ref.read(tabStateProvider),
                 tab.file.uri: isDirty
               };
-            return;
+            return void;
             },
             canExecute: (ref) {
               final tab = ref
