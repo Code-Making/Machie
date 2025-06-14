@@ -1,22 +1,19 @@
 // lib/plugins/recipe_tex/recipe_tex_models.dart
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart'; // NEW IMPORT for listEquals
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../plugin_models.dart';
 
-// MODIFIED: This is now a "cold" state data class.
-// It has no dirty flag or undo/redo stacks.
+// MODIFIED: This is now a pure "cold" state data class.
+// It has no data, only its identity and a reference to its plugin.
 @immutable
 class RecipeTexTab extends EditorTab {
-  final RecipeData data;
-
   const RecipeTexTab({
     required super.file,
     required super.plugin,
-    required this.data,
   });
 
   @override
@@ -25,12 +22,10 @@ class RecipeTexTab extends EditorTab {
   RecipeTexTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,
-    RecipeData? data,
   }) {
     return RecipeTexTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      data: data ?? this.data.copyWith(),
     );
   }
 
@@ -165,8 +160,12 @@ class RecipeData {
       ..cookTime = cookTime ?? this.cookTime
       ..portions = portions ?? this.portions
       ..image = image ?? this.image
-      ..ingredients = ingredients ?? List.from(this.ingredients)
-      ..instructions = instructions ?? List.from(this.instructions)
+      ..ingredients = ingredients != null
+          ? ingredients.map((i) => i.copyWith()).toList()
+          : this.ingredients.map((i) => i.copyWith()).toList()
+      ..instructions = instructions != null
+          ? instructions.map((i) => i.copyWith()).toList()
+          : this.instructions.map((i) => i.copyWith()).toList()
       ..notes = notes ?? this.notes
       ..rawImagesSection = rawImagesSection ?? this.rawImagesSection;
   }
