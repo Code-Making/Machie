@@ -6,18 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'recipe_tex_models.dart';
 import 'recipe_tex_plugin.dart';
 
-// The provider to access the plugin instance.
-final recipeTexPluginProvider = Provider<RecipeTexPlugin>((ref) {
-  // This assumes RecipeTexPlugin is a singleton registered in your plugin registry.
-  return ref
-      .watch(pluginRegistryProvider)
-      .firstWhere((p) => p is RecipeTexPlugin) as RecipeTexPlugin;
-});
-
 class RecipeEditorForm extends ConsumerStatefulWidget {
   final RecipeTexTab tab;
+  final RecipeTexPlugin plugin; // NEW: Plugin passed directly
 
-  const RecipeEditorForm({super.key, required this.tab});
+  const RecipeEditorForm({super.key, required this.tab, required this.plugin});
 
   @override
   ConsumerState<RecipeEditorForm> createState() => _RecipeEditorFormState();
@@ -40,8 +33,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   @override
   void initState() {
     super.initState();
-    final recipeData =
-        ref.read(recipeTexPluginProvider).getDataForTab(widget.tab);
+    // Use the plugin passed via the widget
+    final recipeData = widget.plugin.getDataForTab(widget.tab);
     if (recipeData != null) {
       _initializeControllers(recipeData);
     }
@@ -166,8 +159,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
 
   @override
   Widget build(BuildContext context) {
-    final plugin = ref.watch(recipeTexPluginProvider);
-    final recipeData = plugin.getDataForTab(widget.tab);
+    // Data now comes from the plugin instance passed in the widget
+    final recipeData = widget.plugin.getDataForTab(widget.tab);
 
     if (recipeData == null) {
       return const Center(child: Text("Recipe data not available."));
@@ -193,7 +186,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
   void _updateData(RecipeData Function(RecipeData) updater) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 200), () {
-      ref.read(recipeTexPluginProvider).updateDataForTab(widget.tab, updater);
+      // CORRECTED: Pass the ref to the update method
+      widget.plugin.updateDataForTab(widget.tab, updater, ref);
     });
   }
 

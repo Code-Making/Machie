@@ -12,7 +12,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../../session/tab_state.dart';
 import '../plugin_models.dart';
-import '../plugin_registry.dart';
 import 'recipe_editor_widget.dart';
 import 'recipe_tex_models.dart';
 
@@ -88,7 +87,8 @@ class RecipeTexPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final recipeTab = tab as RecipeTexTab;
-    return RecipeEditorForm(tab: recipeTab);
+    // CORRECTED: Pass the plugin instance to the widget.
+    return RecipeEditorForm(tab: recipeTab, plugin: this);
   }
 
   @override
@@ -121,8 +121,8 @@ class RecipeTexPlugin implements EditorPlugin {
     return _tabStates[tab.file.uri]?.data;
   }
 
-  void updateDataForTab(
-      RecipeTexTab tab, RecipeData Function(RecipeData) updater, WidgetRef ref) {
+  void updateDataForTab(RecipeTexTab tab,
+      RecipeData Function(RecipeData) updater, WidgetRef ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
 
@@ -201,14 +201,17 @@ class RecipeTexPlugin implements EditorPlugin {
           sourcePlugin: runtimeType.toString(),
           execute: (ref) async {
             final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
-            final state = tab != null ? _tabStates[tab.file.uri] : null;
+            if (tab == null) return;
+            final state = _tabStates[tab.file.uri];
             if (state == null) return;
             final content = _generateTexContent(state.data);
             await Clipboard.setData(ClipboardData(text: content));
             ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Copied LaTeX to clipboard')));
           },
-          canExecute: (ref) => ref.read(appNotifierProvider).value?.currentProject?.session.currentTab is RecipeTexTab,
+          canExecute: (ref) =>
+              ref.read(appNotifierProvider).value?.currentProject?.session.currentTab
+                  is RecipeTexTab,
         ),
         BaseCommand(
             id: 'recipe_save',
@@ -218,7 +221,8 @@ class RecipeTexPlugin implements EditorPlugin {
             sourcePlugin: runtimeType.toString(),
             execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
-              final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
+              final tab = appNotifier.state.value?.currentProject?.session
+                  .currentTab as RecipeTexTab?;
               if (tab == null) return;
               final state = _tabStates[tab.file.uri];
               if (state == null) return;
@@ -226,7 +230,6 @@ class RecipeTexPlugin implements EditorPlugin {
               final content = _generateTexContent(state.data);
               await appNotifier.saveCurrentTab(content: content);
 
-              // Reset the "hot" state to the new saved state
               _tabStates[tab.file.uri] = _RecipeTabState(
                 data: state.data,
                 originalData: state.data.copyWith(),
@@ -237,7 +240,12 @@ class RecipeTexPlugin implements EditorPlugin {
                   const SnackBar(content: Text('Recipe saved.')));
             },
             canExecute: (ref) {
-              final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
+              final tab = ref
+                  .watch(appNotifierProvider)
+                  .value
+                  ?.currentProject
+                  ?.session
+                  .currentTab;
               if (tab == null) return false;
               return ref.watch(
                   tabStateProvider.select((s) => s[tab.file.uri] ?? false));
@@ -262,12 +270,15 @@ class RecipeTexPlugin implements EditorPlugin {
                 redoStack: [state.data, ...state.redoStack],
               );
 
-              ref
-                  .read(appNotifierProvider.notifier)
-                  .updateCurrentTab(tab.copyWith(data: lastData));
-              // Also update dirty status
-               final isDirty = !const DeepCollectionEquality().equals(lastData, state.originalData);
-               ref.read(tabStateProvider.notifier).state = {...ref.read(tabStateProvider), tab.file.uri: isDirty};
+              ref.read(appNotifierProvider.notifier).updateCurrentTab(
+                  tab.copyWith(data: lastData));
+
+              final isDirty = !const DeepCollectionEquality()
+                  .equals(lastData, state.originalData);
+              ref.read(tabStateProvider.notifier).state = {
+                ...ref.read(tabStateProvider),
+                tab.file.uri: isDirty
+              };
             },
             canExecute: (ref) {
               final tab = ref
@@ -299,12 +310,15 @@ class RecipeTexPlugin implements EditorPlugin {
                 redoStack: state.redoStack,
               );
 
-              ref
-                  .read(appNotifierProvider.notifier)
-                  .updateCurrentTab(tab.copyWith(data: nextData));
-              // Also update dirty status
-              final isDirty = !const DeepCollectionEquality().equals(nextData, state.originalData);
-              ref.read(tabStateProvider.notifier).state = {...ref.read(tabStateProvider), tab.file.uri: isDirty};
+              ref.read(appNotifierProvider.notifier).updateCurrentTab(
+                  tab.copyWith(data: nextData));
+
+              final isDirty = !const DeepCollectionEquality()
+                  .equals(nextData, state.originalData);
+              ref.read(tabStateProvider.notifier).state = {
+                ...ref.read(tabStateProvider),
+                tab.file.uri: isDirty
+              };
             },
             canExecute: (ref) {
               final tab = ref
