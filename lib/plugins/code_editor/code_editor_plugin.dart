@@ -9,17 +9,22 @@ import '../../command/command_models.dart';
 import '../../command/command_widgets.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
+import '../../session/tab_state.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
+import 'code_editor_state.dart';
 
 // --------------------
 //  Code Editor Plugin
 // --------------------
 
 class CodeEditorPlugin implements EditorPlugin {
+  // MODIFIED: This map holds the "hot" state (the controllers) for each tab.
+  final _controllers = <String, CodeLineEditingController>{};
+
   @override
   String get name => 'Code Editor';
 
@@ -37,7 +42,24 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<void> dispose() async {
+    // Dispose all controllers when the plugin itself is disposed.
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
     print("dispose code editor");
+  }
+
+  // NEW: Helper to get a controller for a given tab URI.
+  CodeLineEditingController? getControllerForTab(EditorTab tab) {
+    return _controllers[tab.file.uri];
+  }
+
+  // NEW: Implementation to clean up a single tab's controller.
+  @override
+  void disposeTab(EditorTab tab) {
+    final controller = _controllers.remove(tab.file.uri);
+    controller?.dispose();
   }
 
   @override
@@ -53,15 +75,19 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
+    // Create the controller...
     final controller = CodeLineEditingController(
       spanBuilder: _buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content ?? ''),
+      codeLines: CodeLines.fromText(content),
     );
+    // ...and store it in our map.
+    _controllers[file.uri] = controller;
+
     final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
+    // Return the "cold" tab data object, WITHOUT the controller.
     return CodeEditorTab(
       file: file,
       plugin: this,
-      controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
     );
@@ -74,7 +100,6 @@ class CodeEditorPlugin implements EditorPlugin {
   ) async {
     final fileUri = tabJson['fileUri'] as String;
     final loadedLanguageKey = tabJson['languageKey'] as String?;
-    final isDirtyOnLoad = tabJson['isDirty'] as bool? ?? false;
 
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
@@ -82,18 +107,18 @@ class CodeEditorPlugin implements EditorPlugin {
     }
 
     final content = await fileHandler.readFile(fileUri);
+    // Create and store the controller.
     final controller = CodeLineEditingController(
       spanBuilder: _buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content ?? ''),
+      codeLines: CodeLines.fromText(content),
     );
+    _controllers[fileUri] = controller;
 
     return CodeEditorTab(
       file: file,
       plugin: this,
-      controller: controller,
       commentFormatter: _getCommentFormatter(file.uri),
       languageKey: loadedLanguageKey ?? CodeThemes.inferLanguageKey(file.uri),
-      isDirty: isDirtyOnLoad,
     );
   }
 
@@ -116,12 +141,17 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    // Settings are watched inside CodeEditorMachine now
-    // final settings = ref.watch(settingsProvider.select(...));
+    // MODIFIED: Retrieve the controller from our internal map.
+    final controller = getControllerForTab(codeTab);
+
+    if (controller == null) {
+      return const Center(
+          child: Text("Error: Controller not found for this tab."));
+    }
 
     return CodeEditorMachine(
       key: ValueKey(codeTab.file.uri),
-      controller: codeTab.controller,
+      controller: controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (
         context,
@@ -247,9 +277,15 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Save',
       icon: Icons.save,
       defaultPosition: CommandPosition.appBar,
-      execute:
-          (ref, _) async =>
-              ref.read(appNotifierProvider.notifier).saveCurrentTab(),
+      execute: (ref, ctrl) async {
+        // MODIFIED: Get content from controller and pass it to the save method.
+        if (ctrl == null) return;
+        await ref
+            .read(appNotifierProvider.notifier)
+            .saveCurrentTab(content: ctrl.text);
+      },
+      // MODIFIED: canExecute now watches the dedicated dirty state provider.
+      canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
     ),
     _createCommand(
       id: 'copy',
@@ -412,7 +448,8 @@ class CodeEditorPlugin implements EditorPlugin {
   CodeLineEditingController? _getController(WidgetRef ref) {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-    return tab is CodeEditorTab ? tab.controller : null;
+    // MODIFIED: Use the new public helper to get the controller for the current tab.
+    return tab != null ? getControllerForTab(tab) : null;
   }
 
   // CORRECTED: Helper to get the full tab object
@@ -707,6 +744,7 @@ class CodeEditorPlugin implements EditorPlugin {
     );
 
     if (selectedLanguageKey != null) {
+      // MODIFIED: Use the copyWith method that was re-added.
       final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
       // This now correctly calls the generic update method
       ref.read(appNotifierProvider.notifier).updateCurrentTab(updatedTab);

@@ -179,6 +179,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     ref.read(clipboardProvider.notifier).state = null;
   }
 
+  // NEW: Method to mark the currently active tab as dirty.
+  void markCurrentTabDirty() {
+    final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
+    if (currentUri != null) {
+      ref.read(tabStateProvider.notifier).markDirty(currentUri);
+    }
+  }
 
 
 Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {

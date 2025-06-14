@@ -20,8 +20,20 @@ class CodeEditorTab extends EditorTab {
   @override
   void dispose() {}
 
-  // The copyWith method is no longer needed here as the object is fully immutable
-  // and has no "hot" state properties to change.
+  // MODIFIED: Added back copyWith for immutable updates.
+  CodeEditorTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+    CodeCommentFormatter? commentFormatter,
+    String? languageKey,
+  }) {
+    return CodeEditorTab(
+      file: file ?? this.file,
+      plugin: plugin ?? this.plugin,
+      commentFormatter: commentFormatter ?? this.commentFormatter,
+      languageKey: languageKey ?? this.languageKey,
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => {

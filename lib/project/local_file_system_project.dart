@@ -47,6 +47,7 @@ class LocalProject extends Project {
     await save();
     for (final tab in session.tabs) {
       tab.plugin.deactivateTab(tab, ref);
+      tab.plugin.disposeTab(tab); // MODIFIED: Added disposeTab call
       tab.dispose();
     }
   }
@@ -137,6 +138,7 @@ class LocalProject extends Project {
       session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex),
     );
     closedTab.plugin.deactivateTab(closedTab, ref);
+    closedTab.plugin.disposeTab(closedTab); // MODIFIED: Added disposeTab call
     closedTab.dispose();
     final newTab = newProject.session.currentTab;
     if (oldTab != newTab) {
