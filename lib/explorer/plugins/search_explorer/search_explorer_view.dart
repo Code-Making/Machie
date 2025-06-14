@@ -1,8 +1,8 @@
 // lib/explorer/plugins/search_explorer/search_explorer_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
+import '../../common/file_explorer_widgets.dart'; // NEW IMPORT
 import 'search_explorer_state.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
@@ -19,9 +19,10 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   @override
   void initState() {
     super.initState();
-    // Listen to the text field to trigger searches
     _textController.addListener(() {
-      ref.read(searchStateProvider(widget.project).notifier).search(_textController.text);
+      ref
+          .read(searchStateProvider(widget.project).notifier)
+          .search(_textController.text);
     });
   }
 
@@ -34,6 +35,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider(widget.project));
+    final projectRootUri = widget.project.rootUri;
 
     return Column(
       children: [
@@ -65,24 +67,31 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             itemCount: searchState.results.length,
             itemBuilder: (context, index) {
               final file = searchState.results[index];
-              final relativePath = file.uri.replaceFirst(widget.project.rootUri, '').substring(1);
+              // Calculate the relative path for the subtitle
+              String relativePath = file.uri.startsWith(projectRootUri)
+                  ? file.uri.substring(projectRootUri.length)
+                  : file.uri;
+              if (relativePath.startsWith('/')) {
+                relativePath = relativePath.substring(1);
+              }
+              final lastSlash = relativePath.lastIndexOf('/');
+              final subtitle =
+                  lastSlash != -1 ? relativePath.substring(0, lastSlash) : '.';
 
-              return ListTile(
-                leading: const Icon(Icons.article_outlined),
-                title: Text(file.name),
-                subtitle: Text(
-                  relativePath.substring(0, relativePath.length - file.name.length),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () {
-                  ref.read(appNotifierProvider.notifier).openFile(file);
-                  Navigator.of(context).pop(); // Close drawer
-                },
+              // MODIFIED: Use the powerful DirectoryItem widget
+              return DirectoryItem(
+                item: file,
+                depth: 0, // Search results are a flat list
+                isExpanded: false,
+                projectId: widget.project.id,
+                subtitle: subtitle,
               );
             },
           ),
         ),
-        if (searchState.query.isNotEmpty && searchState.results.isEmpty && !searchState.isLoading)
+        if (searchState.query.isNotEmpty &&
+            searchState.results.isEmpty &&
+            !searchState.isLoading)
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text('No results found for "${searchState.query}"'),
