@@ -7,7 +7,6 @@ import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
 import '../plugins/plugin_models.dart'; // NEW IMPORT
 import '../plugins/plugin_registry.dart'; // NEW IMPORT
-import '../plugins/recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT for our custom exception
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
