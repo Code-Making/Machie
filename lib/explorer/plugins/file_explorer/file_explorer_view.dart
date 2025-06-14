@@ -135,6 +135,23 @@ class _DirectoryItem extends ConsumerWidget {
     required this.isExpanded,
     required this.projectId,
   });
+  
+  Future<EditorPlugin?> _showOpenWithDialog(BuildContext context, List<EditorPlugin> plugins) async {
+    return await showDialog<EditorPlugin>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Open with...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: plugins.map((p) => ListTile(
+            leading: p.icon,
+            title: Text(p.name),
+            onTap: () => Navigator.of(ctx).pop(p),
+          )).toList(),
+        ),
+      ),
+    );
+  }
 
   void _showContextMenu(
     BuildContext context,
@@ -187,6 +204,14 @@ class _DirectoryItem extends ConsumerWidget {
       ),
     );
   }
+  
+    // NEW: A helper to show a snackbar from the UI context.
+  void _showErrorSnackbar(BuildContext context, String message) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+      ));
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -224,12 +249,35 @@ class _DirectoryItem extends ConsumerWidget {
       );
     } else {
       childWidget = ListTile(
+        key: ValueKey(item.uri),
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
-        onTap: () {
-          appNotifier.openFile(item);
-          Navigator.pop(context); // Close the drawer after opening a file
+        // MODIFIED: The onTap is now async and handles the result from the notifier.
+        onTap: () async {
+          final notifier = ref.read(appNotifierProvider.notifier);
+          final result = await notifier.handleFileOpenRequest(item);
+
+          // The UI layer now handles the result.
+          switch (result) {
+            case OpenFileSuccess():
+              if (context.mounted) Navigator.pop(context); // Close drawer
+            case OpenFileError(message: final msg):
+              if (context.mounted) _showErrorSnackbar(context, msg);
+            case OpenFileShowChooser(plugins: final plugins):
+              if (context.mounted) {
+                final chosenPlugin = await _showOpenWithDialog(context, plugins);
+                if (chosenPlugin != null) {
+                  // After user chooses, we call the private execution method.
+                  final openResult = await notifier.allProjectsByAnyMeansNecessary(item, chosenPlugin);
+                  if (openResult is OpenFileSuccess && context.mounted) {
+                    Navigator.pop(context); // Close drawer
+                  } else if (openResult is OpenFileError && context.mounted) {
+                    _showErrorSnackbar(context, openResult.message);
+                  }
+                }
+              }
+          }
         },
       );
     }
