@@ -45,25 +45,19 @@ class SessionState {
 @immutable
 abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
-  final bool isDirty;
 
   // MODIFIED: Constructor is 'const' again and no longer calls super with a title.
   const EditorTab({
     required this.file,
     required super.plugin,
-    this.isDirty = false,
   });
 
   // MODIFIED: Implement the 'title' getter here.
   @override
   String get title => file.name;
 
-  String get contentString;
-
   @override
   void dispose();
-
-  EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin, bool? isDirty});
 
   Map<String, dynamic> toJson();
 }

@@ -184,7 +184,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
 Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     EditorPlugin? chosenPlugin = explicitPlugin;
 
-    // 1. Determine which plugin to use.
     if (chosenPlugin == null) {
       final compatiblePlugins = ref
           .read(activePluginsProvider)
@@ -194,27 +193,22 @@ Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin
       if (compatiblePlugins.isEmpty) {
         return OpenFileError("No plugin available to open '${file.name}'.");
       } else if (compatiblePlugins.length > 1) {
-        // If there are multiple, return an instruction to show the chooser.
         return OpenFileShowChooser(compatiblePlugins);
       } else {
         chosenPlugin = compatiblePlugins.first;
       }
     }
-
-    // 2. Attempt to open the file with the chosen plugin.
-    try {
-      await _updateState((s) async {
-        final newProject = await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
-        return s.copyWith(currentProject: newProject);
-      });
-      return OpenFileSuccess();
-    } on InvalidRecipeFormatException {
-      return OpenFileError("Could not open '${file.name}'. The file is not a valid recipe format.");
-    } catch (e, st) {
-      ref.read(logProvider.notifier).add("Failed to open file '${file.name}': $e\n$st");
-      return OpenFileError("Failed to open file: $e");
-    }
+    
+    // We now simply call the project's openFile method.
+    // The error handling for parsing is now deferred to the AsyncNotifier of the plugin.
+    await _updateState((s) async {
+      final newProject = await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
+      return s.copyWith(currentProject: newProject);
+    });
+    
+    return OpenFileSuccess();
   }
+  
 
   // NEW: Helper method to show a snackbar (requires a BuildContext).
   // We can get this from a NavigatorKey or pass it from the UI.
@@ -272,14 +266,21 @@ Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin
     });
   }
 
-  Future<void> saveCurrentTab() async {
+Future<void> saveCurrentTab({required String content}) async {
     final project = state.value?.currentProject;
     if (project == null) return;
+    
+    final tabIndex = project.session.currentTabIndex;
+    final tabToSave = project.session.tabs[tabIndex];
 
     await _updateState((s) async {
-      // MODIFIED: Call method directly on project
-      final newProject = await s.currentProject!
-          .saveTab(s.currentProject!.session.currentTabIndex);
+      final handler = s.currentProject!.fileHandler;
+      // Write the provided content to the file.
+      await handler.writeFile(tabToSave.file, content);
+      
+      // We still need to update the dirty state in the main AppState.
+      final newTab = (tabToSave as dynamic).copyWith(isDirty: false);
+      final newProject = s.currentProject!.updateTab(tabIndex, newTab);
       return s.copyWith(currentProject: newProject);
     });
   }
@@ -295,9 +296,14 @@ Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin
 
   void markCurrentTabDirty() {
     _updateStateSync((s) {
-      if (s.currentProject == null) return s;
-      // MODIFIED: Call method directly on project
-      final newProject = s.currentProject!.markCurrentTabDirty();
+      final project = s.currentProject;
+      if (project == null) return s;
+
+      final tab = project.session.currentTab;
+      if (tab == null || (tab as dynamic).isDirty) return s;
+
+      final newTab = (tab as dynamic).copyWith(isDirty: true);
+      final newProject = project.updateTab(project.session.currentTabIndex, newTab);
       return s.copyWith(currentProject: newProject);
     });
   }

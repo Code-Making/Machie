@@ -70,6 +70,7 @@ class SimpleLocalFileProject extends Project {
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
   }
 
+  // MODIFIED: This method is now synchronous and extremely simple.
   @override
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
     final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
@@ -80,8 +81,8 @@ class SimpleLocalFileProject extends Project {
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     
-    final content = await fileHandler.readFile(file.uri);
-    final newTab = await selectedPlugin.createTab(file, content);
+    // No async work here!
+    final newTab = await selectedPlugin.createTab(file, ""); // Pass empty string, it's ignored
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
