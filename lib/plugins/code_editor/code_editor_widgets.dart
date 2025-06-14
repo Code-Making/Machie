@@ -7,24 +7,19 @@ import 'package:re_editor/re_editor.dart';
 
 import '../../app/app_notifier.dart';
 import '../../settings/settings_notifier.dart';
-import '../../session/tab_state.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
-import 'code_editor_plugin.dart';
-import 'code_editor_state.dart';
+import 'code_editor_logic.dart'; // NEW IMPORT
 
 // --------------------
 // Code Editor Plugin Providers
 // --------------------
 
-final bracketHighlightProvider =
-    NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
-      BracketHighlightNotifier.new,
-    );
+// REMOVED: bracketHighlightProvider (moved to code_editor_logic.dart)
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
-final markProvider = StateProvider<CodeLinePosition?>((ref) => null);
+// REMOVED: markProvider
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeLineEditingController controller;
@@ -88,7 +83,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _handleControllerChange() {
-    // MODIFIED: Call the new method on AppNotifier to mark the tab dirty.
     ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
     _updateAllStatesFromController();
   }
@@ -136,7 +130,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       ),
     );
 
-    // CORRECTED: Get language key from AppNotifier state
     final currentLanguageKey = ref.watch(
       appNotifierProvider.select((s) {
         final tab = s.value?.currentProject?.session.currentTab;
@@ -144,9 +137,8 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       }),
     );
 
-    // Get the selected theme name from settings
     final selectedThemeName =
-        codeEditorSettings?.themeName ?? 'Atom One Dark'; // Default theme
+        codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
       autofocus: false,
@@ -161,7 +153,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontSize: codeEditorSettings?.fontSize ?? 12,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
-            // Retrieve the theme map using the selectedThemeName
             theme:
                 CodeThemes.availableCodeThemes[selectedThemeName] ??
                 CodeThemes.availableCodeThemes['Atom One Dark']!,
@@ -175,136 +166,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 }
 
-// --------------------
-//  Bracket Highlight State
-// --------------------
-
-class BracketHighlightState {
-  final Set<CodeLinePosition> bracketPositions;
-  final CodeLinePosition? matchingBracketPosition;
-  final Set<int> highlightedLines;
-  BracketHighlightState({
-    this.bracketPositions = const {},
-    this.matchingBracketPosition,
-    this.highlightedLines = const {},
-  });
-}
-
-class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
-  @override
-  BracketHighlightState build() {
-    return BracketHighlightState();
-  }
-
-  void handleBracketHighlight() {
-    // MODIFIED: Get the controller via the plugin, not the tab object.
-    final currentTab =
-        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-    if (currentTab is! CodeEditorTab) {
-      state = BracketHighlightState();
-      return;
-    }
-    
-    final plugin = currentTab.plugin as CodeEditorPlugin;
-    final controller = plugin.getControllerForTab(currentTab);
-    
-    if (controller == null) {
-        state = BracketHighlightState();
-        return;
-    }
-
-    final selection = controller.selection;
-    if (!selection.isCollapsed) {
-      state = BracketHighlightState();
-      return;
-    }
-    final position = selection.base;
-    final brackets = {'(': ')', '[': ']', '{': '}'};
-    final line = controller.codeLines[position.index].text;
-
-    Set<CodeLinePosition> newPositions = {};
-    CodeLinePosition? matchPosition;
-    Set<int> newHighlightedLines = {};
-
-    final index = position.offset;
-    if (index >= 0 && index < line.length) {
-      final char = line[index];
-      if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-        matchPosition = _findMatchingBracket(
-          controller.codeLines,
-          position,
-          brackets,
-        );
-        if (matchPosition != null) {
-          newPositions.add(position);
-          newPositions.add(matchPosition);
-          newHighlightedLines.add(position.index);
-          newHighlightedLines.add(matchPosition.index);
-        }
-      }
-    }
-
-    state = BracketHighlightState(
-      bracketPositions: newPositions,
-      matchingBracketPosition: matchPosition,
-      highlightedLines: newHighlightedLines,
-    );
-  }
-
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
-    final line = codeLines[position.index].text;
-    final char = line[position.offset];
-
-    final isOpen = brackets.keys.contains(char);
-    final target =
-        isOpen
-            ? brackets[char]
-            : brackets.keys.firstWhere(
-              (k) => brackets[k] == char,
-              orElse: () => '',
-            );
-
-    if (target?.isEmpty ?? true) return null;
-
-    int stack = 1;
-    int index = position.index;
-    int offset = position.offset;
-    final direction = isOpen ? 1 : -1;
-
-    while (index >= 0 && index < codeLines.length) {
-      final currentLine = codeLines[index].text;
-
-      while (offset >= 0 && offset < currentLine.length) {
-        if (index == position.index && offset == position.offset) {
-          offset += direction;
-          continue;
-        }
-
-        final currentChar = currentLine[offset];
-
-        if (currentChar == char) {
-          stack += 1;
-        } else if (currentChar == target) {
-          stack -= 1;
-        }
-
-        if (stack == 0) {
-          return CodeLinePosition(index: index, offset: offset);
-        }
-
-        offset += direction;
-      }
-
-      index += direction;
-      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
-    }
-    return null;
-  }
-}
+// REMOVED: BracketHighlightState and BracketHighlightNotifier (moved)
 
 // --------------------
 //  Custom Line Number Widget

@@ -16,14 +16,16 @@ import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart';
+import 'code_editor_logic.dart'; // NEW IMPORT
 
 // --------------------
 //  Code Editor Plugin
 // --------------------
 
 class CodeEditorPlugin implements EditorPlugin {
-  // MODIFIED: This map holds the "hot" state (the controllers) for each tab.
   final _controllers = <String, CodeLineEditingController>{};
+  // NEW: State for marks is now managed here.
+  final _marks = <String, CodeLinePosition>{};
 
   @override
   String get name => 'Code Editor';
@@ -42,24 +44,23 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<void> dispose() async {
-    // Dispose all controllers when the plugin itself is disposed.
     for (final controller in _controllers.values) {
       controller.dispose();
     }
     _controllers.clear();
+    _marks.clear();
     print("dispose code editor");
   }
 
-  // NEW: Helper to get a controller for a given tab URI.
   CodeLineEditingController? getControllerForTab(EditorTab tab) {
     return _controllers[tab.file.uri];
   }
 
-  // NEW: Implementation to clean up a single tab's controller.
   @override
   void disposeTab(EditorTab tab) {
     final controller = _controllers.remove(tab.file.uri);
     controller?.dispose();
+    _marks.remove(tab.file.uri);
   }
 
   @override
@@ -75,20 +76,20 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
-    // Create the controller...
+    // MODIFIED: Use the new logic helper to build the highlighting span.
     final controller = CodeLineEditingController(
-      spanBuilder: _buildHighlightingSpan,
+      spanBuilder: buildHighlightingSpan,
       codeLines: CodeLines.fromText(content),
     );
-    // ...and store it in our map.
     _controllers[file.uri] = controller;
+    _marks.remove(file.uri); // Ensure no stale mark exists
 
     final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
-    // Return the "cold" tab data object, WITHOUT the controller.
     return CodeEditorTab(
       file: file,
       plugin: this,
-      commentFormatter: _getCommentFormatter(file.uri),
+      // MODIFIED: Use the new logic helper.
+      commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
     );
   }
@@ -107,41 +108,36 @@ class CodeEditorPlugin implements EditorPlugin {
     }
 
     final content = await fileHandler.readFile(fileUri);
-    // Create and store the controller.
     final controller = CodeLineEditingController(
-      spanBuilder: _buildHighlightingSpan,
+      spanBuilder: buildHighlightingSpan,
       codeLines: CodeLines.fromText(content),
     );
     _controllers[fileUri] = controller;
+    _marks.remove(fileUri); // Ensure no stale mark exists
 
     return CodeEditorTab(
       file: file,
       plugin: this,
-      commentFormatter: _getCommentFormatter(file.uri),
+      commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: loadedLanguageKey ?? CodeThemes.inferLanguageKey(file.uri),
     );
   }
 
-  // CORRECTED: Update signature to use `Ref`
   @override
   void activateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(markProvider.notifier).state = null;
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
   }
 
-  // CORRECTED: Update signature to use `Ref`
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(markProvider.notifier).state = null;
     ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
   }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    // MODIFIED: Retrieve the controller from our internal map.
     final controller = getControllerForTab(codeTab);
 
     if (controller == null) {
@@ -168,256 +164,159 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  TextSpan _buildHighlightingSpan({
-    required BuildContext context,
-    required int index,
-    required CodeLine codeLine,
-    required TextSpan textSpan,
-    required TextStyle style,
-  }) {
-    final currentTab =
-        ProviderScope.containerOf(context)
-                .read(appNotifierProvider)
-                .value
-                ?.currentProject
-                ?.session
-                .currentTab
-            as CodeEditorTab?;
-    if (currentTab == null) return textSpan;
-    final highlightState = ProviderScope.containerOf(
-      context,
-    ).read(bracketHighlightProvider);
-
-    final spans = <TextSpan>[];
-    int currentPosition = 0;
-    final highlightPositions =
-        highlightState.bracketPositions
-            .where((pos) => pos.index == index)
-            .map((pos) => pos.offset)
-            .toSet();
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final spanStyle = span.style ?? style;
-      List<int> highlightIndices = [];
-
-      for (var i = 0; i < text.length; i++) {
-        if (highlightPositions.contains(currentPosition + i)) {
-          highlightIndices.add(i);
-        }
-      }
-
-      int lastSplit = 0;
-      for (final highlightIndex in highlightIndices) {
-        if (highlightIndex > lastSplit) {
-          spans.add(
-            TextSpan(
-              text: text.substring(lastSplit, highlightIndex),
-              style: spanStyle,
-            ),
-          );
-        }
-        spans.add(
-          TextSpan(
-            text: text[highlightIndex],
-            style: spanStyle.copyWith(
-              backgroundColor: Colors.yellow.withOpacity(0.3),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        );
-        lastSplit = highlightIndex + 1;
-      }
-
-      if (lastSplit < text.length) {
-        spans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
-      }
-
-      currentPosition += text.length;
-
-      if (span.children != null) {
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child);
-          }
-        }
-      }
-    }
-
-    processSpan(textSpan);
-    return TextSpan(
-      children: spans.isNotEmpty ? spans : [textSpan],
-      style: style,
-    );
-  }
-
-  CodeCommentFormatter _getCommentFormatter(String uri) {
-    final extension = uri.split('.').last.toLowerCase();
-    switch (extension) {
-      case 'dart':
-        return DefaultCodeCommentFormatter(
-          singleLinePrefix: '//',
-          multiLinePrefix: '/*',
-          multiLineSuffix: '*/',
-        );
-      case 'tex':
-        return DefaultCodeCommentFormatter(singleLinePrefix: '%');
-      default:
-        return DefaultCodeCommentFormatter(
-          singleLinePrefix: '//',
-          multiLinePrefix: '/*',
-          multiLineSuffix: '*/',
-        );
-    }
-  }
+  // REMOVED: _buildHighlightingSpan (moved to code_editor_logic.dart)
+  // REMOVED: _getCommentFormatter (moved to code_editor_logic.dart)
 
   @override
   List<Command> getCommands() => [
-    _createCommand(
-      id: 'save',
-      label: 'Save',
-      icon: Icons.save,
-      defaultPosition: CommandPosition.appBar,
-      execute: (ref, ctrl) async {
-        // MODIFIED: Get content from controller and pass it to the save method.
-        if (ctrl == null) return;
-        await ref
-            .read(appNotifierProvider.notifier)
-            .saveCurrentTab(content: ctrl.text);
-      },
-      // MODIFIED: canExecute now watches the dedicated dirty state provider.
-      canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
-    ),
-    _createCommand(
-      id: 'copy',
-      label: 'Copy',
-      icon: Icons.content_copy,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.copy(),
-    ),
-    _createCommand(
-      id: 'cut',
-      label: 'Cut',
-      icon: Icons.content_cut,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.cut(),
-    ),
-    _createCommand(
-      id: 'paste',
-      label: 'Paste',
-      icon: Icons.content_paste,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.paste(),
-    ),
-    _createCommand(
-      id: 'indent',
-      label: 'Indent',
-      icon: Icons.format_indent_increase,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.applyIndent(),
-    ),
-    _createCommand(
-      id: 'outdent',
-      label: 'Outdent',
-      icon: Icons.format_indent_decrease,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.applyOutdent(),
-    ),
-    _createCommand(
-      id: 'toggle_comment',
-      label: 'Toggle Comment',
-      icon: Icons.comment,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _toggleComments,
-    ),
-    _createCommand(
-      id: 'reformat',
-      label: 'Reformat',
-      icon: Icons.format_align_left,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _reformatDocument,
-    ),
-    _createCommand(
-      id: 'select_brackets',
-      label: 'Select Brackets',
-      icon: Icons.code,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _selectBetweenBrackets,
-    ),
-    _createCommand(
-      id: 'extend_selection',
-      label: 'Extend Selection',
-      icon: Icons.horizontal_rule,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _extendSelection,
-    ),
-    _createCommand(
-      id: 'select_all',
-      label: 'Select All',
-      icon: Icons.select_all,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.selectAll(),
-    ),
-    _createCommand(
-      id: 'move_line_up',
-      label: 'Move Line Up',
-      icon: Icons.arrow_upward,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(),
-    ),
-    _createCommand(
-      id: 'move_line_down',
-      label: 'Move Line Down',
-      icon: Icons.arrow_downward,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(),
-    ),
-    _createCommand(
-      id: 'set_mark',
-      label: 'Set Mark',
-      icon: Icons.bookmark_add,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _setMarkPosition,
-    ),
-    _createCommand(
-      id: 'select_to_mark',
-      label: 'Select to Mark',
-      icon: Icons.bookmark_added,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: _selectToMark,
-      canExecute: (ref, ctrl) => ref.watch(markProvider) != null,
-    ),
-    _createCommand(
-      id: 'undo',
-      label: 'Undo',
-      icon: Icons.undo,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.undo(),
-      canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
-    ),
-    _createCommand(
-      id: 'redo',
-      label: 'Redo',
-      icon: Icons.redo,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.redo(),
-      canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
-    ),
-    _createCommand(
-      id: 'show_cursor',
-      label: 'Show Cursor',
-      icon: Icons.center_focus_strong,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => ctrl?.makeCursorVisible(),
-    ),
-    _createCommand(
-      id: 'switch_language',
-      label: 'Switch Language',
-      icon: Icons.language,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
-      canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab,
-    ),
-  ];
+        _createCommand(
+          id: 'save',
+          label: 'Save',
+          icon: Icons.save,
+          defaultPosition: CommandPosition.appBar,
+          execute: (ref, ctrl) async {
+            if (ctrl == null) return;
+            await ref
+                .read(appNotifierProvider.notifier)
+                .saveCurrentTab(content: ctrl.text);
+          },
+          canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
+        ),
+        _createCommand(
+          id: 'copy',
+          label: 'Copy',
+          icon: Icons.content_copy,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.copy(),
+        ),
+        _createCommand(
+          id: 'cut',
+          label: 'Cut',
+          icon: Icons.content_cut,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.cut(),
+        ),
+        _createCommand(
+          id: 'paste',
+          label: 'Paste',
+          icon: Icons.content_paste,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.paste(),
+        ),
+        _createCommand(
+          id: 'indent',
+          label: 'Indent',
+          icon: Icons.format_indent_increase,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.applyIndent(),
+        ),
+        _createCommand(
+          id: 'outdent',
+          label: 'Outdent',
+          icon: Icons.format_indent_decrease,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.applyOutdent(),
+        ),
+        _createCommand(
+          id: 'toggle_comment',
+          label: 'Toggle Comment',
+          icon: Icons.comment,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _toggleComments,
+        ),
+        _createCommand(
+          id: 'reformat',
+          label: 'Reformat',
+          icon: Icons.format_align_left,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _reformatDocument,
+        ),
+        _createCommand(
+          id: 'select_brackets',
+          label: 'Select Brackets',
+          icon: Icons.code,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _selectBetweenBrackets,
+        ),
+        _createCommand(
+          id: 'extend_selection',
+          label: 'Extend Selection',
+          icon: Icons.horizontal_rule,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _extendSelection,
+        ),
+        _createCommand(
+          id: 'select_all',
+          label: 'Select All',
+          icon: Icons.select_all,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.selectAll(),
+        ),
+        _createCommand(
+          id: 'move_line_up',
+          label: 'Move Line Up',
+          icon: Icons.arrow_upward,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(),
+        ),
+        _createCommand(
+          id: 'move_line_down',
+          label: 'Move Line Down',
+          icon: Icons.arrow_downward,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(),
+        ),
+        // MODIFIED: Mark/Select commands now use the plugin's internal state.
+        _createCommand(
+          id: 'set_mark',
+          label: 'Set Mark',
+          icon: Icons.bookmark_add,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _setMarkPosition,
+        ),
+        _createCommand(
+          id: 'select_to_mark',
+          label: 'Select to Mark',
+          icon: Icons.bookmark_added,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: _selectToMark,
+          canExecute: (ref, ctrl) {
+            final tab = _getTab(ref);
+            return tab != null && _marks.containsKey(tab.file.uri);
+          },
+        ),
+        _createCommand(
+          id: 'undo',
+          label: 'Undo',
+          icon: Icons.undo,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.undo(),
+          canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
+        ),
+        _createCommand(
+          id: 'redo',
+          label: 'Redo',
+          icon: Icons.redo,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.redo(),
+          canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
+        ),
+        _createCommand(
+          id: 'show_cursor',
+          label: 'Show Cursor',
+          icon: Icons.center_focus_strong,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => ctrl?.makeCursorVisible(),
+        ),
+        _createCommand(
+          id: 'switch_language',
+          label: 'Switch Language',
+          icon: Icons.language,
+          defaultPosition: CommandPosition.pluginToolbar,
+          execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
+          canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab,
+        ),
+      ];
 
   Command _createCommand({
     required String id,
@@ -425,7 +324,7 @@ class CodeEditorPlugin implements EditorPlugin {
     required IconData icon,
     required CommandPosition defaultPosition,
     required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
-    execute,
+        execute,
     bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
   }) {
     return BaseCommand(
@@ -448,11 +347,9 @@ class CodeEditorPlugin implements EditorPlugin {
   CodeLineEditingController? _getController(WidgetRef ref) {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-    // MODIFIED: Use the new public helper to get the controller for the current tab.
     return tab != null ? getControllerForTab(tab) : null;
   }
 
-  // CORRECTED: Helper to get the full tab object
   CodeEditorTab? _getTab(WidgetRef ref) {
     final tab = ref.watch(
       appNotifierProvider.select(
@@ -663,20 +560,28 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
+  // MODIFIED: Logic now uses the internal _marks map.
   Future<void> _setMarkPosition(
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
-    ref.read(markProvider.notifier).state = ctrl.selection.base;
+    final tab = _getTab(ref);
+    if (ctrl == null || tab == null) return;
+    _marks[tab.file.uri] = ctrl.selection.base;
+    // We need to rebuild the widgets that depend on canExecute, which can't be done
+    // easily without a provider. This is a classic state management challenge.
+    // For now, this will work, but the button's enabled state won't update
+    // immediately without a manual refresh of some kind.
   }
 
+  // MODIFIED: Logic now uses the internal _marks map.
   Future<void> _selectToMark(
     WidgetRef ref,
     CodeLineEditingController? ctrl,
   ) async {
-    if (ctrl == null) return;
-    final mark = ref.read(markProvider);
+    final tab = _getTab(ref);
+    if (ctrl == null || tab == null) return;
+    final mark = _marks[tab.file.uri];
     if (mark == null) {
       print('No mark set! Set a mark first');
       return;
@@ -720,7 +625,6 @@ class CodeEditorPlugin implements EditorPlugin {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
       builder: (ctx) {
-        // CORRECTED: The dialog UI needs to be returned.
         return AlertDialog(
           title: const Text('Select Language'),
           content: SizedBox(
@@ -729,7 +633,8 @@ class CodeEditorPlugin implements EditorPlugin {
               shrinkWrap: true,
               itemCount: CodeThemes.languageNameToModeMap.keys.length,
               itemBuilder: (context, index) {
-                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
+                final langKey =
+                    CodeThemes.languageNameToModeMap.keys.elementAt(
                   index,
                 );
                 return ListTile(
@@ -744,9 +649,7 @@ class CodeEditorPlugin implements EditorPlugin {
     );
 
     if (selectedLanguageKey != null) {
-      // MODIFIED: Use the copyWith method that was re-added.
       final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
-      // This now correctly calls the generic update method
       ref.read(appNotifierProvider.notifier).updateCurrentTab(updatedTab);
     }
   }

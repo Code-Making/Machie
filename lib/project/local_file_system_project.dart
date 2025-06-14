@@ -86,7 +86,7 @@ class LocalProject extends Project {
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
   }
 
-  // MODIFIED: Simplified to its core responsibility. No fallback logic.
+  // MODIFIED: Made async and now reads file content.
   @override
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
     final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
@@ -97,9 +97,9 @@ class LocalProject extends Project {
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     
-    // No async work here! Just create the lightweight tab reference.
-    // The createTab method is now synchronous.
-    final newTab = await selectedPlugin.createTab(file, ""); // Pass empty string, it's ignored now
+    // MODIFIED: Read the content before creating the tab.
+    final content = await fileHandler.readFile(file.uri);
+    final newTab = await selectedPlugin.createTab(file, content);
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
