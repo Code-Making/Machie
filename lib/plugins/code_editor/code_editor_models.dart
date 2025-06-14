@@ -7,52 +7,29 @@ import '../../data/file_handler/file_handler.dart';
 
 @immutable
 class CodeEditorTab extends EditorTab {
-  final CodeLineEditingController controller;
   final CodeCommentFormatter commentFormatter;
   final String? languageKey;
 
-  // MODIFIED: Constructor signature updated to match superclass. 'const' is preserved.
   const CodeEditorTab({
     required super.file,
-    required this.controller,
     required super.plugin,
     required this.commentFormatter,
-    super.isDirty = false,
     this.languageKey,
   });
 
   @override
-  void dispose() => controller.dispose();
-  @override
-  String get contentString => controller.text;
+  void dispose() {}
 
-  @override
-  CodeEditorTab copyWith({
-    DocumentFile? file,
-    EditorPlugin? plugin,
-    bool? isDirty,
-    CodeLineEditingController? controller,
-    CodeCommentFormatter? commentFormatter,
-    String? languageKey,
-  }) {
-    return CodeEditorTab(
-      file: file ?? this.file,
-      plugin: plugin ?? this.plugin,
-      isDirty: isDirty ?? this.isDirty,
-      controller: controller ?? this.controller,
-      commentFormatter: commentFormatter ?? this.commentFormatter,
-      languageKey: languageKey ?? this.languageKey,
-    );
-  }
+  // The copyWith method is no longer needed here as the object is fully immutable
+  // and has no "hot" state properties to change.
 
   @override
   Map<String, dynamic> toJson() => {
-    'type': 'code',
-    'fileUri': file.uri,
-    'pluginType': plugin.runtimeType.toString(),
-    'languageKey': languageKey,
-    'isDirty': isDirty,
-  };
+        'type': 'code',
+        'fileUri': file.uri,
+        'pluginType': plugin.runtimeType.toString(),
+        'languageKey': languageKey,
+      };
 }
 
 // --------------------
