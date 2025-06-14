@@ -7,8 +7,11 @@ import 'package:re_editor/re_editor.dart';
 
 import '../../app/app_notifier.dart';
 import '../../settings/settings_notifier.dart';
+import '../../session/tab_state.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
+import 'code_editor_plugin.dart';
+import 'code_editor_state.dart';
 
 // --------------------
 // Code Editor Plugin Providers
@@ -85,6 +88,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _handleControllerChange() {
+    // MODIFIED: Call the new method on AppNotifier to mark the tab dirty.
     ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
     _updateAllStatesFromController();
   }
@@ -193,13 +197,22 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   }
 
   void handleBracketHighlight() {
+    // MODIFIED: Get the controller via the plugin, not the tab object.
     final currentTab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (currentTab is! CodeEditorTab) {
       state = BracketHighlightState();
       return;
     }
-    final controller = currentTab.controller;
+    
+    final plugin = currentTab.plugin as CodeEditorPlugin;
+    final controller = plugin.getControllerForTab(currentTab);
+    
+    if (controller == null) {
+        state = BracketHighlightState();
+        return;
+    }
+
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();

@@ -28,6 +28,9 @@ abstract class EditorPlugin {
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
 
+  // NEW: Added a method to clean up resources for a specific tab.
+  void disposeTab(EditorTab tab) {}
+
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
