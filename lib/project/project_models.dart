@@ -77,6 +77,5 @@ abstract class Project {
   Project reorderTabs(int oldIndex, int newIndex);
   Future<Project> saveTab(int tabIndex);
   Project closeTab(int index, {required Ref ref});
-  Project markCurrentTabDirty();
   Project updateTab(int tabIndex, EditorTab newTab);
 }
