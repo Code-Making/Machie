@@ -75,7 +75,6 @@ abstract class Project {
   Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref});
   Project switchTab(int index, {required Ref ref});
   Project reorderTabs(int oldIndex, int newIndex);
-  Future<Project> saveTab(int tabIndex);
   Project closeTab(int index, {required Ref ref});
   Project updateTab(int tabIndex, EditorTab newTab);
 }
