@@ -11,6 +11,7 @@ import '../plugins/recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT for our cus
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
+import '../session/tab_state.dart'; // NEW IMPORT
 import '../utils/logs.dart'; // NEW IMPORT for logging
 import '../utils/clipboard.dart';
 import 'app_state.dart';
@@ -201,10 +202,11 @@ Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin
     
     // We now simply call the project's openFile method.
     // The error handling for parsing is now deferred to the AsyncNotifier of the plugin.
-    await _updateState((s) async {
-      final newProject = await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
-      return s.copyWith(currentProject: newProject);
-    });
+    final newTab = await selectedPlugin.createTab(file, "");
+
+    // NEW: Initialize the tab's dirty state.
+    ref.read(tabStateProvider.notifier).initTab(newTab.file.uri);
+
     
     return OpenFileSuccess();
   }
@@ -266,46 +268,23 @@ Future<OpenFileResult> openFile(DocumentFile file, {EditorPlugin? explicitPlugin
     });
   }
 
-Future<void> saveCurrentTab({required String content}) async {
+  // MODIFIED: The new save method.
+  Future<void> saveCurrentTab({required String content}) async {
     final project = state.value?.currentProject;
     if (project == null) return;
     
-    final tabIndex = project.session.currentTabIndex;
-    final tabToSave = project.session.tabs[tabIndex];
+    final tabToSave = project.session.currentTab;
+    if (tabToSave == null) return;
 
-    await _updateState((s) async {
-      final handler = s.currentProject!.fileHandler;
-      // Write the provided content to the file.
-      await handler.writeFile(tabToSave.file, content);
-      
-      // We still need to update the dirty state in the main AppState.
-      final newTab = (tabToSave as dynamic).copyWith(isDirty: false);
-      final newProject = s.currentProject!.updateTab(tabIndex, newTab);
-      return s.copyWith(currentProject: newProject);
-    });
+    // Perform the file write.
+    await project.fileHandler.writeFile(tabToSave.file, content);
+    
+    // NEW: Mark the tab as clean in our dedicated state manager.
+    ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
   }
 
   void closeTab(int index) {
-    _updateStateSync((s) {
-      if (s.currentProject == null) return s;
-      // MODIFIED: Call method directly on project
-      final newProject = s.currentProject!.closeTab(index, ref: ref);
-      return s.copyWith(currentProject: newProject);
-    });
-  }
-
-  void markCurrentTabDirty() {
-    _updateStateSync((s) {
-      final project = s.currentProject;
-      if (project == null) return s;
-
-      final tab = project.session.currentTab;
-      if (tab == null || (tab as dynamic).isDirty) return s;
-
-      final newTab = (tab as dynamic).copyWith(isDirty: true);
-      final newProject = project.updateTab(project.session.currentTabIndex, newTab);
-      return s.copyWith(currentProject: newProject);
-    });
+    ref.read(tabStateProvider.notifier).removeTab(closedTab.file.uri);
   }
 
   void updateCurrentTab(EditorTab newTab) {
