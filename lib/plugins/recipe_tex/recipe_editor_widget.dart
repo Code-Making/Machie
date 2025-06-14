@@ -259,9 +259,13 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
             });
           },
           itemBuilder: (context, index) {
-            // Using a unique key based on the object's identity
-            return Key(data.ingredients[index].hashCode.toString(),
-              child: _buildIngredientRow(index),
+            // CORRECTED: The KeyedSubtree contains the ReorderableDelayedDragStartListener, which in turn contains the content.
+            return KeyedSubtree(
+              key: ValueKey(data.ingredients[index].hashCode),
+              child: ReorderableDelayedDragStartListener(
+                index: index,
+                child: _buildIngredientRow(index),
+              ),
             );
           },
         ),
