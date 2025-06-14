@@ -1,6 +1,7 @@
 // lib/plugins/recipe_tex/recipe_tex_models.dart
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart'; // NEW IMPORT for listEquals
 import 'package:flutter/material.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';

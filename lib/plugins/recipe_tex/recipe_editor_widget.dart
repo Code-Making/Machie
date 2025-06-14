@@ -9,8 +9,9 @@ import 'recipe_tex_plugin.dart';
 // The provider to access the plugin instance.
 final recipeTexPluginProvider = Provider<RecipeTexPlugin>((ref) {
   // This assumes RecipeTexPlugin is a singleton registered in your plugin registry.
-  // A more robust solution might find it via the registry.
-  return RecipeTexPlugin();
+  return ref
+      .watch(pluginRegistryProvider)
+      .firstWhere((p) => p is RecipeTexPlugin) as RecipeTexPlugin;
 });
 
 class RecipeEditorForm extends ConsumerStatefulWidget {
@@ -103,7 +104,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     }
 
     updateController(_titleController, data.title);
-    updateController(_acidRefluxScoreController, data.acidRefluxScore.toString());
+    updateController(
+        _acidRefluxScoreController, data.acidRefluxScore.toString());
     updateController(_acidRefluxReasonController, data.acidRefluxReason);
     updateController(_prepTimeController, data.prepTime);
     updateController(_cookTimeController, data.cookTime);
@@ -288,8 +290,8 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           },
         ),
         ElevatedButton(
-          onPressed: () => _updateData(
-              (d) => d..ingredients.add(Ingredient('', '', ''))),
+          onPressed: () =>
+              _updateData((d) => d..ingredients.add(Ingredient('', '', ''))),
           child: const Text('Add Ingredient'),
         ),
       ],
@@ -307,8 +309,11 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           child: TextFormField(
             controller: controllers[0],
             decoration: const InputDecoration(labelText: 'Qty'),
-            onChanged: (value) => _updateData(
-                (d) => d.ingredients[index] = d.ingredients[index].copyWith(quantity: value)),
+            onChanged: (value) => _updateData((d) {
+              d.ingredients[index] =
+                  d.ingredients[index].copyWith(quantity: value);
+              return d;
+            }),
           ),
         ),
         const SizedBox(width: 8),
@@ -317,8 +322,10 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           child: TextFormField(
             controller: controllers[1],
             decoration: const InputDecoration(labelText: 'Unit'),
-            onChanged: (value) => _updateData(
-                (d) => d.ingredients[index] = d.ingredients[index].copyWith(unit: value)),
+            onChanged: (value) => _updateData((d) {
+              d.ingredients[index] = d.ingredients[index].copyWith(unit: value);
+              return d;
+            }),
           ),
         ),
         const SizedBox(width: 8),
@@ -326,8 +333,10 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           child: TextFormField(
             controller: controllers[2],
             decoration: const InputDecoration(labelText: 'Ingredient'),
-            onChanged: (value) => _updateData(
-                (d) => d.ingredients[index] = d.ingredients[index].copyWith(name: value)),
+            onChanged: (value) => _updateData((d) {
+              d.ingredients[index] = d.ingredients[index].copyWith(name: value);
+              return d;
+            }),
           ),
         ),
         IconButton(
@@ -367,8 +376,11 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
           decoration: InputDecoration(
               labelText: 'Step ${index + 1} Title',
               hintText: 'e.g., "Preparation"'),
-          onChanged: (value) => _updateData((d) =>
-              d.instructions[index] = d.instructions[index].copyWith(title: value)),
+          onChanged: (value) => _updateData((d) {
+            d.instructions[index] =
+                d.instructions[index].copyWith(title: value);
+            return d;
+          }),
         ),
         TextFormField(
           controller: controllers[1],
@@ -377,8 +389,11 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
               hintText: 'Describe this step...'),
           maxLines: null,
           minLines: 2,
-          onChanged: (value) => _updateData((d) => d.instructions[index] =
-              d.instructions[index].copyWith(content: value)),
+          onChanged: (value) => _updateData((d) {
+            d.instructions[index] =
+                d.instructions[index].copyWith(content: value);
+            return d;
+          }),
         ),
         IconButton(
           icon: const Icon(Icons.delete),
