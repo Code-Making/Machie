@@ -12,6 +12,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../../session/tab_state.dart';
 import '../plugin_models.dart';
+import '../plugin_registry.dart';
 import 'recipe_editor_widget.dart';
 import 'recipe_tex_models.dart';
 
@@ -121,7 +122,7 @@ class RecipeTexPlugin implements EditorPlugin {
   }
 
   void updateDataForTab(
-      RecipeTexTab tab, RecipeData Function(RecipeData) updater) {
+      RecipeTexTab tab, RecipeData Function(RecipeData) updater, WidgetRef ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
 
@@ -136,14 +137,14 @@ class RecipeTexPlugin implements EditorPlugin {
     );
 
     // Manually trigger a rebuild of the editor widget by updating the tab object
-    final appNotifier =
-        ProviderScope.containerOf(tab.plugin as RecipeTexPlugin).read(appNotifierProvider.notifier);
+    final appNotifier = ref.read(appNotifierProvider.notifier);
     final newTab = tab.copyWith(data: newData);
     appNotifier.updateCurrentTab(newTab);
 
     // Mark tab as dirty
-    final isDirty = !const DeepCollectionEquality().equals(newData, state.originalData);
-    final tabStateNotifier = ProviderScope.containerOf(tab.plugin as RecipeTexPlugin).read(tabStateProvider.notifier);
+    final isDirty =
+        !const DeepCollectionEquality().equals(newData, state.originalData);
+    final tabStateNotifier = ref.read(tabStateProvider.notifier);
     if (isDirty) {
       tabStateNotifier.markDirty(tab.file.uri);
     } else {
@@ -201,12 +202,11 @@ class RecipeTexPlugin implements EditorPlugin {
           execute: (ref) async {
             final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
             final state = tab != null ? _tabStates[tab.file.uri] : null;
-            if (state != null) {
-              final content = _generateTexContent(state.data);
-              await Clipboard.setData(ClipboardData(text: content));
-              ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
+            if (state == null) return;
+            final content = _generateTexContent(state.data);
+            await Clipboard.setData(ClipboardData(text: content));
+            ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Copied LaTeX to clipboard')));
-            }
           },
           canExecute: (ref) => ref.read(appNotifierProvider).value?.currentProject?.session.currentTab is RecipeTexTab,
         ),
@@ -219,12 +219,13 @@ class RecipeTexPlugin implements EditorPlugin {
             execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
-              final state = tab != null ? _tabStates[tab.file.uri] : null;
-              if (tab == null || state == null) return;
-              
+              if (tab == null) return;
+              final state = _tabStates[tab.file.uri];
+              if (state == null) return;
+
               final content = _generateTexContent(state.data);
               await appNotifier.saveCurrentTab(content: content);
-              
+
               // Reset the "hot" state to the new saved state
               _tabStates[tab.file.uri] = _RecipeTabState(
                 data: state.data,
@@ -236,9 +237,10 @@ class RecipeTexPlugin implements EditorPlugin {
                   const SnackBar(content: Text('Recipe saved.')));
             },
             canExecute: (ref) {
-               final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
-               if (tab == null) return false;
-               return ref.watch(tabStateProvider.select((s) => s[tab.file.uri] ?? false));
+              final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
+              if (tab == null) return false;
+              return ref.watch(
+                  tabStateProvider.select((s) => s[tab.file.uri] ?? false));
             }),
         BaseCommand(
             id: 'recipe_undo',
@@ -251,7 +253,7 @@ class RecipeTexPlugin implements EditorPlugin {
               if (tab == null) return;
               final state = _tabStates[tab.file.uri];
               if (state == null || state.undoStack.isEmpty) return;
-              
+
               final lastData = state.undoStack.removeLast();
               _tabStates[tab.file.uri] = _RecipeTabState(
                 data: lastData,
@@ -259,12 +261,23 @@ class RecipeTexPlugin implements EditorPlugin {
                 undoStack: state.undoStack,
                 redoStack: [state.data, ...state.redoStack],
               );
-              
-              ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith(data: lastData));
+
+              ref
+                  .read(appNotifierProvider.notifier)
+                  .updateCurrentTab(tab.copyWith(data: lastData));
+              // Also update dirty status
+               final isDirty = !const DeepCollectionEquality().equals(lastData, state.originalData);
+               ref.read(tabStateProvider.notifier).state = {...ref.read(tabStateProvider), tab.file.uri: isDirty};
             },
             canExecute: (ref) {
-              final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
-              return tab is RecipeTexTab && (_tabStates[tab.file.uri]?.undoStack.isNotEmpty ?? false);
+              final tab = ref
+                  .watch(appNotifierProvider)
+                  .value
+                  ?.currentProject
+                  ?.session
+                  .currentTab;
+              return tab is RecipeTexTab &&
+                  (_tabStates[tab.file.uri]?.undoStack.isNotEmpty ?? false);
             }),
         BaseCommand(
             id: 'recipe_redo',
@@ -279,18 +292,29 @@ class RecipeTexPlugin implements EditorPlugin {
               if (state == null || state.redoStack.isEmpty) return;
 
               final nextData = state.redoStack.removeAt(0);
-               _tabStates[tab.file.uri] = _RecipeTabState(
+              _tabStates[tab.file.uri] = _RecipeTabState(
                 data: nextData,
                 originalData: state.originalData,
                 undoStack: [...state.undoStack, state.data],
                 redoStack: state.redoStack,
               );
-              
-              ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith(data: nextData));
+
+              ref
+                  .read(appNotifierProvider.notifier)
+                  .updateCurrentTab(tab.copyWith(data: nextData));
+              // Also update dirty status
+              final isDirty = !const DeepCollectionEquality().equals(nextData, state.originalData);
+              ref.read(tabStateProvider.notifier).state = {...ref.read(tabStateProvider), tab.file.uri: isDirty};
             },
             canExecute: (ref) {
-              final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
-              return tab is RecipeTexTab && (_tabStates[tab.file.uri]?.redoStack.isNotEmpty ?? false);
+              final tab = ref
+                  .watch(appNotifierProvider)
+                  .value
+                  ?.currentProject
+                  ?.session
+                  .currentTab;
+              return tab is RecipeTexTab &&
+                  (_tabStates[tab.file.uri]?.redoStack.isNotEmpty ?? false);
             }),
       ];
 
