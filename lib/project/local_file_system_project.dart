@@ -94,12 +94,11 @@ class LocalProject extends Project {
     }
 
     final plugins = ref.read(activePluginsProvider);
-    // Use the provided plugin, or find the first one that supports the file.
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
-
-    final content = await fileHandler.readFile(file.uri);
-    // Let createTab throw an error if it fails. The AppNotifier will catch it.
-    final newTab = await selectedPlugin.createTab(file, content);
+    
+    // No async work here! Just create the lightweight tab reference.
+    // The createTab method is now synchronous.
+    final newTab = await selectedPlugin.createTab(file, ""); // Pass empty string, it's ignored now
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
