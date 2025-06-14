@@ -258,9 +258,9 @@ class RecipeTexPlugin implements EditorPlugin {
             sourcePlugin: runtimeType.toString(),
             execute: (ref) {
               final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
-              if (tab == null) return;
+              if (tab == null) return false;
               final state = _tabStates[tab.file.uri];
-              if (state == null || state.undoStack.isEmpty) return;
+              if (state == null || state.undoStack.isEmpty) return false;
 
               final lastData = state.undoStack.removeLast();
               _tabStates[tab.file.uri] = _RecipeTabState(
@@ -298,9 +298,9 @@ class RecipeTexPlugin implements EditorPlugin {
             sourcePlugin: runtimeType.toString(),
             execute: (ref) {
               final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
-              if (tab == null) return;
+              if (tab == null) return false;
               final state = _tabStates[tab.file.uri];
-              if (state == null || state.redoStack.isEmpty) return;
+              if (state == null || state.redoStack.isEmpty) return false;
 
               final nextData = state.redoStack.removeAt(0);
               _tabStates[tab.file.uri] = _RecipeTabState(
