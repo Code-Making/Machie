@@ -208,6 +208,7 @@ class RecipeTexPlugin implements EditorPlugin {
             await Clipboard.setData(ClipboardData(text: content));
             ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Copied LaTeX to clipboard')));
+            return;
           },
           canExecute: (ref) =>
               ref.read(appNotifierProvider).value?.currentProject?.session.currentTab
@@ -238,6 +239,7 @@ class RecipeTexPlugin implements EditorPlugin {
               );
               ref.read(rootScaffoldMessengerKeyProvider).currentState?.showSnackBar(
                   const SnackBar(content: Text('Recipe saved.')));
+            return;
             },
             canExecute: (ref) {
               final tab = ref
@@ -258,9 +260,9 @@ class RecipeTexPlugin implements EditorPlugin {
             sourcePlugin: runtimeType.toString(),
             execute: (ref) {
               final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
-              if (tab == null) return false;
+              if (tab == null) return;
               final state = _tabStates[tab.file.uri];
-              if (state == null || state.undoStack.isEmpty) return false;
+              if (state == null || state.undoStack.isEmpty) return;
 
               final lastData = state.undoStack.removeLast();
               _tabStates[tab.file.uri] = _RecipeTabState(
@@ -279,6 +281,7 @@ class RecipeTexPlugin implements EditorPlugin {
                 ...ref.read(tabStateProvider),
                 tab.file.uri: isDirty
               };
+            return;
             },
             canExecute: (ref) {
               final tab = ref
@@ -298,9 +301,9 @@ class RecipeTexPlugin implements EditorPlugin {
             sourcePlugin: runtimeType.toString(),
             execute: (ref) {
               final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as RecipeTexTab?;
-              if (tab == null) return false;
+              if (tab == null) return;
               final state = _tabStates[tab.file.uri];
-              if (state == null || state.redoStack.isEmpty) return false;
+              if (state == null || state.redoStack.isEmpty) return;
 
               final nextData = state.redoStack.removeAt(0);
               _tabStates[tab.file.uri] = _RecipeTabState(
@@ -319,6 +322,7 @@ class RecipeTexPlugin implements EditorPlugin {
                 ...ref.read(tabStateProvider),
                 tab.file.uri: isDirty
               };
+            return;
             },
             canExecute: (ref) {
               final tab = ref
