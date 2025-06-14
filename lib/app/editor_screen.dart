@@ -6,6 +6,7 @@ import 'package:re_editor/re_editor.dart';
 import 'app_notifier.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
 import '../session/session_models.dart';
+import '../session/tab_state.dart'; // NEW IMPORT
 import '../explorer/file_explorer_drawer.dart';
 import '../utils/logs.dart';
 import '../command/command_widgets.dart';
@@ -125,17 +126,20 @@ class FileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTabIndex == index,
-      ),
+      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index),
     );
+    
+    // MODIFIED: Watch the new tabStateProvider for the dirty status.
+    // This watch will only rebuild this specific tab widget when its dirty state changes.
+    final isDirty = ref.watch(tabStateProvider.select(
+      (stateMap) => stateMap[tab.file.uri] ?? false
+    ));
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
-          // CORRECTED: Call the right method
           onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -143,17 +147,15 @@ class FileTab extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  onPressed:
-                      () => ref
-                          .read(appNotifierProvider.notifier)
-                          .closeTab(index),
+                  onPressed: () => ref.read(appNotifierProvider.notifier).closeTab(index),
                 ),
                 Expanded(
                   child: Text(
                     tab.file.name,
                     overflow: TextOverflow.ellipsis,
+                    // MODIFIED: Use the new `isDirty` value.
                     style: TextStyle(
-                      color: tab.isDirty ? Colors.orange : Colors.white,
+                      color: isDirty ? Colors.orange : Colors.white,
                     ),
                   ),
                 ),
@@ -165,6 +167,7 @@ class FileTab extends ConsumerWidget {
     );
   }
 }
+
 
 class EditorContentSwitcher extends ConsumerWidget {
   const EditorContentSwitcher({super.key});

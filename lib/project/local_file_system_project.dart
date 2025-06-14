@@ -156,24 +156,10 @@ class LocalProject extends Project {
     return copyWith(session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex));
   }
 
-  @override
-  Future<Project> saveTab(int tabIndex) async {
-    final tabToSave = session.tabs[tabIndex];
-    final newFile = await fileHandler.writeFile(tabToSave.file, tabToSave.contentString);
-    final newTab = tabToSave.copyWith(file: newFile, isDirty: false);
-    return updateTab(tabIndex, newTab);
-  }
-
-  @override
-  Project markCurrentTabDirty() {
-    final currentTab = session.currentTab;
-    if (currentTab == null || currentTab.isDirty) return this;
-    final newTab = currentTab.copyWith(isDirty: true);
-    return updateTab(session.currentTabIndex, newTab);
-  }
 
   @override
   Project updateTab(int tabIndex, EditorTab newTab) {
+    if (tabIndex < 0 || tabIndex >= session.tabs.length) return this;
     final newTabs = List<EditorTab>.from(session.tabs);
     newTabs[tabIndex] = newTab;
     return copyWith(session: session.copyWith(tabs: newTabs));
