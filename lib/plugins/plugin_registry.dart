@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'plugin_models.dart'; // For EditorPlugin
 import 'code_editor/code_editor_plugin.dart';
+import 'recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT
 
 // --------------------
 // Plugin Registry Providers
@@ -13,6 +14,7 @@ import 'code_editor/code_editor_plugin.dart';
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
       CodeEditorPlugin(),
+      RecipeTexPlugin(), // NEW: Register the RecipeTexPlugin
   },
 );
 
