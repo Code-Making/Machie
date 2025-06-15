@@ -94,9 +94,12 @@ class CommandSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         children: [
           _buildSection(context, ref, 'App Bar', 'appBar', state.appBarOrder),
-          _buildSection(context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
-          ...state.commandGroups.values.map((group) => _buildGroupSection(context, ref, group)),
-          _buildSection(context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
+          _buildSection(
+              context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
+          ...state.commandGroups.values
+              .map((group) => _buildGroupSection(context, ref, group)),
+          _buildSection(
+              context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
         ],
       ),
     );
@@ -114,15 +117,19 @@ class CommandSettingsScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () => showDialog(
-                context: context, builder: (_) => GroupEditorDialog(ref: ref, group: group)),
+                context: context,
+                builder: (_) => GroupEditorDialog(ref: ref, group: group)),
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () => ref.read(commandProvider.notifier).deleteGroup(group.id),
+            onPressed: () =>
+                ref.read(commandProvider.notifier).deleteGroup(group.id),
           ),
         ],
       ),
-      children: [_buildReorderableList(context, ref, group.commandIds, listId: group.id)],
+      children: [
+        _buildReorderableList(context, ref, group.commandIds, listId: group.id)
+      ],
     );
   }
 
@@ -131,7 +138,9 @@ class CommandSettingsScreen extends ConsumerWidget {
     return ExpansionTile(
       title: Text(title),
       initiallyExpanded: true,
-      children: [_buildReorderableList(context, ref, itemIds, listId: listId)],
+      children: [
+        _buildReorderableList(context, ref, itemIds, listId: listId)
+      ],
     );
   }
 
@@ -150,16 +159,13 @@ class CommandSettingsScreen extends ConsumerWidget {
             final itemId = itemIds[index];
             if (state.commandGroups.containsKey(itemId)) {
               final group = state.commandGroups[itemId]!;
-              return ListTile(
-                key: ValueKey(group.id),
-                leading: group.icon,
-                title: Text(group.label),
-                trailing: const Icon(Icons.drag_handle),
-              );
+              return _buildGroupItem(context, ref, group, listId);
             } else {
               final sources = state.commandSources[itemId];
               if (sources == null || sources.isEmpty) {
-                return ListTile(key: ValueKey(itemId), title: Text('Error: Unknown command "$itemId"'));
+                return ListTile(
+                    key: ValueKey(itemId),
+                    title: Text('Error: Unknown command "$itemId"'));
               }
               return _buildCommandItem(context, ref, itemId, sources, listId: listId);
             }
@@ -177,7 +183,10 @@ class CommandSettingsScreen extends ConsumerWidget {
               child: IconButton(
                 icon: const Icon(Icons.add_circle_outline),
                 tooltip: 'Add command to this section',
-                onPressed: () => showDialog(context: context, builder: (_) => AddCommandDialog(ref: ref, toListId: listId)),
+                onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) =>
+                        AddCommandDialog(ref: ref, toListId: listId)),
               ),
             ),
           )
@@ -185,12 +194,33 @@ class CommandSettingsScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildGroupItem(BuildContext context, WidgetRef ref, CommandGroup group, String currentListId) {
+     return ListTile(
+        key: ValueKey(group.id),
+        leading: const Icon(Icons.drag_handle),
+        title: Row(
+        children: [
+          group.icon,
+          const SizedBox(width: 12),
+          Expanded(child: Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold))),
+        ],
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () => _showGroupPositionMenu(context, ref, group, currentListId),
+      ),
+    );
+  }
+
   Widget _buildCommandItem(BuildContext context, WidgetRef ref,
       String commandId, Set<String> sources, {required String listId}) {
     final notifier = ref.read(commandProvider.notifier);
     final command = notifier.getCommand(commandId, sources.first);
-    if (command == null) return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
-    
+    if (command == null)
+      return ListTile(
+          key: ValueKey(commandId),
+          title: Text('Error: Unknown command "$commandId"'));
+
     return ListTile(
       key: ValueKey(commandId),
       leading: const Icon(Icons.drag_handle),
@@ -205,7 +235,31 @@ class CommandSettingsScreen extends ConsumerWidget {
       trailing: IconButton(
         icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
         tooltip: 'Remove from this list (move to Hidden)',
-        onPressed: () => notifier.removeCommandFromList(itemId: commandId, fromListId: listId),
+        onPressed: () =>
+            notifier.removeCommandFromList(itemId: commandId, fromListId: listId),
+      ),
+    );
+  }
+  
+  void _showGroupPositionMenu(BuildContext context, WidgetRef ref, CommandGroup group, String fromListId) {
+    final notifier = ref.read(commandProvider.notifier);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Move "${group.label}" Group to...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: const Text('App Bar'), onTap: () {
+                notifier.moveItem(itemId: group.id, fromListId: fromListId, toListId: 'appBar', newIndex: -1);
+                Navigator.pop(ctx);
+            }),
+            ListTile(title: const Text('Plugin Toolbar'), onTap: () {
+                notifier.moveItem(itemId: group.id, fromListId: fromListId, toListId: 'pluginToolbar', newIndex: -1);
+                Navigator.pop(ctx);
+            }),
+          ],
+        ),
       ),
     );
   }

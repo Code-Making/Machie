@@ -13,7 +13,8 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginName = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+    appNotifierProvider
+        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
   );
 
   final visibleItems = <dynamic>[];
@@ -34,7 +35,6 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
     if (command != null) {
       visibleItems.add(command);
     }
-    // In a more complex system, you might add a fallback to a 'Core' command here.
   }
   return visibleItems;
 });
@@ -44,7 +44,8 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginName = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+    appNotifierProvider
+        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
   );
 
   final visibleItems = <dynamic>[];
@@ -83,6 +84,13 @@ class AppBarCommands extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // NEW: Check for app bar override
+    final override = ref.watch(appNotifierProvider.select((s) => s.value?.appBarOverride));
+    if (override != null) {
+        // When overriding, we expect the plugin to provide the whole actions row
+        return override;
+    }
+    
     final items = ref.watch(appBarCommandsProvider);
 
     return Row(
@@ -91,6 +99,7 @@ class AppBarCommands extends ConsumerWidget {
           return CommandButton(command: item);
         }
         if (item is CommandGroup) {
+          // CORRECTED: AppBar now knows how to render groups.
           return CommandGroupButton(commandGroup: item);
         }
         return const SizedBox.shrink();
@@ -104,7 +113,6 @@ class BottomToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // NEW: Check for toolbar override
     final override = ref.watch(appNotifierProvider.select((s) => s.value?.bottomToolbarOverride));
     if (override != null) {
       return override;
@@ -166,7 +174,6 @@ class CommandButton extends ConsumerWidget {
   }
 }
 
-// NEW WIDGET: A dropdown button for command groups.
 class CommandGroupButton extends ConsumerWidget {
   final CommandGroup commandGroup;
 
@@ -176,10 +183,10 @@ class CommandGroupButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
     final currentPluginName = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+    appNotifierProvider
+        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
   );
 
-    // Get the actual command objects from the group's command IDs
     final commandsInGroup = commandGroup.commandIds
         .map((id) => notifier.allRegisteredCommands.firstWhereOrNull(
               (c) => c.id == id && c.sourcePlugin == currentPluginName,
@@ -187,7 +194,6 @@ class CommandGroupButton extends ConsumerWidget {
         .whereType<Command>()
         .toList();
 
-    // Don't show the dropdown if no commands in the group are active for this context
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
