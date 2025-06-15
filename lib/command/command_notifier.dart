@@ -58,8 +58,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       iconName: iconName,
     );
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
-    // By default, a new group is just created, not placed anywhere.
-    // The user can then add it via the '+' button.
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
@@ -125,30 +123,27 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final lists = _getMutableLists();
     final list = lists[listId];
     if (list == null) return;
-
     if (oldIndex < newIndex) newIndex--;
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
-    
     _updateStateWithLists(lists);
   }
 
   void removeItemFromList({required String itemId, required String fromListId}) {
-     final lists = _getMutableLists();
-     lists[fromListId]?.remove(itemId);
-     // Only add back to hidden if it's a command, not a group
-     if (!state.commandGroups.containsKey(itemId)) {
-       lists['hidden']?.add(itemId);
-     }
-     _updateStateWithLists(lists);
+    final lists = _getMutableLists();
+    lists[fromListId]?.remove(itemId);
+    if (!state.commandGroups.containsKey(itemId)) {
+      lists['hidden']?.add(itemId);
+    }
+    _updateStateWithLists(lists);
   }
 
   void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
-    // Item can exist in multiple lists, so we don't remove from anywhere else,
-    // unless we are adding from the hidden list.
     lists['hidden']?.remove(itemId);
-    lists[toListId]?.add(itemId);
+    if (!(lists[toListId]?.contains(itemId) ?? true)) {
+       lists[toListId]?.add(itemId);
+    }
     _updateStateWithLists(lists);
   }
 
@@ -167,8 +162,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // 1. Load all saved data.
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
@@ -178,26 +171,25 @@ class CommandNotifier extends StateNotifier<CommandState> {
             CommandGroup.fromJson(jsonDecode(value as String) as Map<String, dynamic>);
       });
     }
+
     final loadedAppBar = prefs.getStringList('command_app_bar') ?? [];
     final loadedToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     final loadedHidden = prefs.getStringList('command_hidden') ?? [];
 
-    // 2. Create a set of all currently valid command and group IDs.
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
-    final allValidItemIds = {...allKnownCommandIds, ...loadedGroups.keys};
-    
-    // 3. Filter the loaded lists to remove any stale IDs.
-    final cleanAppBar = loadedAppBar.where((id) => allValidItemIds.contains(id)).toList();
-    final cleanToolbar = loadedToolbar.where((id) => allValidItemIds.contains(id)).toList();
-    final cleanHidden = loadedHidden.where((id) => allValidItemIds.contains(id)).toList();
-    
-    // Clean the commandIds within each group as well
+    final allValidGroupIds = loadedGroups.keys.toSet();
+    final allValidItemIds = {...allKnownCommandIds, ...allValidGroupIds};
+
+    final cleanAppBar = loadedAppBar.where(allValidItemIds.contains).toList();
+    final cleanToolbar = loadedToolbar.where(allValidItemIds.contains).toList();
+    final cleanHidden = loadedHidden.where(allKnownCommandIds.contains).toList();
+
+    // CORRECTED: Ensure commandIds within each group are also sanitized.
     final cleanGroups = loadedGroups.map((id, group) {
-      final cleanCommandIds = group.commandIds.where((cmdId) => allKnownCommandIds.contains(cmdId)).toList();
+      final cleanCommandIds = group.commandIds.where(allKnownCommandIds.contains).toList();
       return MapEntry(id, group.copyWith(commandIds: cleanCommandIds));
     });
 
-    // 4. Find any newly registered commands that are not placed anywhere.
     final allPlacedCommandIds = {
       ...cleanAppBar.where((id) => !cleanGroups.containsKey(id)),
       ...cleanToolbar.where((id) => !cleanGroups.containsKey(id)),
@@ -206,11 +198,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
     };
     final orphanedCommands = allKnownCommandIds.where((id) => !allPlacedCommandIds.contains(id)).toList();
 
-    // 5. Set the final, sanitized state.
     state = state.copyWith(
       appBarOrder: cleanAppBar,
       pluginToolbarOrder: cleanToolbar,
-      hiddenOrder: [...cleanHidden, ...orphanedCommands], // Add new commands to hidden
+      hiddenOrder: {...cleanHidden, ...orphanedCommands}.toList(),
       commandGroups: cleanGroups,
     );
   }

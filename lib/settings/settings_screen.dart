@@ -94,12 +94,9 @@ class CommandSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         children: [
           _buildSection(context, ref, 'App Bar', 'appBar', state.appBarOrder),
-          _buildSection(
-              context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
-          ...state.commandGroups.values
-              .map((group) => _buildGroupSection(context, ref, group)),
-          _buildSection(
-              context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
+          _buildSection(context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
+          ...state.commandGroups.values.map((group) => _buildGroupSection(context, ref, group)),
+          _buildSection(context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
         ],
       ),
     );
@@ -157,39 +154,47 @@ class CommandSettingsScreen extends ConsumerWidget {
           itemCount: itemIds.length,
           itemBuilder: (ctx, index) {
             final itemId = itemIds[index];
+            final Widget itemWidget;
+
             if (state.commandGroups.containsKey(itemId)) {
               final group = state.commandGroups[itemId]!;
-              return _buildItem(
-                  key: ValueKey(group.id),
-                  listId: listId,
-                  itemId: itemId,
-                  title: Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  icon: group.icon);
+              itemWidget = ListTile(
+                key: ValueKey(group.id),
+                leading: const Icon(Icons.drag_handle),
+                title: Row(children: [group.icon, const SizedBox(width: 12), Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold))]),
+                trailing: listId == 'hidden' ? null : IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                    tooltip: 'Remove from this list',
+                    onPressed: () => notifier.removeItemFromList(itemId: itemId, fromListId: listId),
+                ),
+              );
             } else {
               final sources = state.commandSources[itemId];
               if (sources == null || sources.isEmpty) {
-                return ListTile(
-                    key: ValueKey(itemId),
-                    title: Text('Error: Unknown command "$itemId"'));
+                return ListTile(key: ValueKey(itemId), title: Text('Error: Stale command ID "$itemId"'));
               }
               final command = notifier.getCommand(itemId, sources.first);
               if (command == null) {
                  return ListTile(key: ValueKey(itemId), title: Text('Error: Command "$itemId" not found'));
               }
-              return _buildItem(
-                  key: ValueKey(command.id),
-                  listId: listId,
-                  itemId: command.id,
-                  title: Text(command.label),
-                  icon: command.icon);
+              itemWidget = ListTile(
+                key: ValueKey(command.id),
+                leading: const Icon(Icons.drag_handle),
+                title: Row(children: [command.icon, const SizedBox(width: 12), Expanded(child: Text(command.label, overflow: TextOverflow.ellipsis))]),
+                subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
+                trailing: listId == 'hidden' ? null : IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                    tooltip: 'Remove from this list',
+                    onPressed: () => notifier.removeItemFromList(itemId: command.id, fromListId: listId),
+                ),
+              );
             }
+            return itemWidget;
           },
           onReorder: (oldIndex, newIndex) {
-            notifier.reorderItemInList(
-                listId: listId, oldIndex: oldIndex, newIndex: newIndex);
+            notifier.reorderItemInList(listId: listId, oldIndex: oldIndex, newIndex: newIndex);
           },
         ),
-        // Add button is available for all sections except "Hidden"
         if (listId != 'hidden')
           Padding(
             padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
@@ -206,32 +211,6 @@ class CommandSettingsScreen extends ConsumerWidget {
             ),
           )
       ],
-    );
-  }
-  
-  // Generic item builder for both commands and groups
-  Widget _buildItem({required Key key, required String listId, required String itemId, required Widget title, required Widget icon}) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final notifier = ref.read(commandProvider.notifier);
-        return ListTile(
-          key: key,
-          leading: const Icon(Icons.drag_handle),
-          title: Row(
-            children: [
-              icon,
-              const SizedBox(width: 12),
-              Expanded(child: title),
-            ],
-          ),
-          trailing: listId == 'hidden' ? null : IconButton(
-            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
-            tooltip: 'Remove from this list',
-            onPressed: () =>
-                notifier.removeItemFromList(itemId: itemId, fromListId: listId),
-          ),
-        );
-      }
     );
   }
 }
@@ -268,13 +247,17 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
         final notifier = widget.ref.read(commandProvider.notifier);
         final state = widget.ref.watch(commandProvider);
         
-        // Get unique commands by ID
         final allCommands = { for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd }.values.toList();
         final allGroups = state.commandGroups.values.toList();
+        
+        // Items available to add are those in the "hidden" list (for commands)
+        // or any group that isn't already in the target list
+        final availableCommands = allCommands.where((cmd) => state.hiddenOrder.contains(cmd.id)).toList();
+        final availableGroups = allGroups.where((g) => !state.appBarOrder.contains(g.id) && !state.pluginToolbarOrder.contains(g.id)).toList();
 
         final query = _query;
-        final filteredCommands = allCommands.where((cmd) => cmd.label.toLowerCase().contains(query)).toList();
-        final filteredGroups = allGroups.where((group) => group.label.toLowerCase().contains(query)).toList();
+        final filteredCommands = availableCommands.where((cmd) => cmd.label.toLowerCase().contains(query)).toList();
+        final filteredGroups = availableGroups.where((group) => group.label.toLowerCase().contains(query)).toList();
 
         return AlertDialog(
             title: const Text('Add Item'),
