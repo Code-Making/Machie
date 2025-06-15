@@ -1,15 +1,11 @@
+// lib/settings/settings_screen.dart
 import 'package:flutter/material.dart';
-// ADDED: For Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// For logProvider, settingsProvider, activePluginsProvider, commandProvider, printStream
-// For CodeEditorSettings
-import '../plugins/plugin_models.dart'; // For EditorPlugin, PluginSettings, CommandPosition, Command
-import '../plugins/plugin_registry.dart'; // For EditorPlugin, activePluginsProvider
-
+import '../plugins/plugin_models.dart';
+import '../plugins/plugin_registry.dart';
 import '../command/command_models.dart';
 import '../command/command_notifier.dart';
-
 import 'settings_notifier.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -29,14 +25,12 @@ class SettingsScreen extends ConsumerWidget {
 
     return ListView(
       children: [
-        // Add a tile for command settings
         ListTile(
           leading: const Icon(Icons.keyboard),
           title: const Text('Command Customization'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.pushNamed(context, '/command-settings'),
         ),
-        // Existing plugin settings
         ...plugins
             .where((p) => p.settings != null)
             .map(
@@ -69,26 +63,15 @@ class _PluginSettingsCard extends ConsumerWidget {
               children: [
                 plugin.icon,
                 const SizedBox(width: 12),
-                Text(
-                  plugin.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text(plugin.name, style: Theme.of(context).textTheme.titleLarge),
               ],
             ),
             const SizedBox(height: 16),
-            _buildSettingsWithErrorHandling(),
+            plugin.buildSettingsUI(settings),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildSettingsWithErrorHandling() {
-    try {
-      return plugin.buildSettingsUI(settings);
-    } catch (e) {
-      return Text('Error loading settings: ${e.toString()}');
-    }
   }
 }
 
@@ -99,88 +82,93 @@ class CommandSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
-    print(
-      'Current Command State: ${state.appBarOrder} | '
-      '${state.pluginToolbarOrder} | ${state.hiddenOrder}',
-    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Command Customization')),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.add),
+        label: const Text('New Group'),
+        onPressed: () async {
+          await showDialog(
+              context: context, builder: (_) => GroupEditorDialog(ref: ref));
+        },
+      ),
       body: ListView(
-        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 80),
         children: [
-          _buildSection(
-            context,
-            ref,
-            'App Bar Commands',
-            state.appBarOrder,
-            CommandPosition.appBar,
-          ),
-          _buildSection(
-            context,
-            ref,
-            'Plugin Toolbar Commands',
-            state.pluginToolbarOrder,
-            CommandPosition.pluginToolbar,
-          ),
-          _buildSection(
-            context,
-            ref,
-            'Hidden Commands',
-            state.hiddenOrder,
-            CommandPosition.hidden,
-          ),
+          _buildSection(context, ref, 'App Bar', state.appBarOrder),
+          _buildSection(context, ref, 'Plugin Toolbar', state.pluginToolbarOrder),
+          ...state.commandGroups.values
+              .map((group) => _buildGroupSection(context, ref, group)),
+          _buildSection(context, ref, 'Hidden Commands', state.hiddenOrder),
         ],
       ),
     );
   }
 
-  Widget _buildSection(
-    BuildContext context,
-    WidgetRef ref,
-    String title,
-    List<String> commandIds,
-    CommandPosition position,
-  ) {
-    final state = ref.watch(commandProvider);
+  Widget _buildGroupSection(
+      BuildContext context, WidgetRef ref, CommandGroup group) {
     return ExpansionTile(
-      title: Text(title),
+      leading: group.icon,
+      title: Text(group.label),
       initiallyExpanded: true,
-      children: [
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: commandIds.length,
-          itemBuilder:
-              (ctx, index) => _buildCommandItem(
-                context,
-                ref,
-                commandIds[index],
-                state.commandSources[commandIds[index]]!,
-              ),
-          onReorder:
-              (oldIndex, newIndex) =>
-                  _handleReorder(ref, position, oldIndex, newIndex, commandIds),
-        ),
-      ],
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => showDialog(
+                context: context,
+                builder: (_) => GroupEditorDialog(ref: ref, group: group)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.redAccent),
+            onPressed: () =>
+                ref.read(commandProvider.notifier).deleteGroup(group.id),
+          ),
+        ],
+      ),
+      children: [_buildReorderableList(context, ref, group.commandIds, groupId: group.id)],
     );
   }
 
-  Widget _buildCommandItem(
-    BuildContext context,
-    WidgetRef ref,
-    String commandId,
-    Set<String> sources,
-  ) {
+  Widget _buildSection(
+      BuildContext context, WidgetRef ref, String title, List<String> itemIds) {
+    return ExpansionTile(
+      title: Text(title),
+      initiallyExpanded: true,
+      children: [_buildReorderableList(context, ref, itemIds)],
+    );
+  }
+  
+  Widget _buildReorderableList(BuildContext context, WidgetRef ref, List<String> itemIds, {String? groupId}) {
+      final state = ref.watch(commandProvider);
+      return ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: itemIds.length,
+        itemBuilder: (ctx, index) {
+          final itemId = itemIds[index];
+          // Check if it's a command or a group
+          if (state.commandGroups.containsKey(itemId)) {
+              final group = state.commandGroups[itemId]!;
+              return ListTile(key: ValueKey(group.id), leading: group.icon, title: Text(group.label));
+          } else {
+             final sources = state.commandSources[itemId]!;
+             return _buildCommandItem(context, ref, itemId, sources, groupId: groupId);
+          }
+        },
+        onReorder: (oldIndex, newIndex) {
+            // Reordering logic here needs to be aware of its list
+            // For now, this is disabled as moving is handled by the menu
+        },
+      );
+  }
+
+  Widget _buildCommandItem(BuildContext context, WidgetRef ref, String commandId, Set<String> sources, {String? groupId}) {
     final notifier = ref.read(commandProvider.notifier);
-    // CORRECTED: Provide the source plugin to get the command.
-    // Since this is for display only, picking the first source is safe.
     final command = notifier.getCommand(commandId, sources.first);
-
-    if (command == null) {
-      return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
-    }
-
+    if (command == null) return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
     return ListTile(
       key: ValueKey(commandId),
       leading: command.icon,
@@ -193,44 +181,142 @@ class CommandSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _handleReorder(
-    WidgetRef ref,
-    CommandPosition position,
-    int oldIndex,
-    int newIndex,
-    List<String> currentOrder,
-  ) {
-    if (oldIndex < newIndex) newIndex--;
-    final item = currentOrder.removeAt(oldIndex);
-    currentOrder.insert(newIndex, item);
-
-    ref.read(commandProvider.notifier).updateOrder(position, currentOrder);
-  }
-
   void _showPositionMenu(BuildContext context, WidgetRef ref, Command command) {
     final notifier = ref.read(commandProvider.notifier);
+    final groups = ref.read(commandProvider).commandGroups.values.toList();
 
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text('Position for ${command.label}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  CommandPosition.values
-                      .map(
-                        (pos) => ListTile(
-                          title: Text(pos.toString().split('.').last),
-                          onTap: () {
-                            notifier.updateCommandPosition(command.id, pos);
-                            Navigator.pop(ctx);
-                          },
-                        ),
-                      )
-                      .toList(),
-            ),
+      builder: (ctx) => AlertDialog(
+        title: Text('Move "${command.label}" to...'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(title: const Text('App Bar'), onTap: () {
+                  notifier.updateCommandPosition(command.id, CommandPosition.appBar);
+                  Navigator.pop(ctx);
+              }),
+              ListTile(title: const Text('Plugin Toolbar'), onTap: () {
+                  notifier.updateCommandPosition(command.id, CommandPosition.pluginToolbar);
+                  Navigator.pop(ctx);
+              }),
+               ...groups.map((group) => ListTile(
+                  leading: group.icon,
+                  title: Text(group.label),
+                  onTap: () {
+                    notifier.updateCommandPosition(command.id, CommandPosition.hidden, targetGroupId: group.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
+              const Divider(),
+              ListTile(title: const Text('Hidden'), onTap: () {
+                notifier.updateCommandPosition(command.id, CommandPosition.hidden);
+                Navigator.pop(ctx);
+              }),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Dialogs ---
+
+class GroupEditorDialog extends StatefulWidget {
+  final WidgetRef ref;
+  final CommandGroup? group;
+  const GroupEditorDialog({super.key, required this.ref, this.group});
+
+  @override
+  State<GroupEditorDialog> createState() => _GroupEditorDialogState();
+}
+
+class _GroupEditorDialogState extends State<GroupEditorDialog> {
+  late final TextEditingController _nameController;
+  late String _selectedIconName;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.group?.label ?? '');
+    _selectedIconName = widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
+  }
+  
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _onConfirm() {
+    final notifier = widget.ref.read(commandProvider.notifier);
+    if (widget.group == null) {
+        notifier.createGroup(name: _nameController.text, iconName: _selectedIconName);
+    } else {
+        notifier.updateGroup(widget.group!.id, newName: _nameController.text, newIconName: _selectedIconName);
+    }
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.group == null ? 'New Command Group' : 'Edit Group'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Group Name'),
+            autofocus: true,
+          ),
+          const SizedBox(height: 20),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CommandIcon.getIcon(_selectedIconName),
+            title: const Text('Group Icon'),
+            trailing: const Icon(Icons.arrow_drop_down),
+            onTap: () async {
+                final String? newIcon = await showDialog(context: context, builder: (_) => const IconPickerDialog());
+                if (newIcon != null) {
+                    setState(() => _selectedIconName = newIcon);
+                }
+            },
+          )
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(onPressed: _onConfirm, child: const Text('Confirm')),
+      ],
+    );
+  }
+}
+
+class IconPickerDialog extends StatelessWidget {
+  const IconPickerDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select an Icon'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: GridView.builder(
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
+          itemCount: CommandIcon.availableIcons.length,
+          itemBuilder: (context, index) {
+              final iconName = CommandIcon.availableIcons.keys.elementAt(index);
+              return IconButton(
+                icon: CommandIcon.getIcon(iconName),
+                onPressed: () => Navigator.of(context).pop(iconName),
+              );
+          },
+        ),
+      ),
     );
   }
 }
