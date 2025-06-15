@@ -88,7 +88,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final group = state.commandGroups[groupId];
     if (group == null) return;
 
-    // CORRECTED: Use Map.of() to preserve the type arguments.
     final newGroups = Map.of(state.commandGroups)..remove(groupId);
     
     // Move commands from the deleted group back to the hidden list
@@ -108,10 +107,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   void updateCommandPosition(String commandId, CommandPosition newPosition,
       {String? targetGroupId}) {
-    // Create mutable copies of state lists
-    final newAppBar = List.from(state.appBarOrder);
-    final newPluginToolbar = List.from(state.pluginToolbarOrder);
-    final newHidden = List.from(state.hiddenOrder);
+    // CORRECTED: Explicitly define the types for the new lists.
+    final newAppBar = List<String>.from(state.appBarOrder);
+    final newPluginToolbar = List<String>.from(state.pluginToolbarOrder);
+    final newHidden = List<String>.from(state.hiddenOrder);
     final newGroups = Map.of(state.commandGroups);
 
     // Remove command from all possible old locations
