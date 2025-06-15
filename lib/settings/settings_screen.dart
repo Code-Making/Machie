@@ -173,7 +173,13 @@ class CommandSettingsScreen extends ConsumerWidget {
     Set<String> sources,
   ) {
     final notifier = ref.read(commandProvider.notifier);
-    final command = notifier.getCommand(commandId)!;
+    // CORRECTED: Provide the source plugin to get the command.
+    // Since this is for display only, picking the first source is safe.
+    final command = notifier.getCommand(commandId, sources.first);
+
+    if (command == null) {
+      return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
+    }
 
     return ListTile(
       key: ValueKey(commandId),
