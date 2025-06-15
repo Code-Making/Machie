@@ -88,7 +88,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final group = state.commandGroups[groupId];
     if (group == null) return;
 
-    final newGroups = Map.from(state.commandGroups)..remove(groupId);
+    // CORRECTED: Use Map.of() to preserve the type arguments.
+    final newGroups = Map.of(state.commandGroups)..remove(groupId);
+    
     // Move commands from the deleted group back to the hidden list
     final newHiddenOrder = [...state.hiddenOrder, ...group.commandIds];
 
@@ -172,7 +174,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
-      // CORRECTED: Explicitly cast the decoded JSON maps
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
         loadedGroups[key] = CommandGroup.fromJson(jsonDecode(value as String) as Map<String,dynamic>);
@@ -180,11 +181,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
     }
 
     // Load Order Lists
-    // CORRECTED: Explicit casting for lists
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     
-    // Now we can calculate the hidden commands based on the ones that have been placed.
     final hidden = prefs.getStringList('command_hidden') ?? _getOrphanedCommands(
         appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups);
 
