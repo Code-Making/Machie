@@ -274,6 +274,7 @@ class RecipeTexPlugin implements EditorPlugin {
               );
               appNotifier.setBottomToolbarOverride(overrideWidget);
             },
+            canExecute: (ref) => ref.read(appNotifierProvider).value?.currentProject?.session.currentTab is RecipeTexTab,
         ),
       ];
 
