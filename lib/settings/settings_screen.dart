@@ -87,18 +87,15 @@ class CommandSettingsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
-        onPressed: () async {
-          await showDialog(
-              context: context, builder: (_) => GroupEditorDialog(ref: ref));
-        },
+        onPressed: () => showDialog(
+            context: context, builder: (_) => GroupEditorDialog(ref: ref)),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 80),
         children: [
           _buildSection(context, ref, 'App Bar', 'appBar', state.appBarOrder),
           _buildSection(context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
-          ...state.commandGroups.values
-              .map((group) => _buildGroupSection(context, ref, group)),
+          ...state.commandGroups.values.map((group) => _buildGroupSection(context, ref, group)),
           _buildSection(context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
         ],
       ),
@@ -117,13 +114,11 @@ class CommandSettingsScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () => showDialog(
-                context: context,
-                builder: (_) => GroupEditorDialog(ref: ref, group: group)),
+                context: context, builder: (_) => GroupEditorDialog(ref: ref, group: group)),
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () =>
-                ref.read(commandProvider.notifier).deleteGroup(group.id),
+            onPressed: () => ref.read(commandProvider.notifier).deleteGroup(group.id),
           ),
         ],
       ),
@@ -131,104 +126,164 @@ class CommandSettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSection(BuildContext context, WidgetRef ref, String title, String listId, List<String> itemIds) {
+  Widget _buildSection(BuildContext context, WidgetRef ref, String title,
+      String listId, List<String> itemIds) {
     return ExpansionTile(
       title: Text(title),
       initiallyExpanded: true,
       children: [_buildReorderableList(context, ref, itemIds, listId: listId)],
     );
   }
-  
-  Widget _buildReorderableList(BuildContext context, WidgetRef ref, List<String> itemIds, {required String listId}) {
-      final state = ref.watch(commandProvider);
-      final notifier = ref.read(commandProvider.notifier);
-      return ReorderableListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: itemIds.length,
-        itemBuilder: (ctx, index) {
-          final itemId = itemIds[index];
-          if (state.commandGroups.containsKey(itemId)) {
+
+  Widget _buildReorderableList(BuildContext context, WidgetRef ref,
+      List<String> itemIds, {required String listId}) {
+    final state = ref.watch(commandProvider);
+    final notifier = ref.read(commandProvider.notifier);
+
+    return Column(
+      children: [
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: itemIds.length,
+          itemBuilder: (ctx, index) {
+            final itemId = itemIds[index];
+            if (state.commandGroups.containsKey(itemId)) {
               final group = state.commandGroups[itemId]!;
-              return ListTile(key: ValueKey(group.id), leading: group.icon, title: Text(group.label),
+              return ListTile(
+                key: ValueKey(group.id),
+                leading: group.icon,
+                title: Text(group.label),
                 trailing: const Icon(Icons.drag_handle),
               );
-          } else {
-             final sources = state.commandSources[itemId];
-             if (sources == null || sources.isEmpty) {
-                 return ListTile(key: ValueKey(itemId), title: Text('Error: Unknown command "$itemId"'));
-             }
-             return _buildCommandItem(context, ref, itemId, sources, currentListId: listId);
-          }
-        },
-        // CORRECTED: Reordering is now fully implemented.
-        onReorder: (oldIndex, newIndex) {
-            if (oldIndex < newIndex) newIndex--;
-            final itemId = itemIds[oldIndex];
-            notifier.moveItem(itemId: itemId, fromListId: listId, toListId: listId, newIndex: newIndex);
-        },
-      );
-  }
-
-  Widget _buildCommandItem(BuildContext context, WidgetRef ref, String commandId, Set<String> sources, {required String currentListId}) {
-    final notifier = ref.read(commandProvider.notifier);
-    final command = notifier.getCommand(commandId, sources.first);
-    if (command == null) return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
-    return ListTile(
-      key: ValueKey(commandId),
-      leading: command.icon,
-      title: Text(command.label),
-      subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
-      trailing: IconButton(
-        icon: const Icon(Icons.more_vert),
-        // CORRECTED: The menu now uses the powerful `moveItem` method.
-        onPressed: () => _showPositionMenu(context, ref, command, currentListId),
-      ),
+            } else {
+              final sources = state.commandSources[itemId];
+              if (sources == null || sources.isEmpty) {
+                return ListTile(key: ValueKey(itemId), title: Text('Error: Unknown command "$itemId"'));
+              }
+              return _buildCommandItem(context, ref, itemId, sources, listId: listId);
+            }
+          },
+          onReorder: (oldIndex, newIndex) {
+            notifier.reorderItemInList(
+                listId: listId, oldIndex: oldIndex, newIndex: newIndex);
+          },
+        ),
+        if (listId != 'hidden')
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Add command to this section',
+                onPressed: () => showDialog(context: context, builder: (_) => AddCommandDialog(ref: ref, toListId: listId)),
+              ),
+            ),
+          )
+      ],
     );
   }
 
-  void _showPositionMenu(BuildContext context, WidgetRef ref, Command command, String fromListId) {
+  Widget _buildCommandItem(BuildContext context, WidgetRef ref,
+      String commandId, Set<String> sources, {required String listId}) {
     final notifier = ref.read(commandProvider.notifier);
-    final groups = ref.read(commandProvider).commandGroups.values.toList();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Move "${command.label}" to...'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(title: const Text('App Bar'), onTap: () {
-                  notifier.moveItem(itemId: command.id, fromListId: fromListId, toListId: 'appBar', newIndex: -1);
-                  Navigator.pop(ctx);
-              }),
-              ListTile(title: const Text('Plugin Toolbar'), onTap: () {
-                  notifier.moveItem(itemId: command.id, fromListId: fromListId, toListId: 'pluginToolbar', newIndex: -1);
-                  Navigator.pop(ctx);
-              }),
-               ...groups.map((group) => ListTile(
-                  leading: group.icon,
-                  title: Text(group.label),
-                  onTap: () {
-                    notifier.moveItem(itemId: command.id, fromListId: fromListId, toListId: group.id, newIndex: -1);
-                    Navigator.pop(ctx);
-                  },
-                )),
-              const Divider(),
-              ListTile(title: const Text('Hidden'), onTap: () {
-                notifier.moveItem(itemId: command.id, fromListId: fromListId, toListId: 'hidden', newIndex: -1);
-                Navigator.pop(ctx);
-              }),
-            ],
-          ),
-        ),
+    final command = notifier.getCommand(commandId, sources.first);
+    if (command == null) return ListTile(key: ValueKey(commandId), title: Text('Error: Unknown command "$commandId"'));
+    
+    return ListTile(
+      key: ValueKey(commandId),
+      leading: const Icon(Icons.drag_handle),
+      title: Row(
+        children: [
+          command.icon,
+          const SizedBox(width: 12),
+          Expanded(child: Text(command.label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+      subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
+      trailing: IconButton(
+        icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
+        tooltip: 'Remove from this list (move to Hidden)',
+        onPressed: () => notifier.removeCommandFromList(itemId: commandId, fromListId: listId),
       ),
     );
   }
 }
 
 // --- Dialogs ---
+
+class AddCommandDialog extends ConsumerStatefulWidget {
+    final WidgetRef ref;
+    final String toListId;
+    const AddCommandDialog({super.key, required this.ref, required this.toListId});
+
+    @override
+    ConsumerState<AddCommandDialog> createState() => _AddCommandDialogState();
+}
+
+class _AddCommandDialogState extends ConsumerState<AddCommandDialog> {
+    final _searchController = TextEditingController();
+    String _query = '';
+
+    @override
+    void initState() {
+        super.initState();
+        _searchController.addListener(() => setState(() => _query = _searchController.text.toLowerCase()));
+    }
+    
+    @override
+    void dispose() {
+        _searchController.dispose();
+        super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+        final notifier = widget.ref.read(commandProvider.notifier);
+        // Get unique commands by ID
+        final allCommands = { for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd }.values.toList();
+        
+        final filteredCommands = allCommands.where((cmd) => cmd.label.toLowerCase().contains(_query)).toList();
+
+        return AlertDialog(
+            title: const Text('Add Command'),
+            content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                        TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(labelText: 'Search commands...'),
+                            autofocus: true,
+                        ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                            child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: filteredCommands.length,
+                                itemBuilder: (context, index) {
+                                    final command = filteredCommands[index];
+                                    return ListTile(
+                                        leading: command.icon,
+                                        title: Text(command.label),
+                                        subtitle: Text(command.sourcePlugin),
+                                        onTap: () {
+                                            notifier.addCommandToList(itemId: command.id, toListId: widget.toListId);
+                                            Navigator.of(context).pop();
+                                        },
+                                    );
+                                },
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        );
+    }
+}
+
 
 class GroupEditorDialog extends StatefulWidget {
   final WidgetRef ref;

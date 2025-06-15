@@ -92,34 +92,17 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   // --- Command Positioning ---
 
-  // NEW: A single, powerful method to move commands and groups between any list.
-  void moveItem(
-      {required String itemId,
-      required String fromListId,
-      required String toListId,
-      required int newIndex}) {
-    // Get mutable copies of all lists
-    final lists = {
+  Map<String, List<String>> _getMutableLists() {
+    return {
       'appBar': List<String>.from(state.appBarOrder),
       'pluginToolbar': List<String>.from(state.pluginToolbarOrder),
       'hidden': List<String>.from(state.hiddenOrder),
-      ...state.commandGroups
-          .map((id, group) => MapEntry(id, List<String>.from(group.commandIds)))
+      ...state.commandGroups.map(
+          (id, group) => MapEntry(id, List<String>.from(group.commandIds)))
     };
+  }
 
-    // Remove from the old list
-    lists[fromListId]?.remove(itemId);
-    
-    // Add to the new list at the correct index
-    final targetList = lists[toListId];
-    if (targetList == null) return;
-    if (newIndex < 0 || newIndex > targetList.length) {
-      targetList.add(itemId);
-    } else {
-      targetList.insert(newIndex, itemId);
-    }
-
-    // Create the final state maps/lists
+  void _updateStateWithLists(Map<String, List<String>> lists) {
     final newGroups = Map.of(state.commandGroups);
     lists.forEach((listId, commands) {
       if (newGroups.containsKey(listId)) {
@@ -134,6 +117,40 @@ class CommandNotifier extends StateNotifier<CommandState> {
       commandGroups: newGroups,
     );
     _saveToPrefs();
+  }
+
+  void reorderItemInList({
+    required String listId,
+    required int oldIndex,
+    required int newIndex,
+  }) {
+    final lists = _getMutableLists();
+    final list = lists[listId];
+    if (list == null) return;
+
+    if (oldIndex < newIndex) newIndex--;
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+    
+    _updateStateWithLists(lists);
+  }
+
+  void removeCommandFromList({
+    required String itemId,
+    required String fromListId,
+  }) {
+     final lists = _getMutableLists();
+     lists[fromListId]?.remove(itemId);
+     lists['hidden']?.add(itemId);
+     _updateStateWithLists(lists);
+  }
+
+  void addCommandToList({required String itemId, required String toListId}) {
+    final lists = _getMutableLists();
+    // A command can be in multiple lists, but not the hidden list.
+    lists['hidden']?.remove(itemId);
+    lists[toListId]?.add(itemId);
+    _updateStateWithLists(lists);
   }
 
   // --- Persistence ---
@@ -151,7 +168,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
@@ -164,13 +180,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
-    
-    // CORRECTED: Load hidden list and then add any new/orphaned commands to it.
     final loadedHidden = prefs.getStringList('command_hidden') ?? [];
     final orphaned = _getOrphanedCommands(
-        appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups);
-
-    // Combine loaded hidden commands with any new ones, avoiding duplicates.
+        appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups, hidden: loadedHidden);
+        
     final finalHidden = {...loadedHidden, ...orphaned}.toList();
 
     state = state.copyWith(
@@ -184,10 +197,12 @@ class CommandNotifier extends StateNotifier<CommandState> {
   List<String> _getOrphanedCommands(
       {required List<String> appBar,
       required List<String> pluginToolbar,
-      required Map<String, CommandGroup> groups}) {
+      required Map<String, CommandGroup> groups,
+      required List<String> hidden}) {
     final placedItemIds = {
       ...appBar,
       ...pluginToolbar,
+      ...hidden,
       ...groups.keys,
       ...groups.values.expand((g) => g.commandIds)
     };
