@@ -3,14 +3,13 @@ import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app_notifier.dart';
 import 'markdown_editor_models.dart';
 import 'markdown_editor_plugin.dart';
 
 class MarkdownEditorWidget extends ConsumerStatefulWidget {
   final MarkdownTab tab;
   final MarkdownEditorPlugin plugin;
-  final AppFlowyEditorState editorState;
+  final EditorState editorState; // CORRECTED: Use the correct `EditorState` class
 
   const MarkdownEditorWidget({
     super.key,
@@ -27,8 +26,6 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   @override
   void initState() {
     super.initState();
-    // Add a listener to notify the plugin of document changes, which in turn
-    // marks the tab as dirty.
     widget.editorState.addListener(_onDocumentChanged);
   }
 
@@ -39,17 +36,26 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   }
 
   void _onDocumentChanged() {
-    // This listener can be used for more than just dirty checking in the future.
     widget.plugin.onDocumentChanged(widget.tab, ref);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppFlowyEditor(
+    // CORRECTED: This now wraps the editor in a MobileToolbarV2 for functionality.
+    return MobileToolbarV2(
+      toolbarItems: [
+        textDecorationMobileToolbarItemV2,
+        buildTextAndBackgroundColorMobileToolbarItem(),
+        blocksMobileToolbarItem,
+      ],
       editorState: widget.editorState,
-      editorStyle: EditorStyle.mobile(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        cursorColor: Theme.of(context).colorScheme.primary,
+      child: AppFlowyEditor(
+        editorState: widget.editorState,
+        // The style is configured directly on the AppFlowyEditor now
+        editorStyle: EditorStyle.mobile(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+        ),
+        blockComponentBuilders: standardBlockComponentBuilderMap,
       ),
     );
   }
