@@ -132,15 +132,28 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void removeItemFromList({required String itemId, required String fromListId}) {
     final lists = _getMutableLists();
     lists[fromListId]?.remove(itemId);
-    if (!state.commandGroups.containsKey(itemId)) {
-      lists['hidden']?.add(itemId);
+    
+    // Check if the item still exists in any other visible list
+    bool isStillPlaced = false;
+    lists.forEach((listId, items) {
+        if (listId != 'hidden' && items.contains(itemId)) {
+            isStillPlaced = true;
+        }
+    });
+
+    // Only add to hidden if it's not placed anywhere else and it's a command
+    if (!isStillPlaced && !state.commandGroups.containsKey(itemId)) {
+        lists['hidden']?.add(itemId);
     }
     _updateStateWithLists(lists);
   }
 
   void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
+    // Adding an item to a visible list means it's no longer just "hidden"
     lists['hidden']?.remove(itemId);
+
+    // Prevent adding duplicates to the *same* list
     if (!(lists[toListId]?.contains(itemId) ?? true)) {
        lists[toListId]?.add(itemId);
     }
@@ -152,8 +165,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList(
-        'command_plugin_toolbar', state.pluginToolbarOrder);
+    await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
     await prefs.setStringList('command_hidden', state.hiddenOrder);
     final encodedGroups = state.commandGroups
         .map((key, value) => MapEntry(key, jsonEncode(value.toJson())));
@@ -184,7 +196,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final cleanToolbar = loadedToolbar.where(allValidItemIds.contains).toList();
     final cleanHidden = loadedHidden.where(allKnownCommandIds.contains).toList();
 
-    // CORRECTED: Ensure commandIds within each group are also sanitized.
     final cleanGroups = loadedGroups.map((id, group) {
       final cleanCommandIds = group.commandIds.where(allKnownCommandIds.contains).toList();
       return MapEntry(id, group.copyWith(commandIds: cleanCommandIds));

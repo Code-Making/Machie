@@ -94,9 +94,12 @@ class CommandSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         children: [
           _buildSection(context, ref, 'App Bar', 'appBar', state.appBarOrder),
-          _buildSection(context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
-          ...state.commandGroups.values.map((group) => _buildGroupSection(context, ref, group)),
-          _buildSection(context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
+          _buildSection(
+              context, ref, 'Plugin Toolbar', 'pluginToolbar', state.pluginToolbarOrder),
+          ...state.commandGroups.values
+              .map((group) => _buildGroupSection(context, ref, group)),
+          _buildSection(
+              context, ref, 'Hidden Commands', 'hidden', state.hiddenOrder),
         ],
       ),
     );
@@ -158,16 +161,12 @@ class CommandSettingsScreen extends ConsumerWidget {
 
             if (state.commandGroups.containsKey(itemId)) {
               final group = state.commandGroups[itemId]!;
-              itemWidget = ListTile(
+              itemWidget = _buildItem(
                 key: ValueKey(group.id),
-                leading: const Icon(Icons.drag_handle),
-                title: Row(children: [group.icon, const SizedBox(width: 12), Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold))]),
-                trailing: listId == 'hidden' ? null : IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                    tooltip: 'Remove from this list',
-                    onPressed: () => notifier.removeItemFromList(itemId: itemId, fromListId: listId),
-                ),
-              );
+                listId: listId,
+                itemId: itemId,
+                title: Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                icon: group.icon);
             } else {
               final sources = state.commandSources[itemId];
               if (sources == null || sources.isEmpty) {
@@ -177,22 +176,18 @@ class CommandSettingsScreen extends ConsumerWidget {
               if (command == null) {
                  return ListTile(key: ValueKey(itemId), title: Text('Error: Command "$itemId" not found'));
               }
-              itemWidget = ListTile(
+              itemWidget = _buildItem(
                 key: ValueKey(command.id),
-                leading: const Icon(Icons.drag_handle),
-                title: Row(children: [command.icon, const SizedBox(width: 12), Expanded(child: Text(command.label, overflow: TextOverflow.ellipsis))]),
-                subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
-                trailing: listId == 'hidden' ? null : IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                    tooltip: 'Remove from this list',
-                    onPressed: () => notifier.removeItemFromList(itemId: command.id, fromListId: listId),
-                ),
-              );
+                listId: listId,
+                itemId: command.id,
+                title: Text(command.label),
+                icon: command.icon);
             }
             return itemWidget;
           },
           onReorder: (oldIndex, newIndex) {
-            notifier.reorderItemInList(listId: listId, oldIndex: oldIndex, newIndex: newIndex);
+            notifier.reorderItemInList(
+                listId: listId, oldIndex: oldIndex, newIndex: newIndex);
           },
         ),
         if (listId != 'hidden')
@@ -211,6 +206,31 @@ class CommandSettingsScreen extends ConsumerWidget {
             ),
           )
       ],
+    );
+  }
+  
+  Widget _buildItem({required Key key, required String listId, required String itemId, required Widget title, required Widget icon}) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final notifier = ref.read(commandProvider.notifier);
+        return ListTile(
+          key: key,
+          leading: const Icon(Icons.drag_handle),
+          title: Row(
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(child: title),
+            ],
+          ),
+          trailing: listId == 'hidden' ? null : IconButton(
+            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
+            tooltip: 'Remove from this list',
+            onPressed: () =>
+                notifier.removeItemFromList(itemId: itemId, fromListId: listId),
+          ),
+        );
+      }
     );
   }
 }
@@ -250,17 +270,22 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
         final allCommands = { for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd }.values.toList();
         final allGroups = state.commandGroups.values.toList();
         
-        // Items available to add are those in the "hidden" list (for commands)
-        // or any group that isn't already in the target list
-        final availableCommands = allCommands.where((cmd) => state.hiddenOrder.contains(cmd.id)).toList();
-        final availableGroups = allGroups.where((g) => !state.appBarOrder.contains(g.id) && !state.pluginToolbarOrder.contains(g.id)).toList();
+        final bool isTargetAGroup = state.commandGroups.containsKey(widget.toListId);
 
         final query = _query;
+
+        // CORRECTED: Show all items, but filter out groups if the target is a group.
+        final List<CommandGroup> availableGroups = isTargetAGroup 
+            ? [] // Cannot nest groups
+            : allGroups.where((g) => g.id != widget.toListId).toList(); // Show all other groups
+
+        final List<Command> availableCommands = allCommands;
+
+        final filteredGroups = availableGroups.where((g) => g.label.toLowerCase().contains(query)).toList();
         final filteredCommands = availableCommands.where((cmd) => cmd.label.toLowerCase().contains(query)).toList();
-        final filteredGroups = availableGroups.where((group) => group.label.toLowerCase().contains(query)).toList();
 
         return AlertDialog(
-            title: const Text('Add Item'),
+            title: Text('Add Item to ${state.commandGroups[widget.toListId]?.label ?? widget.toListId}'),
             content: SizedBox(
                 width: double.maxFinite,
                 child: Column(
@@ -288,16 +313,18 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
                                   )),
                                   const Divider(),
                                 ],
-                                const Text('Commands', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ...filteredCommands.map((command) => ListTile(
-                                  leading: command.icon,
-                                  title: Text(command.label),
-                                  subtitle: Text(command.sourcePlugin),
-                                  onTap: () {
-                                      notifier.addItemToList(itemId: command.id, toListId: widget.toListId);
-                                      Navigator.of(context).pop();
-                                  },
-                                )),
+                                if (filteredCommands.isNotEmpty) ...[
+                                  const Text('Commands', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ...filteredCommands.map((command) => ListTile(
+                                    leading: command.icon,
+                                    title: Text(command.label),
+                                    subtitle: Text(command.sourcePlugin),
+                                    onTap: () {
+                                        notifier.addItemToList(itemId: command.id, toListId: widget.toListId);
+                                        Navigator.of(context).pop();
+                                    },
+                                  )),
+                                ]
                               ],
                             ),
                         ),
