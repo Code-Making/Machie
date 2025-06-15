@@ -21,7 +21,12 @@ abstract class FileHandler {
   Future<List<DocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
+  Future<Uint8List> readFileAsBytes(String uri); // NEW METHOD
+
   Future<DocumentFile> writeFile(DocumentFile file, String content);
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes); // NEW METHOD
+
+  
   Future<DocumentFile> createDocumentFile(
     String parentUri,
     String name, {
