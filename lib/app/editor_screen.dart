@@ -6,7 +6,7 @@ import 'package:re_editor/re_editor.dart';
 import 'app_notifier.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
 import '../session/session_models.dart';
-import '../session/tab_state.dart'; // NEW IMPORT
+import '../session/tab_state.dart';
 import '../explorer/file_explorer_drawer.dart';
 import '../utils/logs.dart';
 import '../command/command_widgets.dart';
@@ -27,10 +27,14 @@ class EditorScreen extends ConsumerWidget {
     );
     final currentPlugin = currentTab?.plugin;
     final scaffoldKey = GlobalKey<ScaffoldState>();
+    
+    // NEW: Watch for the app bar override
+    final appBarOverride = ref.watch(appNotifierProvider.select((s) => s.value?.appBarOverride));
 
     return Scaffold(
       key: scaffoldKey,
-      appBar: AppBar(
+      // MODIFIED: Use the override if it exists, otherwise build the default.
+      appBar: appBarOverride ?? AppBar(
         leading: IconButton(
           icon: const Icon(Icons.menu),
           onPressed: () => scaffoldKey.currentState?.openDrawer(),
@@ -41,29 +45,25 @@ class EditorScreen extends ConsumerWidget {
               : const AppBarCommands(),
           IconButton(
             icon: const Icon(Icons.bug_report),
-            onPressed:
-                () => showDialog(
-                  context: context,
-                  builder: (_) => const DebugLogView(),
-                ),
+            onPressed: () => showDialog(context: context, builder: (_) => const DebugLogView()),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
-        title: Text(currentTab?.file.name ?? 'Code Editor'),
+        title: Text(currentTab?.file.name ?? 'Machine'),
       ),
       drawer: const FileExplorerDrawer(),
       body: Column(
         children: [
           const TabBarView(),
           Expanded(
-            child:
-                currentTab != null
-                    ? const EditorContentSwitcher()
-                    : const Center(child: Text('Open a file to start editing')),
+            child: currentTab != null
+                ? const EditorContentSwitcher()
+                : const Center(child: Text('Open a file to start editing')),
           ),
+          // MODIFIED: The plugin's buildToolbar now correctly returns our BottomToolbar
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
       ),
@@ -71,6 +71,7 @@ class EditorScreen extends ConsumerWidget {
   }
 }
 
+// ... Rest of editor_screen.dart is unchanged ...
 class TabBarView extends ConsumerWidget {
   const TabBarView({super.key});
 
@@ -97,7 +98,6 @@ class TabBarView extends ConsumerWidget {
           key: const PageStorageKey<String>('tabBarScrollPosition'),
           scrollController: scrollController,
           scrollDirection: Axis.horizontal,
-          // CORRECTED: Call the right method
           onReorder:
               (oldIndex, newIndex) => ref
                   .read(appNotifierProvider.notifier)
@@ -129,8 +129,6 @@ class FileTab extends ConsumerWidget {
       appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index),
     );
     
-    // MODIFIED: Watch the new tabStateProvider for the dirty status.
-    // This watch will only rebuild this specific tab widget when its dirty state changes.
     final isDirty = ref.watch(tabStateProvider.select(
       (stateMap) => stateMap[tab.file.uri] ?? false
     ));
@@ -153,7 +151,6 @@ class FileTab extends ConsumerWidget {
                   child: Text(
                     tab.file.name,
                     overflow: TextOverflow.ellipsis,
-                    // MODIFIED: Use the new `isDirty` value.
                     style: TextStyle(
                       color: isDirty ? Colors.orange : Colors.white,
                     ),

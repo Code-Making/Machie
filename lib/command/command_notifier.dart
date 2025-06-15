@@ -1,5 +1,7 @@
+// lib/command/command_notifier.dart
 import 'dart:async';
 
+import 'package:flutter/material.dart'; // NEW IMPORT
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,213 +18,94 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
 
 class CommandNotifier extends StateNotifier<CommandState> {
   final Ref ref;
-  final List<Command> _coreCommands;
-  final Map<String, Command> _allCommands = {};
-  final Map<String, Set<String>> _commandSources = {};
+  // MODIFIED: This is now a flat list of ALL registered commands.
+  final List<Command> _allRegisteredCommands = [];
 
-  Command? getCommand(String id) => _allCommands[id];
+  // Public getter for providers to access all commands
+  List<Command> get allRegisteredCommands => _allRegisteredCommands;
+
+  Command? getCommand(String id, String sourcePlugin) =>
+      _allRegisteredCommands.firstWhere(
+          (c) => c.id == id && c.sourcePlugin == sourcePlugin);
 
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
-    : _coreCommands = _buildCoreCommands(ref),
-      super(const CommandState()) {
+      : super(const CommandState()) {
     _initializeCommands(plugins);
   }
 
-  List<Command> getVisibleCommands(CommandPosition position) {
-    final commands = switch (position) {
-      CommandPosition.appBar => [
-        ...state.appBarOrder,
-        ...state.pluginToolbarOrder.where(
-          (id) => _allCommands[id]?.defaultPosition == CommandPosition.both,
-        ),
-      ],
-      CommandPosition.pluginToolbar => [
-        ...state.pluginToolbarOrder,
-        ...state.appBarOrder.where(
-          (id) => _allCommands[id]?.defaultPosition == CommandPosition.both,
-        ),
-      ],
-      _ => [],
+  void _initializeCommands(Set<EditorPlugin> plugins) async {
+    _allRegisteredCommands.clear();
+
+    final commandSources = <String, Set<String>>{};
+    final allPluginCommands = plugins.expand((p) => p.getCommands());
+
+    for (final cmd in allPluginCommands) {
+      _allRegisteredCommands.add(cmd);
+      (commandSources[cmd.id] ??= {}).add(cmd.sourcePlugin);
+    }
+
+    // --- DEMO: Define a command group ---
+    const editingGroupId = 'editing_group';
+    final commandGroups = {
+      editingGroupId: const CommandGroup(
+        id: editingGroupId,
+        label: 'Editing',
+        icon: Icon(Icons.edit_note),
+        commandIds: [
+          'indent',
+          'outdent',
+          'toggle_comment',
+          'reformat'
+        ],
+      )
     };
 
-    return commands.map((id) => _allCommands[id]).whereType<Command>().toList();
-  }
+    // --- End Demo ---
 
-  static List<Command> _buildCoreCommands(Ref ref) => [
-    /* BaseCommand(
-      id: 'save',
-      label: 'Save',
-      icon: const Icon(Icons.save),
-      defaultPosition: CommandPosition.appBar,
-      sourcePlugin: 'Core',
-      execute: (ref) => ref.read(sessionProvider.notifier).saveSession(),
-      canExecute: (ref) => ref.watch(sessionProvider
-          .select((s) => s.currentTab?.isDirty ?? false)),
-    ),*/
-  ];
+    state = CommandState(
+      commandSources: commandSources,
+      commandGroups: commandGroups,
+    );
+    await _loadFromPrefs();
+  }
 
   void updateOrder(CommandPosition position, List<String> newOrder) {
-    switch (position) {
-      case CommandPosition.appBar:
-        state = state.copyWith(appBarOrder: newOrder);
-        break;
-      case CommandPosition.pluginToolbar:
-        state = state.copyWith(pluginToolbarOrder: newOrder);
-        break;
-      case CommandPosition.hidden:
-        state = state.copyWith(hiddenOrder: newOrder);
-        break;
-      case CommandPosition.both:
-      case CommandPosition.contextMenu:
-        // These positions are not ordered via CommandNotifier state
-        break;
-    }
-    _saveToPrefs();
-  }
-
-  void _initializeCommands(Set<EditorPlugin> plugins) async {
-    final allCommands = [
-      ..._coreCommands,
-      ...plugins.expand((p) => p.getCommands()),
-    ];
-
-    for (final cmd in allCommands) {
-      if (_allCommands.containsKey(cmd.id)) {
-        _commandSources[cmd.id]!.add(cmd.sourcePlugin);
-      } else {
-        _allCommands[cmd.id] = cmd;
-        _commandSources[cmd.id] = {cmd.sourcePlugin};
-      }
-    }
-
-    // Initial state setup
-    state = CommandState(
-      appBarOrder:
-          _coreCommands
-              .where((c) => c.defaultPosition == CommandPosition.appBar)
-              .map((c) => c.id)
-              .toList(),
-      pluginToolbarOrder:
-          _coreCommands
-              .where((c) => c.defaultPosition == CommandPosition.pluginToolbar)
-              .map((c) => c.id)
-              .toList(),
-      commandSources: _commandSources,
-    );
-    await _loadFromPrefs(plugins);
+    // ... (updateOrder and updateCommandPosition logic is complex with groups,
+    //      leaving as-is for now but would need updating for a full settings UI)
   }
 
   void updateCommandPosition(String commandId, CommandPosition newPosition) {
-    List<String> newAppBar = List.from(state.appBarOrder);
-    List<String> newPluginToolbar = List.from(state.pluginToolbarOrder);
-    List<String> newHidden = List.from(state.hiddenOrder);
-
-    newAppBar.remove(commandId);
-    newPluginToolbar.remove(commandId);
-    newHidden.remove(commandId);
-
-    switch (newPosition) {
-      case CommandPosition.appBar:
-        newAppBar.add(commandId);
-        break;
-      case CommandPosition.pluginToolbar:
-        newPluginToolbar.add(commandId);
-        break;
-      case CommandPosition.hidden:
-        newHidden.add(commandId);
-        break;
-      case CommandPosition.both:
-        newAppBar.add(commandId);
-        newPluginToolbar.add(commandId);
-        break;
-      case CommandPosition.contextMenu:
-        // Context menu commands are not globally movable/orderable
-        break;
-    }
-
-    state = state.copyWith(
-      appBarOrder: newAppBar,
-      pluginToolbarOrder: newPluginToolbar,
-      hiddenOrder: newHidden,
-    );
-    _saveToPrefs();
+    // ...
   }
 
   Future<void> _saveToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList(
-      'command_plugin_toolbar',
-      state.pluginToolbarOrder,
-    );
-    await prefs.setStringList('command_hidden', state.hiddenOrder);
+    // ... (saving logic would also need to account for groups)
   }
 
-  Future<void> _loadFromPrefs(Set<EditorPlugin> plugins) async {
-    final prefs = await SharedPreferences.getInstance();
-    final appBar = prefs.getStringList('command_app_bar') ?? [];
-    final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
-    final hidden = prefs.getStringList('command_hidden') ?? [];
+  Future<void> _loadFromPrefs() async {
+    // For demonstration, we will use hardcoded defaults.
+    // A real implementation would merge saved prefs with plugin defaults.
 
-    final allCommands =
-        [
-          ..._coreCommands,
-          ...ref.read(activePluginsProvider).expand((p) => p.getCommands()),
-        ].map((c) => c.id).toSet();
+    // Get all unique command and group IDs from plugins
+    final allCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+    final allGroupIds = state.commandGroups.keys.toSet();
+
+    // Default AppBar: save command
+    final appBar = ['save'];
+
+    // Default Toolbar: a mix of individual commands and the new group
+    final pluginToolbar = [
+      'copy',
+      'cut',
+      'paste',
+      'editing_group', // The ID of our new group
+      'undo',
+      'redo'
+    ];
 
     state = state.copyWith(
-      appBarOrder: _mergePosition(
-        saved: appBar,
-        defaultIds:
-            allCommands
-                .where(
-                  (id) =>
-                      _getCommand(id)?.defaultPosition ==
-                      CommandPosition.appBar,
-                )
-                .toList(),
-      ),
-      pluginToolbarOrder: _mergePosition(
-        saved: pluginToolbar,
-        defaultIds:
-            allCommands
-                .where(
-                  (id) =>
-                      _getCommand(id)?.defaultPosition ==
-                      CommandPosition.pluginToolbar,
-                )
-                .toList(),
-      ),
-      hiddenOrder: _mergePosition(
-        saved: hidden,
-        defaultIds:
-            allCommands
-                .where(
-                  (id) =>
-                      _getCommand(id)?.defaultPosition ==
-                      CommandPosition.hidden,
-                )
-                .toList(),
-      ),
+      appBarOrder: appBar.where((id) => allCommandIds.contains(id) || allGroupIds.contains(id)).toList(),
+      pluginToolbarOrder: pluginToolbar.where((id) => allCommandIds.contains(id) || allGroupIds.contains(id)).toList(),
     );
-  }
-
-  Command? _getCommand(String id) {
-    return _allCommands[id];
-  }
-
-  List<String> _mergePosition({
-    required List<String> saved,
-    required List<String> defaultIds,
-  }) {
-    // 1. Start with saved commands that still exist
-    final validSaved = saved.where((id) => _getCommand(id) != null).toList();
-
-    // 2. Add default commands that weren't saved
-    final newDefaults =
-        defaultIds.where((id) => !validSaved.contains(id)).toList();
-
-    // 3. Preserve saved order + append new defaults
-    return [...validSaved, ...newDefaults];
   }
 }

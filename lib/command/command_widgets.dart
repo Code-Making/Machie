@@ -1,3 +1,5 @@
+// lib/command/command_widgets.dart
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,55 +8,67 @@ import '../app/app_notifier.dart';
 import 'command_models.dart';
 import 'command_notifier.dart';
 
-final appBarCommandsProvider = Provider<List<Command>>((ref) {
-  final state = ref.watch(commandProvider);
+// This provider now resolves the correct, context-specific commands for the app bar.
+final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
+  final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  // CORRECTED: Watch the new AppNotifier for the current plugin type
-  final currentPlugin = ref.watch(
-    appNotifierProvider.select(
-      (s) =>
-          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
-              .toString(),
-    ),
+  final currentPluginName = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
   );
 
-  return [
-        ...state.appBarOrder,
-        ...state.pluginToolbarOrder.where(
-          (id) =>
-              notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-        ),
-      ]
-      .map((id) => notifier.getCommand(id))
-      .where((cmd) => _shouldShowCommand(cmd!, currentPlugin))
-      .whereType<Command>()
-      .toList();
+  final visibleItems = <dynamic>[];
+  final order = commandState.appBarOrder;
+
+  for (final id in order) {
+    // Is it a group?
+    if (commandState.commandGroups.containsKey(id)) {
+      visibleItems.add(commandState.commandGroups[id]!);
+      continue;
+    }
+
+    // Find the command for the current plugin context
+    final command = notifier.allRegisteredCommands.firstWhereOrNull(
+      (c) => c.id == id && c.sourcePlugin == currentPluginName,
+    );
+
+    if (command != null) {
+      visibleItems.add(command);
+    }
+    // In a more complex system, you might add a fallback to a 'Core' command here.
+  }
+  return visibleItems;
 });
 
-final pluginToolbarCommandsProvider = Provider<List<Command>>((ref) {
-  final state = ref.watch(commandProvider);
+// This provider does the same for the plugin toolbar.
+final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
+  final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  // CORRECTED: Watch the new AppNotifier
-  final currentPlugin = ref.watch(
-    appNotifierProvider.select(
-      (s) =>
-          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
-              .toString(),
-    ),
+  final currentPluginName = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
   );
 
-  return [
-        ...state.pluginToolbarOrder,
-        ...state.appBarOrder.where(
-          (id) =>
-              notifier.getCommand(id)?.defaultPosition == CommandPosition.both,
-        ),
-      ]
-      .map((id) => notifier.getCommand(id))
-      .whereType<Command>()
-      .where((cmd) => _shouldShowCommand(cmd, currentPlugin))
-      .toList();
+  final visibleItems = <dynamic>[];
+  final order = commandState.pluginToolbarOrder;
+
+  for (final id in order) {
+    // Is it a group?
+    if (commandState.commandGroups.containsKey(id)) {
+      visibleItems.add(commandState.commandGroups[id]!);
+      continue;
+    }
+
+    // Find the command for the current plugin context
+    final command = notifier.allRegisteredCommands.firstWhereOrNull(
+      (c) => c.id == id && c.sourcePlugin == currentPluginName,
+    );
+
+     if (command != null) {
+      visibleItems.add(command);
+    }
+  }
+  return visibleItems;
 });
+
 
 final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
@@ -64,22 +78,23 @@ final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
 //   Toolbar Widgets
 // --------------------
 
-bool _shouldShowCommand(Command cmd, String? currentPlugin) {
-  // Always show core commands
-  if (cmd.sourcePlugin == 'Core') return true;
-  // Show plugin-specific commands only when their plugin is active
-  return cmd.sourcePlugin == currentPlugin;
-}
-
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final commands = ref.watch(appBarCommandsProvider);
+    final items = ref.watch(appBarCommandsProvider);
 
     return Row(
-      children: commands.map((cmd) => CommandButton(command: cmd)).toList(),
+      children: items.map((item) {
+        if (item is Command) {
+          return CommandButton(command: item);
+        }
+        if (item is CommandGroup) {
+          return CommandGroupButton(commandGroup: item);
+        }
+        return const SizedBox.shrink();
+      }).toList(),
     );
   }
 }
@@ -89,8 +104,14 @@ class BottomToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // NEW: Check for toolbar override
+    final override = ref.watch(appNotifierProvider.select((s) => s.value?.bottomToolbarOverride));
+    if (override != null) {
+      return override;
+    }
+
     final scrollController = ref.watch(bottomToolbarScrollProvider);
-    final commands = ref.watch(pluginToolbarCommandsProvider);
+    final items = ref.watch(pluginToolbarCommandsProvider);
 
     return Container(
       height: 48,
@@ -99,10 +120,17 @@ class BottomToolbar extends ConsumerWidget {
         key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
         controller: scrollController,
         scrollDirection: Axis.horizontal,
-        itemCount: commands.length,
-        itemBuilder:
-            (context, index) =>
-                CommandButton(command: commands[index], showLabel: true),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          if (item is Command) {
+            return CommandButton(command: item, showLabel: false);
+          }
+          if (item is CommandGroup) {
+            return CommandGroupButton(commandGroup: item);
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
@@ -122,10 +150,69 @@ class CommandButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isEnabled = command.canExecute(ref);
 
+    if (showLabel) {
+      return TextButton.icon(
+        icon: command.icon,
+        label: Text(command.label),
+        onPressed: isEnabled ? () => command.execute(ref) : null,
+      );
+    }
+
     return IconButton(
       icon: command.icon,
       onPressed: isEnabled ? () => command.execute(ref) : null,
-      tooltip: showLabel ? null : command.label,
+      tooltip: command.label,
+    );
+  }
+}
+
+// NEW WIDGET: A dropdown button for command groups.
+class CommandGroupButton extends ConsumerWidget {
+  final CommandGroup commandGroup;
+
+  const CommandGroupButton({super.key, required this.commandGroup});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(commandProvider.notifier);
+    final currentPluginName = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+  );
+
+    // Get the actual command objects from the group's command IDs
+    final commandsInGroup = commandGroup.commandIds
+        .map((id) => notifier.allRegisteredCommands.firstWhereOrNull(
+              (c) => c.id == id && c.sourcePlugin == currentPluginName,
+            ))
+        .whereType<Command>()
+        .toList();
+
+    // Don't show the dropdown if no commands in the group are active for this context
+    if (commandsInGroup.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return PopupMenuButton<Command>(
+      icon: commandGroup.icon,
+      tooltip: commandGroup.label,
+      onSelected: (Command command) {
+        command.execute(ref);
+      },
+      itemBuilder: (BuildContext context) {
+        return commandsInGroup.map((command) {
+          return PopupMenuItem<Command>(
+            value: command,
+            enabled: command.canExecute(ref),
+            child: Row(
+              children: [
+                command.icon,
+                const SizedBox(width: 12),
+                Text(command.label),
+              ],
+            ),
+          );
+        }).toList();
+      },
     );
   }
 }

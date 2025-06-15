@@ -8,15 +8,19 @@ class AppState {
   final List<ProjectMetadata> knownProjects;
   final String? lastOpenedProjectId;
   final Project? currentProject;
-
-  // NEW: State for the current project, to be saved in SharedPreferences.
   final Map<String, dynamic>? currentProjectState;
+
+  // NEW: Toolbar override properties
+  final Widget? appBarOverride;
+  final Widget? bottomToolbarOverride;
 
   const AppState({
     this.knownProjects = const [],
     this.lastOpenedProjectId,
     this.currentProject,
-    this.currentProjectState, // NEW
+    this.currentProjectState,
+    this.appBarOverride,
+    this.bottomToolbarOverride,
   });
 
   factory AppState.initial() => const AppState();
@@ -26,17 +30,21 @@ class AppState {
     String? lastOpenedProjectId,
     Project? currentProject,
     bool clearCurrentProject = false,
-    // MODIFIED: Add project state to copyWith
     Map<String, dynamic>? currentProjectState,
+    // NEW: Add overrides to copyWith
+    Widget? appBarOverride,
+    Widget? bottomToolbarOverride,
+    bool clearAppBarOverride = false,
+    bool clearBottomToolbarOverride = false,
   }) {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
       currentProject: clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      // If we clear the project, clear its state too.
-      currentProjectState: clearCurrentProject
-          ? null
-          : (currentProjectState ?? this.currentProjectState),
+      currentProjectState: clearCurrentProject ? null : (currentProjectState ?? this.currentProjectState),
+      // NEW: Handle override updates
+      appBarOverride: clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
+      bottomToolbarOverride: clearBottomToolbarOverride ? null : bottomToolbarOverride ?? this.bottomToolbarOverride,
     );
   }
 
@@ -45,7 +53,6 @@ class AppState {
       'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
       'lastOpenedProjectId': lastOpenedProjectId,
     };
-    // NEW: If there's a current project, serialize its state.
     if (currentProject != null) {
       json['currentProjectState'] = currentProject!.toJson();
     }
@@ -58,14 +65,12 @@ class AppState {
           .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
           .toList(),
       lastOpenedProjectId: json['lastOpenedProjectId'],
-      // NEW: Store the raw JSON. The AppNotifier will use this to rehydrate the project.
       currentProjectState: json['currentProjectState'] != null
           ? Map<String, dynamic>.from(json['currentProjectState'])
           : null,
     );
   }
 
-  // ... (operator== and hashCode updated)
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -76,7 +81,9 @@ class AppState {
         listEquals(other.knownProjects, knownProjects) &&
         other.lastOpenedProjectId == lastOpenedProjectId &&
         other.currentProject == currentProject &&
-        mapEquals(other.currentProjectState, currentProjectState);
+        mapEquals(other.currentProjectState, currentProjectState) &&
+        other.appBarOverride == appBarOverride && // NEW
+        other.bottomToolbarOverride == bottomToolbarOverride; // NEW
   }
 
   @override
@@ -85,5 +92,7 @@ class AppState {
         lastOpenedProjectId,
         currentProject,
         const DeepCollectionEquality().hash(currentProjectState),
+        appBarOverride, // NEW
+        bottomToolbarOverride, // NEW
       );
 }
