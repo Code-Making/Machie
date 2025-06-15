@@ -12,9 +12,7 @@ class MarkdownTab extends EditorTab {
 
   @override
   void dispose() {}
-
-  // CORRECTED: Implemented the missing `toJson` method.
-  // This is essential for saving the session state.
+  
   @override
   Map<String, dynamic> toJson() => {
         'type': 'markdown',
