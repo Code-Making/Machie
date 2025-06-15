@@ -6,7 +6,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../plugin_models.dart';
 
-// The "cold" data handle for a tab. Contains no mutable state.
 @immutable
 class GlitchEditorTab extends EditorTab {
   const GlitchEditorTab({
@@ -36,14 +35,13 @@ class GlitchEditorTab extends EditorTab {
       };
 }
 
-// ... rest of file is unchanged
 enum GlitchBrushType { scatter, repeater }
 
 class GlitchBrushSettings {
   GlitchBrushType type;
   double radius;
-  double density; // For scatter brush
-  int repeatSpacing; // For repeater brush
+  double density;
+  int repeatSpacing;
 
   GlitchBrushSettings({
     this.type = GlitchBrushType.scatter,

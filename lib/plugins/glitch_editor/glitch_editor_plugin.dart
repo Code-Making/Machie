@@ -17,7 +17,6 @@ import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
 
-// Private "hot" state for each tab.
 class _GlitchTabState {
   ui.Image image;
   final ui.Image originalImage;
@@ -48,7 +47,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
   
-  // CORRECTED: Added missing interface method implementation.
   @override
   Future<void> dispose() async {
      _tabStates.values.forEach((state) {
@@ -60,15 +58,17 @@ class GlitchEditorPlugin implements EditorPlugin {
      _tabStates.clear();
   }
 
-  // CORRECTED: Added missing interface method implementation.
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
-    // We need a ref to get the FileHandler. We assume this method is called
-    // from a context where a ref is available, like AppNotifier.
-    final handler = ProviderScope.containerOf(this as GlitchEditorPlugin).read(appNotifierProvider).value!.currentProject!.fileHandler;
+    throw UnimplementedError('GlitchEditorPlugin uses createTabWithRef instead.');
+  }
+  
+  // Use a custom createTab that takes a ref to access the FileHandler
+  Future<EditorTab> createTabWithRef(DocumentFile file, WidgetRef ref) async {
+    final handler = ref.read(appNotifierProvider).value!.currentProject!.fileHandler;
     
     final fileBytes = await handler.readFileAsBytes(file.uri);
     final codec = await ui.instantiateImageCodec(fileBytes);
@@ -82,9 +82,9 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   Future<EditorTab> createTabFromSerialization(
       Map<String, dynamic> tabJson, FileHandler fileHandler) async {
-    final file = await fileHandler.getFileMetadata(tabJson['fileUri']);
-    if (file == null) throw Exception('File not found: ${tabJson['fileUri']}');
-    return createTab(file, '');
+    // This needs a proper way to get a ref if called during startup.
+    // For now, we assume it's not supported for this simple plugin.
+    throw UnimplementedError("Serialization not supported for Glitch Editor yet.");
   }
 
   @override
@@ -123,6 +123,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   
   ui.Image? applyGlitchEffect({required GlitchEditorTab tab, required Offset position, required WidgetRef ref}) {
     final state = _tabStates[tab.file.uri];
+    // CORRECTED: Pass ref to get settings.
     final settings = ref.read(brushSettingsProvider);
     if (state == null) return null;
 
@@ -235,10 +236,4 @@ class GlitchEditorPlugin implements EditorPlugin {
   void activateTab(EditorTab tab, Ref ref) {}
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
-}
-
-// Global ref for the plugin to access providers.
-// This is a necessary evil when methods are called from outside the widget tree.
-extension GlitchEditorPluginRef on GlitchEditorPlugin {
-    Ref get ref => ProviderScope.containerOf(this as GlitchEditorPlugin).read(appNotifierProvider).ref;
 }
