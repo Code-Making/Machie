@@ -1,4 +1,6 @@
 // lib/app/app_notifier.dart
+import 'dart:typed_data'; // NEW IMPORT
+
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
