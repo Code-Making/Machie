@@ -21,7 +21,6 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 }
 
 class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
-  // Local UI state, doesn't need to be in a provider
   ui.Image? _currentImage;
 
   @override
@@ -33,7 +32,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   @override
   void didUpdateWidget(covariant GlitchEditorWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sync the local image when an undo/redo happens
     final newImage = widget.plugin.getImageForTab(widget.tab);
     if (newImage != _currentImage) {
       setState(() {
@@ -47,9 +45,11 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
+    // CORRECTED: Pass the ref to the plugin method.
     final newImage = widget.plugin.applyGlitchEffect(
       tab: widget.tab,
       position: details.localPosition,
+      ref: ref,
     );
     if (newImage != _currentImage) {
       setState(() {
@@ -59,6 +59,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // CORRECTED: Pass the ref to the plugin method.
     widget.plugin.endGlitchStroke(widget.tab, ref);
   }
 

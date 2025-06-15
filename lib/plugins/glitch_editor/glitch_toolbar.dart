@@ -11,7 +11,6 @@ class GlitchToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the provider on the plugin to get the current settings
     final settings = ref.watch(plugin.brushSettingsProvider);
 
     return Container(
@@ -31,7 +30,8 @@ class GlitchToolbar extends ConsumerWidget {
                   child: Text(type.name),
                 )).toList(),
                 onChanged: (value) {
-                  if (value != null) plugin.updateBrushSettings(settings.copyWith(type: value));
+                  // CORRECTED: Pass the ref to the plugin method.
+                  if (value != null) plugin.updateBrushSettings(settings.copyWith(type: value), ref);
                 },
               ),
             ],
@@ -44,7 +44,8 @@ class GlitchToolbar extends ConsumerWidget {
                   value: settings.radius,
                   min: 5,
                   max: 100,
-                  onChanged: (value) => plugin.updateBrushSettings(settings.copyWith(radius: value)),
+                  // CORRECTED: Pass the ref to the plugin method.
+                  onChanged: (value) => plugin.updateBrushSettings(settings.copyWith(radius: value), ref),
                 ),
               ),
             ],
