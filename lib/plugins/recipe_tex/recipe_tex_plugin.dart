@@ -200,7 +200,7 @@ class RecipeTexPlugin implements EditorPlugin {
             icon: const Icon(Icons.undo),
             defaultPosition: CommandPosition.pluginToolbar,
             sourcePlugin: runtimeType.toString(),
-            execute: (ref) {
+            execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
               if (tab == null) return;
@@ -225,7 +225,7 @@ class RecipeTexPlugin implements EditorPlugin {
             icon: const Icon(Icons.redo),
             defaultPosition: CommandPosition.pluginToolbar,
             sourcePlugin: runtimeType.toString(),
-            execute: (ref) {
+            execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
               if (tab == null) return;
@@ -251,7 +251,7 @@ class RecipeTexPlugin implements EditorPlugin {
             icon: const Icon(Icons.star),
             defaultPosition: CommandPosition.pluginToolbar,
             sourcePlugin: runtimeType.toString(),
-            execute: (ref) {
+            execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final overrideWidget = Container(
                 height: 48,
