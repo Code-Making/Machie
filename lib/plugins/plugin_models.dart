@@ -1,6 +1,7 @@
 // lib/plugins/plugin_architecture.dart
 
 import 'dart:async';
+import 'dart:typed_data'; // NEW IMPORT
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,9 @@ import '../data/file_handler/file_handler.dart';
 import '../command/command_models.dart';
 import '../session/session_models.dart';
 
+// NEW: Enum to declare what kind of data the plugin expects.
+enum PluginDataRequirement { string, bytes }
+
 // --------------------
 //   Editor Plugin
 // --------------------
@@ -16,19 +20,22 @@ import '../session/session_models.dart';
 abstract class EditorPlugin {
   String get name;
   Widget get icon;
+  
+  // NEW: Property to declare data needs. Defaults to string for backward compatibility.
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
+
   List<Command> getCommands();
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
   bool supportsFile(DocumentFile file);
 
-  Future<EditorTab> createTab(DocumentFile file, String content);
+  // MODIFIED: `data` is now `dynamic` to accept String or Uint8List.
+  Future<EditorTab> createTab(DocumentFile file, dynamic data);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
-  // CORRECTED: Signature now uses the more generic `Ref`
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
-
-  // NEW: Added a method to clean up resources for a specific tab.
+  
   void disposeTab(EditorTab tab) {}
 
   PluginSettings? get settings;
