@@ -1,5 +1,7 @@
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
+import 'dart:math'; // NEW IMPORT
 import 'dart:ui' as ui;
+import 'package:collection/collection.dart'; // NEW IMPORT
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,8 +30,8 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   @override
   void didUpdateWidget(covariant GlitchEditorWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the tab instance changes (due to reset), clear the live stroke
-    // to force the painter to redraw with the new base image.
+    // If the tab instance changes (e.g. undo/redo), force a repaint
+    // by clearing the local state. The painter will get the new base image.
     if (widget.tab != oldWidget.tab) {
       setState(() {
         _liveStrokePoints = [];
@@ -59,8 +61,8 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       settings: _liveBrushSettings!,
       ref: ref,
     );
-    // The plugin will notify AppNotifier, which triggers didUpdateWidget,
-    // which will clear the live stroke.
+    // The plugin will call updateCurrentTab, triggering didUpdateWidget and
+    // clearing the live stroke.
   }
 
   @override
@@ -154,6 +156,7 @@ class _ImagePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ImagePainter oldDelegate) {
+    // Repaint if the base image changes (undo/redo) or the live stroke updates.
     return baseImage != oldDelegate.baseImage || !const DeepCollectionEquality().equals(liveStroke, oldDelegate.liveStroke);
   }
 }
