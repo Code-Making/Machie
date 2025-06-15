@@ -18,7 +18,7 @@ class RecipeEditorForm extends ConsumerStatefulWidget {
 }
 
 class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
-  late final RecipeData _initialData;
+  late RecipeData _initialData;
   // Controllers
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
@@ -38,7 +38,6 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     super.initState();
     final recipeData = widget.plugin.getDataForTab(widget.tab);
     if (recipeData == null) {
-      // This should not happen if the plugin logic is correct
       _initialData = RecipeData();
     } else {
       _initialData = recipeData;
@@ -77,17 +76,22 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     ]).toList();
   }
   
-  void _syncControllersWithData(RecipeData data) {
-    void sync(TextEditingController ctrl, String text) {
-      if (ctrl.text != text) ctrl.text = text;
+  // CORRECTED: Helper method is now at the class level.
+  void _syncCtrl(TextEditingController ctrl, String text) {
+    if (ctrl.text != text) {
+      ctrl.text = text;
     }
-    sync(_titleController, data.title);
-    sync(_acidRefluxScoreController, data.acidRefluxScore.toString());
-    sync(_acidRefluxReasonController, data.acidRefluxReason);
-    sync(_prepTimeController, data.prepTime);
-    sync(_cookTimeController, data.cookTime);
-    sync(_portionsController, data.portions);
-    sync(_notesController, data.notes);
+  }
+
+  void _syncControllersWithData(RecipeData data) {
+    // CORRECTED: Use the class-level helper method.
+    _syncCtrl(_titleController, data.title);
+    _syncCtrl(_acidRefluxScoreController, data.acidRefluxScore.toString());
+    _syncCtrl(_acidRefluxReasonController, data.acidRefluxReason);
+    _syncCtrl(_prepTimeController, data.prepTime);
+    _syncCtrl(_cookTimeController, data.cookTime);
+    _syncCtrl(_portionsController, data.portions);
+    _syncCtrl(_notesController, data.notes);
     
     // Sync lists
     _syncListControllers(_ingredientControllers, data.ingredients.length, 3, (i) => data.ingredients[i]);
@@ -107,12 +111,13 @@ class _RecipeEditorFormState extends ConsumerState<RecipeEditorForm> {
     for (int i = 0; i < requiredLength; i++) {
         final model = getModel(i);
         if (model is Ingredient) {
-            sync(controllers[i][0], model.quantity);
-            sync(controllers[i][1], model.unit);
-            sync(controllers[i][2], model.name);
+            // CORRECTED: Use the class-level helper method.
+            _syncCtrl(controllers[i][0], model.quantity);
+            _syncCtrl(controllers[i][1], model.unit);
+            _syncCtrl(controllers[i][2], model.name);
         } else if (model is InstructionStep) {
-            sync(controllers[i][0], model.title);
-            sync(controllers[i][1], model.content);
+            _syncCtrl(controllers[i][0], model.title);
+            _syncCtrl(controllers[i][1], model.content);
         }
     }
   }
