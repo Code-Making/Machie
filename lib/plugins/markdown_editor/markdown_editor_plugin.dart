@@ -39,10 +39,12 @@ class MarkdownEditorPlugin implements EditorPlugin {
   @override
   bool supportsFile(DocumentFile file) => file.name.endsWith('.md');
 
-  // NEW: Implemented the missing `dispose` method.
   @override
   Future<void> dispose() async {
-    _tabStates.values.forEach((state) => state.editorState.dispose());
+    for (final state in _tabStates.values) {
+      // CORRECTED: EditorState itself is the disposable object.
+      state.editorState.dispose();
+    }
     _tabStates.clear();
   }
 
@@ -51,18 +53,16 @@ class MarkdownEditorPlugin implements EditorPlugin {
     Document document;
     try {
       document = content.isEmpty
-          ? Document.blank()
+          // CORRECTED: Use the correct constructor for a blank document.
+          ? EditorState.blank(withInitialText: false).document
           : Document.fromJson(json.decode(content));
     } catch (e) {
-      print("Could not decode JSON, attempting to parse from plain markdown: $e");
-      // Use the library's built-in markdown parser as a fallback
       document = markdownToDocument(content);
     }
     
-    // CORRECTED: Use the correct `EditorState` constructor.
     final editorState = EditorState(document: document);
     
-    // CORRECTED: Create a deep copy of the document for dirty checking.
+    // CORRECTED: Deep copy must be done via JSON serialization.
     final originalJson = document.toJson();
     
     _tabStates[file.uri] = _MarkdownTabState(
@@ -99,6 +99,7 @@ class MarkdownEditorPlugin implements EditorPlugin {
   @override
   void disposeTab(EditorTab tab) {
     final state = _tabStates.remove(tab.file.uri);
+    // CORRECTED: EditorState is the object to dispose.
     state?.editorState.dispose();
   }
   
@@ -119,28 +120,34 @@ class MarkdownEditorPlugin implements EditorPlugin {
     }
   }
   
+  // CORRECTED: EditorState now uses a ValueNotifier for selection.
+  // We need to listen to that to update undo/redo state.
+  void _updateUndoRedo(Ref ref, EditorState editorState) {
+    ref.read(markdownCanUndoProvider.notifier).state = editorState.undoManager.canUndo;
+    ref.read(markdownCanRedoProvider.notifier).state = editorState.undoManager.canRedo;
+  }
+
   @override
   void activateTab(EditorTab tab, Ref ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
 
-    void updateUndoRedoState() {
-      ref.read(markdownCanUndoProvider.notifier).state = state.editorState.canUndo;
-      ref.read(markdownCanRedoProvider.notifier).state = state.editorState.canRedo;
-    }
-    state.editorState.addListener(updateUndoRedoState);
-    updateUndoRedoState();
+    final editorState = state.editorState;
+    void listener() => _updateUndoRedo(ref, editorState);
+
+    editorState.undoManager.addListener(listener);
+    _updateUndoRedo(ref, editorState); // Initial update
   }
   
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
-
-    state.editorState.removeListener(() {
-        ref.read(markdownCanUndoProvider.notifier).state = state.editorState.canUndo;
-        ref.read(markdownCanRedoProvider.notifier).state = state.editorState.canRedo;
-    });
+    
+    final editorState = state.editorState;
+    void listener() => _updateUndoRedo(ref, editorState);
+    
+    editorState.undoManager.removeListener(listener);
   }
 
   @override
@@ -177,7 +184,8 @@ class MarkdownEditorPlugin implements EditorPlugin {
       sourcePlugin: runtimeType.toString(),
       execute: (ref) {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-        _tabStates[tab?.file.uri]?.editorState.undo();
+        // CORRECTED: Use the undoManager for undo/redo
+        _tabStates[tab?.file.uri]?.editorState.undoManager.undo();
       },
       canExecute: (ref) => ref.watch(markdownCanUndoProvider),
     ),
@@ -189,7 +197,8 @@ class MarkdownEditorPlugin implements EditorPlugin {
       sourcePlugin: runtimeType.toString(),
       execute: (ref) {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-        _tabStates[tab?.file.uri]?.editorState.redo();
+        // CORRECTED: Use the undoManager for undo/redo
+        _tabStates[tab?.file.uri]?.editorState.undoManager.redo();
       },
       canExecute: (ref) => ref.watch(markdownCanRedoProvider),
     ),
