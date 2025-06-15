@@ -1,4 +1,5 @@
 // lib/project/file_handler/file_handler.dart
+import 'dart:typed_data'; // NEW IMPORT
 
 // Abstract interface for a file-like entity.
 abstract class DocumentFile {

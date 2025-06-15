@@ -1,5 +1,7 @@
 // lib/project/file_handler/local_file_handler_saf.dart
 import 'dart:convert';
+import 'dart:typed_data'; // NEW IMPORT
+
 import 'package:flutter/services.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
