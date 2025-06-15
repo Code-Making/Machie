@@ -123,39 +123,37 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final lists = _getMutableLists();
     final list = lists[listId];
     if (list == null) return;
+
     if (oldIndex < newIndex) newIndex--;
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
+    
     _updateStateWithLists(lists);
   }
 
   void removeItemFromList({required String itemId, required String fromListId}) {
-    final lists = _getMutableLists();
-    lists[fromListId]?.remove(itemId);
-    
-    // Check if the item still exists in any other visible list
-    bool isStillPlaced = false;
-    lists.forEach((listId, items) {
-        if (listId != 'hidden' && items.contains(itemId)) {
-            isStillPlaced = true;
+     final lists = _getMutableLists();
+     lists[fromListId]?.remove(itemId);
+     // Add back to hidden if it's a command and not present in any other visible list.
+     if (!state.commandGroups.containsKey(itemId)) {
+        final isPlacedElsewhere = (lists['appBar']?.contains(itemId) ?? false) ||
+                                  (lists['pluginToolbar']?.contains(itemId) ?? false) ||
+                                  state.commandGroups.values.any((g) => g.commandIds.contains(itemId));
+        if (!isPlacedElsewhere) {
+            lists['hidden']?.add(itemId);
         }
-    });
-
-    // Only add to hidden if it's not placed anywhere else and it's a command
-    if (!isStillPlaced && !state.commandGroups.containsKey(itemId)) {
-        lists['hidden']?.add(itemId);
-    }
-    _updateStateWithLists(lists);
+     }
+     _updateStateWithLists(lists);
   }
 
   void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
-    // Adding an item to a visible list means it's no longer just "hidden"
-    lists['hidden']?.remove(itemId);
-
-    // Prevent adding duplicates to the *same* list
-    if (!(lists[toListId]?.contains(itemId) ?? true)) {
-       lists[toListId]?.add(itemId);
+    final targetList = lists[toListId];
+    if (targetList == null) return;
+    
+    // Add the item if it's not already in the target list.
+    if (!targetList.contains(itemId)) {
+       targetList.add(itemId);
     }
     _updateStateWithLists(lists);
   }
@@ -165,7 +163,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
+    await prefs.setStringList(
+        'command_plugin_toolbar', state.pluginToolbarOrder);
     await prefs.setStringList('command_hidden', state.hiddenOrder);
     final encodedGroups = state.commandGroups
         .map((key, value) => MapEntry(key, jsonEncode(value.toJson())));
@@ -174,38 +173,37 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
-        loadedGroups[key] =
-            CommandGroup.fromJson(jsonDecode(value as String) as Map<String, dynamic>);
+        final group = CommandGroup.fromJson(jsonDecode(value as String) as Map<String, dynamic>);
+        // CORRECTED: Sanitize the command list within each group
+        final cleanCommandIds = group.commandIds.where(allKnownCommandIds.contains).toList();
+        loadedGroups[key] = group.copyWith(commandIds: cleanCommandIds);
       });
     }
+
+    final allValidGroupIds = loadedGroups.keys.toSet();
+    final allValidItemIds = {...allKnownCommandIds, ...allValidGroupIds};
 
     final loadedAppBar = prefs.getStringList('command_app_bar') ?? [];
     final loadedToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     final loadedHidden = prefs.getStringList('command_hidden') ?? [];
 
-    final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
-    final allValidGroupIds = loadedGroups.keys.toSet();
-    final allValidItemIds = {...allKnownCommandIds, ...allValidGroupIds};
-
     final cleanAppBar = loadedAppBar.where(allValidItemIds.contains).toList();
     final cleanToolbar = loadedToolbar.where(allValidItemIds.contains).toList();
     final cleanHidden = loadedHidden.where(allKnownCommandIds.contains).toList();
 
-    final cleanGroups = loadedGroups.map((id, group) {
-      final cleanCommandIds = group.commandIds.where(allKnownCommandIds.contains).toList();
-      return MapEntry(id, group.copyWith(commandIds: cleanCommandIds));
-    });
-
     final allPlacedCommandIds = {
-      ...cleanAppBar.where((id) => !cleanGroups.containsKey(id)),
-      ...cleanToolbar.where((id) => !cleanGroups.containsKey(id)),
+      ...cleanAppBar.where((id) => !loadedGroups.containsKey(id)),
+      ...cleanToolbar.where((id) => !loadedGroups.containsKey(id)),
       ...cleanHidden,
-      ...cleanGroups.values.expand((g) => g.commandIds),
+      ...loadedGroups.values.expand((g) => g.commandIds),
     };
     final orphanedCommands = allKnownCommandIds.where((id) => !allPlacedCommandIds.contains(id)).toList();
 
@@ -213,7 +211,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
       appBarOrder: cleanAppBar,
       pluginToolbarOrder: cleanToolbar,
       hiddenOrder: {...cleanHidden, ...orphanedCommands}.toList(),
-      commandGroups: cleanGroups,
+      commandGroups: loadedGroups,
     );
   }
 }
