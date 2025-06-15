@@ -200,7 +200,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
     ),
     BaseCommand(id: 'undo', label: 'Undo Glitch', icon: const Icon(Icons.undo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
-      execute: (ref) {
+      execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];
@@ -217,7 +217,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       canExecute: (ref) => _tabStates[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.undoStack.isNotEmpty ?? false,
     ),
      BaseCommand(id: 'redo', label: 'Redo Glitch', icon: const Icon(Icons.redo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
-      execute: (ref) {
+      execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];
