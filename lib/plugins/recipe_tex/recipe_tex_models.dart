@@ -7,8 +7,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../plugin_models.dart';
 
-// MODIFIED: This is now a pure "cold" state data class.
-// It has no data, only its identity and a reference to its plugin.
+// MODIFIED: This is now a pure identifier and contains no mutable data.
 @immutable
 class RecipeTexTab extends EditorTab {
   const RecipeTexTab({
@@ -19,6 +18,7 @@ class RecipeTexTab extends EditorTab {
   @override
   void dispose() {}
 
+  // A copyWith is not strictly necessary anymore but can be kept for consistency.
   RecipeTexTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,
