@@ -1,20 +1,13 @@
 // lib/plugins/plugin_registry.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'plugin_models.dart'; // For EditorPlugin
+import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
-import 'markdown_editor/markdown_editor_plugin.dart'; // NEW IMPORT
+import 'glitch_editor/glitch_editor_plugin.dart'; // NEW IMPORT
 
-// --------------------
-// Plugin Registry Providers
-// --------------------
-
-/// Manages the set of all available EditorPlugins in the application.
-/// Plugins register themselves here.
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
       CodeEditorPlugin(),
-      MarkdownEditorPlugin(), // NEW: Register the Markdown plugin
+      GlitchEditorPlugin(), // NEW: Register the GlitchEditorPlugin
   },
 );
 
@@ -23,13 +16,8 @@ final activePluginsProvider =
       return PluginManager(ref.read(pluginRegistryProvider));
     });
 
-// --------------------
-//   Plugin Registry
-// --------------------
-
 class PluginManager extends StateNotifier<Set<EditorPlugin>> {
   PluginManager(super.plugins);
-
   void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
   void unregisterPlugin(EditorPlugin plugin) =>
       state = state.where((p) => p != plugin).toSet();

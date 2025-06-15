@@ -239,6 +239,19 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
   }
+  
+    // NEW METHOD for saving raw bytes
+  Future<void> saveCurrentTabAsBytes(Uint8List bytes) async {
+    final project = state.value?.currentProject;
+    if (project == null) return;
+    
+    final tabToSave = project.session.currentTab;
+    if (tabToSave == null) return;
+
+    await project.fileHandler.writeFileAsBytes(tabToSave.file, bytes);
+    
+    ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
+  }
 
   void closeTab(int index) {
     final project = state.value?.currentProject;

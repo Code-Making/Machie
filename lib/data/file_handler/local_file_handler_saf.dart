@@ -46,6 +46,11 @@ class SafFileHandler implements LocalFileHandler {
     final bytes = await _safStream.readFileBytes(uri);
     return utf8.decode(bytes);
   }
+  
+  @override
+  Future<Uint8List> readFileAsBytes(String uri) {
+    return _safStream.readFileBytes(uri);
+  }
 
   @override
   Future<DocumentFile> writeFile(DocumentFile file, String content) async {
@@ -55,6 +60,24 @@ class SafFileHandler implements LocalFileHandler {
       file.name,
       file.mimeType,
       Uint8List.fromList(utf8.encode(content)),
+      overwrite: true,
+    );
+    final newFile = await _safUtil.documentFileFromUri(
+      result.uri.toString(),
+      false,
+    );
+    return CustomSAFDocumentFile(newFile!);
+  }
+  
+    // NEW METHOD IMPLEMENTATION
+  @override
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) async {
+    final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
+    final result = await _safStream.writeFileBytes(
+      parentUri,
+      file.name,
+      file.mimeType,
+      bytes,
       overwrite: true,
     );
     final newFile = await _safUtil.documentFileFromUri(
