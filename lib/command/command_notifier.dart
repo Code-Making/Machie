@@ -21,11 +21,16 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
-  Command? getCommand(String id, String sourcePlugin) =>
-      _allRegisteredCommands.firstWhere(
-          (c) => c.id == id && c.sourcePlugin == sourcePlugin,
-          orElse: () => _allRegisteredCommands
-              .firstWhere((c) => c.id == id, orElse: () => null!));
+  Command? getCommand(String id, String sourcePlugin) {
+    // First, try to find the specific command for the plugin
+    var command = _allRegisteredCommands.firstWhere(
+        (c) => c.id == id && c.sourcePlugin == sourcePlugin,
+        orElse: () => null!);
+    // If not found, find any command with that ID (fallback for core/general commands)
+    command ??=
+        _allRegisteredCommands.firstWhere((c) => c.id == id, orElse: () => null!);
+    return command;
+  }
 
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
       : super(const CommandState()) {
@@ -111,9 +116,10 @@ class CommandNotifier extends StateNotifier<CommandState> {
     newAppBar.remove(commandId);
     newPluginToolbar.remove(commandId);
     newHidden.remove(commandId);
-    for (final group in newGroups.values) {
-      group.commandIds.remove(commandId);
-    }
+    newGroups.forEach((key, group) {
+      final newCommandIds = List<String>.from(group.commandIds)..remove(commandId);
+      newGroups[key] = group.copyWith(commandIds: newCommandIds);
+    });
 
     // Add command to its new location
     if (targetGroupId != null) {
@@ -166,15 +172,19 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
+      // CORRECTED: Explicitly cast the decoded JSON maps
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
-        loadedGroups[key] = CommandGroup.fromJson(jsonDecode(value));
+        loadedGroups[key] = CommandGroup.fromJson(jsonDecode(value as String) as Map<String,dynamic>);
       });
     }
 
     // Load Order Lists
+    // CORRECTED: Explicit casting for lists
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
+    
+    // Now we can calculate the hidden commands based on the ones that have been placed.
     final hidden = prefs.getStringList('command_hidden') ?? _getOrphanedCommands(
         appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups);
 
