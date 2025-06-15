@@ -1,5 +1,4 @@
 // lib/plugins/recipe_tex/recipe_tex_plugin.dart
-
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +14,6 @@ import '../plugin_models.dart';
 import 'recipe_editor_widget.dart';
 import 'recipe_tex_models.dart';
 
-// A private container for a tab's "hot" state.
 class _RecipeTabState {
   RecipeData data;
   final RecipeData originalData;
@@ -30,9 +28,6 @@ class _RecipeTabState {
   });
 }
 
-// --------------------
-//  Recipe Tex Plugin
-// --------------------
 class RecipeTexPlugin implements EditorPlugin {
   final Map<String, _RecipeTabState> _tabStates = {};
 
@@ -49,9 +44,7 @@ class RecipeTexPlugin implements EditorPlugin {
   Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
 
   @override
-  bool supportsFile(DocumentFile file) {
-    return file.name.endsWith('.tex');
-  }
+  bool supportsFile(DocumentFile file) => file.name.endsWith('.tex');
 
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
@@ -60,10 +53,7 @@ class RecipeTexPlugin implements EditorPlugin {
       data: recipeData,
       originalData: recipeData.copyWith(),
     );
-    return RecipeTexTab(
-      file: file,
-      plugin: this,
-    );
+    return RecipeTexTab(file: file, plugin: this);
   }
 
   @override
@@ -102,24 +92,17 @@ class RecipeTexPlugin implements EditorPlugin {
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
 
-  // --- State Management Methods ---
-
-  RecipeData? getDataForTab(RecipeTexTab tab) {
-    return _tabStates[tab.file.uri]?.data;
-  }
+  RecipeData? getDataForTab(RecipeTexTab tab) => _tabStates[tab.file.uri]?.data;
 
   void updateDataForTab(RecipeTexTab tab,
       RecipeData Function(RecipeData) updater, WidgetRef ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
-
     final previousData = state.data;
     final newData = updater(previousData.copyWith());
-
     state.undoStack.add(previousData);
     state.redoStack.clear();
     state.data = newData;
-
     final isDirty =
         !const DeepCollectionEquality().equals(newData, state.originalData);
     final tabStateNotifier = ref.read(tabStateProvider.notifier);
@@ -162,7 +145,6 @@ class RecipeTexPlugin implements EditorPlugin {
     return buffer.toString();
   }
 
-  // --- Commands ---
   @override
   List<Command> getCommands() => [
         BaseCommand(
@@ -187,7 +169,7 @@ class RecipeTexPlugin implements EditorPlugin {
             id: 'save',
             label: 'Save Recipe',
             icon: const Icon(Icons.save),
-            defaultPosition: CommandPosition.appBar, // Common position
+            defaultPosition: CommandPosition.appBar,
             sourcePlugin: runtimeType.toString(),
             execute: (ref) async {
               final appNotifier = ref.read(appNotifierProvider.notifier);
@@ -199,7 +181,6 @@ class RecipeTexPlugin implements EditorPlugin {
               final content = _generateTexContent(state.data);
               await appNotifier.saveCurrentTab(content: content);
 
-              // Reset the "hot" state to the new saved state
               _tabStates[tab.file.uri] = _RecipeTabState(
                 data: state.data.copyWith(),
                 originalData: state.data.copyWith(),
@@ -211,8 +192,7 @@ class RecipeTexPlugin implements EditorPlugin {
             },
             canExecute: (ref) {
               final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
-              if (tab == null) return false;
-              return ref.watch(tabStateProvider.select((s) => s[tab.file.uri] ?? false));
+              return tab != null && (ref.watch(tabStateProvider)[tab.file.uri] ?? false);
             }),
         BaseCommand(
             id: 'undo',
@@ -220,7 +200,7 @@ class RecipeTexPlugin implements EditorPlugin {
             icon: const Icon(Icons.undo),
             defaultPosition: CommandPosition.pluginToolbar,
             sourcePlugin: runtimeType.toString(),
-            execute: (ref) async {
+            execute: (ref) {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
               if (tab == null) return;
@@ -230,7 +210,6 @@ class RecipeTexPlugin implements EditorPlugin {
               final currentData = state.data;
               state.data = state.undoStack.removeLast();
               state.redoStack.add(currentData);
-              
               appNotifier.updateCurrentTab(tab.copyWith());
               
               final isDirty = !const DeepCollectionEquality().equals(state.data, state.originalData);
@@ -246,7 +225,7 @@ class RecipeTexPlugin implements EditorPlugin {
             icon: const Icon(Icons.redo),
             defaultPosition: CommandPosition.pluginToolbar,
             sourcePlugin: runtimeType.toString(),
-            execute: (ref) async {
+            execute: (ref) {
               final appNotifier = ref.read(appNotifierProvider.notifier);
               final tab = appNotifier.state.value?.currentProject?.session.currentTab as RecipeTexTab?;
               if (tab == null) return;
@@ -256,9 +235,8 @@ class RecipeTexPlugin implements EditorPlugin {
               final currentData = state.data;
               state.data = state.redoStack.removeLast();
               state.undoStack.add(currentData);
-
               appNotifier.updateCurrentTab(tab.copyWith());
-
+              
               final isDirty = !const DeepCollectionEquality().equals(state.data, state.originalData);
               ref.read(tabStateProvider.notifier).state = {...ref.read(tabStateProvider), tab.file.uri: isDirty};
             },
@@ -266,9 +244,39 @@ class RecipeTexPlugin implements EditorPlugin {
               final tab = ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab;
               return tab is RecipeTexTab && (_tabStates[tab.file.uri]?.redoStack.isNotEmpty ?? false);
             }),
+        // NEW COMMAND TO DEMONSTRATE TOOLBAR OVERRIDE
+        BaseCommand(
+            id: 'special_edit_mode',
+            label: 'Special Mode',
+            icon: const Icon(Icons.star),
+            defaultPosition: CommandPosition.pluginToolbar,
+            sourcePlugin: runtimeType.toString(),
+            execute: (ref) {
+              final appNotifier = ref.read(appNotifierProvider.notifier);
+              final overrideWidget = Container(
+                height: 48,
+                color: Colors.purple.shade900,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Special Ingredient Mode", style: TextStyle(color: Colors.white)),
+                    const SizedBox(width: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade400),
+                      child: const Text("Exit Special Mode"),
+                      onPressed: () {
+                        // Clear the override to restore the default toolbar
+                        appNotifier.clearBottomToolbarOverride();
+                      },
+                    )
+                  ],
+                ),
+              );
+              appNotifier.setBottomToolbarOverride(overrideWidget);
+            },
+        ),
       ];
 
-  // --- Parsing Logic (unchanged) ---
   RecipeData _parseRecipeContent(String content) {
     final recipeData = RecipeData();
     final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n', dotAll: true).firstMatch(content);

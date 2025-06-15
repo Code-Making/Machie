@@ -1,3 +1,4 @@
+// lib/command/command_models.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -39,9 +40,11 @@ class BaseCommand extends Command {
     required super.defaultPosition,
     required super.sourcePlugin,
     required Future<void> Function(WidgetRef) execute,
-    required bool Function(WidgetRef) canExecute,
-  }) : _execute = execute,
-       _canExecute = canExecute;
+    bool Function(WidgetRef)? canExecute,
+  })  : _execute = execute,
+        _canExecute = canExecute ?? _defaultCanExecute;
+
+  static bool _defaultCanExecute(WidgetRef ref) => true;
 
   @override
   Future<void> execute(WidgetRef ref) => _execute(ref);
@@ -50,7 +53,22 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-// NEW: Abstract class for context-specific commands on files
+// NEW: Command Group Model
+@immutable
+class CommandGroup {
+  final String id;
+  final String label;
+  final Widget icon;
+  final List<String> commandIds;
+
+  const CommandGroup({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.commandIds,
+  });
+}
+
 abstract class FileContextCommand {
   final String id;
   final String label;
@@ -68,7 +86,6 @@ abstract class FileContextCommand {
   Future<void> executeFor(WidgetRef ref, DocumentFile item);
 }
 
-// NEW: Concrete implementation for FileContextCommand
 class BaseFileContextCommand extends FileContextCommand {
   final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
   final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
@@ -80,8 +97,8 @@ class BaseFileContextCommand extends FileContextCommand {
     required super.sourcePlugin,
     required bool Function(WidgetRef, DocumentFile) canExecuteFor,
     required Future<void> Function(WidgetRef, DocumentFile) executeFor,
-  }) : _canExecuteFor = canExecuteFor,
-       _executeFor = executeFor;
+  })  : _canExecuteFor = canExecuteFor,
+        _executeFor = executeFor;
 
   @override
   bool canExecuteFor(WidgetRef ref, DocumentFile item) =>
@@ -98,19 +115,21 @@ enum CommandPosition {
   both,
   hidden,
   contextMenu,
-} // MODIFIED
+}
 
 class CommandState {
   final List<String> appBarOrder;
   final List<String> pluginToolbarOrder;
   final List<String> hiddenOrder;
   final Map<String, Set<String>> commandSources;
+  final Map<String, CommandGroup> commandGroups; // NEW
 
   const CommandState({
     this.appBarOrder = const [],
     this.pluginToolbarOrder = const [],
     this.hiddenOrder = const [],
     this.commandSources = const {},
+    this.commandGroups = const {}, // NEW
   });
 
   CommandState copyWith({
@@ -118,12 +137,14 @@ class CommandState {
     List<String>? pluginToolbarOrder,
     List<String>? hiddenOrder,
     Map<String, Set<String>>? commandSources,
+    Map<String, CommandGroup>? commandGroups, // NEW
   }) {
     return CommandState(
       appBarOrder: appBarOrder ?? this.appBarOrder,
       pluginToolbarOrder: pluginToolbarOrder ?? this.pluginToolbarOrder,
       hiddenOrder: hiddenOrder ?? this.hiddenOrder,
       commandSources: commandSources ?? this.commandSources,
+      commandGroups: commandGroups ?? this.commandGroups, // NEW
     );
   }
 
@@ -136,9 +157,9 @@ class CommandState {
       case CommandPosition.hidden:
         return hiddenOrder;
       case CommandPosition.contextMenu:
-        return []; // Context menu commands are not ordered globally by CommandNotifier
+        return [];
       case CommandPosition.both:
-        return []; // 'both' is a property, not a list of commands
+        return [];
     }
   }
 }
