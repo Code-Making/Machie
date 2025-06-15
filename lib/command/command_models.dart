@@ -6,9 +6,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 
-// --------------------
-//   Command System
-// --------------------
+// --- Icon Management ---
+
+class CommandIcon {
+  static const Map<String, IconData> availableIcons = {
+    'folder': Icons.folder_outlined,
+    'edit': Icons.edit_note_outlined,
+    'build': Icons.build_outlined,
+    'play': Icons.play_arrow_outlined,
+    'debug': Icons.bug_report_outlined,
+    'star': Icons.star_border,
+    'code': Icons.code,
+    'settings': Icons.settings_outlined,
+    'web': Icons.public,
+  };
+
+  static Widget getIcon(String? name) {
+    if (name == null || !availableIcons.containsKey(name)) {
+      return const Icon(Icons.label_important_outline);
+    }
+    return Icon(availableIcons[name]);
+  }
+}
+
+
+// --- Command System ---
 
 abstract class Command {
   final String id;
@@ -53,20 +75,50 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-// NEW: Command Group Model
+// MODIFIED: CommandGroup now stores the icon name for persistence.
 @immutable
 class CommandGroup {
   final String id;
   final String label;
-  final Widget icon;
+  final String iconName;
   final List<String> commandIds;
 
   const CommandGroup({
     required this.id,
     required this.label,
-    required this.icon,
-    required this.commandIds,
+    required this.iconName,
+    this.commandIds = const [],
   });
+
+  // Transient getter for the UI
+  Widget get icon => CommandIcon.getIcon(iconName);
+
+  CommandGroup copyWith({
+    String? label,
+    String? iconName,
+    List<String>? commandIds,
+  }) {
+    return CommandGroup(
+      id: id,
+      label: label ?? this.label,
+      iconName: iconName ?? this.iconName,
+      commandIds: commandIds ?? this.commandIds,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'iconName': iconName,
+        'commandIds': commandIds,
+      };
+
+  factory CommandGroup.fromJson(Map<String, dynamic> json) => CommandGroup(
+        id: json['id'],
+        label: json['label'],
+        iconName: json['iconName'],
+        commandIds: List<String>.from(json['commandIds']),
+      );
 }
 
 abstract class FileContextCommand {
@@ -122,14 +174,14 @@ class CommandState {
   final List<String> pluginToolbarOrder;
   final List<String> hiddenOrder;
   final Map<String, Set<String>> commandSources;
-  final Map<String, CommandGroup> commandGroups; // NEW
+  final Map<String, CommandGroup> commandGroups;
 
   const CommandState({
     this.appBarOrder = const [],
     this.pluginToolbarOrder = const [],
     this.hiddenOrder = const [],
     this.commandSources = const {},
-    this.commandGroups = const {}, // NEW
+    this.commandGroups = const {},
   });
 
   CommandState copyWith({
@@ -137,14 +189,14 @@ class CommandState {
     List<String>? pluginToolbarOrder,
     List<String>? hiddenOrder,
     Map<String, Set<String>>? commandSources,
-    Map<String, CommandGroup>? commandGroups, // NEW
+    Map<String, CommandGroup>? commandGroups,
   }) {
     return CommandState(
       appBarOrder: appBarOrder ?? this.appBarOrder,
       pluginToolbarOrder: pluginToolbarOrder ?? this.pluginToolbarOrder,
       hiddenOrder: hiddenOrder ?? this.hiddenOrder,
       commandSources: commandSources ?? this.commandSources,
-      commandGroups: commandGroups ?? this.commandGroups, // NEW
+      commandGroups: commandGroups ?? this.commandGroups,
     );
   }
 
@@ -157,7 +209,6 @@ class CommandState {
       case CommandPosition.hidden:
         return hiddenOrder;
       case CommandPosition.contextMenu:
-        return [];
       case CommandPosition.both:
         return [];
     }
