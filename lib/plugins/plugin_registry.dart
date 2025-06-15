@@ -3,7 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'plugin_models.dart'; // For EditorPlugin
 import 'code_editor/code_editor_plugin.dart';
-import 'recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT
+import 'markdown_editor/markdown_editor_plugin.dart'; // NEW IMPORT
 
 // --------------------
 // Plugin Registry Providers
@@ -14,7 +14,7 @@ import 'recipe_tex/recipe_tex_plugin.dart'; // NEW IMPORT
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
       CodeEditorPlugin(),
-      RecipeTexPlugin(), // NEW: Register the RecipeTexPlugin
+      MarkdownEditorPlugin(), // NEW: Register the Markdown plugin
   },
 );
 
