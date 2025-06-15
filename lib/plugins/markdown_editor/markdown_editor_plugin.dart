@@ -16,17 +16,15 @@ import 'markdown_editor_models.dart';
 import 'markdown_editor_state.dart';
 import 'markdown_editor_widget.dart';
 
-// The private "hot" state for a single Markdown tab.
+// CORRECTED: Use the correct `EditorState` class.
 class _MarkdownTabState {
-  final AppFlowyEditorState editorState;
-  // Store the initial document state for dirty checking.
+  final EditorState editorState;
   final Document originalDocument;
 
   _MarkdownTabState({required this.editorState, required this.originalDocument});
 }
 
 class MarkdownEditorPlugin implements EditorPlugin {
-  // The map that holds the "hot" state for all open markdown tabs.
   final Map<String, _MarkdownTabState> _tabStates = {};
 
   @override
@@ -41,26 +39,35 @@ class MarkdownEditorPlugin implements EditorPlugin {
   @override
   bool supportsFile(DocumentFile file) => file.name.endsWith('.md');
 
+  // NEW: Implemented the missing `dispose` method.
+  @override
+  Future<void> dispose() async {
+    _tabStates.values.forEach((state) => state.editorState.dispose());
+    _tabStates.clear();
+  }
+
   @override
   Future<EditorTab> createTab(DocumentFile file, String content) async {
     Document document;
     try {
-      // AppFlowy Editor uses a JSON representation of the document.
       document = content.isEmpty
-          ? Document()
+          ? Document.blank()
           : Document.fromJson(json.decode(content));
     } catch (e) {
-      // If content is not valid JSON (e.g., plain markdown text), create an empty document.
-      // A more advanced implementation would parse Markdown to the AppFlowy format here.
-      print("Error decoding markdown file, starting fresh: $e");
-      document = Document();
+      print("Could not decode JSON, attempting to parse from plain markdown: $e");
+      // Use the library's built-in markdown parser as a fallback
+      document = markdownToDocument(content);
     }
     
-    final editorState = AppFlowyEditorState(document: document);
+    // CORRECTED: Use the correct `EditorState` constructor.
+    final editorState = EditorState(document: document);
+    
+    // CORRECTED: Create a deep copy of the document for dirty checking.
+    final originalJson = document.toJson();
     
     _tabStates[file.uri] = _MarkdownTabState(
       editorState: editorState,
-      originalDocument: document.copyWith(), // Deep copy for comparison
+      originalDocument: Document.fromJson(originalJson),
     );
     
     return MarkdownTab(file: file, plugin: this);
@@ -92,16 +99,18 @@ class MarkdownEditorPlugin implements EditorPlugin {
   @override
   void disposeTab(EditorTab tab) {
     final state = _tabStates.remove(tab.file.uri);
-    // It's crucial to dispose the controller to prevent memory leaks.
     state?.editorState.dispose();
   }
   
-  // This listener is called from the widget to notify the plugin of a change.
   void onDocumentChanged(MarkdownTab tab, WidgetRef ref) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
     
-    final isDirty = !const DeepCollectionEquality().equals(state.editorState.document.toJson(), state.originalDocument.toJson());
+    final isDirty = !const DeepCollectionEquality().equals(
+      state.editorState.document.toJson(), 
+      state.originalDocument.toJson()
+    );
+
     final notifier = ref.read(tabStateProvider.notifier);
     if (isDirty) {
       notifier.markDirty(tab.file.uri);
@@ -115,13 +124,12 @@ class MarkdownEditorPlugin implements EditorPlugin {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
 
-    // Update the global undo/redo providers with the state of the now-active tab.
     void updateUndoRedoState() {
       ref.read(markdownCanUndoProvider.notifier).state = state.editorState.canUndo;
       ref.read(markdownCanRedoProvider.notifier).state = state.editorState.canRedo;
     }
     state.editorState.addListener(updateUndoRedoState);
-    updateUndoRedoState(); // Initial update
+    updateUndoRedoState();
   }
   
   @override
@@ -129,7 +137,6 @@ class MarkdownEditorPlugin implements EditorPlugin {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
 
-    // Remove the listener to prevent this inactive tab from updating the global providers.
     state.editorState.removeListener(() {
         ref.read(markdownCanUndoProvider.notifier).state = state.editorState.canUndo;
         ref.read(markdownCanRedoProvider.notifier).state = state.editorState.canRedo;
@@ -154,11 +161,10 @@ class MarkdownEditorPlugin implements EditorPlugin {
         final jsonContent = json.encode(state.editorState.document.toJson());
         await appNotifier.saveCurrentTab(content: jsonContent);
 
-        // Update the original document to the new saved state
-        final newOriginal = state.editorState.document.copyWith();
+        final newOriginalJson = state.editorState.document.toJson();
         _tabStates[tab.file.uri] = _MarkdownTabState(
           editorState: state.editorState,
-          originalDocument: newOriginal,
+          originalDocument: Document.fromJson(newOriginalJson),
         );
       },
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,

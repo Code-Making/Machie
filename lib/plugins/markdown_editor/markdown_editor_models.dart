@@ -1,6 +1,7 @@
 // lib/plugins/markdown_editor/markdown_editor_models.dart
 import 'package:flutter/foundation.dart';
 import '../../session/session_models.dart';
+import '../plugin_models.dart';
 
 @immutable
 class MarkdownTab extends EditorTab {
@@ -11,4 +12,13 @@ class MarkdownTab extends EditorTab {
 
   @override
   void dispose() {}
+
+  // CORRECTED: Implemented the missing `toJson` method.
+  // This is essential for saving the session state.
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'markdown',
+        'fileUri': file.uri,
+        'pluginType': plugin.runtimeType.toString(),
+      };
 }
