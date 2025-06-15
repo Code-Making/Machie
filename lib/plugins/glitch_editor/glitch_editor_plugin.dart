@@ -37,54 +37,47 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   Widget get icon => const Icon(Icons.broken_image_outlined);
   @override
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.bytes;
+  @override
   final PluginSettings? settings = null;
   @override
   Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
-
-    // NEW: Declare that this plugin requires raw byte data.
-  @override
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.bytes;
-
 
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
-  
+
   @override
   Future<void> dispose() async {
-     _tabStates.values.forEach((state) {
-        state.image.dispose();
-        state.originalImage.dispose();
-        state.undoStack.forEach((img) => img.dispose());
-        state.redoStack.forEach((img) => img.dispose());
-     });
-     _tabStates.clear();
+    _tabStates.values.forEach((state) {
+      state.image.dispose();
+      state.originalImage.dispose();
+      state.undoStack.forEach((img) => img.dispose());
+      state.redoStack.forEach((img) => img.dispose());
+    });
+    _tabStates.clear();
   }
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
-  
-  // MODIFIED: This method now receives a Uint8List directly.
+
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
     final Uint8List fileBytes = data as Uint8List;
     final codec = await ui.instantiateImageCodec(fileBytes);
     final frame = await codec.getNextFrame();
     final image = frame.image;
-
     _tabStates[file.uri] = _GlitchTabState(image: image, originalImage: image.clone());
     return GlitchEditorTab(file: file, plugin: this);
   }
-
+  
   @override
   Future<EditorTab> createTabFromSerialization(
       Map<String, dynamic> tabJson, FileHandler fileHandler) async {
     final file = await fileHandler.getFileMetadata(tabJson['fileUri']);
     if (file == null) throw Exception('File not found: ${tabJson['fileUri']}');
-    
-    // For images, we re-read the original file bytes.
     final fileBytes = await fileHandler.readFileAsBytes(file.uri);
     return createTab(file, fileBytes);
   }
@@ -93,7 +86,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     return GlitchEditorWidget(tab: tab as GlitchEditorTab, plugin: this);
   }
-  
+
   @override
   Widget buildToolbar(WidgetRef ref) {
     return GlitchToolbar(plugin: this);
@@ -108,56 +101,54 @@ class GlitchEditorPlugin implements EditorPlugin {
     state?.redoStack.forEach((img) => img.dispose());
   }
 
-  // --- State Management API for the UI ---
-
   ui.Image? getImageForTab(GlitchEditorTab tab) => _tabStates[tab.file.uri]?.image;
 
   void updateBrushSettings(GlitchBrushSettings settings, WidgetRef ref) {
-      ref.read(brushSettingsProvider.notifier).state = settings;
-  }
-
-  void beginGlitchStroke(GlitchEditorTab tab) {
-    final state = _tabStates[tab.file.uri];
-    if (state == null) return;
-    state.undoStack.add(state.image.clone());
-    state.redoStack.clear();
+    ref.read(brushSettingsProvider.notifier).state = settings;
   }
   
-  ui.Image? applyGlitchEffect({required GlitchEditorTab tab, required Offset position, required WidgetRef ref}) {
+  // This is the new "baking" method, called once at the end of a stroke.
+  void applyGlitchStroke({
+    required GlitchEditorTab tab,
+    required List<Offset> points,
+    required GlitchBrushSettings settings,
+    required WidgetRef ref,
+  }) {
     final state = _tabStates[tab.file.uri];
-    final settings = ref.read(brushSettingsProvider);
-    if (state == null) return null;
+    if (state == null) return;
+
+    // Push the state *before* the stroke to the undo stack
+    state.undoStack.add(state.image);
+    state.redoStack.clear();
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    
     canvas.drawImage(state.image, Offset.zero, Paint());
 
-    switch (settings.type) {
-      case GlitchBrushType.scatter:
-        _applyScatter(canvas, state.image, position, settings);
-        break;
-      case GlitchBrushType.repeater:
-         _applyRepeater(canvas, state.image, position, settings);
-        break;
+    for (final point in points) {
+      switch (settings.type) {
+        case GlitchBrushType.scatter:
+          _applyScatter(canvas, state.image, point, settings);
+          break;
+        case GlitchBrushType.repeater:
+          _applyRepeater(canvas, state.image, point, settings);
+          break;
+      }
     }
-
+    
     final picture = recorder.endRecording();
     state.image = picture.toImageSync(state.image.width, state.image.height);
     picture.dispose();
-    return state.image;
+
+    // Mark as dirty and notify the UI to update
+    ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
+    ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
   }
   
-  void endGlitchStroke(GlitchEditorTab tab, WidgetRef ref) {
-      final isDirty = _tabStates[tab.file.uri]?.undoStack.isNotEmpty ?? false;
-      if (isDirty) {
-          ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
-      }
-  }
-
+  // The algorithms are now private helpers for the main apply method.
   void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius;
-    final count = (radius * radius * settings.density * 0.1).toInt();
+    final count = (radius * radius * settings.density * 0.05).toInt().clamp(1, 50);
     for (int i = 0; i < count; i++) {
         final srcX = pos.dx + _random.nextDouble() * radius * 2 - radius;
         final srcY = pos.dy + _random.nextDouble() * radius * 2 - radius;
@@ -171,15 +162,18 @@ class GlitchEditorPlugin implements EditorPlugin {
   void _applyRepeater(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
       final radius = settings.radius;
       final srcRect = Rect.fromCenter(center: pos, width: radius, height: radius);
-      for(int i = -5; i < 5; i++) {
+      final spacing = settings.repeatSpacing.toDouble() * (radius / 20.0);
+      for(int i = -3; i <= 3; i++) {
           if (i == 0) continue;
-          final offset = Offset(i * settings.repeatSpacing.toDouble(), i * settings.repeatSpacing.toDouble());
+          final offset = Offset(i * spacing, i * spacing * 0.5);
           canvas.drawImageRect(source, srcRect, srcRect.shift(offset), Paint()..blendMode = BlendMode.difference);
       }
   }
 
   @override
-  List<Command> getCommands() => [
+  List<Command> getCommands() {
+    // ... Command implementations for save, undo, redo are unchanged.
+    return [
     BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
@@ -210,7 +204,8 @@ class GlitchEditorPlugin implements EditorPlugin {
         state.image = state.undoStack.removeLast();
         
         final isDirty = state.undoStack.isNotEmpty;
-        if (!isDirty) ref.read(tabStateProvider.notifier).markClean(tab.file.uri);
+        if (isDirty) { ref.read(tabStateProvider.notifier).markDirty(tab.file.uri); } 
+        else { ref.read(tabStateProvider.notifier).markClean(tab.file.uri); }
         
         ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
       },
@@ -232,6 +227,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       canExecute: (ref) => _tabStates[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.redoStack.isNotEmpty ?? false,
     ),
   ];
+  }
   
   @override
   void activateTab(EditorTab tab, Ref ref) {}
