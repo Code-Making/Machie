@@ -58,11 +58,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
       iconName: iconName,
     );
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
-    final newToolbarOrder = [...state.pluginToolbarOrder, newGroup.id];
-    state = state.copyWith(
-      commandGroups: newGroups,
-      pluginToolbarOrder: newToolbarOrder,
-    );
+    // By default, a new group is just created, not placed anywhere.
+    // The user can then add it via the '+' button.
+    state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
 
@@ -97,8 +95,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
       'appBar': List<String>.from(state.appBarOrder),
       'pluginToolbar': List<String>.from(state.pluginToolbarOrder),
       'hidden': List<String>.from(state.hiddenOrder),
-      ...state.commandGroups.map(
-          (id, group) => MapEntry(id, List<String>.from(group.commandIds)))
+      ...state.commandGroups
+          .map((id, group) => MapEntry(id, List<String>.from(group.commandIds)))
     };
   }
 
@@ -135,19 +133,20 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _updateStateWithLists(lists);
   }
 
-  void removeCommandFromList({
-    required String itemId,
-    required String fromListId,
-  }) {
-     final lists = _getMutableLists();
-     lists[fromListId]?.remove(itemId);
-     lists['hidden']?.add(itemId);
-     _updateStateWithLists(lists);
+  void removeItemFromList({required String itemId, required String fromListId}) {
+    final lists = _getMutableLists();
+    lists[fromListId]?.remove(itemId);
+    // Only add back to hidden if it's a command, not a group
+    if (!state.commandGroups.containsKey(itemId)) {
+      lists['hidden']?.add(itemId);
+    }
+    _updateStateWithLists(lists);
   }
 
-  void addCommandToList({required String itemId, required String toListId}) {
+  void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
-    // A command can be in multiple lists, but not the hidden list.
+    // Item can exist in multiple lists, so we don't remove from anywhere else,
+    // unless we are adding from the hidden list.
     lists['hidden']?.remove(itemId);
     lists[toListId]?.add(itemId);
     _updateStateWithLists(lists);
@@ -181,10 +180,14 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     final loadedHidden = prefs.getStringList('command_hidden') ?? [];
-    final orphaned = _getOrphanedCommands(
-        appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups, hidden: loadedHidden);
-        
-    final finalHidden = {...loadedHidden, ...orphaned}.toList();
+    
+    final allPlacedItems = {
+      ...appBar, ...pluginToolbar, ...loadedHidden, ...loadedGroups.values.expand((g) => g.commandIds)
+    };
+    final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+    final orphanedCommands = allKnownCommandIds.where((id) => !allPlacedItems.contains(id)).toList();
+
+    final finalHidden = {...loadedHidden, ...orphanedCommands}.toList();
 
     state = state.copyWith(
       appBarOrder: appBar,
@@ -192,21 +195,5 @@ class CommandNotifier extends StateNotifier<CommandState> {
       hiddenOrder: finalHidden,
       commandGroups: loadedGroups,
     );
-  }
-
-  List<String> _getOrphanedCommands(
-      {required List<String> appBar,
-      required List<String> pluginToolbar,
-      required Map<String, CommandGroup> groups,
-      required List<String> hidden}) {
-    final placedItemIds = {
-      ...appBar,
-      ...pluginToolbar,
-      ...hidden,
-      ...groups.keys,
-      ...groups.values.expand((g) => g.commandIds)
-    };
-    final allCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
-    return allCommandIds.where((id) => !placedItemIds.contains(id)).toList();
   }
 }
