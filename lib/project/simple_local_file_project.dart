@@ -81,10 +81,16 @@ class SimpleLocalFileProject extends Project {
 
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
+
+    // Read data based on plugin requirement
+    final dynamic data;
+    if (selectedPlugin.dataRequirement == PluginDataRequirement.bytes) {
+      data = await fileHandler.readFileAsBytes(file.uri);
+    } else {
+      data = await fileHandler.readFile(file.uri);
+    }
     
-    // MODIFIED: Read the content before creating the tab.
-    final content = await fileHandler.readFile(file.uri);
-    final newTab = await selectedPlugin.createTab(file, content);
+    final newTab = await selectedPlugin.createTab(file, data);
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(

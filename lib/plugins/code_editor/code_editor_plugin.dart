@@ -75,20 +75,21 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, String content) async {
-    // MODIFIED: Use the new logic helper to build the highlighting span.
+  Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
+    // The `data` is guaranteed to be a String here due to the default dataRequirement.
+    final String content = data as String;
+    
     final controller = CodeLineEditingController(
       spanBuilder: buildHighlightingSpan,
       codeLines: CodeLines.fromText(content),
     );
     _controllers[file.uri] = controller;
-    _marks.remove(file.uri); // Ensure no stale mark exists
+    _marks.remove(file.uri);
 
     final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
     return CodeEditorTab(
       file: file,
       plugin: this,
-      // MODIFIED: Use the new logic helper.
       commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
     );
@@ -100,27 +101,14 @@ class CodeEditorPlugin implements EditorPlugin {
     FileHandler fileHandler,
   ) async {
     final fileUri = tabJson['fileUri'] as String;
-    final loadedLanguageKey = tabJson['languageKey'] as String?;
-
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
     }
 
     final content = await fileHandler.readFile(fileUri);
-    final controller = CodeLineEditingController(
-      spanBuilder: buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content),
-    );
-    _controllers[fileUri] = controller;
-    _marks.remove(fileUri); // Ensure no stale mark exists
-
-    return CodeEditorTab(
-      file: file,
-      plugin: this,
-      commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
-      languageKey: loadedLanguageKey ?? CodeThemes.inferLanguageKey(file.uri),
-    );
+    // Call the main createTab method
+    return createTab(file, content);
   }
 
   @override

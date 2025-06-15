@@ -60,17 +60,11 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
-
-  @override
-  Future<EditorTab> createTab(DocumentFile file, String content) async {
-    throw UnimplementedError('GlitchEditorPlugin uses createTabWithRef instead.');
-  }
   
-  // Use a custom createTab that takes a ref to access the FileHandler
-  Future<EditorTab> createTabWithRef(DocumentFile file, WidgetRef ref) async {
-    final handler = ref.read(appNotifierProvider).value!.currentProject!.fileHandler;
-    
-    final fileBytes = await handler.readFileAsBytes(file.uri);
+  // MODIFIED: This method now receives a Uint8List directly.
+  @override
+  Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
+    final Uint8List fileBytes = data as Uint8List;
     final codec = await ui.instantiateImageCodec(fileBytes);
     final frame = await codec.getNextFrame();
     final image = frame.image;
@@ -82,9 +76,12 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   Future<EditorTab> createTabFromSerialization(
       Map<String, dynamic> tabJson, FileHandler fileHandler) async {
-    // This needs a proper way to get a ref if called during startup.
-    // For now, we assume it's not supported for this simple plugin.
-    throw UnimplementedError("Serialization not supported for Glitch Editor yet.");
+    final file = await fileHandler.getFileMetadata(tabJson['fileUri']);
+    if (file == null) throw Exception('File not found: ${tabJson['fileUri']}');
+    
+    // For images, we re-read the original file bytes.
+    final fileBytes = await fileHandler.readFileAsBytes(file.uri);
+    return createTab(file, fileBytes);
   }
 
   @override
@@ -123,7 +120,6 @@ class GlitchEditorPlugin implements EditorPlugin {
   
   ui.Image? applyGlitchEffect({required GlitchEditorTab tab, required Offset position, required WidgetRef ref}) {
     final state = _tabStates[tab.file.uri];
-    // CORRECTED: Pass ref to get settings.
     final settings = ref.read(brushSettingsProvider);
     if (state == null) return null;
 
@@ -199,7 +195,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
     ),
     BaseCommand(id: 'undo', label: 'Undo Glitch', icon: const Icon(Icons.undo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
-      execute: (ref) async {
+      execute: (ref) {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];
@@ -216,7 +212,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       canExecute: (ref) => _tabStates[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.undoStack.isNotEmpty ?? false,
     ),
      BaseCommand(id: 'redo', label: 'Redo Glitch', icon: const Icon(Icons.redo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
-      execute: (ref) async {
+      execute: (ref) {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];

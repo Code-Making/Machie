@@ -97,9 +97,15 @@ class LocalProject extends Project {
     final plugins = ref.read(activePluginsProvider);
     final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
     
-    // MODIFIED: Read the content before creating the tab.
-    final content = await fileHandler.readFile(file.uri);
-    final newTab = await selectedPlugin.createTab(file, content);
+    // Read data based on plugin requirement
+    final dynamic data;
+    if (selectedPlugin.dataRequirement == PluginDataRequirement.bytes) {
+      data = await fileHandler.readFileAsBytes(file.uri);
+    } else {
+      data = await fileHandler.readFile(file.uri);
+    }
+    
+    final newTab = await selectedPlugin.createTab(file, data);
 
     final oldTab = session.currentTab;
     final newSession = session.copyWith(
@@ -109,7 +115,7 @@ class LocalProject extends Project {
     _handlePluginLifecycle(oldTab, newTab, ref);
     return copyWith(session: newSession);
   }
-
+  
   @override
   Project switchTab(int index, {required Ref ref}) {
     final oldTab = session.currentTab;
