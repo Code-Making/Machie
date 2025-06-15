@@ -17,11 +17,10 @@ import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
 
+// SIMPLIFIED: No more undo/redo stacks, just the current and original images.
 class _GlitchTabState {
   ui.Image image;
   final ui.Image originalImage;
-  List<ui.Image> undoStack = [];
-  List<ui.Image> redoStack = [];
 
   _GlitchTabState({required this.image, required this.originalImage});
 }
@@ -54,8 +53,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     _tabStates.values.forEach((state) {
       state.image.dispose();
       state.originalImage.dispose();
-      state.undoStack.forEach((img) => img.dispose());
-      state.redoStack.forEach((img) => img.dispose());
     });
     _tabStates.clear();
   }
@@ -72,7 +69,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     _tabStates[file.uri] = _GlitchTabState(image: image, originalImage: image.clone());
     return GlitchEditorTab(file: file, plugin: this);
   }
-  
+
   @override
   Future<EditorTab> createTabFromSerialization(
       Map<String, dynamic> tabJson, FileHandler fileHandler) async {
@@ -97,8 +94,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     final state = _tabStates.remove(tab.file.uri);
     state?.image.dispose();
     state?.originalImage.dispose();
-    state?.undoStack.forEach((img) => img.dispose());
-    state?.redoStack.forEach((img) => img.dispose());
   }
 
   ui.Image? getImageForTab(GlitchEditorTab tab) => _tabStates[tab.file.uri]?.image;
@@ -106,8 +101,8 @@ class GlitchEditorPlugin implements EditorPlugin {
   void updateBrushSettings(GlitchBrushSettings settings, WidgetRef ref) {
     ref.read(brushSettingsProvider.notifier).state = settings;
   }
-  
-  // This is the new "baking" method, called once at the end of a stroke.
+
+  // This method now "bakes" the stroke into a new image.
   void applyGlitchStroke({
     required GlitchEditorTab tab,
     required List<Offset> points,
@@ -115,37 +110,40 @@ class GlitchEditorPlugin implements EditorPlugin {
     required WidgetRef ref,
   }) {
     final state = _tabStates[tab.file.uri];
-    if (state == null) return;
-
-    // Push the state *before* the stroke to the undo stack
-    state.undoStack.add(state.image);
-    state.redoStack.clear();
+    if (state == null || points.isEmpty) return;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    canvas.drawImage(state.image, Offset.zero, Paint());
+    
+    // Use the current image in the state as the base for the new one.
+    final baseImage = state.image;
+    canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
       switch (settings.type) {
         case GlitchBrushType.scatter:
-          _applyScatter(canvas, state.image, point, settings);
+          _applyScatter(canvas, baseImage, point, settings);
           break;
         case GlitchBrushType.repeater:
-          _applyRepeater(canvas, state.image, point, settings);
+          _applyRepeater(canvas, baseImage, point, settings);
           break;
       }
     }
     
     final picture = recorder.endRecording();
-    state.image = picture.toImageSync(state.image.width, state.image.height);
+    // This is the single expensive image creation operation.
+    final newImage = picture.toImageSync(baseImage.width, baseImage.height);
     picture.dispose();
+    
+    // Update the state with the newly baked image.
+    state.image = newImage;
 
-    // Mark as dirty and notify the UI to update
+    // Mark as dirty and notify the UI to update.
     ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
     ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
   }
-  
-  // The algorithms are now private helpers for the main apply method.
+
+  // Private glitch algorithms remain the same.
   void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius;
     final count = (radius * radius * settings.density * 0.05).toInt().clamp(1, 50);
@@ -171,63 +169,39 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
 
   @override
-  List<Command> getCommands() {
-    // ... Command implementations for save, undo, redo are unchanged.
-    return [
+  List<Command> getCommands() => [
     BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];
         if (state == null) return;
-        
         final byteData = await state.image.toByteData(format: ui.ImageByteFormat.png);
         if (byteData == null) return;
-
         await ref.read(appNotifierProvider.notifier).saveCurrentTabAsBytes(byteData.buffer.asUint8List());
-        
         state.originalImage.dispose();
-        state.undoStack.forEach((img) => img.dispose());
-        state.redoStack.forEach((img) => img.dispose());
         _tabStates[tab.file.uri] = _GlitchTabState(image: state.image.clone(), originalImage: state.image.clone());
       },
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
     ),
-    BaseCommand(id: 'undo', label: 'Undo Glitch', icon: const Icon(Icons.undo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
+    // NEW: Reset command instead of undo/redo.
+    BaseCommand(id: 'reset', label: 'Reset', icon: const Icon(Icons.refresh), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
         final state = _tabStates[tab.file.uri];
-        if (state == null || state.undoStack.isEmpty) return;
+        if (state == null) return;
 
-        state.redoStack.add(state.image);
-        state.image = state.undoStack.removeLast();
+        // Restore the image from the pristine original.
+        state.image = state.originalImage.clone();
         
-        final isDirty = state.undoStack.isNotEmpty;
-        if (isDirty) { ref.read(tabStateProvider.notifier).markDirty(tab.file.uri); } 
-        else { ref.read(tabStateProvider.notifier).markClean(tab.file.uri); }
-        
+        // Mark the tab as clean and update the UI.
+        ref.read(tabStateProvider.notifier).markClean(tab.file.uri);
         ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
       },
-      canExecute: (ref) => _tabStates[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.undoStack.isNotEmpty ?? false,
-    ),
-     BaseCommand(id: 'redo', label: 'Redo Glitch', icon: const Icon(Icons.redo), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
-      execute: (ref) async {
-        final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
-        if (tab == null) return;
-        final state = _tabStates[tab.file.uri];
-        if (state == null || state.redoStack.isEmpty) return;
-
-        state.undoStack.add(state.image);
-        state.image = state.redoStack.removeLast();
-
-        ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
-        ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
-      },
-      canExecute: (ref) => _tabStates[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.redoStack.isNotEmpty ?? false,
+      canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
     ),
   ];
-  }
   
   @override
   void activateTab(EditorTab tab, Ref ref) {}
