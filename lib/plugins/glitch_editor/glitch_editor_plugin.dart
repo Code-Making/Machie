@@ -41,6 +41,11 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
 
+    // NEW: Declare that this plugin requires raw byte data.
+  @override
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.bytes;
+
+
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
