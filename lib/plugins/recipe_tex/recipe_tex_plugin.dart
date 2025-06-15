@@ -246,7 +246,7 @@ class RecipeTexPlugin implements EditorPlugin {
             }),
         // NEW COMMAND TO DEMONSTRATE TOOLBAR OVERRIDE
         BaseCommand(
-            id: 'special_edit_mode',
+            id: 'special_edit',
             label: 'Special Mode',
             icon: const Icon(Icons.star),
             defaultPosition: CommandPosition.pluginToolbar,
