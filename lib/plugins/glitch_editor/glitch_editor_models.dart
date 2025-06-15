@@ -16,6 +16,17 @@ class GlitchEditorTab extends EditorTab {
 
   @override
   void dispose() {}
+  
+  // CORRECTED: Added the missing copyWith method.
+  GlitchEditorTab copyWith({
+    DocumentFile? file,
+    EditorPlugin? plugin,
+  }) {
+    return GlitchEditorTab(
+      file: file ?? this.file,
+      plugin: plugin ?? this.plugin,
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => {
@@ -25,7 +36,7 @@ class GlitchEditorTab extends EditorTab {
       };
 }
 
-// The settings for the currently selected brush.
+// ... rest of file is unchanged
 enum GlitchBrushType { scatter, repeater }
 
 class GlitchBrushSettings {
