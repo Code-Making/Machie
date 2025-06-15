@@ -42,6 +42,10 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorSettingsUI(settings: editorSettings);
   }
 
+    // NEW: Declare that this plugin requires raw byte data.
+  @override
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
+
   @override
   Future<void> dispose() async {
     for (final controller in _controllers.values) {
