@@ -30,7 +30,6 @@ class GlitchToolbar extends ConsumerWidget {
                   child: Text(type.name),
                 )).toList(),
                 onChanged: (value) {
-                  // CORRECTED: Pass the ref to the plugin method.
                   if (value != null) plugin.updateBrushSettings(settings.copyWith(type: value), ref);
                 },
               ),
@@ -44,7 +43,6 @@ class GlitchToolbar extends ConsumerWidget {
                   value: settings.radius,
                   min: 5,
                   max: 100,
-                  // CORRECTED: Pass the ref to the plugin method.
                   onChanged: (value) => plugin.updateBrushSettings(settings.copyWith(radius: value), ref),
                 ),
               ),
