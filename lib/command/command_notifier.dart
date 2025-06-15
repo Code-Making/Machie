@@ -22,11 +22,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
   Command? getCommand(String id, String sourcePlugin) {
-    // First, try to find the specific command for the plugin
     var command = _allRegisteredCommands.firstWhere(
         (c) => c.id == id && c.sourcePlugin == sourcePlugin,
         orElse: () => null!);
-    // If not found, find any command with that ID (fallback for core/general commands)
     command ??=
         _allRegisteredCommands.firstWhere((c) => c.id == id, orElse: () => null!);
     return command;
@@ -59,11 +57,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
       label: name,
       iconName: iconName,
     );
-
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
-    // Add new group to the toolbar by default
     final newToolbarOrder = [...state.pluginToolbarOrder, newGroup.id];
-
     state = state.copyWith(
       commandGroups: newGroups,
       pluginToolbarOrder: newToolbarOrder,
@@ -74,11 +69,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void updateGroup(String groupId, {String? newName, String? newIconName}) {
     final oldGroup = state.commandGroups[groupId];
     if (oldGroup == null) return;
-
-    final newGroup = oldGroup.copyWith(
-      label: newName,
-      iconName: newIconName,
-    );
+    final newGroup = oldGroup.copyWith(label: newName, iconName: newIconName);
     final newGroups = {...state.commandGroups, groupId: newGroup};
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
@@ -87,12 +78,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void deleteGroup(String groupId) {
     final group = state.commandGroups[groupId];
     if (group == null) return;
-
     final newGroups = Map.of(state.commandGroups)..remove(groupId);
-    
-    // Move commands from the deleted group back to the hidden list
     final newHiddenOrder = [...state.hiddenOrder, ...group.commandIds];
-
     state = state.copyWith(
       commandGroups: newGroups,
       hiddenOrder: newHiddenOrder,
@@ -105,49 +92,45 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   // --- Command Positioning ---
 
-  void updateCommandPosition(String commandId, CommandPosition newPosition,
-      {String? targetGroupId}) {
-    // CORRECTED: Explicitly define the types for the new lists.
-    final newAppBar = List<String>.from(state.appBarOrder);
-    final newPluginToolbar = List<String>.from(state.pluginToolbarOrder);
-    final newHidden = List<String>.from(state.hiddenOrder);
-    final newGroups = Map.of(state.commandGroups);
+  // NEW: A single, powerful method to move commands and groups between any list.
+  void moveItem(
+      {required String itemId,
+      required String fromListId,
+      required String toListId,
+      required int newIndex}) {
+    // Get mutable copies of all lists
+    final lists = {
+      'appBar': List<String>.from(state.appBarOrder),
+      'pluginToolbar': List<String>.from(state.pluginToolbarOrder),
+      'hidden': List<String>.from(state.hiddenOrder),
+      ...state.commandGroups
+          .map((id, group) => MapEntry(id, List<String>.from(group.commandIds)))
+    };
 
-    // Remove command from all possible old locations
-    newAppBar.remove(commandId);
-    newPluginToolbar.remove(commandId);
-    newHidden.remove(commandId);
-    newGroups.forEach((key, group) {
-      final newCommandIds = List<String>.from(group.commandIds)..remove(commandId);
-      newGroups[key] = group.copyWith(commandIds: newCommandIds);
-    });
-
-    // Add command to its new location
-    if (targetGroupId != null) {
-      final group = newGroups[targetGroupId];
-      if (group != null) {
-        final newGroupCommands = [...group.commandIds, commandId];
-        newGroups[targetGroupId] = group.copyWith(commandIds: newGroupCommands);
-      }
+    // Remove from the old list
+    lists[fromListId]?.remove(itemId);
+    
+    // Add to the new list at the correct index
+    final targetList = lists[toListId];
+    if (targetList == null) return;
+    if (newIndex < 0 || newIndex > targetList.length) {
+      targetList.add(itemId);
     } else {
-      switch (newPosition) {
-        case CommandPosition.appBar:
-          newAppBar.add(commandId);
-          break;
-        case CommandPosition.pluginToolbar:
-          newPluginToolbar.add(commandId);
-          break;
-        case CommandPosition.hidden:
-        default:
-          newHidden.add(commandId);
-          break;
-      }
+      targetList.insert(newIndex, itemId);
     }
 
+    // Create the final state maps/lists
+    final newGroups = Map.of(state.commandGroups);
+    lists.forEach((listId, commands) {
+      if (newGroups.containsKey(listId)) {
+        newGroups[listId] = newGroups[listId]!.copyWith(commandIds: commands);
+      }
+    });
+
     state = state.copyWith(
-      appBarOrder: newAppBar,
-      pluginToolbarOrder: newPluginToolbar,
-      hiddenOrder: newHidden,
+      appBarOrder: lists['appBar'],
+      pluginToolbarOrder: lists['pluginToolbar'],
+      hiddenOrder: lists['hidden'],
       commandGroups: newGroups,
     );
     _saveToPrefs();
@@ -158,55 +141,57 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList('command_plugin_toolbar', state.pluginToolbarOrder);
+    await prefs.setStringList(
+        'command_plugin_toolbar', state.pluginToolbarOrder);
     await prefs.setStringList('command_hidden', state.hiddenOrder);
-    final encodedGroups = state.commandGroups.map(
-      (key, value) => MapEntry(key, jsonEncode(value.toJson())),
-    );
+    final encodedGroups = state.commandGroups
+        .map((key, value) => MapEntry(key, jsonEncode(value.toJson())));
     await prefs.setString('command_groups', jsonEncode(encodedGroups));
   }
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Load Groups
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
-        loadedGroups[key] = CommandGroup.fromJson(jsonDecode(value as String) as Map<String,dynamic>);
+        loadedGroups[key] =
+            CommandGroup.fromJson(jsonDecode(value as String) as Map<String, dynamic>);
       });
     }
 
-    // Load Order Lists
     final appBar = prefs.getStringList('command_app_bar') ?? [];
     final pluginToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
     
-    final hidden = prefs.getStringList('command_hidden') ?? _getOrphanedCommands(
+    // CORRECTED: Load hidden list and then add any new/orphaned commands to it.
+    final loadedHidden = prefs.getStringList('command_hidden') ?? [];
+    final orphaned = _getOrphanedCommands(
         appBar: appBar, pluginToolbar: pluginToolbar, groups: loadedGroups);
+
+    // Combine loaded hidden commands with any new ones, avoiding duplicates.
+    final finalHidden = {...loadedHidden, ...orphaned}.toList();
 
     state = state.copyWith(
       appBarOrder: appBar,
       pluginToolbarOrder: pluginToolbar,
-      hiddenOrder: hidden,
+      hiddenOrder: finalHidden,
       commandGroups: loadedGroups,
     );
   }
 
-  List<String> _getOrphanedCommands({
-      required List<String> appBar,
+  List<String> _getOrphanedCommands(
+      {required List<String> appBar,
       required List<String> pluginToolbar,
       required Map<String, CommandGroup> groups}) {
-    final placedCommands = {
+    final placedItemIds = {
       ...appBar,
       ...pluginToolbar,
+      ...groups.keys,
       ...groups.values.expand((g) => g.commandIds)
     };
-    return _allRegisteredCommands
-        .map((c) => c.id)
-        .where((id) => !placedCommands.contains(id))
-        .toSet() // Use a Set to remove duplicates from different plugins
-        .toList();
+    final allCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+    return allCommandIds.where((id) => !placedItemIds.contains(id)).toList();
   }
 }
