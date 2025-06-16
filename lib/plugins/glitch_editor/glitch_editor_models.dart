@@ -16,7 +16,6 @@ class GlitchEditorTab extends EditorTab {
   @override
   void dispose() {}
   
-  // CORRECTED: Added the missing copyWith method.
   GlitchEditorTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,
@@ -36,31 +35,40 @@ class GlitchEditorTab extends EditorTab {
 }
 
 enum GlitchBrushType { scatter, repeater }
+enum GlitchBrushShape { circle, square }
 
 class GlitchBrushSettings {
   GlitchBrushType type;
-  double radius;
-  double density;
-  int repeatSpacing;
+  GlitchBrushShape shape;
+  double radius; // Now a percentage (0.0 to 1.0)
+  double minBlockSize;
+  double maxBlockSize;
+  double frequency; // For both brushes
 
   GlitchBrushSettings({
     this.type = GlitchBrushType.scatter,
-    this.radius = 20.0,
-    this.density = 0.5,
-    this.repeatSpacing = 20,
+    this.shape = GlitchBrushShape.circle,
+    this.radius = 0.1, // Default to 10% of screen width
+    this.minBlockSize = 2.0,
+    this.maxBlockSize = 5.0,
+    this.frequency = 0.5, // 0.0 to 1.0
   });
 
   GlitchBrushSettings copyWith({
     GlitchBrushType? type,
+    GlitchBrushShape? shape,
     double? radius,
-    double? density,
-    int? repeatSpacing,
+    double? minBlockSize,
+    double? maxBlockSize,
+    double? frequency,
   }) {
     return GlitchBrushSettings(
       type: type ?? this.type,
+      shape: shape ?? this.shape,
       radius: radius ?? this.radius,
-      density: density ?? this.density,
-      repeatSpacing: repeatSpacing ?? this.repeatSpacing,
+      minBlockSize: minBlockSize ?? this.minBlockSize,
+      maxBlockSize: maxBlockSize ?? this.maxBlockSize,
+      frequency: frequency ?? this.frequency,
     );
   }
 }

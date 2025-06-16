@@ -20,6 +20,9 @@ import 'glitch_toolbar.dart';
 class _GlitchTabState {
   ui.Image image;
   final ui.Image originalImage;
+  // For repeater brush, to sample once at start of stroke
+  ui.Image? strokeSample; 
+
   _GlitchTabState({required this.image, required this.originalImage});
 }
 
@@ -27,6 +30,8 @@ class GlitchEditorPlugin implements EditorPlugin {
   final Map<String, _GlitchTabState> _tabStates = {};
   final Random _random = Random();
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
+  final isZoomModeProvider = StateProvider((ref) => false);
+  final isSlidingProvider = StateProvider((ref) => false); // For brush preview
 
   @override
   String get name => 'Glitch Editor';
@@ -50,6 +55,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     _tabStates.values.forEach((state) {
       state.image.dispose();
       state.originalImage.dispose();
+      state.strokeSample?.dispose();
     });
     _tabStates.clear();
   }
@@ -63,8 +69,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     final codec = await ui.instantiateImageCodec(fileBytes);
     final frame = await codec.getNextFrame();
     final image = frame.image;
-    _tabStates[file.uri] =
-        _GlitchTabState(image: image, originalImage: image.clone());
+    _tabStates[file.uri] = _GlitchTabState(image: image, originalImage: image.clone());
     return GlitchEditorTab(file: file, plugin: this);
   }
 
@@ -92,15 +97,22 @@ class GlitchEditorPlugin implements EditorPlugin {
     final state = _tabStates.remove(tab.file.uri);
     state?.image.dispose();
     state?.originalImage.dispose();
+    state?.strokeSample?.dispose();
   }
 
-  ui.Image? getImageForTab(GlitchEditorTab tab) =>
-      _tabStates[tab.file.uri]?.image;
+  ui.Image? getImageForTab(GlitchEditorTab tab) => _tabStates[tab.file.uri]?.image;
 
   void updateBrushSettings(GlitchBrushSettings settings, WidgetRef ref) {
     ref.read(brushSettingsProvider.notifier).state = settings;
   }
-
+  
+  void beginGlitchStroke(GlitchEditorTab tab) {
+    final state = _tabStates[tab.file.uri];
+    if (state == null) return;
+    // For repeater brush, sample the whole image once.
+    state.strokeSample = state.image.clone();
+  }
+  
   void applyGlitchStroke({
     required GlitchEditorTab tab,
     required List<Offset> points,
@@ -119,51 +131,58 @@ class GlitchEditorPlugin implements EditorPlugin {
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
-      // CORRECTED: The baking process must also transform the coordinates.
       final transformedPoint = transformWidgetPointToImagePoint(
         point,
         widgetSize: widgetSize,
         imageSize: imageSize,
       );
-
-      switch (settings.type) {
-        case GlitchBrushType.scatter:
-          _applyScatter(canvas, baseImage, transformedPoint, settings);
-          break;
-        case GlitchBrushType.repeater:
-          _applyRepeater(canvas, baseImage, transformedPoint, settings);
-          break;
-      }
+      _applyEffectToCanvas(canvas, transformedPoint, settings, state);
     }
-
+    
     final picture = recorder.endRecording();
     final newImage = picture.toImageSync(baseImage.width, baseImage.height);
     picture.dispose();
     state.image = newImage;
-    baseImage.dispose(); // Dispose the old image to free up memory
+    baseImage.dispose();
+    state.strokeSample?.dispose();
+    state.strokeSample = null;
 
     ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
     ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
   }
+  
+  void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings, _GlitchTabState state) {
+      switch (settings.type) {
+        case GlitchBrushType.scatter:
+          _applyScatter(canvas, state.image, pos, settings);
+          break;
+        case GlitchBrushType.repeater:
+          _applyRepeater(canvas, state.strokeSample!, pos, settings);
+          break;
+      }
+  }
 
   void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
-    final radius = settings.radius;
-    final count = (radius * settings.density * 0.5).toInt().clamp(1, 10);
+    final radius = settings.radius * 500; // Scale percentage to a pixel value
+    final count = (settings.frequency * 50).toInt().clamp(1, 50);
     for (int i = 0; i < count; i++) {
       final srcX = pos.dx + _random.nextDouble() * radius * 2 - radius;
       final srcY = pos.dy + _random.nextDouble() * radius * 2 - radius;
       final dstX = pos.dx + _random.nextDouble() * radius * 2 - radius;
       final dstY = pos.dy + _random.nextDouble() * radius * 2 - radius;
-      final size = 2 + _random.nextDouble() * 4;
+      final size = settings.minBlockSize + _random.nextDouble() * (settings.maxBlockSize - settings.minBlockSize);
       canvas.drawImageRect(source, Rect.fromLTWH(srcX, srcY, size, size), Rect.fromLTWH(dstX, dstY, size, size), Paint());
     }
   }
 
   void _applyRepeater(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
-    final radius = settings.radius;
-    final srcRect = Rect.fromCenter(center: pos, width: radius, height: radius);
-    final spacing = settings.repeatSpacing.toDouble() * (radius / 20.0);
-    for (int i = -2; i <= 2; i++) {
+    final radius = settings.radius * 500;
+    final srcRect = settings.shape == GlitchBrushShape.circle
+        ? Rect.fromCircle(center: pos, radius: radius)
+        : Rect.fromCenter(center: pos, width: radius * 2, height: radius * 2);
+
+    final spacing = (settings.frequency * radius).clamp(5.0, 200.0);
+    for (int i = -3; i <= 3; i++) {
       if (i == 0) continue;
       final offset = Offset(i * spacing, 0);
       canvas.drawImageRect(source, srcRect, srcRect.shift(offset), Paint()..blendMode = BlendMode.difference);
@@ -172,7 +191,7 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-    BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
+  BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
@@ -214,9 +233,15 @@ class GlitchEditorPlugin implements EditorPlugin {
         ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
       },
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
+    ),    
+    BaseCommand(id: 'zoom_mode', label: 'Toggle Zoom', icon: const Icon(Icons.zoom_in), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
+      execute: (ref) async {
+        final notifier = ref.read(isZoomModeProvider.notifier);
+        notifier.state = !notifier.state;
+      },
     ),
   ];
-  
+
   @override
   void activateTab(EditorTab tab, Ref ref) {}
   @override
