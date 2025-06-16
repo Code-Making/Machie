@@ -29,6 +29,9 @@ class _GlitchTabState {
   Offset? lastRepeaterPosition;
   List<Offset> repeaterPath = [];
   
+  ui.Image? healingSample;
+  Rect? healingSampleRect;
+  
   _GlitchTabState({required this.image, required this.originalImage});
 }
 
@@ -115,23 +118,28 @@ class GlitchEditorPlugin implements EditorPlugin {
     ref.read(brushSettingsProvider.notifier).state = settings;
   }
 
-  void beginGlitchStroke(GlitchEditorTab tab) {
-    final state = _tabStates[tab.file.uri];
-    if (state == null) return;
-    
-    // Dispose previous samples
-    state.strokeSample?.dispose();
-    state.repeaterSample?.dispose();
-    
-    // Create new stroke sample (clone of current image)
-    state.strokeSample = state.image.clone();
-    
-    // Reset repeater state
-    state.repeaterSample = null;
-    state.repeaterSampleRect = null;
-    state.lastRepeaterPosition = null;
-    state.repeaterPath = [];
-  }
+  // Update beginGlitchStroke to handle heal brush
+void beginGlitchStroke(GlitchEditorTab tab) {
+  final state = _tabStates[tab.file.uri];
+  if (state == null) return;
+  
+  // Dispose previous samples
+  state.strokeSample?.dispose();
+  state.repeaterSample?.dispose();
+  state.healingSample?.dispose();
+  
+  // Create new stroke sample (clone of current image)
+  state.strokeSample = state.image.clone();
+  
+  // Reset brush states
+  state.repeaterSample = null;
+  state.repeaterSampleRect = null;
+  state.lastRepeaterPosition = null;
+  state.repeaterPath = [];
+  
+  state.healingSample = null;
+  state.healingSampleRect = null;
+}
 
 
   // This method now returns the new image for the widget to update its local state.
@@ -169,16 +177,20 @@ class GlitchEditorPlugin implements EditorPlugin {
     return newImage;
   }
   
-    void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings, _GlitchTabState state) {
-    switch (settings.type) {
-      case GlitchBrushType.scatter:
-        _applyScatter(canvas, state.strokeSample!, pos, settings);
-        break;
-      case GlitchBrushType.repeater:
-        _applyRepeater(canvas, state, pos, settings);
-        break;
-    }
+// Update _applyEffectToCanvas method
+void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings, _GlitchTabState state) {
+  switch (settings.type) {
+    case GlitchBrushType.scatter:
+      _applyScatter(canvas, state.strokeSample!, pos, settings);
+      break;
+    case GlitchBrushType.repeater:
+      _applyRepeater(canvas, state, pos, settings);
+      break;
+    case GlitchBrushType.heal:
+      _applyHeal(canvas, state, pos, settings);
+      break;
   }
+}
 
   void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius * 500;
@@ -294,6 +306,70 @@ class GlitchEditorPlugin implements EditorPlugin {
       Paint()..blendMode = BlendMode.srcOver,
     );
   }
+  
+  // Add new heal brush implementation
+void _applyHeal(Canvas canvas, _GlitchTabState state, Offset pos, GlitchBrushSettings settings) {
+  final radius = settings.radius * 500;
+  
+  // Create sample on first point if not exists
+  if (state.healingSample == null) {
+    _createHealingSample(state, pos, settings);
+  }
+  
+  // Draw healing sample at current position
+  _drawHealingSample(canvas, state, pos);
+}
+
+void _createHealingSample(_GlitchTabState state, Offset pos, GlitchBrushSettings settings) {
+  final radius = settings.radius * 500;
+  
+  // Define sample area
+  state.healingSampleRect = settings.shape == GlitchBrushShape.circle
+      ? Rect.fromCircle(center: pos, radius: radius / 2)
+      : Rect.fromCenter(center: pos, width: radius, height: radius);
+  
+  // Clamp rect to image boundaries
+  state.healingSampleRect = Rect.fromLTRB(
+    state.healingSampleRect!.left.clamp(0, state.strokeSample!.width.toDouble()),
+    state.healingSampleRect!.top.clamp(0, state.strokeSample!.height.toDouble()),
+    state.healingSampleRect!.right.clamp(0, state.strokeSample!.width.toDouble()),
+    state.healingSampleRect!.bottom.clamp(0, state.strokeSample!.height.toDouble()),
+  );
+  
+  // Create sample image from the original image
+  final sampleRecorder = ui.PictureRecorder();
+  final sampleCanvas = Canvas(sampleRecorder);
+  sampleCanvas.drawImageRect(
+    state.originalImage,
+    state.healingSampleRect!,
+    Rect.fromLTWH(0, 0, state.healingSampleRect!.width, state.healingSampleRect!.height),
+    Paint(),
+  );
+  
+  final samplePicture = sampleRecorder.endRecording();
+  state.healingSample = samplePicture.toImageSync(
+    state.healingSampleRect!.width.toInt(),
+    state.healingSampleRect!.height.toInt(),
+  );
+  samplePicture.dispose();
+}
+
+void _drawHealingSample(Canvas canvas, _GlitchTabState state, Offset pos) {
+  if (state.healingSample == null) return;
+  
+  final destRect = Rect.fromCenter(
+    center: pos,
+    width: state.healingSampleRect!.width,
+    height: state.healingSampleRect!.height,
+  );
+  
+  canvas.drawImageRect(
+    state.healingSample!,
+    Rect.fromLTWH(0, 0, state.healingSample!.width.toDouble(), state.healingSample!.height.toDouble()),
+    destRect,
+    Paint()..blendMode = BlendMode.srcOver,
+  );
+}
   
   @override
   List<Command> getCommands() => [
