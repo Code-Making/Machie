@@ -34,7 +34,7 @@ class GlitchEditorTab extends EditorTab {
       };
 }
 
-enum GlitchBrushType { scatter, repeater }
+enum GlitchBrushType { scatter, repeater, heal }
 enum GlitchBrushShape { circle, square }
 
 class GlitchBrushSettings {
