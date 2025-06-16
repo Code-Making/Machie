@@ -188,7 +188,20 @@ class GlitchEditorPlugin implements EditorPlugin {
     }
   }
 
-  void _applyRepeater(Canvas canvas, _GlitchTabState state, Offset pos, GlitchBrushSettings settings) {
+  void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
+    final radius = settings.radius * 500;
+    final count = (settings.frequency * 20).toInt().clamp(1, 50);
+    for (int i = 0; i < count; i++) {
+      final srcX = pos.dx + _random.nextDouble() * radius - (radius / 2);
+      final srcY = pos.dy + _random.nextDouble() * radius - (radius / 2);
+      final dstX = pos.dx + _random.nextDouble() * radius - (radius / 2);
+      final dstY = pos.dy + _random.nextDouble() * radius - (radius / 2);
+      final size = settings.minBlockSize + _random.nextDouble() * (settings.maxBlockSize - settings.minBlockSize);
+      canvas.drawImageRect(source, Rect.fromLTWH(srcX, srcY, size, size), Rect.fromLTWH(dstX, dstY, size, size), Paint());
+    }
+  }
+
+      void _applyRepeater(Canvas canvas, _GlitchTabState state, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius * 500;
     final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
     
