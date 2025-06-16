@@ -143,17 +143,25 @@ class SafFileHandler implements LocalFileHandler {
     return renamed != null ? CustomSAFDocumentFile(renamed) : null;
   }
 
+  // CORRECTED: This method now correctly copies any file type using raw bytes.
   @override
   Future<DocumentFile?> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final copied = await _safUtil.copyTo(
-      source.uri,
-      false,
+    if (source.isDirectory)
+      throw UnsupportedError('Recursive folder copy not supported.');
+    
+    // Read the file as raw bytes.
+    final contentBytes = await readFileAsBytes(source.uri);
+    
+    // Create the new file using the raw bytes.
+    return createDocumentFile(
       destinationParentUri,
+      source.name,
+      initialBytes: contentBytes,
+      overwrite: true, // Typically, an import should overwrite.
     );
-    return CustomSAFDocumentFile(copied);
   }
 
 
