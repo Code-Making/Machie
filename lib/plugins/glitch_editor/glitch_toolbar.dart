@@ -13,111 +13,105 @@ class GlitchToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(plugin.brushSettingsProvider);
     final notifier = ref.read(plugin.brushSettingsProvider.notifier);
-    
-    // Preview state for brush outline
-    final isSliding = ref.watch(plugin.isSlidingProvider);
 
     return Container(
-      height: 200, // Increased height for more controls
-      color: Theme.of(context).bottomAppBarTheme.color,
+      height: 200,
+      color: Theme.of(context).bottomAppBarTheme.color?.withAlpha(240),
       padding: const EdgeInsets.all(8.0),
       child: SingleChildScrollView(
         child: Column(
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  children: [
-                    const Text('Brush Type'),
-                    DropdownButton<GlitchBrushType>(
-                      value: settings.type,
-                      items: GlitchBrushType.values.map((type) => DropdownMenuItem(value: type, child: Text(type.name))).toList(),
-                      onChanged: (v) => notifier.state = settings.copyWith(type: v),
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    const Text('Brush Shape'),
-                    IconButton(
-                      icon: Icon(settings.shape == GlitchBrushShape.circle ? Icons.circle_outlined : Icons.square_outlined),
-                      onPressed: () {
-                        final newShape = settings.shape == GlitchBrushShape.circle ? GlitchBrushShape.square : GlitchBrushShape.circle;
-                        notifier.state = settings.copyWith(shape: newShape);
-                      },
-                    )
-                  ],
+                const SizedBox(width: 40), // Spacer
+                const Text("Brush Settings", style: TextStyle(fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: "Close Settings",
+                  onPressed: () => ref.read(plugin.isToolbarVisibleProvider.notifier).state = false,
                 ),
               ],
             ),
             const Divider(),
-            _buildSliderRow(
-              label: 'Brush Size',
-              value: settings.radius * 100, // Display as percentage
-              min: 1, max: 50,
-              onChanged: (v) => notifier.state = settings.copyWith(radius: v / 100),
-              onChangeStart: (_) => ref.read(plugin.isSlidingProvider.notifier).state = true,
-              onChangeEnd: (_) => ref.read(plugin.isSlidingProvider.notifier).state = false,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildDropdown('Brush Type', settings.type, GlitchBrushType.values, (v) => notifier.state = settings.copyWith(type: v)),
+                _buildIconButton('Brush Shape', settings.shape == GlitchBrushShape.circle ? Icons.circle_outlined : Icons.square_outlined, () {
+                  final newShape = settings.shape == GlitchBrushShape.circle ? GlitchBrushShape.square : GlitchBrushShape.circle;
+                  notifier.state = settings.copyWith(shape: newShape);
+                }),
+              ],
             ),
-            if (settings.type == GlitchBrushType.scatter)
-              _buildSliderRow(
-                label: 'Block Size (Min/Max)',
-                value: settings.minBlockSize,
-                min: 1, max: 20,
+            _buildSliderRow(
+              context, ref, 'Brush Size',
+              value: settings.radius * 100, min: 1, max: 50,
+              onChanged: (v) => notifier.state = settings.copyWith(radius: v / 100),
+            ),
+            if (settings.type == GlitchBrushType.scatter) ...[
+              _buildSliderRow(context, ref, 'Min Block Size', value: settings.minBlockSize, min: 1, max: 50,
                 onChanged: (v) {
-                  if (v > settings.maxBlockSize) {
-                    notifier.state = settings.copyWith(minBlockSize: v, maxBlockSize: v);
-                  } else {
-                    notifier.state = settings.copyWith(minBlockSize: v);
-                  }
+                  notifier.state = settings.copyWith(minBlockSize: v > settings.maxBlockSize ? settings.maxBlockSize : v);
                 },
               ),
-            if (settings.type == GlitchBrushType.scatter)
-              _buildSliderRow(
-                label: '',
-                value: settings.maxBlockSize,
-                min: 1, max: 20,
+              _buildSliderRow(context, ref, 'Max Block Size', value: settings.maxBlockSize, min: 1, max: 50,
                 onChanged: (v) {
-                   if (v < settings.minBlockSize) {
-                    notifier.state = settings.copyWith(minBlockSize: v, maxBlockSize: v);
-                  } else {
-                    notifier.state = settings.copyWith(maxBlockSize: v);
-                  }
+                  notifier.state = settings.copyWith(maxBlockSize: v < settings.minBlockSize ? settings.minBlockSize : v);
                 },
               ),
-            if (settings.type == GlitchBrushType.repeater)
-              _buildSliderRow(
-                label: 'Repeat Spacing',
-                value: settings.frequency * 100,
-                onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
-              ),
+            ],
+            _buildSliderRow(
+              context, ref, 'Frequency/Density',
+              value: settings.frequency * 100, min: 1, max: 100,
+              onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliderRow({
-    required String label,
+  Widget _buildDropdown<T>(String label, T value, List<T> items, ValueChanged<T?> onChanged) {
+    return Column(
+      children: [
+        Text(label),
+        DropdownButton<T>(
+          value: value,
+          items: items.map((item) => DropdownMenuItem(value: item, child: Text(item.toString().split('.').last))).toList(),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildIconButton(String label, IconData icon, VoidCallback onPressed) {
+    return Column(
+      children: [
+        Text(label),
+        IconButton(icon: Icon(icon), onPressed: onPressed),
+      ],
+    );
+  }
+
+  Widget _buildSliderRow(
+    BuildContext context, WidgetRef ref, String label, {
     required double value,
     required ValueChanged<double> onChanged,
     double min = 0.0,
     double max = 1.0,
-    ValueChanged<double>? onChangeStart,
-    ValueChanged<double>? onChangeEnd,
   }) {
     return Row(
       children: [
-        if (label.isNotEmpty) Text('$label: ${value.toStringAsFixed(1)}'),
+        Text('$label: ${value.toStringAsFixed(1)}', style: Theme.of(context).textTheme.bodySmall),
         Expanded(
           child: Slider(
             value: value,
             min: min,
             max: max,
             onChanged: onChanged,
-            onChangeStart: onChangeStart,
-            onChangeEnd: onChangeEnd,
+            onChangeStart: (_) => ref.read(plugin.isSlidingProvider.notifier).state = true,
+            onChangeEnd: (_) => ref.read(plugin.isSlidingProvider.notifier).state = false,
           ),
         ),
       ],
