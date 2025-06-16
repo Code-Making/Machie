@@ -42,23 +42,27 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onPanStart(DragStartDetails details) {
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
+    
+    // Transform the very first point
+    final matrix = _transformationController.value.clone()..invert();
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
+    setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
+    // Transform each subsequent point
+    final matrix = _transformationController.value.clone()..invert();
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
     setState(() {
-      final matrix = _transformationController.value.clone()..invert();
-      final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
       _liveStrokePoints.add(transformedPoint);
     });
   }
 
   void _onPanEnd(DragEndDetails details) {
-    // CORRECTED: Pass the widget's size to the plugin.
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
       settings: _liveBrushSettings!,
-      widgetSize: context.size!, 
       ref: ref,
     );
   }
@@ -73,6 +77,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.watch(widget.plugin.isZoomModeProvider);
     final isSliding = ref.watch(widget.plugin.isSlidingProvider);
     final brushSettings = ref.watch(widget.plugin.brushSettingsProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return InteractiveViewer(
       transformationController: _transformationController,
@@ -94,13 +99,13 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
                   baseImage: baseImage,
                   liveStroke: _liveStrokePoints,
                   liveBrushSettings: _liveBrushSettings,
+                  screenWidth: screenWidth, // Pass screen width for relative sizing
                 ),
               ),
             ),
-            // Brush Preview Overlay
             if (isSliding)
               IgnorePointer(
-                child: _BrushPreview(settings: brushSettings),
+                child: _BrushPreview(settings: brushSettings, screenWidth: screenWidth),
               ),
           ],
         ),
@@ -111,18 +116,18 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
 class _BrushPreview extends StatelessWidget {
   final GlitchBrushSettings settings;
-  const _BrushPreview({required this.settings});
+  final double screenWidth;
+  const _BrushPreview({required this.settings, required this.screenWidth});
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final radius = settings.radius * screenWidth * 0.5; // Half because it's a radius
-
+    final radius = settings.radius * screenWidth; // No * 0.5, radius is now full width
     return Container(
-      width: radius * 2,
-      height: radius * 2,
+      width: radius,
+      height: radius,
       decoration: BoxDecoration(
         shape: settings.shape == GlitchBrushShape.circle ? BoxShape.circle : BoxShape.rectangle,
+        color: Colors.white.withOpacity(0.3),
         border: Border.all(color: Colors.white.withOpacity(0.7), width: 2),
       ),
     );
@@ -133,66 +138,57 @@ class _ImagePainter extends CustomPainter {
   final ui.Image baseImage;
   final List<Offset> liveStroke;
   final GlitchBrushSettings? liveBrushSettings;
+  final double screenWidth;
   final Random _random = Random();
 
   _ImagePainter({
     required this.baseImage,
     required this.liveStroke,
+    required this.screenWidth,
     this.liveBrushSettings,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    paintImage(
-      canvas: canvas,
-      rect: Rect.fromLTWH(0, 0, size.width, size.height),
-      image: baseImage,
-      filterQuality: FilterQuality.none,
-      fit: BoxFit.contain,
-    );
+    paintImage(canvas: canvas, rect: Rect.fromLTWH(0, 0, size.width, size.height), image: baseImage, filterQuality: FilterQuality.none, fit: BoxFit.contain);
 
     if (liveBrushSettings != null) {
+      // CORRECTED: Only draw the effect for the latest point to avoid over-drawing.
       final point = liveStroke.lastOrNull;
       if (point == null) return;
       
-      final imageSize = Size(baseImage.width.toDouble(), baseImage.height.toDouble());
-      final transformedPoint = transformWidgetPointToImagePoint(
-          point,
-          widgetSize: size,
-          imageSize: imageSize,
-        );
-
       switch (liveBrushSettings!.type) {
         case GlitchBrushType.scatter:
-          _applyScatter(canvas, transformedPoint, liveBrushSettings!);
+          _applyScatter(canvas, point, liveBrushSettings!);
           break;
         case GlitchBrushType.repeater:
-          _applyRepeater(canvas, transformedPoint, liveBrushSettings!);
+          _applyRepeater(canvas, point, liveBrushSettings!);
           break;
       }
     }
   }
   
   void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final screenWidth = canvas.getLocalClipBounds().width;
       final radius = settings.radius * screenWidth;
-      final count = (settings.frequency * 50).toInt().clamp(1, 50);
+      final count = (settings.frequency * 20).toInt().clamp(1, 50);
 
       for (int i = 0; i < count; i++) {
-        final srcX = pos.dx + _random.nextDouble() * radius * 2 - radius;
-        final srcY = pos.dy + _random.nextDouble() * radius * 2 - radius;
-        final dstX = pos.dx + _random.nextDouble() * radius * 2 - radius;
-        final dstY = pos.dy + _random.nextDouble() * radius * 2 - radius;
+        final srcX = pos.dx + _random.nextDouble() * radius - (radius / 2);
+        final srcY = pos.dy + _random.nextDouble() * radius - (radius / 2);
+        final dstX = pos.dx + _random.nextDouble() * radius - (radius / 2);
+        final dstY = pos.dy + _random.nextDouble() * radius - (radius / 2);
         final size = settings.minBlockSize + _random.nextDouble() * (settings.maxBlockSize - settings.minBlockSize);
         canvas.drawImageRect(baseImage, Rect.fromLTWH(srcX, srcY, size, size), Rect.fromLTWH(dstX, dstY, size, size), Paint());
       }
   }
 
   void _applyRepeater(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final screenWidth = canvas.getLocalClipBounds().width;
       final radius = settings.radius * screenWidth;
-      final srcRect = Rect.fromCenter(center: pos, width: radius, height: radius);
-      final spacing = (settings.frequency * radius).clamp(5.0, 100.0);
+      final srcRect = settings.shape == GlitchBrushShape.circle
+          ? Rect.fromCircle(center: pos, radius: radius / 2)
+          : Rect.fromCenter(center: pos, width: radius, height: radius);
+          
+      final spacing = (settings.frequency * radius).clamp(5.0, 200.0);
       for(int i = -3; i <= 3; i++) {
           if (i == 0) continue;
           final offset = Offset(i * spacing, 0);
