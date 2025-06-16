@@ -33,8 +33,10 @@ abstract class FileHandler {
     String name, {
     bool isDirectory = false,
     String? initialContent,
+    Uint8List? initialBytes, // NEW
     bool overwrite = false,
   });
+  
   Future<void> deleteDocumentFile(DocumentFile file);
 
   Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName);
