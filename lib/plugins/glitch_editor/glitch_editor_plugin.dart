@@ -139,26 +139,18 @@ class GlitchEditorPlugin implements EditorPlugin {
     required GlitchEditorTab tab,
     required List<Offset> points,
     required GlitchBrushSettings settings,
-    required Size widgetSize,
     required WidgetRef ref,
   }) {
     final state = _tabStates[tab.file.uri];
     if (state == null || points.isEmpty) return null;
     
     final baseImage = state.image;
-    final imageSize = Size(baseImage.width.toDouble(), baseImage.height.toDouble());
-    
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
-      final transformedPoint = transformWidgetPointToImagePoint(
-        point,
-        widgetSize: widgetSize,
-        imageSize: imageSize,
-      );
-      _applyEffectToCanvas(canvas, transformedPoint, settings, state);
+      _applyEffectToCanvas(canvas, point, settings, state);
     }
     
     final picture = recorder.endRecording();
