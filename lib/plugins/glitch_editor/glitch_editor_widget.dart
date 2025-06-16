@@ -81,6 +81,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       tab: widget.tab,
       points: _currentStrokePoints,
       settings: _liveBrushSettings!,
+      widgetSize: context.size!,
       ref: ref,
     );
     
