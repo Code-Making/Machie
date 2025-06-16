@@ -23,7 +23,6 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 }
 
 class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
-  // Use a standard Flutter controller, not from the transformation_controller package
   final TransformationController _transformationController = TransformationController();
   List<Offset> _liveStrokePoints = [];
   GlitchBrushSettings? _liveBrushSettings;
@@ -39,7 +38,21 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  // CORRECTED: Use InteractiveViewer's callbacks for robust gesture handling
+  // CORRECTED: Unified gesture handling logic.
+  Offset _transformPoint(Offset globalPosition) {
+    // Get the render box of the InteractiveViewer's child (the CustomPaint)
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return Offset.zero;
+
+    // Convert the global screen point to a point local to the child
+    final Offset localPoint = box.globalToLocal(globalPosition);
+    
+    // Apply the inverse of the current transformation to get the point
+    // in the image's original coordinate space.
+    final matrix = _transformationController.value.clone()..invert();
+    return MatrixUtils.transformPoint(matrix, localPoint);
+  }
+
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
@@ -47,8 +60,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
 
-    final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
+    final transformedPoint = _transformPoint(details.focalPoint);
     setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
@@ -56,8 +68,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
-    final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
+    final transformedPoint = _transformPoint(details.focalPoint);
     setState(() {
       _liveStrokePoints.add(transformedPoint);
     });
@@ -91,7 +102,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       transformationController: _transformationController,
       minScale: 0.1,
       maxScale: 4.0,
-      // CORRECTED: Let InteractiveViewer handle all gestures
       panEnabled: isZoomMode,
       scaleEnabled: isZoomMode,
       onInteractionStart: _onInteractionStart,
@@ -175,7 +185,7 @@ class _ImagePainter extends CustomPainter {
   }
   
   void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final radius = settings.radius * screenWidth;
+      final radius = settings.radius * 500; // Use a fixed factor, not screen width
       final count = (settings.frequency * 20).toInt().clamp(1, 50);
 
       for (int i = 0; i < count; i++) {
@@ -189,7 +199,7 @@ class _ImagePainter extends CustomPainter {
   }
 
   void _applyRepeater(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final radius = settings.radius * screenWidth;
+      final radius = settings.radius * 500;
       final srcRect = settings.shape == GlitchBrushShape.circle
           ? Rect.fromCircle(center: pos, radius: radius / 2)
           : Rect.fromCenter(center: pos, width: radius, height: radius);
