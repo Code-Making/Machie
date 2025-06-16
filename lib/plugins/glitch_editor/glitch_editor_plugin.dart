@@ -130,39 +130,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     state.repeaterSampleRect = null;
   }
 
-  ui.Image? applyGlitchStroke({
-    required GlitchEditorTab tab,
-    required List<Offset> points,
-    required GlitchBrushSettings settings,
-    required WidgetRef ref,
-  }) {
-    final state = _tabStates[tab.file.uri];
-    if (state == null || points.isEmpty) return null;
-    
-    final baseImage = state.image;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    
-    // Draw base image BEFORE applying effects
-    canvas.drawImage(baseImage, Offset.zero, Paint());
-
-    // Process points
-    for (final point in points) {
-      _applyEffectToCanvas(canvas, point, settings, state);
-    }
-    
-    final picture = recorder.endRecording();
-    final newImage = picture.toImageSync(baseImage.width, baseImage.height);
-    picture.dispose();
-    
-    final oldImage = state.image;
-    state.image = newImage;
-    oldImage.dispose();
-
-    ref.read(tabStateProvider.notifier).markDirty(tab.file.uri);
-    
-    return newImage;
-  }
 
   // This method now returns the new image for the widget to update its local state.
   ui.Image? applyGlitchStroke({
