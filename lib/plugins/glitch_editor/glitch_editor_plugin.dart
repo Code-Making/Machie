@@ -68,8 +68,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     final codec = await ui.instantiateImageCodec(fileBytes);
     final frame = await codec.getNextFrame();
     final image = frame.image;
-    _tabStates[file.uri] =
-        _GlitchTabState(image: image, originalImage: image.clone());
+    _tabStates[file.uri] = _GlitchTabState(image: image, originalImage: image.clone());
     return GlitchEditorTab(file: file, plugin: this);
   }
 
@@ -100,8 +99,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     state?.strokeSample?.dispose();
   }
 
-  ui.Image? getImageForTab(GlitchEditorTab tab) =>
-      _tabStates[tab.file.uri]?.image;
+  ui.Image? getImageForTab(GlitchEditorTab tab) => _tabStates[tab.file.uri]?.image;
 
   void updateBrushSettings(GlitchBrushSettings settings, WidgetRef ref) {
     ref.read(brushSettingsProvider.notifier).state = settings;
@@ -120,7 +118,11 @@ class GlitchEditorPlugin implements EditorPlugin {
     required WidgetRef ref,
   }) {
     final state = _tabStates[tab.file.uri];
-    if (state == null || points.isEmpty) return;
+    if (state == null || points.isEmpty) {
+      state?.strokeSample?.dispose();
+      state?.strokeSample = null;
+      return;
+    }
 
     final baseImage = state.image;
     
@@ -129,7 +131,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
-      // The points are already transformed correctly by the widget.
       _applyEffectToCanvas(canvas, point, settings, state);
     }
     
@@ -189,7 +190,7 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
+    BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
@@ -219,7 +220,7 @@ BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defau
       },
       canExecute: (ref) => ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab is GlitchEditorTab,
     ),
-    BaseCommand(id: 'reset', label: 'Reset', icon: const Icon(Icons.refresh), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
+    BaseCommand(id: 'reset', label: 'Reset Image', icon: const Icon(Icons.refresh), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
@@ -231,7 +232,7 @@ BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defau
         ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
       },
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
-    ),    
+    ),
     BaseCommand(id: 'zoom_mode', label: 'Toggle Zoom', icon: const Icon(Icons.zoom_in), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final notifier = ref.read(isZoomModeProvider.notifier);
@@ -240,7 +241,6 @@ BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defau
     ),
     BaseCommand(id: 'toggle_brush_settings', label: 'Brush Settings', icon: const Icon(Icons.brush), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
-        // CORRECTED: Use the AppNotifier override mechanism
         ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(GlitchToolbar(plugin: this));
       },
     ),
