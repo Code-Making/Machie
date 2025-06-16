@@ -64,12 +64,18 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
     
-    // This is the correct transformation logic.
-    final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
+    // Get the inverse transformation matrix
+    final inverseMatrix = Matrix4.tryInvert(_transformationController.value);
+    if (inverseMatrix == null) return;
+    
+    // Transform point to local image coordinates
+    final localPoint = MatrixUtils.transformPoint(
+      inverseMatrix, 
+      details.focalPoint
+    );
     
     setState(() {
-      _currentStrokePoints.add(transformedPoint);
+      _currentStrokePoints.add(localPoint);
     });
   }
 
@@ -77,16 +83,22 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
+    // Calculate current scale factor
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final safeScale = scale.isFinite && scale >= 0.1 ? scale : 1.0;
+
     final newImage = widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _currentStrokePoints,
-      settings: _liveBrushSettings!,
-      widgetSize: context.size!,
+      settings: _liveBrushSettings!.copyWith(
+        // Adjust brush size for current scale
+        radius: _liveBrushSettings!.radius / safeScale,
+        minBlockSize: _liveBrushSettings!.minBlockSize / safeScale,
+        maxBlockSize: _liveBrushSettings!.maxBlockSize / safeScale,
+      ),
       ref: ref,
     );
     
-    // Update the local display image and clear the live stroke.
-    // This avoids a full widget tree rebuild.
     setState(() {
       _displayImage = newImage;
       _currentStrokePoints = [];
