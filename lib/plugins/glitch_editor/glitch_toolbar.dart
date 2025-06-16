@@ -2,17 +2,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_notifier.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 
-class GlitchToolbar extends ConsumerWidget {
+class GlitchToolbar extends ConsumerStatefulWidget {
   final GlitchEditorPlugin plugin;
   const GlitchToolbar({super.key, required this.plugin});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(plugin.brushSettingsProvider);
-    final notifier = ref.read(plugin.brushSettingsProvider.notifier);
+  ConsumerState<GlitchToolbar> createState() => _GlitchToolbarState();
+}
+
+class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isExpanded) {
+      // Return a minimal bar when collapsed, with a button to expand
+      return Container(
+        height: 48,
+        color: Theme.of(context).bottomAppBarTheme.color,
+        child: Row(
+          children: [
+            TextButton.icon(
+              icon: const Icon(Icons.brush),
+              label: const Text("Brush Settings"),
+              onPressed: () => setState(() => _isExpanded = true),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // The full, expanded toolbar
+    final settings = ref.watch(widget.plugin.brushSettingsProvider);
+    final notifier = ref.read(widget.plugin.brushSettingsProvider.notifier);
 
     return Container(
       height: 200,
@@ -28,8 +54,8 @@ class GlitchToolbar extends ConsumerWidget {
                 const Text("Brush Settings", style: TextStyle(fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  tooltip: "Close Settings",
-                  onPressed: () => ref.read(plugin.isToolbarVisibleProvider.notifier).state = false,
+                  tooltip: "Close Settings Toolbar",
+                  onPressed: () => ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride(),
                 ),
               ],
             ),
@@ -110,8 +136,8 @@ class GlitchToolbar extends ConsumerWidget {
             min: min,
             max: max,
             onChanged: onChanged,
-            onChangeStart: (_) => ref.read(plugin.isSlidingProvider.notifier).state = true,
-            onChangeEnd: (_) => ref.read(plugin.isSlidingProvider.notifier).state = false,
+            onChangeStart: (_) => ref.read(widget.plugin.isSlidingProvider.notifier).state = true,
+            onChangeEnd: (_) => ref.read(widget.plugin.isSlidingProvider.notifier).state = false,
           ),
         ),
       ],
