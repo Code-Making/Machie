@@ -13,7 +13,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
 import '../../session/tab_state.dart';
 import '../plugin_models.dart';
-import 'glitch_editor_math.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
@@ -32,9 +31,6 @@ class GlitchEditorPlugin implements EditorPlugin {
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
   final isZoomModeProvider = StateProvider((ref) => false);
   final isSlidingProvider = StateProvider((ref) => false);
-  
-  // This state is no longer needed here, the toolbar manages itself.
-  // final isToolbarVisibleProvider = StateProvider((ref) => false);
 
   @override
   String get name => 'Glitch Editor';
@@ -62,7 +58,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     });
     _tabStates.clear();
   }
-  
+
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
@@ -93,8 +89,6 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   Widget buildToolbar(WidgetRef ref) {
-    // The plugin always returns the default toolbar now.
-    // The command system will handle swapping it out.
     return const BottomToolbar();
   }
 
@@ -105,7 +99,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     state?.originalImage.dispose();
     state?.strokeSample?.dispose();
   }
-  
+
   ui.Image? getImageForTab(GlitchEditorTab tab) =>
       _tabStates[tab.file.uri]?.image;
 
@@ -123,21 +117,19 @@ class GlitchEditorPlugin implements EditorPlugin {
     required GlitchEditorTab tab,
     required List<Offset> points,
     required GlitchBrushSettings settings,
-    required Size widgetSize,
     required WidgetRef ref,
   }) {
     final state = _tabStates[tab.file.uri];
     if (state == null || points.isEmpty) return;
 
     final baseImage = state.image;
-    final imageSize = Size(baseImage.width.toDouble(), baseImage.height.toDouble());
     
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
-      // We no longer need to transform here because the widget does it now
+      // The points are already transformed correctly by the widget.
       _applyEffectToCanvas(canvas, point, settings, state);
     }
     
@@ -197,7 +189,7 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-    BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
+BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;

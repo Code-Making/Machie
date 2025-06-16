@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'glitch_editor_math.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 
@@ -24,6 +23,7 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 }
 
 class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
+  // Use a standard Flutter controller, not from the transformation_controller package
   final TransformationController _transformationController = TransformationController();
   List<Offset> _liveStrokePoints = [];
   GlitchBrushSettings? _liveBrushSettings;
@@ -39,30 +39,38 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  void _onPanStart(DragStartDetails details) {
+  // CORRECTED: Use InteractiveViewer's callbacks for robust gesture handling
+  void _onInteractionStart(ScaleStartDetails details) {
+    final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
+    if (isZoomMode) return;
+
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
-    
+
     final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
     setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
+  void _onInteractionUpdate(ScaleUpdateDetails details) {
+    final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
+    if (isZoomMode) return;
+
     final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
     setState(() {
       _liveStrokePoints.add(transformedPoint);
     });
   }
 
-  void _onPanEnd(DragEndDetails details) {
-    // CORRECTED: Pass the widget's size to the plugin.
+  void _onInteractionEnd(ScaleEndDetails details) {
+    final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
+    if (isZoomMode) return;
+
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
       settings: _liveBrushSettings!,
-      widgetSize: context.size!, 
       ref: ref,
     );
   }
@@ -83,24 +91,23 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       transformationController: _transformationController,
       minScale: 0.1,
       maxScale: 4.0,
+      // CORRECTED: Let InteractiveViewer handle all gestures
       panEnabled: isZoomMode,
       scaleEnabled: isZoomMode,
+      onInteractionStart: _onInteractionStart,
+      onInteractionUpdate: _onInteractionUpdate,
+      onInteractionEnd: _onInteractionEnd,
       child: Center(
         child: Stack(
           alignment: Alignment.center,
           children: [
-            GestureDetector(
-              onPanStart: isZoomMode ? null : _onPanStart,
-              onPanUpdate: isZoomMode ? null : _onPanUpdate,
-              onPanEnd: isZoomMode ? null : _onPanEnd,
-              child: CustomPaint(
-                size: Size(baseImage.width.toDouble(), baseImage.height.toDouble()),
-                painter: _ImagePainter(
-                  baseImage: baseImage,
-                  liveStroke: _liveStrokePoints,
-                  liveBrushSettings: _liveBrushSettings,
-                  screenWidth: screenWidth,
-                ),
+            CustomPaint(
+              size: Size(baseImage.width.toDouble(), baseImage.height.toDouble()),
+              painter: _ImagePainter(
+                baseImage: baseImage,
+                liveStroke: _liveStrokePoints,
+                liveBrushSettings: _liveBrushSettings,
+                screenWidth: screenWidth,
               ),
             ),
             if (isSliding)
@@ -187,7 +194,7 @@ class _ImagePainter extends CustomPainter {
           ? Rect.fromCircle(center: pos, radius: radius / 2)
           : Rect.fromCenter(center: pos, width: radius, height: radius);
           
-      final spacing = (settings.frequency * radius).clamp(5.0, 200.0);
+      final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
       for(int i = -3; i <= 3; i++) {
           if (i == 0) continue;
           final offset = Offset(i * spacing, 0);
