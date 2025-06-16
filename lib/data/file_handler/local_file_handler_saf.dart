@@ -100,16 +100,17 @@ class SafFileHandler implements LocalFileHandler {
     String name, {
     bool isDirectory = false,
     String? initialContent,
+    Uint8List? initialBytes,
     bool overwrite = false,
   }) async {
     if (isDirectory) {
       final createdDir = await _safUtil.mkdirp(parentUri, [name]);
       return CustomSAFDocumentFile(createdDir);
     } else {
-      final contentBytes = Uint8List.fromList(
-        utf8.encode(initialContent ?? ''),
-      );
+      // Prioritize raw bytes if provided, otherwise use the string content.
+      final contentBytes = initialBytes ?? Uint8List.fromList(utf8.encode(initialContent ?? ''));
       final mimeType = _inferMimeType(name);
+      
       final writeResponse = await _safStream.writeFileBytes(
         parentUri,
         name,
@@ -117,6 +118,7 @@ class SafFileHandler implements LocalFileHandler {
         contentBytes,
         overwrite: overwrite,
       );
+      
       final createdFile = await _safUtil.documentFileFromUri(
         writeResponse.uri.toString(),
         false,
