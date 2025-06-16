@@ -22,8 +22,15 @@ class _GlitchTabState {
   ui.Image image;
   final ui.Image originalImage;
   ui.Image? strokeSample;
+  
+  // New fields for repeater brush
+  ui.Image? repeaterSample;
+  Offset? repeaterSampleOrigin;
+  Rect? repeaterSampleRect;
+  
   _GlitchTabState({required this.image, required this.originalImage});
 }
+
 
 class GlitchEditorPlugin implements EditorPlugin {
   final Map<String, _GlitchTabState> _tabStates = {};
@@ -110,7 +117,18 @@ class GlitchEditorPlugin implements EditorPlugin {
   void beginGlitchStroke(GlitchEditorTab tab) {
     final state = _tabStates[tab.file.uri];
     if (state == null) return;
+    
+    // Dispose previous samples
+    state.strokeSample?.dispose();
+    state.repeaterSample?.dispose();
+    
+    // Create new stroke sample
     state.strokeSample = state.image.clone();
+    
+    // Reset repeater state
+    state.repeaterSample = null;
+    state.repeaterSampleOrigin = null;
+    state.repeaterSampleRect = null;
   }
 
   // This method now returns the new image for the widget to update its local state.
@@ -157,14 +175,14 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
   
   void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings, _GlitchTabState state) {
-      switch (settings.type) {
-        case GlitchBrushType.scatter:
-          _applyScatter(canvas, state.image, pos, settings);
-          break;
-        case GlitchBrushType.repeater:
-          _applyRepeater(canvas, state.strokeSample!, pos, settings);
-          break;
-      }
+    switch (settings.type) {
+      case GlitchBrushType.scatter:
+        _applyScatter(canvas, state.strokeSample!, pos, settings);
+        break;
+      case GlitchBrushType.repeater:
+        _applyRepeater(canvas, state, pos, settings);
+        break;
+    }
   }
 
   void _applyScatter(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
@@ -180,16 +198,61 @@ class GlitchEditorPlugin implements EditorPlugin {
     }
   }
 
-  void _applyRepeater(Canvas canvas, ui.Image source, Offset pos, GlitchBrushSettings settings) {
+    void _applyRepeater(Canvas canvas, _GlitchTabState state, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius * 500;
-    final srcRect = settings.shape == GlitchBrushShape.circle
-        ? Rect.fromCircle(center: pos, radius: radius / 2)
-        : Rect.fromCenter(center: pos, width: radius, height: radius);
+    
+    // Create sample if it doesn't exist
+    if (state.repeaterSample == null) {
+      state.repeaterSampleOrigin = pos;
+      
+      // Define sample area
+      state.repeaterSampleRect = settings.shape == GlitchBrushShape.circle
+          ? Rect.fromCircle(center: pos, radius: radius / 2)
+          : Rect.fromCenter(center: pos, width: radius, height: radius);
+      
+      // Clamp rect to image boundaries
+      state.repeaterSampleRect = Rect.fromLTRB(
+        state.repeaterSampleRect!.left.clamp(0, state.strokeSample!.width.toDouble()),
+        state.repeaterSampleRect!.top.clamp(0, state.strokeSample!.height.toDouble()),
+        state.repeaterSampleRect!.right.clamp(0, state.strokeSample!.width.toDouble()),
+        state.repeaterSampleRect!.bottom.clamp(0, state.strokeSample!.height.toDouble()),
+      );
+      
+      // Create sample image
+      final sampleRecorder = ui.PictureRecorder();
+      final sampleCanvas = Canvas(sampleRecorder);
+      sampleCanvas.drawImageRect(
+        state.strokeSample!,
+        state.repeaterSampleRect!,
+        Rect.fromLTWH(0, 0, state.repeaterSampleRect!.width, state.repeaterSampleRect!.height),
+        Paint(),
+      );
+      
+      final samplePicture = sampleRecorder.endRecording();
+      state.repeaterSample = samplePicture.toImageSync(
+        state.repeaterSampleRect!.width.toInt(),
+        state.repeaterSampleRect!.height.toInt(),
+      );
+      samplePicture.dispose();
+    }
+    
+    // Calculate offset from original sample position
+    final offset = pos - state.repeaterSampleOrigin!;
     final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
+    
+    // Draw multiple copies
     for (int i = -3; i <= 3; i++) {
       if (i == 0) continue;
-      final offset = Offset(i * spacing, 0);
-      canvas.drawImageRect(source, srcRect, srcRect.shift(offset), Paint()..blendMode = BlendMode.difference);
+      
+      final copyOffset = offset + Offset(i * spacing, 0);
+      final destRect = state.repeaterSampleRect!.shift(copyOffset);
+      
+      canvas.drawImageRect(
+        state.repeaterSample!,
+        Rect.fromLTWH(0, 0, state.repeaterSample!.width.toDouble(), state.repeaterSample!.height.toDouble()),
+        destRect,
+        Paint()..blendMode = BlendMode.difference,
+      );
     }
   }
 
