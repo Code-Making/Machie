@@ -113,7 +113,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     // Transform to widget-local coordinates
     final localPoint = MatrixUtils.transformPoint(
       inverseViewerMatrix, 
-      details.focalPoint
+      details.localFocalPoint
     );
     
     // Step 2: Convert to image coordinates
