@@ -38,29 +38,17 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  // CORRECTED: Unified gesture handling logic.
-  Offset _transformPoint(Offset globalPosition) {
-    // Get the render box of the InteractiveViewer's child (the CustomPaint)
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return Offset.zero;
-
-    // Convert the global screen point to a point local to the child
-    final Offset localPoint = box.globalToLocal(globalPosition);
-    
-    // Apply the inverse of the current transformation to get the point
-    // in the image's original coordinate space.
-    final matrix = _transformationController.value.clone()..invert();
-    return MatrixUtils.transformPoint(matrix, localPoint);
-  }
-
+  // CORRECTED: All gesture handling now uses InteractiveViewer's callbacks.
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
-    if (isZoomMode) return;
+    if (isZoomMode) return; // In zoom mode, let the viewer handle it.
 
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
 
-    final transformedPoint = _transformPoint(details.focalPoint);
+    // Transform the point from the global screen space to the local image space.
+    final matrix = _transformationController.value.clone()..invert();
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
     setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
@@ -68,7 +56,8 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
-    final transformedPoint = _transformPoint(details.focalPoint);
+    final matrix = _transformationController.value.clone()..invert();
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
     setState(() {
       _liveStrokePoints.add(transformedPoint);
     });
@@ -78,6 +67,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
+    // The stroke is finished, "bake" it into the image.
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
@@ -102,6 +92,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       transformationController: _transformationController,
       minScale: 0.1,
       maxScale: 4.0,
+      // CORRECTED: Let InteractiveViewer handle gestures and we respond to its callbacks.
       panEnabled: isZoomMode,
       scaleEnabled: isZoomMode,
       onInteractionStart: _onInteractionStart,
@@ -170,6 +161,7 @@ class _ImagePainter extends CustomPainter {
     paintImage(canvas: canvas, rect: Rect.fromLTWH(0, 0, size.width, size.height), image: baseImage, filterQuality: FilterQuality.none, fit: BoxFit.contain);
 
     if (liveBrushSettings != null) {
+      // The points are already transformed, so we just draw them.
       final point = liveStroke.lastOrNull;
       if (point == null) return;
       
@@ -185,7 +177,7 @@ class _ImagePainter extends CustomPainter {
   }
   
   void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final radius = settings.radius * 500; // Use a fixed factor, not screen width
+      final radius = settings.radius * screenWidth * 0.5; // Use screen width for relative size
       final count = (settings.frequency * 20).toInt().clamp(1, 50);
 
       for (int i = 0; i < count; i++) {
@@ -199,12 +191,12 @@ class _ImagePainter extends CustomPainter {
   }
 
   void _applyRepeater(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final radius = settings.radius * 500;
+      final radius = settings.radius * screenWidth;
       final srcRect = settings.shape == GlitchBrushShape.circle
           ? Rect.fromCircle(center: pos, radius: radius / 2)
           : Rect.fromCenter(center: pos, width: radius, height: radius);
           
-      final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
+      final spacing = (settings.frequency * radius).clamp(5.0, 200.0);
       for(int i = -3; i <= 3; i++) {
           if (i == 0) continue;
           final offset = Offset(i * spacing, 0);
