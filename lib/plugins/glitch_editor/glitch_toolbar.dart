@@ -6,42 +6,17 @@ import '../../app/app_notifier.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 
-class GlitchToolbar extends ConsumerStatefulWidget {
+class GlitchToolbar extends ConsumerWidget {
   final GlitchEditorPlugin plugin;
   const GlitchToolbar({super.key, required this.plugin});
 
   @override
-  ConsumerState<GlitchToolbar> createState() => _GlitchToolbarState();
-}
-
-class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
-  bool _isExpanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_isExpanded) {
-      // Return a minimal bar when collapsed, with a button to expand
-      return Container(
-        height: 48,
-        color: Theme.of(context).bottomAppBarTheme.color,
-        child: Row(
-          children: [
-            TextButton.icon(
-              icon: const Icon(Icons.brush),
-              label: const Text("Brush Settings"),
-              onPressed: () => setState(() => _isExpanded = true),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // The full, expanded toolbar
-    final settings = ref.watch(widget.plugin.brushSettingsProvider);
-    final notifier = ref.read(widget.plugin.brushSettingsProvider.notifier);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(plugin.brushSettingsProvider);
+    final notifier = ref.read(plugin.brushSettingsProvider.notifier);
 
     return Container(
-      height: 200,
+      height: 220, // Increased height for more controls
       color: Theme.of(context).bottomAppBarTheme.color?.withAlpha(240),
       padding: const EdgeInsets.all(8.0),
       child: SingleChildScrollView(
@@ -50,7 +25,7 @@ class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const SizedBox(width: 40), // Spacer
+                const SizedBox(width: 40),
                 const Text("Brush Settings", style: TextStyle(fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -75,6 +50,7 @@ class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
               value: settings.radius * 100, min: 1, max: 50,
               onChanged: (v) => notifier.state = settings.copyWith(radius: v / 100),
             ),
+            // CORRECTED: Added back missing settings
             if (settings.type == GlitchBrushType.scatter) ...[
               _buildSliderRow(context, ref, 'Min Block Size', value: settings.minBlockSize, min: 1, max: 50,
                 onChanged: (v) {
@@ -86,12 +62,16 @@ class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
                   notifier.state = settings.copyWith(maxBlockSize: v < settings.minBlockSize ? settings.minBlockSize : v);
                 },
               ),
+               _buildSliderRow(context, ref, 'Density', value: settings.frequency * 100, min: 1, max: 100,
+                onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
+              ),
             ],
-            _buildSliderRow(
-              context, ref, 'Frequency/Density',
-              value: settings.frequency * 100, min: 1, max: 100,
-              onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
-            ),
+            if (settings.type == GlitchBrushType.repeater)
+              _buildSliderRow(
+                context, ref, 'Repeat Spacing',
+                value: settings.frequency * 100, min: 1, max: 100,
+                onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
+              ),
           ],
         ),
       ),
@@ -136,8 +116,8 @@ class _GlitchToolbarState extends ConsumerState<GlitchToolbar> {
             min: min,
             max: max,
             onChanged: onChanged,
-            onChangeStart: (_) => ref.read(widget.plugin.isSlidingProvider.notifier).state = true,
-            onChangeEnd: (_) => ref.read(widget.plugin.isSlidingProvider.notifier).state = false,
+            onChangeStart: (_) => ref.read(plugin.isSlidingProvider.notifier).state = true,
+            onChangeEnd: (_) => ref.read(plugin.isSlidingProvider.notifier).state = false,
           ),
         ),
       ],
