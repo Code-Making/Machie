@@ -65,30 +65,34 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
   
   void _updateImageDisplayParams() {
-    if (_displayImage == null) return;
-    
-    final imageSize = Size(
-      _displayImage!.width.toDouble(),
-      _displayImage!.height.toDouble(),
-    );
-    
-    // Calculate display parameters based on BoxFit.contain
-    final fitted = applyBoxFit(
-      BoxFit.contain,
-      imageSize,
-      context.size ?? Size.zero,
-    );
-    
-    final destination = fitted.destination;
-    _imageDisplaySize = destination.size;
-    _imageDisplayOffset = Offset(
-      (context.size!.width - destination.width) / 2,
-      (context.size!.height - destination.height) / 2,
-    );
-    
-    // Calculate the actual scale factor
-    _imageScale = destination.width / imageSize.width;
-  }
+  if (_displayImage == null || context.size == null) return;
+  
+  final imageSize = Size(
+    _displayImage!.width.toDouble(),
+    _displayImage!.height.toDouble(),
+  );
+  final widgetSize = context.size!;
+  
+  // Calculate the fitted sizes for BoxFit.contain
+  final fitted = applyBoxFit(
+    BoxFit.contain,
+    imageSize,
+    widgetSize,
+  );
+  
+  // Get destination size
+  final destinationSize = fitted.destination;
+  
+  // Calculate display rectangle
+  _imageDisplaySize = destinationSize;
+  _imageDisplayOffset = Offset(
+    (widgetSize.width - destinationSize.width) / 2.0,
+    (widgetSize.height - destinationSize.height) / 2.0,
+  );
+  
+  // Calculate the actual scale factor
+  _imageScale = destinationSize.width / imageSize.width;
+}
 
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
