@@ -43,14 +43,12 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
     
-    // Transform the very first point
     final matrix = _transformationController.value.clone()..invert();
     final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
     setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
-    // Transform each subsequent point
     final matrix = _transformationController.value.clone()..invert();
     final transformedPoint = MatrixUtils.transformPoint(matrix, details.localPosition);
     setState(() {
@@ -59,10 +57,12 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // CORRECTED: Pass the widget's size to the plugin.
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
       settings: _liveBrushSettings!,
+      widgetSize: context.size!, 
       ref: ref,
     );
   }
@@ -99,7 +99,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
                   baseImage: baseImage,
                   liveStroke: _liveStrokePoints,
                   liveBrushSettings: _liveBrushSettings,
-                  screenWidth: screenWidth, // Pass screen width for relative sizing
+                  screenWidth: screenWidth,
                 ),
               ),
             ),
@@ -121,7 +121,7 @@ class _BrushPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = settings.radius * screenWidth; // No * 0.5, radius is now full width
+    final radius = settings.radius * screenWidth;
     return Container(
       width: radius,
       height: radius,
@@ -153,7 +153,6 @@ class _ImagePainter extends CustomPainter {
     paintImage(canvas: canvas, rect: Rect.fromLTWH(0, 0, size.width, size.height), image: baseImage, filterQuality: FilterQuality.none, fit: BoxFit.contain);
 
     if (liveBrushSettings != null) {
-      // CORRECTED: Only draw the effect for the latest point to avoid over-drawing.
       final point = liveStroke.lastOrNull;
       if (point == null) return;
       
