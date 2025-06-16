@@ -118,14 +118,9 @@ class GlitchEditorPlugin implements EditorPlugin {
     required WidgetRef ref,
   }) {
     final state = _tabStates[tab.file.uri];
-    if (state == null || points.isEmpty) {
-      state?.strokeSample?.dispose();
-      state?.strokeSample = null;
-      return;
-    }
+    if (state == null || points.isEmpty) return;
 
     final baseImage = state.image;
-    
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawImage(baseImage, Offset.zero, Paint());

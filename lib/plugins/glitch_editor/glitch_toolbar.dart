@@ -16,7 +16,7 @@ class GlitchToolbar extends ConsumerWidget {
     final notifier = ref.read(plugin.brushSettingsProvider.notifier);
 
     return Container(
-      height: 220, // Increased height for more controls
+      height: 220,
       color: Theme.of(context).bottomAppBarTheme.color?.withAlpha(240),
       padding: const EdgeInsets.all(8.0),
       child: SingleChildScrollView(
@@ -50,7 +50,6 @@ class GlitchToolbar extends ConsumerWidget {
               value: settings.radius * 100, min: 1, max: 50,
               onChanged: (v) => notifier.state = settings.copyWith(radius: v / 100),
             ),
-            // CORRECTED: Added back missing settings
             if (settings.type == GlitchBrushType.scatter) ...[
               _buildSliderRow(context, ref, 'Min Block Size', value: settings.minBlockSize, min: 1, max: 50,
                 onChanged: (v) {
