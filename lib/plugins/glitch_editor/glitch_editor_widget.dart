@@ -38,7 +38,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  // CORRECTED: All gesture handling now uses InteractiveViewer's callbacks.
+  // CORRECTED: Use InteractiveViewer's callbacks for robust gesture handling
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return; // In zoom mode, let the viewer handle it.
@@ -46,9 +46,8 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
     widget.plugin.beginGlitchStroke(widget.tab);
 
-    // Transform the point from the global screen space to the local image space.
     final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localFocalPoint);
     setState(() => _liveStrokePoints.add(transformedPoint));
   }
 
@@ -57,7 +56,7 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (isZoomMode) return;
 
     final matrix = _transformationController.value.clone()..invert();
-    final transformedPoint = MatrixUtils.transformPoint(matrix, details.focalPoint);
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localFocalPoint);
     setState(() {
       _liveStrokePoints.add(transformedPoint);
     });
@@ -65,15 +64,19 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   void _onInteractionEnd(ScaleEndDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
-    if (isZoomMode) return;
+    if (isZoomMode || _liveStrokePoints.isEmpty) return;
 
-    // The stroke is finished, "bake" it into the image.
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
       settings: _liveBrushSettings!,
       ref: ref,
     );
+    // After baking, clear the live stroke for the next interaction
+    setState(() {
+      _liveStrokePoints = [];
+      _liveBrushSettings = null;
+    });
   }
 
   @override
@@ -83,7 +86,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       return const Center(child: CircularProgressIndicator());
     }
     
-    final isZoomMode = ref.watch(widget.plugin.isZoomModeProvider);
     final isSliding = ref.watch(widget.plugin.isSlidingProvider);
     final brushSettings = ref.watch(widget.plugin.brushSettingsProvider);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -92,9 +94,9 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       transformationController: _transformationController,
       minScale: 0.1,
       maxScale: 4.0,
-      // CORRECTED: Let InteractiveViewer handle gestures and we respond to its callbacks.
-      panEnabled: isZoomMode,
-      scaleEnabled: isZoomMode,
+      // CORRECTED: Pan and scale are ALWAYS enabled. Our logic decides what to do.
+      panEnabled: true,
+      scaleEnabled: true,
       onInteractionStart: _onInteractionStart,
       onInteractionUpdate: _onInteractionUpdate,
       onInteractionEnd: _onInteractionEnd,
@@ -161,23 +163,22 @@ class _ImagePainter extends CustomPainter {
     paintImage(canvas: canvas, rect: Rect.fromLTWH(0, 0, size.width, size.height), image: baseImage, filterQuality: FilterQuality.none, fit: BoxFit.contain);
 
     if (liveBrushSettings != null) {
-      // The points are already transformed, so we just draw them.
-      final point = liveStroke.lastOrNull;
-      if (point == null) return;
-      
-      switch (liveBrushSettings!.type) {
-        case GlitchBrushType.scatter:
-          _applyScatter(canvas, point, liveBrushSettings!);
-          break;
-        case GlitchBrushType.repeater:
-          _applyRepeater(canvas, point, liveBrushSettings!);
-          break;
+      // CORRECTED: Draw the whole live stroke for a continuous preview
+      for (final point in liveStroke) {
+        switch (liveBrushSettings!.type) {
+          case GlitchBrushType.scatter:
+            _applyScatter(canvas, point, liveBrushSettings!);
+            break;
+          case GlitchBrushType.repeater:
+            _applyRepeater(canvas, point, liveBrushSettings!);
+            break;
+        }
       }
     }
   }
   
   void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-      final radius = settings.radius * screenWidth * 0.5; // Use screen width for relative size
+      final radius = settings.radius * screenWidth * 0.5;
       final count = (settings.frequency * 20).toInt().clamp(1, 50);
 
       for (int i = 0; i < count; i++) {
@@ -196,7 +197,7 @@ class _ImagePainter extends CustomPainter {
           ? Rect.fromCircle(center: pos, radius: radius / 2)
           : Rect.fromCenter(center: pos, width: radius, height: radius);
           
-      final spacing = (settings.frequency * radius).clamp(5.0, 200.0);
+      final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
       for(int i = -3; i <= 3; i++) {
           if (i == 0) continue;
           final offset = Offset(i * spacing, 0);
