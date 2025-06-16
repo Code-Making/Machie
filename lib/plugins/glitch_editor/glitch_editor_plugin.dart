@@ -186,6 +186,22 @@ class GlitchEditorPlugin implements EditorPlugin {
       },
       canExecute: (ref) => ref.watch(tabStateProvider)[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ?? false,
     ),
+        // CORRECTED: The command now uses the `byteDataProvider` parameter.
+    BaseCommand(id: 'save_as', label: 'Save As...', icon: const Icon(Icons.save_as), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
+      execute: (ref) async {
+        await ref.read(appNotifierProvider.notifier).saveCurrentTabAs(
+          byteDataProvider: () async {
+            final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
+            if (tab == null) return null;
+            final state = _tabStates[tab.file.uri];
+            if (state == null) return null;
+            final byteData = await state.image.toByteData(format: ui.ImageByteFormat.png);
+            return byteData?.buffer.asUint8List();
+          }
+        );
+      },
+      canExecute: (ref) => ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab is GlitchEditorTab,
+    ),
     BaseCommand(id: 'reset', label: 'Reset', icon: const Icon(Icons.refresh), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;

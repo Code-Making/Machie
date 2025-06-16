@@ -16,6 +16,8 @@ import '../session/tab_state.dart';
 import '../utils/logs.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
+import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
+
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -240,6 +242,60 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await project.fileHandler.writeFile(tabToSave.file, content);
 
     ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
+  }
+  
+Future<void> saveCurrentTabAs({
+    Future<Uint8List?> Function()? byteDataProvider,
+    Future<String?> Function()? stringDataProvider,
+  }) async {
+    final project = state.value?.currentProject;
+    final context = ref.read(navigatorKeyProvider).currentContext;
+    if (project == null || context == null) return;
+    
+    final currentTab = project.session.currentTab;
+    if (currentTab == null) return;
+
+    final result = await showDialog<SaveAsDialogResult>(
+      context: context,
+      builder: (_) => SaveAsDialog(initialFileName: currentTab.file.name),
+    );
+
+    if (result == null) return;
+
+    DocumentFile newFile;
+
+    if (byteDataProvider != null) {
+      final bytes = await byteDataProvider();
+      if (bytes == null) return;
+      // This is not yet supported by createDocumentFile, so we'll stub it for now
+      // A proper implementation would add `initialBytesContent` to createDocumentFile.
+      // For now, we write an empty file then overwrite it.
+      newFile = await project.fileHandler.createDocumentFile(
+        result.parentUri,
+        result.fileName,
+        overwrite: true,
+      );
+      newFile = await project.fileHandler.writeFileAsBytes(newFile, bytes);
+
+    } else if (stringDataProvider != null) {
+      final content = await stringDataProvider();
+      if (content == null) return;
+      newFile = await project.fileHandler.createDocumentFile(
+        result.parentUri,
+        result.fileName,
+        initialContent: content,
+        overwrite: true,
+      );
+    } else {
+      return; // No data provider
+    }
+
+    ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
+
+    final scaffoldMessenger = ref.read(rootScaffoldMessengerKeyProvider).currentState;
+    scaffoldMessenger?.showSnackBar(
+      SnackBar(content: Text('Saved as ${newFile.name}')),
+    );
   }
   
     // NEW METHOD for saving raw bytes
