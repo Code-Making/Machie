@@ -299,7 +299,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       state.repeaterSample!,
       Rect.fromLTWH(0, 0, state.repeaterSample!.width.toDouble(), state.repeaterSample!.height.toDouble()),
       destRect,
-      Paint()..blendMode = BlendMode.difference,
+      Paint()..blendMode = BlendMode.srcOver,
     );
   }
   
