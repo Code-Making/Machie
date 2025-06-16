@@ -52,14 +52,10 @@ class GlitchToolbar extends ConsumerWidget {
             ),
             if (settings.type == GlitchBrushType.scatter) ...[
               _buildSliderRow(context, ref, 'Min Block Size', value: settings.minBlockSize, min: 1, max: 50,
-                onChanged: (v) {
-                  notifier.state = settings.copyWith(minBlockSize: v > settings.maxBlockSize ? settings.maxBlockSize : v);
-                },
+                onChanged: (v) => notifier.state = settings.copyWith(minBlockSize: v > settings.maxBlockSize ? settings.maxBlockSize : v),
               ),
               _buildSliderRow(context, ref, 'Max Block Size', value: settings.maxBlockSize, min: 1, max: 50,
-                onChanged: (v) {
-                  notifier.state = settings.copyWith(maxBlockSize: v < settings.minBlockSize ? settings.minBlockSize : v);
-                },
+                onChanged: (v) => notifier.state = settings.copyWith(maxBlockSize: v < settings.minBlockSize ? settings.minBlockSize : v),
               ),
                _buildSliderRow(context, ref, 'Density', value: settings.frequency * 100, min: 1, max: 100,
                 onChanged: (v) => notifier.state = settings.copyWith(frequency: v / 100),
