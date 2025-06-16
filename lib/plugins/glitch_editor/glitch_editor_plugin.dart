@@ -15,6 +15,7 @@ import '../../session/tab_state.dart';
 import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
+import 'glitch_editor_math.dart';
 import 'glitch_toolbar.dart';
 
 class _GlitchTabState {
