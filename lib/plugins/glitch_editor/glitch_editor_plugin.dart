@@ -129,6 +129,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in points) {
+      // The points are already transformed correctly by the widget.
       _applyEffectToCanvas(canvas, point, settings, state);
     }
     
@@ -188,7 +189,7 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-  BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
+BaseCommand(id: 'save', label: 'Save Image', icon: const Icon(Icons.save), defaultPosition: CommandPosition.appBar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
         final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
         if (tab == null) return;
@@ -239,6 +240,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     ),
     BaseCommand(id: 'toggle_brush_settings', label: 'Brush Settings', icon: const Icon(Icons.brush), defaultPosition: CommandPosition.pluginToolbar, sourcePlugin: runtimeType.toString(),
       execute: (ref) async {
+        // CORRECTED: Use the AppNotifier override mechanism
         ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(GlitchToolbar(plugin: this));
       },
     ),
