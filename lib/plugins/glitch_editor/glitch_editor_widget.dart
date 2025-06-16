@@ -32,22 +32,10 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // We hold a local reference to the image to drive the painter.
   ui.Image? _displayImage;
 
-  Size _imageDisplaySize = Size.zero;
-  Offset _imageDisplayOffset = Offset.zero;
-  double _imageScale = 1.0;
-
-
   @override
   void initState() {
     super.initState();
     _displayImage = widget.plugin.getImageForTab(widget.tab);
-    _transformationController.addListener(_updateImageDisplayParams);
-  }
-  
-  @override
-  void dispose() {
-    _transformationController.removeListener(_updateImageDisplayParams);
-    super.dispose();
   }
 
   @override
@@ -63,36 +51,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       });
     }
   }
-  
-  void _updateImageDisplayParams() {
-  if (_displayImage == null || context.size == null) return;
-  
-  final imageSize = Size(
-    _displayImage!.width.toDouble(),
-    _displayImage!.height.toDouble(),
-  );
-  final widgetSize = context.size!;
-  
-  // Calculate the fitted sizes for BoxFit.contain
-  final fitted = applyBoxFit(
-    BoxFit.contain,
-    imageSize,
-    widgetSize,
-  );
-  
-  // Get destination size
-  final destinationSize = fitted.destination;
-  
-  // Calculate display rectangle
-  _imageDisplaySize = destinationSize;
-  _imageDisplayOffset = Offset(
-    (widgetSize.width - destinationSize.width) / 2.0,
-    (widgetSize.height - destinationSize.height) / 2.0,
-  );
-  
-  // Calculate the actual scale factor
-  _imageScale = destinationSize.width / imageSize.width;
-}
 
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
@@ -105,57 +63,30 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onInteractionUpdate(ScaleUpdateDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
-
-    // Step 1: Invert InteractiveViewer transformation
-    final inverseViewerMatrix = Matrix4.tryInvert(_transformationController.value);
-    if (inverseViewerMatrix == null) return;
     
-    // Transform to widget-local coordinates
-    final localPoint = MatrixUtils.transformPoint(
-      inverseViewerMatrix, 
-      details.localFocalPoint
-    );
-    
-    // Step 2: Convert to image coordinates
-    final imagePoint = _convertToImageCoordinates(localPoint);
+    // This is the correct transformation logic.
+    final matrix = _transformationController.value.clone()..invert();
+    final transformedPoint = MatrixUtils.transformPoint(matrix, details.localFocalPoint);
     
     setState(() {
-      _currentStrokePoints.add(imagePoint);
+      _currentStrokePoints.add(transformedPoint);
     });
-  }
-
-  Offset _convertToImageCoordinates(Offset widgetPoint) {
-    // Adjust for image positioning within widget
-    final adjustedPoint = widgetPoint - _imageDisplayOffset;
-    
-    // Scale to original image dimensions
-    return Offset(
-      adjustedPoint.dx / _imageScale,
-      adjustedPoint.dy / _imageScale,
-    );
   }
 
   void _onInteractionEnd(ScaleEndDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
-    // Calculate combined scale factor
-    final viewerScale = _transformationController.value.getMaxScaleOnAxis();
-    final safeScale = viewerScale.isFinite ? viewerScale : 1.0;
-    final combinedScale = _imageScale * safeScale;
-
     final newImage = widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _currentStrokePoints,
-      settings: _liveBrushSettings!.copyWith(
-        // Adjust brush size for current scale
-        radius: _liveBrushSettings!.radius / combinedScale,
-        minBlockSize: _liveBrushSettings!.minBlockSize / combinedScale,
-        maxBlockSize: _liveBrushSettings!.maxBlockSize / combinedScale,
-      ),
+      settings: _liveBrushSettings!,
+      widgetSize: context.size!,
       ref: ref,
     );
     
+    // Update the local display image and clear the live stroke.
+    // This avoids a full widget tree rebuild.
     setState(() {
       _displayImage = newImage;
       _currentStrokePoints = [];
@@ -168,10 +99,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (_displayImage == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _updateImageDisplayParams();
-    });
     
     final isZoomMode = ref.watch(widget.plugin.isZoomModeProvider);
     final isSliding = ref.watch(widget.plugin.isSlidingProvider);
