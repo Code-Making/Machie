@@ -113,8 +113,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     state.strokeSample = state.image.clone();
   }
 
-  // This method now returns the new image for the widget to update its local state.
-  ui.Image? applyGlitchStroke({
+ui.Image? applyGlitchStroke({
     required GlitchEditorTab tab,
     required List<Offset> points,
     required GlitchBrushSettings settings,
@@ -124,19 +123,25 @@ class GlitchEditorPlugin implements EditorPlugin {
     if (state == null || points.isEmpty) return null;
     
     final baseImage = state.image;
-
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    
+    // Draw current image as background
     canvas.drawImage(baseImage, Offset.zero, Paint());
-
+    
+    // Apply effects directly in image coordinates
     for (final point in points) {
       _applyEffectToCanvas(canvas, point, settings, state);
     }
     
     final picture = recorder.endRecording();
-    final newImage = picture.toImageSync(baseImage.width, baseImage.height);
+    final newImage = picture.toImageSync(
+      baseImage.width,
+      baseImage.height,
+    );
     picture.dispose();
     
+    // Update state
     final oldImage = state.image;
     state.image = newImage;
     oldImage.dispose();
