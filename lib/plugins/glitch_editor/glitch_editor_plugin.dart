@@ -266,7 +266,7 @@ class GlitchEditorPlugin implements EditorPlugin {
         final stepVector = direction * (spacing / distance);
         
         for (int i = 1; i <= stepCount; i++) {
-          final samplePos = start + stepVector * i;
+          final samplePos = start + stepVector * i.toDouble();
           final destRect = Rect.fromCenter(
             center: samplePos,
             width: state.repeaterSampleRect!.width,
