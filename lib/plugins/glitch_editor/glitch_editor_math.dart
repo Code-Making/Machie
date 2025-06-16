@@ -1,26 +1,22 @@
 // lib/plugins/glitch_editor/glitch_editor_math.dart
 import 'package:flutter/material.dart';
 
-/// Transforms a point from the widget's local coordinate space to the
-/// original image's coordinate space, accounting for `BoxFit.contain`.
-Offset transformWidgetPointToImagePoint(
-  Offset localPoint, {
+/// Transforms a point from a widget's local coordinate space to the
+/// coordinate space of the source image, accounting for `BoxFit.contain`.
+Offset transformPointToImageCoordinates({
+  required Offset localPoint,
   required Size widgetSize,
   required Size imageSize,
 }) {
-  // Calculate the sizes of the image as it's fitted within the widget
   final fittedSizes = applyBoxFit(BoxFit.contain, imageSize, widgetSize);
-  final sourceSize = fittedSizes.source;
-  final destinationSize = fittedSizes.destination;
+  final destinationRect = Alignment.center.inscribe(fittedSizes.destination, Rect.fromLTWH(0, 0, widgetSize.width, widgetSize.height));
 
-  // Calculate the scale factor
-  final scale = destinationSize.width / sourceSize.width;
+  // Calculate the scale factor between the displayed image and the original image.
+  final scale = fittedSizes.destination.width / fittedSizes.source.width;
 
-  // Calculate the offset of the scaled image within the widget (it's centered)
-  final double dx = (widgetSize.width - destinationSize.width) / 2.0;
-  final double dy = (widgetSize.height - destinationSize.height) / 2.0;
-  final Offset canvasOffset = Offset(dx, dy);
+  // Translate the point from the widget's coordinates to the displayed image's coordinates.
+  final pointInFittedImage = localPoint - destinationRect.topLeft;
 
-  // Transform the point
-  return (localPoint - canvasOffset) / scale;
+  // Scale the point up to the original image's coordinate system.
+  return pointInFittedImage / scale;
 }
