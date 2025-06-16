@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:transformation_controller/transformation_controller.dart';
 
 import 'glitch_editor_math.dart';
 import 'glitch_editor_models.dart';
@@ -54,10 +53,12 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // CORRECTED: Pass the widget's size to the plugin.
     widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _liveStrokePoints,
       settings: _liveBrushSettings!,
+      widgetSize: context.size!, 
       ref: ref,
     );
   }
@@ -151,16 +152,22 @@ class _ImagePainter extends CustomPainter {
     );
 
     if (liveBrushSettings != null) {
-      // CORRECTED: Only draw the LATEST point for live preview.
       final point = liveStroke.lastOrNull;
       if (point == null) return;
       
+      final imageSize = Size(baseImage.width.toDouble(), baseImage.height.toDouble());
+      final transformedPoint = transformWidgetPointToImagePoint(
+          point,
+          widgetSize: size,
+          imageSize: imageSize,
+        );
+
       switch (liveBrushSettings!.type) {
         case GlitchBrushType.scatter:
-          _applyScatter(canvas, point, liveBrushSettings!);
+          _applyScatter(canvas, transformedPoint, liveBrushSettings!);
           break;
         case GlitchBrushType.repeater:
-          _applyRepeater(canvas, point, liveBrushSettings!);
+          _applyRepeater(canvas, transformedPoint, liveBrushSettings!);
           break;
       }
     }
