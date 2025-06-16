@@ -32,10 +32,22 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // We hold a local reference to the image to drive the painter.
   ui.Image? _displayImage;
 
+  Size _imageDisplaySize = Size.zero;
+  Offset _imageDisplayOffset = Offset.zero;
+  double _imageScale = 1.0;
+
+
   @override
   void initState() {
     super.initState();
     _displayImage = widget.plugin.getImageForTab(widget.tab);
+    _transformationController.addListener(_updateImageDisplayParams);
+  }
+  
+  @override
+  void dispose() {
+    _transformationController.removeListener(_updateImageDisplayParams);
+    super.dispose();
   }
 
   @override
@@ -51,6 +63,32 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       });
     }
   }
+  
+  void _updateImageDisplayParams() {
+    if (_displayImage == null) return;
+    
+    final imageSize = Size(
+      _displayImage!.width.toDouble(),
+      _displayImage!.height.toDouble(),
+    );
+    
+    // Calculate display parameters based on BoxFit.contain
+    final fitted = applyBoxFit(
+      BoxFit.contain,
+      imageSize,
+      context.size ?? Size.zero,
+    );
+    
+    final destination = fitted.destination;
+    _imageDisplaySize = destination.size;
+    _imageDisplayOffset = Offset(
+      (context.size!.width - destination.width) / 2,
+      (context.size!.height - destination.height) / 2,
+    );
+    
+    // Calculate the actual scale factor
+    _imageScale = destination.width / imageSize.width;
+  }
 
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
@@ -63,38 +101,53 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onInteractionUpdate(ScaleUpdateDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
+
+    // Step 1: Invert InteractiveViewer transformation
+    final inverseViewerMatrix = Matrix4.tryInvert(_transformationController.value);
+    if (inverseViewerMatrix == null) return;
     
-    // Get the inverse transformation matrix
-    final inverseMatrix = Matrix4.tryInvert(_transformationController.value);
-    if (inverseMatrix == null) return;
-    
-    // Transform point to local image coordinates
+    // Transform to widget-local coordinates
     final localPoint = MatrixUtils.transformPoint(
-      inverseMatrix, 
+      inverseViewerMatrix, 
       details.focalPoint
     );
     
+    // Step 2: Convert to image coordinates
+    final imagePoint = _convertToImageCoordinates(localPoint);
+    
     setState(() {
-      _currentStrokePoints.add(localPoint);
+      _currentStrokePoints.add(imagePoint);
     });
+  }
+
+  Offset _convertToImageCoordinates(Offset widgetPoint) {
+    // Adjust for image positioning within widget
+    final adjustedPoint = widgetPoint - _imageDisplayOffset;
+    
+    // Scale to original image dimensions
+    return Offset(
+      adjustedPoint.dx / _imageScale,
+      adjustedPoint.dy / _imageScale,
+    );
   }
 
   void _onInteractionEnd(ScaleEndDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
-    // Calculate current scale factor
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final safeScale = scale.isFinite && scale >= 0.1 ? scale : 1.0;
+    // Calculate combined scale factor
+    final viewerScale = _transformationController.value.getMaxScaleOnAxis();
+    final safeScale = viewerScale.isFinite ? viewerScale : 1.0;
+    final combinedScale = _imageScale * safeScale;
 
     final newImage = widget.plugin.applyGlitchStroke(
       tab: widget.tab,
       points: _currentStrokePoints,
       settings: _liveBrushSettings!.copyWith(
         // Adjust brush size for current scale
-        radius: _liveBrushSettings!.radius / safeScale,
-        minBlockSize: _liveBrushSettings!.minBlockSize / safeScale,
-        maxBlockSize: _liveBrushSettings!.maxBlockSize / safeScale,
+        radius: _liveBrushSettings!.radius / combinedScale,
+        minBlockSize: _liveBrushSettings!.minBlockSize / combinedScale,
+        maxBlockSize: _liveBrushSettings!.maxBlockSize / combinedScale,
       ),
       ref: ref,
     );
@@ -111,6 +164,10 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (_displayImage == null) {
       return const Center(child: CircularProgressIndicator());
     }
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateImageDisplayParams();
+    });
     
     final isZoomMode = ref.watch(widget.plugin.isZoomModeProvider);
     final isSliding = ref.watch(widget.plugin.isSlidingProvider);
