@@ -61,18 +61,21 @@ ThemeData darkTheme = ThemeData(
 
 void main() {
 
-  final talker = TalkerFlutter.init();
+  final talker = TalkerFlutter.init(
+    logger: TalkerLogger(
+      settings: TalkerLoggerSettings(),
+    ),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+    ),
+  );
   
   final riverpodObserver = TalkerRiverpodObserver(
     talker: talker,
     settings: TalkerRiverpodLoggerSettings(
       enabled: true,
       printStateFullData: false, // Truncate long state objects
-      eventFilter: (provider) {
-        // Exclude certain providers from logging
-        final excludedProviders = ['SettingsNotifier', 'PersistenceService'];
-        return !excludedProviders.contains(provider.runtimeType.toString());
-      },
     ),
   );
   
