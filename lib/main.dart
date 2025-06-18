@@ -110,6 +110,13 @@ final talker = TalkerFlutter.init();
       // Report errors to Talker
       talker.handle(error, stack, 'Unhandled error');
     },
+        zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, message) {
+        // Redirect all prints to Talker
+        talker.log(message);
+        parent.print(zone, '[${DateTime.now()}] $message');
+      },
+    ),
   );
 }
 
