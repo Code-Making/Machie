@@ -183,9 +183,9 @@ Future<List<EditorTab>> _rehydrateTabs(
       (p) => p.runtimeType.toString() == pluginType,
     );
     if (plugin != null) {
-        final tab = await plugin.createTabFromSerialization(tabJson, handler);
-        tabs.add(tab);
-        //Throw('Could not restore tab: $e');
+      final tab = await plugin.createTabFromSerialization(tabJson, handler);
+      tabs.add(tab);
+      //Throw('Could not restore tab: $e');
     }
   }
   return tabs;

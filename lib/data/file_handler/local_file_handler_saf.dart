@@ -127,7 +127,7 @@ class SafFileHandler implements LocalFileHandler {
         writeResponse.uri.toString(),
         false,
       );
-      if (createdFile == null){
+      if (createdFile == null) {
         throw Exception('Failed to get metadata for created file: $name');
       }
       return CustomSAFDocumentFile(createdFile);
@@ -154,7 +154,7 @@ class SafFileHandler implements LocalFileHandler {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    if (source.isDirectory){
+    if (source.isDirectory) {
       throw UnsupportedError('Recursive folder copy not supported.');
     }
     // Read the file as raw bytes.
@@ -174,7 +174,7 @@ class SafFileHandler implements LocalFileHandler {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    if (source.isDirectory){
+    if (source.isDirectory) {
       throw UnsupportedError('Recursive folder move not supported.');
     }
     final copied = await copyDocumentFile(source, destinationParentUri);
@@ -184,11 +184,11 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-      final file = await _safUtil.stat(
-        uri,
-        false,
-      ); // Assume it might be a file or dir
-      return file != null ? CustomSAFDocumentFile(file) : null;
+    final file = await _safUtil.stat(
+      uri,
+      false,
+    ); // Assume it might be a file or dir
+    return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
   @override

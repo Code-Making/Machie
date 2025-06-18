@@ -141,11 +141,11 @@ class SimpleLocalFileProject extends Project {
     } else {
       final oldIndex = session.currentTabIndex;
       if (oldIndex > index) {
-          newCurrentIndex = oldIndex - 1;
+        newCurrentIndex = oldIndex - 1;
       } else if (oldIndex == index) {
-          newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
+        newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
       } else {
-          newCurrentIndex = oldIndex;
+        newCurrentIndex = oldIndex;
       }
     }
     final newProject = copyWith(

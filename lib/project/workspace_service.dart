@@ -18,19 +18,19 @@ class WorkspaceService {
     FileHandler fileHandler,
     String projectDataPath,
   ) async {
-      final files = await fileHandler.listDirectory(
-        projectDataPath,
-        includeHidden: true,
-      );
-      final workspaceFile = files.firstWhereOrNull(
-        (f) => f.name == _workspaceFileName,
-      );
+    final files = await fileHandler.listDirectory(
+      projectDataPath,
+      includeHidden: true,
+    );
+    final workspaceFile = files.firstWhereOrNull(
+      (f) => f.name == _workspaceFileName,
+    );
 
-      if (workspaceFile != null) {
-        final content = await fileHandler.readFile(workspaceFile.uri);
-        return WorkspaceState.fromJson(jsonDecode(content));
-      }
-      // should throw if fail ('Could not load workspace state: $e');
+    if (workspaceFile != null) {
+      final content = await fileHandler.readFile(workspaceFile.uri);
+      return WorkspaceState.fromJson(jsonDecode(content));
+    }
+    // should throw if fail ('Could not load workspace state: $e');
     return const WorkspaceState(
       activeExplorerPluginId: 'com.machine.file_explorer',
     ); // Default
@@ -41,13 +41,13 @@ class WorkspaceService {
     String projectDataPath,
     WorkspaceState state,
   ) async {
-      await fileHandler.createDocumentFile(
-        projectDataPath,
-        _workspaceFileName,
-        initialContent: jsonEncode(state.toJson()),
-        overwrite: true,
-      );
-      // throw if fail('Could not save workspace state: $e');
+    await fileHandler.createDocumentFile(
+      projectDataPath,
+      _workspaceFileName,
+      initialContent: jsonEncode(state.toJson()),
+      overwrite: true,
+    );
+    // throw if fail('Could not save workspace state: $e');
   }
 
   /// Loads the specific state for a single plugin.

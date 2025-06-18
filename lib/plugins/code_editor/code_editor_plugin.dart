@@ -540,7 +540,8 @@ class CodeEditorPlugin implements EditorPlugin {
     final selection = controller.selection;
 
     final newBaseOffset = 0;
-    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
+    final extentLineLength =
+        controller.codeLines[selection.extentIndex].text.length;
     final newExtentOffset = extentLineLength;
 
     controller.selection = CodeLineSelection(

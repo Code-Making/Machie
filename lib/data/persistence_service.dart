@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_state.dart';
+
 // TODO: Implement logging
 // Global provider for SharedPreferences, used by the PersistenceService.
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
@@ -25,7 +26,7 @@ class PersistenceService {
     if (jsonString != null) {
       try {
         return AppState.fromJson(jsonDecode(jsonString));
-      } catch (e/*, st*/) {
+      } catch (e /*, st*/) {
         //talker.handle(e, st, 'Forgot to write talker message');
         //print('Error decoding app state, starting fresh. Error: $e');
         return AppState.initial();
