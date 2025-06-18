@@ -7,7 +7,7 @@ import '../app/app_notifier.dart';
 import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'explorer_plugin_registry.dart';
-import 'new_project_screen.dart';
+import 'common/new_project_screen.dart';
 import '../project/workspace_service.dart';
 
 // --------------------
