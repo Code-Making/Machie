@@ -21,8 +21,6 @@ class SaveAsDialog extends ConsumerStatefulWidget {
 class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   late String _currentPathUri;
   late final TextEditingController _fileNameController;
-  final List<DocumentFile> _directoryStack = [];
-  DocumentFile? _selectedDirectory;
 
   @override
   void initState() {
@@ -40,7 +38,6 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(appNotifierProvider).value!.currentProject!;
     final directoryContents = ref.watch(
       currentProjectDirectoryContentsProvider(_currentPathUri),
     );
