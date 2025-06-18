@@ -17,6 +17,9 @@ import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
 
+import '../logs/logs_provider.dart';
+
+
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
@@ -49,7 +52,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final prefs = await ref.watch(sharedPreferencesProvider.future);
     _persistenceService = PersistenceService(prefs);
     _projectManager = ref.watch(projectManagerProvider);
-
+    final talker = ref.read(talkerProvider); // Get Talker instance
     final initialState = await _persistenceService.loadAppState();
 
     if (initialState.lastOpenedProjectId != null) {
@@ -63,8 +66,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
             projectStateJson: initialState.currentProjectState,
           );
           return initialState.copyWith(currentProject: project);
-        } catch (e) {
-          print('Failed to auto-open last project: $e');
+        } catch (e, st) {
+          talker.handle(e, st, 'Failed to auto-open last project');
         }
       }
     }
