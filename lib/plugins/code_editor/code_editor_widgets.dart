@@ -95,11 +95,11 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     controller.removeListener(_handleControllerChange);
   }
 
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     final direction = _arrowKeyDirections[event.logicalKey];
-    final shiftPressed = event.isShiftPressed;
+    final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
     if (direction != null) {
       if (shiftPressed) {
@@ -143,7 +143,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       autofocus: false,
       canRequestFocus: true,
       onFocusChange: (bool focus) => _handleFocusChange(),
-      onKey: (n, e) => _handleKeyEvent(n, e),
+      onKeyEvent: (n, e) => _handleKeyEvent(n, e),
       child: CodeEditor(
         controller: widget.controller,
         commentFormatter: widget.commentFormatter,
