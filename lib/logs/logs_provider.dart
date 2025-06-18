@@ -6,5 +6,13 @@ export 'package:talker_flutter/talker_flutter.dart';
 export 'logs_models.dart';
 
 final talkerProvider = Provider<Talker>((ref) {
-  return TalkerFlutter.init();
+  return TalkerFlutter.init(
+    logger: TalkerLogger(
+      settings: TalkerLoggerSettings(),
+    ),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+    ),
+  );
 });
