@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker_flutter/talker_flutter.dart';
-import 'logs_models.dart';
+//import 'logs_models.dart';
 
 export 'package:talker_riverpod_logger/talker_riverpod_logger_observer.dart'; // NEW IMPORT
 export 'package:talker_riverpod_logger/talker_riverpod_logger.dart';

@@ -52,7 +52,7 @@ class CodeEditorPlugin implements EditorPlugin {
     }
     _controllers.clear();
     _marks.clear();
-    print("dispose code editor");
+    // print("dispose code editor");
   }
 
   CodeLineEditingController? getControllerForTab(EditorTab tab) {
@@ -378,9 +378,9 @@ class CodeEditorPlugin implements EditorPlugin {
           composing: TextRange.empty,
         );
       });
-      print('Document reformatted');
+      // print('Document reformatted');
     } catch (e) {
-      print('Formatting failed: ${e.toString()}');
+      // print('Formatting failed: ${e.toString()}');
     }
   }
 
@@ -425,7 +425,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final selection = controller.selection;
 
     if (!selection.isCollapsed) {
-      print('Selection already active');
+      // print('Selection already active');
       return;
     }
 
@@ -456,7 +456,7 @@ class CodeEditorPlugin implements EditorPlugin {
       }
 
       if (start == null || end == null) {
-        print('No matching bracket found');
+        // print('No matching bracket found');
         return;
       }
 
@@ -471,7 +471,7 @@ class CodeEditorPlugin implements EditorPlugin {
       );
       _extendSelection(ref, ctrl);
     } catch (e) {
-      print('Selection failed: ${e.toString()}');
+      // print('Selection failed: ${e.toString()}');
     }
   }
 
@@ -572,7 +572,7 @@ class CodeEditorPlugin implements EditorPlugin {
     if (ctrl == null || tab == null) return;
     final mark = _marks[tab.file.uri];
     if (mark == null) {
-      print('No mark set! Set a mark first');
+      // print('No mark set! Set a mark first');
       return;
     }
 
@@ -590,7 +590,7 @@ class CodeEditorPlugin implements EditorPlugin {
         extentOffset: end.offset,
       );
     } catch (e) {
-      print('Selection error: ${e.toString()}');
+      // print('Selection error: ${e.toString()}');
     }
   }
 
