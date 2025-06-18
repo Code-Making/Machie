@@ -8,7 +8,6 @@ import '../plugins/code_editor/code_editor_plugin.dart';
 import '../session/session_models.dart';
 import '../session/tab_state.dart';
 import '../explorer/explorer_host_drawer.dart';
-import '../utils/logs.dart';
 import '../command/command_widgets.dart';
 
 final tabBarScrollProvider = Provider<ScrollController>((ref) {
@@ -52,11 +51,7 @@ class EditorScreen extends ConsumerWidget {
                       : const AppBarCommands(),
                   IconButton(
                     icon: const Icon(Icons.bug_report),
-                    onPressed:
-                        () => showDialog(
-                          context: context,
-                          builder: (_) => const DebugLogView(),
-                        ),
+                    onPressed: () => Navigator.pushNamed(context, '/logs'),
                   ),
                   IconButton(
                     icon: const Icon(Icons.settings),

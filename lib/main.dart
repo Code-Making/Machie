@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 
 import 'app/app_notifier.dart';
 import 'app/lifecycle.dart';
@@ -10,14 +11,26 @@ import 'app/editor_screen.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
-import 'utils/logs.dart';
 import 'data/persistence_service.dart';
 
 // --------------------
 //   Global Providers
 // --------------------
 
-// MODIFIED: This is now the single, robust provider for all app initialization.
+final talkerProvider = Provider<Talker>((ref) {
+  return Talker(
+    logger: TalkerLogger(
+      settings: TalkerLoggerSettings(
+        colors: false, // Disable for file storage
+      ),
+    ),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+    ),
+  );
+});
+
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(sharedPreferencesProvider.future);
   ref.read(settingsProvider);
@@ -61,17 +74,20 @@ ThemeData darkTheme = ThemeData(
 // --------------------
 
 void main() {
+  final talker = Talker(); // Create instance early for error handling
+
   runZonedGuarded(
     () {
       runApp(
         ProviderScope(
+          overrides: [
+            // Provide the Talker instance to the provider
+            talkerProvider.overrideWithValue(talker),
+          ],
           child: LifecycleHandler(
-            // MODIFIED: Wrap MaterialApp to provide the keys
             child: Consumer(
-              // Use a consumer to read the providers
               builder: (context, ref, child) {
                 return MaterialApp(
-                  // NEW: Assign the global keys
                   navigatorKey: ref.watch(navigatorKeyProvider),
                   scaffoldMessengerKey: ref.watch(
                     rootScaffoldMessengerKeyProvider,
@@ -83,6 +99,8 @@ void main() {
                   routes: {
                     '/settings': (_) => const SettingsScreen(),
                     '/command-settings': (_) => const CommandSettingsScreen(),
+                    // NEW: Add route for Talker screen
+                    '/logs': (_) => TalkerScreen(talker: ref.read(talkerProvider)),
                   },
                 );
               },
@@ -92,13 +110,14 @@ void main() {
       );
     },
     (error, stack) {
-      printStream.add('[UNHANDLED_ERROR] $error\n$stack');
+      // Report errors to Talker
+      talker.handle(error, stack, 'Unhandled error');
     },
     zoneSpecification: ZoneSpecification(
       print: (self, parent, zone, message) {
-        final formatted = '[${DateTime.now()}] $message';
-        parent.print(zone, formatted);
-        printStream.add(formatted);
+        // Redirect all prints to Talker
+        talker.log(message);
+        parent.print(zone, '[${DateTime.now()}] $message');
       },
     ),
   );
@@ -115,16 +134,18 @@ class AppStartupWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This logic is already correct and does not need to change.
     final startupState = ref.watch(appStartupProvider);
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error:
-          (error, stack) => AppStartupErrorWidget(
-            error: error,
-            onRetry: () => ref.invalidate(appStartupProvider),
-          ),
+      error: (error, stack) {
+        // Report startup errors to Talker
+        ref.read(talkerProvider).handle(error, stack, 'Startup error');
+        return AppStartupErrorWidget(
+          error: error,
+          onRetry: () => ref.invalidate(appStartupProvider),
+        );
+      },
       data: (_) => onLoaded(context),
     );
   }
