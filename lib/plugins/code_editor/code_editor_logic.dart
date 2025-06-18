@@ -54,6 +54,10 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   BracketHighlightState build() {
     return BracketHighlightState();
   }
+  
+  void resetState() {
+    state = BracketHighlightState();
+  }
 
   void handleBracketHighlight() {
     final currentTab =

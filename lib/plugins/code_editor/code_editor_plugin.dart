@@ -117,13 +117,13 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   void activateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
+    ref.read(bracketHighlightProvider.notifier).resetState();
   }
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
     if (tab is! CodeEditorTab) return;
-    ref.read(bracketHighlightProvider.notifier).state = BracketHighlightState();
+    ref.read(bracketHighlightProvider.notifier).resetState();
   }
 
   @override
@@ -538,10 +538,7 @@ class CodeEditorPlugin implements EditorPlugin {
     final selection = controller.selection;
 
     final newBaseOffset = 0;
-    final baseLineLength =
-        controller.codeLines[selection.baseIndex].text.length;
-    final extentLineLength =
-        controller.codeLines[selection.extentIndex].text.length;
+    final extentLineLength = controller.codeLines[selection.extentIndex].text.length;
     final newExtentOffset = extentLineLength;
 
     controller.selection = CodeLineSelection(
