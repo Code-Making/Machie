@@ -7,7 +7,6 @@ import '../../app/app_notifier.dart';
 import '../../data/file_handler/local_file_handler.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
-import '../../utils/logs.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
@@ -26,7 +25,7 @@ class FileOperationsFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final logNotifier = ref.read(logProvider.notifier);
+    //final //logNotifier = ref.read(logProvider.notifier);
 
     final rootDoc = RootPlaceholder(projectRootUri);
     final pasteCommand = FileContextCommands.getCommands(
@@ -61,7 +60,7 @@ class FileOperationsFooter extends ConsumerWidget {
                     ),
                   );
                 } catch (e) {
-                  logNotifier.add('Error creating file: $e');
+                  //logNotifier.add('Error creating file: $e');
                 }
               }
             },
@@ -85,7 +84,7 @@ class FileOperationsFooter extends ConsumerWidget {
                     ),
                   );
                 } catch (e) {
-                  logNotifier.add('Error creating folder: $e');
+                  //logNotifier.add('Error creating folder: $e');
                 }
               }
             },
@@ -106,7 +105,7 @@ class FileOperationsFooter extends ConsumerWidget {
                     ),
                   );
                 } catch (e) {
-                  logNotifier.add('Error importing file: $e');
+                  //logNotifier.add('Error importing file: $e');
                 }
               }
             },
