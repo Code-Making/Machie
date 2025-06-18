@@ -14,8 +14,10 @@ final projectManagerProvider = Provider<ProjectManager>((ref) {
 
 class OpenProjectResult {
   final Project project;
+
   /// The metadata, which might be new or existing.
   final ProjectMetadata metadata;
+
   /// A flag indicating if this project was newly added to the known projects list.
   final bool isNew;
 
@@ -41,7 +43,7 @@ class ProjectManager {
     ProjectMetadata? meta = knownProjects.firstWhereOrNull(
       (p) => p.rootUri == folder.uri && p.projectTypeId == projectTypeId,
     );
-    
+
     final bool isNew = meta == null;
     meta ??= await createNewProjectMetadata(
       rootUri: folder.uri,
@@ -61,7 +63,9 @@ class ProjectManager {
     final factories = _ref.read(projectFactoryRegistryProvider);
     final factory = factories[metadata.projectTypeId];
     if (factory == null) {
-      throw UnimplementedError('No factory for project type ${metadata.projectTypeId}');
+      throw UnimplementedError(
+        'No factory for project type ${metadata.projectTypeId}',
+      );
     }
     return factory.open(metadata, _ref, projectStateJson: projectStateJson);
   }

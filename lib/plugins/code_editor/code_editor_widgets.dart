@@ -137,8 +137,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       }),
     );
 
-    final selectedThemeName =
-        codeEditorSettings?.themeName ?? 'Atom One Dark';
+    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
       autofocus: false,

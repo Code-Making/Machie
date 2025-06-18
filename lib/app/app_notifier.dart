@@ -13,33 +13,32 @@ import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../session/session_models.dart';
 import '../session/tab_state.dart';
-import '../utils/logs.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
-
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
 
 final navigatorKeyProvider = Provider((ref) => GlobalKey<NavigatorState>());
-final rootScaffoldMessengerKeyProvider =
-    Provider((ref) => GlobalKey<ScaffoldMessengerState>());
+final rootScaffoldMessengerKeyProvider = Provider(
+  (ref) => GlobalKey<ScaffoldMessengerState>(),
+);
 
 // ... (currentProjectDirectoryContentsProvider is unchanged) ...
 final currentProjectDirectoryContentsProvider = FutureProvider.autoDispose
     .family<List<DocumentFile>, String>((ref, uri) async {
-  final handler =
-      ref.watch(appNotifierProvider).value?.currentProject?.fileHandler;
-  if (handler == null) return [];
+      final handler =
+          ref.watch(appNotifierProvider).value?.currentProject?.fileHandler;
+      if (handler == null) return [];
 
-  final projectRoot =
-      ref.watch(appNotifierProvider).value?.currentProject?.rootUri;
-  if (projectRoot != null && !uri.startsWith(projectRoot)) return [];
+      final projectRoot =
+          ref.watch(appNotifierProvider).value?.currentProject?.rootUri;
+      if (projectRoot != null && !uri.startsWith(projectRoot)) return [];
 
-  return handler.listDirectory(uri);
-});
+      return handler.listDirectory(uri);
+    });
 
 class AppNotifier extends AsyncNotifier<AppState> {
   late PersistenceService _persistenceService;
@@ -84,13 +83,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void clearAppBarOverride() {
     _updateStateSync((s) => s.copyWith(clearAppBarOverride: true));
   }
-   void clearBottomToolbarOverride() {
+
+  void clearBottomToolbarOverride() {
     _updateStateSync((s) => s.copyWith(clearBottomToolbarOverride: true));
   }
   // --- End Toolbar Override Methods ---
 
-  Future<void> _updateState(
-      Future<AppState> Function(AppState) updater) async {
+  Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;
     if (previousState == null) return;
     state = const AsyncValue.loading();
@@ -121,9 +120,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return s.copyWith(
         currentProject: result.project,
         lastOpenedProjectId: result.project.id,
-        knownProjects: result.isNew
-            ? [...s.knownProjects, result.metadata]
-            : s.knownProjects,
+        knownProjects:
+            result.isNew
+                ? [...s.knownProjects, result.metadata]
+                : s.knownProjects,
       );
     });
     await saveAppState();
@@ -132,8 +132,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
-      final project =
-          await _projectManager.openProject(meta, projectStateJson: null);
+      final project = await _projectManager.openProject(
+        meta,
+        projectStateJson: null,
+      );
       return s.copyWith(
         currentProject: project,
         lastOpenedProjectId: project.id,
@@ -158,7 +160,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       return previousState.copyWith(
         knownProjects:
-            previousState.knownProjects.where((p) => p.id != projectId).toList(),
+            previousState.knownProjects
+                .where((p) => p.id != projectId)
+                .toList(),
       );
     });
     await saveAppState();
@@ -180,21 +184,25 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   void markCurrentTabDirty() {
-    final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
+    final currentUri =
+        state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
       ref.read(tabStateProvider.notifier).markDirty(currentUri);
     }
   }
 
-  Future<OpenFileResult> openFile(DocumentFile file,
-      {EditorPlugin? explicitPlugin}) async {
+  Future<OpenFileResult> openFile(
+    DocumentFile file, {
+    EditorPlugin? explicitPlugin,
+  }) async {
     EditorPlugin? chosenPlugin = explicitPlugin;
 
     if (chosenPlugin == null) {
-      final compatiblePlugins = ref
-          .read(activePluginsProvider)
-          .where((p) => p.supportsFile(file))
-          .toList();
+      final compatiblePlugins =
+          ref
+              .read(activePluginsProvider)
+              .where((p) => p.supportsFile(file))
+              .toList();
 
       if (compatiblePlugins.isEmpty) {
         return OpenFileError("No plugin available to open '${file.name}'.");
@@ -206,8 +214,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
 
     await _updateState((s) async {
-      final newProject =
-          await s.currentProject!.openFile(file, plugin: chosenPlugin, ref: ref);
+      final newProject = await s.currentProject!.openFile(
+        file,
+        plugin: chosenPlugin,
+        ref: ref,
+      );
       return s.copyWith(currentProject: newProject);
     });
 
@@ -243,15 +254,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
   }
-  
-Future<void> saveCurrentTabAs({
+
+  Future<void> saveCurrentTabAs({
     Future<Uint8List?> Function()? byteDataProvider,
     Future<String?> Function()? stringDataProvider,
   }) async {
     final project = state.value?.currentProject;
     final context = ref.read(navigatorKeyProvider).currentContext;
     if (project == null || context == null) return;
-    
+
     final currentTab = project.session.currentTab;
     if (currentTab == null) return;
 
@@ -276,7 +287,6 @@ Future<void> saveCurrentTabAs({
         overwrite: true,
       );
       newFile = await project.fileHandler.writeFileAsBytes(newFile, bytes);
-
     } else if (stringDataProvider != null) {
       final content = await stringDataProvider();
       if (content == null) return;
@@ -292,22 +302,23 @@ Future<void> saveCurrentTabAs({
 
     ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
 
-    final scaffoldMessenger = ref.read(rootScaffoldMessengerKeyProvider).currentState;
+    final scaffoldMessenger =
+        ref.read(rootScaffoldMessengerKeyProvider).currentState;
     scaffoldMessenger?.showSnackBar(
       SnackBar(content: Text('Saved as ${newFile.name}')),
     );
   }
-  
-    // NEW METHOD for saving raw bytes
+
+  // NEW METHOD for saving raw bytes
   Future<void> saveCurrentTabAsBytes(Uint8List bytes) async {
     final project = state.value?.currentProject;
     if (project == null) return;
-    
+
     final tabToSave = project.session.currentTab;
     if (tabToSave == null) return;
 
     await project.fileHandler.writeFileAsBytes(tabToSave.file, bytes);
-    
+
     ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
   }
 

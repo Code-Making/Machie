@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../plugins/plugin_models.dart';
 import '../../plugins/plugin_registry.dart';
 import '../../project/project_models.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
@@ -45,7 +44,8 @@ class DirectoryView extends ConsumerWidget {
           itemCount: contents.length,
           itemBuilder: (context, index) {
             final item = contents[index];
-            final depth = item.uri.split('%2F').length -
+            final depth =
+                item.uri.split('%2F').length -
                 projectRootUri.split('%2F').length;
             return DirectoryItem(
               item: item,
@@ -93,8 +93,9 @@ class DirectoryItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final fileExplorerNotifier =
-        ref.read(fileExplorerStateProvider(projectId).notifier);
+    final fileExplorerNotifier = ref.read(
+      fileExplorerStateProvider(projectId).notifier,
+    );
 
     Widget childWidget;
     if (item.isDirectory) {
@@ -113,19 +114,22 @@ class DirectoryItem extends ConsumerWidget {
         childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
           if (isExpanded)
-            Consumer(builder: (context, ref, _) {
-              final currentState =
-                  ref.watch(fileExplorerStateProvider(projectId));
-              final project =
-                  ref.watch(appNotifierProvider).value!.currentProject!;
-              if (currentState == null) return const SizedBox.shrink();
-              return DirectoryView(
-                directory: item.uri,
-                projectRootUri: project.rootUri,
-                projectId: projectId,
-                state: currentState,
-              );
-            }),
+            Consumer(
+              builder: (context, ref, _) {
+                final currentState = ref.watch(
+                  fileExplorerStateProvider(projectId),
+                );
+                final project =
+                    ref.watch(appNotifierProvider).value!.currentProject!;
+                if (currentState == null) return const SizedBox.shrink();
+                return DirectoryView(
+                  directory: item.uri,
+                  projectRootUri: project.rootUri,
+                  projectId: projectId,
+                  state: currentState,
+                );
+              },
+            ),
         ],
       );
     } else {
@@ -134,7 +138,10 @@ class DirectoryItem extends ConsumerWidget {
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
-        subtitle: subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
+        subtitle:
+            subtitle != null
+                ? Text(subtitle!, overflow: TextOverflow.ellipsis)
+                : null,
         onTap: () async {
           final notifier = ref.read(appNotifierProvider.notifier);
           final result = await notifier.openFile(item);
@@ -148,8 +155,10 @@ class DirectoryItem extends ConsumerWidget {
             case OpenFileShowChooser(plugins: final plugins):
               final chosenPlugin = await showOpenWithDialog(context, plugins);
               if (chosenPlugin != null) {
-                final openResult =
-                    await notifier.openFile(item, explicitPlugin: chosenPlugin);
+                final openResult = await notifier.openFile(
+                  item,
+                  explicitPlugin: chosenPlugin,
+                );
                 if (openResult is OpenFileSuccess && context.mounted) {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 } else if (openResult is OpenFileError && context.mounted) {

@@ -1,5 +1,4 @@
 // lib/explorer/common/file_explorer_commands.dart
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,12 +14,12 @@ import 'file_explorer_dialogs.dart';
 // A private dummy command class to represent a divider in the list.
 class _DividerCommand extends FileContextCommand {
   const _DividerCommand()
-      : super(
-          id: 'divider',
-          label: '',
-          icon: const SizedBox.shrink(),
-          sourcePlugin: '',
-        );
+    : super(
+        id: 'divider',
+        label: '',
+        icon: const SizedBox.shrink(),
+        sourcePlugin: '',
+      );
 
   @override
   bool canExecuteFor(WidgetRef ref, DocumentFile item) => true;
@@ -35,50 +34,54 @@ void showFileContextMenu(
   DocumentFile item,
 ) {
   // 1. Find all plugins that can open this file.
-  final compatiblePlugins = ref
-      .read(activePluginsProvider)
-      .where((p) => p.supportsFile(item))
-      .toList();
+  final compatiblePlugins =
+      ref
+          .read(activePluginsProvider)
+          .where((p) => p.supportsFile(item))
+          .toList();
 
   // 2. Get all commands, including the dynamically generated "Open With..." commands.
   final allCommands =
-      FileContextCommands.getCommands(ref, item, compatiblePlugins)
-          .where((cmd) => cmd.canExecuteFor(ref, item))
-          .toList();
+      FileContextCommands.getCommands(
+        ref,
+        item,
+        compatiblePlugins,
+      ).where((cmd) => cmd.canExecuteFor(ref, item)).toList();
 
   showModalBottomSheet(
     context: context,
-    builder: (ctx) => SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                item.name,
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
+    builder:
+        (ctx) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    item.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Divider(),
+                ...allCommands.map((command) {
+                  if (command is _DividerCommand) {
+                    return const Divider(height: 1, indent: 16, endIndent: 16);
+                  }
+                  return ListTile(
+                    leading: command.icon,
+                    title: Text(command.label),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      command.executeFor(ref, item);
+                    },
+                  );
+                }),
+              ],
             ),
-            const Divider(),
-            ...allCommands.map((command) {
-              if (command is _DividerCommand) {
-                return const Divider(height: 1, indent: 16, endIndent: 16);
-              }
-              return ListTile(
-                leading: command.icon,
-                title: Text(command.label),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  command.executeFor(ref, item);
-                },
-              );
-            }),
-          ],
+          ),
         ),
-      ),
-    ),
   );
 }
 
@@ -97,23 +100,27 @@ class FileContextCommands {
     // Dynamically generate "Open With..." commands if there are multiple options.
     if (!item.isDirectory && compatiblePlugins.length > 1) {
       for (final plugin in compatiblePlugins) {
-        commands.add(BaseFileContextCommand(
-          id: 'open_with_${plugin.name.replaceAll(' ', '_')}',
-          label: 'Open with ${plugin.name}',
-          icon: plugin.icon,
-          sourcePlugin: 'FileExplorer',
-          canExecuteFor: (ref, item) => true,
-          executeFor: (ref, item) async {
-            final result =
-                await appNotifier.openFile(item, explicitPlugin: plugin);
-            final context = ref.context;
-            if (result is OpenFileSuccess && context.mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            } else if (result is OpenFileError && context.mounted) {
-              showErrorSnackbar(context, result.message);
-            }
-          },
-        ));
+        commands.add(
+          BaseFileContextCommand(
+            id: 'open_with_${plugin.name.replaceAll(' ', '_')}',
+            label: 'Open with ${plugin.name}',
+            icon: plugin.icon,
+            sourcePlugin: 'FileExplorer',
+            canExecuteFor: (ref, item) => true,
+            executeFor: (ref, item) async {
+              final result = await appNotifier.openFile(
+                item,
+                explicitPlugin: plugin,
+              );
+              final context = ref.context;
+              if (result is OpenFileSuccess && context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              } else if (result is OpenFileError && context.mounted) {
+                showErrorSnackbar(context, result.message);
+              }
+            },
+          ),
+        );
       }
       commands.add(const _DividerCommand());
     }

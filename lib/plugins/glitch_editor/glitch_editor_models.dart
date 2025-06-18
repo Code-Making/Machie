@@ -1,5 +1,4 @@
 // lib/plugins/glitch_editor/glitch_editor_models.dart
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../data/file_handler/file_handler.dart';
@@ -8,18 +7,12 @@ import '../plugin_models.dart';
 
 @immutable
 class GlitchEditorTab extends EditorTab {
-  const GlitchEditorTab({
-    required super.file,
-    required super.plugin,
-  });
+  const GlitchEditorTab({required super.file, required super.plugin});
 
   @override
   void dispose() {}
-  
-  GlitchEditorTab copyWith({
-    DocumentFile? file,
-    EditorPlugin? plugin,
-  }) {
+
+  GlitchEditorTab copyWith({DocumentFile? file, EditorPlugin? plugin}) {
     return GlitchEditorTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
@@ -28,13 +21,14 @@ class GlitchEditorTab extends EditorTab {
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'glitch',
-        'fileUri': file.uri,
-        'pluginType': plugin.runtimeType.toString(),
-      };
+    'type': 'glitch',
+    'fileUri': file.uri,
+    'pluginType': plugin.runtimeType.toString(),
+  };
 }
 
 enum GlitchBrushType { scatter, repeater, heal }
+
 enum GlitchBrushShape { circle, square }
 
 class GlitchBrushSettings {

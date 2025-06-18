@@ -68,9 +68,10 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             itemBuilder: (context, index) {
               final file = searchState.results[index];
               // Calculate the relative path for the subtitle
-              String relativePath = file.uri.startsWith(projectRootUri)
-                  ? file.uri.substring(projectRootUri.length)
-                  : file.uri;
+              String relativePath =
+                  file.uri.startsWith(projectRootUri)
+                      ? file.uri.substring(projectRootUri.length)
+                      : file.uri;
               if (relativePath.startsWith('/')) {
                 relativePath = relativePath.substring(1);
               }
@@ -95,7 +96,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text('No results found for "${searchState.query}"'),
-          )
+          ),
       ],
     );
   }

@@ -32,8 +32,8 @@ class SearchState {
 // Manages the search logic
 final searchStateProvider = StateNotifierProvider.autoDispose
     .family<SearchStateNotifier, SearchState, Project>((ref, project) {
-  return SearchStateNotifier(project.fileHandler, project.rootUri);
-});
+      return SearchStateNotifier(project.fileHandler, project.rootUri);
+    });
 
 class SearchStateNotifier extends StateNotifier<SearchState> {
   final FileHandler _fileHandler;
@@ -83,9 +83,10 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       }
 
       final lowerCaseQuery = query.toLowerCase();
-      final results = _allFilesCache!
-          .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
-          .toList();
+      final results =
+          _allFilesCache!
+              .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
+              .toList();
 
       state = state.copyWith(results: results);
     });

@@ -9,7 +9,6 @@ import '../../command/command_models.dart';
 import '../../command/command_widgets.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../session/session_models.dart';
-import '../../session/tab_state.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
@@ -42,7 +41,7 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorSettingsUI(settings: editorSettings);
   }
 
-    // NEW: Declare that this plugin requires raw byte data.
+  // NEW: Declare that this plugin requires raw byte data.
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
@@ -82,7 +81,7 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
     // The `data` is guaranteed to be a String here due to the default dataRequirement.
     final String content = data as String;
-    
+
     final controller = CodeLineEditingController(
       spanBuilder: buildHighlightingSpan,
       codeLines: CodeLines.fromText(content),
@@ -134,7 +133,8 @@ class CodeEditorPlugin implements EditorPlugin {
 
     if (controller == null) {
       return const Center(
-          child: Text("Error: Controller not found for this tab."));
+        child: Text("Error: Controller not found for this tab."),
+      );
     }
 
     return CodeEditorMachine(
@@ -161,154 +161,154 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   List<Command> getCommands() => [
-        _createCommand(
-          id: 'save',
-          label: 'Save',
-          icon: Icons.save,
-          defaultPosition: CommandPosition.appBar,
-          execute: (ref, ctrl) async {
-            if (ctrl == null) return;
-            await ref
-                .read(appNotifierProvider.notifier)
-                .saveCurrentTab(content: ctrl.text);
-          },
-          canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
-        ),
-        _createCommand(
-          id: 'copy',
-          label: 'Copy',
-          icon: Icons.content_copy,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.copy(),
-        ),
-        _createCommand(
-          id: 'cut',
-          label: 'Cut',
-          icon: Icons.content_cut,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.cut(),
-        ),
-        _createCommand(
-          id: 'paste',
-          label: 'Paste',
-          icon: Icons.content_paste,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.paste(),
-        ),
-        _createCommand(
-          id: 'indent',
-          label: 'Indent',
-          icon: Icons.format_indent_increase,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.applyIndent(),
-        ),
-        _createCommand(
-          id: 'outdent',
-          label: 'Outdent',
-          icon: Icons.format_indent_decrease,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.applyOutdent(),
-        ),
-        _createCommand(
-          id: 'toggle_comment',
-          label: 'Toggle Comment',
-          icon: Icons.comment,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _toggleComments,
-        ),
-        _createCommand(
-          id: 'reformat',
-          label: 'Reformat',
-          icon: Icons.format_align_left,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _reformatDocument,
-        ),
-        _createCommand(
-          id: 'select_brackets',
-          label: 'Select Brackets',
-          icon: Icons.code,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _selectBetweenBrackets,
-        ),
-        _createCommand(
-          id: 'extend_selection',
-          label: 'Extend Selection',
-          icon: Icons.horizontal_rule,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _extendSelection,
-        ),
-        _createCommand(
-          id: 'select_all',
-          label: 'Select All',
-          icon: Icons.select_all,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.selectAll(),
-        ),
-        _createCommand(
-          id: 'move_line_up',
-          label: 'Move Line Up',
-          icon: Icons.arrow_upward,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(),
-        ),
-        _createCommand(
-          id: 'move_line_down',
-          label: 'Move Line Down',
-          icon: Icons.arrow_downward,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(),
-        ),
-        // MODIFIED: Mark/Select commands now use the plugin's internal state.
-        _createCommand(
-          id: 'set_mark',
-          label: 'Set Mark',
-          icon: Icons.bookmark_add,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _setMarkPosition,
-        ),
-        _createCommand(
-          id: 'select_to_mark',
-          label: 'Select to Mark',
-          icon: Icons.bookmark_added,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: _selectToMark,
-          canExecute: (ref, ctrl) {
-            final tab = _getTab(ref);
-            return tab != null && _marks.containsKey(tab.file.uri);
-          },
-        ),
-        _createCommand(
-          id: 'undo',
-          label: 'Undo',
-          icon: Icons.undo,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.undo(),
-          canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
-        ),
-        _createCommand(
-          id: 'redo',
-          label: 'Redo',
-          icon: Icons.redo,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.redo(),
-          canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
-        ),
-        _createCommand(
-          id: 'show_cursor',
-          label: 'Show Cursor',
-          icon: Icons.center_focus_strong,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => ctrl?.makeCursorVisible(),
-        ),
-        _createCommand(
-          id: 'switch_language',
-          label: 'Switch Language',
-          icon: Icons.language,
-          defaultPosition: CommandPosition.pluginToolbar,
-          execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
-          canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab,
-        ),
-      ];
+    _createCommand(
+      id: 'save',
+      label: 'Save',
+      icon: Icons.save,
+      defaultPosition: CommandPosition.appBar,
+      execute: (ref, ctrl) async {
+        if (ctrl == null) return;
+        await ref
+            .read(appNotifierProvider.notifier)
+            .saveCurrentTab(content: ctrl.text);
+      },
+      canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
+    ),
+    _createCommand(
+      id: 'copy',
+      label: 'Copy',
+      icon: Icons.content_copy,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.copy(),
+    ),
+    _createCommand(
+      id: 'cut',
+      label: 'Cut',
+      icon: Icons.content_cut,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.cut(),
+    ),
+    _createCommand(
+      id: 'paste',
+      label: 'Paste',
+      icon: Icons.content_paste,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.paste(),
+    ),
+    _createCommand(
+      id: 'indent',
+      label: 'Indent',
+      icon: Icons.format_indent_increase,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.applyIndent(),
+    ),
+    _createCommand(
+      id: 'outdent',
+      label: 'Outdent',
+      icon: Icons.format_indent_decrease,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.applyOutdent(),
+    ),
+    _createCommand(
+      id: 'toggle_comment',
+      label: 'Toggle Comment',
+      icon: Icons.comment,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _toggleComments,
+    ),
+    _createCommand(
+      id: 'reformat',
+      label: 'Reformat',
+      icon: Icons.format_align_left,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _reformatDocument,
+    ),
+    _createCommand(
+      id: 'select_brackets',
+      label: 'Select Brackets',
+      icon: Icons.code,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _selectBetweenBrackets,
+    ),
+    _createCommand(
+      id: 'extend_selection',
+      label: 'Extend Selection',
+      icon: Icons.horizontal_rule,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _extendSelection,
+    ),
+    _createCommand(
+      id: 'select_all',
+      label: 'Select All',
+      icon: Icons.select_all,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.selectAll(),
+    ),
+    _createCommand(
+      id: 'move_line_up',
+      label: 'Move Line Up',
+      icon: Icons.arrow_upward,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp(),
+    ),
+    _createCommand(
+      id: 'move_line_down',
+      label: 'Move Line Down',
+      icon: Icons.arrow_downward,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown(),
+    ),
+    // MODIFIED: Mark/Select commands now use the plugin's internal state.
+    _createCommand(
+      id: 'set_mark',
+      label: 'Set Mark',
+      icon: Icons.bookmark_add,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _setMarkPosition,
+    ),
+    _createCommand(
+      id: 'select_to_mark',
+      label: 'Select to Mark',
+      icon: Icons.bookmark_added,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: _selectToMark,
+      canExecute: (ref, ctrl) {
+        final tab = _getTab(ref);
+        return tab != null && _marks.containsKey(tab.file.uri);
+      },
+    ),
+    _createCommand(
+      id: 'undo',
+      label: 'Undo',
+      icon: Icons.undo,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.undo(),
+      canExecute: (ref, ctrl) => ref.watch(canUndoProvider),
+    ),
+    _createCommand(
+      id: 'redo',
+      label: 'Redo',
+      icon: Icons.redo,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.redo(),
+      canExecute: (ref, ctrl) => ref.watch(canRedoProvider),
+    ),
+    _createCommand(
+      id: 'show_cursor',
+      label: 'Show Cursor',
+      icon: Icons.center_focus_strong,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => ctrl?.makeCursorVisible(),
+    ),
+    _createCommand(
+      id: 'switch_language',
+      label: 'Switch Language',
+      icon: Icons.language,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, ctrl) => _showLanguageSelectionDialog(ref),
+      canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab,
+    ),
+  ];
 
   Command _createCommand({
     required String id,
@@ -316,7 +316,7 @@ class CodeEditorPlugin implements EditorPlugin {
     required IconData icon,
     required CommandPosition defaultPosition,
     required FutureOr<void> Function(WidgetRef, CodeLineEditingController?)
-        execute,
+    execute,
     bool Function(WidgetRef, CodeLineEditingController?)? canExecute,
   }) {
     return BaseCommand(
@@ -625,8 +625,7 @@ class CodeEditorPlugin implements EditorPlugin {
               shrinkWrap: true,
               itemCount: CodeThemes.languageNameToModeMap.keys.length,
               itemBuilder: (context, index) {
-                final langKey =
-                    CodeThemes.languageNameToModeMap.keys.elementAt(
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
                   index,
                 );
                 return ListTile(

@@ -14,10 +14,18 @@ final workspaceServiceProvider = Provider<WorkspaceService>((ref) {
 /// A generic service to manage loading and saving the UI workspace state
 /// for a project, including the state of individual plugins.
 class WorkspaceService {
-  Future<WorkspaceState> loadFullState(FileHandler fileHandler, String projectDataPath) async {
+  Future<WorkspaceState> loadFullState(
+    FileHandler fileHandler,
+    String projectDataPath,
+  ) async {
     try {
-      final files = await fileHandler.listDirectory(projectDataPath, includeHidden: true);
-      final workspaceFile = files.firstWhereOrNull((f) => f.name == _workspaceFileName);
+      final files = await fileHandler.listDirectory(
+        projectDataPath,
+        includeHidden: true,
+      );
+      final workspaceFile = files.firstWhereOrNull(
+        (f) => f.name == _workspaceFileName,
+      );
 
       if (workspaceFile != null) {
         final content = await fileHandler.readFile(workspaceFile.uri);
@@ -26,7 +34,9 @@ class WorkspaceService {
     } catch (e) {
       print('Could not load workspace state: $e');
     }
-    return const WorkspaceState(activeExplorerPluginId: 'com.machine.file_explorer'); // Default
+    return const WorkspaceState(
+      activeExplorerPluginId: 'com.machine.file_explorer',
+    ); // Default
   }
 
   Future<void> _saveFullState(

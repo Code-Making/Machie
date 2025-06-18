@@ -13,8 +13,11 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginName = ref.watch(
-    appNotifierProvider
-        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+    appNotifierProvider.select(
+      (s) =>
+          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
+              .toString(),
+    ),
   );
 
   final visibleItems = <dynamic>[];
@@ -44,8 +47,11 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginName = ref.watch(
-    appNotifierProvider
-        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
+    appNotifierProvider.select(
+      (s) =>
+          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
+              .toString(),
+    ),
   );
 
   final visibleItems = <dynamic>[];
@@ -63,13 +69,12 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
       (c) => c.id == id && c.sourcePlugin == currentPluginName,
     );
 
-     if (command != null) {
+    if (command != null) {
       visibleItems.add(command);
     }
   }
   return visibleItems;
 });
-
 
 final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
@@ -85,25 +90,28 @@ class AppBarCommands extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // NEW: Check for app bar override
-    final override = ref.watch(appNotifierProvider.select((s) => s.value?.appBarOverride));
+    final override = ref.watch(
+      appNotifierProvider.select((s) => s.value?.appBarOverride),
+    );
     if (override != null) {
-        // When overriding, we expect the plugin to provide the whole actions row
-        return override;
+      // When overriding, we expect the plugin to provide the whole actions row
+      return override;
     }
-    
+
     final items = ref.watch(appBarCommandsProvider);
 
     return Row(
-      children: items.map((item) {
-        if (item is Command) {
-          return CommandButton(command: item);
-        }
-        if (item is CommandGroup) {
-          // CORRECTED: AppBar now knows how to render groups.
-          return CommandGroupButton(commandGroup: item);
-        }
-        return const SizedBox.shrink();
-      }).toList(),
+      children:
+          items.map((item) {
+            if (item is Command) {
+              return CommandButton(command: item);
+            }
+            if (item is CommandGroup) {
+              // CORRECTED: AppBar now knows how to render groups.
+              return CommandGroupButton(commandGroup: item);
+            }
+            return const SizedBox.shrink();
+          }).toList(),
     );
   }
 }
@@ -113,7 +121,9 @@ class BottomToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final override = ref.watch(appNotifierProvider.select((s) => s.value?.bottomToolbarOverride));
+    final override = ref.watch(
+      appNotifierProvider.select((s) => s.value?.bottomToolbarOverride),
+    );
     if (override != null) {
       return override;
     }
@@ -183,16 +193,22 @@ class CommandGroupButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
     final currentPluginName = ref.watch(
-    appNotifierProvider
-        .select((s) => s.value?.currentProject?.session.currentTab?.plugin.runtimeType.toString()),
-  );
+      appNotifierProvider.select(
+        (s) =>
+            s.value?.currentProject?.session.currentTab?.plugin.runtimeType
+                .toString(),
+      ),
+    );
 
-    final commandsInGroup = commandGroup.commandIds
-        .map((id) => notifier.allRegisteredCommands.firstWhereOrNull(
-              (c) => c.id == id && c.sourcePlugin == currentPluginName,
-            ))
-        .whereType<Command>()
-        .toList();
+    final commandsInGroup =
+        commandGroup.commandIds
+            .map(
+              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
+                (c) => c.id == id && c.sourcePlugin == currentPluginName,
+              ),
+            )
+            .whereType<Command>()
+            .toList();
 
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();

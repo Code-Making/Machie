@@ -43,21 +43,33 @@ class SimpleLocalFileProject extends Project {
       tab.dispose();
     }
   }
-  
-    // This project type does not persist workspace state, so these are no-ops.
+
+  // This project type does not persist workspace state, so these are no-ops.
   @override
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService}) async {
+  Future<Map<String, dynamic>?> loadPluginState(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  }) async {
     return null;
   }
 
   @override
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService}) async {}
+  Future<void> savePluginState(
+    String pluginId,
+    Map<String, dynamic> stateJson, {
+    required WorkspaceService workspaceService,
+  }) async {}
 
   @override
-  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService}) async {}
+  Future<void> saveActiveExplorer(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  }) async {}
 
   @override
-  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService}) async {
+  Future<String?> loadActiveExplorer({
+    required WorkspaceService workspaceService,
+  }) async {
     return null;
   }
 
@@ -73,14 +85,21 @@ class SimpleLocalFileProject extends Project {
 
   // MODIFIED: Made async and now reads file content.
   @override
-  Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
-    final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
+  Future<Project> openFile(
+    DocumentFile file, {
+    EditorPlugin? plugin,
+    required Ref ref,
+  }) async {
+    final existingIndex = session.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
     if (existingIndex != -1) {
       return switchTab(existingIndex, ref: ref);
     }
 
     final plugins = ref.read(activePluginsProvider);
-    final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
+    final selectedPlugin =
+        plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
 
     // Read data based on plugin requirement
     final dynamic data;
@@ -89,7 +108,7 @@ class SimpleLocalFileProject extends Project {
     } else {
       data = await fileHandler.readFile(file.uri);
     }
-    
+
     final newTab = await selectedPlugin.createTab(file, data);
 
     final oldTab = session.currentTab;
@@ -121,12 +140,18 @@ class SimpleLocalFileProject extends Project {
       newCurrentIndex = 0;
     } else {
       final oldIndex = session.currentTabIndex;
-      if (oldIndex > index) newCurrentIndex = oldIndex - 1;
-      else if (oldIndex == index) newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
-      else newCurrentIndex = oldIndex;
+      if (oldIndex > index)
+        newCurrentIndex = oldIndex - 1;
+      else if (oldIndex == index)
+        newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
+      else
+        newCurrentIndex = oldIndex;
     }
     final newProject = copyWith(
-      session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex),
+      session: session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
     );
     closedTab.plugin.deactivateTab(closedTab, ref);
     closedTab.plugin.disposeTab(closedTab); // MODIFIED: Added disposeTab call
@@ -146,8 +171,14 @@ class SimpleLocalFileProject extends Project {
     final movedTab = newTabs.removeAt(oldIndex);
     if (oldIndex < newIndex) newIndex--;
     newTabs.insert(newIndex, movedTab);
-    final newCurrentIndex = currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
-    return copyWith(session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex));
+    final newCurrentIndex =
+        currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
+    return copyWith(
+      session: session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
+    );
   }
 
   @override

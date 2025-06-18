@@ -1,7 +1,6 @@
 // lib/explorer/common/save_as_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
 
@@ -29,9 +28,10 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   void initState() {
     super.initState();
     _fileNameController = TextEditingController(text: widget.initialFileName);
-    _currentPathUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+    _currentPathUri =
+        ref.read(appNotifierProvider).value!.currentProject!.rootUri;
   }
-  
+
   @override
   void dispose() {
     _fileNameController.dispose();
@@ -41,7 +41,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   @override
   Widget build(BuildContext context) {
     final project = ref.watch(appNotifierProvider).value!.currentProject!;
-    final directoryContents = ref.watch(currentProjectDirectoryContentsProvider(_currentPathUri));
+    final directoryContents = ref.watch(
+      currentProjectDirectoryContentsProvider(_currentPathUri),
+    );
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -57,7 +59,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, st) => Center(child: Text('Error: $err')),
                 data: (files) {
-                  final directories = files.where((f) => f.isDirectory).toList();
+                  final directories =
+                      files.where((f) => f.isDirectory).toList();
                   return ListView.builder(
                     itemCount: directories.length,
                     itemBuilder: (context, index) {
@@ -66,9 +69,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                         leading: const Icon(Icons.folder_outlined),
                         title: Text(dir.name),
                         onTap: () {
-                           setState(() {
-                              _currentPathUri = dir.uri;
-                           });
+                          setState(() {
+                            _currentPathUri = dir.uri;
+                          });
                         },
                       );
                     },
@@ -92,10 +95,12 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         FilledButton(
           onPressed: () {
             if (_fileNameController.text.trim().isNotEmpty) {
-                Navigator.of(context).pop(SaveAsDialogResult(
-                    _currentPathUri,
-                    _fileNameController.text.trim(),
-                ));
+              Navigator.of(context).pop(
+                SaveAsDialogResult(
+                  _currentPathUri,
+                  _fileNameController.text.trim(),
+                ),
+              );
             }
           },
           child: const Text('Save'),
@@ -109,16 +114,30 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_upward),
-          onPressed: _currentPathUri == ref.read(appNotifierProvider).value!.currentProject!.rootUri ? null : () {
-            setState(() {
-              final segments = _currentPathUri.split('%2F');
-              _currentPathUri = segments.sublist(0, segments.length - 1).join('%2F');
-            });
-          },
+          onPressed:
+              _currentPathUri ==
+                      ref
+                          .read(appNotifierProvider)
+                          .value!
+                          .currentProject!
+                          .rootUri
+                  ? null
+                  : () {
+                    setState(() {
+                      final segments = _currentPathUri.split('%2F');
+                      _currentPathUri = segments
+                          .sublist(0, segments.length - 1)
+                          .join('%2F');
+                    });
+                  },
         ),
         Expanded(
           child: Text(
-            Uri.decodeComponent(_currentPathUri.split('/').lastWhere((s) => s.isNotEmpty, orElse: () => 'Project Root')),
+            Uri.decodeComponent(
+              _currentPathUri
+                  .split('/')
+                  .lastWhere((s) => s.isNotEmpty, orElse: () => 'Project Root'),
+            ),
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),

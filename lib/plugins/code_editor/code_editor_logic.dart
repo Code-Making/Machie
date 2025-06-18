@@ -35,8 +35,8 @@ class CodeEditorLogic {
 
 final bracketHighlightProvider =
     NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
-  BracketHighlightNotifier.new,
-);
+      BracketHighlightNotifier.new,
+    );
 
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
@@ -173,15 +173,17 @@ TextSpan buildHighlightingSpan({
   required TextSpan textSpan,
   required TextStyle style,
 }) {
-  final highlightState =
-      ProviderScope.containerOf(context).read(bracketHighlightProvider);
+  final highlightState = ProviderScope.containerOf(
+    context,
+  ).read(bracketHighlightProvider);
 
   final spans = <TextSpan>[];
   int currentPosition = 0;
-  final highlightPositions = highlightState.bracketPositions
-      .where((pos) => pos.index == index)
-      .map((pos) => pos.offset)
-      .toSet();
+  final highlightPositions =
+      highlightState.bracketPositions
+          .where((pos) => pos.index == index)
+          .map((pos) => pos.offset)
+          .toSet();
   void processSpan(TextSpan span) {
     final text = span.text ?? '';
     final spanStyle = span.style ?? style;
