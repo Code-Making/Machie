@@ -36,6 +36,7 @@ class ActiveExplorerNotifier extends StateNotifier<ExplorerPlugin> {
 
   Future<void> _initState() async {
     final project = _project;
+    if (project != null) {
       final workspaceService = _ref.read(workspaceServiceProvider);
       // This is a bit inefficient as it reads the whole file, but it's okay for now.
       // A better implementation might have `workspaceService.loadActiveExplorerId()`.
@@ -53,17 +54,20 @@ class ActiveExplorerNotifier extends StateNotifier<ExplorerPlugin> {
         );
         if (mounted) state = activePlugin;
       }
+    }
   }
 
   void setActiveExplorer(ExplorerPlugin newPlugin) {
     if (state.id == newPlugin.id) return;
     state = newPlugin;
     final project = _project;
+    if (project != null) {
       final workspaceService = _ref.read(workspaceServiceProvider);
       workspaceService.saveActiveExplorer(
         project.fileHandler,
         project.projectDataPath,
         newPlugin.id,
       );
+    }
   }
 }
