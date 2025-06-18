@@ -19,11 +19,7 @@ import 'data/persistence_service.dart';
 
 final talkerProvider = Provider<Talker>((ref) {
   return Talker(
-    logger: TalkerLogger(
-      settings: TalkerLoggerSettings(
-        colors: false, // Disable for file storage
-      ),
-    ),
+    logger: TalkerLogger(),
     settings: TalkerSettings(
       enabled: true,
       useConsoleLogs: true,
@@ -74,7 +70,8 @@ ThemeData darkTheme = ThemeData(
 // --------------------
 
 void main() {
-  final talker = Talker(); // Create instance early for error handling
+
+final talker = TalkerFlutter.init();
 
   runZonedGuarded(
     () {
@@ -113,13 +110,6 @@ void main() {
       // Report errors to Talker
       talker.handle(error, stack, 'Unhandled error');
     },
-    zoneSpecification: ZoneSpecification(
-      print: (self, parent, zone, message) {
-        // Redirect all prints to Talker
-        talker.log(message);
-        parent.print(zone, '[${DateTime.now()}] $message');
-      },
-    ),
   );
 }
 

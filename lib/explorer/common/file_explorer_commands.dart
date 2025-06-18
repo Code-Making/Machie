@@ -8,7 +8,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../plugins/plugin_models.dart';
 import '../../plugins/plugin_registry.dart';
 import '../../utils/clipboard.dart';
-import '../../utils/logs.dart';
 import 'file_explorer_dialogs.dart';
 
 // A private dummy command class to represent a divider in the list.
@@ -206,9 +205,9 @@ class FileContextCommands {
             clipboardContent.uri,
           );
           if (sourceFile == null) {
-            ref
+            /*ref
                 .read(logProvider.notifier)
-                .add('Clipboard source file not found.');
+                .add('Clipboard source file not found.');*/
             appNotifier.clearClipboard();
             return;
           }
