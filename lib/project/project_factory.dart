@@ -7,9 +7,9 @@ import '../data/file_handler/file_handler.dart';
 import '../data/file_handler/local_file_handler.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
-import 'local_file_system_project.dart';
 import 'project_models.dart';
-import 'simple_local_file_project.dart';
+import 'implementations/local_file_system_project.dart';
+import 'implementations/simple_local_file_project.dart';
 
 // --- Abstraction ---
 
