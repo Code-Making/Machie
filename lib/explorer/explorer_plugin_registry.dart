@@ -1,6 +1,7 @@
 // lib/explorer/explorer_plugin_registry.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../project/project_models.dart';
+import '../project/implementations/local_file_system_project.dart';
 import '../project/workspace_service.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
@@ -36,7 +37,7 @@ class ActiveExplorerNotifier extends StateNotifier<ExplorerPlugin> {
 
   Future<void> _initState() async {
     final project = _project;
-    if (project != null) {
+    if (project is LocalProject) {
       final workspaceService = _ref.read(workspaceServiceProvider);
       // This is a bit inefficient as it reads the whole file, but it's okay for now.
       // A better implementation might have `workspaceService.loadActiveExplorerId()`.
@@ -61,7 +62,7 @@ class ActiveExplorerNotifier extends StateNotifier<ExplorerPlugin> {
     if (state.id == newPlugin.id) return;
     state = newPlugin;
     final project = _project;
-    if (project != null) {
+    if (project is LocalProject) {
       final workspaceService = _ref.read(workspaceServiceProvider);
       workspaceService.saveActiveExplorer(
         project.fileHandler,
