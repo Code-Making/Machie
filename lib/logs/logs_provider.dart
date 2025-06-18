@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'logs_models.dart';
-export 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:talker_riverpod_observer/talker_riverpod_observer.dart'; // NEW IMPORT
 export 'package:talker_flutter/talker_flutter.dart';
 export 'logs_models.dart';
 
