@@ -144,7 +144,7 @@ class SafFileHandler implements LocalFileHandler {
     String newName,
   ) async {
     final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
-    return renamed != null ? CustomSAFDocumentFile(renamed) : null;
+    return CustomSAFDocumentFile(renamed);
   }
 
   // CORRECTED: This method now correctly copies any file type using raw bytes.
