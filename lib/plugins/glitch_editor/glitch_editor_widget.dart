@@ -77,7 +77,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final destinationSize = fitted.destination;
 
     // Calculate display rectangle
-    _imageDisplaySize = destinationSize;
     _imageDisplayOffset = Offset(
       (widgetSize.width - destinationSize.width) / 2.0,
       (widgetSize.height - destinationSize.height) / 2.0,
