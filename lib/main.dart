@@ -12,14 +12,10 @@ import 'command/command_notifier.dart'; // NEW IMPORT
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 import 'data/persistence_service.dart';
-
+import 'logs/logs_provider.dart';
 // --------------------
 //   Global Providers
 // --------------------
-
-final talkerProvider = Provider<Talker>((ref) {
-  return TalkerFlutter.init();
-});
 
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(sharedPreferencesProvider.future);
