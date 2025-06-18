@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
-import '../../data/file_handler/file_handler.dart';
 
 class SaveAsDialogResult {
   final String parentUri;

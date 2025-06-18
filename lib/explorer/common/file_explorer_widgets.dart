@@ -92,7 +92,6 @@ class DirectoryItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appNotifier = ref.read(appNotifierProvider.notifier);
     final fileExplorerNotifier = ref.read(
       fileExplorerStateProvider(projectId).notifier,
     );
