@@ -182,16 +182,11 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    try {
-      final file = await _safUtil.documentFileFromUri(
+      final file = await _safUtil.stat(
         uri,
         false,
       ); // Assume it might be a file or dir
       return file != null ? CustomSAFDocumentFile(file) : null;
-    } catch (e) {
-      print('Error getting file metadata for $uri: $e');
-      return null;
-    }
   }
 
   @override
