@@ -18,7 +18,6 @@ class WorkspaceService {
     FileHandler fileHandler,
     String projectDataPath,
   ) async {
-    try {
       final files = await fileHandler.listDirectory(
         projectDataPath,
         includeHidden: true,
@@ -31,9 +30,7 @@ class WorkspaceService {
         final content = await fileHandler.readFile(workspaceFile.uri);
         return WorkspaceState.fromJson(jsonDecode(content));
       }
-    } catch (e) {
-      print('Could not load workspace state: $e');
-    }
+      // should throw if fail ('Could not load workspace state: $e');
     return const WorkspaceState(
       activeExplorerPluginId: 'com.machine.file_explorer',
     ); // Default
@@ -44,16 +41,13 @@ class WorkspaceService {
     String projectDataPath,
     WorkspaceState state,
   ) async {
-    try {
       await fileHandler.createDocumentFile(
         projectDataPath,
         _workspaceFileName,
         initialContent: jsonEncode(state.toJson()),
         overwrite: true,
       );
-    } catch (e) {
-      print('Could not save workspace state: $e');
-    }
+      // throw if fail('Could not save workspace state: $e');
   }
 
   /// Loads the specific state for a single plugin.

@@ -51,7 +51,6 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
 
     while (directoriesToScan.isNotEmpty) {
       final currentDirUri = directoriesToScan.removeAt(0);
-      try {
         final items = await _fileHandler.listDirectory(currentDirUri);
         for (final item in items) {
           if (item.isDirectory) {
@@ -60,9 +59,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
             allFiles.add(item);
           }
         }
-      } catch (e) {
-        print('Error scanning directory $currentDirUri: $e');
-      }
+        //print('Error scanning directory $currentDirUri: $e');
     }
     _allFilesCache = allFiles;
     state = state.copyWith(isLoading: false);
