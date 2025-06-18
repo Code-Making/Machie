@@ -2,6 +2,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:talker/talker.dart'; // Add Talker import
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/local_file_handler.dart';
@@ -25,7 +26,7 @@ class FileOperationsFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    //final //logNotifier = ref.read(logProvider.notifier);
+    final talker = ref.read(talkerProvider); // Get Talker instance
 
     final rootDoc = RootPlaceholder(projectRootUri);
     final pasteCommand = FileContextCommands.getCommands(
@@ -59,8 +60,9 @@ class FileOperationsFooter extends ConsumerWidget {
                       isDirectory: false,
                     ),
                   );
-                } catch (e) {
-                  //logNotifier.add('Error creating file: $e');
+                  talker.info('Created new file: $newFileName');
+                } catch (e, st) {
+                talker.handle(e, st, 'Error creating file');
                 }
               }
             },
