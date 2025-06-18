@@ -24,11 +24,11 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Command? getCommand(String id, String sourcePlugin) {
     var command = _allRegisteredCommands.firstWhere(
       (c) => c.id == id && c.sourcePlugin == sourcePlugin,
-      orElse: () => null!,
+      orElse: () => null,
     );
     command ??= _allRegisteredCommands.firstWhere(
       (c) => c.id == id,
-      orElse: () => null!,
+      orElse: () => null,
     );
     return command;
   }

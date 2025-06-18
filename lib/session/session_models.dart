@@ -1,19 +1,8 @@
-// lib/session/session_models.dart
 import 'package:flutter/material.dart';
 
 import '../plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
-// MODIFIED: 'title' is now an abstract getter, not a final field.
-@immutable
-abstract class WorkspaceTab {
-  String get title; // MODIFIED
-  final EditorPlugin plugin;
-
-  const WorkspaceTab({required this.plugin});
-
-  void dispose();
-}
 
 @immutable
 class SessionState {
@@ -39,6 +28,17 @@ class SessionState {
     'currentTabIndex': currentTabIndex,
   };
 }
+
+@immutable
+abstract class WorkspaceTab {
+  String get title; // MODIFIED
+  final EditorPlugin plugin;
+
+  const WorkspaceTab({required this.plugin});
+
+  void dispose();
+}
+
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
