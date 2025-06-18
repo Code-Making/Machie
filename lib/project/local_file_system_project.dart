@@ -6,7 +6,6 @@ import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'project_models.dart';
-import 'simple_local_file_project.dart';
 import 'workspace_service.dart'; // NEW IMPORT
 
 class LocalProject extends Project {
@@ -19,10 +18,7 @@ class LocalProject extends Project {
     required this.projectDataPath,
   });
 
-  LocalProject copyWith({
-    ProjectMetadata? metadata,
-    SessionState? session,
-  }) {
+  LocalProject copyWith({ProjectMetadata? metadata, SessionState? session}) {
     return LocalProject(
       metadata: metadata ?? this.metadata,
       fileHandler: fileHandler,
@@ -54,28 +50,56 @@ class LocalProject extends Project {
 
   @override
   Map<String, dynamic> toJson() => {
-        'id': metadata.id,
-        'session': session.toJson(),
-      };
-      
+    'id': metadata.id,
+    'session': session.toJson(),
+  };
+
   @override
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService}) {
-    return workspaceService.loadPluginState(fileHandler, projectDataPath, pluginId);
+  Future<Map<String, dynamic>?> loadPluginState(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  }) {
+    return workspaceService.loadPluginState(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+    );
   }
 
   @override
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService}) {
-    return workspaceService.savePluginState(fileHandler, projectDataPath, pluginId, stateJson);
+  Future<void> savePluginState(
+    String pluginId,
+    Map<String, dynamic> stateJson, {
+    required WorkspaceService workspaceService,
+  }) {
+    return workspaceService.savePluginState(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+      stateJson,
+    );
   }
 
   @override
-  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService}) {
-    return workspaceService.saveActiveExplorer(fileHandler, projectDataPath, pluginId);
+  Future<void> saveActiveExplorer(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  }) {
+    return workspaceService.saveActiveExplorer(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+    );
   }
 
   @override
-  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService}) async {
-    final state = await workspaceService.loadFullState(fileHandler, projectDataPath);
+  Future<String?> loadActiveExplorer({
+    required WorkspaceService workspaceService,
+  }) async {
+    final state = await workspaceService.loadFullState(
+      fileHandler,
+      projectDataPath,
+    );
     return state.activeExplorerPluginId;
   }
 
@@ -88,15 +112,22 @@ class LocalProject extends Project {
 
   // MODIFIED: Made async and now reads file content.
   @override
-  Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref}) async {
-    final existingIndex = session.tabs.indexWhere((t) => t.file.uri == file.uri);
+  Future<Project> openFile(
+    DocumentFile file, {
+    EditorPlugin? plugin,
+    required Ref ref,
+  }) async {
+    final existingIndex = session.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
     if (existingIndex != -1) {
       return switchTab(existingIndex, ref: ref);
     }
 
     final plugins = ref.read(activePluginsProvider);
-    final selectedPlugin = plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
-    
+    final selectedPlugin =
+        plugin ?? plugins.firstWhere((p) => p.supportsFile(file));
+
     // Read data based on plugin requirement
     final dynamic data;
     if (selectedPlugin.dataRequirement == PluginDataRequirement.bytes) {
@@ -104,7 +135,7 @@ class LocalProject extends Project {
     } else {
       data = await fileHandler.readFile(file.uri);
     }
-    
+
     final newTab = await selectedPlugin.createTab(file, data);
 
     final oldTab = session.currentTab;
@@ -115,7 +146,7 @@ class LocalProject extends Project {
     _handlePluginLifecycle(oldTab, newTab, ref);
     return copyWith(session: newSession);
   }
-  
+
   @override
   Project switchTab(int index, {required Ref ref}) {
     final oldTab = session.currentTab;
@@ -136,12 +167,18 @@ class LocalProject extends Project {
       newCurrentIndex = 0;
     } else {
       final oldIndex = session.currentTabIndex;
-      if (oldIndex > index) newCurrentIndex = oldIndex - 1;
-      else if (oldIndex == index) newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
-      else newCurrentIndex = oldIndex;
+      if (oldIndex > index)
+        newCurrentIndex = oldIndex - 1;
+      else if (oldIndex == index)
+        newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
+      else
+        newCurrentIndex = oldIndex;
     }
     final newProject = copyWith(
-      session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex),
+      session: session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
     );
     closedTab.plugin.deactivateTab(closedTab, ref);
     closedTab.plugin.disposeTab(closedTab); // MODIFIED: Added disposeTab call
@@ -160,10 +197,15 @@ class LocalProject extends Project {
     final movedTab = newTabs.removeAt(oldIndex);
     if (oldIndex < newIndex) newIndex--;
     newTabs.insert(newIndex, movedTab);
-    final newCurrentIndex = currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
-    return copyWith(session: session.copyWith(tabs: newTabs, currentTabIndex: newCurrentIndex));
+    final newCurrentIndex =
+        currentOpenTab != null ? newTabs.indexOf(currentOpenTab) : 0;
+    return copyWith(
+      session: session.copyWith(
+        tabs: newTabs,
+        currentTabIndex: newCurrentIndex,
+      ),
+    );
   }
-
 
   @override
   Project updateTab(int tabIndex, EditorTab newTab) {

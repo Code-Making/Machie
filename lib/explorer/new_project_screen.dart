@@ -20,7 +20,7 @@ class NewProjectScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
-          )
+          ),
         ],
       ),
       body: ListView.builder(
@@ -38,7 +38,9 @@ class NewProjectScreen extends ConsumerWidget {
 
               if (pickedDir != null && context.mounted) {
                 // 2. Call the AppNotifier with the folder and the selected factory's type ID
-                await ref.read(appNotifierProvider.notifier).openProjectFromFolder(
+                await ref
+                    .read(appNotifierProvider.notifier)
+                    .openProjectFromFolder(
                       folder: pickedDir,
                       projectTypeId: factory.projectTypeId,
                     );

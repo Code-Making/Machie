@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/local_file_handler.dart';
-import '../../plugins/plugin_models.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
 import '../../utils/logs.dart';
@@ -17,8 +16,11 @@ import 'file_explorer_widgets.dart';
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
   final String projectId;
-  const FileOperationsFooter(
-      {super.key, required this.projectRootUri, required this.projectId});
+  const FileOperationsFooter({
+    super.key,
+    required this.projectRootUri,
+    required this.projectId,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,8 +29,11 @@ class FileOperationsFooter extends ConsumerWidget {
     final logNotifier = ref.read(logProvider.notifier);
 
     final rootDoc = RootPlaceholder(projectRootUri);
-    final pasteCommand = FileContextCommands.getCommands(ref, rootDoc, [])
-        .firstWhereOrNull((cmd) => cmd.id == 'paste');
+    final pasteCommand = FileContextCommands.getCommands(
+      ref,
+      rootDoc,
+      [],
+    ).firstWhereOrNull((cmd) => cmd.id == 'paste');
 
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -110,15 +115,17 @@ class FileOperationsFooter extends ConsumerWidget {
           IconButton(
             icon: Icon(
               Icons.content_paste,
-              color: clipboardContent != null
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey,
+              color:
+                  clipboardContent != null
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed: (pasteCommand != null &&
-                    pasteCommand.canExecuteFor(ref, rootDoc))
-                ? () => pasteCommand.executeFor(ref, rootDoc)
-                : null,
+            onPressed:
+                (pasteCommand != null &&
+                        pasteCommand.canExecuteFor(ref, rootDoc))
+                    ? () => pasteCommand.executeFor(ref, rootDoc)
+                    : null,
           ),
           // --- Sort ---
           IconButton(

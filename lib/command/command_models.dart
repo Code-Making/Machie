@@ -29,7 +29,6 @@ class CommandIcon {
   }
 }
 
-
 // --- Command System ---
 
 abstract class Command {
@@ -63,8 +62,8 @@ class BaseCommand extends Command {
     required super.sourcePlugin,
     required Future<void> Function(WidgetRef) execute,
     bool Function(WidgetRef)? canExecute,
-  })  : _execute = execute,
-        _canExecute = canExecute ?? _defaultCanExecute;
+  }) : _execute = execute,
+       _canExecute = canExecute ?? _defaultCanExecute;
 
   static bool _defaultCanExecute(WidgetRef ref) => true;
 
@@ -107,18 +106,18 @@ class CommandGroup {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'iconName': iconName,
-        'commandIds': commandIds,
-      };
+    'id': id,
+    'label': label,
+    'iconName': iconName,
+    'commandIds': commandIds,
+  };
 
   factory CommandGroup.fromJson(Map<String, dynamic> json) => CommandGroup(
-        id: json['id'],
-        label: json['label'],
-        iconName: json['iconName'],
-        commandIds: List<String>.from(json['commandIds']),
-      );
+    id: json['id'],
+    label: json['label'],
+    iconName: json['iconName'],
+    commandIds: List<String>.from(json['commandIds']),
+  );
 }
 
 abstract class FileContextCommand {
@@ -149,8 +148,8 @@ class BaseFileContextCommand extends FileContextCommand {
     required super.sourcePlugin,
     required bool Function(WidgetRef, DocumentFile) canExecuteFor,
     required Future<void> Function(WidgetRef, DocumentFile) executeFor,
-  })  : _canExecuteFor = canExecuteFor,
-        _executeFor = executeFor;
+  }) : _canExecuteFor = canExecuteFor,
+       _executeFor = executeFor;
 
   @override
   bool canExecuteFor(WidgetRef ref, DocumentFile item) =>
@@ -161,13 +160,7 @@ class BaseFileContextCommand extends FileContextCommand {
       _executeFor(ref, item);
 }
 
-enum CommandPosition {
-  appBar,
-  pluginToolbar,
-  both,
-  hidden,
-  contextMenu,
-}
+enum CommandPosition { appBar, pluginToolbar, both, hidden, contextMenu }
 
 class CommandState {
   final List<String> appBarOrder;

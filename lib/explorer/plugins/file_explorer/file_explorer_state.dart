@@ -36,18 +36,20 @@ class FileExplorerSettings {
   }
 
   Map<String, dynamic> toJson() => {
-        'viewMode': viewMode.name,
-        'expandedFolders': expandedFolders.toList(),
-      };
+    'viewMode': viewMode.name,
+    'expandedFolders': expandedFolders.toList(),
+  };
 }
 
 // MODIFIED: This is now a standard StateNotifierProvider, not async.
 // It returns a nullable state to represent the "loading" period.
 final fileExplorerStateProvider = StateNotifierProvider.family
-    .autoDispose<FileExplorerStateNotifier, FileExplorerSettings?, String>(
-        (ref, projectId) {
-  return FileExplorerStateNotifier(ref, projectId);
-});
+    .autoDispose<FileExplorerStateNotifier, FileExplorerSettings?, String>((
+      ref,
+      projectId,
+    ) {
+      return FileExplorerStateNotifier(ref, projectId);
+    });
 
 class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
   final Ref _ref;
@@ -61,15 +63,19 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
   Future<void> _initState() async {
     final project = _ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || project.id != _projectId) return;
-    
+
     // CORRECTED: Read service and pass it to project.
     final workspaceService = _ref.read(workspaceServiceProvider);
-    final pluginJson = await project.loadPluginState(_pluginId, workspaceService: workspaceService);
+    final pluginJson = await project.loadPluginState(
+      _pluginId,
+      workspaceService: workspaceService,
+    );
 
     if (mounted) {
-      state = pluginJson != null
-          ? FileExplorerSettings.fromJson(pluginJson)
-          : const FileExplorerSettings();
+      state =
+          pluginJson != null
+              ? FileExplorerSettings.fromJson(pluginJson)
+              : const FileExplorerSettings();
     }
   }
 
@@ -98,6 +104,10 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
 
     // CORRECTED: Read service and pass it to project.
     final workspaceService = _ref.read(workspaceServiceProvider);
-    project.savePluginState(_pluginId, state!.toJson(), workspaceService: workspaceService);
+    project.savePluginState(
+      _pluginId,
+      state!.toJson(),
+      workspaceService: workspaceService,
+    );
   }
 }

@@ -1,7 +1,7 @@
 // lib/plugins/plugin_architecture.dart
 
 import 'dart:async';
-import 'dart:typed_data'; // NEW IMPORT
+// NEW IMPORT
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +20,7 @@ enum PluginDataRequirement { string, bytes }
 abstract class EditorPlugin {
   String get name;
   Widget get icon;
-  
+
   // NEW: Property to declare data needs. Defaults to string for backward compatibility.
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
@@ -35,7 +35,7 @@ abstract class EditorPlugin {
 
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
-  
+
   void disposeTab(EditorTab tab) {}
 
   PluginSettings? get settings;

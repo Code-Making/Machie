@@ -67,12 +67,15 @@ void main() {
         ProviderScope(
           child: LifecycleHandler(
             // MODIFIED: Wrap MaterialApp to provide the keys
-            child: Consumer( // Use a consumer to read the providers
+            child: Consumer(
+              // Use a consumer to read the providers
               builder: (context, ref, child) {
                 return MaterialApp(
                   // NEW: Assign the global keys
                   navigatorKey: ref.watch(navigatorKeyProvider),
-                  scaffoldMessengerKey: ref.watch(rootScaffoldMessengerKeyProvider),
+                  scaffoldMessengerKey: ref.watch(
+                    rootScaffoldMessengerKeyProvider,
+                  ),
                   theme: darkTheme,
                   home: AppStartupWidget(
                     onLoaded: (context) => const EditorScreen(),
@@ -82,7 +85,7 @@ void main() {
                     '/command-settings': (_) => const CommandSettingsScreen(),
                   },
                 );
-              }
+              },
             ),
           ),
         ),
@@ -117,10 +120,11 @@ class AppStartupWidget extends ConsumerWidget {
 
     return startupState.when(
       loading: () => const AppStartupLoadingWidget(),
-      error: (error, stack) => AppStartupErrorWidget(
-        error: error,
-        onRetry: () => ref.invalidate(appStartupProvider),
-      ),
+      error:
+          (error, stack) => AppStartupErrorWidget(
+            error: error,
+            onRetry: () => ref.invalidate(appStartupProvider),
+          ),
       data: (_) => onLoaded(context),
     );
   }

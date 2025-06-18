@@ -25,9 +25,11 @@ abstract class FileHandler {
   Future<Uint8List> readFileAsBytes(String uri); // NEW METHOD
 
   Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes); // NEW METHOD
+  Future<DocumentFile> writeFileAsBytes(
+    DocumentFile file,
+    Uint8List bytes,
+  ); // NEW METHOD
 
-  
   Future<DocumentFile> createDocumentFile(
     String parentUri,
     String name, {
@@ -36,7 +38,7 @@ abstract class FileHandler {
     Uint8List? initialBytes, // NEW
     bool overwrite = false,
   });
-  
+
   Future<void> deleteDocumentFile(DocumentFile file);
 
   Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName);

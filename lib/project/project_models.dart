@@ -59,20 +59,36 @@ abstract class Project {
   String get id => metadata.id;
   String get name => metadata.name;
   String get rootUri => metadata.rootUri;
-  String get projectTypeId => metadata.projectTypeId; // NEW: Expose the type ID.
+  String get projectTypeId =>
+      metadata.projectTypeId; // NEW: Expose the type ID.
 
   Map<String, dynamic> toJson();
 
   Future<void> save();
   Future<void> close({required Ref ref});
 
-  Future<Map<String, dynamic>?> loadPluginState(String pluginId, {required WorkspaceService workspaceService});
-  Future<void> savePluginState(String pluginId, Map<String, dynamic> stateJson, {required WorkspaceService workspaceService});
-  Future<void> saveActiveExplorer(String pluginId, {required WorkspaceService workspaceService});
-  Future<String?> loadActiveExplorer({required WorkspaceService workspaceService});
+  Future<Map<String, dynamic>?> loadPluginState(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  });
+  Future<void> savePluginState(
+    String pluginId,
+    Map<String, dynamic> stateJson, {
+    required WorkspaceService workspaceService,
+  });
+  Future<void> saveActiveExplorer(
+    String pluginId, {
+    required WorkspaceService workspaceService,
+  });
+  Future<String?> loadActiveExplorer({
+    required WorkspaceService workspaceService,
+  });
 
-
-  Future<Project> openFile(DocumentFile file, {EditorPlugin? plugin, required Ref ref});
+  Future<Project> openFile(
+    DocumentFile file, {
+    EditorPlugin? plugin,
+    required Ref ref,
+  });
   Project switchTab(int index, {required Ref ref});
   Project reorderTabs(int oldIndex, int newIndex);
   Project closeTab(int index, {required Ref ref});

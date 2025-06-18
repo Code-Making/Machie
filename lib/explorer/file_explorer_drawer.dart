@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
 import '../app/app_notifier.dart';
-import '../data/file_handler/local_file_handler.dart';
 import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'explorer_plugin_registry.dart';
@@ -25,10 +24,13 @@ class FileExplorerDrawer extends ConsumerWidget {
     );
 
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85, // A bit wider for better usability
-      child: currentProject == null
-          ? const ProjectSelectionScreen()
-          : ExplorerHostView(project: currentProject),
+      width:
+          MediaQuery.of(context).size.width *
+          0.85, // A bit wider for better usability
+      child:
+          currentProject == null
+              ? const ProjectSelectionScreen()
+              : ExplorerHostView(project: currentProject),
     );
   }
 }
@@ -61,12 +63,15 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   Future<void> _initializeActiveExplorer() async {
     // CORRECTED: Read the service first, then pass it to the project method.
     final workspaceService = ref.read(workspaceServiceProvider);
-    final activePluginId = await widget.project.loadActiveExplorer(workspaceService: workspaceService);
+    final activePluginId = await widget.project.loadActiveExplorer(
+      workspaceService: workspaceService,
+    );
 
     if (mounted && activePluginId != null) {
       final registry = ref.read(explorerRegistryProvider);
-      final activePlugin =
-          registry.firstWhereOrNull((p) => p.id == activePluginId);
+      final activePlugin = registry.firstWhereOrNull(
+        (p) => p.id == activePluginId,
+      );
       if (activePlugin != null) {
         ref.read(activeExplorerProvider.notifier).state = activePlugin;
       }
@@ -129,27 +134,30 @@ class ExplorerTypeDropdown extends ConsumerWidget {
             ref.read(activeExplorerProvider.notifier).state = plugin;
             // CORRECTED: Read the service first, then pass it to the project method.
             final workspaceService = ref.read(workspaceServiceProvider);
-            currentProject.saveActiveExplorer(plugin.id, workspaceService: workspaceService);
+            currentProject.saveActiveExplorer(
+              plugin.id,
+              workspaceService: workspaceService,
+            );
           }
         },
         isExpanded: true,
-        items: registry.map((plugin) {
-          return DropdownMenuItem(
-            value: plugin,
-            child: Row(
-              children: [
-                Icon(plugin.icon, size: 20),
-                const SizedBox(width: 12),
-                Text(plugin.name, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          );
-        }).toList(),
+        items:
+            registry.map((plugin) {
+              return DropdownMenuItem(
+                value: plugin,
+                child: Row(
+                  children: [
+                    Icon(plugin.icon, size: 20),
+                    const SizedBox(width: 12),
+                    Text(plugin.name, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              );
+            }).toList(),
       ),
     );
   }
 }
-
 
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
@@ -158,7 +166,8 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects =
-        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ?? [];
+        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
+        [];
     final appNotifier = ref.read(appNotifierProvider.notifier);
 
     return DropdownButtonHideUnderline(
@@ -197,15 +206,15 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
             orElse: () => currentProject.metadata,
           );
           return knownProjects.map<Widget>((item) {
-            return Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                displayedProject.name,
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          }).toList()
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  displayedProject.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList()
             ..add(const SizedBox.shrink());
         },
         icon: const Icon(Icons.arrow_drop_down),
@@ -229,7 +238,8 @@ class ProjectSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects =
-        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ?? [];
+        ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
+        [];
 
     return Scaffold(
       appBar: AppBar(
@@ -266,9 +276,11 @@ class ProjectSelectionScreen extends ConsumerWidget {
             ),
           ...knownProjects.map((projectMeta) {
             return ListTile(
-              leading: Icon(projectMeta.projectTypeId == 'simple_local'
-                  ? Icons.folder_copy_outlined
-                  : Icons.folder_special_outlined),
+              leading: Icon(
+                projectMeta.projectTypeId == 'simple_local'
+                    ? Icons.folder_copy_outlined
+                    : Icons.folder_special_outlined,
+              ),
               title: Text(projectMeta.name),
               subtitle: Text(
                 projectMeta.rootUri,
@@ -317,8 +329,8 @@ class ManageProjectsScreen extends ConsumerWidget {
               isCurrent
                   ? Icons.folder_open
                   : project.projectTypeId == 'simple_local'
-                      ? Icons.folder_copy_outlined
-                      : Icons.folder_special_outlined,
+                  ? Icons.folder_copy_outlined
+                  : Icons.folder_special_outlined,
             ),
             title: Text(project.name + (isCurrent ? ' (Current)' : '')),
             subtitle: Text(project.rootUri, overflow: TextOverflow.ellipsis),
@@ -337,12 +349,13 @@ class ManageProjectsScreen extends ConsumerWidget {
                 }
               },
             ),
-            onTap: isCurrent
-                ? null
-                : () async {
-                    await appNotifier.openKnownProject(project.id);
-                    Navigator.pop(context); // Close the manage screen
-                  },
+            onTap:
+                isCurrent
+                    ? null
+                    : () async {
+                      await appNotifier.openKnownProject(project.id);
+                      Navigator.pop(context); // Close the manage screen
+                    },
           );
         },
       ),
@@ -364,20 +377,21 @@ class ManageProjectsScreen extends ConsumerWidget {
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(title),
-            content: Text(content),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+          builder:
+              (ctx) => AlertDialog(
+                title: Text(title),
+                content: Text(content),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Confirm'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Confirm'),
-              ),
-            ],
-          ),
         ) ??
         false;
   }

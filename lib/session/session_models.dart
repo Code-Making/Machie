@@ -10,9 +10,7 @@ abstract class WorkspaceTab {
   String get title; // MODIFIED
   final EditorPlugin plugin;
 
-  const WorkspaceTab({
-    required this.plugin,
-  });
+  const WorkspaceTab({required this.plugin});
 
   void dispose();
 }
@@ -47,10 +45,7 @@ abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
 
   // MODIFIED: Constructor is 'const' again and no longer calls super with a title.
-  const EditorTab({
-    required this.file,
-    required super.plugin,
-  });
+  const EditorTab({required this.file, required super.plugin});
 
   // MODIFIED: Implement the 'title' getter here.
   @override

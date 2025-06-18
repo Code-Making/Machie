@@ -28,46 +28,52 @@ class EditorScreen extends ConsumerWidget {
     final currentPlugin = currentTab?.plugin;
     final scaffoldKey = GlobalKey<ScaffoldState>();
 
-    final appBarOverride =
-        ref.watch(appNotifierProvider.select((s) => s.value?.appBarOverride));
+    final appBarOverride = ref.watch(
+      appNotifierProvider.select((s) => s.value?.appBarOverride),
+    );
 
     return Scaffold(
       key: scaffoldKey,
       // CORRECTED: The override widget is wrapped in a PreferredSize to satisfy the appBar type requirement.
-      appBar: appBarOverride != null
-          ? PreferredSize(
-              preferredSize: const Size.fromHeight(kToolbarHeight),
-              child: appBarOverride,
-            )
-          : AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => scaffoldKey.currentState?.openDrawer(),
+      appBar:
+          appBarOverride != null
+              ? PreferredSize(
+                preferredSize: const Size.fromHeight(kToolbarHeight),
+                child: appBarOverride,
+              )
+              : AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => scaffoldKey.currentState?.openDrawer(),
+                ),
+                actions: [
+                  currentPlugin is CodeEditorPlugin
+                      ? CodeEditorTapRegion(child: const AppBarCommands())
+                      : const AppBarCommands(),
+                  IconButton(
+                    icon: const Icon(Icons.bug_report),
+                    onPressed:
+                        () => showDialog(
+                          context: context,
+                          builder: (_) => const DebugLogView(),
+                        ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.settings),
+                    onPressed: () => Navigator.pushNamed(context, '/settings'),
+                  ),
+                ],
+                title: Text(currentTab?.file.name ?? 'Machine'),
               ),
-              actions: [
-                currentPlugin is CodeEditorPlugin
-                    ? CodeEditorTapRegion(child: const AppBarCommands())
-                    : const AppBarCommands(),
-                IconButton(
-                  icon: const Icon(Icons.bug_report),
-                  onPressed: () =>
-                      showDialog(context: context, builder: (_) => const DebugLogView()),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: () => Navigator.pushNamed(context, '/settings'),
-                ),
-              ],
-              title: Text(currentTab?.file.name ?? 'Machine'),
-            ),
       drawer: const FileExplorerDrawer(),
       body: Column(
         children: [
           const TabBarView(),
           Expanded(
-            child: currentTab != null
-                ? const EditorContentSwitcher()
-                : const Center(child: Text('Open a file to start editing')),
+            child:
+                currentTab != null
+                    ? const EditorContentSwitcher()
+                    : const Center(child: Text('Open a file to start editing')),
           ),
           if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
@@ -131,12 +137,14 @@ class FileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = ref.watch(
-      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTabIndex == index),
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTabIndex == index,
+      ),
     );
-    
-    final isDirty = ref.watch(tabStateProvider.select(
-      (stateMap) => stateMap[tab.file.uri] ?? false
-    ));
+
+    final isDirty = ref.watch(
+      tabStateProvider.select((stateMap) => stateMap[tab.file.uri] ?? false),
+    );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
@@ -150,7 +158,10 @@ class FileTab extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => ref.read(appNotifierProvider.notifier).closeTab(index),
+                  onPressed:
+                      () => ref
+                          .read(appNotifierProvider.notifier)
+                          .closeTab(index),
                 ),
                 Expanded(
                   child: Text(
@@ -169,7 +180,6 @@ class FileTab extends ConsumerWidget {
     );
   }
 }
-
 
 class EditorContentSwitcher extends ConsumerWidget {
   const EditorContentSwitcher({super.key});

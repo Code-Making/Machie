@@ -40,11 +40,19 @@ class AppState {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
-      currentProject: clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      currentProjectState: clearCurrentProject ? null : (currentProjectState ?? this.currentProjectState),
+      currentProject:
+          clearCurrentProject ? null : (currentProject ?? this.currentProject),
+      currentProjectState:
+          clearCurrentProject
+              ? null
+              : (currentProjectState ?? this.currentProjectState),
       // NEW: Handle override updates
-      appBarOverride: clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
-      bottomToolbarOverride: clearBottomToolbarOverride ? null : bottomToolbarOverride ?? this.bottomToolbarOverride,
+      appBarOverride:
+          clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
+      bottomToolbarOverride:
+          clearBottomToolbarOverride
+              ? null
+              : bottomToolbarOverride ?? this.bottomToolbarOverride,
     );
   }
 
@@ -61,13 +69,15 @@ class AppState {
 
   factory AppState.fromJson(Map<String, dynamic> json) {
     return AppState(
-      knownProjects: (json['knownProjects'] as List)
-          .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      knownProjects:
+          (json['knownProjects'] as List)
+              .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
+              .toList(),
       lastOpenedProjectId: json['lastOpenedProjectId'],
-      currentProjectState: json['currentProjectState'] != null
-          ? Map<String, dynamic>.from(json['currentProjectState'])
-          : null,
+      currentProjectState:
+          json['currentProjectState'] != null
+              ? Map<String, dynamic>.from(json['currentProjectState'])
+              : null,
     );
   }
 
@@ -88,11 +98,11 @@ class AppState {
 
   @override
   int get hashCode => Object.hash(
-        const DeepCollectionEquality().hash(knownProjects),
-        lastOpenedProjectId,
-        currentProject,
-        const DeepCollectionEquality().hash(currentProjectState),
-        appBarOverride, // NEW
-        bottomToolbarOverride, // NEW
-      );
+    const DeepCollectionEquality().hash(knownProjects),
+    lastOpenedProjectId,
+    currentProject,
+    const DeepCollectionEquality().hash(currentProjectState),
+    appBarOverride, // NEW
+    bottomToolbarOverride, // NEW
+  );
 }

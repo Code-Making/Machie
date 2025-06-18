@@ -37,11 +37,11 @@ class CodeEditorTab extends EditorTab {
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'code',
-        'fileUri': file.uri,
-        'pluginType': plugin.runtimeType.toString(),
-        'languageKey': languageKey,
-      };
+    'type': 'code',
+    'fileUri': file.uri,
+    'pluginType': plugin.runtimeType.toString(),
+    'languageKey': languageKey,
+  };
 }
 
 // --------------------

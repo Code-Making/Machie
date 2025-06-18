@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 import '../data/file_handler/local_file_handler.dart';
-import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../session/session_models.dart';
 import 'local_file_system_project.dart';
@@ -28,7 +27,9 @@ abstract class ProjectFactory {
 
 // --- Registry ---
 
-final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((ref) {
+final projectFactoryRegistryProvider = Provider<Map<String, ProjectFactory>>((
+  ref,
+) {
   return {
     LocalProjectFactory().projectTypeId: LocalProjectFactory(),
     SimpleLocalProjectFactory().projectTypeId: SimpleLocalProjectFactory(),
@@ -58,7 +59,8 @@ class SimpleLocalProjectFactory implements ProjectFactory {
     SessionState session = const SessionState();
 
     if (projectStateJson != null) {
-      final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
+      final sessionJson =
+          projectStateJson['session'] as Map<String, dynamic>? ?? {};
       final tabs = await _rehydrateTabs(sessionJson, handler, ref);
       session = SessionState(
         tabs: tabs,
@@ -92,15 +94,28 @@ class LocalProjectFactory implements ProjectFactory {
     Map<String, dynamic>? projectStateJson,
   }) async {
     final handler = LocalFileHandlerFactory.create();
-    final projectDataDir = await _ensureProjectDataFolder(handler, metadata.rootUri);
-    final files = await handler.listDirectory(projectDataDir.uri, includeHidden: true);
-    final projectDataFile =
-        files.firstWhereOrNull((f) => f.name == 'project_data.json');
+    final projectDataDir = await _ensureProjectDataFolder(
+      handler,
+      metadata.rootUri,
+    );
+    final files = await handler.listDirectory(
+      projectDataDir.uri,
+      includeHidden: true,
+    );
+    final projectDataFile = files.firstWhereOrNull(
+      (f) => f.name == 'project_data.json',
+    );
 
     if (projectDataFile != null) {
       final content = await handler.readFile(projectDataFile.uri);
       final json = jsonDecode(content);
-      return _createLocalProjectFromJson(metadata, handler, projectDataDir.uri, json, ref);
+      return _createLocalProjectFromJson(
+        metadata,
+        handler,
+        projectDataDir.uri,
+        json,
+        ref,
+      );
     } else {
       return LocalProject(
         metadata: metadata,
@@ -112,13 +127,22 @@ class LocalProjectFactory implements ProjectFactory {
   }
 
   Future<DocumentFile> _ensureProjectDataFolder(
-      FileHandler handler, String projectRootUri) async {
-    final files = await handler.listDirectory(projectRootUri, includeHidden: true);
-    final machineDir =
-        files.firstWhereOrNull((f) => f.name == '.machine' && f.isDirectory);
+    FileHandler handler,
+    String projectRootUri,
+  ) async {
+    final files = await handler.listDirectory(
+      projectRootUri,
+      includeHidden: true,
+    );
+    final machineDir = files.firstWhereOrNull(
+      (f) => f.name == '.machine' && f.isDirectory,
+    );
     return machineDir ??
-        await handler.createDocumentFile(projectRootUri, '.machine',
-            isDirectory: true);
+        await handler.createDocumentFile(
+          projectRootUri,
+          '.machine',
+          isDirectory: true,
+        );
   }
 
   Future<Project> _createLocalProjectFromJson(
@@ -130,7 +154,7 @@ class LocalProjectFactory implements ProjectFactory {
   ) async {
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
     final tabs = await _rehydrateTabs(sessionJson, handler, ref);
-    
+
     return LocalProject(
       metadata: metadata,
       fileHandler: handler,
@@ -155,7 +179,9 @@ Future<List<EditorTab>> _rehydrateTabs(
   for (final tabJson in tabsJson) {
     final pluginType = tabJson['pluginType'] as String?;
     if (pluginType == null) continue;
-    final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+    final plugin = plugins.firstWhereOrNull(
+      (p) => p.runtimeType.toString() == pluginType,
+    );
     if (plugin != null) {
       try {
         final tab = await plugin.createTabFromSerialization(tabJson, handler);

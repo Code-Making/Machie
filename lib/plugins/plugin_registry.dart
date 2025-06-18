@@ -6,8 +6,8 @@ import 'glitch_editor/glitch_editor_plugin.dart'; // NEW IMPORT
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
-      CodeEditorPlugin(),
-      GlitchEditorPlugin(), // NEW: Register the GlitchEditorPlugin
+    CodeEditorPlugin(),
+    GlitchEditorPlugin(), // NEW: Register the GlitchEditorPlugin
   },
 );
 

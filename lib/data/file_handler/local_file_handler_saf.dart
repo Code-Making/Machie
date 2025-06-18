@@ -48,7 +48,7 @@ class SafFileHandler implements LocalFileHandler {
     final bytes = await _safStream.readFileBytes(uri);
     return utf8.decode(bytes);
   }
-  
+
   @override
   Future<Uint8List> readFileAsBytes(String uri) {
     return _safStream.readFileBytes(uri);
@@ -70,10 +70,13 @@ class SafFileHandler implements LocalFileHandler {
     );
     return CustomSAFDocumentFile(newFile!);
   }
-  
-    // NEW METHOD IMPLEMENTATION
+
+  // NEW METHOD IMPLEMENTATION
   @override
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) async {
+  Future<DocumentFile> writeFileAsBytes(
+    DocumentFile file,
+    Uint8List bytes,
+  ) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     final result = await _safStream.writeFileBytes(
       parentUri,
@@ -108,9 +111,10 @@ class SafFileHandler implements LocalFileHandler {
       return CustomSAFDocumentFile(createdDir);
     } else {
       // Prioritize raw bytes if provided, otherwise use the string content.
-      final contentBytes = initialBytes ?? Uint8List.fromList(utf8.encode(initialContent ?? ''));
+      final contentBytes =
+          initialBytes ?? Uint8List.fromList(utf8.encode(initialContent ?? ''));
       final mimeType = _inferMimeType(name);
-      
+
       final writeResponse = await _safStream.writeFileBytes(
         parentUri,
         name,
@@ -118,7 +122,7 @@ class SafFileHandler implements LocalFileHandler {
         contentBytes,
         overwrite: overwrite,
       );
-      
+
       final createdFile = await _safUtil.documentFileFromUri(
         writeResponse.uri.toString(),
         false,
@@ -151,10 +155,10 @@ class SafFileHandler implements LocalFileHandler {
   ) async {
     if (source.isDirectory)
       throw UnsupportedError('Recursive folder copy not supported.');
-    
+
     // Read the file as raw bytes.
     final contentBytes = await readFileAsBytes(source.uri);
-    
+
     // Create the new file using the raw bytes.
     return createDocumentFile(
       destinationParentUri,
@@ -163,7 +167,6 @@ class SafFileHandler implements LocalFileHandler {
       overwrite: true, // Typically, an import should overwrite.
     );
   }
-
 
   @override
   Future<DocumentFile?> moveDocumentFile(
