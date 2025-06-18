@@ -1,6 +1,6 @@
 // lib/project/file_handler/local_file_handler_saf.dart
 import 'dart:convert';
-import 'dart:typed_data'; // NEW IMPORT
+//import 'dart:typed_data'; // NEW IMPORT
 
 import 'package:flutter/services.dart';
 import 'package:saf_stream/saf_stream.dart';
@@ -127,8 +127,9 @@ class SafFileHandler implements LocalFileHandler {
         writeResponse.uri.toString(),
         false,
       );
-      if (createdFile == null)
+      if (createdFile == null){
         throw Exception('Failed to get metadata for created file: $name');
+      }
       return CustomSAFDocumentFile(createdFile);
     }
   }
@@ -153,9 +154,9 @@ class SafFileHandler implements LocalFileHandler {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    if (source.isDirectory)
+    if (source.isDirectory){
       throw UnsupportedError('Recursive folder copy not supported.');
-
+    }
     // Read the file as raw bytes.
     final contentBytes = await readFileAsBytes(source.uri);
 
@@ -173,8 +174,9 @@ class SafFileHandler implements LocalFileHandler {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    if (source.isDirectory)
+    if (source.isDirectory){
       throw UnsupportedError('Recursive folder move not supported.');
+    }
     final copied = await copyDocumentFile(source, destinationParentUri);
     if (copied != null) await deleteDocumentFile(source);
     return copied;

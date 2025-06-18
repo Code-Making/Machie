@@ -17,6 +17,8 @@ import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart';
 import 'code_editor_logic.dart'; // NEW IMPORT
 
+//TODO: IMPLEMENT logging
+
 // --------------------
 //  Code Editor Plugin
 // --------------------

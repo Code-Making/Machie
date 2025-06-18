@@ -1,42 +1,46 @@
-// lib/project/simple_local_file_project.dart
+// lib/project/local_file_system_project.dart
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/file_handler/file_handler.dart';
-import '../plugins/plugin_models.dart';
-import '../plugins/plugin_registry.dart';
-import '../session/session_models.dart';
-import 'project_models.dart';
-import 'workspace_service.dart'; // NEW IMPORT
+import '../../data/file_handler/file_handler.dart';
+import '../../plugins/plugin_models.dart';
+import '../../plugins/plugin_registry.dart';
+import '../../session/session_models.dart';
+import '../project_models.dart';
+import '../workspace_service.dart'; // NEW IMPORT
 
-/// An implementation for projects that don't have persistent state on disk
-/// (like a .machine folder). Their state is managed by AppState instead.
-class SimpleLocalFileProject extends Project {
-  // Simple projects don't have extra properties like expandedFolders.
-  // That state is part of the session, which is what gets saved.
+class LocalProject extends Project {
+  String projectDataPath;
 
-  SimpleLocalFileProject({
+  LocalProject({
     required super.metadata,
     required super.fileHandler,
     required super.session,
+    required this.projectDataPath,
   });
 
-  SimpleLocalFileProject copyWith({
-    ProjectMetadata? metadata,
-    SessionState? session,
-  }) {
-    return SimpleLocalFileProject(
+  LocalProject copyWith({ProjectMetadata? metadata, SessionState? session}) {
+    return LocalProject(
       metadata: metadata ?? this.metadata,
       fileHandler: fileHandler,
       session: session ?? this.session.copyWith(),
+      projectDataPath: projectDataPath,
     );
   }
 
-  // --- Lifecycle Implementations ---
-  // These are no-ops because AppState persistence handles it.
   @override
-  Future<void> save() async {}
+  Future<void> save() async {
+    final content = jsonEncode(toJson());
+    await fileHandler.createDocumentFile(
+      projectDataPath,
+      'project_data.json',
+      initialContent: content,
+      overwrite: true,
+    );
+  }
 
   @override
   Future<void> close({required Ref ref}) async {
+    await save();
     for (final tab in session.tabs) {
       tab.plugin.deactivateTab(tab, ref);
       tab.plugin.disposeTab(tab); // MODIFIED: Added disposeTab call
@@ -44,13 +48,22 @@ class SimpleLocalFileProject extends Project {
     }
   }
 
-  // This project type does not persist workspace state, so these are no-ops.
+  @override
+  Map<String, dynamic> toJson() => {
+    'id': metadata.id,
+    'session': session.toJson(),
+  };
+
   @override
   Future<Map<String, dynamic>?> loadPluginState(
     String pluginId, {
     required WorkspaceService workspaceService,
-  }) async {
-    return null;
+  }) {
+    return workspaceService.loadPluginState(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+    );
   }
 
   @override
@@ -58,26 +71,40 @@ class SimpleLocalFileProject extends Project {
     String pluginId,
     Map<String, dynamic> stateJson, {
     required WorkspaceService workspaceService,
-  }) async {}
+  }) {
+    return workspaceService.savePluginState(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+      stateJson,
+    );
+  }
 
   @override
   Future<void> saveActiveExplorer(
     String pluginId, {
     required WorkspaceService workspaceService,
-  }) async {}
+  }) {
+    return workspaceService.saveActiveExplorer(
+      fileHandler,
+      projectDataPath,
+      pluginId,
+    );
+  }
 
   @override
   Future<String?> loadActiveExplorer({
     required WorkspaceService workspaceService,
   }) async {
-    return null;
+    final state = await workspaceService.loadFullState(
+      fileHandler,
+      projectDataPath,
+    );
+    return state.activeExplorerPluginId;
   }
 
-  // --- Session Logic ---
-  // This logic is identical to LocalProject. In a larger app, this could be
-  // extracted into a mixin `LocalProjectSessionMixin on Project`. For now,
-  // duplication is acceptable to keep it simple.
-
+  // ALL SESSION LOGIC (openFile, closeTab, etc.) remains here as before.
+  // ...
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab, Ref ref) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, ref);
@@ -140,12 +167,9 @@ class SimpleLocalFileProject extends Project {
       newCurrentIndex = 0;
     } else {
       final oldIndex = session.currentTabIndex;
-      if (oldIndex > index)
-        newCurrentIndex = oldIndex - 1;
-      else if (oldIndex == index)
-        newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
-      else
-        newCurrentIndex = oldIndex;
+      if (oldIndex > index) newCurrentIndex = oldIndex - 1;
+      else if (oldIndex == index) newCurrentIndex = (oldIndex - 1).clamp(0, newTabs.length - 1);
+      else newCurrentIndex = oldIndex;
     }
     final newProject = copyWith(
       session: session.copyWith(
@@ -163,7 +187,6 @@ class SimpleLocalFileProject extends Project {
     return newProject;
   }
 
-  // --- Other session methods ---
   @override
   Project reorderTabs(int oldIndex, int newIndex) {
     final currentOpenTab = session.currentTab;
@@ -188,10 +211,4 @@ class SimpleLocalFileProject extends Project {
     newTabs[tabIndex] = newTab;
     return copyWith(session: session.copyWith(tabs: newTabs));
   }
-
-  @override
-  Map<String, dynamic> toJson() => {
-    'session': session.toJson(),
-    // Simple project does not have other state like expandedFolders to save.
-  };
 }
