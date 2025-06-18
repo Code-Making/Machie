@@ -48,44 +48,42 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> _saveSettings() async {
- //   try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsMap = state.pluginSettings.map(
-        (type, settings) => MapEntry(type.toString(), settings.toJson()),
-      );
-      await prefs.setString('app_settings', jsonEncode(settingsMap));
- //   } catch (e) {
- //     print('Error saving settings: $e');
- //   }
+    //   try {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsMap = state.pluginSettings.map(
+      (type, settings) => MapEntry(type.toString(), settings.toJson()),
+    );
+    await prefs.setString('app_settings', jsonEncode(settingsMap));
+    //   } catch (e) {
+    //     print('Error saving settings: $e');
+    //   }
   }
 
   Future<void> loadSettings() async {
-  // try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsJson = prefs.getString('app_settings');
+    // try {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsJson = prefs.getString('app_settings');
 
-      if (settingsJson != null) {
-        final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-        final newSettings = Map<Type, PluginSettings>.from(
-          state.pluginSettings,
+    if (settingsJson != null) {
+      final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
+      final newSettings = Map<Type, PluginSettings>.from(state.pluginSettings);
+
+      for (final entry in decoded.entries) {
+        //      try {
+        final plugin = _plugins.firstWhere(
+          (p) => p.settings.runtimeType.toString() == entry.key,
         );
-
-        for (final entry in decoded.entries) {
-    //      try {
-            final plugin = _plugins.firstWhere(
-              (p) => p.settings.runtimeType.toString() == entry.key,
-            );
-            plugin.settings!.fromJson(entry.value);
-            newSettings[plugin.settings.runtimeType] = plugin.settings!;
-          //} catch (e) {
-//            print('Error loading settings for $entry: $e');
-  //        }
-        }
-
-        state = state.copyWith(pluginSettings: newSettings);
+        plugin.settings!.fromJson(entry.value);
+        newSettings[plugin.settings.runtimeType] = plugin.settings!;
+        //} catch (e) {
+        //            print('Error loading settings for $entry: $e');
+        //        }
       }
-  //  } catch (e) {
-  //    print('Error loading settings: $e');
-  //  }
+
+      state = state.copyWith(pluginSettings: newSettings);
+    }
+    //  } catch (e) {
+    //    print('Error loading settings: $e');
+    //  }
   }
 }

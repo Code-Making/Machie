@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
-
 @immutable
 class SessionState {
   final List<EditorTab> tabs;
@@ -38,7 +37,6 @@ abstract class WorkspaceTab {
 
   void dispose();
 }
-
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {

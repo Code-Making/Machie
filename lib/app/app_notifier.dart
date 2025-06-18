@@ -19,7 +19,6 @@ import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
 
 import '../logs/logs_provider.dart';
 
-
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );

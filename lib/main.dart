@@ -59,17 +59,11 @@ ThemeData darkTheme = ThemeData(
 // --------------------
 
 void main() {
-
   final talker = TalkerFlutter.init(
-    logger: TalkerLogger(
-      settings: TalkerLoggerSettings(),
-    ),
-    settings: TalkerSettings(
-      enabled: true,
-      useConsoleLogs: true,
-    ),
+    logger: TalkerLogger(settings: TalkerLoggerSettings()),
+    settings: TalkerSettings(enabled: true, useConsoleLogs: true),
   );
-  
+
   final riverpodObserver = TalkerRiverpodObserver(
     talker: talker,
     settings: TalkerRiverpodLoggerSettings(
@@ -77,7 +71,7 @@ void main() {
       printStateFullData: false, // Truncate long state objects
     ),
   );
-  
+
   runZonedGuarded(
     () {
       runApp(
@@ -103,7 +97,8 @@ void main() {
                     '/settings': (_) => const SettingsScreen(),
                     '/command-settings': (_) => const CommandSettingsScreen(),
                     // NEW: Add route for Talker screen
-                    '/logs': (_) => TalkerScreen(talker: ref.read(talkerProvider)),
+                    '/logs':
+                        (_) => TalkerScreen(talker: ref.read(talkerProvider)),
                   },
                 );
               },

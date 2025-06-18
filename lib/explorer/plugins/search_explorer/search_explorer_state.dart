@@ -51,15 +51,15 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
 
     while (directoriesToScan.isNotEmpty) {
       final currentDirUri = directoriesToScan.removeAt(0);
-        final items = await _fileHandler.listDirectory(currentDirUri);
-        for (final item in items) {
-          if (item.isDirectory) {
-            directoriesToScan.add(item.uri);
-          } else {
-            allFiles.add(item);
-          }
+      final items = await _fileHandler.listDirectory(currentDirUri);
+      for (final item in items) {
+        if (item.isDirectory) {
+          directoriesToScan.add(item.uri);
+        } else {
+          allFiles.add(item);
         }
-        //print('Error scanning directory $currentDirUri: $e');
+      }
+      //print('Error scanning directory $currentDirUri: $e');
     }
     _allFilesCache = allFiles;
     state = state.copyWith(isLoading: false);

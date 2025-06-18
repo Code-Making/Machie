@@ -55,15 +55,15 @@ class GlitchEditorPlugin implements EditorPlugin {
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
 
-@override
-Future<void> dispose() async {
-  for (final state in _tabStates.values) {
-    state.image.dispose();
-    state.originalImage.dispose();
-    state.strokeSample?.dispose();
+  @override
+  Future<void> dispose() async {
+    for (final state in _tabStates.values) {
+      state.image.dispose();
+      state.originalImage.dispose();
+      state.strokeSample?.dispose();
+    }
+    _tabStates.clear();
   }
-  _tabStates.clear();
-}
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];

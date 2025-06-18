@@ -62,7 +62,7 @@ class FileOperationsFooter extends ConsumerWidget {
                   );
                   talker.info('Created new file: $newFileName');
                 } catch (e, st) {
-                talker.handle(e, st, 'Error creating file');
+                  talker.handle(e, st, 'Error creating file');
                 }
               }
             },
