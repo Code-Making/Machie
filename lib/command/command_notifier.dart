@@ -22,16 +22,22 @@ class CommandNotifier extends StateNotifier<CommandState> {
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
   Command? getCommand(String id, String sourcePlugin) {
-    var command = _allRegisteredCommands.firstWhere(
-      (c) => c.id == id && c.sourcePlugin == sourcePlugin,
-      orElse: () => null,
-    );
-    command ??= _allRegisteredCommands.firstWhere(
-      (c) => c.id == id,
-      orElse: () => null,
-    );
-    return command;
+  // First try: Match both ID and source plugin
+  for (final command in _allRegisteredCommands) {
+    if (command.id == id && command.sourcePlugin == sourcePlugin) {
+      return command;
+    }
   }
+  
+  // Second try: Match just ID
+  for (final command in _allRegisteredCommands) {
+    if (command.id == id) {
+      return command;
+    }
+  }
+  
+  return null; // Not found
+}
 
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
     : super(const CommandState()) {
