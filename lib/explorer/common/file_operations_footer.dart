@@ -6,6 +6,7 @@ import 'package:talker/talker.dart'; // Add Talker import
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/local_file_handler.dart';
+import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
