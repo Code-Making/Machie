@@ -10,6 +10,3 @@ class FileOperationEvent extends TalkerLog {
   @override
   AnsiPen get pen => AnsiPen()..xterm(75); // Light blue color
 }
-
-// Usage:
-talker.logTyped(FileOperationEvent('Create', projectRootUri));
