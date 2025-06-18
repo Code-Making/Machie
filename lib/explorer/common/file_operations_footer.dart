@@ -112,6 +112,7 @@ class FileOperationsFooter extends ConsumerWidget {
                 }
               }
             },
+            onLongPress: () => _testErrorLogging(ref),
           ),
           // --- Paste ---
           IconButton(
@@ -189,4 +190,47 @@ class FileOperationsFooter extends ConsumerWidget {
       },
     );
   }
+}
+
+void _testErrorLogging(WidgetRef ref) {
+  final talker = ref.read(talkerProvider);
+  
+  // 1. Test caught exception
+  try {
+    throw StateError('This is a TEST caught exception');
+  } catch (e, st) {
+    talker.handle(e, st, 'CAUGHT TEST ERROR');
+  }
+
+  // 2. Test uncaught exception (async)
+  Future.delayed(Duration.zero, () {
+    throw StateError('This is a TEST uncaught async exception');
+  });
+
+  // 3. Test uncaught exception (sync)
+  Future.microtask(() {
+    throw StateError('This is a TEST uncaught sync exception');
+  });
+
+  // 4. Test outside try-catch
+  _throwUntrappedError();
+
+  // 5. Test in separate isolate
+  Isolate.spawn(_isolateErrorTest, 'Isolate test error');
+
+  // Show confirmation
+  ScaffoldMessenger.of(ref.context).showSnackBar(
+    const SnackBar(
+      content: Text('5 test errors generated. Check logs'),
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
+
+void _throwUntrappedError() {
+  throw StateError('This is a TEST untrapped exception');
+}
+
+void _isolateErrorTest(String message) {
+  throw StateError(message);
 }
