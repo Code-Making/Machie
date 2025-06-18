@@ -18,13 +18,7 @@ import 'data/persistence_service.dart';
 // --------------------
 
 final talkerProvider = Provider<Talker>((ref) {
-  return Talker(
-    logger: TalkerLogger(),
-    settings: TalkerSettings(
-      enabled: true,
-      useConsoleLogs: true,
-    ),
-  );
+  return TalkerFlutter.init();
 });
 
 final appStartupProvider = FutureProvider<void>((ref) async {
@@ -110,13 +104,6 @@ final talker = TalkerFlutter.init();
       // Report errors to Talker
       talker.handle(error, stack, 'Unhandled error');
     },
-        zoneSpecification: ZoneSpecification(
-      print: (self, parent, zone, message) {
-        // Redirect all prints to Talker
-        talker.log(message);
-        parent.print(zone, '[${DateTime.now()}] $message');
-      },
-    ),
   );
 }
 
