@@ -1,9 +1,9 @@
 // lib/explorer/new_project_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../app/app_notifier.dart';
-import '../data/file_handler/local_file_handler.dart';
-import '../project/project_factory.dart';
+import '../../app/app_notifier.dart';
+import '../../data/file_handler/local_file_handler.dart';
+import '../../project/project_factory.dart';
 
 class NewProjectScreen extends ConsumerWidget {
   const NewProjectScreen({super.key});

@@ -7,7 +7,7 @@ import 'app_notifier.dart';
 import '../plugins/code_editor/code_editor_plugin.dart';
 import '../session/session_models.dart';
 import '../session/tab_state.dart';
-import '../explorer/file_explorer_drawer.dart';
+import '../explorer/explorer_host_drawer.dart';
 import '../utils/logs.dart';
 import '../command/command_widgets.dart';
 
