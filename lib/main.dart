@@ -3,7 +3,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 
 import 'app/app_notifier.dart';
 import 'app/lifecycle.dart';
