@@ -31,7 +31,6 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // We hold a local reference to the image to drive the painter.
   ui.Image? _displayImage;
 
-  Size _imageDisplaySize = Size.zero;
   Offset _imageDisplayOffset = Offset.zero;
   double _imageScale = 1.0;
 
