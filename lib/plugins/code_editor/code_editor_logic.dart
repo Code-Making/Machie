@@ -213,7 +213,7 @@ TextSpan buildHighlightingSpan({
         TextSpan(
           text: text[highlightIndex],
           style: spanStyle.copyWith(
-            backgroundColor: Colors.yellow.withOpacity(0.3),
+            backgroundColor: Colors.yellow.withValues(alpha: 0.3),
             fontWeight: FontWeight.bold,
           ),
         ),

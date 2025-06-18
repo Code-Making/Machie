@@ -230,7 +230,7 @@ class _CustomLineNumberWidget extends ConsumerWidget {
           controller: controller,
           notifier: notifier,
           textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
             fontSize: 12,
           ),
           focusedTextStyle: TextStyle(

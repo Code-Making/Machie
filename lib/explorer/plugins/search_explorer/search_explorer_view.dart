@@ -1,4 +1,3 @@
-// lib/explorer/plugins/search_explorer/search_explorer_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../project/project_models.dart';
@@ -52,7 +51,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.black.withOpacity(0.2),
+              fillColor: Colors.black.withValues(alpha: 0.2),
               contentPadding: EdgeInsets.zero,
             ),
           ),
