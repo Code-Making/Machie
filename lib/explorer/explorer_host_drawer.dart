@@ -1,4 +1,3 @@
-// lib/explorer/file_explorer_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
@@ -354,6 +353,7 @@ class ManageProjectsScreen extends ConsumerWidget {
                     ? null
                     : () async {
                       await appNotifier.openKnownProject(project.id);
+                      if (!context.mounted) return;
                       Navigator.pop(context); // Close the manage screen
                     },
           );

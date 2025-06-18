@@ -44,7 +44,7 @@ class NewProjectScreen extends ConsumerWidget {
                       folder: pickedDir,
                       projectTypeId: factory.projectTypeId,
                     );
-                // 3. Close all dialogs/drawers and return to the editor
+                if (!context.mounted) return;
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
             },
