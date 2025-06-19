@@ -48,7 +48,7 @@ class ProjectMetadata {
 abstract class Project {
   ProjectMetadata metadata;
   FileHandler fileHandler;
-  SessionState session;
+  TabSessionState session;
 
   Project({
     required this.metadata,

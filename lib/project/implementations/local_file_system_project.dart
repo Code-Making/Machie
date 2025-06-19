@@ -18,7 +18,7 @@ class LocalProject extends Project {
     required this.projectDataPath,
   });
 
-  LocalProject copyWith({ProjectMetadata? metadata, SessionState? session}) {
+  LocalProject copyWith({ProjectMetadata? metadata, TabSessionState? session}) {
     return LocalProject(
       metadata: metadata ?? this.metadata,
       fileHandler: fileHandler,
