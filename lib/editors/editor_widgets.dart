@@ -14,7 +14,7 @@ final tabBarScrollProvider = Provider<ScrollController>((ref) {
   return ScrollController();
 });
 
-class TabBarView extends ConsumerWidget {
+class TabBarWidget extends ConsumerWidget {
   const TabBarView({super.key});
 
   @override

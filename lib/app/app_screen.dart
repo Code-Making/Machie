@@ -62,7 +62,7 @@ class AppScreen extends ConsumerWidget {
       drawer: const FileExplorerDrawer(),
       body: Column(
         children: [
-          const TabBarView(),
+          const TabBarWidget(),
           Expanded(
             child:
                 currentTab != null
