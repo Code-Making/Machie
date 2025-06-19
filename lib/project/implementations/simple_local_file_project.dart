@@ -21,7 +21,7 @@ class SimpleLocalFileProject extends Project {
 
   SimpleLocalFileProject copyWith({
     ProjectMetadata? metadata,
-    SessionState? session,
+    TabSessionState? session,
   }) {
     return SimpleLocalFileProject(
       metadata: metadata ?? this.metadata,

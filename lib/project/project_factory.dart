@@ -56,13 +56,13 @@ class SimpleLocalProjectFactory implements ProjectFactory {
     Map<String, dynamic>? projectStateJson,
   }) async {
     final handler = LocalFileHandlerFactory.create();
-    SessionState session = const SessionState();
+    TabSessionState session = const TabSessionState();
 
     if (projectStateJson != null) {
       final sessionJson =
           projectStateJson['session'] as Map<String, dynamic>? ?? {};
       final tabs = await _rehydrateTabs(sessionJson, handler, ref);
-      session = SessionState(
+      session = TabSessionState(
         tabs: tabs,
         currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
       );
@@ -120,7 +120,7 @@ class LocalProjectFactory implements ProjectFactory {
       return LocalProject(
         metadata: metadata,
         fileHandler: handler,
-        session: const SessionState(),
+        session: const TabSessionState(),
         projectDataPath: projectDataDir.uri,
       );
     }
@@ -158,7 +158,7 @@ class LocalProjectFactory implements ProjectFactory {
     return LocalProject(
       metadata: metadata,
       fileHandler: handler,
-      session: SessionState(
+      session: TabSessionState(
         tabs: tabs,
         currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
       ),
