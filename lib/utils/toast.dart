@@ -1,27 +1,29 @@
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 
+class MachineToast{
 
-void showInfoToast(String message){
+static void info(String message){
     Fluttertoast.showToast(
         msg: message,
         toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.black,
+        textColor: Colors.white,
+        fontSize: 16.0
+    );
+}
+
+static void error(String message){
+    Fluttertoast.showToast(
+        msg: message,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
         timeInSecForIosWeb: 1,
         backgroundColor: Colors.red,
         textColor: Colors.white,
         fontSize: 16.0
     );
 }
-
-void showErrorToast(String message){
-    Fluttertoast.showToast(
-        msg: message,
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0
-    );
 }

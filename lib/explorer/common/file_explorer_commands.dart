@@ -9,6 +9,7 @@ import '../../editors/plugins/plugin_models.dart';
 import '../../editors/plugins/plugin_registry.dart';
 import '../../utils/clipboard.dart';
 import 'file_explorer_dialogs.dart';
+import '../../utils/toast.dart';
 
 // A private dummy command class to represent a divider in the list.
 class _DividerCommand extends FileContextCommand {
@@ -115,7 +116,7 @@ class FileContextCommands {
               if (result is OpenFileSuccess && context.mounted) {
                 Navigator.of(context).popUntil((route) => route.isFirst);
               } else if (result is OpenFileError && context.mounted) {
-                showErrorSnackbar(context, result.message);
+                MachineToast.error(result.message);
               }
             },
           ),
