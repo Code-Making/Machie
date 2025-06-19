@@ -10,6 +10,9 @@ import 'tab_state_notifier.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
 
+final tabBarScrollProvider = Provider<ScrollController>((ref) {
+  return ScrollController();
+});
 
 class TabBarView extends ConsumerWidget {
   const TabBarView({super.key});
@@ -47,7 +50,7 @@ class TabBarView extends ConsumerWidget {
               ReorderableDelayedDragStartListener(
                 key: ValueKey(tabs[i].file.uri),
                 index: i,
-                child: FileTab(tab: tabs[i], index: i),
+                child: TabWidget(tab: tabs[i], index: i),
               ),
           ],
         ),
