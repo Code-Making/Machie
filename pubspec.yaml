@@ -55,6 +55,7 @@ dependencies:
   talker: ^4.9.0
   talker_flutter: ^4.9.0
   talker_riverpod_logger: ^4.9.0
+  fluttertoast: ^8.2.12
 dev_dependencies:
   flutter_test:
     sdk: flutter
