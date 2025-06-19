@@ -18,6 +18,7 @@ import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
 
 import '../logs/logs_provider.dart';
+import '..utils/toast.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -304,11 +305,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
 
-    final scaffoldMessenger =
+    /*final scaffoldMessenger =
         ref.read(rootScaffoldMessengerKeyProvider).currentState;
     scaffoldMessenger?.showSnackBar(
       SnackBar(content: Text('Saved as ${newFile.name}')),
-    );
+    );*/
+    showInfoToast("Saved as ${newFile.name}");
   }
 
   // NEW METHOD for saving raw bytes
