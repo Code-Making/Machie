@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../../app/app_notifier.dart';
-import '../../settings/settings_notifier.dart';
+import '../../../app/app_notifier.dart';
+import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_logic.dart'; // NEW IMPORT

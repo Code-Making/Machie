@@ -2,8 +2,8 @@ import 'package:re_editor/re_editor.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_models.dart';
-import '../../session/session_models.dart';
-import '../../data/file_handler/file_handler.dart';
+import '../../editor_tab_models.dart';
+import '../../../data/file_handler/file_handler.dart';
 
 @immutable
 class CodeEditorTab extends EditorTab {

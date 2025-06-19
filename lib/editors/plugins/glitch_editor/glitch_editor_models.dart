@@ -1,8 +1,8 @@
 // lib/plugins/glitch_editor/glitch_editor_models.dart
 import 'package:flutter/material.dart';
 
-import '../../data/file_handler/file_handler.dart';
-import '../../session/session_models.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
 
 @immutable

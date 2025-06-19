@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../settings/settings_notifier.dart';
+import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 

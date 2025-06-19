@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
-import '../../session/session_models.dart';
+import '../editor_tab_models.dart';
 
 // NEW: Enum to declare what kind of data the plugin expects.
 enum PluginDataRequirement { string, bytes }
