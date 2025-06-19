@@ -1,7 +1,7 @@
 // lib/plugins/code_editor/code_editor_state.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/session/tab_state.dart';
+import 'package:machine/editors/tab_state_notifier.dart';
 
 // This provider holds the raw file content and its initial state.
 final fileContentProvider = FutureProvider.autoDispose.family<String, String>((

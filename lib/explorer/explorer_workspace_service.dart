@@ -7,13 +7,13 @@ import 'explorer_workspace_state.dart';
 
 const _workspaceFileName = 'workspace.json';
 
-final explorerExplorerWorkspaceServiceProvider = Provider<ExplorerWorkspaceService>((ref) {
-  return ExplorerWorkspaceService();
+final explorerExplorerExplorerWorkspaceServiceProvider = Provider<ExplorerExplorerWorkspaceService>((ref) {
+  return ExplorerExplorerWorkspaceService();
 });
 
 /// A generic service to manage loading and saving the UI workspace state
 /// for a project, including the state of individual plugins.
-class ExplorerWorkspaceService {
+class ExplorerExplorerWorkspaceService {
   Future<ExplorerWorkspaceState> loadFullState(
     FileHandler fileHandler,
     String projectDataPath,
