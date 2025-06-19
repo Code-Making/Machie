@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
-import 'workspace_state.dart';
+import 'explorer_workspace_state.dart';
 
 const _workspaceFileName = 'workspace.json';
 

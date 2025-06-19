@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
 import 'app_notifier.dart';
-import '../plugins/code_editor/code_editor_plugin.dart';
+import 'plugins/code_editor/code_editor_plugin.dart';
 import '../session/session_models.dart';
 import '../session/tab_state.dart';
 import '../explorer/explorer_host_drawer.dart';

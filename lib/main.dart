@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_notifier.dart';
 import 'app/lifecycle.dart';
-import 'app/editor_screen.dart';
+import 'app/app_screen.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
