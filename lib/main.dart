@@ -91,7 +91,7 @@ void main() {
                   ),
                   theme: darkTheme,
                   home: AppStartupWidget(
-                    onLoaded: (context) => const EditorScreen(),
+                    onLoaded: (context) => const AppScreen(),
                   ),
                   routes: {
                     '/settings': (_) => const SettingsScreen(),
