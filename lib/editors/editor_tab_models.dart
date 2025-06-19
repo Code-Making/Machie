@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../plugins/plugin_models.dart';
+import 'plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
 @immutable

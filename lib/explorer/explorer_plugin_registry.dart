@@ -2,7 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../project/project_models.dart';
 import '../project/implementations/local_file_system_project.dart';
-import '../project/workspace_service.dart';
+import 'explorer_workspace_service.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
 import 'plugins/search_explorer/search_explorer_plugin.dart'; // NEW IMPORT

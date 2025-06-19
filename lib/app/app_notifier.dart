@@ -7,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
-import '..editors/plugins/plugin_models.dart';
-import '..editors/plugins/plugin_registry.dart';
+import '../editors/plugins/plugin_models.dart';
+import '../editors/plugins/plugin_registry.dart';
 import '../project/project_manager.dart';
 import '../project/project_models.dart';
 import '../editors/editor_tab_models.dart';

@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../plugins/plugin_models.dart';
-import '../plugins/plugin_registry.dart';
+import '../editors/plugins/plugin_models.dart';
+import '../editors/plugins/plugin_registry.dart';
 
 import 'settings_models.dart';
 
