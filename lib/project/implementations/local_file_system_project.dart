@@ -2,11 +2,11 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../plugins/plugin_models.dart';
-import '../../plugins/plugin_registry.dart';
-import '../../session/session_models.dart';
+import '../../editors/plugins/plugin_models.dart';
+import '../../editors/plugins/plugin_registry.dart';
+import '../../editor/editor_tab_models.dart';
 import '../project_models.dart';
-import '../workspace_service.dart'; // NEW IMPORT
+import '../explorer/explorer_workspace_service.dart'; // NEW IMPORT
 
 class LocalProject extends Project {
   String projectDataPath;

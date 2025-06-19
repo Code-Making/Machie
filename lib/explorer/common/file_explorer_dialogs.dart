@@ -1,7 +1,7 @@
 // lib/explorer/common/file_explorer_dialogs.dart
 import 'package:flutter/material.dart';
-import '../../plugins/plugin_models.dart';
-
+import '../../editors/plugins/plugin_models.dart';
+//TODO : check dependency
 void showErrorSnackbar(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
