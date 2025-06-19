@@ -305,12 +305,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
 
-    /*final scaffoldMessenger =
-        ref.read(rootScaffoldMessengerKeyProvider).currentState;
-    scaffoldMessenger?.showSnackBar(
-      SnackBar(content: Text('Saved as ${newFile.name}')),
-    );*/
-    showInfoToast("Saved as ${newFile.name}");
+    MachineToast.info("Saved as ${newFile.name}");
   }
 
   // NEW METHOD for saving raw bytes

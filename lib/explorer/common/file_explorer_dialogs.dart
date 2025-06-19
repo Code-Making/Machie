@@ -1,12 +1,9 @@
 // lib/explorer/common/file_explorer_dialogs.dart
 import 'package:flutter/material.dart';
 import '../../editors/plugins/plugin_models.dart';
+import '../../utils/toast.dart';
+
 //TODO : check dependency
-void showErrorSnackbar(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-  );
-}
 
 Future<EditorPlugin?> showOpenWithDialog(
   BuildContext context,

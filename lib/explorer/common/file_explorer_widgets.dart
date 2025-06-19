@@ -10,6 +10,8 @@ import '../../project/project_models.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
+import '../../utils/toast.dart';
+
 //TODO: Remove file explorer dependency
 class DirectoryView extends ConsumerWidget {
   final String directory;
@@ -150,7 +152,7 @@ class DirectoryItem extends ConsumerWidget {
             case OpenFileSuccess():
               Navigator.of(context).popUntil((route) => route.isFirst);
             case OpenFileError(message: final msg):
-              showErrorSnackbar(context, msg);
+              MachineToast.error(msg);
             case OpenFileShowChooser(plugins: final plugins):
               final chosenPlugin = await showOpenWithDialog(context, plugins);
               if (chosenPlugin != null) {
@@ -161,7 +163,7 @@ class DirectoryItem extends ConsumerWidget {
                 if (openResult is OpenFileSuccess && context.mounted) {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 } else if (openResult is OpenFileError && context.mounted) {
-                  showErrorSnackbar(context, openResult.message);
+                  MachineToast.error(openResult.message);
                 }
               }
           }
