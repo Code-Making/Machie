@@ -7,7 +7,7 @@ import 'explorer_workspace_state.dart';
 
 const _workspaceFileName = 'workspace.json';
 
-final explorerExplorerWorkspaceServiceProvider = Provider<ExplorerWorkspaceService>((ref) {
+final explorerWorkspaceServiceProvider = Provider<ExplorerWorkspaceService>((ref) {
   return ExplorerWorkspaceService();
 });
 
