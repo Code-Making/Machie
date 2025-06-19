@@ -57,7 +57,7 @@ class LocalProject extends Project {
   @override
   Future<Map<String, dynamic>?> loadPluginState(
     String pluginId, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   }) {
     return workspaceService.loadPluginState(
       fileHandler,
@@ -70,7 +70,7 @@ class LocalProject extends Project {
   Future<void> savePluginState(
     String pluginId,
     Map<String, dynamic> stateJson, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   }) {
     return workspaceService.savePluginState(
       fileHandler,
@@ -83,7 +83,7 @@ class LocalProject extends Project {
   @override
   Future<void> saveActiveExplorer(
     String pluginId, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   }) {
     return workspaceService.saveActiveExplorer(
       fileHandler,
@@ -94,7 +94,7 @@ class LocalProject extends Project {
 
   @override
   Future<String?> loadActiveExplorer({
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   }) async {
     final state = await workspaceService.loadFullState(
       fileHandler,

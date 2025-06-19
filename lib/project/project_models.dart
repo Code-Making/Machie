@@ -69,19 +69,19 @@ abstract class Project {
 
   Future<Map<String, dynamic>?> loadPluginState(
     String pluginId, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   });
   Future<void> savePluginState(
     String pluginId,
     Map<String, dynamic> stateJson, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   });
   Future<void> saveActiveExplorer(
     String pluginId, {
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   });
   Future<String?> loadActiveExplorer({
-    required WorkspaceService workspaceService,
+    required ExplorerWorkspaceService workspaceService,
   });
 
   Future<Project> openFile(

@@ -65,7 +65,7 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
     if (project == null || project.id != _projectId) return;
 
     // CORRECTED: Read service and pass it to project.
-    final workspaceService = _ref.read(workspaceServiceProvider);
+    final workspaceService = _ref.read(explorerWorkspaceServiceProvider);
     final pluginJson = await project.loadPluginState(
       _pluginId,
       workspaceService: workspaceService,
@@ -103,7 +103,7 @@ class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
     if (project == null || project.id != _projectId) return;
 
     // CORRECTED: Read service and pass it to project.
-    final workspaceService = _ref.read(workspaceServiceProvider);
+    final workspaceService = _ref.read(explorerWorkspaceServiceProvider);
     project.savePluginState(
       _pluginId,
       state!.toJson(),

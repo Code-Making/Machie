@@ -61,7 +61,7 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
 
   Future<void> _initializeActiveExplorer() async {
     // CORRECTED: Read the service first, then pass it to the project method.
-    final workspaceService = ref.read(workspaceServiceProvider);
+    final workspaceService = ref.read(explorerWorkspaceServiceProvider);
     final activePluginId = await widget.project.loadActiveExplorer(
       workspaceService: workspaceService,
     );
@@ -132,7 +132,7 @@ class ExplorerTypeDropdown extends ConsumerWidget {
           if (plugin != null) {
             ref.read(activeExplorerProvider.notifier).state = plugin;
             // CORRECTED: Read the service first, then pass it to the project method.
-            final workspaceService = ref.read(workspaceServiceProvider);
+            final workspaceService = ref.read(explorerWorkspaceServiceProvider);
             currentProject.saveActiveExplorer(
               plugin.id,
               workspaceService: workspaceService,
