@@ -2,7 +2,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 
 
-void showInfoToast(string message){
+void showInfoToast(String message){
     Fluttertoast.showToast(
         msg: message,
         toastLength: Toast.LENGTH_SHORT,
@@ -14,7 +14,7 @@ void showInfoToast(string message){
     );
 }
 
-void showErrorToast(string message){
+void showErrorToast(String message){
     Fluttertoast.showToast(
         msg: message,
         toastLength: Toast.LENGTH_SHORT,
