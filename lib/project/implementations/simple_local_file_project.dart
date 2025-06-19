@@ -1,11 +1,11 @@
 // lib/project/simple_local_file_project.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../plugins/plugin_models.dart';
-import '../../plugins/plugin_registry.dart';
-import '../../session/session_models.dart';
+import '../../editors/plugins/plugin_models.dart';
+import '../../editors/plugins/plugin_registry.dart';
+import '../../editors/editor_tab_models.dart';
 import '../project_models.dart';
-import '../workspace_service.dart'; // NEW IMPORT
+import '../../explorer/explorer_workspace_service.dart'; // NEW IMPORT
 
 /// An implementation for projects that don't have persistent state on disk
 /// (like a .machine folder). Their state is managed by AppState instead.

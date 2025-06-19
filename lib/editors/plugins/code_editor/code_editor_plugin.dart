@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../../app/app_notifier.dart';
-import '../../command/command_models.dart';
-import '../../command/command_widgets.dart';
-import '../../data/file_handler/file_handler.dart';
-import '../../session/session_models.dart';
+import '../../../app/app_notifier.dart';
+import '../../../command/command_models.dart';
+import '../../../command/command_widgets.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';

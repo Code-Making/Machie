@@ -6,12 +6,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app_notifier.dart';
-import '../../command/command_models.dart';
-import '../../command/command_widgets.dart';
-import '../../data/file_handler/file_handler.dart';
-import '../../session/session_models.dart';
-import '../../session/tab_state.dart';
+import '../../../app/app_notifier.dart';
+import '../../../command/command_models.dart';
+import '../../../command/command_widgets.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../editor_tab_models.dart';
+import '../../tab_state_notifier.dart';
 import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
