@@ -7,14 +7,14 @@ import 'workspace_state.dart';
 
 const _workspaceFileName = 'workspace.json';
 
-final workspaceServiceProvider = Provider<WorkspaceService>((ref) {
-  return WorkspaceService();
+final explorerExplorerWorkspaceServiceProvider = Provider<ExplorerWorkspaceService>((ref) {
+  return ExplorerWorkspaceService();
 });
 
 /// A generic service to manage loading and saving the UI workspace state
 /// for a project, including the state of individual plugins.
-class WorkspaceService {
-  Future<WorkspaceState> loadFullState(
+class ExplorerWorkspaceService {
+  Future<ExplorerWorkspaceState> loadFullState(
     FileHandler fileHandler,
     String projectDataPath,
   ) async {
@@ -28,10 +28,10 @@ class WorkspaceService {
 
     if (workspaceFile != null) {
       final content = await fileHandler.readFile(workspaceFile.uri);
-      return WorkspaceState.fromJson(jsonDecode(content));
+      return ExplorerWorkspaceState.fromJson(jsonDecode(content));
     }
     // should throw if fail ('Could not load workspace state: $e');
-    return const WorkspaceState(
+    return const ExplorerWorkspaceState(
       activeExplorerPluginId: 'com.machine.file_explorer',
     ); // Default
   }
@@ -39,7 +39,7 @@ class WorkspaceService {
   Future<void> _saveFullState(
     FileHandler fileHandler,
     String projectDataPath,
-    WorkspaceState state,
+    ExplorerWorkspaceState state,
   ) async {
     await fileHandler.createDocumentFile(
       projectDataPath,
@@ -70,7 +70,7 @@ class WorkspaceService {
     final fullState = await loadFullState(fileHandler, projectDataPath);
     final newPluginStates = Map<String, dynamic>.from(fullState.pluginStates);
     newPluginStates[pluginId] = pluginStateJson;
-    final newFullState = WorkspaceState(
+    final newFullState = ExplorerWorkspaceState(
       activeExplorerPluginId: fullState.activeExplorerPluginId,
       pluginStates: newPluginStates,
     );
@@ -84,7 +84,7 @@ class WorkspaceService {
     String pluginId,
   ) async {
     final fullState = await loadFullState(fileHandler, projectDataPath);
-    final newFullState = WorkspaceState(
+    final newFullState = ExplorerWorkspaceState(
       activeExplorerPluginId: pluginId,
       pluginStates: fullState.pluginStates,
     );

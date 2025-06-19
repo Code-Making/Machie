@@ -10,74 +10,7 @@ import '../session/tab_state.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
 
-final tabBarScrollProvider = Provider<ScrollController>((ref) {
-  return ScrollController();
-});
 
-class EditorScreen extends ConsumerWidget {
-  const EditorScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentTab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
-    final currentPlugin = currentTab?.plugin;
-    final scaffoldKey = GlobalKey<ScaffoldState>();
-
-    final appBarOverride = ref.watch(
-      appNotifierProvider.select((s) => s.value?.appBarOverride),
-    );
-
-    return Scaffold(
-      key: scaffoldKey,
-      // CORRECTED: The override widget is wrapped in a PreferredSize to satisfy the appBar type requirement.
-      appBar:
-          appBarOverride != null
-              ? PreferredSize(
-                preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: appBarOverride,
-              )
-              : AppBar(
-                leading: IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => scaffoldKey.currentState?.openDrawer(),
-                ),
-                actions: [
-                  currentPlugin is CodeEditorPlugin
-                      ? CodeEditorTapRegion(child: const AppBarCommands())
-                      : const AppBarCommands(),
-                  IconButton(
-                    icon: const Icon(Icons.bug_report),
-                    onPressed: () => Navigator.pushNamed(context, '/logs'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings),
-                    onPressed: () => Navigator.pushNamed(context, '/settings'),
-                  ),
-                ],
-                title: Text(currentTab?.file.name ?? 'Machine'),
-              ),
-      drawer: const FileExplorerDrawer(),
-      body: Column(
-        children: [
-          const TabBarView(),
-          Expanded(
-            child:
-                currentTab != null
-                    ? const EditorContentSwitcher()
-                    : const Center(child: Text('Open a file to start editing')),
-          ),
-          if (currentPlugin != null) currentPlugin.buildToolbar(ref),
-        ],
-      ),
-    );
-  }
-}
-
-// ... Rest of editor_screen.dart is unchanged ...
 class TabBarView extends ConsumerWidget {
   const TabBarView({super.key});
 
@@ -123,11 +56,13 @@ class TabBarView extends ConsumerWidget {
   }
 }
 
-class FileTab extends ConsumerWidget {
+
+
+class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
 
-  const FileTab({super.key, required this.tab, required this.index});
+  const TabWidget({super.key, required this.tab, required this.index});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

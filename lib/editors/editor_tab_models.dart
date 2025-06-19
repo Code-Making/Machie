@@ -4,19 +4,19 @@ import '../plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
 @immutable
-class SessionState {
+class TabSessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
 
-  const SessionState({this.tabs = const [], this.currentTabIndex = 0});
+  const TabSessionState({this.tabs = const [], this.currentTabIndex = 0});
 
   EditorTab? get currentTab =>
       tabs.isNotEmpty && currentTabIndex < tabs.length
           ? tabs[currentTabIndex]
           : null;
 
-  SessionState copyWith({List<EditorTab>? tabs, int? currentTabIndex}) {
-    return SessionState(
+  TabSessionState copyWith({List<EditorTab>? tabs, int? currentTabIndex}) {
+    return TabSessionState(
       tabs: tabs ?? List.from(this.tabs),
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
     );

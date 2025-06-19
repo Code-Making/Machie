@@ -1,4 +1,3 @@
-// lib/session/tab_state.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Manages the UI state for all open tabs, specifically their dirty status.
