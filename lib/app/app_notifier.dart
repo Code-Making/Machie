@@ -18,7 +18,7 @@ import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT
 
 import '../logs/logs_provider.dart';
-import '..utils/toast.dart';
+import '../utils/toast.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
