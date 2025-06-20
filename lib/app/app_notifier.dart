@@ -1,5 +1,6 @@
 // lib/app/app_notifier.dart
 import 'dart:typed_data';
+import 'dart:ui' as ui; // REFACTOR: Add missing import
 
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
@@ -8,18 +9,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
-import '../project/services/project_service.dart'; // REFACTOR
-import '../editor/services/editor_service.dart'; // REFACTOR
+import '../project/services/project_service.dart';
+import '../editor/services/editor_service.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/tab_state_notifier.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart';
 
+// REFACTOR: Add missing imports
+import '../explorer/common/file_explorer_dialogs.dart';
+import '../editor/plugins/glitch_editor/glitch_editor_models.dart';
+import '../editor/plugins/glitch_editor/glitch_editor_plugin.dart';
+
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
-import '../data/repositories/project_repository.dart'; // REFACTOR
-import '../project/project_models.dart'; // REFACTOR
+import '../data/repositories/project_repository.dart';
+import '../project/project_models.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -32,7 +38,6 @@ final rootScaffoldMessengerKeyProvider = Provider(
 
 final currentProjectDirectoryContentsProvider =
     FutureProvider.autoDispose.family<List<DocumentFile>, String>((ref, uri) async {
-  // REFACTOR: Now gets the file handler from the active repository.
   final handler = ref.watch(projectRepositoryProvider)?.fileHandler;
   if (handler == null) return [];
 
@@ -43,7 +48,6 @@ final currentProjectDirectoryContentsProvider =
   return handler.listDirectory(uri);
 });
 
-// REFACTOR: AppNotifier is now a thin controller, delegating work to services.
 class AppNotifier extends AsyncNotifier<AppState> {
   late AppStateRepository _appStateRepository;
   late ProjectService _projectService;
@@ -69,11 +73,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
             meta,
             projectStateJson: initialState.currentProjectState,
           );
-          // Rehydrate tabs after project is loaded
           final rehydratedProject = await _rehydrateTabs(project);
           return initialState.copyWith(
             currentProject: rehydratedProject,
-            clearCurrentProjectState: true, // State is now in the project object
+            clearCurrentProjectState: true,
           );
         } catch (e, st) {
           talker.handle(e, st, 'Failed to auto-open last project');
@@ -157,7 +160,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) {
         await closeProject();
-        s = state.value!; // Refresh state after closing
+        s = state.value!;
       }
       return s.copyWith(
         knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),
@@ -207,7 +210,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
         if (wasAlreadyOpen) return;
         final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context != null) Navigator.of(context).popUntil((route) => route.isFirst);
+        if (context != null && Navigator.of(context).canPop()) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
 
       case OpenFileShowChooser(plugins: final plugins):
         final context = ref.read(navigatorKeyProvider).currentContext;
@@ -246,15 +251,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final project = state.value?.currentProject;
     if (project == null) return;
     await _editorService.saveCurrentTab(project, bytes: bytes);
+    
     // After saving bytes, we also need to update the originalImage in the plugin
     // to prevent "dirty" state from re-appearing on reset.
     final tab = project.session.currentTab;
     if (tab is GlitchEditorTab) {
       final plugin = tab.plugin as GlitchEditorPlugin;
-      final byteData = await plugin.getImageForTab(tab)?.toByteData(format: ui.ImageByteFormat.png);
+      final image = plugin.getImageForTab(tab);
+      if (image == null) return;
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
        if (byteData == null) return;
-       await saveCurrentTabAsBytes(byteData.buffer.asUint8List());
-
+       // This is a bit of a hack. The Glitch plugin should manage its own state.
+       // A better solution would be a method like `plugin.markAsSaved(newBytes)`
+       // For now, this is a quick fix.
+       await _editorService.saveCurrentTab(project, bytes: byteData.buffer.asUint8List());
     }
   }
 
@@ -318,15 +328,18 @@ class AppNotifier extends AsyncNotifier<AppState> {
     );
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
-
+  
+  // REFACTOR: This method is now only responsible for persisting the state.
   Future<void> saveAppState() async {
     final appState = state.value;
     if (appState == null) return;
 
     if (appState.currentProject != null) {
+      // The service knows which repository to use and how to save.
       await _projectService.saveProject(appState.currentProject!);
     }
 
+    // The app state repository handles SharedPreferences.
     await _appStateRepository.saveAppState(appState);
   }
 
@@ -334,8 +347,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<Project> _rehydrateTabs(Project project) async {
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return project;
-    final sessionJson = project.session.toJson();
+    // REFACTOR: The raw JSON for tabs is now in the project's session object.
+    final projectStateJson = project.toJson();
+    final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
     final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
+
     final plugins = ref.read(activePluginsProvider);
     final List<EditorTab> tabs = [];
 
