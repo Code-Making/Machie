@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../project/project_models.dart';
-import '../../common/file_explorer_widgets.dart'; // NEW IMPORT
+import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
@@ -19,8 +19,9 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
+      // REFACTOR: Pass project ID to the provider.
       ref
-          .read(searchStateProvider(widget.project).notifier)
+          .read(searchStateProvider(widget.project.id).notifier)
           .search(_textController.text);
     });
   }
@@ -33,7 +34,8 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider(widget.project));
+    // REFACTOR: Pass project ID to the provider.
+    final searchState = ref.watch(searchStateProvider(widget.project.id));
     final projectRootUri = widget.project.rootUri;
 
     return Column(
@@ -51,7 +53,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.black.withValues(alpha: 0.2),
+              fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -66,22 +68,20 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             itemCount: searchState.results.length,
             itemBuilder: (context, index) {
               final file = searchState.results[index];
-              // Calculate the relative path for the subtitle
-              String relativePath =
-                  file.uri.startsWith(projectRootUri)
-                      ? file.uri.substring(projectRootUri.length)
-                      : file.uri;
+              String relativePath = file.uri.startsWith(projectRootUri)
+                  ? file.uri.substring(projectRootUri.length)
+                  : file.uri;
               if (relativePath.startsWith('/')) {
                 relativePath = relativePath.substring(1);
               }
-              final lastSlash = relativePath.lastIndexOf('/');
-              final subtitle =
-                  lastSlash != -1 ? relativePath.substring(0, lastSlash) : '.';
+              final lastSlash = relativePath.lastIndexOf('%2F');
+              final subtitle = lastSlash != -1
+                  ? Uri.decodeComponent(relativePath.substring(0, lastSlash))
+                  : '.';
 
-              // MODIFIED: Use the powerful DirectoryItem widget
               return DirectoryItem(
                 item: file,
-                depth: 0, // Search results are a flat list
+                depth: 0,
                 isExpanded: false,
                 projectId: widget.project.id,
                 subtitle: subtitle,

@@ -1,4 +1,4 @@
-// lib/project/workspace_state.dart
+// lib/explorer/explorer_workspace_state.dart
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -23,7 +23,19 @@ class ExplorerWorkspaceState {
   }
 
   Map<String, dynamic> toJson() => {
-    'activeExplorerPluginId': activeExplorerPluginId,
-    'pluginStates': pluginStates,
-  };
+        'activeExplorerPluginId': activeExplorerPluginId,
+        'pluginStates': pluginStates,
+      };
+
+  // REFACTOR: Add copyWith for easier updates in the service layer.
+  ExplorerWorkspaceState copyWith({
+    String? activeExplorerPluginId,
+    Map<String, dynamic>? pluginStates,
+  }) {
+    return ExplorerWorkspaceState(
+      activeExplorerPluginId:
+          activeExplorerPluginId ?? this.activeExplorerPluginId,
+      pluginStates: pluginStates ?? this.pluginStates,
+    );
+  }
 }

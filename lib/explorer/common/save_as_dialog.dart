@@ -25,8 +25,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   void initState() {
     super.initState();
     _fileNameController = TextEditingController(text: widget.initialFileName);
+    // REFACTOR: This is now robust against a null project on init.
     _currentPathUri =
-        ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+        ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
   }
 
   @override
@@ -37,6 +38,14 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // If the URI is empty (project not loaded yet), don't build the view.
+    if (_currentPathUri.isEmpty) {
+      return const AlertDialog(
+        title: Text('Save As...'),
+        content: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final directoryContents = ref.watch(
       currentProjectDirectoryContentsProvider(_currentPathUri),
     );
@@ -79,6 +88,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             TextField(
               controller: _fileNameController,
               decoration: const InputDecoration(labelText: 'File Name'),
+              autofocus: true,
             ),
           ],
         ),
@@ -106,26 +116,23 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   }
 
   Widget _buildPathNavigator() {
+    final projectRootUri =
+        ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
+
     return Row(
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_upward),
-          onPressed:
-              _currentPathUri ==
-                      ref
-                          .read(appNotifierProvider)
-                          .value!
-                          .currentProject!
-                          .rootUri
-                  ? null
-                  : () {
-                    setState(() {
-                      final segments = _currentPathUri.split('%2F');
-                      _currentPathUri = segments
-                          .sublist(0, segments.length - 1)
-                          .join('%2F');
-                    });
-                  },
+          onPressed: _currentPathUri == projectRootUri
+              ? null
+              : () {
+                  setState(() {
+                    // This logic is okay for SAF URIs
+                    final segments = _currentPathUri.split('%2F');
+                    _currentPathUri =
+                        segments.sublist(0, segments.length - 1).join('%2F');
+                  });
+                },
         ),
         Expanded(
           child: Text(

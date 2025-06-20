@@ -25,7 +25,7 @@ class FileOperationsFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
     final appNotifier = ref.read(appNotifierProvider.notifier);
-    final talker = ref.read(talkerProvider); // Get Talker instance
+    final talker = ref.read(talkerProvider);
 
     final rootDoc = RootPlaceholder(projectRootUri);
     final pasteCommand = FileContextCommands.getCommands(
@@ -53,7 +53,7 @@ class FileOperationsFooter extends ConsumerWidget {
               if (newFileName != null && newFileName.isNotEmpty) {
                 try {
                   await appNotifier.performFileOperation(
-                    (handler) => handler.createDocumentFile(
+                    (repo) => repo.createDocumentFile( // REFACTOR: Use repo
                       projectRootUri,
                       newFileName,
                       isDirectory: false,
@@ -78,14 +78,14 @@ class FileOperationsFooter extends ConsumerWidget {
               if (newFolderName != null && newFolderName.isNotEmpty) {
                 try {
                   await appNotifier.performFileOperation(
-                    (handler) => handler.createDocumentFile(
+                    (repo) => repo.createDocumentFile( // REFACTOR: Use repo
                       projectRootUri,
                       newFolderName,
                       isDirectory: true,
                     ),
                   );
-                } catch (e) {
-                  //logNotifier.add('Error creating folder: $e');
+                } catch (e, st) {
+                  talker.handle(e, st, 'Error creating folder');
                 }
               }
             },
@@ -95,18 +95,19 @@ class FileOperationsFooter extends ConsumerWidget {
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Import File',
             onPressed: () async {
+              // This part requires an external file handler, which is correct.
               final pickerHandler = LocalFileHandlerFactory.create();
               final pickedFile = await pickerHandler.pickFile();
               if (pickedFile != null) {
                 try {
                   await appNotifier.performFileOperation(
-                    (projectHandler) => projectHandler.copyDocumentFile(
+                    (projectRepo) => projectRepo.copyDocumentFile( // REFACTOR: Use repo
                       pickedFile,
                       projectRootUri,
                     ),
                   );
-                } catch (e) {
-                  //logNotifier.add('Error importing file: $e');
+                } catch (e, st) {
+                  talker.handle(e, st, 'Error importing file');
                 }
               }
             },
@@ -115,17 +116,15 @@ class FileOperationsFooter extends ConsumerWidget {
           IconButton(
             icon: Icon(
               Icons.content_paste,
-              color:
-                  clipboardContent != null
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey,
+              color: clipboardContent != null
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed:
-                (pasteCommand != null &&
-                        pasteCommand.canExecuteFor(ref, rootDoc))
-                    ? () => pasteCommand.executeFor(ref, rootDoc)
-                    : null,
+            onPressed: (pasteCommand != null &&
+                    pasteCommand.canExecuteFor(ref, rootDoc))
+                ? () => pasteCommand.executeFor(ref, rootDoc)
+                : null,
           ),
           // --- Sort ---
           IconButton(
@@ -155,8 +154,9 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
+                  // REFACTOR: Use the new notifier provider
                   ref
-                      .read(fileExplorerStateProvider(projectId).notifier)
+                      .read(fileExplorerNotifierProvider(projectId))
                       .setViewMode(FileExplorerViewMode.sortByNameAsc);
                   Navigator.pop(ctx);
                 },
@@ -166,7 +166,7 @@ class FileOperationsFooter extends ConsumerWidget {
                 title: const Text('Sort by Name (Z-A)'),
                 onTap: () {
                   ref
-                      .read(fileExplorerStateProvider(projectId).notifier)
+                      .read(fileExplorerNotifierProvider(projectId))
                       .setViewMode(FileExplorerViewMode.sortByNameDesc);
                   Navigator.pop(ctx);
                 },
@@ -176,7 +176,7 @@ class FileOperationsFooter extends ConsumerWidget {
                 title: const Text('Sort by Date Modified'),
                 onTap: () {
                   ref
-                      .read(fileExplorerStateProvider(projectId).notifier)
+                      .read(fileExplorerNotifierProvider(projectId))
                       .setViewMode(FileExplorerViewMode.sortByDateModified);
                   Navigator.pop(ctx);
                 },
