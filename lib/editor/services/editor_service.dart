@@ -1,7 +1,8 @@
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart'; // REFACTOR: Add missing import
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
@@ -9,8 +10,8 @@ import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../../editor/tab_state_notifier.dart';
 import '../../project/project_models.dart';
+import '../../logs/logs_provider.dart';
 
-// ... rest of the file is unchanged ...
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
 });
@@ -30,6 +31,35 @@ class EditorService {
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
+  }
+
+  // REFACTOR: Tab rehydration logic now lives here.
+  Future<Project> rehydrateTabs(Project project) async {
+    final projectStateJson = project.toJson();
+    final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
+    final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
+    final plugins = _ref.read(activePluginsProvider);
+    final List<EditorTab> tabs = [];
+
+    for (final tabJson in tabsJson) {
+      final pluginType = tabJson['pluginType'] as String?;
+      if (pluginType == null) continue;
+
+      final plugin =
+          plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+      if (plugin != null) {
+        try {
+          final tab = await plugin.createTabFromSerialization(tabJson, _repo.fileHandler);
+          tabs.add(tab);
+          _ref.read(tabStateProvider.notifier).initTab(tab.file.uri);
+        } catch (e) {
+          _ref.read(talkerProvider).error('Could not restore tab: $e');
+        }
+      }
+    }
+    return project.copyWith(
+      session: project.session.copyWith(tabs: tabs),
+    );
   }
 
   Future<OpenFileResult> openFile(
@@ -85,25 +115,31 @@ class EditorService {
     );
   }
 
-  Future<void> saveCurrentTab(
+  Future<bool> saveCurrentTab(
     Project project, {
     String? content,
     Uint8List? bytes,
   }) async {
     final tabToSave = project.session.currentTab;
-    if (tabToSave == null) return;
+    if (tabToSave == null) return false;
 
-    if (content != null) {
-      await _repo.writeFile(tabToSave.file, content);
-    } else if (bytes != null) {
-      await _repo.writeFileAsBytes(tabToSave.file, bytes);
-    } else {
-      return;
+    try {
+      if (content != null) {
+        await _repo.writeFile(tabToSave.file, content);
+      } else if (bytes != null) {
+        await _repo.writeFileAsBytes(tabToSave.file, bytes);
+      } else {
+        return false;
+      }
+      _ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
+      return true;
+    } catch (e) {
+      _ref.read(talkerProvider).error("Failed to save tab: $e");
+      return false;
     }
-
-    _ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
   }
 
+  // ... other methods (switchTab, closeTab, etc.) are unchanged ...
   Project switchTab(Project project, int index) {
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);
@@ -176,23 +212,4 @@ class EditorService {
       session: project.session.copyWith(tabs: newTabs),
     );
   }
-}
-
-@immutable
-sealed class OpenFileResult {}
-
-class OpenFileSuccess extends OpenFileResult {
-  final Project project;
-  final bool wasAlreadyOpen;
-  OpenFileSuccess({required this.project, required this.wasAlreadyOpen});
-}
-
-class OpenFileShowChooser extends OpenFileResult {
-  final List<EditorPlugin> plugins;
-  OpenFileShowChooser(this.plugins);
-}
-
-class OpenFileError extends OpenFileResult {
-  final String message;
-  OpenFileError(this.message);
 }
