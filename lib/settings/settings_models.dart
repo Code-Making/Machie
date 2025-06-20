@@ -1,4 +1,4 @@
-import '../editors/plugins/plugin_models.dart';
+import '../editor/plugins/plugin_models.dart';
 
 // --------------------
 //   Settings Core

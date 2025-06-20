@@ -1,7 +1,7 @@
 // lib/project/project_models.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../editors/plugins/plugin_models.dart';
-import '../editors/editor_tab_models.dart';
+import '../editor/plugins/plugin_models.dart';
+import '../editor/editor_tab_models.dart';
 import '../data/file_handler/file_handler.dart';
 import '../explorer/explorer_workspace_service.dart';
 
