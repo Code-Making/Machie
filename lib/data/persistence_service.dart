@@ -5,21 +5,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_state.dart';
 
-// TODO: Implement logging
-// Global provider for SharedPreferences, used by the PersistenceService.
+// REFACTOR: This class is now effectively a repository for AppState.
+// Its role is clear: interact with SharedPreferences for global app data.
+
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
   ref,
 ) async {
   return await SharedPreferences.getInstance();
 });
 
-// Manages saving and loading the global application state.
-class PersistenceService {
+/// Manages saving and loading the global application state.
+class AppStateRepository {
   static const _appStateKey = 'app_state';
 
   final SharedPreferences _prefs;
 
-  PersistenceService(this._prefs);
+  AppStateRepository(this._prefs);
 
   Future<AppState> loadAppState() async {
     final jsonString = _prefs.getString(_appStateKey);

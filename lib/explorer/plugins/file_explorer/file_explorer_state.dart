@@ -1,8 +1,9 @@
 // lib/explorer/plugins/file_explorer/file_explorer_state.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
-import '../../explorer_workspace_service.dart';
-import '../file_explorer/file_explorer_plugin.dart';
+import '../../explorer_workspace_state.dart';
+import 'file_explorer_plugin.dart';
+import '../../services/explorer_service.dart'; // REFACTOR
 
 enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
 
@@ -37,78 +38,79 @@ class FileExplorerSettings {
   }
 
   Map<String, dynamic> toJson() => {
-    'viewMode': viewMode.name,
-    'expandedFolders': expandedFolders.toList(),
-  };
+        'viewMode': viewMode.name,
+        'expandedFolders': expandedFolders.toList(),
+      };
 }
 
-// MODIFIED: This is now a standard StateNotifierProvider, not async.
-// It returns a nullable state to represent the "loading" period.
-final fileExplorerStateProvider = StateNotifierProvider.family
-    .autoDispose<FileExplorerStateNotifier, FileExplorerSettings?, String>((
-      ref,
-      projectId,
-    ) {
-      return FileExplorerStateNotifier(ref, projectId);
-    });
+// REFACTOR: This provider now returns the settings directly from the main project state.
+final fileExplorerStateProvider =
+    Provider.autoDispose.family<FileExplorerSettings, String>((ref, projectId) {
+  final project = ref.watch(appNotifierProvider).value?.currentProject;
+  if (project == null || project.id != projectId) {
+    return const FileExplorerSettings(); // Return default if project not ready
+  }
 
-class FileExplorerStateNotifier extends StateNotifier<FileExplorerSettings?> {
+  final pluginStateJson =
+      project.workspace.pluginStates[FileExplorerPlugin().id];
+  if (pluginStateJson != null && pluginStateJson is Map<String, dynamic>) {
+    return FileExplorerSettings.fromJson(pluginStateJson);
+  }
+
+  return const FileExplorerSettings();
+});
+
+// REFACTOR: The notifier is now much simpler.
+final fileExplorerNotifierProvider = Provider.autoDispose
+    .family<FileExplorerNotifier, String>((ref, projectId) {
+  return FileExplorerNotifier(ref, projectId);
+});
+
+class FileExplorerNotifier {
   final Ref _ref;
   final String _projectId;
   final String _pluginId = FileExplorerPlugin().id;
 
-  FileExplorerStateNotifier(this._ref, this._projectId) : super(null) {
-    _initState();
-  }
+  FileExplorerNotifier(this._ref, this._projectId);
 
-  Future<void> _initState() async {
+  Future<void> _updateState(
+    FileExplorerSettings Function(FileExplorerSettings) updater,
+  ) async {
     final project = _ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || project.id != _projectId) return;
 
-    // CORRECTED: Read service and pass it to project.
-    final workspaceService = _ref.read(explorerWorkspaceServiceProvider);
-    final pluginJson = await project.loadPluginState(
-      _pluginId,
-      workspaceService: workspaceService,
-    );
+    final explorerService = _ref.read(explorerServiceProvider);
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
 
-    if (mounted) {
-      state =
-          pluginJson != null
-              ? FileExplorerSettings.fromJson(pluginJson)
-              : const FileExplorerSettings();
-    }
+    // Get current settings
+    final currentSettings = _ref.read(fileExplorerStateProvider(_projectId));
+    final newSettings = updater(currentSettings);
+
+    final newProject = await explorerService.updateWorkspace(
+      project,
+      (w) {
+        final newPluginStates = Map<String, dynamic>.from(w.pluginStates);
+        newPluginStates[_pluginId] = newSettings.toJson();
+        return w.copyWith(pluginStates: newPluginStates);
+      },
+    );
+    // Update the project in the global state
+    appNotifier.updateCurrentTab(newProject.session.currentTab!);
   }
 
   void setViewMode(FileExplorerViewMode newMode) {
-    if (state == null || state!.viewMode == newMode) return;
-    state = state!.copyWith(viewMode: newMode);
-    _persistStateIfNecessary();
+    _updateState((s) => s.copyWith(viewMode: newMode));
   }
 
   void toggleFolderExpansion(String folderUri) {
-    if (state == null) return;
-    final newExpanded = Set<String>.from(state!.expandedFolders);
-    if (newExpanded.contains(folderUri)) {
-      newExpanded.remove(folderUri);
-    } else {
-      newExpanded.add(folderUri);
-    }
-    state = state!.copyWith(expandedFolders: newExpanded);
-    _persistStateIfNecessary();
-  }
-
-  void _persistStateIfNecessary() {
-    if (state == null) return;
-    final project = _ref.read(appNotifierProvider).value?.currentProject;
-    if (project == null || project.id != _projectId) return;
-
-    // CORRECTED: Read service and pass it to project.
-    final workspaceService = _ref.read(explorerWorkspaceServiceProvider);
-    project.savePluginState(
-      _pluginId,
-      state!.toJson(),
-      workspaceService: workspaceService,
-    );
+    _updateState((s) {
+      final newExpanded = Set<String>.from(s.expandedFolders);
+      if (newExpanded.contains(folderUri)) {
+        newExpanded.remove(folderUri);
+      } else {
+        newExpanded.add(folderUri);
+      }
+      return s.copyWith(expandedFolders: newExpanded);
+    });
   }
 }

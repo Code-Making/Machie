@@ -10,8 +10,9 @@ import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
+import '../../editor/services/editor_service.dart'; // REFACTOR
 
-//TODO: Remove file explorer dependency
+// ... (DirectoryView is mostly unchanged, but its dependency is simpler) ...
 class DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
@@ -46,8 +47,7 @@ class DirectoryView extends ConsumerWidget {
           itemBuilder: (context, index) {
             final item = contents[index];
             final depth =
-                item.uri.split('%2F').length -
-                projectRootUri.split('%2F').length;
+                item.uri.split('%2F').length - projectRootUri.split('%2F').length;
             return DirectoryItem(
               item: item,
               depth: depth,
@@ -80,7 +80,7 @@ class DirectoryItem extends ConsumerWidget {
   final int depth;
   final bool isExpanded;
   final String projectId;
-  final String? subtitle; // MODIFIED: Added optional subtitle
+  final String? subtitle;
 
   const DirectoryItem({
     super.key,
@@ -88,14 +88,14 @@ class DirectoryItem extends ConsumerWidget {
     required this.depth,
     required this.isExpanded,
     required this.projectId,
-    this.subtitle, // MODIFIED
+    this.subtitle,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fileExplorerNotifier = ref.read(
-      fileExplorerStateProvider(projectId).notifier,
-    );
+    // REFACTOR: Use the simpler notifier provider.
+    final fileExplorerNotifier =
+        ref.read(fileExplorerNotifierProvider(projectId));
 
     Widget childWidget;
     if (item.isDirectory) {
@@ -116,12 +116,11 @@ class DirectoryItem extends ConsumerWidget {
           if (isExpanded)
             Consumer(
               builder: (context, ref, _) {
-                final currentState = ref.watch(
-                  fileExplorerStateProvider(projectId),
-                );
+                // REFACTOR: Read state from the simpler provider.
+                final currentState =
+                    ref.watch(fileExplorerStateProvider(projectId));
                 final project =
                     ref.watch(appNotifierProvider).value!.currentProject!;
-                if (currentState == null) return const SizedBox.shrink();
                 return DirectoryView(
                   directory: item.uri,
                   projectRootUri: project.rootUri,
@@ -138,34 +137,12 @@ class DirectoryItem extends ConsumerWidget {
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
-        subtitle:
-            subtitle != null
-                ? Text(subtitle!, overflow: TextOverflow.ellipsis)
-                : null,
+        subtitle: subtitle != null
+            ? Text(subtitle!, overflow: TextOverflow.ellipsis)
+            : null,
         onTap: () async {
-          final notifier = ref.read(appNotifierProvider.notifier);
-          final result = await notifier.openFile(item);
-
-          if (!context.mounted) return;
-          switch (result) {
-            case OpenFileSuccess():
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            case OpenFileError(message: final msg):
-              MachineToast.error(msg);
-            case OpenFileShowChooser(plugins: final plugins):
-              final chosenPlugin = await showOpenWithDialog(context, plugins);
-              if (chosenPlugin != null) {
-                final openResult = await notifier.openFile(
-                  item,
-                  explicitPlugin: chosenPlugin,
-                );
-                if (openResult is OpenFileSuccess && context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                } else if (openResult is OpenFileError && context.mounted) {
-                  MachineToast.error(openResult.message);
-                }
-              }
-          }
+          // REFACTOR: Logic is now delegated to AppNotifier, which is much cleaner.
+          await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
         },
       );
     }
@@ -177,6 +154,7 @@ class DirectoryItem extends ConsumerWidget {
   }
 }
 
+// ... (RootPlaceholder and FileTypeIcon are unchanged) ...
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;

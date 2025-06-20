@@ -6,12 +6,10 @@ import '../app/app_notifier.dart';
 import '../project/project_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'common/new_project_screen.dart';
-import 'explorer_workspace_service.dart';
+import 'services/explorer_service.dart'; // REFACTOR
+import '../project/services/project_service.dart'; // REFACTOR
 
-// --------------------
-// Main Drawer Widget (The "Host")
-// --------------------
-
+// ... (ExplorerHostDrawer is unchanged) ...
 class ExplorerHostDrawer extends ConsumerWidget {
   const ExplorerHostDrawer({super.key});
 
@@ -33,10 +31,7 @@ class ExplorerHostDrawer extends ConsumerWidget {
   }
 }
 
-// --------------------
-// Explorer Host View (A Project Is Open)
-// --------------------
-
+// ... (ExplorerHostView StatefulWidget is unchanged) ...
 class ExplorerHostView extends ConsumerStatefulWidget {
   final Project project;
 
@@ -46,11 +41,12 @@ class ExplorerHostView extends ConsumerStatefulWidget {
   ConsumerState<ExplorerHostView> createState() => _ExplorerHostViewState();
 }
 
+
+// REFACTOR: The view's logic is now simplified.
 class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   @override
   void initState() {
     super.initState();
-    // Use WidgetsBinding to ensure the ref is available after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _initializeActiveExplorer();
@@ -58,28 +54,28 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
     });
   }
 
-  Future<void> _initializeActiveExplorer() async {
-    // CORRECTED: Read the service first, then pass it to the project method.
-    final workspaceService = ref.read(explorerWorkspaceServiceProvider);
-    final activePluginId = await widget.project.loadActiveExplorer(
-      workspaceService: workspaceService,
-    );
-
-    if (mounted && activePluginId != null) {
-      final registry = ref.read(explorerRegistryProvider);
-      final activePlugin = registry.firstWhereOrNull(
-        (p) => p.id == activePluginId,
-      );
-      if (activePlugin != null) {
-        ref.read(activeExplorerProvider.notifier).state = activePlugin;
-      }
+  // REFACTOR: Initialization now just reads from the project model.
+  void _initializeActiveExplorer() {
+    final activePluginId = widget.project.workspace.activeExplorerPluginId;
+    final registry = ref.read(explorerRegistryProvider);
+    final activePlugin =
+        registry.firstWhereOrNull((p) => p.id == activePluginId);
+    if (activePlugin != null) {
+      ref.read(activeExplorerProvider.notifier).state = activePlugin;
     }
   }
 
-  // MODIFIED: build method signature is now correct for a ConsumerState.
+  @override
+  void didUpdateWidget(covariant ExplorerHostView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the project object itself changes, re-initialize the explorer
+    if (widget.project.id != oldWidget.project.id) {
+      _initializeActiveExplorer();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 'ref' is accessed as a property of the State class.
     final activeExplorer = ref.watch(activeExplorerProvider);
 
     return Scaffold(
@@ -111,10 +107,9 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   }
 }
 
-// --------------------
-// UI Components
-// --------------------
+// ... (UI Components) ...
 
+// REFACTOR: Dropdown now uses the ExplorerService to persist changes.
 class ExplorerTypeDropdown extends ConsumerWidget {
   final Project currentProject;
   const ExplorerTypeDropdown({super.key, required this.currentProject});
@@ -123,39 +118,45 @@ class ExplorerTypeDropdown extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final registry = ref.watch(explorerRegistryProvider);
     final activeExplorer = ref.watch(activeExplorerProvider);
+    final explorerService = ref.read(explorerServiceProvider);
+    final appNotifier = ref.read(appNotifierProvider.notifier);
 
     return DropdownButtonHideUnderline(
       child: DropdownButton<ExplorerPlugin>(
         value: activeExplorer,
-        onChanged: (plugin) {
+        onChanged: (plugin) async {
           if (plugin != null) {
             ref.read(activeExplorerProvider.notifier).state = plugin;
-            // CORRECTED: Read the service first, then pass it to the project method.
-            final workspaceService = ref.read(explorerWorkspaceServiceProvider);
-            currentProject.saveActiveExplorer(
-              plugin.id,
-              workspaceService: workspaceService,
+            final newProject = await explorerService.updateWorkspace(
+              currentProject,
+              (w) => ExplorerWorkspaceState(
+                activeExplorerPluginId: plugin.id,
+                pluginStates: w.pluginStates,
+              ),
             );
+            // Update the project in the global state
+            appNotifier.updateCurrentTab(newProject.session.currentTab!);
           }
         },
         isExpanded: true,
-        items:
-            registry.map((plugin) {
-              return DropdownMenuItem(
-                value: plugin,
-                child: Row(
-                  children: [
-                    Icon(plugin.icon, size: 20),
-                    const SizedBox(width: 12),
-                    Text(plugin.name, overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              );
-            }).toList(),
+        items: registry.map((plugin) {
+          return DropdownMenuItem(
+            value: plugin,
+            child: Row(
+              children: [
+                Icon(plugin.icon, size: 20),
+                const SizedBox(width: 12),
+                Text(plugin.name, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 }
+
+// ... (Other UI components like ProjectSwitcherDropdown, ProjectSelectionScreen, ManageProjectsScreen are mostly unchanged but will benefit from the AppNotifier simplification) ...
 
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
@@ -165,7 +166,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects =
         ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
-        [];
+            [];
     final appNotifier = ref.read(appNotifierProvider.notifier);
 
     return DropdownButtonHideUnderline(
@@ -203,16 +204,18 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
             (p) => p.id == currentProject.id,
             orElse: () => currentProject.metadata,
           );
-          return knownProjects.map<Widget>((item) {
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  displayedProject.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList()
+          return knownProjects
+              .map<Widget>((item) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    displayedProject.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              })
+              .toList()
             ..add(const SizedBox.shrink());
         },
         icon: const Icon(Icons.arrow_drop_down),
@@ -237,7 +240,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final knownProjects =
         ref.watch(appNotifierProvider.select((s) => s.value?.knownProjects)) ??
-        [];
+            [];
 
     return Scaffold(
       appBar: AppBar(
@@ -327,8 +330,8 @@ class ManageProjectsScreen extends ConsumerWidget {
               isCurrent
                   ? Icons.folder_open
                   : project.projectTypeId == 'simple_local'
-                  ? Icons.folder_copy_outlined
-                  : Icons.folder_special_outlined,
+                      ? Icons.folder_copy_outlined
+                      : Icons.folder_special_outlined,
             ),
             title: Text(project.name + (isCurrent ? ' (Current)' : '')),
             subtitle: Text(project.rootUri, overflow: TextOverflow.ellipsis),
@@ -347,14 +350,13 @@ class ManageProjectsScreen extends ConsumerWidget {
                 }
               },
             ),
-            onTap:
-                isCurrent
-                    ? null
-                    : () async {
-                      await appNotifier.openKnownProject(project.id);
-                      if (!context.mounted) return;
-                      Navigator.pop(context); // Close the manage screen
-                    },
+            onTap: isCurrent
+                ? null
+                : () async {
+                    await appNotifier.openKnownProject(project.id);
+                    if (!context.mounted) return;
+                    Navigator.pop(context); // Close the manage screen
+                  },
           );
         },
       ),
@@ -376,21 +378,20 @@ class ManageProjectsScreen extends ConsumerWidget {
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: Text(title),
-                content: Text(content),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Confirm'),
-                  ),
-                ],
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
               ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
         ) ??
         false;
   }

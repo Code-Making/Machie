@@ -12,11 +12,8 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // REFACTOR: State is read directly from a simple provider now.
     final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
-
-    if (fileExplorerState == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
 
     return Column(
       children: [
@@ -25,6 +22,7 @@ class FileExplorerView extends ConsumerWidget {
             directory: project.rootUri,
             projectRootUri: project.rootUri,
             projectId: project.id,
+            // Pass the state down
             state: fileExplorerState,
           ),
         ),

@@ -1,91 +1,111 @@
 // lib/project/project_models.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../editor/plugins/plugin_models.dart';
+import '../editor/plugins/plugin_registry.dart';
 import '../editor/editor_tab_models.dart';
-import '../data/file_handler/file_handler.dart';
-import '../explorer/explorer_workspace_service.dart';
+import '../explorer/explorer_workspace_state.dart';
 
 // --- Models ---
 
+@immutable
 class ProjectMetadata {
   final String id;
   final String name;
   final String rootUri;
-  final String projectTypeId; // MODIFIED: from ProjectType to String
+  final String projectTypeId;
   final DateTime lastOpenedDateTime;
 
-  ProjectMetadata({
+  const ProjectMetadata({
     required this.id,
     required this.name,
     required this.rootUri,
-    required this.projectTypeId, // MODIFIED
+    required this.projectTypeId,
     required this.lastOpenedDateTime,
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'rootUri': rootUri,
-    'projectTypeId': projectTypeId, // MODIFIED
-    'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
-  };
+        'id': id,
+        'name': name,
+        'rootUri': rootUri,
+        'projectTypeId': projectTypeId,
+        'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
+      };
 
   factory ProjectMetadata.fromJson(Map<String, dynamic> json) =>
       ProjectMetadata(
         id: json['id'],
         name: json['name'],
         rootUri: json['rootUri'],
-        projectTypeId: json['projectTypeId'], // MODIFIED
+        projectTypeId: json['projectTypeId'],
         lastOpenedDateTime: DateTime.parse(json['lastOpenedDateTime']),
       );
 }
 
-abstract class Project {
-  ProjectMetadata metadata;
-  FileHandler fileHandler;
-  TabSessionState session;
+// REFACTOR: The Project class is now a pure, immutable domain model.
+// It holds all the persistent state for a project.
+@immutable
+class Project {
+  final ProjectMetadata metadata;
+  final TabSessionState session;
+  final ExplorerWorkspaceState workspace;
 
-  Project({
+  const Project({
     required this.metadata,
-    required this.fileHandler,
     required this.session,
+    required this.workspace,
   });
 
   String get id => metadata.id;
   String get name => metadata.name;
   String get rootUri => metadata.rootUri;
-  String get projectTypeId =>
-      metadata.projectTypeId; // NEW: Expose the type ID.
+  String get projectTypeId => metadata.projectTypeId;
 
-  Map<String, dynamic> toJson();
+  /// A factory for creating a brand new, empty project state.
+  factory Project.fresh(ProjectMetadata metadata) {
+    return Project(
+      metadata: metadata,
+      session: const TabSessionState(),
+      workspace: const ExplorerWorkspaceState(
+        activeExplorerPluginId: 'com.machine.file_explorer', // Default
+      ),
+    );
+  }
 
-  Future<void> save();
-  Future<void> close({required Ref ref});
+  Project copyWith({
+    ProjectMetadata? metadata,
+    TabSessionState? session,
+    ExplorerWorkspaceState? workspace,
+  }) {
+    return Project(
+      metadata: metadata ?? this.metadata,
+      session: session ?? this.session,
+      workspace: workspace ?? this.workspace,
+    );
+  }
 
-  Future<Map<String, dynamic>?> loadPluginState(
-    String pluginId, {
-    required ExplorerWorkspaceService workspaceService,
-  });
-  Future<void> savePluginState(
-    String pluginId,
-    Map<String, dynamic> stateJson, {
-    required ExplorerWorkspaceService workspaceService,
-  });
-  Future<void> saveActiveExplorer(
-    String pluginId, {
-    required ExplorerWorkspaceService workspaceService,
-  });
-  Future<String?> loadActiveExplorer({
-    required ExplorerWorkspaceService workspaceService,
-  });
+  Map<String, dynamic> toJson() => {
+        // We only serialize session and workspace, as metadata is managed separately
+        // in the global AppState.
+        'session': session.toJson(),
+        'workspace': workspace.toJson(),
+      };
 
-  Future<Project> openFile(
-    DocumentFile file, {
-    EditorPlugin? plugin,
-    required Ref ref,
-  });
-  Project switchTab(int index, {required Ref ref});
-  Project reorderTabs(int oldIndex, int newIndex);
-  Project closeTab(int index, {required Ref ref});
-  Project updateTab(int tabIndex, EditorTab newTab);
+  factory Project.fromJson(Map<String, dynamic> json) {
+    // Metadata is not part of this JSON, it's added separately after loading.
+    return Project(
+      metadata: const ProjectMetadata(
+        id: '',
+        name: '',
+        rootUri: '',
+        projectTypeId: '',
+        lastOpenedDateTime: null,
+      ), // Dummy value, will be replaced.
+      session: TabSessionState.fromJson(
+        json['session'] as Map<String, dynamic>? ?? {},
+      ),
+      workspace: ExplorerWorkspaceState.fromJson(
+        json['workspace'] as Map<String, dynamic>? ?? {},
+      ),
+    );
+  }
 }
