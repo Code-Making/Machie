@@ -1,5 +1,6 @@
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // REFACTOR: Add missing import
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/file_handler/file_handler.dart';
@@ -9,12 +10,11 @@ import '../../editor/plugins/plugin_registry.dart';
 import '../../editor/tab_state_notifier.dart';
 import '../../project/project_models.dart';
 
-// REFACTOR: Provider for the EditorService.
+// ... rest of the file is unchanged ...
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
 });
 
-/// REFACTOR: Application layer service to handle all editor and tab logic.
 class EditorService {
   final Ref _ref;
   EditorService(this._ref);
@@ -40,7 +40,6 @@ class EditorService {
     final existingIndex =
         project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
-      // If file is already open, just switch to it.
       return OpenFileSuccess(
         project: switchTab(project, existingIndex),
         wasAlreadyOpen: true,
@@ -99,7 +98,7 @@ class EditorService {
     } else if (bytes != null) {
       await _repo.writeFileAsBytes(tabToSave.file, bytes);
     } else {
-      return; // Nothing to save
+      return;
     }
 
     _ref.read(tabStateProvider.notifier).markClean(tabToSave.file.uri);
@@ -179,7 +178,6 @@ class EditorService {
   }
 }
 
-// REFACTOR: Update OpenFileResult to carry the new project state.
 @immutable
 sealed class OpenFileResult {}
 

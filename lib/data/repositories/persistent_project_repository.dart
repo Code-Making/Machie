@@ -1,5 +1,6 @@
 // lib/data/repositories/persistent_project_repository.dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
@@ -28,11 +29,8 @@ class PersistentProjectRepository implements ProjectRepository {
     if (projectFile != null) {
       final content = await fileHandler.readFile(projectFile.uri);
       final json = jsonDecode(content);
-      // The metadata passed in is the most current, so we use it.
-      // The JSON from the file provides the session and workspace.
       return Project.fromJson(json).copyWith(metadata: metadata);
     } else {
-      // No project file found, so this is a fresh project.
       return Project.fresh(metadata);
     }
   }
@@ -47,4 +45,59 @@ class PersistentProjectRepository implements ProjectRepository {
       overwrite: true,
     );
   }
+
+  // REFACTOR: Implement all abstract methods by delegating to fileHandler.
+  @override
+  Future<DocumentFile?> copyDocumentFile(
+          DocumentFile source, String destinationParentUri) =>
+      fileHandler.copyDocumentFile(source, destinationParentUri);
+
+  @override
+  Future<DocumentFile> createDocumentFile(String parentUri, String name,
+          {bool isDirectory = false,
+          String? initialContent,
+          Uint8List? initialBytes,
+          bool overwrite = false}) =>
+      fileHandler.createDocumentFile(parentUri, name,
+          isDirectory: isDirectory,
+          initialContent: initialContent,
+          initialBytes: initialBytes,
+          overwrite: overwrite);
+
+  @override
+  Future<void> deleteDocumentFile(DocumentFile file) =>
+      fileHandler.deleteDocumentFile(file);
+
+  @override
+  Future<DocumentFile?> getFileMetadata(String uri) =>
+      fileHandler.getFileMetadata(uri);
+
+  @override
+  Future<List<DocumentFile>> listDirectory(String uri,
+          {bool includeHidden = false}) =>
+      fileHandler.listDirectory(uri, includeHidden: includeHidden);
+
+  @override
+  Future<DocumentFile?> moveDocumentFile(
+          DocumentFile source, String destinationParentUri) =>
+      fileHandler.moveDocumentFile(source, destinationParentUri);
+
+  @override
+  Future<String> readFile(String uri) => fileHandler.readFile(uri);
+
+  @override
+  Future<Uint8List> readFileAsBytes(String uri) =>
+      fileHandler.readFileAsBytes(uri);
+
+  @override
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName) =>
+      fileHandler.renameDocumentFile(file, newName);
+
+  @override
+  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
+      fileHandler.writeFile(file, content);
+
+  @override
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
+      fileHandler.writeFileAsBytes(file, bytes);
 }
