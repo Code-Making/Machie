@@ -8,6 +8,8 @@ import 'project_models.dart';
 
 import '../data/file_handler/file_handler.dart';
 
+export'project_models.dart';
+
 final projectManagerProvider = Provider<ProjectManager>((ref) {
   return ProjectManager(ref);
 });
