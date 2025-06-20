@@ -7,16 +7,38 @@ import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_notifier.dart';
 
-final tabBarScrollProvider = Provider<ScrollController>((ref) {
-  return ScrollController();
-});
+// REFACTOR: The tabBarScrollProvider has been removed.
+// The controller's lifecycle will be managed by the widget itself.
 
-class TabBarWidget extends ConsumerWidget {
+class TabBarWidget extends ConsumerStatefulWidget {
   const TabBarWidget({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scrollController = ref.watch(tabBarScrollProvider);
+  ConsumerState<TabBarWidget> createState() => _TabBarWidgetState();
+}
+
+class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
+  // REFACTOR: The ScrollController is now a state variable.
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    // REFACTOR: Initialize the controller here.
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    // REFACTOR: Dispose of the controller to prevent memory leaks.
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Note: We use ref.watch here because we want the widget to rebuild
+    // if the list of tabs changes.
     final tabs =
         ref.watch(
           appNotifierProvider.select(
@@ -30,12 +52,13 @@ class TabBarWidget extends ConsumerWidget {
     }
 
     return Container(
-      color: Colors.grey[900],
+      color: Theme.of(context).appBarTheme.backgroundColor,
       height: 40,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
           key: const PageStorageKey<String>('tabBarScrollPosition'),
-          scrollController: scrollController,
+          // REFACTOR: Use the state's controller instance.
+          scrollController: _scrollController,
           scrollDirection: Axis.horizontal,
           onReorder:
               (oldIndex, newIndex) => ref
@@ -56,7 +79,7 @@ class TabBarWidget extends ConsumerWidget {
   }
 }
 
-
+// ... TabWidget and EditorContentSwitcher are unchanged ...
 
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
