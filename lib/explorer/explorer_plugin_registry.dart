@@ -1,5 +1,6 @@
 // lib/explorer/explorer_plugin_registry.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
 import 'plugins/file_explorer/file_explorer_state.dart';
@@ -20,8 +21,6 @@ final activeExplorerProvider = StateProvider<ExplorerPlugin>((ref) {
   return ref.watch(explorerRegistryProvider).first;
 });
 
-// REFACTOR: A new generic state provider for the active explorer's settings.
-// It will return null for stateless plugins.
 final activeExplorerSettingsProvider =
     Provider<ExplorerPluginSettings?>((ref) {
   final project = ref.watch(appNotifierProvider).value?.currentProject;
@@ -33,17 +32,13 @@ final activeExplorerSettingsProvider =
   final pluginStateJson =
       project.workspace.pluginStates[activePlugin.id];
   if (pluginStateJson != null && pluginStateJson is Map<String, dynamic>) {
-    // This is a bit of a hack due to lack of generic factory constructors.
-    // In a real-world app, you might use a map of factories.
     if (activePlugin.id == 'com.machine.file_explorer') {
       return FileExplorerSettings.fromJson(pluginStateJson);
     }
   }
-  // Return the default settings for the plugin if none are saved.
   return activePlugin.settings;
 });
 
-// REFACTOR: A new generic notifier to update the active explorer's settings.
 final activeExplorerNotifierProvider =
     Provider((ref) => ActiveExplorerNotifier(ref));
 
@@ -71,7 +66,8 @@ class ActiveExplorerNotifier {
         return w.copyWith(pluginStates: newPluginStates);
       },
     );
-    // Update the project in the global state to trigger a UI rebuild.
-    appNotifier.updateCurrentTab(newProject.session.currentTab!);
+    
+    // REFACTOR: Call the new, generic update method.
+    appNotifier.updateCurrentProject(newProject);
   }
 }
