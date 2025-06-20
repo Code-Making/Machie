@@ -11,12 +11,11 @@ import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
 import '../../editor/services/editor_service.dart';
-import '../explorer_plugin_registry.dart'; // REFACTOR: Import generic provider
+import '../explorer_plugin_registry.dart';
 
 class DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
-  // REFACTOR: This widget no longer needs projectId, it's fully generic.
   final FileExplorerSettings state;
 
   const DirectoryView({
@@ -57,7 +56,7 @@ class DirectoryView extends ConsumerWidget {
       },
     );
   }
-  // ... _applySorting is unchanged ...
+
   void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
@@ -77,7 +76,6 @@ class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
-  // REFACTOR: Removed projectId
   final String? subtitle;
 
   const DirectoryItem({
@@ -90,7 +88,6 @@ class DirectoryItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Use the generic notifier.
     final explorerNotifier = ref.read(activeExplorerNotifierProvider);
 
     Widget childWidget;
@@ -105,7 +102,6 @@ class DirectoryItem extends ConsumerWidget {
         subtitle: subtitle != null ? Text(subtitle!) : null,
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
-          // REFACTOR: Call the generic update method.
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
             final newExpanded = Set<String>.from(currentSettings.expandedFolders);
@@ -122,7 +118,6 @@ class DirectoryItem extends ConsumerWidget {
           if (isExpanded)
             Consumer(
               builder: (context, ref, _) {
-                // REFACTOR: Use the generic settings provider.
                 final currentState =
                     ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
                 final project =
@@ -138,11 +133,10 @@ class DirectoryItem extends ConsumerWidget {
         ],
       );
     } else {
-      // ... ListTile is unchanged ...
       childWidget = ListTile(
         key: ValueKey(item.uri),
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
-        leading: FileTypeIcon(file: item),
+        leading: FileTypeIcon(file: item), // <-- This is where the error was
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         subtitle:
             subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
@@ -158,4 +152,33 @@ class DirectoryItem extends ConsumerWidget {
     );
   }
 }
-// ... RootPlaceholder and FileTypeIcon are unchanged ...
+
+// REFACTOR: This class definition is now confirmed to be here, fixing the error.
+class RootPlaceholder implements DocumentFile {
+  @override
+  final String uri;
+  @override
+  final bool isDirectory = true;
+  @override
+  String get name => '';
+  @override
+  int get size => 0;
+  @override
+  DateTime get modifiedDate => DateTime.now();
+  @override
+  String get mimeType => 'inode/directory';
+  RootPlaceholder(this.uri);
+}
+
+// REFACTOR: This widget definition is now confirmed to be here, fixing the error.
+class FileTypeIcon extends ConsumerWidget {
+  final DocumentFile file;
+  const FileTypeIcon({super.key, required this.file});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plugins = ref.watch(activePluginsProvider);
+    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(file));
+    return plugin?.icon ?? const Icon(Icons.article_outlined);
+  }
+}
