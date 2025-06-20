@@ -3,7 +3,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app_notifier.dart';
 import '../../data/file_handler/local_file_handler.dart';
 import '../../logs/logs_provider.dart';
 import '../../utils/clipboard.dart';

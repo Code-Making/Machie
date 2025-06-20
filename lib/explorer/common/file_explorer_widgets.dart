@@ -8,9 +8,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
-import 'file_explorer_dialogs.dart';
-import '../../utils/toast.dart';
-import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 
 class DirectoryView extends ConsumerWidget {

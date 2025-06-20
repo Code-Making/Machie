@@ -7,7 +7,7 @@ import '../project/project_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'common/new_project_screen.dart';
 import 'services/explorer_service.dart';
-import 'explorer_workspace_state.dart'; // REFACTOR: Add missing import
+// REFACTOR: Add missing import
 // ... (rest of file is unchanged, but the import fixes the error) ...
 
 class ExplorerHostDrawer extends ConsumerWidget {
