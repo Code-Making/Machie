@@ -3,12 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editors/plugins/plugin_models.dart';
 import '../editors/editor_tab_models.dart';
 import '../data/file_handler/file_handler.dart';
-import '../explorer/explorer_workspace_service.dart'; // NEW IMPORT
-
-// DELETED: The enum is no longer needed. We'll use string IDs.
-// enum ProjectType { local }
-
-enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
+import '../explorer/explorer_workspace_service.dart';
 
 // --- Models ---
 
