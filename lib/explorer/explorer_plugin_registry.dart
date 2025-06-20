@@ -7,6 +7,8 @@ import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
 import 'plugins/search_explorer/search_explorer_plugin.dart'; // NEW IMPORT
 
+export 'explorer_plugin_models.dart';
+
 final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [
     FileExplorerPlugin(),
