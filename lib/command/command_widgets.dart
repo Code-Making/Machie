@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
 
-import 'command_models.dart';
 import 'command_notifier.dart';
 
 // This provider now resolves the correct, context-specific commands for the app bar.
