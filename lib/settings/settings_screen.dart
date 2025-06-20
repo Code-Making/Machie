@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../editors/plugins/plugin_registry.dart';
-import '../command/command_models.dart';
 import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
 
