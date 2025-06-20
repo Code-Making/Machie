@@ -356,17 +356,3 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 }
 
-@immutable
-sealed class OpenFileResult {}
-
-class OpenFileSuccess extends OpenFileResult {}
-
-class OpenFileShowChooser extends OpenFileResult {
-  final List<EditorPlugin> plugins;
-  OpenFileShowChooser(this.plugins);
-}
-
-class OpenFileError extends OpenFileResult {
-  final String message;
-  OpenFileError(this.message);
-}
