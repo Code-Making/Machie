@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../editors/plugins/plugin_models.dart';
 import '../../editors/plugins/plugin_registry.dart';
 import '../../utils/clipboard.dart';
 import 'file_explorer_dialogs.dart';
