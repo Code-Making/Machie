@@ -2,22 +2,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/tab_state_notifier.dart';
+import '../../../data/repositories/project_repository.dart'; // REFACTOR: Import repository
 
-// This provider holds the raw file content and its initial state.
+// REFACTOR: This provider now uses the active ProjectRepository.
 final fileContentProvider = FutureProvider.autoDispose.family<String, String>((
   ref,
   fileUri,
 ) async {
-  final project = ref.watch(appNotifierProvider).value!.currentProject!;
-  return await project.fileHandler.readFile(fileUri);
+  final repo = ref.watch(projectRepositoryProvider);
+  if (repo == null) {
+    throw Exception('Project repository not available to read file.');
+  }
+  return await repo.readFile(fileUri);
 });
 
 // A provider to manage the dirty state, separate from the content itself.
-final codeEditorDirtyStateProvider = StateProvider.autoDispose
-    .family<bool, String>((ref, fileUri) {
-      // This state is managed by the UI widget that holds the controller.
-      return false;
-    });
+final codeEditorDirtyStateProvider =
+    StateProvider.autoDispose.family<bool, String>((ref, fileUri) {
+  // This state is managed by the UI widget that holds the controller.
+  return false;
+});
 
 // A helper provider to watch the global tab dirty state.
 // This allows the save command to be enabled/disabled correctly.
