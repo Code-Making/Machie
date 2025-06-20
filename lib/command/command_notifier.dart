@@ -8,6 +8,9 @@ import '../editors/plugins/plugin_registry.dart';
 
 import 'command_models.dart';
 
+export 'command_models.dart';
+
+
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
   ref,
 ) {
