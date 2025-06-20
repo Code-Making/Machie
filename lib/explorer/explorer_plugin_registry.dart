@@ -1,6 +1,5 @@
 // lib/explorer/explorer_plugin_registry.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../project/project_models.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
 import 'plugins/file_explorer/file_explorer_state.dart';

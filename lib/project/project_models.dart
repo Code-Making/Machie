@@ -1,10 +1,8 @@
 // lib/project/project_models.dart
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../editor/plugins/plugin_registry.dart';
 import '../editor/editor_tab_models.dart';
 import '../explorer/explorer_workspace_state.dart';
-import '../data/file_handler/file_handler.dart'; // REFACTOR: Add for DocumentFile
+// REFACTOR: Add for DocumentFile
 
 // --- Models ---
 

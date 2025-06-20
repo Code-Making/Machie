@@ -21,7 +21,6 @@ import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
-import '../project/project_models.dart';
 
 import '../editor/services/editor_service.dart';
 
