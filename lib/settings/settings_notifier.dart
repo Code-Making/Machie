@@ -8,6 +8,9 @@ import '../editors/plugins/plugin_registry.dart';
 
 import 'settings_models.dart';
 
+export 'settings_models.dart';
+
+
 // --------------------
 //  Settings Providers
 // --------------------
