@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/project_models.dart';
 import '../../../data/repositories/project_repository.dart'; // REFACTOR
+import '../../../app/app_notifier.dart'; // REFACTOR
 
 // ... (SearchState model is unchanged) ...
 class SearchState {
