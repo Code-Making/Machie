@@ -4,13 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
-import '../../data/file_handler/file_handler.dart';
+// REFACTOR: The OpenFileResult classes are now defined below, so we don't need this from file_handler
+// import '../../data/file_handler/file_handler.dart'; 
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../../editor/tab_state_notifier.dart';
 import '../../project/project_models.dart';
 import '../../logs/logs_provider.dart';
+import '../../data/file_handler/file_handler.dart' show DocumentFile; // REFACTOR: Only import what's needed
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -33,7 +35,6 @@ class EditorService {
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
 
-  // REFACTOR: Tab rehydration logic now lives here.
   Future<Project> rehydrateTabs(Project project) async {
     final projectStateJson = project.toJson();
     final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
@@ -139,7 +140,6 @@ class EditorService {
     }
   }
 
-  // ... other methods (switchTab, closeTab, etc.) are unchanged ...
   Project switchTab(Project project, int index) {
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);

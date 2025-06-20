@@ -5,7 +5,8 @@ import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
-import '../../app/app_notifier.dart'; // For invalidating provider
+import '../../app/app_notifier.dart';
+import '../../utils/clipboard.dart'; // REFACTOR: Add this missing import
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
