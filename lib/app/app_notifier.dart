@@ -21,18 +21,16 @@ import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
-
-import '../editor/services/editor_service.dart';
+import '../project/project_models.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
-
+// ... (providers are unchanged) ...
 final navigatorKeyProvider = Provider((ref) => GlobalKey<NavigatorState>());
 final rootScaffoldMessengerKeyProvider = Provider(
   (ref) => GlobalKey<ScaffoldMessengerState>(),
 );
-
 final currentProjectDirectoryContentsProvider =
     FutureProvider.autoDispose.family<List<DocumentFile>, String>((ref, uri) async {
   final handler = ref.watch(projectRepositoryProvider)?.fileHandler;
@@ -45,7 +43,9 @@ final currentProjectDirectoryContentsProvider =
   return handler.listDirectory(uri);
 });
 
+
 class AppNotifier extends AsyncNotifier<AppState> {
+  // ... build() and other methods are unchanged ...
   late AppStateRepository _appStateRepository;
   late ProjectService _projectService;
   late EditorService _editorService;
@@ -70,7 +70,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
             meta,
             projectStateJson: initialState.currentProjectState,
           );
-          // REFACTOR: Delegate tab rehydration to the service.
           final rehydratedProject = await _editorService.rehydrateTabs(project);
           return initialState.copyWith(
             currentProject: rehydratedProject,
@@ -84,7 +83,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
-  // --- Toolbar Overrides & State Updates (unchanged) ---
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));
   void setBottomToolbarOverride(Widget? widget) =>
@@ -105,6 +103,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final previousState = state.value;
     if (previousState == null) return;
     state = AsyncData(updater(previousState));
+  }
+  
+  // REFACTOR: Add a generic project updater method.
+  void updateCurrentProject(Project newProject) {
+    _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
   // --- Project Management (delegates to ProjectService) ---

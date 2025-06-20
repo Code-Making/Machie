@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
-
 import 'command_notifier.dart';
 
 // This provider now resolves the correct, context-specific commands for the app bar.
@@ -27,9 +26,15 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
+
+    // REFACTOR: The logic now checks for the current plugin OR the general 'App' source.
+    // It also handles the case where there is no active plugin.
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) => c.id == id && c.sourcePlugin == currentPluginName,
+      (c) =>
+          c.id == id &&
+          (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
     );
+
     if (command != null) {
       visibleItems.add(command);
     }
@@ -37,6 +42,7 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
+// This provider does the same for the plugin toolbar.
 final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
@@ -56,9 +62,15 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
+
+    // REFACTOR: The logic now checks for the current plugin OR the general 'App' source.
+    // It also handles the case where there is no active plugin.
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) => c.id == id && c.sourcePlugin == currentPluginName,
+      (c) =>
+          c.id == id &&
+          (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
     );
+
     if (command != null) {
       visibleItems.add(command);
     }
@@ -66,13 +78,8 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
-// REFACTOR: The bottomToolbarScrollProvider has been removed.
 
-// --------------------
-//   Toolbar Widgets
-// --------------------
-
-// ... AppBarCommands is unchanged ...
+// ... The rest of the file (BottomToolbar, CommandButton, etc.) is unchanged ...
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
@@ -110,7 +117,6 @@ class BottomToolbar extends ConsumerStatefulWidget {
 }
 
 class _BottomToolbarState extends ConsumerState<BottomToolbar> {
-  // REFACTOR: The ScrollController is now a state variable.
   late final ScrollController _scrollController;
 
   @override
@@ -141,7 +147,6 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
       color: Colors.grey[900],
       child: ListView.builder(
         key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
-        // REFACTOR: Use the state's controller instance.
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
@@ -159,8 +164,6 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     );
   }
 }
-
-// ... CommandButton and CommandGroupButton are unchanged ...
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
@@ -211,7 +214,7 @@ class CommandGroupButton extends ConsumerWidget {
         commandGroup.commandIds
             .map(
               (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-                (c) => c.id == id && c.sourcePlugin == currentPluginName,
+                (c) => c.id == id && (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
               ),
             )
             .whereType<Command>()
