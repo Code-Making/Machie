@@ -9,7 +9,8 @@ import '../../editor/plugins/plugin_registry.dart';
 import '../../utils/clipboard.dart';
 import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
-import '../../data/repositories/project_repository.dart'; // REFACTOR
+import '../../data/repositories/project_repository.dart';
+import '../services/explorer_service.dart'; // REFACTOR: Import service
 
 // ... (_DividerCommand is unchanged) ...
 class _DividerCommand extends FileContextCommand {
@@ -86,8 +87,9 @@ class FileContextCommands {
   ) {
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final clipboardContent = ref.watch(clipboardProvider);
-    // REFACTOR: We get the repository to access file system metadata.
     final repo = ref.read(projectRepositoryProvider);
+    // REFACTOR: Get the service
+    final explorerService = ref.read(explorerServiceProvider);
 
     final List<FileContextCommand> commands = [];
 
@@ -101,7 +103,6 @@ class FileContextCommands {
             sourcePlugin: 'FileExplorer',
             canExecuteFor: (ref, item) => true,
             executeFor: (ref, item) async {
-              // REFACTOR: Logic is simpler now.
               await appNotifier.openFileInEditor(item, explicitPlugin: plugin);
             },
           ),
@@ -124,9 +125,8 @@ class FileContextCommands {
             initialValue: item.name,
           );
           if (newName != null && newName.isNotEmpty && newName != item.name) {
-            await appNotifier.performFileOperation(
-              (handler) => handler.renameDocumentFile(item, newName),
-            );
+            // REFACTOR: Call service method
+            await explorerService.renameItem(item, newName);
           }
         },
       ),
@@ -143,9 +143,8 @@ class FileContextCommands {
             content: 'This action cannot be undone.',
           );
           if (confirm) {
-            await appNotifier.performFileOperation(
-              (handler) => handler.deleteDocumentFile(item),
-            );
+            // REFACTOR: Call service method
+            await explorerService.deleteItem(item);
           }
         },
       ),
@@ -182,27 +181,18 @@ class FileContextCommands {
         label: 'Paste',
         icon: const Icon(Icons.content_paste),
         sourcePlugin: 'FileExplorer',
-        canExecuteFor: (ref, item) => item.isDirectory &&
-            clipboardContent != null &&
-            repo != null, // REFACTOR: check for repo
+        canExecuteFor:
+            (ref, item) => item.isDirectory && clipboardContent != null && repo != null,
         executeFor: (ref, item) async {
-          if (clipboardContent == null || repo == null) return;
-          final sourceFile =
-              await repo.getFileMetadata(clipboardContent.uri);
-          if (sourceFile == null) {
-            MachineToast.error('Clipboard source file not found.');
+          if (clipboardContent == null) return;
+          try {
+            // REFACTOR: Call service method
+            await explorerService.pasteItem(item, clipboardContent);
             appNotifier.clearClipboard();
-            return;
+          } catch (e) {
+            MachineToast.error(e.toString());
+            appNotifier.clearClipboard();
           }
-
-          await appNotifier.performFileOperation((repo) async { // REFACTOR: operation is on repo
-            if (clipboardContent.operation == ClipboardOperation.copy) {
-              await repo.copyDocumentFile(sourceFile, item.uri);
-            } else {
-              await repo.moveDocumentFile(sourceFile, item.uri);
-            }
-          });
-          appNotifier.clearClipboard();
         },
       ),
     ]);

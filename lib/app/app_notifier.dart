@@ -1,6 +1,5 @@
 // lib/app/app_notifier.dart
 import 'dart:typed_data';
-import 'dart:ui' as ui; // REFACTOR: Add missing import
 
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
@@ -17,10 +16,7 @@ import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart';
 
-// REFACTOR: Add missing imports
 import '../explorer/common/file_explorer_dialogs.dart';
-import '../editor/plugins/glitch_editor/glitch_editor_models.dart';
-import '../editor/plugins/glitch_editor/glitch_editor_plugin.dart';
 
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
@@ -73,7 +69,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
             meta,
             projectStateJson: initialState.currentProjectState,
           );
-          final rehydratedProject = await _rehydrateTabs(project);
+          // REFACTOR: Delegate tab rehydration to the service.
+          final rehydratedProject = await _editorService.rehydrateTabs(project);
           return initialState.copyWith(
             currentProject: rehydratedProject,
             clearCurrentProjectState: true,
@@ -86,7 +83,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
-  // --- Toolbar Override Methods ---
+  // --- Toolbar Overrides & State Updates (unchanged) ---
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));
   void setBottomToolbarOverride(Widget? widget) =>
@@ -96,7 +93,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void clearBottomToolbarOverride() =>
       _updateStateSync((s) => s.copyWith(clearBottomToolbarOverride: true));
 
-  // --- State Update Helpers ---
   Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;
     if (previousState == null) return;
@@ -110,7 +106,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     state = AsyncData(updater(previousState));
   }
 
-  // --- Project Management ---
+  // --- Project Management (delegates to ProjectService) ---
   Future<void> openProjectFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -121,9 +117,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-
+      final rehydratedProject = await _editorService.rehydrateTabs(result.project);
       return s.copyWith(
-        currentProject: result.project,
+        currentProject: rehydratedProject,
         lastOpenedProjectId: result.project.id,
         knownProjects:
             result.isNew ? [...s.knownProjects, result.metadata] : s.knownProjects,
@@ -140,7 +136,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
       final project = await _projectService.openProject(meta);
-      final rehydratedProject = await _rehydrateTabs(project);
+      final rehydratedProject = await _editorService.rehydrateTabs(project);
       return s.copyWith(
         currentProject: rehydratedProject,
         lastOpenedProjectId: project.id,
@@ -169,19 +165,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  // --- File Operations ---
-  Future<void> performFileOperation(
-    Future<dynamic> Function(ProjectRepository) operation,
-  ) async {
-    final repo = ref.read(projectRepositoryProvider);
-    if (repo == null) return;
-    await operation(repo);
-    ref.invalidate(currentProjectDirectoryContentsProvider);
-  }
+  // REFACTOR: DELETED `performFileOperation`. UI commands will call ExplorerService directly.
 
   void clearClipboard() => ref.read(clipboardProvider.notifier).state = null;
 
-  // --- Tab Management ---
+  // --- Tab Management (delegates to EditorService) ---
   void markCurrentTabDirty() {
     final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
@@ -247,25 +235,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _editorService.saveCurrentTab(project, content: content);
   }
 
+  // REFACTOR: This method is now clean of implementation details.
   Future<void> saveCurrentTabAsBytes(Uint8List bytes) async {
     final project = state.value?.currentProject;
     if (project == null) return;
     await _editorService.saveCurrentTab(project, bytes: bytes);
-    
-    // After saving bytes, we also need to update the originalImage in the plugin
-    // to prevent "dirty" state from re-appearing on reset.
-    final tab = project.session.currentTab;
-    if (tab is GlitchEditorTab) {
-      final plugin = tab.plugin as GlitchEditorPlugin;
-      final image = plugin.getImageForTab(tab);
-      if (image == null) return;
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-       if (byteData == null) return;
-       // This is a bit of a hack. The Glitch plugin should manage its own state.
-       // A better solution would be a method like `plugin.markAsSaved(newBytes)`
-       // For now, this is a quick fix.
-       await _editorService.saveCurrentTab(project, bytes: byteData.buffer.asUint8List());
-    }
   }
 
   Future<void> saveCurrentTabAs({
@@ -328,51 +302,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
     );
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
-  
-  // REFACTOR: This method is now only responsible for persisting the state.
+
   Future<void> saveAppState() async {
     final appState = state.value;
     if (appState == null) return;
 
     if (appState.currentProject != null) {
-      // The service knows which repository to use and how to save.
       await _projectService.saveProject(appState.currentProject!);
     }
-
-    // The app state repository handles SharedPreferences.
     await _appStateRepository.saveAppState(appState);
   }
 
-  // --- Helpers ---
-  Future<Project> _rehydrateTabs(Project project) async {
-    final repo = ref.read(projectRepositoryProvider);
-    if (repo == null) return project;
-    // REFACTOR: The raw JSON for tabs is now in the project's session object.
-    final projectStateJson = project.toJson();
-    final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
-    final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
-
-    final plugins = ref.read(activePluginsProvider);
-    final List<EditorTab> tabs = [];
-
-    for (final tabJson in tabsJson) {
-      final pluginType = tabJson['pluginType'] as String?;
-      if (pluginType == null) continue;
-
-      final plugin =
-          plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
-      if (plugin != null) {
-        try {
-          final tab = await plugin.createTabFromSerialization(tabJson, repo.fileHandler);
-          tabs.add(tab);
-          ref.read(tabStateProvider.notifier).initTab(tab.file.uri);
-        } catch (e) {
-          ref.read(talkerProvider).error('Could not restore tab: $e');
-        }
-      }
-    }
-    return project.copyWith(
-      session: project.session.copyWith(tabs: tabs),
-    );
-  }
+  // REFACTOR: DELETED the `_rehydrateTabs` helper method.
 }

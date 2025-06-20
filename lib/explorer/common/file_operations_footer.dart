@@ -11,6 +11,7 @@ import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
 import 'file_explorer_widgets.dart';
+import '../services/explorer_service.dart'; // REFACTOR: Import service
 
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
@@ -24,8 +25,9 @@ class FileOperationsFooter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
-    final appNotifier = ref.read(appNotifierProvider.notifier);
     final talker = ref.read(talkerProvider);
+    // REFACTOR: Get the service
+    final explorerService = ref.read(explorerServiceProvider);
 
     final rootDoc = RootPlaceholder(projectRootUri);
     final pasteCommand = FileContextCommands.getCommands(
@@ -52,13 +54,8 @@ class FileOperationsFooter extends ConsumerWidget {
               );
               if (newFileName != null && newFileName.isNotEmpty) {
                 try {
-                  await appNotifier.performFileOperation(
-                    (repo) => repo.createDocumentFile( // REFACTOR: Use repo
-                      projectRootUri,
-                      newFileName,
-                      isDirectory: false,
-                    ),
-                  );
+                  // REFACTOR: Call service method
+                  await explorerService.createFile(projectRootUri, newFileName);
                   talker.info('Created new file: $newFileName');
                 } catch (e, st) {
                   talker.handle(e, st, 'Error creating file');
@@ -77,13 +74,8 @@ class FileOperationsFooter extends ConsumerWidget {
               );
               if (newFolderName != null && newFolderName.isNotEmpty) {
                 try {
-                  await appNotifier.performFileOperation(
-                    (repo) => repo.createDocumentFile( // REFACTOR: Use repo
-                      projectRootUri,
-                      newFolderName,
-                      isDirectory: true,
-                    ),
-                  );
+                  // REFACTOR: Call service method
+                  await explorerService.createFolder(projectRootUri, newFolderName);
                 } catch (e, st) {
                   talker.handle(e, st, 'Error creating folder');
                 }
@@ -95,17 +87,12 @@ class FileOperationsFooter extends ConsumerWidget {
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Import File',
             onPressed: () async {
-              // This part requires an external file handler, which is correct.
               final pickerHandler = LocalFileHandlerFactory.create();
               final pickedFile = await pickerHandler.pickFile();
               if (pickedFile != null) {
                 try {
-                  await appNotifier.performFileOperation(
-                    (projectRepo) => projectRepo.copyDocumentFile( // REFACTOR: Use repo
-                      pickedFile,
-                      projectRootUri,
-                    ),
-                  );
+                  // REFACTOR: Call service method
+                  await explorerService.importFile(pickedFile, projectRootUri);
                 } catch (e, st) {
                   talker.handle(e, st, 'Error importing file');
                 }
@@ -116,15 +103,17 @@ class FileOperationsFooter extends ConsumerWidget {
           IconButton(
             icon: Icon(
               Icons.content_paste,
-              color: clipboardContent != null
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey,
+              color:
+                  clipboardContent != null
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed: (pasteCommand != null &&
-                    pasteCommand.canExecuteFor(ref, rootDoc))
-                ? () => pasteCommand.executeFor(ref, rootDoc)
-                : null,
+            onPressed:
+                (pasteCommand != null &&
+                        pasteCommand.canExecuteFor(ref, rootDoc))
+                    ? () => pasteCommand.executeFor(ref, rootDoc)
+                    : null,
           ),
           // --- Sort ---
           IconButton(
@@ -142,7 +131,7 @@ class FileOperationsFooter extends ConsumerWidget {
       ),
     );
   }
-
+  // ... _showSortOptions is unchanged ...
   void _showSortOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -154,7 +143,6 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
-                  // REFACTOR: Use the new notifier provider
                   ref
                       .read(fileExplorerNotifierProvider(projectId))
                       .setViewMode(FileExplorerViewMode.sortByNameAsc);
