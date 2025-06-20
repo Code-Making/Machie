@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/project_models.dart';
+import '../../../data/repositories/project_repository.dart'; // REFACTOR
 
-// Represents the state of the search explorer
+// ... (SearchState model is unchanged) ...
 class SearchState {
   final String query;
   final List<DocumentFile> results;
@@ -29,46 +30,57 @@ class SearchState {
   }
 }
 
-// Manages the search logic
+// REFACTOR: The family parameter is now just the project ID for simplicity.
 final searchStateProvider = StateNotifierProvider.autoDispose
-    .family<SearchStateNotifier, SearchState, Project>((ref, project) {
-      return SearchStateNotifier(project.fileHandler, project.rootUri);
-    });
+    .family<SearchStateNotifier, SearchState, String>((ref, projectId) {
+  final repo = ref.watch(projectRepositoryProvider);
+  if (repo == null) {
+    // Return a dummy notifier if the repository isn't ready.
+    return SearchStateNotifier(null, '');
+  }
+  final project = ref.watch(appNotifierProvider).value?.currentProject;
+  return SearchStateNotifier(repo, project?.rootUri ?? '');
+});
 
 class SearchStateNotifier extends StateNotifier<SearchState> {
-  final FileHandler _fileHandler;
+  // REFACTOR: Now depends on the repository, not a direct FileHandler.
+  final ProjectRepository? _repo;
   final String _rootUri;
-  List<DocumentFile>? _allFilesCache; // Cache the full file list
+  List<DocumentFile>? _allFilesCache;
   Timer? _debounce;
 
-  SearchStateNotifier(this._fileHandler, this._rootUri) : super(SearchState());
+  SearchStateNotifier(this._repo, this._rootUri) : super(SearchState());
 
-  // Recursively get all files in the project.
   Future<void> _fetchAllFiles() async {
+    if (_repo == null) return;
     state = state.copyWith(isLoading: true);
     final allFiles = <DocumentFile>[];
     final directoriesToScan = <String>[_rootUri];
 
     while (directoriesToScan.isNotEmpty) {
       final currentDirUri = directoriesToScan.removeAt(0);
-      final items = await _fileHandler.listDirectory(currentDirUri);
-      for (final item in items) {
-        if (item.isDirectory) {
-          directoriesToScan.add(item.uri);
-        } else {
-          allFiles.add(item);
+      try {
+        final items = await _repo!.listDirectory(currentDirUri);
+        for (final item in items) {
+          if (item.isDirectory) {
+            directoriesToScan.add(item.uri);
+          } else {
+            allFiles.add(item);
+          }
         }
+      } catch (e) {
+        // Log error but continue scanning other directories.
+        // talker.error('Error scanning directory $currentDirUri: $e');
       }
-      //print('Error scanning directory $currentDirUri: $e');
     }
     _allFilesCache = allFiles;
     state = state.copyWith(isLoading: false);
   }
 
-  // Perform a search with debouncing to avoid excessive searching while typing.
   void search(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
+      if (_repo == null) return;
       state = state.copyWith(query: query);
       if (query.isEmpty) {
         state = state.copyWith(results: []);
@@ -79,13 +91,16 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
         await _fetchAllFiles();
       }
 
-      final lowerCaseQuery = query.toLowerCase();
-      final results =
-          _allFilesCache!
-              .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
-              .toList();
+      if (_allFilesCache == null) return;
 
-      state = state.copyWith(results: results);
+      final lowerCaseQuery = query.toLowerCase();
+      final results = _allFilesCache!
+          .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
+          .toList();
+
+      if (mounted) {
+        state = state.copyWith(results: results);
+      }
     });
   }
 
