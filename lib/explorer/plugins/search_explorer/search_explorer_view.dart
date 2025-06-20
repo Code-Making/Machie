@@ -19,7 +19,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
-      // REFACTOR: Pass project ID to the provider.
       ref
           .read(searchStateProvider(widget.project.id).notifier)
           .search(_textController.text);
@@ -34,7 +33,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    // REFACTOR: Pass project ID to the provider.
     final searchState = ref.watch(searchStateProvider(widget.project.id));
     final projectRootUri = widget.project.rootUri;
 
@@ -68,22 +66,22 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             itemCount: searchState.results.length,
             itemBuilder: (context, index) {
               final file = searchState.results[index];
-              String relativePath = file.uri.startsWith(projectRootUri)
-                  ? file.uri.substring(projectRootUri.length)
-                  : file.uri;
+              String relativePath =
+                  file.uri.startsWith(projectRootUri)
+                      ? file.uri.substring(projectRootUri.length)
+                      : file.uri;
               if (relativePath.startsWith('/')) {
                 relativePath = relativePath.substring(1);
               }
               final lastSlash = relativePath.lastIndexOf('%2F');
-              final subtitle = lastSlash != -1
-                  ? Uri.decodeComponent(relativePath.substring(0, lastSlash))
-                  : '.';
+              final subtitle =
+                  lastSlash != -1 ? Uri.decodeComponent(relativePath.substring(0, lastSlash)) : '.';
 
               return DirectoryItem(
                 item: file,
                 depth: 0,
                 isExpanded: false,
-                projectId: widget.project.id,
+                // REFACTOR: Remove projectId, it's no longer needed.
                 subtitle: subtitle,
               );
             },
