@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
-import '../editors/plugins/plugin_registry.dart';
+import '../editor/plugins/plugin_registry.dart';
 import '../project/project_manager.dart';
-import '../editors/editor_tab_models.dart';
-import '../editors/tab_state_notifier.dart';
+import '../editor/editor_tab_models.dart';
+import '../editor/tab_state_notifier.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart'; // NEW IMPORT

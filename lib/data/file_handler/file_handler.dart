@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import '../../editors/plugins/plugin_models.dart';
+import '../../editor/plugins/plugin_models.dart';
 import 'package:flutter/foundation.dart';
 
 // Abstract interface for a file-like entity.
