@@ -5,6 +5,7 @@ import '../../../project/project_models.dart';
 import '../../common/file_explorer_widgets.dart';
 import '../../common/file_operations_footer.dart';
 import 'file_explorer_state.dart';
+import '../../explorer_plugin_registry.dart'; // REFACTOR: Import generic provider
 
 class FileExplorerView extends ConsumerWidget {
   final Project project;
@@ -12,8 +13,14 @@ class FileExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: State is read directly from a simple provider now.
-    final fileExplorerState = ref.watch(fileExplorerStateProvider(project.id));
+    // REFACTOR: Now uses the generic settings provider.
+    final fileExplorerState =
+        ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
+
+    // Handle the case where state might not be ready.
+    if (fileExplorerState == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Column(
       children: [
@@ -21,14 +28,12 @@ class FileExplorerView extends ConsumerWidget {
           child: DirectoryView(
             directory: project.rootUri,
             projectRootUri: project.rootUri,
-            projectId: project.id,
-            // Pass the state down
+            // Pass the state down to the truly common widget.
             state: fileExplorerState,
           ),
         ),
         FileOperationsFooter(
           projectRootUri: project.rootUri,
-          projectId: project.id,
         ),
       ],
     );
