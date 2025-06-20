@@ -5,6 +5,8 @@ import '../../../project/project_models.dart';
 import '../../explorer_workspace_service.dart';
 import '../file_explorer/file_explorer_plugin.dart';
 
+enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
+
 // NEW: This model is now specific to the file explorer.
 class FileExplorerSettings {
   final FileExplorerViewMode viewMode;
