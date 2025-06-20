@@ -4,6 +4,8 @@ import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart'; // NEW IMPORT
 
+import 'plugin_models.dart';
+
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
     CodeEditorPlugin(),
