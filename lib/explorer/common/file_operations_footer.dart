@@ -11,23 +11,25 @@ import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import 'file_explorer_dialogs.dart';
 import 'file_explorer_widgets.dart';
-import '../services/explorer_service.dart'; // REFACTOR: Import service
+import '../services/explorer_service.dart';
+import '../explorer_plugin_registry.dart'; // REFACTOR: Import registry
+import '../plugins/file_explorer/file_explorer_plugin.dart'; // REFACTOR: Import for type check
 
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
-  final String projectId;
+  // REFACTOR: This widget no longer needs projectId
   const FileOperationsFooter({
     super.key,
     required this.projectRootUri,
-    required this.projectId,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clipboardContent = ref.watch(clipboardProvider);
     final talker = ref.read(talkerProvider);
-    // REFACTOR: Get the service
     final explorerService = ref.read(explorerServiceProvider);
+    // REFACTOR: Check which explorer is active to conditionally show the sort button.
+    final activeExplorer = ref.watch(activeExplorerProvider);
 
     final rootDoc = RootPlaceholder(projectRootUri);
     final pasteCommand = FileContextCommands.getCommands(
@@ -43,18 +45,14 @@ class FileOperationsFooter extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          // --- New File ---
+          // ... New File, New Folder, Import File, Paste buttons are unchanged ...
           IconButton(
             icon: const Icon(Icons.note_add_outlined),
             tooltip: 'New File',
             onPressed: () async {
-              final newFileName = await showTextInputDialog(
-                context,
-                title: 'New File',
-              );
+              final newFileName = await showTextInputDialog(context, title: 'New File');
               if (newFileName != null && newFileName.isNotEmpty) {
                 try {
-                  // REFACTOR: Call service method
                   await explorerService.createFile(projectRootUri, newFileName);
                   talker.info('Created new file: $newFileName');
                 } catch (e, st) {
@@ -63,18 +61,13 @@ class FileOperationsFooter extends ConsumerWidget {
               }
             },
           ),
-          // --- New Folder ---
           IconButton(
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'New Folder',
             onPressed: () async {
-              final newFolderName = await showTextInputDialog(
-                context,
-                title: 'New Folder',
-              );
+              final newFolderName = await showTextInputDialog(context, title: 'New Folder');
               if (newFolderName != null && newFolderName.isNotEmpty) {
                 try {
-                  // REFACTOR: Call service method
                   await explorerService.createFolder(projectRootUri, newFolderName);
                 } catch (e, st) {
                   talker.handle(e, st, 'Error creating folder');
@@ -82,7 +75,6 @@ class FileOperationsFooter extends ConsumerWidget {
               }
             },
           ),
-          // --- Import File ---
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Import File',
@@ -91,7 +83,6 @@ class FileOperationsFooter extends ConsumerWidget {
               final pickedFile = await pickerHandler.pickFile();
               if (pickedFile != null) {
                 try {
-                  // REFACTOR: Call service method
                   await explorerService.importFile(pickedFile, projectRootUri);
                 } catch (e, st) {
                   talker.handle(e, st, 'Error importing file');
@@ -99,28 +90,25 @@ class FileOperationsFooter extends ConsumerWidget {
               }
             },
           ),
-          // --- Paste ---
           IconButton(
             icon: Icon(
               Icons.content_paste,
-              color:
-                  clipboardContent != null
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey,
+              color: clipboardContent != null
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed:
-                (pasteCommand != null &&
-                        pasteCommand.canExecuteFor(ref, rootDoc))
-                    ? () => pasteCommand.executeFor(ref, rootDoc)
-                    : null,
+            onPressed: (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
+                ? () => pasteCommand.executeFor(ref, rootDoc)
+                : null,
           ),
-          // --- Sort ---
-          IconButton(
-            icon: const Icon(Icons.sort_by_alpha),
-            tooltip: 'Sort',
-            onPressed: () => _showSortOptions(context, ref),
-          ),
+          // REFACTOR: Conditionally show the sort button.
+          if (activeExplorer is FileExplorerPlugin)
+            IconButton(
+              icon: const Icon(Icons.sort_by_alpha),
+              tooltip: 'Sort',
+              onPressed: () => _showSortOptions(context, ref),
+            ),
           // --- Close Drawer ---
           IconButton(
             icon: const Icon(Icons.close),
@@ -131,7 +119,7 @@ class FileOperationsFooter extends ConsumerWidget {
       ),
     );
   }
-  // ... _showSortOptions is unchanged ...
+
   void _showSortOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -143,9 +131,13 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerNotifierProvider(projectId))
-                      .setViewMode(FileExplorerViewMode.sortByNameAsc);
+                  // REFACTOR: Use the generic notifier
+                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                        (settings) =>
+                            (settings as FileExplorerSettings).copyWith(
+                          viewMode: FileExplorerViewMode.sortByNameAsc,
+                        ),
+                      );
                   Navigator.pop(ctx);
                 },
               ),
@@ -153,9 +145,12 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (Z-A)'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerNotifierProvider(projectId))
-                      .setViewMode(FileExplorerViewMode.sortByNameDesc);
+                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                        (settings) =>
+                            (settings as FileExplorerSettings).copyWith(
+                          viewMode: FileExplorerViewMode.sortByNameDesc,
+                        ),
+                      );
                   Navigator.pop(ctx);
                 },
               ),
@@ -163,9 +158,12 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.schedule),
                 title: const Text('Sort by Date Modified'),
                 onTap: () {
-                  ref
-                      .read(fileExplorerNotifierProvider(projectId))
-                      .setViewMode(FileExplorerViewMode.sortByDateModified);
+                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                        (settings) =>
+                            (settings as FileExplorerSettings).copyWith(
+                          viewMode: FileExplorerViewMode.sortByDateModified,
+                        ),
+                      );
                   Navigator.pop(ctx);
                 },
               ),

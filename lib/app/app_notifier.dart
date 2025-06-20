@@ -22,7 +22,7 @@ import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
-// REFACTOR: Add this import to resolve OpenFile... classes
+
 import '../editor/services/editor_service.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(

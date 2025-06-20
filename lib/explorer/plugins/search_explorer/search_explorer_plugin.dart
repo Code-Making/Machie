@@ -5,7 +5,6 @@ import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
 import 'search_explorer_view.dart';
 
-/// The concrete implementation of the ExplorerPlugin for searching files.
 class SearchExplorerPlugin implements ExplorerPlugin {
   @override
   String get id => 'com.machine.search_explorer';
@@ -16,9 +15,12 @@ class SearchExplorerPlugin implements ExplorerPlugin {
   @override
   IconData get icon => Icons.search;
 
+  // REFACTOR: Stateless plugins simply return null for settings.
+  @override
+  ExplorerPluginSettings? get settings => null;
+
   @override
   Widget build(WidgetRef ref, Project project) {
-    // The plugin's build method simply returns the dedicated view widget.
     return SearchExplorerView(project: project);
   }
 }
