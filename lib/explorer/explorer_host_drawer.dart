@@ -4,7 +4,6 @@ import 'package:collection/collection.dart';
 
 import '../app/app_notifier.dart';
 import '../project/project_models.dart';
-import 'explorer_plugin_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'common/new_project_screen.dart';
 import 'explorer_workspace_service.dart';
@@ -13,8 +12,8 @@ import 'explorer_workspace_service.dart';
 // Main Drawer Widget (The "Host")
 // --------------------
 
-class FileExplorerDrawer extends ConsumerWidget {
-  const FileExplorerDrawer({super.key});
+class ExplorerHostDrawer extends ConsumerWidget {
+  const ExplorerHostDrawer({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

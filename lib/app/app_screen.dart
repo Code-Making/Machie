@@ -57,7 +57,7 @@ class AppScreen extends ConsumerWidget {
                 ],
                 title: Text(currentTab?.file.name ?? 'Machine'),
               ),
-      drawer: const FileExplorerDrawer(),
+      drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
           const TabBarWidget(),
