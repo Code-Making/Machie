@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../editor/editor_tab_models.dart';
 import '../explorer/explorer_workspace_state.dart';
+import '../data/file_handler/file_handler.dart'; // REFACTOR: Add for DocumentFile
 
 // --- Models ---
 
@@ -41,8 +42,6 @@ class ProjectMetadata {
       );
 }
 
-// REFACTOR: The Project class is now a pure, immutable domain model.
-// It holds all the persistent state for a project.
 @immutable
 class Project {
   final ProjectMetadata metadata;
@@ -60,13 +59,12 @@ class Project {
   String get rootUri => metadata.rootUri;
   String get projectTypeId => metadata.projectTypeId;
 
-  /// A factory for creating a brand new, empty project state.
   factory Project.fresh(ProjectMetadata metadata) {
     return Project(
       metadata: metadata,
       session: const TabSessionState(),
       workspace: const ExplorerWorkspaceState(
-        activeExplorerPluginId: 'com.machine.file_explorer', // Default
+        activeExplorerPluginId: 'com.machine.file_explorer',
       ),
     );
   }
@@ -84,22 +82,20 @@ class Project {
   }
 
   Map<String, dynamic> toJson() => {
-        // We only serialize session and workspace, as metadata is managed separately
-        // in the global AppState.
         'session': session.toJson(),
         'workspace': workspace.toJson(),
       };
 
   factory Project.fromJson(Map<String, dynamic> json) {
-    // Metadata is not part of this JSON, it's added separately after loading.
     return Project(
-      metadata: const ProjectMetadata(
+      // REFACTOR: Remove const and provide a valid DateTime.
+      metadata: ProjectMetadata(
         id: '',
         name: '',
         rootUri: '',
         projectTypeId: '',
-        lastOpenedDateTime: null,
-      ), // Dummy value, will be replaced.
+        lastOpenedDateTime: DateTime.fromMillisecondsSinceEpoch(0),
+      ),
       session: TabSessionState.fromJson(
         json['session'] as Map<String, dynamic>? ?? {},
       ),
