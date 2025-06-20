@@ -1,7 +1,6 @@
 // lib/explorer/plugins/file_explorer/file_explorer_state.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
-import '../../../project/project_models.dart';
 import '../../explorer_workspace_service.dart';
 import '../file_explorer/file_explorer_plugin.dart';
 
