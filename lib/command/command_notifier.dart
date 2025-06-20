@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
 
 import '../editor/plugins/plugin_registry.dart';
-
+import '../app/app_commands.dart'; // REFACTOR: Import app-level commands
 import 'command_models.dart';
 
 export 'command_models.dart';
@@ -14,7 +15,9 @@ export 'command_models.dart';
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
   ref,
 ) {
-  return CommandNotifier(ref: ref, plugins: ref.watch(activePluginsProvider));
+  // REFACTOR: Watch active plugins to re-initialize if they change
+  final plugins = ref.watch(activePluginsProvider);
+  return CommandNotifier(ref: ref, plugins: plugins);
 });
 
 class CommandNotifier extends StateNotifier<CommandState> {
@@ -24,21 +27,17 @@ class CommandNotifier extends StateNotifier<CommandState> {
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
   Command? getCommand(String id, String sourcePlugin) {
-    // First try: Match both ID and source plugin
     for (final command in _allRegisteredCommands) {
       if (command.id == id && command.sourcePlugin == sourcePlugin) {
         return command;
       }
     }
-
-    // Second try: Match just ID
     for (final command in _allRegisteredCommands) {
       if (command.id == id) {
         return command;
       }
     }
-
-    return null; // Not found
+    return null;
   }
 
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
@@ -49,9 +48,13 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void _initializeCommands(Set<EditorPlugin> plugins) async {
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
+    
+    // REFACTOR: Add app-level commands to the registry
+    final allAppCommands = AppCommands.getCommands();
     final allPluginCommands = plugins.expand((p) => p.getCommands());
+    final combinedCommands = [...allAppCommands, ...allPluginCommands];
 
-    for (final cmd in allPluginCommands) {
+    for (final cmd in combinedCommands) {
       _allRegisteredCommands.add(cmd);
       (commandSources[cmd.id] ??= {}).add(cmd.sourcePlugin);
     }
@@ -60,8 +63,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     await _loadFromPrefs();
   }
 
-  // --- Group CRUD ---
-
+  // --- Group CRUD (unchanged) ---
   void createGroup({required String name, required String iconName}) {
     final newGroup = CommandGroup(
       id: 'group_${const Uuid().v4()}',
@@ -72,7 +74,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
-
   void updateGroup(String groupId, {String? newName, String? newIconName}) {
     final oldGroup = state.commandGroups[groupId];
     if (oldGroup == null) return;
@@ -81,7 +82,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
-
   void deleteGroup(String groupId) {
     final group = state.commandGroups[groupId];
     if (group == null) return;
@@ -97,8 +97,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _saveToPrefs();
   }
 
-  // --- Command Positioning ---
-
+  // --- Command Positioning (unchanged) ---
   Map<String, List<String>> _getMutableLists() {
     return {
       'appBar': List<String>.from(state.appBarOrder),
@@ -109,7 +108,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       ),
     };
   }
-
   void _updateStateWithLists(Map<String, List<String>> lists) {
     final newGroups = Map.of(state.commandGroups);
     lists.forEach((listId, commands) {
@@ -126,7 +124,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     );
     _saveToPrefs();
   }
-
   void reorderItemInList({
     required String listId,
     required int oldIndex,
@@ -142,14 +139,12 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
     _updateStateWithLists(lists);
   }
-
   void removeItemFromList({
     required String itemId,
     required String fromListId,
   }) {
     final lists = _getMutableLists();
     lists[fromListId]?.remove(itemId);
-    // Add back to hidden if it's a command and not present in any other visible list.
     if (!state.commandGroups.containsKey(itemId)) {
       final isPlacedElsewhere =
           (lists['appBar']?.contains(itemId) ?? false) ||
@@ -161,13 +156,11 @@ class CommandNotifier extends StateNotifier<CommandState> {
     }
     _updateStateWithLists(lists);
   }
-
   void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
     final targetList = lists[toListId];
     if (targetList == null) return;
 
-    // Add the item if it's not already in the target list.
     if (!targetList.contains(itemId)) {
       targetList.add(itemId);
     }
@@ -175,7 +168,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
   }
 
   // --- Persistence ---
-
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('command_app_bar', state.appBarOrder);
@@ -192,18 +184,16 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
-
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
+
     if (groupsJsonString != null) {
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
         final group = CommandGroup.fromJson(
           jsonDecode(value as String) as Map<String, dynamic>,
         );
-        // CORRECTED: Sanitize the command list within each group
         final cleanCommandIds =
             group.commandIds.where(allKnownCommandIds.contains).toList();
         loadedGroups[key] = group.copyWith(commandIds: cleanCommandIds);
@@ -228,15 +218,33 @@ class CommandNotifier extends StateNotifier<CommandState> {
       ...cleanHidden,
       ...loadedGroups.values.expand((g) => g.commandIds),
     };
-    final orphanedCommands =
-        allKnownCommandIds
-            .where((id) => !allPlacedCommandIds.contains(id))
-            .toList();
+    
+    // REFACTOR: Place new commands in their default positions instead of hiding them.
+    final orphanedCommandIds =
+        allKnownCommandIds.where((id) => !allPlacedCommandIds.contains(id));
+
+    for (final commandId in orphanedCommandIds) {
+      final command =
+          _allRegisteredCommands.firstWhereOrNull((c) => c.id == commandId);
+      if (command != null) {
+        switch (command.defaultPosition) {
+          case CommandPosition.appBar:
+            cleanAppBar.add(commandId);
+            break;
+          case CommandPosition.pluginToolbar:
+            cleanToolbar.add(commandId);
+            break;
+          default:
+            cleanHidden.add(commandId);
+            break;
+        }
+      }
+    }
 
     state = state.copyWith(
       appBarOrder: cleanAppBar,
       pluginToolbarOrder: cleanToolbar,
-      hiddenOrder: {...cleanHidden, ...orphanedCommands}.toList(),
+      hiddenOrder: cleanHidden,
       commandGroups: loadedGroups,
     );
   }
