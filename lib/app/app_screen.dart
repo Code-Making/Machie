@@ -9,8 +9,6 @@ import '../editor/editor_widgets.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
 
-
-
 class AppScreen extends ConsumerWidget {
   const AppScreen({super.key});
 
@@ -30,33 +28,25 @@ class AppScreen extends ConsumerWidget {
 
     return Scaffold(
       key: scaffoldKey,
-      // CORRECTED: The override widget is wrapped in a PreferredSize to satisfy the appBar type requirement.
       appBar:
           appBarOverride != null
               ? PreferredSize(
-                preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: appBarOverride,
-              )
+                  preferredSize: const Size.fromHeight(kToolbarHeight),
+                  child: appBarOverride,
+                )
               : AppBar(
-                leading: IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => scaffoldKey.currentState?.openDrawer(),
+                  leading: IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => scaffoldKey.currentState?.openDrawer(),
+                  ),
+                  // REFACTOR: Removed hardcoded buttons. AppBarCommands now handles everything.
+                  actions: [
+                    currentPlugin is CodeEditorPlugin
+                        ? CodeEditorTapRegion(child: const AppBarCommands())
+                        : const AppBarCommands(),
+                  ],
+                  title: Text(currentTab?.file.name ?? 'Machine'),
                 ),
-                actions: [
-                  currentPlugin is CodeEditorPlugin
-                      ? CodeEditorTapRegion(child: const AppBarCommands())
-                      : const AppBarCommands(),
-                  IconButton(
-                    icon: const Icon(Icons.bug_report),
-                    onPressed: () => Navigator.pushNamed(context, '/logs'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings),
-                    onPressed: () => Navigator.pushNamed(context, '/settings'),
-                  ),
-                ],
-                title: Text(currentTab?.file.name ?? 'Machine'),
-              ),
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
@@ -67,7 +57,8 @@ class AppScreen extends ConsumerWidget {
                     ? const EditorContentSwitcher()
                     : const Center(child: Text('Open a file to start editing')),
           ),
-          if (currentPlugin != null) currentPlugin.buildToolbar(ref),
+          // REFACTOR: This now correctly renders the BottomToolbar, not the plugin's toolbar directly.
+          if (currentPlugin != null) const BottomToolbar(),
         ],
       ),
     );
