@@ -1,6 +1,7 @@
-// lib/project/file_handler/file_handler.dart
-import 'dart:typed_data'; // NEW IMPORT
+import 'dart:typed_data';
 import '../../editors/plugins/plugin_models.dart';
+import 'package:flutter/foundation.dart';
+
 // Abstract interface for a file-like entity.
 abstract class DocumentFile {
   String get uri;
