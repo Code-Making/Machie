@@ -7,9 +7,11 @@ import '../project/project_models.dart';
 class AppState {
   final List<ProjectMetadata> knownProjects;
   final String? lastOpenedProjectId;
+  // REFACTOR: This now holds the pure Project domain model.
   final Project? currentProject;
+  // REFACTOR: This state is now used only for initial hydration of a SimpleProject.
   final Map<String, dynamic>? currentProjectState;
-
+  // TODO : check these for corrext architecture, might cause unwanted redraws
   // NEW: Toolbar override properties
   final Widget? appBarOverride;
   final Widget? bottomToolbarOverride;
@@ -31,6 +33,7 @@ class AppState {
     Project? currentProject,
     bool clearCurrentProject = false,
     Map<String, dynamic>? currentProjectState,
+    bool clearCurrentProjectState = false,
     // NEW: Add overrides to copyWith
     Widget? appBarOverride,
     Widget? bottomToolbarOverride,
@@ -42,10 +45,9 @@ class AppState {
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
       currentProject:
           clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      currentProjectState:
-          clearCurrentProject
-              ? null
-              : (currentProjectState ?? this.currentProjectState),
+      currentProjectState: clearCurrentProjectState
+          ? null
+          : (currentProjectState ?? this.currentProjectState),
       // NEW: Handle override updates
       appBarOverride:
           clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
@@ -61,7 +63,8 @@ class AppState {
       'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
       'lastOpenedProjectId': lastOpenedProjectId,
     };
-    if (currentProject != null) {
+    // REFACTOR: If the current project is a simple one, save its state here.
+    if (currentProject?.projectTypeId == 'simple_local') {
       json['currentProjectState'] = currentProject!.toJson();
     }
     return json;
@@ -69,15 +72,13 @@ class AppState {
 
   factory AppState.fromJson(Map<String, dynamic> json) {
     return AppState(
-      knownProjects:
-          (json['knownProjects'] as List)
-              .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
-              .toList(),
+      knownProjects: (json['knownProjects'] as List)
+          .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
+          .toList(),
       lastOpenedProjectId: json['lastOpenedProjectId'],
-      currentProjectState:
-          json['currentProjectState'] != null
-              ? Map<String, dynamic>.from(json['currentProjectState'])
-              : null,
+      currentProjectState: json['currentProjectState'] != null
+          ? Map<String, dynamic>.from(json['currentProjectState'])
+          : null,
     );
   }
 
@@ -98,11 +99,11 @@ class AppState {
 
   @override
   int get hashCode => Object.hash(
-    const DeepCollectionEquality().hash(knownProjects),
-    lastOpenedProjectId,
-    currentProject,
-    const DeepCollectionEquality().hash(currentProjectState),
-    appBarOverride, // NEW
-    bottomToolbarOverride, // NEW
-  );
+        const DeepCollectionEquality().hash(knownProjects),
+        lastOpenedProjectId,
+        currentProject,
+        const DeepCollectionEquality().hash(currentProjectState),
+        appBarOverride, // NEW
+        bottomToolbarOverride, // NEW
+      );
 }

@@ -23,9 +23,18 @@ class TabSessionState {
   }
 
   Map<String, dynamic> toJson() => {
-    'tabs': tabs.map((t) => t.toJson()).toList(),
-    'currentTabIndex': currentTabIndex,
-  };
+        'tabs': tabs.map((t) => t.toJson()).toList(),
+        'currentTabIndex': currentTabIndex,
+      };
+      
+  // REFACTOR: Add fromJson for rehydration
+  factory TabSessionState.fromJson(Map<String, dynamic> json) {
+    // The actual tab rehydration happens in AppNotifier, which has access to plugins
+    return TabSessionState(
+      tabs: const [], // Tabs are rehydrated later
+      currentTabIndex: json['currentTabIndex'] ?? 0,
+    );
+  }
 }
 
 @immutable
