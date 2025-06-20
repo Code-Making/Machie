@@ -23,17 +23,13 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final order = commandState.appBarOrder;
 
   for (final id in order) {
-    // Is it a group?
     if (commandState.commandGroups.containsKey(id)) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
-
-    // Find the command for the current plugin context
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
       (c) => c.id == id && c.sourcePlugin == currentPluginName,
     );
-
     if (command != null) {
       visibleItems.add(command);
     }
@@ -41,7 +37,6 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
-// This provider does the same for the plugin toolbar.
 final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
@@ -57,17 +52,13 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final order = commandState.pluginToolbarOrder;
 
   for (final id in order) {
-    // Is it a group?
     if (commandState.commandGroups.containsKey(id)) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
-
-    // Find the command for the current plugin context
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
       (c) => c.id == id && c.sourcePlugin == currentPluginName,
     );
-
     if (command != null) {
       visibleItems.add(command);
     }
@@ -75,25 +66,22 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
-final bottomToolbarScrollProvider = Provider<ScrollController>((ref) {
-  return ScrollController();
-});
+// REFACTOR: The bottomToolbarScrollProvider has been removed.
 
 // --------------------
 //   Toolbar Widgets
 // --------------------
 
+// ... AppBarCommands is unchanged ...
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // NEW: Check for app bar override
     final override = ref.watch(
       appNotifierProvider.select((s) => s.value?.appBarOverride),
     );
     if (override != null) {
-      // When overriding, we expect the plugin to provide the whole actions row
       return override;
     }
 
@@ -106,7 +94,6 @@ class AppBarCommands extends ConsumerWidget {
               return CommandButton(command: item);
             }
             if (item is CommandGroup) {
-              // CORRECTED: AppBar now knows how to render groups.
               return CommandGroupButton(commandGroup: item);
             }
             return const SizedBox.shrink();
@@ -115,11 +102,31 @@ class AppBarCommands extends ConsumerWidget {
   }
 }
 
-class BottomToolbar extends ConsumerWidget {
+class BottomToolbar extends ConsumerStatefulWidget {
   const BottomToolbar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BottomToolbar> createState() => _BottomToolbarState();
+}
+
+class _BottomToolbarState extends ConsumerState<BottomToolbar> {
+  // REFACTOR: The ScrollController is now a state variable.
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final override = ref.watch(
       appNotifierProvider.select((s) => s.value?.bottomToolbarOverride),
     );
@@ -127,7 +134,6 @@ class BottomToolbar extends ConsumerWidget {
       return override;
     }
 
-    final scrollController = ref.watch(bottomToolbarScrollProvider);
     final items = ref.watch(pluginToolbarCommandsProvider);
 
     return Container(
@@ -135,7 +141,8 @@ class BottomToolbar extends ConsumerWidget {
       color: Colors.grey[900],
       child: ListView.builder(
         key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
-        controller: scrollController,
+        // REFACTOR: Use the state's controller instance.
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
         itemBuilder: (context, index) {
@@ -153,6 +160,7 @@ class BottomToolbar extends ConsumerWidget {
   }
 }
 
+// ... CommandButton and CommandGroupButton are unchanged ...
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
