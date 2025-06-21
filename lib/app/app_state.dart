@@ -7,14 +7,13 @@ import '../project/project_models.dart';
 class AppState {
   final List<ProjectMetadata> knownProjects;
   final String? lastOpenedProjectId;
-  // REFACTOR: This now holds the pure Project domain model.
   final Project? currentProject;
-  // REFACTOR: This state is now used only for initial hydration of a SimpleProject.
   final Map<String, dynamic>? currentProjectState;
-  // TODO : check these for corrext architecture, might cause unwanted redraws
-  // NEW: Toolbar override properties
   final Widget? appBarOverride;
   final Widget? bottomToolbarOverride;
+
+  // NEW: Ephemeral state for fullscreen mode.
+  final bool isFullScreen;
 
   const AppState({
     this.knownProjects = const [],
@@ -23,6 +22,7 @@ class AppState {
     this.currentProjectState,
     this.appBarOverride,
     this.bottomToolbarOverride,
+    this.isFullScreen = false, // Default to not fullscreen
   });
 
   factory AppState.initial() => const AppState();
@@ -34,11 +34,11 @@ class AppState {
     bool clearCurrentProject = false,
     Map<String, dynamic>? currentProjectState,
     bool clearCurrentProjectState = false,
-    // NEW: Add overrides to copyWith
     Widget? appBarOverride,
     Widget? bottomToolbarOverride,
     bool clearAppBarOverride = false,
     bool clearBottomToolbarOverride = false,
+    bool? isFullScreen, // Add to copyWith
   }) {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
@@ -48,22 +48,22 @@ class AppState {
       currentProjectState: clearCurrentProjectState
           ? null
           : (currentProjectState ?? this.currentProjectState),
-      // NEW: Handle override updates
       appBarOverride:
           clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
       bottomToolbarOverride:
           clearBottomToolbarOverride
               ? null
               : bottomToolbarOverride ?? this.bottomToolbarOverride,
+      isFullScreen: isFullScreen ?? this.isFullScreen,
     );
   }
 
   Map<String, dynamic> toJson() {
+    // Note: `isFullScreen` is NOT serialized, making it ephemeral.
     Map<String, dynamic> json = {
       'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
       'lastOpenedProjectId': lastOpenedProjectId,
     };
-    // REFACTOR: If the current project is a simple one, save its state here.
     if (currentProject?.projectTypeId == 'simple_local') {
       json['currentProjectState'] = currentProject!.toJson();
     }
@@ -93,8 +93,9 @@ class AppState {
         other.lastOpenedProjectId == lastOpenedProjectId &&
         other.currentProject == currentProject &&
         mapEquals(other.currentProjectState, currentProjectState) &&
-        other.appBarOverride == appBarOverride && // NEW
-        other.bottomToolbarOverride == bottomToolbarOverride; // NEW
+        other.appBarOverride == appBarOverride &&
+        other.bottomToolbarOverride == bottomToolbarOverride &&
+        other.isFullScreen == isFullScreen; // Add to equality check
   }
 
   @override
@@ -103,7 +104,8 @@ class AppState {
         lastOpenedProjectId,
         currentProject,
         const DeepCollectionEquality().hash(currentProjectState),
-        appBarOverride, // NEW
-        bottomToolbarOverride, // NEW
+        appBarOverride,
+        bottomToolbarOverride,
+        isFullScreen, // Add to hash
       );
 }
