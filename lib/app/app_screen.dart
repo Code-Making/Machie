@@ -10,12 +10,11 @@ import '../editor/plugins/code_editor/code_editor_plugin.dart';
 import '../editor/editor_widgets.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
-import '../explorer/common/file_explorer_dialogs.dart'; // For showConfirmDialog
-import '../settings/settings_notifier.dart'; // For GeneralSettings
+import '../explorer/common/file_explorer_dialogs.dart';
+import '../settings/settings_notifier.dart';
 import '../settings/settings_models.dart';
 
 
-// REFACTOR: Convert to ConsumerStatefulWidget to manage the back button interceptor.
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
 
@@ -24,33 +23,35 @@ class AppScreen extends ConsumerStatefulWidget {
 }
 
 class _AppScreenState extends ConsumerState<AppScreen> {
+  // REFACTOR: The key is now part of the state, created once.
+  late final GlobalKey<ScaffoldState> _scaffoldKey;
+
   @override
   void initState() {
     super.initState();
-    // Add the interceptor when the widget is created.
+    // REFACTOR: Initialize the key here.
+    _scaffoldKey = GlobalKey<ScaffoldState>();
     BackButtonInterceptor.add(_backButtonInterceptor);
   }
 
   @override
   void dispose() {
-    // Remove the interceptor when the widget is disposed to prevent memory leaks.
     BackButtonInterceptor.remove(_backButtonInterceptor);
     super.dispose();
   }
 
-  // The interceptor function.
   Future<bool> _backButtonInterceptor(
       bool stopDefaultButtonEvent, RouteInfo info) async {
     final isFullScreen = ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     final notifier = ref.read(appNotifierProvider.notifier);
 
-    // If in fullscreen, the back button should exit fullscreen mode first.
     if (isFullScreen) {
       notifier.toggleFullScreen();
-      return true; // Stop default back action (e.g., quitting the app).
+      return true;
     }
 
-    // If not in fullscreen, show the confirmation dialog to quit.
+    // Use the mounted context from the stateful widget.
+    if (!mounted) return true;
     final shouldExit = await showConfirmDialog(
       context,
       title: 'Exit App?',
@@ -58,11 +59,9 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     );
 
     if (shouldExit) {
-      // If confirmed, use SystemNavigator to close the app.
       await SystemNavigator.pop();
     }
 
-    // Always return true to manually control the back button behavior.
     return true;
   }
 
@@ -73,17 +72,15 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final currentPlugin = currentTab?.plugin;
     final isFullScreen = appState?.isFullScreen ?? false;
     
-    // Get fullscreen settings
     final generalSettings = ref.watch(settingsProvider.select(
       (s) => s.pluginSettings[GeneralSettings] as GeneralSettings?,
     )) ?? GeneralSettings();
 
-    final scaffoldKey = GlobalKey<ScaffoldState>();
     final appBarOverride = appState?.appBarOverride;
 
     return Scaffold(
-      key: scaffoldKey,
-      // REFACTOR: Conditionally render the AppBar based on fullscreen state and settings.
+      // REFACTOR: Use the stateful key instance.
+      key: _scaffoldKey,
       appBar: (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
           ? (appBarOverride != null
               ? PreferredSize(
@@ -93,7 +90,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
               : AppBar(
                   leading: IconButton(
                     icon: const Icon(Icons.menu),
-                    onPressed: () => scaffoldKey.currentState?.openDrawer(),
+                    // REFACTOR: Use the stateful key to open the drawer.
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
                   actions: [
                     currentPlugin is CodeEditorPlugin
@@ -102,11 +100,10 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                   ],
                   title: Text(currentTab?.file.name ?? 'Machine'),
                 ))
-          : null, // Hide AppBar completely in fullscreen.
+          : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
-          // REFACTOR: Conditionally render the TabBar
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
           Expanded(
@@ -115,7 +112,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                     ? const EditorContentSwitcher()
                     : const Center(child: Text('Open a file to start editing')),
           ),
-          // REFACTOR: Conditionally render the plugin's toolbar
           if (currentPlugin != null && (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),
         ],
