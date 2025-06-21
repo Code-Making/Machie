@@ -17,9 +17,10 @@ import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
 import '../../services/editor_service.dart'; // REFACTOR: Import service
+import '../../tab_state_manager.dart'; // REFACTOR: Import manager
 
-// ... _GlitchTabState class is unchanged ...
-class _GlitchTabState {
+// REFACTOR: The state class is now public and implements TabState
+class GlitchTabState implements TabState {
   ui.Image image;
   final ui.Image originalImage;
   ui.Image? strokeSample;
@@ -27,12 +28,18 @@ class _GlitchTabState {
   Rect? repeaterSampleRect;
   Offset? lastRepeaterPosition;
   List<Offset> repeaterPath = [];
-  _GlitchTabState({required this.image, required this.originalImage});
+
+  GlitchTabState({required this.image, required this.originalImage});
+
+  void dispose() {
+    image.dispose();
+    originalImage.dispose();
+    strokeSample?.dispose();
+    repeaterSample?.dispose();
+  }
 }
 
 class GlitchEditorPlugin implements EditorPlugin {
-  // ... other properties and methods are unchanged ...
-  final Map<String, _GlitchTabState> _tabStates = {};
   final Random _random = Random();
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
   final isZoomModeProvider = StateProvider((ref) => false);
@@ -54,30 +61,41 @@ class GlitchEditorPlugin implements EditorPlugin {
     final ext = file.name.split('.').last.toLowerCase();
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
+  
+  GlitchTabState? _getTabState(WidgetRef ref, EditorTab tab) {
+    return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
+  }
+
+  // REFACTOR: Implement createTabState
+  @override
+  Future<TabState> createTabState(EditorTab tab) async {
+    final file = tab.file;
+    // We need to read the bytes here, as createTab only gets them once.
+    final repo = tab.plugin.settings!.toJson()['wordWrap']; // TODO Fix this
+    final fileBytes = await repo.readFileAsBytes(file.uri);
+    final codec = await ui.instantiateImageCodec(fileBytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    return GlitchTabState(image: image, originalImage: image.clone());
+  }
+
+  // REFACTOR: Implement disposeTabState
+  @override
+  void disposeTabState(TabState state) {
+    (state as GlitchTabState).dispose();
+  }
 
   @override
-  Future<void> dispose() async {
-    for (final state in _tabStates.values) {
-      state.image.dispose();
-      state.originalImage.dispose();
-      state.strokeSample?.dispose();
-    }
-    _tabStates.clear();
-  }
+  Future<void> dispose() async {} // The manager handles disposal now.
+
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
-    final Uint8List fileBytes = data as Uint8List;
-    final codec = await ui.instantiateImageCodec(fileBytes);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-    _tabStates[file.uri] = _GlitchTabState(
-      image: image,
-      originalImage: image.clone(),
-    );
+    // This method now only creates the tab model, not the state.
+    // The `data` parameter is effectively unused now, as state creation reads from the repo.
     return GlitchEditorTab(file: file, plugin: this);
   }
 
@@ -103,15 +121,12 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
 
   @override
-  void disposeTab(EditorTab tab) {
-    final state = _tabStates.remove(tab.file.uri);
-    state?.image.dispose();
-    state?.originalImage.dispose();
-    state?.strokeSample?.dispose();
-  }
+  void disposeTab(EditorTab tab) {} // Manager handles state disposal
 
-  ui.Image? getImageForTab(GlitchEditorTab tab) =>
-      _tabStates[tab.file.uri]?.image;
+
+    // REFACTOR: Methods now get their state from the manager via a ref.
+  ui.Image? getImageForTab(WidgetRef ref, GlitchEditorTab tab) =>
+      _getTabState(ref, tab)?.image;
 
   void updateBrushSettings(GlitchBrushSettings settings, WidgetRef ref) {
     ref.read(brushSettingsProvider.notifier).state = settings;
@@ -119,7 +134,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   
   // ... other brush logic methods are unchanged ...
   void beginGlitchStroke(GlitchEditorTab tab) {
-    final state = _tabStates[tab.file.uri];
+    final state = _getTabState(ref, tab);
     if (state == null) return;
     state.strokeSample?.dispose();
     state.repeaterSample?.dispose();
@@ -136,7 +151,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     required GlitchBrushSettings settings,
     required WidgetRef ref,
   }) {
-    final state = _tabStates[tab.file.uri];
+    final state = _getTabState(ref, tab);
     if (state == null || points.isEmpty) return null;
     final baseImage = state.image;
     final recorder = ui.PictureRecorder();
@@ -328,10 +343,10 @@ class GlitchEditorPlugin implements EditorPlugin {
             final project = ref.read(appNotifierProvider).value?.currentProject;
             final tab = project?.session.currentTab as GlitchEditorTab?;
             if (project == null || tab == null) return;
-
-            final state = _tabStates[tab.file.uri];
+            
+            final state = _getTabState(ref, tab);
             if (state == null) return;
-
+            
             final byteData =
                 await state.image.toByteData(format: ui.ImageByteFormat.png);
             if (byteData == null) return;
@@ -371,7 +386,7 @@ class GlitchEditorPlugin implements EditorPlugin {
                 .saveCurrentTabAs(byteDataProvider: () async {
               final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
               if (tab == null) return null;
-              final state = _tabStates[tab.file.uri];
+              final state = _getTabState(ref, tab);
               if (state == null) return null;
               final byteData =
                   await state.image.toByteData(format: ui.ImageByteFormat.png);
