@@ -1,3 +1,4 @@
+// lib/plugins/code_editor/code_editor_widgets.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,25 +10,20 @@ import '../../../app/app_notifier.dart';
 import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
-import 'code_editor_logic.dart'; // NEW IMPORT
-
-// --------------------
-// Code Editor Plugin Providers
-// --------------------
-
-// REMOVED: bracketHighlightProvider (moved to code_editor_logic.dart)
+import 'code_editor_plugin.dart'; // REFACTOR: Import plugin for state class
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
-// REMOVED: markProvider
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
+  final CodeEditorTab tab; // REFACTOR: Pass tab down for context
   final CodeLineEditingController controller;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
 
   const CodeEditorMachine({
     super.key,
+    required this.tab,
     required this.controller,
     this.commentFormatter,
     this.indicatorBuilder,
@@ -77,66 +73,59 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   void _updateAllStatesFromController() {
+    if (!mounted) return;
     ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
     ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
-    ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
+    // REFACTOR: Trigger bracket highlight calculation here
+    (widget.tab.plugin as CodeEditorPlugin).handleBracketHighlight(ref, widget.tab);
+    // Force a rebuild to show new highlights
+    setState(() {});
   }
 
   void _handleControllerChange() {
+    if (!mounted) return;
     ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
     _updateAllStatesFromController();
   }
 
+  // ... (add/remove listeners and key event handler are unchanged) ...
   void _addControllerListeners(CodeLineEditingController controller) {
     controller.addListener(_handleControllerChange);
   }
-
   void _removeControllerListeners(CodeLineEditingController controller) {
     controller.removeListener(_handleControllerChange);
   }
-
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
     final direction = _arrowKeyDirections[event.logicalKey];
-    final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-
     if (direction != null) {
-      if (shiftPressed) {
-        widget.controller.extendSelection(direction);
-      } else {
-        widget.controller.moveCursor(direction);
-      }
+      HardwareKeyboard.instance.isShiftPressed
+          ? widget.controller.extendSelection(direction)
+          : widget.controller.moveCursor(direction);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
-
   void _handleFocusChange() {
     if (_focusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          widget.controller.makeCursorVisible();
-        });
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            widget.controller.makeCursorVisible();
+          });
+        }
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
-
-    final currentLanguageKey = ref.watch(
-      appNotifierProvider.select((s) {
-        final tab = s.value?.currentProject?.session.currentTab;
-        return (tab is CodeEditorTab) ? tab.languageKey : null;
-      }),
-    );
-
+    // ... (settings and language key logic is unchanged) ...
+    final codeEditorSettings = ref.watch(settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
+    final currentLanguageKey = ref.watch(appNotifierProvider.select((s) {
+      final tab = s.value?.currentProject?.session.currentTab;
+      return (tab is CodeEditorTab) ? tab.languageKey : null;
+    }));
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
@@ -152,9 +141,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontSize: codeEditorSettings?.fontSize ?? 12,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
-            theme:
-                CodeThemes.availableCodeThemes[selectedThemeName] ??
-                CodeThemes.availableCodeThemes['Atom One Dark']!,
+            theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
             languages: CodeThemes.getHighlightThemeMode(currentLanguageKey),
           ),
         ),
@@ -185,7 +172,9 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final highlightState = ref.watch(bracketHighlightProvider);
+    final plugin = tab.plugin as CodeEditorPlugin;
+    final tabState = plugin.getTabState(ref, tab) as _CodeEditorTabState?;
+    final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
