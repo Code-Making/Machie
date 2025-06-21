@@ -136,7 +136,8 @@ class _PluginSettingsCard extends ConsumerWidget {
     );
   }
 }
-// ... (CommandSettingsScreen is unchanged)class CommandSettingsScreen extends ConsumerWidget {
+
+class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});
 
   @override
