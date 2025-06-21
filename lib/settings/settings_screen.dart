@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
+import 'settings_models.dart'; // Import for GeneralSettings
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -20,6 +21,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
+    // Get general settings specifically.
+    final generalSettings = settings.pluginSettings[GeneralSettings] as GeneralSettings?;
 
     return ListView(
       children: [
@@ -29,6 +32,9 @@ class SettingsScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.pushNamed(context, '/command-settings'),
         ),
+        // NEW: Add the General Settings UI card.
+        if (generalSettings != null)
+          _GeneralSettingsCard(settings: generalSettings),
         ...plugins
             .where((p) => p.settings != null)
             .map(
@@ -42,6 +48,61 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
+// NEW: A dedicated widget for the General Settings card.
+class _GeneralSettingsCard extends ConsumerWidget {
+  final GeneralSettings settings;
+  const _GeneralSettingsCard({required this.settings});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(settingsProvider.notifier);
+
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Fullscreen Mode',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Hide App Bar'),
+              value: settings.hideAppBarInFullScreen,
+              onChanged: (value) {
+                notifier.updatePluginSettings(
+                  settings.copyWith(hideAppBarInFullScreen: value),
+                );
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Hide Tab Bar'),
+              value: settings.hideTabBarInFullScreen,
+              onChanged: (value) {
+                notifier.updatePluginSettings(
+                  settings.copyWith(hideTabBarInFullScreen: value),
+                );
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Hide Bottom Toolbar'),
+              value: settings.hideBottomToolbarInFullScreen,
+              onChanged: (value) {
+                notifier.updatePluginSettings(
+                  settings.copyWith(hideBottomToolbarInFullScreen: value),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+// ... (_PluginSettingsCard is unchanged)
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
   final PluginSettings settings;
@@ -75,8 +136,7 @@ class _PluginSettingsCard extends ConsumerWidget {
     );
   }
 }
-
-class CommandSettingsScreen extends ConsumerWidget {
+// ... (CommandSettingsScreen is unchanged)class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});
 
   @override
