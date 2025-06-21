@@ -7,9 +7,6 @@ import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_notifier.dart';
 
-// REFACTOR: The tabBarScrollProvider has been removed.
-// The controller's lifecycle will be managed by the widget itself.
-
 class TabBarWidget extends ConsumerStatefulWidget {
   const TabBarWidget({super.key});
 
@@ -18,27 +15,22 @@ class TabBarWidget extends ConsumerStatefulWidget {
 }
 
 class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
-  // REFACTOR: The ScrollController is now a state variable.
   late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    // REFACTOR: Initialize the controller here.
     _scrollController = ScrollController();
   }
 
   @override
   void dispose() {
-    // REFACTOR: Dispose of the controller to prevent memory leaks.
     _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Note: We use ref.watch here because we want the widget to rebuild
-    // if the list of tabs changes.
     final tabs =
         ref.watch(
           appNotifierProvider.select(
@@ -53,11 +45,11 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
 
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
-      height: 40,
+      // REFACTOR: Reduced the TabBar height for a more compact UI.
+      height: 36,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
           key: const PageStorageKey<String>('tabBarScrollPosition'),
-          // REFACTOR: Use the state's controller instance.
           scrollController: _scrollController,
           scrollDirection: Axis.horizontal,
           onReorder:
@@ -79,8 +71,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   }
 }
 
-// ... TabWidget and EditorContentSwitcher are unchanged ...
-
+// ... (TabWidget and other widgets are unchanged) ...
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
