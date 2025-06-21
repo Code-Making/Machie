@@ -1,19 +1,25 @@
 // lib/settings/settings_models.dart
 import '../editor/plugins/plugin_models.dart';
 
-// REFACTOR: This class is now defined in this file.
+// NEW: A common abstract base class for all settings objects in the app.
+abstract class MachineSettings {
+  Map<String, dynamic> toJson();
+  void fromJson(Map<String, dynamic> json);
+}
+
 class AppSettings {
-  final Map<Type, PluginSettings> pluginSettings;
+  // REFACTOR: The map now holds the common base class type.
+  final Map<Type, MachineSettings> pluginSettings;
 
   AppSettings({required this.pluginSettings});
 
-  AppSettings copyWith({Map<Type, PluginSettings>? pluginSettings}) {
+  AppSettings copyWith({Map<Type, MachineSettings>? pluginSettings}) {
     return AppSettings(pluginSettings: pluginSettings ?? this.pluginSettings);
   }
 }
 
-// NEW: A settings class for general app behavior, not tied to a plugin.
-class GeneralSettings extends PluginSettings {
+// REFACTOR: GeneralSettings now extends the common base class directly.
+class GeneralSettings extends MachineSettings {
   bool hideAppBarInFullScreen;
   bool hideTabBarInFullScreen;
   bool hideBottomToolbarInFullScreen;

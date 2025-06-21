@@ -1,7 +1,7 @@
 // lib/settings/settings_notifier.dart
 import 'dart:async';
 import 'dart:convert';
-
+import 'package:collection/collection.dart'; // Import for firstWhereOrNull
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,11 +26,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     loadSettings();
   }
 
-  static Map<Type, PluginSettings> _getDefaultSettings(
+  static Map<Type, MachineSettings> _getDefaultSettings(
     Set<EditorPlugin> plugins,
   ) {
-    final defaultSettings = {
-      // REFACTOR: Add GeneralSettings to the default map.
+    // REFACTOR: Use the new base class for the map type.
+    final Map<Type, MachineSettings> defaultSettings = {
       GeneralSettings: GeneralSettings(),
     };
     for (final plugin in plugins) {
@@ -41,8 +41,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     return defaultSettings;
   }
 
-  void updatePluginSettings(PluginSettings newSettings) {
-    final updatedSettings = Map<Type, PluginSettings>.from(state.pluginSettings)
+  void updatePluginSettings(MachineSettings newSettings) {
+    // REFACTOR: Use the new base class for the map type.
+    final updatedSettings = Map<Type, MachineSettings>.from(state.pluginSettings)
       ..[newSettings.runtimeType] = newSettings;
     state = state.copyWith(pluginSettings: updatedSettings);
     _saveSettings();
@@ -62,17 +63,20 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
     if (settingsJson != null) {
       final decoded = jsonDecode(settingsJson) as Map<String, dynamic>;
-      final newSettings = Map<Type, PluginSettings>.from(state.pluginSettings);
+      // REFACTOR: Use the new base class for the map type.
+      final newSettings = Map<Type, MachineSettings>.from(state.pluginSettings);
 
-      // REFACTOR: Update loading logic to be more robust.
       for (final entry in decoded.entries) {
         final typeString = entry.key;
-        final settingsInstance = newSettings.values.firstWhere(
+        // REFACTOR: Correctly look up the settings instance from the default map.
+        final settingsInstance = newSettings.values.firstWhereOrNull(
           (s) => s.runtimeType.toString() == typeString,
-          orElse: () => GeneralSettings(), // Fallback, though should not be needed
         );
-        settingsInstance.fromJson(entry.value);
-        newSettings[settingsInstance.runtimeType] = settingsInstance;
+        
+        if (settingsInstance != null) {
+          settingsInstance.fromJson(entry.value);
+          newSettings[settingsInstance.runtimeType] = settingsInstance;
+        }
       }
       state = state.copyWith(pluginSettings: newSettings);
     }

@@ -9,6 +9,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
 import '../editor_tab_models.dart';
 import '../tab_state_manager.dart';
+import '../../settings/setting_models.dart';
 
 enum PluginDataRequirement { string, bytes }
 
@@ -50,7 +51,7 @@ abstract class EditorPlugin {
   Future<void> dispose() async {}
 }
 
-abstract class PluginSettings {
-  Map<String, dynamic> toJson();
-  void fromJson(Map<String, dynamic> json);
+abstract class PluginSettings extends MachineSettings {
+//  Map<String, dynamic> toJson();
+//  void fromJson(Map<String, dynamic> json);
 }
