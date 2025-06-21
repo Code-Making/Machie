@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
+import 'package:collection/collection.dart'; // REFACTOR: Add for firstWhereOrNull
 
 import '../../../app/app_notifier.dart';
 import '../../../settings/settings_notifier.dart';
@@ -136,7 +137,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         commentFormatter: widget.commentFormatter,
         indicatorBuilder: widget.indicatorBuilder,
         style: CodeEditorStyle(
-          fontSize: codeEditorSettings?.fontSize?.toDouble() ?? 12.0, // REFACTOR: Fix int/double mismatch
+          fontSize: codeEditorSettings?.fontSize ?? 12.0, // REFACTOR: Ensure double
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
             theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
@@ -166,7 +167,7 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: The cast is no longer needed as the state is watched directly.
+    // REFACTOR: Get state from the TabStateManager by watching it.
     final tabState = ref.watch(
       tabStateManagerProvider.select((s) => s[tab.file.uri] as CodeEditorTabState?),
     );
