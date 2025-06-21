@@ -39,7 +39,6 @@ class AppScreen extends ConsumerWidget {
                     icon: const Icon(Icons.menu),
                     onPressed: () => scaffoldKey.currentState?.openDrawer(),
                   ),
-                  // REFACTOR: Removed hardcoded buttons. AppBarCommands now handles everything.
                   actions: [
                     currentPlugin is CodeEditorPlugin
                         ? CodeEditorTapRegion(child: const AppBarCommands())
@@ -57,8 +56,9 @@ class AppScreen extends ConsumerWidget {
                     ? const EditorContentSwitcher()
                     : const Center(child: Text('Open a file to start editing')),
           ),
-          // REFACTOR: This now correctly renders the BottomToolbar, not the plugin's toolbar directly.
-          if (currentPlugin != null) const BottomToolbar(),
+          // REFACTOR: Correctly call the plugin's buildToolbar method.
+          // This ensures the correct toolbar (or an empty box) is shown for the active plugin.
+          if (currentPlugin != null) currentPlugin.buildToolbar(ref),
         ],
       ),
     );
