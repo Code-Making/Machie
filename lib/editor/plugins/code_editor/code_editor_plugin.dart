@@ -94,13 +94,17 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<TabState?> createTabState(EditorTab tab) async {
-    // REFACTOR: The data passed to createTab is now the actual file content.
-    // We get this from the EditorService when the tab is opened.
-    // The FileHandler is now on the repo, but the service abstracts it.
-    final content = tab.plugin.settings!.toJson()['wordWrap']; // TODO Fix this
+    final codeTab = tab as CodeEditorTab;
     final controller = CodeLineEditingController(
-      spanBuilder: buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content as String),
+      spanBuilder: (context, controller, text, style) =>
+          buildHighlightingSpan(
+        context: context,
+        ref: ProviderScope.containerOf(context), // Pass ref down
+        codeLine: text,
+        style: style,
+        tab: codeTab, // Pass tab for context
+      ),
+      codeLines: CodeLines.fromText(codeTab.initialContent),
     );
     return _CodeEditorTabState(controller: controller);
   }
@@ -145,6 +149,7 @@ class CodeEditorPlugin implements EditorPlugin {
 
     return CodeEditorMachine(
       key: ValueKey(codeTab.file.uri),
+      tab: codeTab, // Pass the tab down
       controller: controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
@@ -152,6 +157,7 @@ class CodeEditorPlugin implements EditorPlugin {
           controller: editingController,
           chunkController: chunkController,
           notifier: notifier,
+          tab: codeTab, // Pass the tab down
         );
       },
     );
