@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
-import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_notifier.dart';
@@ -16,10 +15,9 @@ import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
-import '../../services/editor_service.dart'; // REFACTOR: Import service
-import '../../tab_state_manager.dart'; // REFACTOR: Import manager
+import '../../services/editor_service.dart';
+import '../../tab_state_manager.dart';
 
-// REFACTOR: The state class is now public and implements TabState
 class GlitchTabState implements TabState {
   ui.Image image;
   final ui.Image originalImage;
@@ -66,36 +64,29 @@ class GlitchEditorPlugin implements EditorPlugin {
     return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
 
-  // REFACTOR: Implement createTabState
   @override
-  Future<TabState> createTabState(EditorTab tab) async {
-    final file = tab.file;
-    // We need to read the bytes here, as createTab only gets them once.
-    final repo = tab.plugin.settings!.toJson()['wordWrap']; // TODO Fix this
-    final fileBytes = await repo.readFileAsBytes(file.uri);
+  Future<TabState> createTabState(EditorTab tab, dynamic data) async {
+    // REFACTOR: Use the passed-in data to create the state.
+    final Uint8List fileBytes = data as Uint8List;
     final codec = await ui.instantiateImageCodec(fileBytes);
     final frame = await codec.getNextFrame();
     final image = frame.image;
     return GlitchTabState(image: image, originalImage: image.clone());
   }
 
-  // REFACTOR: Implement disposeTabState
   @override
   void disposeTabState(TabState state) {
     (state as GlitchTabState).dispose();
   }
 
   @override
-  Future<void> dispose() async {} // The manager handles disposal now.
-
+  Future<void> dispose() async {}
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
-    // This method now only creates the tab model, not the state.
-    // The `data` parameter is effectively unused now, as state creation reads from the repo.
     return GlitchEditorTab(file: file, plugin: this);
   }
 
@@ -117,14 +108,13 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   Widget buildToolbar(WidgetRef ref) {
+    // REFACTOR: Return the correct toolbar widget.
     return const BottomToolbar();
   }
 
   @override
-  void disposeTab(EditorTab tab) {} // Manager handles state disposal
+  void disposeTab(EditorTab tab) {}
 
-
-    // REFACTOR: Methods now get their state from the manager via a ref.
   ui.Image? getImageForTab(WidgetRef ref, GlitchEditorTab tab) =>
       _getTabState(ref, tab)?.image;
 
@@ -132,8 +122,8 @@ class GlitchEditorPlugin implements EditorPlugin {
     ref.read(brushSettingsProvider.notifier).state = settings;
   }
   
-  // ... other brush logic methods are unchanged ...
-  void beginGlitchStroke(GlitchEditorTab tab) {
+  // REFACTOR: Pass ref from the widget to the plugin method.
+  void beginGlitchStroke(WidgetRef ref, GlitchEditorTab tab) {
     final state = _getTabState(ref, tab);
     if (state == null) return;
     state.strokeSample?.dispose();
@@ -172,11 +162,12 @@ class GlitchEditorPlugin implements EditorPlugin {
     return newImage;
   }
   
+  // REFACTOR: Method signature now uses GlitchTabState
   void _applyEffectToCanvas(
     Canvas canvas,
     Offset pos,
     GlitchBrushSettings settings,
-    _GlitchTabState state,
+    GlitchTabState state,
   ) {
     switch (settings.type) {
       case GlitchBrushType.scatter:
@@ -219,7 +210,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   
   void _applyRepeater(
     Canvas canvas,
-    _GlitchTabState state,
+    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
@@ -261,7 +252,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
   
   void _createRepeaterSample(
-    _GlitchTabState state,
+    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
@@ -292,7 +283,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     samplePicture.dispose();
   }
 
-  void _drawRepeaterSample(Canvas canvas, _GlitchTabState state, Offset pos) {
+  void _drawRepeaterSample(Canvas canvas, GlitchTabState state, Offset pos) {
     final destRect = Rect.fromCenter(
       center: pos,
       width: state.repeaterSampleRect!.width,
@@ -308,7 +299,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   
   void _applyHeal(
     Canvas canvas,
-    _GlitchTabState state,
+    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
@@ -351,7 +342,6 @@ class GlitchEditorPlugin implements EditorPlugin {
                 await state.image.toByteData(format: ui.ImageByteFormat.png);
             if (byteData == null) return;
 
-            // REFACTOR: Call the service to save, then update local state on success.
             final editorService = ref.read(editorServiceProvider);
             final success = await editorService.saveCurrentTab(
               project,
@@ -359,13 +349,15 @@ class GlitchEditorPlugin implements EditorPlugin {
             );
 
             if (success) {
-              // On successful save, update the "original" image so that "reset"
-              // goes back to the last saved state, not the initial state.
               state.originalImage.dispose();
-              _tabStates[tab.file.uri] = _GlitchTabState(
-                image: state.image.clone(),
-                originalImage: state.image.clone(),
-              );
+              // Re-create the state to update the originalImage
+              final newState = GlitchTabState(
+                  image: state.image.clone(),
+                  originalImage: state.image.clone());
+              // This is a bit of a manual update, a better system might involve
+              // a dedicated method in the TabStateManager.
+              ref.read(tabStateManagerProvider.notifier).addState(tab.file.uri, newState);
+              state.dispose(); // Dispose the old state
             }
           },
           canExecute: (ref) =>
@@ -373,6 +365,7 @@ class GlitchEditorPlugin implements EditorPlugin {
                   ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri] ??
               false,
         ),
+        // ... other commands unchanged ...
         BaseCommand(
           id: 'save_as',
           label: 'Save As...',
@@ -380,7 +373,6 @@ class GlitchEditorPlugin implements EditorPlugin {
           defaultPosition: CommandPosition.appBar,
           sourcePlugin: runtimeType.toString(),
           execute: (ref) async {
-            // This command now correctly delegates to the thin AppNotifier method.
             await ref
                 .read(appNotifierProvider.notifier)
                 .saveCurrentTabAs(byteDataProvider: () async {
@@ -397,7 +389,6 @@ class GlitchEditorPlugin implements EditorPlugin {
               ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab
                   is GlitchEditorTab,
         ),
-        // ... other commands (reset, zoom, etc.) are unchanged ...
         BaseCommand(
           id: 'reset',
           label: 'Reset',
@@ -407,11 +398,12 @@ class GlitchEditorPlugin implements EditorPlugin {
           execute: (ref) async {
             final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab as GlitchEditorTab?;
             if (tab == null) return;
-            final state = _tabStates[tab.file.uri];
+            final state = _getTabState(ref, tab);
             if (state == null) return;
             state.image.dispose();
             state.image = state.originalImage.clone();
             ref.read(tabStateProvider.notifier).markClean(tab.file.uri);
+            // We need to trigger a rebuild of the editor widget
             ref.read(appNotifierProvider.notifier).updateCurrentTab(tab.copyWith());
           },
           canExecute: (ref) =>

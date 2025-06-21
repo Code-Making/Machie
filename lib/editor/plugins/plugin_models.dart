@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
 import '../editor_tab_models.dart';
-import '../tab_state_manager.dart'; // REFACTOR: Import TabState
+import '../tab_state_manager.dart';
 
 enum PluginDataRequirement { string, bytes }
 
@@ -28,15 +28,9 @@ abstract class EditorPlugin {
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
   
-  // REFACTOR: Add createTabState method
-  /// Creates a transient state object for a tab.
-  /// This state (e.g., controllers, undo history) lives as long as the tab is open.
-  /// Return null if the plugin's tabs are stateless.
-  Future<TabState?> createTabState(EditorTab tab);
+  // REFACTOR: The data read by the service is now passed to the state creation method.
+  Future<TabState?> createTabState(EditorTab tab, dynamic data);
 
-  // REFACTOR: Add disposeTabState method
-  /// Called when a tab is closed, allowing the plugin to dispose of resources
-  /// held by the TabState object (e.g., controllers).
   void disposeTabState(TabState state);
 
   void disposeTab(EditorTab tab) {}

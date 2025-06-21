@@ -10,13 +10,14 @@ import '../../../app/app_notifier.dart';
 import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
-import 'code_editor_plugin.dart'; // REFACTOR: Import plugin for state class
+import 'code_editor_plugin.dart';
+import '../../tab_state_manager.dart'; // REFACTOR: Import manager
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
-  final CodeEditorTab tab; // REFACTOR: Pass tab down for context
+  final CodeEditorTab tab;
   final CodeLineEditingController controller;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
@@ -76,9 +77,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (!mounted) return;
     ref.read(canUndoProvider.notifier).state = widget.controller.canUndo;
     ref.read(canRedoProvider.notifier).state = widget.controller.canRedo;
-    // REFACTOR: Trigger bracket highlight calculation here
     (widget.tab.plugin as CodeEditorPlugin).handleBracketHighlight(ref, widget.tab);
-    // Force a rebuild to show new highlights
     setState(() {});
   }
 
@@ -87,8 +86,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
     _updateAllStatesFromController();
   }
-
-  // ... (add/remove listeners and key event handler are unchanged) ...
+  
   void _addControllerListeners(CodeLineEditingController controller) {
     controller.addListener(_handleControllerChange);
   }
@@ -111,7 +109,9 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Future.delayed(const Duration(milliseconds: 300), () {
-            widget.controller.makeCursorVisible();
+            if (mounted) {
+              widget.controller.makeCursorVisible();
+            }
           });
         }
       });
@@ -120,7 +120,6 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (settings and language key logic is unchanged) ...
     final codeEditorSettings = ref.watch(settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
     final currentLanguageKey = ref.watch(appNotifierProvider.select((s) {
       final tab = s.value?.currentProject?.session.currentTab;
@@ -129,8 +128,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
-      autofocus: false,
-      canRequestFocus: true,
+      autofocus: true,
       onFocusChange: (bool focus) => _handleFocusChange(),
       onKeyEvent: (n, e) => _handleKeyEvent(n, e),
       child: CodeEditor(
@@ -152,17 +150,11 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 }
 
-// REMOVED: BracketHighlightState and BracketHighlightNotifier (moved)
-
-// --------------------
-//  Custom Line Number Widget
-// --------------------
-
 class CustomEditorIndicator extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
-  final CodeEditorTab tab; // REFACTOR: Pass tab down
+  final CodeEditorTab tab;
 
   const CustomEditorIndicator({
     super.key,
@@ -174,9 +166,9 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Get highlight state from the tab state
+    // REFACTOR: Fix the cast and get state correctly.
     final plugin = tab.plugin as CodeEditorPlugin;
-    final tabState = plugin.getTabState(ref, tab) as _CodeEditorTabState?;
+    final tabState = plugin.getTabState(ref, tab);
     final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 
     return GestureDetector(
@@ -200,81 +192,79 @@ class CustomEditorIndicator extends ConsumerWidget {
   }
 }
 
+// REFACTOR: This function now correctly builds the span for a line.
 TextSpan buildHighlightingSpan({
   required BuildContext context,
-  required WidgetRef ref,
   required CodeEditorTab tab,
   required CodeLine codeLine,
   required TextStyle style,
 }) {
+  // Get the state from the tab itself via the plugin
   final plugin = tab.plugin as CodeEditorPlugin;
-  final tabState = plugin.getControllerForTab(ref, tab); // Simplified to get tabState via controller presence
-  if (tabState == null) return TextSpan(text: codeLine.text, style: style);
+  final container = ProviderScope.containerOf(context);
+  final tabState = container.read(tabStateManagerProvider.notifier).getState<CodeEditorTabState>(tab.file.uri);
+  
+  if (tabState == null) {
+    return TextSpan(text: codeLine.text, style: style);
+  }
 
-  // The highlight state is now read directly from the tab's state
-  final highlightState = (plugin.getTabState(ref, tab) as CodeEditorTabState).bracketHighlightState;
-
-  final spans = <TextSpan>[];
-  int currentPosition = 0;
+  final highlightState = tabState.bracketHighlightState;
+  final lineIndex = tabState.controller.codeLines.indexOf(codeLine);
+  if (lineIndex == -1) {
+     return TextSpan(text: codeLine.text, style: style);
+  }
+  
   final highlightPositions =
       highlightState.bracketPositions
-          .where((pos) => pos.index == index)
+          .where((pos) => pos.index == lineIndex)
           .map((pos) => pos.offset)
           .toSet();
-  void processSpan(TextSpan span) {
+
+  // If there's nothing to highlight on this line, return the pre-styled spans from syntax highlighting
+  if (highlightPositions.isEmpty) {
+    return TextSpan(children: codeLine.spans, style: style);
+  }
+
+  // If there are highlights, we need to rebuild the spans for this line
+  final builtSpans = <TextSpan>[];
+  int currentPosition = 0;
+  
+  // The source of truth is the syntax-highlighted spans in codeLine.spans
+  final sourceSpans = codeLine.spans.isNotEmpty ? codeLine.spans : [TextSpan(text: codeLine.text)];
+
+  for (final span in sourceSpans) {
     final text = span.text ?? '';
     final spanStyle = span.style ?? style;
-    List<int> highlightIndices = [];
-
-    for (var i = 0; i < text.length; i++) {
-      if (highlightPositions.contains(currentPosition + i)) {
-        highlightIndices.add(i);
-      }
-    }
-
     int lastSplit = 0;
-    for (final highlightIndex in highlightIndices) {
-      if (highlightIndex > lastSplit) {
-        spans.add(
-          TextSpan(
-            text: text.substring(lastSplit, highlightIndex),
-            style: spanStyle,
-          ),
-        );
-      }
-      spans.add(
-        TextSpan(
-          text: text[highlightIndex],
+    
+    for (int i = 0; i < text.length; i++) {
+      final absolutePosition = currentPosition + i;
+      if (highlightPositions.contains(absolutePosition)) {
+        // Add text before the highlight
+        if (i > lastSplit) {
+          builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+        }
+        // Add the highlighted character
+        builtSpans.add(TextSpan(
+          text: text[i],
           style: spanStyle.copyWith(
             backgroundColor: Colors.yellow.withOpacity(0.3),
             fontWeight: FontWeight.bold,
           ),
-        ),
-      );
-      lastSplit = highlightIndex + 1;
-    }
-
-    if (lastSplit < text.length) {
-      spans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
-    }
-
-    currentPosition += text.length;
-
-    if (span.children != null) {
-      for (final child in span.children!) {
-        if (child is TextSpan) {
-          processSpan(child);
-        }
+        ));
+        lastSplit = i + 1;
       }
     }
+    // Add any remaining text after the last highlight
+    if (lastSplit < text.length) {
+      builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+    }
+    currentPosition += text.length;
   }
-
-  processSpan(textSpan);
-  return TextSpan(
-    children: spans.isNotEmpty ? spans : [textSpan],
-    style: style,
-  );
+  
+  return TextSpan(children: builtSpans, style: style);
 }
+
 
 class _CustomLineNumberWidget extends ConsumerWidget {
   final CodeLineEditingController controller;
