@@ -2,13 +2,13 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // REFACTOR: Import for TapRegion
+import 'package:re_editor/re_editor.dart';
 
 import '../app/app_notifier.dart';
 import '../editor/plugins/code_editor/code_editor_plugin.dart';
 import 'command_notifier.dart';
 
-// ... (appBarCommandsProvider and pluginToolbarCommandsProvider are unchanged) ...
+// ... (providers are unchanged) ...
 final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
@@ -89,6 +89,7 @@ class AppBarCommands extends ConsumerWidget {
     ));
 
     final commandRow = Row(
+      mainAxisSize: MainAxisSize.min, // Prevent row from expanding unnecessarily
       children: items.map((item) {
         if (item is Command) {
           return CommandButton(command: item);
@@ -100,7 +101,6 @@ class AppBarCommands extends ConsumerWidget {
       }).toList(),
     );
 
-    // REFACTOR: Conditionally wrap in TapRegion
     if (currentPlugin is CodeEditorPlugin) {
       return CodeEditorTapRegion(child: commandRow);
     }
@@ -203,7 +203,6 @@ class CommandButton extends ConsumerWidget {
   }
 }
 
-// REFACTOR: Replaced PopupMenuButton with a custom DropdownButton implementation.
 class CommandGroupButton extends ConsumerWidget {
   final CommandGroup commandGroup;
 
@@ -232,61 +231,34 @@ class CommandGroupButton extends ConsumerWidget {
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
+    
+    // REFACTOR: Use a GlobalKey to manage opening the menu manually.
+    final key = GlobalKey();
 
-    // This is a dummy value for the dropdown to show the icon.
-    // We use a list with a single null value to represent the button itself.
-    final List<Command?> dropdownItems = [null, ...commandsInGroup];
-
-    final dropdown = DropdownButton<Command>(
-      // A key is important for DropdownButtons when their items change.
-      key: ValueKey(commandGroup.id),
-      // The value is always null because we want to show the icon, not a selected item.
-      value: null,
-      // The icon displayed on the button.
+    final dropdown = PopupMenuButton<Command>(
+      key: key,
       icon: commandGroup.icon,
-      // Hide the default underline.
-      underline: const SizedBox.shrink(),
-      // The tooltip for the button.
-      hint: Tooltip(
-        message: commandGroup.label,
-        child: const SizedBox(), // Tooltip needs a child.
-      ),
-      // When an item is selected from the dropdown menu.
-      onChanged: (Command? command) {
-        command?.execute(ref);
-      },
-      // Build the items for the dropdown menu.
-      items: dropdownItems.map((Command? command) {
-        if (command == null) {
-          // This creates the non-selectable header in the dropdown.
-          return DropdownMenuItem<Command>(
-            enabled: false,
-            child: Text(
-              commandGroup.label,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+      tooltip: commandGroup.label,
+      // We handle execution in the item builder's onTap.
+      onSelected: (command) => command.execute(ref),
+      itemBuilder: (BuildContext context) {
+        return commandsInGroup.map((command) {
+          final isEnabled = command.canExecute(ref);
+          return PopupMenuItem<Command>(
+            value: command,
+            enabled: isEnabled,
+            child: Row(
+              children: [
+                command.icon,
+                const SizedBox(width: 12),
+                Text(command.label),
+              ],
             ),
           );
-        }
-        // This creates a standard, selectable item.
-        return DropdownMenuItem<Command>(
-          value: command,
-          enabled: command.canExecute(ref),
-          child: Row(
-            children: [
-              command.icon,
-              const SizedBox(width: 12),
-              Text(command.label),
-            ],
-          ),
-        );
-      }).toList(),
-      // Use a custom builder to ensure the icon is always shown.
-      selectedItemBuilder: (context) {
-        return dropdownItems.map((_) => commandGroup.icon).toList();
+        }).toList();
       },
     );
 
-    // REFACTOR: Wrap the dropdown in a CodeEditorTapRegion to preserve focus.
     return CodeEditorTapRegion(child: dropdown);
   }
 }
