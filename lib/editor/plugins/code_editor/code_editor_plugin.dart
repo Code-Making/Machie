@@ -42,6 +42,12 @@ class CodeEditorTabState implements TabState {
   });
 }
 
+// REFACTOR: Create a delegate to hold a reference to the tab.
+class CodeEditorControllerDelegate implements CodeLineEditingControllerDelegate {
+  final CodeEditorTab tab;
+  CodeEditorControllerDelegate(this.tab);
+}
+
 class CodeEditorPlugin implements EditorPlugin {
   @override
   String get name => 'Code Editor';
@@ -94,9 +100,10 @@ class CodeEditorPlugin implements EditorPlugin {
     final codeTab = tab as CodeEditorTab;
     final String initialContent = data as String;
 
-    // REFACTOR: Restore the exact signature for spanBuilder.
-    // The builder will use the controller's tag to find its tab and state.
+    // REFACTOR: The controller is now declared before being referenced.
+    // The spanBuilder uses the delegate to get the context it needs.
     final controller = CodeLineEditingController(
+      delegate: CodeEditorControllerDelegate(codeTab), // Assign the delegate
       spanBuilder: ({
         required BuildContext context,
         required int index,
@@ -104,14 +111,14 @@ class CodeEditorPlugin implements EditorPlugin {
         required TextSpan textSpan,
         required TextStyle style,
       }) {
-        final currentTab = controller.tag as CodeEditorTab?;
-        if (currentTab == null) {
+        final delegate = controller.delegate as CodeEditorControllerDelegate?;
+        if (delegate == null) {
           return textSpan;
         }
         return buildHighlightingSpan(
           context: context,
           index: index,
-          tab: currentTab,
+          tab: delegate.tab,
           codeLine: codeLine,
           textSpan: textSpan,
           style: style,
@@ -119,8 +126,7 @@ class CodeEditorPlugin implements EditorPlugin {
       },
       codeLines: CodeLines.fromText(initialContent),
     );
-    // REFACTOR: Restore the tag property. It is crucial for the builder to find its context.
-    controller.tag = codeTab;
+    
     return CodeEditorTabState(controller: controller);
   }
 
@@ -128,7 +134,7 @@ class CodeEditorPlugin implements EditorPlugin {
   void disposeTabState(TabState state) {
     (state as CodeEditorTabState).controller.dispose();
   }
-
+  // ... (The rest of the file is unchanged and correct) ...
   @override
   Future<EditorTab> createTabFromSerialization(
     Map<String, dynamic> tabJson,
@@ -142,12 +148,10 @@ class CodeEditorPlugin implements EditorPlugin {
     final content = await fileHandler.readFile(fileUri);
     return createTab(file, content);
   }
-
   @override
   void activateTab(EditorTab tab, Ref ref) {}
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
-
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
@@ -172,8 +176,6 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     );
   }
-  
-  // ... (unchanged helpers and commands) ...
   CodeEditorTab? _getTab(WidgetRef ref) {
     final tab = ref.watch(
       appNotifierProvider.select(
@@ -452,7 +454,6 @@ class CodeEditorPlugin implements EditorPlugin {
   void handleBracketHighlight(WidgetRef ref, CodeEditorTab tab) {
     final tabState = getTabState(ref, tab);
     if (tabState == null) return;
-
     final controller = tabState.controller;
     final selection = controller.selection;
     if (!selection.isCollapsed) {

@@ -136,7 +136,7 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         commentFormatter: widget.commentFormatter,
         indicatorBuilder: widget.indicatorBuilder,
         style: CodeEditorStyle(
-          fontSize: codeEditorSettings?.fontSize ?? 12,
+          fontSize: codeEditorSettings?.fontSize?.toDouble() ?? 12.0, // REFACTOR: Fix int/double mismatch
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
             theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
@@ -166,7 +166,7 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Get state from the TabStateManager
+    // REFACTOR: The cast is no longer needed as the state is watched directly.
     final tabState = ref.watch(
       tabStateManagerProvider.select((s) => s[tab.file.uri] as CodeEditorTabState?),
     );
@@ -193,13 +193,12 @@ class CustomEditorIndicator extends ConsumerWidget {
   }
 }
 
-// REFACTOR: This function now has the correct signature and logic.
 TextSpan buildHighlightingSpan({
   required BuildContext context,
   required int index,
   required CodeEditorTab tab,
   required CodeLine codeLine,
-  required TextSpan textSpan, // The syntax-highlighted span from re_editor
+  required TextSpan textSpan,
   required TextStyle style,
 }) {
   final container = ProviderScope.containerOf(context);
