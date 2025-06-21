@@ -8,8 +8,10 @@ import '../../data/file_handler/file_handler.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
+import 'file_explorer_dialogs.dart';
 import '../explorer_plugin_registry.dart';
 
+// REFACTOR: SortByNameDesc had a typo comparing a.name to a.name. Corrected to b.name.
 class DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
@@ -63,7 +65,7 @@ class DirectoryView extends ConsumerWidget {
         case FileExplorerViewMode.sortByDateModified:
           return b.modifiedDate.compareTo(a.modifiedDate);
         default:
-          return a.name.toLowerCase().compareTo(a.name.toLowerCase());
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
     });
   }
@@ -98,14 +100,20 @@ class DirectoryItem extends ConsumerWidget {
         title: Text(item.name),
         subtitle: subtitle != null ? Text(subtitle!) : null,
         initiallyExpanded: isExpanded,
-        onExpansionChanged: (expanded) {
+        onExpansionChanged: (expanding) {
+          // REFACTOR: Proactively read the provider to cache/fetch contents
+          // before the expansion animation starts, preventing flicker.
+          if (expanding) {
+            ref.read(currentProjectDirectoryContentsProvider(item.uri).future);
+          }
+
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
             final newExpanded = Set<String>.from(currentSettings.expandedFolders);
-            if (newExpanded.contains(item.uri)) {
-              newExpanded.remove(item.uri);
-            } else {
+            if (expanding) {
               newExpanded.add(item.uri);
+            } else {
+              newExpanded.remove(item.uri);
             }
             return currentSettings.copyWith(expandedFolders: newExpanded);
           });
@@ -133,7 +141,7 @@ class DirectoryItem extends ConsumerWidget {
       childWidget = ListTile(
         key: ValueKey(item.uri),
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
-        leading: FileTypeIcon(file: item), // <-- This is where the error was
+        leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         subtitle:
             subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
@@ -150,7 +158,7 @@ class DirectoryItem extends ConsumerWidget {
   }
 }
 
-// REFACTOR: This class definition is now confirmed to be here, fixing the error.
+// ... RootPlaceholder and FileTypeIcon are unchanged ...
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
@@ -167,7 +175,6 @@ class RootPlaceholder implements DocumentFile {
   RootPlaceholder(this.uri);
 }
 
-// REFACTOR: This widget definition is now confirmed to be here, fixing the error.
 class FileTypeIcon extends ConsumerWidget {
   final DocumentFile file;
   const FileTypeIcon({super.key, required this.file});
