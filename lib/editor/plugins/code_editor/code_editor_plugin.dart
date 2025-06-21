@@ -33,12 +33,12 @@ class BracketHighlightState {
 }
 
 // REFACTOR: The tab's transient state now includes bracket highlighting.
-class _CodeEditorTabState implements TabState {
+class CodeEditorTabState implements TabState {
   final CodeLineEditingController controller;
   CodeLinePosition? mark;
   BracketHighlightState bracketHighlightState;
 
-  _CodeEditorTabState({
+  CodeEditorTabState({
     required this.controller,
     this.mark,
     this.bracketHighlightState = const BracketHighlightState(),
@@ -61,7 +61,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Future<void> dispose() async {}
 
-  _CodeEditorTabState? getTabState(WidgetRef ref, EditorTab tab) {
+  CodeEditorTabState? getTabState(WidgetRef ref, EditorTab tab) {
     return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
   
@@ -106,12 +106,12 @@ class CodeEditorPlugin implements EditorPlugin {
       ),
       codeLines: CodeLines.fromText(codeTab.initialContent),
     );
-    return _CodeEditorTabState(controller: controller);
+    return CodeEditorTabState(controller: controller);
   }
 
   @override
   void disposeTabState(TabState state) {
-    (state as _CodeEditorTabState).controller.dispose();
+    (state as CodeEditorTabState).controller.dispose();
   }
 
   @override
@@ -387,59 +387,7 @@ Future<void> _selectBetweenBrackets(
     }
   }
 
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
-    final line = codeLines[position.index].text;
-    final char = line[position.offset];
-
-    final isOpen = brackets.keys.contains(char);
-    final target =
-        isOpen
-            ? brackets[char]
-            : brackets.keys.firstWhere(
-              (k) => brackets[k] == char,
-              orElse: () => '',
-            );
-
-    if (target?.isEmpty ?? true) return null;
-
-    int stack = 1;
-    int index = position.index;
-    int offset = position.offset;
-    final direction = isOpen ? 1 : -1;
-
-    while (index >= 0 && index < codeLines.length) {
-      final currentLine = codeLines[index].text;
-
-      while (offset >= 0 && offset < currentLine.length) {
-        if (index == position.index && offset == position.offset) {
-          offset += direction;
-          continue;
-        }
-
-        final currentChar = currentLine[offset];
-
-        if (currentChar == char) {
-          stack += 1;
-        } else if (currentChar == target) {
-          stack -= 1;
-        }
-
-        if (stack == 0) {
-          return CodeLinePosition(index: index, offset: offset);
-        }
-
-        offset += direction;
-      }
-
-      index += direction;
-      offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
-    }
-    return null;
-  }
+  
 
   Future<void> _extendSelection(
     WidgetRef ref,
