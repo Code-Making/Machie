@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
-import 'settings_models.dart'; // Import for GeneralSettings
+import 'settings_models.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -21,7 +21,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
-    // Get general settings specifically.
+    // REFACTOR: This cast is now correct because we know it's a GeneralSettings object.
     final generalSettings = settings.pluginSettings[GeneralSettings] as GeneralSettings?;
 
     return ListView(
@@ -32,7 +32,6 @@ class SettingsScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.pushNamed(context, '/command-settings'),
         ),
-        // NEW: Add the General Settings UI card.
         if (generalSettings != null)
           _GeneralSettingsCard(settings: generalSettings),
         ...plugins
@@ -40,7 +39,8 @@ class SettingsScreen extends ConsumerWidget {
             .map(
               (plugin) => _PluginSettingsCard(
                 plugin: plugin,
-                settings: settings.pluginSettings[plugin.settings.runtimeType]!,
+                // REFACTOR: This cast is also correct.
+                settings: settings.pluginSettings[plugin.settings.runtimeType]! as PluginSettings,
               ),
             ),
       ],
@@ -48,7 +48,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// NEW: A dedicated widget for the General Settings card.
+// ... (_GeneralSettingsCard is unchanged)
 class _GeneralSettingsCard extends ConsumerWidget {
   final GeneralSettings settings;
   const _GeneralSettingsCard({required this.settings});
@@ -102,7 +102,8 @@ class _GeneralSettingsCard extends ConsumerWidget {
     );
   }
 }
-// ... (_PluginSettingsCard is unchanged)
+
+
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
   final PluginSettings settings;
@@ -136,6 +137,7 @@ class _PluginSettingsCard extends ConsumerWidget {
     );
   }
 }
+
 
 class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});
