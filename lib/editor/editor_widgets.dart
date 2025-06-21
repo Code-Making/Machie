@@ -45,8 +45,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
 
     return Container(
       color: Theme.of(context).appBarTheme.backgroundColor,
-      // REFACTOR: Reduced the TabBar height for a more compact UI.
-      height: 36,
+      height: 28,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
           key: const PageStorageKey<String>('tabBarScrollPosition'),
@@ -71,7 +70,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   }
 }
 
-// ... (TabWidget and other widgets are unchanged) ...
+
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
@@ -90,29 +89,37 @@ class TabWidget extends ConsumerWidget {
       tabStateProvider.select((stateMap) => stateMap[tab.file.uri] ?? false),
     );
 
+    // REFACTOR: The ConstrainedBox now only has a maxWidth, allowing the tab to shrink.
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+      constraints: const BoxConstraints(maxWidth: 220),
       child: Material(
         color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
         child: InkWell(
           onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            // REFACTOR: Row now shrinks to fit its children.
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // The close button is a fixed size.
                 IconButton(
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: const Icon(Icons.close, size: 16),
                   onPressed:
                       () => ref
                           .read(appNotifierProvider.notifier)
                           .closeTab(index),
                 ),
-                Expanded(
+                // REFACTOR: Flexible allows the text to take up remaining space
+                // up to the ConstrainedBox limit, and then use an ellipsis.
+                Flexible(
                   child: Text(
                     tab.file.name,
                     overflow: TextOverflow.ellipsis,
+                    softWrap: false, // Ensure text stays on one line.
                     style: TextStyle(
-                      color: isDirty ? Colors.orange : Colors.white,
+                      fontSize: 13, // Slightly smaller font for a tighter look.
+                      color: isDirty ? Colors.orange.shade300 : Colors.white70,
                     ),
                   ),
                 ),
