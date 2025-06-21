@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
-// REFACTOR: The OpenFileResult classes are now defined below, so we don't need this from file_handler
-// import '../../data/file_handler/file_handler.dart'; 
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
@@ -13,6 +11,7 @@ import '../../editor/tab_state_notifier.dart';
 import '../../project/project_models.dart';
 import '../../logs/logs_provider.dart';
 import '../../data/file_handler/file_handler.dart' show DocumentFile; // REFACTOR: Only import what's needed
+import '../tab_state_manager.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -63,11 +62,13 @@ class EditorService {
     );
   }
 
+    // REFACTOR: openFile now creates the TabState
   Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
+    // ... (logic to find existing tab and choose plugin is unchanged)
     final existingIndex =
         project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
@@ -76,14 +77,12 @@ class EditorService {
         wasAlreadyOpen: true,
       );
     }
-
     EditorPlugin? chosenPlugin = explicitPlugin;
     if (chosenPlugin == null) {
       final compatiblePlugins = _ref
           .read(activePluginsProvider)
           .where((p) => p.supportsFile(file))
           .toList();
-
       if (compatiblePlugins.isEmpty) {
         return OpenFileError("No plugin available to open '${file.name}'.");
       } else if (compatiblePlugins.length > 1) {
@@ -100,6 +99,13 @@ class EditorService {
     }
 
     final newTab = await chosenPlugin.createTab(file, data);
+
+    // REFACTOR: Create and register the tab's state
+    final tabState = await chosenPlugin.createTabState(newTab);
+    if (tabState != null) {
+      _ref.read(tabStateManagerProvider.notifier).addState(newTab.file.uri, tabState);
+    }
+
     _ref.read(tabStateProvider.notifier).initTab(file.uri);
 
     final oldTab = project.session.currentTab;
@@ -115,6 +121,8 @@ class EditorService {
       wasAlreadyOpen: false,
     );
   }
+
+
 
   Future<bool> saveCurrentTab(
     Project project, {
@@ -150,11 +158,13 @@ class EditorService {
     return newProject;
   }
 
+  // REFACTOR: closeTab now disposes of the TabState
   Project closeTab(Project project, int index) {
     final closedTab = project.session.tabs[index];
     final oldTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs)..removeAt(index);
 
+    // ... (logic to find new index is unchanged)
     int newCurrentIndex;
     if (newTabs.isEmpty) {
       newCurrentIndex = 0;
@@ -175,6 +185,12 @@ class EditorService {
         currentTabIndex: newCurrentIndex,
       ),
     );
+
+    // REFACTOR: Remove and dispose of the tab's state
+    final tabState = _ref.read(tabStateManagerProvider.notifier).removeState(closedTab.file.uri);
+    if (tabState != null) {
+      closedTab.plugin.disposeTabState(tabState);
+    }
 
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.plugin.disposeTab(closedTab);

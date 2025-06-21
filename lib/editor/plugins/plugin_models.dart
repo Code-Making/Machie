@@ -1,7 +1,6 @@
-// lib/plugins/plugin_architecture.dart
-
+// lib/editor/plugins/plugin_models.dart
 import 'dart:async';
-// NEW IMPORT
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,32 +8,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
 import '../editor_tab_models.dart';
+import '../tab_state_manager.dart'; // REFACTOR: Import TabState
 
-// NEW: Enum to declare what kind of data the plugin expects.
 enum PluginDataRequirement { string, bytes }
-
-// --------------------
-//   Editor Plugin
-// --------------------
 
 abstract class EditorPlugin {
   String get name;
   Widget get icon;
-
-  // NEW: Property to declare data needs. Defaults to string for backward compatibility.
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
   List<Command> getCommands();
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
   bool supportsFile(DocumentFile file);
-
-  // MODIFIED: `data` is now `dynamic` to accept String or Uint8List.
+  
   Future<EditorTab> createTab(DocumentFile file, dynamic data);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
+  
+  // REFACTOR: Add createTabState method
+  /// Creates a transient state object for a tab.
+  /// This state (e.g., controllers, undo history) lives as long as the tab is open.
+  /// Return null if the plugin's tabs are stateless.
+  Future<TabState?> createTabState(EditorTab tab);
+
+  // REFACTOR: Add disposeTabState method
+  /// Called when a tab is closed, allowing the plugin to dispose of resources
+  /// held by the TabState object (e.g., controllers).
+  void disposeTabState(TabState state);
 
   void disposeTab(EditorTab tab) {}
 

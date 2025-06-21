@@ -19,6 +19,14 @@ import 'code_editor_logic.dart'; // NEW IMPORT
 
 //TODO: IMPLEMENT logging
 
+// REFACTOR: Create a dedicated state class for this plugin's tabs.
+class _CodeEditorTabState implements TabState {
+  final CodeLineEditingController controller;
+  CodeLinePosition? mark; // Marks are now part of the tab state
+
+  _CodeEditorTabState({required this.controller, this.mark});
+}
+
 // --------------------
 //  Code Editor Plugin
 // --------------------
@@ -56,17 +64,18 @@ class CodeEditorPlugin implements EditorPlugin {
     _marks.clear();
     // print("dispose code editor");
   }
+  
+  // REFACTOR: Helper to get state from the manager
+  _CodeEditorTabState? _getTabState(WidgetRef ref, EditorTab tab) {
+    return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
+  }
 
-  CodeLineEditingController? getControllerForTab(EditorTab tab) {
-    return _controllers[tab.file.uri];
+  CodeLineEditingController? getControllerForTab(WidgetRef ref, EditorTab tab) {
+    return _getTabState(ref, tab)?.controller;
   }
 
   @override
-  void disposeTab(EditorTab tab) {
-    final controller = _controllers.remove(tab.file.uri);
-    controller?.dispose();
-    _marks.remove(tab.file.uri);
-  }
+  void disposeTab(EditorTab tab) {}
 
   @override
   bool supportsFile(DocumentFile file) {
@@ -78,19 +87,11 @@ class CodeEditorPlugin implements EditorPlugin {
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) {
     return [];
   }
+  
+  
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
-    // The `data` is guaranteed to be a String here due to the default dataRequirement.
-    final String content = data as String;
-
-    final controller = CodeLineEditingController(
-      spanBuilder: buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content),
-    );
-    _controllers[file.uri] = controller;
-    _marks.remove(file.uri);
-
     final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
     return CodeEditorTab(
       file: file,
@@ -98,6 +99,24 @@ class CodeEditorPlugin implements EditorPlugin {
       commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
     );
+  }
+
+  // REFACTOR: Implement createTabState
+  @override
+  Future<TabState> createTabState(EditorTab tab) async {
+    final codeTab = tab as CodeEditorTab;
+    final content = await codeTab.plugin.settings!.toJson()['wordWrap']; // TODO Fix this
+    final controller = CodeLineEditingController(
+      spanBuilder: buildHighlightingSpan,
+      codeLines: CodeLines.fromText(content as String),
+    );
+    return _CodeEditorTabState(controller: controller);
+  }
+  
+  // REFACTOR: Implement disposeTabState
+  @override
+  void disposeTabState(TabState state) {
+    (state as _CodeEditorTabState).controller.dispose();
   }
 
   @override
@@ -110,11 +129,10 @@ class CodeEditorPlugin implements EditorPlugin {
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
     }
-
-    final content = await fileHandler.readFile(fileUri);
-    // Call the main createTab method
-    return createTab(file, content);
+    // Content is loaded in createTabState now, so we pass a dummy value here.
+    return createTab(file, '');
   }
+  
 
   @override
   void activateTab(EditorTab tab, Ref ref) {
@@ -131,12 +149,11 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    final controller = getControllerForTab(codeTab);
+    // REFACTOR: Get controller via the tab state manager
+    final controller = getControllerForTab(ref, codeTab);
 
     if (controller == null) {
-      return const Center(
-        child: Text("Error: Controller not found for this tab."),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     return CodeEditorMachine(
@@ -339,9 +356,8 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   CodeLineEditingController? _getController(WidgetRef ref) {
-    final tab =
-        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
-    return tab != null ? getControllerForTab(tab) : null;
+    final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    return tab != null ? getControllerForTab(ref, tab) : null;
   }
 
   CodeEditorTab? _getTab(WidgetRef ref) {
@@ -552,32 +568,32 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // MODIFIED: Logic now uses the internal _marks map.
-  Future<void> _setMarkPosition(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
+  Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {
     final tab = _getTab(ref);
     if (ctrl == null || tab == null) return;
-    _marks[tab.file.uri] = ctrl.selection.base;
-    // We need to rebuild the widgets that depend on canExecute, which can't be done
-    // easily without a provider. This is a classic state management challenge.
-    // For now, this will work, but the button's enabled state won't update
-    // immediately without a manual refresh of some kind.
+    final tabState = _getTabState(ref, tab);
+    if (tabState != null) {
+      tabState.mark = ctrl.selection.base;
+    }
   }
 
-  // MODIFIED: Logic now uses the internal _marks map.
-  Future<void> _selectToMark(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
+  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
     final tab = _getTab(ref);
     if (ctrl == null || tab == null) return;
-    final mark = _marks[tab.file.uri];
-    if (mark == null) {
-      // print('No mark set! Set a mark first');
-      return;
-    }
+    final mark = _getTabState(ref, tab)?.mark;
+    if (mark == null) return;
+
+    final currentPosition = ctrl.selection.base;
+    final start = _comparePositions(mark, currentPosition) < 0 ? mark : currentPosition;
+    final end = _comparePositions(mark, currentPosition) < 0 ? currentPosition : mark;
+
+    ctrl.selection = CodeLineSelection(
+      baseIndex: start.index,
+      baseOffset: start.offset,
+      extentIndex: end.index,
+      extentOffset: end.offset,
+    );
+  }
 
     try {
       final currentPosition = ctrl.selection.base;
