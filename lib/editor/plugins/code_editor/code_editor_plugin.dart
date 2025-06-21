@@ -61,12 +61,12 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Future<void> dispose() async {}
 
-  _CodeEditorTabState? _getTabState(WidgetRef ref, EditorTab tab) {
+  _CodeEditorTabState? getTabState(WidgetRef ref, EditorTab tab) {
     return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
   
   CodeLineEditingController? getControllerForTab(WidgetRef ref, EditorTab tab) {
-    return _getTabState(ref, tab)?.controller;
+    return getTabState(ref, tab)?.controller;
   }
 
   @override
@@ -210,7 +210,7 @@ class CodeEditorPlugin implements EditorPlugin {
           canExecute: (ref, ctrl) {
             final tab = _getTab(ref);
             if (tab == null) return false;
-            final tabState = _getTabState(ref, tab);
+            final tabState = getTabState(ref, tab);
             return tabState?.mark != null;
           },
         ),
@@ -502,7 +502,7 @@ Future<void> _selectBetweenBrackets(
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {
     final tab = _getTab(ref);
     if (ctrl == null || tab == null) return;
-    final tabState = _getTabState(ref, tab);
+    final tabState = getTabState(ref, tab);
     if (tabState != null) {
       tabState.mark = ctrl.selection.base;
     }
@@ -511,7 +511,7 @@ Future<void> _selectBetweenBrackets(
   Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
     final tab = _getTab(ref);
     if (ctrl == null || tab == null) return;
-    final mark = _getTabState(ref, tab)?.mark;
+    final mark = getTabState(ref, tab)?.mark;
     if (mark == null) return;
 
     final currentPosition = ctrl.selection.base;
@@ -528,7 +528,7 @@ Future<void> _selectBetweenBrackets(
   
     // REFACTOR: Logic for bracket highlighting moved here from the old notifier.
   void handleBracketHighlight(WidgetRef ref, CodeEditorTab tab) {
-    final tabState = _getTabState(ref, tab);
+    final tabState = getTabState(ref, tab);
     if (tabState == null) return;
 
     final controller = tabState.controller;
