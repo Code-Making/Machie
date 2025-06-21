@@ -173,7 +173,7 @@ class CustomEditorIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plugin = tab.plugin as CodeEditorPlugin;
-    final tabState = plugin.getTabState(ref, tab) as _CodeEditorTabState?;
+    final tabState = plugin.getTabState(ref, tab) as CodeEditorTabState?;
     final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 
     return GestureDetector(
@@ -209,7 +209,7 @@ TextSpan buildHighlightingSpan({
   if (tabState == null) return TextSpan(text: codeLine.text, style: style);
 
   // The highlight state is now read directly from the tab's state
-  final highlightState = (plugin.getTabState(ref, tab) as _CodeEditorTabState).bracketHighlightState;
+  final highlightState = (plugin.getTabState(ref, tab) as CodeEditorTabState).bracketHighlightState;
 
   final spans = <TextSpan>[];
   int currentPosition = 0;
