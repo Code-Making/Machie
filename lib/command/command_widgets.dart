@@ -2,11 +2,13 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:re_editor/re_editor.dart'; // REFACTOR: Import for TapRegion
 
 import '../app/app_notifier.dart';
+import '../editor/plugins/code_editor/code_editor_plugin.dart';
 import 'command_notifier.dart';
 
-// This provider now resolves the correct, context-specific commands for the app bar.
+// ... (appBarCommandsProvider and pluginToolbarCommandsProvider are unchanged) ...
 final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
@@ -26,23 +28,17 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
-
-    // REFACTOR: The logic now checks for the current plugin OR the general 'App' source.
-    // It also handles the case where there is no active plugin.
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
       (c) =>
           c.id == id &&
           (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
     );
-
     if (command != null) {
       visibleItems.add(command);
     }
   }
   return visibleItems;
 });
-
-// This provider does the same for the plugin toolbar.
 final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
@@ -62,15 +58,11 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
-
-    // REFACTOR: The logic now checks for the current plugin OR the general 'App' source.
-    // It also handles the case where there is no active plugin.
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
       (c) =>
           c.id == id &&
           (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
     );
-
     if (command != null) {
       visibleItems.add(command);
     }
@@ -79,7 +71,6 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
 });
 
 
-// ... The rest of the file (BottomToolbar, CommandButton, etc.) is unchanged ...
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
@@ -93,19 +84,27 @@ class AppBarCommands extends ConsumerWidget {
     }
 
     final items = ref.watch(appBarCommandsProvider);
+    final currentPlugin = ref.watch(appNotifierProvider.select(
+      (s) => s.value?.currentProject?.session.currentTab?.plugin,
+    ));
 
-    return Row(
-      children:
-          items.map((item) {
-            if (item is Command) {
-              return CommandButton(command: item);
-            }
-            if (item is CommandGroup) {
-              return CommandGroupButton(commandGroup: item);
-            }
-            return const SizedBox.shrink();
-          }).toList(),
+    final commandRow = Row(
+      children: items.map((item) {
+        if (item is Command) {
+          return CommandButton(command: item);
+        }
+        if (item is CommandGroup) {
+          return CommandGroupButton(commandGroup: item);
+        }
+        return const SizedBox.shrink();
+      }).toList(),
     );
+
+    // REFACTOR: Conditionally wrap in TapRegion
+    if (currentPlugin is CodeEditorPlugin) {
+      return CodeEditorTapRegion(child: commandRow);
+    }
+    return commandRow;
   }
 }
 
@@ -141,29 +140,39 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     }
 
     final items = ref.watch(pluginToolbarCommandsProvider);
+    final currentPlugin = ref.watch(appNotifierProvider.select(
+      (s) => s.value?.currentProject?.session.currentTab?.plugin,
+    ));
 
-    return Container(
-      height: 48,
-      color: Colors.grey[900],
-      child: ListView.builder(
-        key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          if (item is Command) {
-            return CommandButton(command: item, showLabel: false);
-          }
-          if (item is CommandGroup) {
-            return CommandGroupButton(commandGroup: item);
-          }
-          return const SizedBox.shrink();
-        },
-      ),
+    final listView = ListView.builder(
+      key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        if (item is Command) {
+          return CommandButton(command: item, showLabel: false);
+        }
+        if (item is CommandGroup) {
+          return CommandGroupButton(commandGroup: item);
+        }
+        return const SizedBox.shrink();
+      },
     );
+
+    final container = Container(
+      height: 48,
+      color: Theme.of(context).bottomAppBarTheme.color,
+      child: currentPlugin is CodeEditorPlugin
+          ? CodeEditorTapRegion(child: listView)
+          : listView,
+    );
+
+    return container;
   }
 }
+
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
@@ -194,6 +203,7 @@ class CommandButton extends ConsumerWidget {
   }
 }
 
+// REFACTOR: Replaced PopupMenuButton with a custom DropdownButton implementation.
 class CommandGroupButton extends ConsumerWidget {
   final CommandGroup commandGroup;
 
@@ -210,41 +220,73 @@ class CommandGroupButton extends ConsumerWidget {
       ),
     );
 
-    final commandsInGroup =
-        commandGroup.commandIds
-            .map(
-              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-                (c) => c.id == id && (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
-              ),
-            )
-            .whereType<Command>()
-            .toList();
+    final commandsInGroup = commandGroup.commandIds
+        .map((id) => notifier.allRegisteredCommands.firstWhereOrNull(
+              (c) =>
+                  c.id == id &&
+                  (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
+            ))
+        .whereType<Command>()
+        .toList();
 
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return PopupMenuButton<Command>(
+    // This is a dummy value for the dropdown to show the icon.
+    // We use a list with a single null value to represent the button itself.
+    final List<Command?> dropdownItems = [null, ...commandsInGroup];
+
+    final dropdown = DropdownButton<Command>(
+      // A key is important for DropdownButtons when their items change.
+      key: ValueKey(commandGroup.id),
+      // The value is always null because we want to show the icon, not a selected item.
+      value: null,
+      // The icon displayed on the button.
       icon: commandGroup.icon,
-      tooltip: commandGroup.label,
-      onSelected: (Command command) {
-        command.execute(ref);
+      // Hide the default underline.
+      underline: const SizedBox.shrink(),
+      // The tooltip for the button.
+      hint: Tooltip(
+        message: commandGroup.label,
+        child: const SizedBox(), // Tooltip needs a child.
+      ),
+      // When an item is selected from the dropdown menu.
+      onChanged: (Command? command) {
+        command?.execute(ref);
       },
-      itemBuilder: (BuildContext context) {
-        return commandsInGroup.map((command) {
-          return PopupMenuItem<Command>(
-            value: command,
-            enabled: command.canExecute(ref),
-            child: Row(
-              children: [
-                command.icon,
-                const SizedBox(width: 12),
-                Text(command.label),
-              ],
+      // Build the items for the dropdown menu.
+      items: dropdownItems.map((Command? command) {
+        if (command == null) {
+          // This creates the non-selectable header in the dropdown.
+          return DropdownMenuItem<Command>(
+            enabled: false,
+            child: Text(
+              commandGroup.label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           );
-        }).toList();
+        }
+        // This creates a standard, selectable item.
+        return DropdownMenuItem<Command>(
+          value: command,
+          enabled: command.canExecute(ref),
+          child: Row(
+            children: [
+              command.icon,
+              const SizedBox(width: 12),
+              Text(command.label),
+            ],
+          ),
+        );
+      }).toList(),
+      // Use a custom builder to ensure the icon is always shown.
+      selectedItemBuilder: (context) {
+        return dropdownItems.map((_) => commandGroup.icon).toList();
       },
     );
+
+    // REFACTOR: Wrap the dropdown in a CodeEditorTapRegion to preserve focus.
+    return CodeEditorTapRegion(child: dropdown);
   }
 }
