@@ -162,18 +162,21 @@ class CustomEditorIndicator extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
+  final CodeEditorTab tab; // REFACTOR: Pass tab down
 
   const CustomEditorIndicator({
     super.key,
     required this.controller,
     required this.chunkController,
     required this.notifier,
+    required this.tab,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // REFACTOR: Get highlight state from the tab state
     final plugin = tab.plugin as CodeEditorPlugin;
-    final tabState = plugin.getTabState(ref, tab) as CodeEditorTabState?;
+    final tabState = plugin.getTabState(ref, tab) as _CodeEditorTabState?;
     final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 
     return GestureDetector(
@@ -184,7 +187,7 @@ class CustomEditorIndicator extends ConsumerWidget {
           _CustomLineNumberWidget(
             controller: controller,
             notifier: notifier,
-            highlightedLines: highlightState.highlightedLines,
+            highlightedLines: highlightedLines,
           ),
           DefaultCodeChunkIndicator(
             width: 20,
