@@ -44,8 +44,9 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
     }
 
     return Container(
-      color: Theme.of(context).appBarTheme.backgroundColor,
-      height: 28,
+      // Use the tab bar theme color for a consistent look.
+      color: Theme.of(context).tabBarTheme.unselectedLabelColor?.withOpacity(0.1),
+      height: 32,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
           key: const PageStorageKey<String>('tabBarScrollPosition'),
@@ -70,7 +71,6 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   }
 }
 
-
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
@@ -79,52 +79,68 @@ class TabWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final isActive = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTabIndex == index,
       ),
     );
-
     final isDirty = ref.watch(
       tabStateProvider.select((stateMap) => stateMap[tab.file.uri] ?? false),
     );
 
-    // REFACTOR: The ConstrainedBox now only has a maxWidth, allowing the tab to shrink.
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 220),
-      child: Material(
-        color: isActive ? Colors.blueGrey[800] : Colors.grey[900],
-        child: InkWell(
-          onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            // REFACTOR: Row now shrinks to fit its children.
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The close button is a fixed size.
-                IconButton(
+    return Material(
+      // The background color is now consistent for active and inactive tabs.
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
+        child: Container(
+          // REFACTOR: Use a Container with decoration for borders.
+          constraints: const BoxConstraints(maxWidth: 220),
+          padding: const EdgeInsets.only(left: 4, right: 8), // Fine-tune padding
+          decoration: BoxDecoration(
+            // REFACTOR: Add the active indicator border.
+            border: Border(
+              right: BorderSide(
+                color: theme.dividerColor.withOpacity(0.2),
+                width: 1,
+              ),
+              bottom: isActive
+                  ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                  : BorderSide.none,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // REFACTOR: Wrap IconButton in Padding to remove its default margin.
+              Padding(
+                padding: const EdgeInsets.only(right: 2.0),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(), // Removes default constraints
                   icon: const Icon(Icons.close, size: 16),
-                  onPressed:
-                      () => ref
-                          .read(appNotifierProvider.notifier)
-                          .closeTab(index),
+                  onPressed: () =>
+                      ref.read(appNotifierProvider.notifier).closeTab(index),
                 ),
-                // REFACTOR: Flexible allows the text to take up remaining space
-                // up to the ConstrainedBox limit, and then use an ellipsis.
-                Flexible(
-                  child: Text(
-                    tab.file.name,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false, // Ensure text stays on one line.
-                    style: TextStyle(
-                      fontSize: 13, // Slightly smaller font for a tighter look.
-                      color: isDirty ? Colors.orange.shade300 : Colors.white70,
-                    ),
+              ),
+              Flexible(
+                child: Text(
+                  tab.file.name,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 13,
+                    // Active tab text is slightly more prominent.
+                    color: isActive
+                        ? Colors.white
+                        : isDirty
+                            ? Colors.orange.shade300
+                            : Colors.white70,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -132,6 +148,7 @@ class TabWidget extends ConsumerWidget {
   }
 }
 
+// ... (EditorContentSwitcher and _EditorContentProxy are unchanged) ...
 class EditorContentSwitcher extends ConsumerWidget {
   const EditorContentSwitcher({super.key});
 

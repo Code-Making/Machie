@@ -36,7 +36,7 @@ ThemeData darkTheme = ThemeData(
     backgroundColor: Color(0xFF2B2B29),
     elevation: 1,
     scrolledUnderElevation: 1,
-    centerTitle: true,
+    centerTitle: false,
     titleTextStyle: TextStyle(fontSize: 14),
     // REFACTOR: Reduced toolbar height to make the AppBar more compact.
     toolbarHeight: 48,
