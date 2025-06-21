@@ -44,7 +44,6 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
     }
 
     return Container(
-      // Use the tab bar theme color for a consistent look.
       color: Theme.of(context).tabBarTheme.unselectedLabelColor?.withOpacity(0.1),
       height: 32,
       child: CodeEditorTapRegion(
@@ -90,16 +89,14 @@ class TabWidget extends ConsumerWidget {
     );
 
     return Material(
-      // The background color is now consistent for active and inactive tabs.
       color: Colors.transparent,
       child: InkWell(
         onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
         child: Container(
-          // REFACTOR: Use a Container with decoration for borders.
           constraints: const BoxConstraints(maxWidth: 220),
-          padding: const EdgeInsets.only(left: 4, right: 8), // Fine-tune padding
+          // REFACTOR: Remove left padding from the container.
+          padding: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
-            // REFACTOR: Add the active indicator border.
             border: Border(
               right: BorderSide(
                 color: theme.dividerColor.withOpacity(0.2),
@@ -113,15 +110,19 @@ class TabWidget extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // REFACTOR: Wrap IconButton in Padding to remove its default margin.
-              Padding(
-                padding: const EdgeInsets.only(right: 2.0),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(), // Removes default constraints
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: () =>
-                      ref.read(appNotifierProvider.notifier).closeTab(index),
+              // REFACTOR: Use GestureDetector and Padding for precise control.
+              // This creates a tappable area with no external whitespace.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque, // Ensures the padding is tappable
+                onTap: () =>
+                    ref.read(appNotifierProvider.notifier).closeTab(index),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: isActive ? Colors.white70 : Colors.white54,
+                  ),
                 ),
               ),
               Flexible(
@@ -131,7 +132,6 @@ class TabWidget extends ConsumerWidget {
                   softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
-                    // Active tab text is slightly more prominent.
                     color: isActive
                         ? Colors.white
                         : isDirty
@@ -147,8 +147,7 @@ class TabWidget extends ConsumerWidget {
     );
   }
 }
-
-// ... (EditorContentSwitcher and _EditorContentProxy are unchanged) ...
+// ... (EditorContentSwitcher and _EditorContentProxy are unchanged)
 class EditorContentSwitcher extends ConsumerWidget {
   const EditorContentSwitcher({super.key});
 
