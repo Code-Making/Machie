@@ -234,3 +234,22 @@ class EditorService {
     );
   }
 }
+
+@immutable
+sealed class OpenFileResult {}
+
+class OpenFileSuccess extends OpenFileResult {
+  final Project project;
+  final bool wasAlreadyOpen;
+  OpenFileSuccess({required this.project, required this.wasAlreadyOpen});
+}
+
+class OpenFileShowChooser extends OpenFileResult {
+  final List<EditorPlugin> plugins;
+  OpenFileShowChooser(this.plugins);
+}
+
+class OpenFileError extends OpenFileResult {
+  final String message;
+  OpenFileError(this.message);
+}
