@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 
-import '../../services/tab_state_manager.dart';
+import '../../tab_state_manager.dart';
 
 class GlitchEditorWidget extends ConsumerStatefulWidget {
   final GlitchEditorTab tab;
