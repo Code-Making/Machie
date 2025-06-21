@@ -8,6 +8,7 @@ import 'code_editor_models.dart';
 import 'code_editor_plugin.dart';
 
 // --- Logic Class ---
+
 class CodeEditorLogic {
   static CodeCommentFormatter getCommentFormatter(String uri) {
     final extension = uri.split('.').last.toLowerCase();
@@ -31,10 +32,11 @@ class CodeEditorLogic {
 }
 
 // --- Bracket Highlighting State ---
+
 final bracketHighlightProvider =
     NotifierProvider<BracketHighlightNotifier, BracketHighlightState>(
-  BracketHighlightNotifier.new,
-);
+      BracketHighlightNotifier.new,
+    );
 
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
@@ -66,14 +68,14 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
     }
 
     final plugin = currentTab.plugin as CodeEditorPlugin;
-    // REFACTOR: Get controller correctly using the ref and the tab object
+    // REFACTOR: Correctly call getControllerForTab with the ref.
     final controller = plugin.getControllerForTab(ref, currentTab);
 
     if (controller == null) {
       state = BracketHighlightState();
       return;
     }
-    // ... rest of the method is unchanged and now correct
+    // ... rest of the method is unchanged and correct ...
     final selection = controller.selection;
     if (!selection.isCollapsed) {
       state = BracketHighlightState();
@@ -129,18 +131,22 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
               orElse: () => '',
             );
 
-    if (target.isEmpty) return null;
+    if (target?.isEmpty ?? true) return null;
 
     int stack = 1;
     int index = position.index;
     int offset = position.offset;
     final direction = isOpen ? 1 : -1;
-    offset += direction; // Start searching from the next character
 
     while (index >= 0 && index < codeLines.length) {
       final currentLine = codeLines[index].text;
 
       while (offset >= 0 && offset < currentLine.length) {
+        if (index == position.index && offset == position.offset) {
+          offset += direction;
+          continue;
+        }
+
         final currentChar = currentLine[offset];
 
         if (currentChar == char) {
@@ -157,7 +163,7 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
       }
 
       index += direction;
-      if (index >= 0 && index < codeLines.length) {
+      if (index >= 0 && index < codeLines.length) { // Bounds check
         offset = direction > 0 ? 0 : (codeLines[index].text.length - 1);
       }
     }
@@ -165,7 +171,7 @@ class BracketHighlightNotifier extends Notifier<BracketHighlightState> {
   }
 }
 
-// ... buildHighlightingSpan is unchanged ...
+// --- Highlighting Span Builder ---
 TextSpan buildHighlightingSpan({
   required BuildContext context,
   required int index,
@@ -209,7 +215,7 @@ TextSpan buildHighlightingSpan({
         TextSpan(
           text: text[highlightIndex],
           style: spanStyle.copyWith(
-            backgroundColor: Colors.yellow.withValues(alpha: 0.3),
+            backgroundColor: Colors.yellow.withOpacity(0.3),
             fontWeight: FontWeight.bold,
           ),
         ),
