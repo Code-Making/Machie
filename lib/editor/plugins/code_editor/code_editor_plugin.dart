@@ -20,11 +20,29 @@ import 'code_editor_logic.dart';
 import '../../tab_state_manager.dart'; // REFACTOR: Import manager
 import '../../../data/repositories/project_repository.dart'; // REFACTOR: Import repository
 
+// REFACTOR: Add BracketHighlightState here
+class BracketHighlightState {
+  final Set<CodeLinePosition> bracketPositions;
+  final CodeLinePosition? matchingBracketPosition;
+  final Set<int> highlightedLines;
+  const BracketHighlightState({
+    this.bracketPositions = const {},
+    this.matchingBracketPosition,
+    this.highlightedLines = const {},
+  });
+}
+
+// REFACTOR: The tab's transient state now includes bracket highlighting.
 class _CodeEditorTabState implements TabState {
   final CodeLineEditingController controller;
   CodeLinePosition? mark;
+  BracketHighlightState bracketHighlightState;
 
-  _CodeEditorTabState({required this.controller, this.mark});
+  _CodeEditorTabState({
+    required this.controller,
+    this.mark,
+    this.bracketHighlightState = const BracketHighlightState(),
+  });
 }
 
 class CodeEditorPlugin implements EditorPlugin {
@@ -44,9 +62,9 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<void> dispose() async {}
 
   _CodeEditorTabState? _getTabState(WidgetRef ref, EditorTab tab) {
-    return ref.read(tabStateManagerProvider).getState(tab.file.uri);
+    return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
-
+  
   CodeLineEditingController? getControllerForTab(WidgetRef ref, EditorTab tab) {
     return _getTabState(ref, tab)?.controller;
   }
@@ -110,14 +128,10 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   void activateTab(EditorTab tab, Ref ref) {
-    if (tab is! CodeEditorTab) return;
-    ref.read(bracketHighlightProvider.notifier).resetState();
   }
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
-    if (tab is! CodeEditorTab) return;
-    ref.read(bracketHighlightProvider.notifier).resetState();
   }
 
   @override
@@ -510,5 +524,92 @@ Future<void> _selectBetweenBrackets(
       extentIndex: end.index,
       extentOffset: end.offset,
     );
+  }
+  
+    // REFACTOR: Logic for bracket highlighting moved here from the old notifier.
+  void handleBracketHighlight(WidgetRef ref, CodeEditorTab tab) {
+    final tabState = _getTabState(ref, tab);
+    if (tabState == null) return;
+
+    final controller = tabState.controller;
+    final selection = controller.selection;
+    if (!selection.isCollapsed) {
+      tabState.bracketHighlightState = const BracketHighlightState();
+      return;
+    }
+
+    final position = selection.base;
+    final brackets = {'(': ')', '[': ']', '{': '}'};
+    final line = controller.codeLines[position.index].text;
+
+    Set<CodeLinePosition> newPositions = {};
+    CodeLinePosition? matchPosition;
+    Set<int> newHighlightedLines = {};
+    
+    // Check one character to the left of the cursor as well
+    for (int offset in [position.offset, position.offset - 1]) {
+      if (offset >= 0 && offset < line.length) {
+        final char = line[offset];
+        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+          final currentPosition = CodeLinePosition(index: position.index, offset: offset);
+          matchPosition = _findMatchingBracket(controller.codeLines, currentPosition, brackets);
+          if (matchPosition != null) {
+            newPositions.add(currentPosition);
+            newPositions.add(matchPosition);
+            newHighlightedLines.add(currentPosition.index);
+            newHighlightedLines.add(matchPosition.index);
+            break; // Found a match, no need to check further
+          }
+        }
+      }
+    }
+
+    tabState.bracketHighlightState = BracketHighlightState(
+      bracketPositions: newPositions,
+      matchingBracketPosition: matchPosition,
+      highlightedLines: newHighlightedLines,
+    );
+  }
+
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
+    // ... (this logic is unchanged and correct)
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere((k) => brackets[k] == char, orElse: () => '');
+    if (target?.isEmpty ?? true) return null;
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
+    while (true) {
+      offset += direction;
+      if (direction > 0) { // Moving forward
+        if (offset >= codeLines[index].text.length) {
+          index++;
+          if (index >= codeLines.length) return null;
+          offset = 0;
+        }
+      } else { // Moving backward
+        if (offset < 0) {
+          index--;
+          if (index < 0) return null;
+          offset = codeLines[index].text.length - 1;
+        }
+      }
+      final currentChar = codeLines[index].text[offset];
+      if (currentChar == char) {
+        stack++;
+      } else if (currentChar == target) {
+        stack--;
+      }
+      if (stack == 0) {
+        return CodeLinePosition(index: index, offset: offset);
+      }
+    }
   }
 }

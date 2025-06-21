@@ -208,6 +208,82 @@ class CustomEditorIndicator extends ConsumerWidget {
   }
 }
 
+TextSpan buildHighlightingSpan({
+  required BuildContext context,
+  required WidgetRef ref,
+  required CodeEditorTab tab,
+  required CodeLine codeLine,
+  required TextStyle style,
+}) {
+  final plugin = tab.plugin as CodeEditorPlugin;
+  final tabState = plugin.getControllerForTab(ref, tab); // Simplified to get tabState via controller presence
+  if (tabState == null) return TextSpan(text: codeLine.text, style: style);
+
+  // The highlight state is now read directly from the tab's state
+  final highlightState = (plugin.getTabState(ref, tab) as _CodeEditorTabState).bracketHighlightState;
+
+  final spans = <TextSpan>[];
+  int currentPosition = 0;
+  final highlightPositions =
+      highlightState.bracketPositions
+          .where((pos) => pos.index == index)
+          .map((pos) => pos.offset)
+          .toSet();
+  void processSpan(TextSpan span) {
+    final text = span.text ?? '';
+    final spanStyle = span.style ?? style;
+    List<int> highlightIndices = [];
+
+    for (var i = 0; i < text.length; i++) {
+      if (highlightPositions.contains(currentPosition + i)) {
+        highlightIndices.add(i);
+      }
+    }
+
+    int lastSplit = 0;
+    for (final highlightIndex in highlightIndices) {
+      if (highlightIndex > lastSplit) {
+        spans.add(
+          TextSpan(
+            text: text.substring(lastSplit, highlightIndex),
+            style: spanStyle,
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: text[highlightIndex],
+          style: spanStyle.copyWith(
+            backgroundColor: Colors.yellow.withOpacity(0.3),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+      lastSplit = highlightIndex + 1;
+    }
+
+    if (lastSplit < text.length) {
+      spans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+    }
+
+    currentPosition += text.length;
+
+    if (span.children != null) {
+      for (final child in span.children!) {
+        if (child is TextSpan) {
+          processSpan(child);
+        }
+      }
+    }
+  }
+
+  processSpan(textSpan);
+  return TextSpan(
+    children: spans.isNotEmpty ? spans : [textSpan],
+    style: style,
+  );
+}
+
 class _CustomLineNumberWidget extends ConsumerWidget {
   final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
