@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
+import '../../../command/command_widgets.dart';
+
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_notifier.dart';
