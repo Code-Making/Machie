@@ -10,7 +10,7 @@ import '../../editor/plugins/plugin_registry.dart';
 import '../../editor/tab_state_notifier.dart';
 import '../../project/project_models.dart';
 import '../../logs/logs_provider.dart';
-import '../../data/file_handler/file_handler.dart' show DocumentFile; // REFACTOR: Only import what's needed
+import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
@@ -28,12 +28,12 @@ class EditorService {
     }
     return repo;
   }
-
+  
+  // ... (handlePluginLifecycle, rehydrateTabs, saveCurrentTab, etc. are unchanged) ...
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
-
   Future<Project> rehydrateTabs(Project project) async {
     final projectStateJson = project.toJson();
     final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
@@ -49,8 +49,20 @@ class EditorService {
           plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
       if (plugin != null) {
         try {
-          final tab = await plugin.createTabFromSerialization(tabJson, _repo.fileHandler);
+          // Read the file content needed for creating the tab state.
+          final file = await _repo.fileHandler.getFileMetadata(tabJson['fileUri']);
+          if (file == null) continue;
+          final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
+              ? await _repo.fileHandler.readFileAsBytes(file.uri)
+              : await _repo.fileHandler.readFile(file.uri);
+              
+          final tab = await plugin.createTab(file, data);
           tabs.add(tab);
+          
+          final tabState = await plugin.createTabState(tab, data);
+          if (tabState != null) {
+            _ref.read(tabStateManagerProvider.notifier).addState(tab.file.uri, tabState);
+          }
           _ref.read(tabStateProvider.notifier).initTab(tab.file.uri);
         } catch (e) {
           _ref.read(talkerProvider).error('Could not restore tab: $e');
@@ -62,13 +74,12 @@ class EditorService {
     );
   }
 
-    // REFACTOR: openFile now creates the TabState
+
   Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
-    // ... (logic to find existing tab and choose plugin is unchanged)
     final existingIndex =
         project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
@@ -100,8 +111,8 @@ class EditorService {
 
     final newTab = await chosenPlugin.createTab(file, data);
 
-    // REFACTOR: Create and register the tab's state
-    final tabState = await chosenPlugin.createTabState(newTab);
+    // REFACTOR: Pass the data to createTabState
+    final tabState = await chosenPlugin.createTabState(newTab, data);
     if (tabState != null) {
       _ref.read(tabStateManagerProvider.notifier).addState(newTab.file.uri, tabState);
     }
@@ -121,9 +132,7 @@ class EditorService {
       wasAlreadyOpen: false,
     );
   }
-
-
-
+  
   Future<bool> saveCurrentTab(
     Project project, {
     String? content,
@@ -158,13 +167,11 @@ class EditorService {
     return newProject;
   }
 
-  // REFACTOR: closeTab now disposes of the TabState
   Project closeTab(Project project, int index) {
     final closedTab = project.session.tabs[index];
     final oldTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs)..removeAt(index);
 
-    // ... (logic to find new index is unchanged)
     int newCurrentIndex;
     if (newTabs.isEmpty) {
       newCurrentIndex = 0;
@@ -186,7 +193,6 @@ class EditorService {
       ),
     );
 
-    // REFACTOR: Remove and dispose of the tab's state
     final tabState = _ref.read(tabStateManagerProvider.notifier).removeState(closedTab.file.uri);
     if (tabState != null) {
       closedTab.plugin.disposeTabState(tabState);
@@ -203,7 +209,6 @@ class EditorService {
     }
     return newProject;
   }
-
   Project reorderTabs(Project project, int oldIndex, int newIndex) {
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
@@ -228,23 +233,4 @@ class EditorService {
       session: project.session.copyWith(tabs: newTabs),
     );
   }
-}
-
-@immutable
-sealed class OpenFileResult {}
-
-class OpenFileSuccess extends OpenFileResult {
-  final Project project;
-  final bool wasAlreadyOpen;
-  OpenFileSuccess({required this.project, required this.wasAlreadyOpen});
-}
-
-class OpenFileShowChooser extends OpenFileResult {
-  final List<EditorPlugin> plugins;
-  OpenFileShowChooser(this.plugins);
-}
-
-class OpenFileError extends OpenFileResult {
-  final String message;
-  OpenFileError(this.message);
 }
