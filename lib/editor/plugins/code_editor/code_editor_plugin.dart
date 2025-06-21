@@ -89,32 +89,37 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // REFACTOR: Complete implementation
   @override
   Future<TabState?> createTabState(EditorTab tab, dynamic data) async {
     final codeTab = tab as CodeEditorTab;
     final String initialContent = data as String;
 
-    // The spanBuilder needs access to the tab state, which contains the highlight info.
-    // We can use the controller's `tag` property to hold a reference to the tab,
-    // which the builder can then use to look up the state.
+    // REFACTOR: Restore the exact signature for spanBuilder.
+    // The builder will use the controller's tag to find its tab and state.
     final controller = CodeLineEditingController(
-      // The builder now uses the controller's tag to find its tab and state.
-      spanBuilder: (context, controller, codeLine, style) {
+      spanBuilder: ({
+        required BuildContext context,
+        required int index,
+        required CodeLine codeLine,
+        required TextSpan textSpan,
+        required TextStyle style,
+      }) {
         final currentTab = controller.tag as CodeEditorTab?;
         if (currentTab == null) {
-          return TextSpan(text: codeLine.text, style: style);
+          return textSpan;
         }
         return buildHighlightingSpan(
           context: context,
+          index: index,
           tab: currentTab,
           codeLine: codeLine,
+          textSpan: textSpan,
           style: style,
         );
       },
       codeLines: CodeLines.fromText(initialContent),
     );
-    // Associate the tab with the controller so the builder can find it.
+    // REFACTOR: Restore the tag property. It is crucial for the builder to find its context.
     controller.tag = codeTab;
     return CodeEditorTabState(controller: controller);
   }
@@ -134,7 +139,7 @@ class CodeEditorPlugin implements EditorPlugin {
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
     }
-    final content = await fileHandler.readFile(file.uri);
+    final content = await fileHandler.readFile(fileUri);
     return createTab(file, content);
   }
 
@@ -167,8 +172,8 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     );
   }
-
-  // ... (getTab, getController, buildToolbar, and all command helpers are correct) ...
+  
+  // ... (unchanged helpers and commands) ...
   CodeEditorTab? _getTab(WidgetRef ref) {
     final tab = ref.watch(
       appNotifierProvider.select(
@@ -185,7 +190,6 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
-
   @override
   List<Command> getCommands() => [
         _createCommand(
@@ -238,7 +242,6 @@ class CodeEditorPlugin implements EditorPlugin {
         _createCommand(id: 'show_cursor', label: 'Show Cursor', icon: Icons.center_focus_strong, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.makeCursorVisible()),
         _createCommand(id: 'switch_language', label: 'Switch Language', icon: Icons.language, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => _showLanguageSelectionDialog(ref), canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab),
       ];
-
   Command _createCommand({
     required String id,
     required String label,

@@ -11,7 +11,7 @@ import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_plugin.dart';
-import '../../tab_state_manager.dart'; // REFACTOR: Import manager
+import '../../tab_state_manager.dart';
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
@@ -166,9 +166,10 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Fix the cast and get state correctly.
-    final plugin = tab.plugin as CodeEditorPlugin;
-    final tabState = plugin.getTabState(ref, tab);
+    // REFACTOR: Get state from the TabStateManager
+    final tabState = ref.watch(
+      tabStateManagerProvider.select((s) => s[tab.file.uri] as CodeEditorTabState?),
+    );
     final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 
     return GestureDetector(
@@ -192,47 +193,38 @@ class CustomEditorIndicator extends ConsumerWidget {
   }
 }
 
-// REFACTOR: This function now correctly builds the span for a line.
+// REFACTOR: This function now has the correct signature and logic.
 TextSpan buildHighlightingSpan({
   required BuildContext context,
+  required int index,
   required CodeEditorTab tab,
   required CodeLine codeLine,
+  required TextSpan textSpan, // The syntax-highlighted span from re_editor
   required TextStyle style,
 }) {
-  // Get the state from the tab itself via the plugin
-  final plugin = tab.plugin as CodeEditorPlugin;
   final container = ProviderScope.containerOf(context);
   final tabState = container.read(tabStateManagerProvider.notifier).getState<CodeEditorTabState>(tab.file.uri);
   
   if (tabState == null) {
-    return TextSpan(text: codeLine.text, style: style);
+    return textSpan;
   }
 
   final highlightState = tabState.bracketHighlightState;
-  final lineIndex = tabState.controller.codeLines.indexOf(codeLine);
-  if (lineIndex == -1) {
-     return TextSpan(text: codeLine.text, style: style);
-  }
   
   final highlightPositions =
       highlightState.bracketPositions
-          .where((pos) => pos.index == lineIndex)
+          .where((pos) => pos.index == index)
           .map((pos) => pos.offset)
           .toSet();
 
-  // If there's nothing to highlight on this line, return the pre-styled spans from syntax highlighting
   if (highlightPositions.isEmpty) {
-    return TextSpan(children: codeLine.spans, style: style);
+    return textSpan;
   }
 
-  // If there are highlights, we need to rebuild the spans for this line
   final builtSpans = <TextSpan>[];
   int currentPosition = 0;
   
-  // The source of truth is the syntax-highlighted spans in codeLine.spans
-  final sourceSpans = codeLine.spans.isNotEmpty ? codeLine.spans : [TextSpan(text: codeLine.text)];
-
-  for (final span in sourceSpans) {
+  void processSpan(TextSpan span) {
     final text = span.text ?? '';
     final spanStyle = span.style ?? style;
     int lastSplit = 0;
@@ -240,11 +232,9 @@ TextSpan buildHighlightingSpan({
     for (int i = 0; i < text.length; i++) {
       final absolutePosition = currentPosition + i;
       if (highlightPositions.contains(absolutePosition)) {
-        // Add text before the highlight
         if (i > lastSplit) {
           builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
         }
-        // Add the highlighted character
         builtSpans.add(TextSpan(
           text: text[i],
           style: spanStyle.copyWith(
@@ -255,13 +245,21 @@ TextSpan buildHighlightingSpan({
         lastSplit = i + 1;
       }
     }
-    // Add any remaining text after the last highlight
     if (lastSplit < text.length) {
       builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
     }
     currentPosition += text.length;
+    
+    if (span.children != null) {
+      for (final child in span.children!) {
+        if (child is TextSpan) {
+          processSpan(child);
+        }
+      }
+    }
   }
-  
+
+  processSpan(textSpan);
   return TextSpan(children: builtSpans, style: style);
 }
 
@@ -288,7 +286,7 @@ class _CustomLineNumberWidget extends ConsumerWidget {
           controller: controller,
           notifier: notifier,
           textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
             fontSize: 12,
           ),
           focusedTextStyle: TextStyle(
