@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 
+import '../../services/editor_service.dart';
+
 class GlitchEditorWidget extends ConsumerStatefulWidget {
   final GlitchEditorTab tab;
   final GlitchEditorPlugin plugin;
