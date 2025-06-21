@@ -1,3 +1,4 @@
+// lib/explorer/explorer_host_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
@@ -7,9 +8,9 @@ import '../project/project_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'common/new_project_screen.dart';
 import 'services/explorer_service.dart';
-// REFACTOR: Add missing import
-// ... (rest of file is unchanged, but the import fixes the error) ...
+import 'explorer_workspace_state.dart';
 
+// ... (ExplorerHostDrawer, ExplorerHostView, and _ExplorerHostViewState are unchanged) ...
 class ExplorerHostDrawer extends ConsumerWidget {
   const ExplorerHostDrawer({super.key});
 
@@ -99,6 +100,8 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
     );
   }
 }
+
+
 class ExplorerTypeDropdown extends ConsumerWidget {
   final Project currentProject;
   const ExplorerTypeDropdown({super.key, required this.currentProject});
@@ -107,20 +110,25 @@ class ExplorerTypeDropdown extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final registry = ref.watch(explorerRegistryProvider);
     final activeExplorer = ref.watch(activeExplorerProvider);
-    final explorerService = ref.read(explorerServiceProvider);
-    final appNotifier = ref.read(appNotifierProvider.notifier);
 
     return DropdownButtonHideUnderline(
       child: DropdownButton<ExplorerPlugin>(
         value: activeExplorer,
         onChanged: (plugin) async {
-          if (plugin != null) {
+          if (plugin != null && plugin.id != activeExplorer.id) {
+            // REFACTOR: The logic is now much cleaner.
+            // 1. Update the local state provider immediately for a snappy UI response.
             ref.read(activeExplorerProvider.notifier).state = plugin;
+
+            // 2. Call the service to persist the change.
+            final explorerService = ref.read(explorerServiceProvider);
             final newProject = await explorerService.updateWorkspace(
               currentProject,
               (w) => w.copyWith(activeExplorerPluginId: plugin.id),
             );
-            appNotifier.updateCurrentTab(newProject.session.currentTab!);
+
+            // 3. Update the global app state with the new project object.
+            ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
           }
         },
         isExpanded: true,
@@ -141,6 +149,8 @@ class ExplorerTypeDropdown extends ConsumerWidget {
     );
   }
 }
+
+// ... (ProjectSwitcherDropdown, ProjectSelectionScreen, ManageProjectsScreen are unchanged)
 class ProjectSwitcherDropdown extends ConsumerWidget {
   final Project currentProject;
   const ProjectSwitcherDropdown({super.key, required this.currentProject});
