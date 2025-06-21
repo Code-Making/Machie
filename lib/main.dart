@@ -26,7 +26,6 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 // --------------------
 //     ThemeData
 // --------------------
-// ... (no changes to ThemeData)
 ThemeData darkTheme = ThemeData(
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(
@@ -39,7 +38,8 @@ ThemeData darkTheme = ThemeData(
     scrolledUnderElevation: 1,
     centerTitle: true,
     titleTextStyle: TextStyle(fontSize: 14),
-    toolbarHeight: 56,
+    // REFACTOR: Reduced toolbar height to make the AppBar more compact.
+    toolbarHeight: 48,
   ),
   tabBarTheme: TabBarTheme(
     indicator: const UnderlineTabIndicator(
@@ -47,13 +47,19 @@ ThemeData darkTheme = ThemeData(
     ),
     unselectedLabelColor: Colors.grey[400],
     indicatorSize: TabBarIndicatorSize.tab,
-    labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
+    // REFACTOR: Reduced horizontal padding to make tabs narrower.
+    labelPadding: const EdgeInsets.symmetric(horizontal: 8.0),
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A3A3A)),
   ),
+  // REFACTOR: Add a theme for the drawer.
+  drawerTheme: const DrawerThemeData(
+    // We can't set a dynamic width here, so this will be an override in the widget.
+    // However, we could set a static width or background color if needed.
+    backgroundColor: Color(0xFF212121), // A slightly darker background for the drawer
+  ),
 );
-
 // --------------------
 //     Main
 // --------------------
