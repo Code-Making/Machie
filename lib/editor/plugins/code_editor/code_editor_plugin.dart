@@ -1,3 +1,4 @@
+// lib/editor/plugins/code_editor/code_editor_plugin.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,57 +16,33 @@ import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart';
-import 'code_editor_logic.dart'; // NEW IMPORT
-
-//TODO: IMPLEMENT logging
+import 'code_editor_logic.dart';
+import '../../tab_state_manager.dart'; // REFACTOR: Import manager
+import '../../../data/repositories/project_repository.dart'; // REFACTOR: For repo access
 
 // REFACTOR: Create a dedicated state class for this plugin's tabs.
 class _CodeEditorTabState implements TabState {
   final CodeLineEditingController controller;
-  CodeLinePosition? mark; // Marks are now part of the tab state
+  CodeLinePosition? mark;
 
   _CodeEditorTabState({required this.controller, this.mark});
 }
 
-// --------------------
-//  Code Editor Plugin
-// --------------------
-
 class CodeEditorPlugin implements EditorPlugin {
-  final _controllers = <String, CodeLineEditingController>{};
-  // NEW: State for marks is now managed here.
-  final _marks = <String, CodeLinePosition>{};
-
   @override
   String get name => 'Code Editor';
-
   @override
   Widget get icon => const Icon(Icons.code);
-
   @override
   final PluginSettings? settings = CodeEditorSettings();
-
   @override
-  Widget buildSettingsUI(PluginSettings settings) {
-    final editorSettings = settings as CodeEditorSettings;
-    return CodeEditorSettingsUI(settings: editorSettings);
-  }
-
-  // NEW: Declare that this plugin requires raw byte data.
+  Widget buildSettingsUI(PluginSettings settings) =>
+      CodeEditorSettingsUI(settings: settings as CodeEditorSettings);
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
-
   @override
-  Future<void> dispose() async {
-    for (final controller in _controllers.values) {
-      controller.dispose();
-    }
-    _controllers.clear();
-    _marks.clear();
-    // print("dispose code editor");
-  }
-  
-  // REFACTOR: Helper to get state from the manager
+  Future<void> dispose() async {}
+
   _CodeEditorTabState? _getTabState(WidgetRef ref, EditorTab tab) {
     return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
@@ -76,20 +53,15 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   void disposeTab(EditorTab tab) {}
-
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
     return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
-
   @override
-  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) {
-    return [];
-  }
-  
-  
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
+  // REFACTOR: This now only creates the tab model. State is created in createTabState.
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
     final inferredLanguageKey = CodeThemes.inferLanguageKey(file.uri);
@@ -101,19 +73,15 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // REFACTOR: Implement createTabState
   @override
-  Future<TabState> createTabState(EditorTab tab) async {
-    final codeTab = tab as CodeEditorTab;
-    final content = await codeTab.plugin.settings!.toJson()['wordWrap']; // TODO Fix this
+  Future<TabState> createTabState(EditorTab tab, dynamic data) async {
     final controller = CodeLineEditingController(
       spanBuilder: buildHighlightingSpan,
-      codeLines: CodeLines.fromText(content as String),
+      codeLines: CodeLines.fromText(data as String),
     );
     return _CodeEditorTabState(controller: controller);
   }
-  
-  // REFACTOR: Implement disposeTabState
+
   @override
   void disposeTabState(TabState state) {
     (state as _CodeEditorTabState).controller.dispose();
@@ -129,27 +97,23 @@ class CodeEditorPlugin implements EditorPlugin {
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
     }
-    // Content is loaded in createTabState now, so we pass a dummy value here.
+    // The content will be read and passed to createTabState by the EditorService.
     return createTab(file, '');
   }
-  
 
   @override
   void activateTab(EditorTab tab, Ref ref) {
-    if (tab is! CodeEditorTab) return;
-    ref.read(bracketHighlightProvider.notifier).resetState();
+    ref.read(bracketHighlightProvider.notifier).handleBracketHighlight();
   }
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
-    if (tab is! CodeEditorTab) return;
     ref.read(bracketHighlightProvider.notifier).resetState();
   }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    // REFACTOR: Get controller via the tab state manager
     final controller = getControllerForTab(ref, codeTab);
 
     if (controller == null) {
@@ -160,12 +124,7 @@ class CodeEditorPlugin implements EditorPlugin {
       key: ValueKey(codeTab.file.uri),
       controller: controller,
       commentFormatter: codeTab.commentFormatter,
-      indicatorBuilder: (
-        context,
-        editingController,
-        chunkController,
-        notifier,
-      ) {
+      indicatorBuilder: (context, editingController, chunkController, notifier) {
         return CustomEditorIndicator(
           controller: editingController,
           chunkController: chunkController,
@@ -175,9 +134,11 @@ class CodeEditorPlugin implements EditorPlugin {
     );
   }
 
-  // REMOVED: _buildHighlightingSpan (moved to code_editor_logic.dart)
-  // REMOVED: _getCommentFormatter (moved to code_editor_logic.dart)
-
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    return CodeEditorTapRegion(child: const BottomToolbar());
+  }
+  
   @override
   List<Command> getCommands() => [
     _createCommand(
@@ -617,11 +578,6 @@ class CodeEditorPlugin implements EditorPlugin {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
     return a.offset.compareTo(b.offset);
-  }
-
-  @override
-  Widget buildToolbar(WidgetRef ref) {
-    return CodeEditorTapRegion(child: BottomToolbar());
   }
 
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
