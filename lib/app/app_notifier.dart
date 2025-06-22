@@ -11,7 +11,7 @@ import '../editor/plugins/plugin_registry.dart';
 import '../project/services/project_service.dart';
 import '../editor/services/editor_service.dart';
 import '../editor/editor_tab_models.dart';
-import '../editor/tab_state_notifier.dart';
+import '../editor/tab_state_manager.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart';
@@ -165,7 +165,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void markCurrentTabDirty() {
     final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
-      ref.read(tabStateProvider.notifier).markDirty(currentUri);
+      // REFACTOR: Call the new method on the consolidated notifier.
+      ref.read(tabStateManagerProvider.notifier).markDirty(currentUri);
     }
   }
 
