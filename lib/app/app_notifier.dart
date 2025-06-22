@@ -1,4 +1,5 @@
 // lib/app/app_notifier.dart
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -45,6 +46,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _editorService = ref.watch(editorServiceProvider);
     final talker = ref.read(talkerProvider);
 
+    // Subscribe to file operation events.
+    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (previous, next) {
+      next.whenData((event) {
+        _handleFileOperationEvent(event);
+      });
+    });
+
     final initialState = await _appStateRepository.loadAppState();
 
     if (initialState.lastOpenedProjectId != null) {
@@ -67,15 +75,35 @@ class AppNotifier extends AsyncNotifier<AppState> {
         }
       }
     }
-    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (previous, next) {
-      next.whenData((event) {
-        _handleFileOperationEvent(event);
-      });
-    });
     return initialState;
   }
 
-  // ... (unchanged methods up to saveCurrentTabAs) ...
+  /// Handles events published by the ProjectRepository to keep the UI in sync.
+  void _handleFileOperationEvent(FileOperationEvent event) {
+    final project = state.value?.currentProject;
+    if (project == null) return;
+    
+    switch (event) {
+      case FileCreateEvent():
+        // No action needed here. The file hierarchy is already updated by the
+        // repository, and the UI will react to that change automatically.
+        break;
+        
+      case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
+        final newProject = _editorService.updateTabFile(project, oldFile.uri, newFile);
+        _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        break;
+        
+      case FileDeleteEvent(deletedFile: final deletedFile):
+        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
+        if (tabIndex != -1) {
+          final newProject = _editorService.closeTab(project, tabIndex);
+          _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        }
+        break;
+    }
+  }
+
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));
   void setBottomToolbarOverride(Widget? widget) =>
@@ -107,6 +135,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
     required String projectTypeId,
   }) async {
     await _updateState((s) async {
+      if (s.currentProject != null) {
+        await _projectService.closeProject(s.currentProject!);
+      }
       final result = await _projectService.openFromFolder(
         folder: folder,
         projectTypeId: projectTypeId,
@@ -165,7 +196,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void markCurrentTabDirty() {
     final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
-      // REFACTOR: Call the new method on the consolidated notifier.
       ref.read(tabStateManagerProvider.notifier).markDirty(currentUri);
     }
   }
@@ -249,7 +279,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (byteDataProvider != null) {
       final bytes = await byteDataProvider();
       if (bytes == null) return;
-      // FIX: Added the missing 'ref' argument to match the new signature.
       newFile = await repo.createDocumentFile(
         ref,
         result.parentUri,
@@ -260,7 +289,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     } else if (stringDataProvider != null) {
       final content = await stringDataProvider();
       if (content == null) return;
-      // FIX: Added the missing 'ref' argument to match the new signature.
       newFile = await repo.createDocumentFile(
         ref,
         result.parentUri,
@@ -279,44 +307,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final project = state.value?.currentProject;
     if (project == null) return;
     final newProject = _editorService.closeTab(project, index);
-    _updateStateSync((s) => s.copyWith(currentProject: newProject));
-  }
-  
-  // REFACTOR: The handler is now aware of all event types.
-  void _handleFileOperationEvent(FileOperationEvent event) {
-    final project = state.value?.currentProject;
-    if (project == null) return;
-    
-    switch (event) {
-      case FileCreateEvent():
-        // No action needed here. The file hierarchy is already updated by the
-        // repository, and the UI will react to that change automatically.
-        // This event exists for potential future subscribers (e.g., an indexer).
-        break;
-        
-      case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-        final newProject = _editorService.updateTabFile(project, oldFile.uri, newFile);
-        _updateStateSync((s) => s.copyWith(currentProject: newProject));
-        break;
-        
-      case FileDeleteEvent(deletedFile: final deletedFile):
-        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
-        if (tabIndex != -1) {
-          final newProject = _editorService.closeTab(project, tabIndex);
-          _updateStateSync((s) => s.copyWith(currentProject: newProject));
-        }
-        break;
-    }
-  }
-
-  void updateCurrentTab(EditorTab newTab) {
-    final project = state.value?.currentProject;
-    if (project == null) return;
-    final newProject = _editorService.updateTabFile(
-      project,
-      project.session.currentTabIndex,
-      newTab,
-    );
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
   
