@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
-import '../../../data/repositories/project_hierarchy_cache.dart'; // NEW IMPORT
+import '../../../data/repositories/project_hierarchy_cache.dart';
 import '../../../app/app_notifier.dart';
-import '../../../logs/logs_provider.dart'; // NEW IMPORT
+import '../../../logs/logs_provider.dart';
 
+// ... SearchState model is unchanged ...
 class SearchState {
   final String query;
   final List<DocumentFile> results;
@@ -31,32 +32,54 @@ class SearchState {
   }
 }
 
-// REFACTOR: Provider now depends on the hierarchy cache.
 final searchStateProvider = StateNotifierProvider.autoDispose
     .family<SearchStateNotifier, SearchState, String>((ref, projectId) {
   final hierarchyCache = ref.watch(projectHierarchyProvider);
   final project = ref.watch(appNotifierProvider).value?.currentProject;
   final talker = ref.read(talkerProvider);
 
+  // REFACTOR: Pass the ref to the notifier so it can listen to changes.
   return SearchStateNotifier(
     hierarchyCache,
     project?.rootUri ?? '',
     talker,
+    ref,
   );
 });
 
 class SearchStateNotifier extends StateNotifier<SearchState> {
-  // REFACTOR: Depend on the cache, not the whole repository.
   final ProjectHierarchyCache? _hierarchyCache;
   final String _rootUri;
   final Talker _talker;
   List<DocumentFile>? _allFilesCache;
   Timer? _debounce;
 
-  SearchStateNotifier(this._hierarchyCache, this._rootUri, this._talker)
-      : super(SearchState());
+  // REFACTOR: Accept Ref to enable listening.
+  SearchStateNotifier(
+    this._hierarchyCache,
+    this._rootUri,
+    this._talker,
+    Ref ref,
+  ) : super(SearchState()) {
+    // REFACTOR: This is the core of the fix.
+    // Listen to changes in the central hierarchy cache.
+    // If the cache changes due to a file operation elsewhere,
+    // we invalidate our local search cache.
+    ref.listen(projectHierarchyProvider, (previous, next) {
+      // We only care that it changed, not what the change was.
+      if (previous != next) {
+        _talker.info('Search cache detected a change in the hierarchy. Invalidating local cache.');
+        _allFilesCache = null;
 
-  // REFACTOR: This method now uses and populates the central cache.
+        // If a search is active, re-run it to show fresh results.
+        if (state.query.isNotEmpty) {
+          search(state.query);
+        }
+      }
+    });
+  }
+
+  // ... _fetchAllFiles is unchanged ...
   Future<void> _fetchAllFiles() async {
     if (_hierarchyCache == null || _rootUri.isEmpty) return;
     if (!mounted) return;
@@ -72,13 +95,9 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       scannedUris.add(currentDirUri);
 
       try {
-        // Ensure the directory is loaded in the central cache. This will
-        // fetch it from the file system if it's not already there.
         await _hierarchyCache!.loadDirectory(currentDirUri);
-
-        // Get the now-cached contents.
         final items = _hierarchyCache!.state[currentDirUri];
-        if (items == null) continue; // Should not happen, but a safe check.
+        if (items == null) continue;
 
         for (final item in items) {
           if (item.isDirectory) {
@@ -96,7 +115,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       state = state.copyWith(isLoading: false);
     }
   }
-
+  
   void search(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
