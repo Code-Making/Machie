@@ -1,8 +1,9 @@
+// lib/editor/editor_tab_models.dart
 import 'package:flutter/material.dart';
-
 import 'plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
 
+// ... TabSessionState is unchanged ...
 @immutable
 class TabSessionState {
   final List<EditorTab> tabs;
@@ -27,19 +28,18 @@ class TabSessionState {
         'currentTabIndex': currentTabIndex,
       };
       
-  // REFACTOR: Add fromJson for rehydration
   factory TabSessionState.fromJson(Map<String, dynamic> json) {
-    // The actual tab rehydration happens in AppNotifier, which has access to plugins
     return TabSessionState(
-      tabs: const [], // Tabs are rehydrated later
+      tabs: const [],
       currentTabIndex: json['currentTabIndex'] ?? 0,
     );
   }
 }
 
+// ... WorkspaceTab is unchanged ...
 @immutable
 abstract class WorkspaceTab {
-  String get title; // MODIFIED
+  String get title;
   final EditorPlugin plugin;
 
   const WorkspaceTab({required this.plugin});
@@ -51,12 +51,14 @@ abstract class WorkspaceTab {
 abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
 
-  // MODIFIED: Constructor is 'const' again and no longer calls super with a title.
   const EditorTab({required this.file, required super.plugin});
 
-  // MODIFIED: Implement the 'title' getter here.
   @override
   String get title => file.name;
+
+  // NEW: The copyWith method is now part of the abstract class.
+  // This allows services to create copies without knowing the concrete type.
+  EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin});
 
   @override
   void dispose();

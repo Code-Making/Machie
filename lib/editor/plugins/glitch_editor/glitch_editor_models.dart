@@ -11,7 +11,8 @@ class GlitchEditorTab extends EditorTab {
 
   @override
   void dispose() {}
-
+  
+  @override
   GlitchEditorTab copyWith({DocumentFile? file, EditorPlugin? plugin}) {
     return GlitchEditorTab(
       file: file ?? this.file,
