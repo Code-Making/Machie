@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
-import '../../data/repositories/project_repository.dart'; // NEW IMPORT
+import '../../data/repositories/project_repository.dart';
 
 class SaveAsDialogResult {
   final String parentUri;
@@ -29,10 +29,10 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     _currentPathUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
     
-    // REFACTOR: Lazily load the initial directory contents.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _currentPathUri.isNotEmpty) {
-        ref.read(projectHierarchyProvider)?.loadDirectory(_currentPathUri);
+        // FIX: Call the method on the .notifier instance.
+        ref.read(projectHierarchyProvider.notifier).loadDirectory(_currentPathUri);
       }
     });
   }
@@ -52,10 +52,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       );
     }
     
-    // REFACTOR: Watch the hierarchy cache instead of the old FutureProvider.
-    final directoryContents = ref.watch(
-      projectHierarchyProvider.select((p) => p?.state[_currentPathUri]),
-    );
+    // FIX: Watch the provider directly to get the state (the Map).
+    // Then, access the specific directory's contents from the map.
+    final directoryContents = ref.watch(projectHierarchyProvider)[_currentPathUri];
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -67,7 +66,6 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             _buildPathNavigator(),
             const Divider(),
             Expanded(
-              // REFACTOR: Handle the loading state explicitly.
               child: directoryContents == null
                   ? const Center(child: CircularProgressIndicator())
                   : _buildDirectoryList(directoryContents),
@@ -113,8 +111,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           leading: const Icon(Icons.folder_outlined),
           title: Text(dir.name),
           onTap: () {
-            // REFACTOR: Trigger a lazy load for the new directory.
-            ref.read(projectHierarchyProvider)?.loadDirectory(dir.uri);
+            // FIX: Call the method on the .notifier instance.
+            ref.read(projectHierarchyProvider.notifier).loadDirectory(dir.uri);
             setState(() {
               _currentPathUri = dir.uri;
             });
@@ -138,8 +136,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                   final segments = _currentPathUri.split('%2F');
                   final newPath =
                       segments.sublist(0, segments.length - 1).join('%2F');
-                  // REFACTOR: Trigger lazy load for the parent directory.
-                  ref.read(projectHierarchyProvider)?.loadDirectory(newPath);
+                  // FIX: Call the method on the .notifier instance.
+                  ref.read(projectHierarchyProvider.notifier).loadDirectory(newPath);
                   setState(() {
                     _currentPathUri = newPath;
                   });
