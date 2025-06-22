@@ -243,7 +243,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (byteDataProvider != null) {
       final bytes = await byteDataProvider();
       if (bytes == null) return;
+      // FIX: Added the missing 'ref' argument to match the new signature.
       newFile = await repo.createDocumentFile(
+        ref,
         result.parentUri,
         result.fileName,
         initialBytes: bytes,
@@ -252,7 +254,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
     } else if (stringDataProvider != null) {
       final content = await stringDataProvider();
       if (content == null) return;
+      // FIX: Added the missing 'ref' argument to match the new signature.
       newFile = await repo.createDocumentFile(
+        ref,
         result.parentUri,
         result.fileName,
         initialContent: content,
@@ -261,10 +265,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     } else {
       return;
     }
-
-    // FIX: This invalidation call is no longer needed because the repository
-    // now updates the ProjectHierarchyCache, which the UI declaratively watches.
-    // ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
     
     MachineToast.info("Saved as ${newFile.name}");
   }

@@ -118,8 +118,8 @@ class ProjectService {
       (f) => f.name == '.machine' && f.isDirectory,
     );
     final dir = machineDir ??
+        // FIX: The low-level FileHandler does not take a Ref. Removed the incorrect argument.
         await handler.createDocumentFile(
-          _ref, // Pass ref here since it's a file operation now
           projectRootUri,
           '.machine',
           isDirectory: true,
