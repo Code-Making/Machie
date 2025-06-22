@@ -5,7 +5,6 @@ import 'package:re_editor/re_editor.dart';
 
 import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
-import 'tab_state_notifier.dart';
 import 'tab_state_manager.dart';
 
 class TabBarWidget extends ConsumerStatefulWidget {

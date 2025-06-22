@@ -312,7 +312,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void updateCurrentTab(EditorTab newTab) {
     final project = state.value?.currentProject;
     if (project == null) return;
-    final newProject = _editorService.updateTab(
+    final newProject = _editorService.updateTabFile(
       project,
       project.session.currentTabIndex,
       newTab,
