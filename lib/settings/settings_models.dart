@@ -1,5 +1,6 @@
 // lib/settings/settings_models.dart
 import '../editor/plugins/plugin_models.dart';
+import 'package:flutter/material.dart'; // Import for ThemeMode
 
 // NEW: A common abstract base class for all settings objects in the app.
 abstract class MachineSettings {
@@ -23,11 +24,17 @@ class GeneralSettings extends MachineSettings {
   bool hideAppBarInFullScreen;
   bool hideTabBarInFullScreen;
   bool hideBottomToolbarInFullScreen;
+  // NEW: Theme properties
+  ThemeMode themeMode;
+  int accentColorValue;
 
   GeneralSettings({
     this.hideAppBarInFullScreen = true,
     this.hideTabBarInFullScreen = true,
     this.hideBottomToolbarInFullScreen = true,
+    // NEW: Default values
+    this.themeMode = ThemeMode.dark,
+    this.accentColorValue = 0xFFF44336, // Default Red
   });
 
   @override
@@ -35,6 +42,12 @@ class GeneralSettings extends MachineSettings {
     hideAppBarInFullScreen = json['hideAppBarInFullScreen'] ?? true;
     hideTabBarInFullScreen = json['hideTabBarInFullScreen'] ?? true;
     hideBottomToolbarInFullScreen = json['hideBottomToolbarInFullScreen'] ?? true;
+    // NEW: Deserialize theme properties
+    accentColorValue = json['accentColorValue'] ?? 0xFFF44336;
+    themeMode = ThemeMode.values.firstWhere(
+      (e) => e.name == json['themeMode'],
+      orElse: () => ThemeMode.dark, // Safe fallback
+    );
   }
 
   @override
@@ -42,17 +55,25 @@ class GeneralSettings extends MachineSettings {
         'hideAppBarInFullScreen': hideAppBarInFullScreen,
         'hideTabBarInFullScreen': hideTabBarInFullScreen,
         'hideBottomToolbarInFullScreen': hideBottomToolbarInFullScreen,
+        // NEW: Serialize theme properties
+        'accentColorValue': accentColorValue,
+        'themeMode': themeMode.name,
       };
       
   GeneralSettings copyWith({
     bool? hideAppBarInFullScreen,
     bool? hideTabBarInFullScreen,
     bool? hideBottomToolbarInFullScreen,
+    // NEW: Add to copyWith
+    ThemeMode? themeMode,
+    int? accentColorValue,
   }) {
     return GeneralSettings(
       hideAppBarInFullScreen: hideAppBarInFullScreen ?? this.hideAppBarInFullScreen,
       hideTabBarInFullScreen: hideTabBarInFullScreen ?? this.hideTabBarInFullScreen,
       hideBottomToolbarInFullScreen: hideBottomToolbarInFullScreen ?? this.hideBottomToolbarInFullScreen,
+      themeMode: themeMode ?? this.themeMode,
+      accentColorValue: accentColorValue ?? this.accentColorValue,
     );
   }
 }
