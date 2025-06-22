@@ -29,6 +29,16 @@ class TabStateManager extends StateNotifier<Map<String, TabState>> {
     state = newState;
     return removedState;
   }
+  
+  void rekeyState(String oldUri, String newUri) {
+    if (state.containsKey(oldUri)) {
+      final tabState = state[oldUri];
+      final newState = Map<String, TabState>.from(state)
+        ..remove(oldUri)
+        ..[newUri] = tabState!;
+      state = newState;
+    }
+  }
 
   /// Retrieves the state for a specific tab.
   T?getState<T extends TabState>(String tabUri) {

@@ -62,11 +62,13 @@ class PersistentProjectRepository implements ProjectRepository {
     return newFile;
   }
 
-  @override
+override
   Future<void> deleteDocumentFile(Ref ref, DocumentFile file) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
     ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
+    // Publish event
+    ref.read(fileOperationStreamProvider.notifier).add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
@@ -76,6 +78,8 @@ class PersistentProjectRepository implements ProjectRepository {
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
     if (renamedFile != null) {
       ref.read(projectHierarchyProvider.notifier).rename(file, renamedFile, parentUri);
+      // Publish event
+      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
     }
     return renamedFile;
   }
