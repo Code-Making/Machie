@@ -1,6 +1,6 @@
 import 'package:talker/talker.dart';
 
-class FileOperationEvent extends TalkerLog {
+/*class FileOperationEvent extends TalkerLog {
   final String operation;
   final String path;
 
@@ -9,3 +9,4 @@ class FileOperationEvent extends TalkerLog {
   @override
   AnsiPen get pen => AnsiPen()..xterm(75); // Light blue color
 }
+*/
