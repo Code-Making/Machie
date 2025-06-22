@@ -186,7 +186,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     EditorPlugin? explicitPlugin,
   }) async {
     final project = state.value?.currentProject;
-    if (project == null) return;
+    if (project == null) return false;
 
     final result = await _editorService.openFile(
       project,
@@ -194,28 +194,28 @@ class AppNotifier extends AsyncNotifier<AppState> {
       explicitPlugin: explicitPlugin,
     );
 
+    // This switch now handles the result and returns a status to the caller.
     switch (result) {
-      case OpenFileSuccess(
-          project: final newProject,
-          wasAlreadyOpen: final wasAlreadyOpen
-        ):
+      case OpenFileSuccess(project: final newProject):
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
-        if (wasAlreadyOpen) return;
-        final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context != null && Navigator.of(context).canPop()) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
+        // The file was opened successfully.
+        return true;
 
       case OpenFileShowChooser(plugins: final plugins):
         final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context == null) return;
+        if (context == null) return false;
         final chosenPlugin = await showOpenWithDialog(context, plugins);
         if (chosenPlugin != null) {
-          await openFileInEditor(file, explicitPlugin: chosenPlugin);
+          // Recursively call and return the result of that attempt.
+          return await openFileInEditor(file, explicitPlugin: chosenPlugin);
         }
+        // User cancelled the dialog.
+        return false;
 
       case OpenFileError(message: final msg):
         MachineToast.error(msg);
+        // The file was not opened.
+        return false;
     }
   }
 

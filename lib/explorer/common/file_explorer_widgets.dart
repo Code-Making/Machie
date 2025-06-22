@@ -88,74 +88,78 @@ class DirectoryItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: The logic is now split cleanly. The GestureDetector only handles
-    // onLongPress, and onTap is applied *only* to the file's ListTile.
+    final explorerNotifier = ref.read(activeExplorerNotifierProvider);
 
+    Widget childWidget;
     if (item.isDirectory) {
-      // For directories, we return an ExpansionTile directly wrapped
-      // in the GestureDetector for the context menu.
-      final explorerNotifier = ref.read(activeExplorerNotifierProvider);
-      return GestureDetector(
-        onLongPress: () => showFileContextMenu(context, ref, item),
-        child: ExpansionTile(
-          key: PageStorageKey<String>(item.uri),
-          leading: Icon(
-            isExpanded ? Icons.folder_open : Icons.folder,
-            color: Colors.yellow.shade700,
-          ),
-          title: Text(item.name),
-          subtitle: subtitle != null ? Text(subtitle!) : null,
-          initiallyExpanded: isExpanded,
-          onExpansionChanged: (expanded) {
-            explorerNotifier.updateSettings((settings) {
-              final currentSettings = settings as FileExplorerSettings;
-              final newExpanded = Set<String>.from(currentSettings.expandedFolders);
-              if (newExpanded.contains(item.uri)) {
-                newExpanded.remove(item.uri);
-              } else {
-                newExpanded.add(item.uri);
-              }
-              return currentSettings.copyWith(expandedFolders: newExpanded);
-            });
-          },
-          childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
-          children: [
-            if (isExpanded)
-              Consumer(
-                builder: (context, ref, _) {
-                  final currentState =
-                      ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
-                  final project =
-                      ref.watch(appNotifierProvider).value!.currentProject!;
-                  if (currentState == null) return const SizedBox.shrink();
-                  return DirectoryView(
-                    directory: item.uri,
-                    projectRootUri: project.rootUri,
-                    state: currentState,
-                  );
-                },
-              ),
-          ],
+      // ... (Directory logic is unchanged) ...
+      childWidget = ExpansionTile(
+        key: PageStorageKey<String>(item.uri),
+        leading: Icon(
+          isExpanded ? Icons.folder_open : Icons.folder,
+          color: Colors.yellow.shade700,
         ),
+        title: Text(item.name),
+        subtitle: subtitle != null ? Text(subtitle!) : null,
+        initiallyExpanded: isExpanded,
+        onExpansionChanged: (expanded) {
+          explorerNotifier.updateSettings((settings) {
+            final currentSettings = settings as FileExplorerSettings;
+            final newExpanded = Set<String>.from(currentSettings.expandedFolders);
+            if (newExpanded.contains(item.uri)) {
+              newExpanded.remove(item.uri);
+            } else {
+              newExpanded.add(item.uri);
+            }
+            return currentSettings.copyWith(expandedFolders: newExpanded);
+          });
+        },
+        childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
+        children: [
+          if (isExpanded)
+            Consumer(
+              builder: (context, ref, _) {
+                final currentState =
+                    ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
+                final project =
+                    ref.watch(appNotifierProvider).value!.currentProject!;
+                if (currentState == null) return const SizedBox.shrink();
+                return DirectoryView(
+                  directory: item.uri,
+                  projectRootUri: project.rootUri,
+                  state: currentState,
+                );
+              },
+            ),
+        ],
       );
     } else {
-      // For files, we return a ListTile wrapped in the GestureDetector.
-      // The onTap is correctly placed on the ListTile itself.
-      return GestureDetector(
-        onLongPress: () => showFileContextMenu(context, ref, item),
-        child: ListTile(
-          key: ValueKey(item.uri),
-          contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
-          leading: FileTypeIcon(file: item),
-          title: Text(item.name, overflow: TextOverflow.ellipsis),
-          subtitle:
-              subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
-          onTap: () async {
-            await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
-          },
-        ),
+      childWidget = ListTile(
+        key: ValueKey(item.uri),
+        contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
+        leading: FileTypeIcon(file: item),
+        title: Text(item.name, overflow: TextOverflow.ellipsis),
+        subtitle:
+            subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
+        // REFACTOR: The onTap handler now closes the drawer on success.
+        onTap: () async {
+          final success = await ref
+              .read(appNotifierProvider.notifier)
+              .openFileInEditor(item);
+
+          // If the file was opened successfully and the widget is still mounted...
+          if (success && context.mounted) {
+            // ...close the drawer. Navigator.pop() is the standard way to do this.
+            Navigator.of(context).pop();
+          }
+        },
       );
     }
+
+    return GestureDetector(
+      onLongPress: () => showFileContextMenu(context, ref, item),
+      child: childWidget,
+    );
   }
 }
 
