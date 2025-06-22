@@ -16,6 +16,7 @@ import '../explorer_plugin_registry.dart';
 
 // REFACTOR: The DirectoryView is now purely declarative.
 class DirectoryView extends ConsumerStatefulWidget {
+  // ... constructor ...
   final String directory;
   final String projectRootUri;
   final FileExplorerSettings state;
@@ -35,13 +36,13 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   @override
   void initState() {
     super.initState();
-    // Trigger the initial lazy load if needed.
-    // We do this in initState to ensure it's called only once.
+    // FIX: Use `ref.read` to call the notifier method, not to watch.
+    // This is a one-time action.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final hierarchy = ref.read(projectHierarchyProvider);
-        if (hierarchy?.state[widget.directory] == null) {
-          hierarchy?.loadDirectory(widget.directory);
+        // We check the state directly before firing the request to avoid re-fetching.
+        if (ref.read(projectHierarchyProvider)[widget.directory] == null) {
+          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.directory);
         }
       }
     });
@@ -49,21 +50,20 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the hierarchy provider and select only the contents of this directory.
-    final contents = ref.watch(
-      projectHierarchyProvider.select((cache) => cache?.state[widget.directory]),
-    );
+    // FIX: Watch the new StateNotifierProvider directly. This will get the state
+    // map and rebuild the widget whenever the map changes.
+    final directoryContents = ref.watch(projectHierarchyProvider)[widget.directory];
 
-    // If contents are null, it means they are loading for the first time.
-    if (contents == null) {
-      return const Center(child: Padding(
+    // FIX: This now correctly handles the initial loading state.
+    if (directoryContents == null) {
+      return const Center(
+          child: Padding(
         padding: EdgeInsets.all(8.0),
         child: CircularProgressIndicator(),
       ));
     }
-    
-    // Create a mutable copy for sorting
-    final sortedContents = List<DocumentFile>.from(contents);
+
+    final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
     return ListView.builder(
@@ -83,7 +83,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       },
     );
   }
-
+  // ... _applySorting is unchanged ...
   void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;

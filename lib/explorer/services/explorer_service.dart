@@ -35,22 +35,21 @@ class ExplorerService {
     return newProject;
   }
   
-  // REFACTOR: All methods just call the repository. The cache update is
-  // now an implementation detail of the repository itself.
+  // REFACTOR: Pass the service's Ref to the repository methods.
   Future<void> createFile(String parentUri, String name) async {
-    await _repo.createDocumentFile(parentUri, name, isDirectory: false);
+    await _repo.createDocumentFile(_ref, parentUri, name, isDirectory: false);
   }
 
   Future<void> createFolder(String parentUri, String name) async {
-    await _repo.createDocumentFile(parentUri, name, isDirectory: true);
+    await _repo.createDocumentFile(_ref, parentUri, name, isDirectory: true);
   }
 
   Future<void> renameItem(DocumentFile item, String newName) async {
-    await _repo.renameDocumentFile(item, newName);
+    await _repo.renameDocumentFile(_ref, item, newName);
   }
 
   Future<void> deleteItem(DocumentFile item) async {
-    await _repo.deleteDocumentFile(item);
+    await _repo.deleteDocumentFile(_ref, item);
   }
 
   Future<void> pasteItem(
@@ -62,13 +61,13 @@ class ExplorerService {
       throw Exception('Clipboard source file not found.');
     }
     if (clipboardItem.operation == ClipboardOperation.copy) {
-      await _repo.copyDocumentFile(sourceFile, destinationFolder.uri);
+      await _repo.copyDocumentFile(_ref, sourceFile, destinationFolder.uri);
     } else {
-      await _repo.moveDocumentFile(sourceFile, destinationFolder.uri);
+      await _repo.moveDocumentFile(_ref, sourceFile, destinationFolder.uri);
     }
   }
 
   Future<void> importFile(DocumentFile pickedFile, String projectRootUri) async {
-    await _repo.copyDocumentFile(pickedFile, projectRootUri);
+    await _repo.copyDocumentFile(_ref, pickedFile, projectRootUri);
   }
 }
