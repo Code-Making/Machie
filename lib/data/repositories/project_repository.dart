@@ -9,25 +9,27 @@ import '../../logs/logs_provider.dart';
 
 // --- NEW: File Operation Event Stream ---
 
-/// Represents a file system operation that other parts of the app might need to react to.
 sealed class FileOperationEvent {
   const FileOperationEvent();
 }
 
-/// Event for when a file or folder has been renamed or moved.
+// NEW: Event for when a new file or folder is created or copied.
+class FileCreateEvent extends FileOperationEvent {
+  final DocumentFile createdFile;
+  const FileCreateEvent({required this.createdFile});
+}
+
 class FileRenameEvent extends FileOperationEvent {
   final DocumentFile oldFile;
   final DocumentFile newFile;
   const FileRenameEvent({required this.oldFile, required this.newFile});
 }
 
-/// Event for when a file or folder has been deleted.
 class FileDeleteEvent extends FileOperationEvent {
   final DocumentFile deletedFile;
   const FileDeleteEvent({required this.deletedFile});
 }
 
-// This provider broadcasts file operation events to any listener.
 final fileOperationStreamProvider = StreamProvider.autoDispose<FileOperationEvent>((ref) {
   final controller = StreamController<FileOperationEvent>();
   ref.onDispose(() => controller.close());
