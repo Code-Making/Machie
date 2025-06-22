@@ -120,7 +120,7 @@ void main() {
                   theme: themeConfig.light,
                   darkTheme: themeConfig.dark,
                   //themeMode: themeConfig.mode,
-                  themeMode: themeMode.dark, // Fixed darkMode for now
+                  themeMode: ThemeMode.dark, // Fixed darkMode for now
                   home: AppStartupWidget(
                     onLoaded: (context) => const AppScreen(),
                   ),
