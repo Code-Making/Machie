@@ -10,7 +10,7 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 
-// REFACTOR: Provider for the ProjectService.
+// ... (OpenProjectResult and provider are unchanged) ...
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
@@ -27,13 +27,12 @@ class OpenProjectResult {
   });
 }
 
-/// REFACTOR: Application layer service to handle project lifecycle logic.
-/// This replaces the old ProjectManager and ProjectFactory.
 class ProjectService {
   final Ref _ref;
 
   ProjectService(this._ref);
 
+  // ... (openFromFolder is unchanged) ...
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -66,37 +65,41 @@ class ProjectService {
         fileHandler,
         metadata.rootUri,
       );
-      repo = PersistentProjectRepository(fileHandler, projectDataPath);
+      // REFACTOR: Pass the ref to the repository constructor
+      repo = PersistentProjectRepository(fileHandler, projectDataPath, _ref);
     } else if (metadata.projectTypeId == 'simple_local') {
-      repo = SimpleProjectRepository(fileHandler, projectStateJson);
+      // REFACTOR: Pass the ref to the repository constructor
+      repo = SimpleProjectRepository(fileHandler, projectStateJson, _ref);
     } else {
       throw UnimplementedError(
         'No repository for project type ${metadata.projectTypeId}',
       );
     }
 
-    // Set the repository for the current session.
     _ref.read(projectRepositoryProvider.notifier).state = repo;
-
     return await repo.loadProject(metadata);
   }
 
+  // ... (saveProject is unchanged) ...
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
     await repo?.saveProject(project);
   }
-
+  
   Future<void> closeProject(Project project) async {
     await saveProject(project);
-    // Dispose all tabs for the project being closed
+
+    // REFACTOR: Clear the hierarchy cache on project close.
+    _ref.read(projectRepositoryProvider)?.hierarchyCache.clear();
+
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
-    // Clear the active repository
     _ref.read(projectRepositoryProvider.notifier).state = null;
   }
+  // ... (_createNewProjectMetadata and _ensureProjectDataFolder are unchanged) ...
 
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,

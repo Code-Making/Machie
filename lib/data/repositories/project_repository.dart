@@ -4,9 +4,18 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
+import 'project_hierarchy_cache.dart'; // NEW IMPORT
 
-// REFACTOR: This provider will hold the repository instance for the currently active project.
-// It is managed by the AppNotifier.
+// REFACTOR: This provider now exposes the entire cache notifier.
+final projectHierarchyProvider =
+    Provider.autoDispose<ProjectHierarchyCache?>((ref) {
+  // Watching the notifier directly ensures that we get the instance
+  // as soon as it's available and that our UI provider rebuilds.
+  final repo = ref.watch(projectRepositoryProvider);
+  return repo?.hierarchyCache;
+});
+
+// REFACTOR: The main repository provider is unchanged.
 final projectRepositoryProvider =
     StateProvider<ProjectRepository?>((ref) => null);
 
@@ -16,6 +25,9 @@ abstract class ProjectRepository {
   /// The underlying file handler for this repository (e.g., SAF or desktop IO).
   FileHandler get fileHandler;
 
+  /// REFACTOR: The repository now owns and exposes its hierarchy cache.
+  ProjectHierarchyCache get hierarchyCache;
+
   /// Loads the full project state (session, workspace, etc.) from its data source.
   Future<Project> loadProject(ProjectMetadata metadata);
 
@@ -23,25 +35,21 @@ abstract class ProjectRepository {
   Future<void> saveProject(Project project);
 
   // --- File Operation Delegations ---
-  // These methods provide a consistent API for services to interact with files,
-  // delegating the actual work to the underlying FileHandler.
+  // REFACTOR: These methods now also handle updating the hierarchy cache.
+  // Their signatures change to return the created/modified DocumentFile for this purpose.
 
   Future<List<DocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
-  }) =>
-      fileHandler.listDirectory(uri, includeHidden: includeHidden);
+  });
 
-  Future<String> readFile(String uri) => fileHandler.readFile(uri);
+  Future<String> readFile(String uri);
 
-  Future<Uint8List> readFileAsBytes(String uri) =>
-      fileHandler.readFileAsBytes(uri);
+  Future<Uint8List> readFileAsBytes(String uri);
 
-  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
-      fileHandler.writeFile(file, content);
+  Future<DocumentFile> writeFile(DocumentFile file, String content);
 
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
-      fileHandler.writeFileAsBytes(file, bytes);
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes);
 
   Future<DocumentFile> createDocumentFile(
     String parentUri,
@@ -50,34 +58,21 @@ abstract class ProjectRepository {
     String? initialContent,
     Uint8List? initialBytes,
     bool overwrite = false,
-  }) =>
-      fileHandler.createDocumentFile(
-        parentUri,
-        name,
-        isDirectory: isDirectory,
-        initialContent: initialContent,
-        initialBytes: initialBytes,
-        overwrite: overwrite,
-      );
+  });
 
-  Future<void> deleteDocumentFile(DocumentFile file) =>
-      fileHandler.deleteDocumentFile(file);
+  Future<void> deleteDocumentFile(DocumentFile file);
 
-  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName) =>
-      fileHandler.renameDocumentFile(file, newName);
+  Future<DocumentFile?> renameDocumentFile(DocumentFile file, String newName);
 
   Future<DocumentFile?> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
-  ) =>
-      fileHandler.copyDocumentFile(source, destinationParentUri);
+  );
 
   Future<DocumentFile?> moveDocumentFile(
     DocumentFile source,
     String destinationParentUri,
-  ) =>
-      fileHandler.moveDocumentFile(source, destinationParentUri);
+  );
 
-  Future<DocumentFile?> getFileMetadata(String uri) =>
-      fileHandler.getFileMetadata(uri);
+  Future<DocumentFile?> getFileMetadata(String uri);
 }

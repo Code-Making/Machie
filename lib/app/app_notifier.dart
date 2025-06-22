@@ -31,17 +31,6 @@ final navigatorKeyProvider = Provider((ref) => GlobalKey<NavigatorState>());
 final rootScaffoldMessengerKeyProvider = Provider(
   (ref) => GlobalKey<ScaffoldMessengerState>(),
 );
-final currentProjectDirectoryContentsProvider =
-    FutureProvider.autoDispose.family<List<DocumentFile>, String>((ref, uri) async {
-  final handler = ref.watch(projectRepositoryProvider)?.fileHandler;
-  if (handler == null) return [];
-
-  final projectRoot =
-      ref.watch(appNotifierProvider).value?.currentProject?.rootUri;
-  if (projectRoot != null && !uri.startsWith(projectRoot)) return [];
-
-  return handler.listDirectory(uri);
-});
 
 
 class AppNotifier extends AsyncNotifier<AppState> {

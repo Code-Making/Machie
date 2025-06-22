@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
+import '../../data/repositories/project_repository.dart'; // NEW: For projectHierarchyProvider
 import '../../editor/plugins/plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
@@ -13,7 +14,8 @@ import '../../utils/toast.dart';
 import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 
-class DirectoryView extends ConsumerWidget {
+// REFACTOR: The DirectoryView is now purely declarative.
+class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
   final FileExplorerSettings state;
@@ -26,32 +28,57 @@ class DirectoryView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final contentsAsync = ref.watch(
-      currentProjectDirectoryContentsProvider(directory),
+  ConsumerState<DirectoryView> createState() => _DirectoryViewState();
+}
+
+class _DirectoryViewState extends ConsumerState<DirectoryView> {
+  @override
+  void initState() {
+    super.initState();
+    // Trigger the initial lazy load if needed.
+    // We do this in initState to ensure it's called only once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final hierarchy = ref.read(projectHierarchyProvider);
+        if (hierarchy?.state[widget.directory] == null) {
+          hierarchy?.loadDirectory(widget.directory);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Watch the hierarchy provider and select only the contents of this directory.
+    final contents = ref.watch(
+      projectHierarchyProvider.select((cache) => cache?.state[widget.directory]),
     );
 
-    return contentsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
-      data: (contents) {
-        _applySorting(contents, state.viewMode);
+    // If contents are null, it means they are loading for the first time.
+    if (contents == null) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(8.0),
+        child: CircularProgressIndicator(),
+      ));
+    }
+    
+    // Create a mutable copy for sorting
+    final sortedContents = List<DocumentFile>.from(contents);
+    _applySorting(sortedContents, widget.state.viewMode);
 
-        return ListView.builder(
-          key: PageStorageKey(directory),
-          shrinkWrap: true,
-          physics: const ClampingScrollPhysics(),
-          itemCount: contents.length,
-          itemBuilder: (context, index) {
-            final item = contents[index];
-            final depth =
-                item.uri.split('%2F').length - projectRootUri.split('%2F').length;
-            return DirectoryItem(
-              item: item,
-              depth: depth,
-              isExpanded: state.expandedFolders.contains(item.uri),
-            );
-          },
+    return ListView.builder(
+      key: PageStorageKey(widget.directory),
+      shrinkWrap: true,
+      physics: const ClampingScrollPhysics(),
+      itemCount: sortedContents.length,
+      itemBuilder: (context, index) {
+        final item = sortedContents[index];
+        final depth =
+            item.uri.split('%2F').length - widget.projectRootUri.split('%2F').length;
+        return DirectoryItem(
+          item: item,
+          depth: depth,
+          isExpanded: widget.state.expandedFolders.contains(item.uri),
         );
       },
     );
@@ -72,6 +99,7 @@ class DirectoryView extends ConsumerWidget {
   }
 }
 
+// ... (DirectoryItem and other widgets are mostly unchanged but benefit from the new system)
 class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
@@ -92,7 +120,6 @@ class DirectoryItem extends ConsumerWidget {
 
     Widget childWidget;
     if (item.isDirectory) {
-      // ... (Directory logic is unchanged) ...
       childWidget = ExpansionTile(
         key: PageStorageKey<String>(item.uri),
         leading: Icon(
@@ -103,19 +130,26 @@ class DirectoryItem extends ConsumerWidget {
         subtitle: subtitle != null ? Text(subtitle!) : null,
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
+          // This part remains the same, but it now controls the expansion
+          // state used by the already-loaded or soon-to-be-loaded DirectoryView.
+          if (expanded) {
+            ref.read(projectHierarchyProvider)?.loadDirectory(item.uri);
+          }
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
             final newExpanded = Set<String>.from(currentSettings.expandedFolders);
-            if (newExpanded.contains(item.uri)) {
-              newExpanded.remove(item.uri);
-            } else {
+            if (expanded) {
               newExpanded.add(item.uri);
+            } else {
+              newExpanded.remove(item.uri);
             }
             return currentSettings.copyWith(expandedFolders: newExpanded);
           });
         },
         childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
+          // The isExpanded check ensures the child DirectoryView is only in the
+          // widget tree when needed, allowing its initState to trigger the lazy load.
           if (isExpanded)
             Consumer(
               builder: (context, ref, _) {
@@ -141,15 +175,12 @@ class DirectoryItem extends ConsumerWidget {
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         subtitle:
             subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
-        // REFACTOR: The onTap handler now closes the drawer on success.
         onTap: () async {
           final success = await ref
               .read(appNotifierProvider.notifier)
               .openFileInEditor(item);
 
-          // If the file was opened successfully and the widget is still mounted...
           if (success && context.mounted) {
-            // ...close the drawer. Navigator.pop() is the standard way to do this.
             Navigator.of(context).pop();
           }
         },
