@@ -16,17 +16,37 @@ class PersistentProjectRepository implements ProjectRepository {
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
 
-  // ... loadProject and saveProject are unchanged ...
+  // FIX: The `else` block was missing, causing a potential null return.
   @override
   Future<Project> loadProject(ProjectMetadata metadata) async {
-    // ...
-  }
-  @override
-  Future<void> saveProject(Project project) async {
-    // ...
+    final files = await fileHandler.listDirectory(
+      _projectDataPath,
+      includeHidden: true,
+    );
+    final projectFile =
+        files.firstWhereOrNull((f) => f.name == _projectFileName);
+
+    if (projectFile != null) {
+      final content = await fileHandler.readFile(projectFile.uri);
+      final json = jsonDecode(content);
+      return Project.fromJson(json).copyWith(metadata: metadata);
+    } else {
+      return Project.fresh(metadata);
+    }
   }
 
-  // --- REFACTORED File Operations ---
+  @override
+  Future<void> saveProject(Project project) async {
+    final content = jsonEncode(project.toJson());
+    await fileHandler.createDocumentFile(
+      _projectDataPath,
+      _projectFileName,
+      initialContent: content,
+      overwrite: true,
+    );
+  }
+
+  // FIX: All event publishing now uses the correct controller provider.
   @override
   Future<DocumentFile> createDocumentFile(Ref ref, String parentUri, String name,
       {bool isDirectory = false,
@@ -39,8 +59,7 @@ class PersistentProjectRepository implements ProjectRepository {
         initialBytes: initialBytes,
         overwrite: overwrite);
     ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
-    // Publish event
-    ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: newFile));
+    ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
     return newFile;
   }
 
@@ -49,8 +68,7 @@ class PersistentProjectRepository implements ProjectRepository {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
     ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
-    // Publish event
-    ref.read(fileOperationStreamProvider.notifier).add(FileDeleteEvent(deletedFile: file));
+    ref.read(fileOperationControllerProvider).add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
@@ -60,8 +78,7 @@ class PersistentProjectRepository implements ProjectRepository {
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
     if (renamedFile != null) {
       ref.read(projectHierarchyProvider.notifier).rename(file, renamedFile, parentUri);
-      // Publish event
-      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
+      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
     }
     return renamedFile;
   }
@@ -73,8 +90,7 @@ class PersistentProjectRepository implements ProjectRepository {
         await fileHandler.copyDocumentFile(source, destinationParentUri);
     if (copiedFile != null) {
       ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationParentUri);
-      // Publish event
-      ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: copiedFile));
+      ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
     }
     return copiedFile;
   }
@@ -88,8 +104,7 @@ class PersistentProjectRepository implements ProjectRepository {
     if (movedFile != null) {
       ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
       ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationParentUri);
-      // Publish event (a move is just a rename to a new location)
-      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: source, newFile: movedFile));
+      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
     return movedFile;
   }

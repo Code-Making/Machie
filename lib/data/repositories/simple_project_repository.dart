@@ -12,16 +12,23 @@ class SimpleProjectRepository implements ProjectRepository {
 
   SimpleProjectRepository(this.fileHandler, this._projectStateJson);
 
-  // ... loadProject and saveProject are unchanged ...
+  // FIX: The `else` block was missing, causing a potential null return.
   @override
   Future<Project> loadProject(ProjectMetadata metadata) async {
-    // ...
-  }
-  @override
-  Future<void> saveProject(Project project) async {
-    // ...
+    if (_projectStateJson != null) {
+      return Project.fromJson(_projectStateJson!).copyWith(metadata: metadata);
+    } else {
+      return Project.fresh(metadata);
+    }
   }
 
+  @override
+  Future<void> saveProject(Project project) async {
+    // No-op.
+    return;
+  }
+
+  // FIX: All event publishing now uses the correct controller provider.
   @override
   Future<DocumentFile> createDocumentFile(Ref ref, String parentUri, String name,
       {bool isDirectory = false,
@@ -34,8 +41,7 @@ class SimpleProjectRepository implements ProjectRepository {
         initialBytes: initialBytes,
         overwrite: overwrite);
     ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
-    // Publish event
-    ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: newFile));
+    ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
     return newFile;
   }
 
@@ -44,8 +50,7 @@ class SimpleProjectRepository implements ProjectRepository {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
     ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
-    // Publish event
-    ref.read(fileOperationStreamProvider.notifier).add(FileDeleteEvent(deletedFile: file));
+    ref.read(fileOperationControllerProvider).add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
@@ -55,8 +60,7 @@ class SimpleProjectRepository implements ProjectRepository {
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
     if (renamedFile != null) {
       ref.read(projectHierarchyProvider.notifier).rename(file, renamedFile, parentUri);
-      // Publish event
-      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
+      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
     }
     return renamedFile;
   }
@@ -68,8 +72,7 @@ class SimpleProjectRepository implements ProjectRepository {
         await fileHandler.copyDocumentFile(source, destinationParentUri);
     if (copiedFile != null) {
       ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationParentUri);
-      // Publish event
-      ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: copiedFile));
+      ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
     }
     return copiedFile;
   }
@@ -83,8 +86,7 @@ class SimpleProjectRepository implements ProjectRepository {
     if (movedFile != null) {
       ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
       ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationParentUri);
-      // Publish event
-      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: source, newFile: movedFile));
+      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
     return movedFile;
   }
