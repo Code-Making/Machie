@@ -67,6 +67,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
         }
       }
     }
+    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (previous, next) {
+      next.whenData((event) {
+        _handleFileOperationEvent(event);
+      });
     return initialState;
   }
 
@@ -275,15 +279,31 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final newProject = _editorService.closeTab(project, index);
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
+  
+    // NEW: Handler for file events.
+  void _handleFileOperationEvent(FileOperationEvent event) {
+    final project = state.value?.currentProject;
+    if (project == null) return;
+    
+    switch (event) {
+      case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
+        final newProject = _editorService.updateTabFile(project, oldFile.uri, newFile);
+        _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        break;
+      case FileDeleteEvent(deletedFile: final deletedFile):
+        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
+        if (tabIndex != -1) {
+          final newProject = _editorService.closeTab(project, tabIndex);
+          _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        }
+        break;
+    }
+  }
 
   void updateCurrentTab(EditorTab newTab) {
     final project = state.value?.currentProject;
     if (project == null) return;
-    final newProject = _editorService.updateTab(
-      project,
-      project.session.currentTabIndex,
-      newTab,
-    );
+    final newProject = _editorService.updateTabFile(project, newTab.file.uri, newTab.file);
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
   
