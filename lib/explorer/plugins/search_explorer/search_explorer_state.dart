@@ -61,17 +61,11 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     this._talker,
     Ref ref,
   ) : super(SearchState()) {
-    // REFACTOR: This is the core of the fix.
-    // Listen to changes in the central hierarchy cache.
-    // If the cache changes due to a file operation elsewhere,
-    // we invalidate our local search cache.
+    // THIS LISTENER WILL NOW WORK CORRECTLY!
     ref.listen(projectHierarchyProvider, (previous, next) {
-      // We only care that it changed, not what the change was.
       if (previous != next) {
         _talker.info('Search cache detected a change in the hierarchy. Invalidating local cache.');
         _allFilesCache = null;
-
-        // If a search is active, re-run it to show fresh results.
         if (state.query.isNotEmpty) {
           search(state.query);
         }
