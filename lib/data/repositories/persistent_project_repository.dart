@@ -1,4 +1,5 @@
 // lib/data/repositories/persistent_project_repository.dart
+import 'dart:async'; // NEW IMPORT
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
@@ -62,7 +63,7 @@ class PersistentProjectRepository implements ProjectRepository {
     return newFile;
   }
 
-override
+   @override
   Future<void> deleteDocumentFile(Ref ref, DocumentFile file) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
