@@ -181,7 +181,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
   }
 
-  Future<void> openFileInEditor(
+  Future<bool> openFileInEditor(
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
