@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
+import '../../data/repositories/project_repository.dart'; // NEW IMPORT
 
 class SaveAsDialogResult {
   final String parentUri;
@@ -25,9 +26,15 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   void initState() {
     super.initState();
     _fileNameController = TextEditingController(text: widget.initialFileName);
-    // REFACTOR: This is now robust against a null project on init.
     _currentPathUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
+    
+    // REFACTOR: Lazily load the initial directory contents.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentPathUri.isNotEmpty) {
+        ref.read(projectHierarchyProvider)?.loadDirectory(_currentPathUri);
+      }
+    });
   }
 
   @override
@@ -38,16 +45,16 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // If the URI is empty (project not loaded yet), don't build the view.
     if (_currentPathUri.isEmpty) {
       return const AlertDialog(
         title: Text('Save As...'),
         content: Center(child: CircularProgressIndicator()),
       );
     }
-
+    
+    // REFACTOR: Watch the hierarchy cache instead of the old FutureProvider.
     final directoryContents = ref.watch(
-      currentProjectDirectoryContentsProvider(_currentPathUri),
+      projectHierarchyProvider.select((p) => p?.state[_currentPathUri]),
     );
 
     return AlertDialog(
@@ -60,29 +67,10 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             _buildPathNavigator(),
             const Divider(),
             Expanded(
-              child: directoryContents.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, st) => Center(child: Text('Error: $err')),
-                data: (files) {
-                  final directories =
-                      files.where((f) => f.isDirectory).toList();
-                  return ListView.builder(
-                    itemCount: directories.length,
-                    itemBuilder: (context, index) {
-                      final dir = directories[index];
-                      return ListTile(
-                        leading: const Icon(Icons.folder_outlined),
-                        title: Text(dir.name),
-                        onTap: () {
-                          setState(() {
-                            _currentPathUri = dir.uri;
-                          });
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
+              // REFACTOR: Handle the loading state explicitly.
+              child: directoryContents == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildDirectoryList(directoryContents),
             ),
             const Divider(),
             TextField(
@@ -115,6 +103,27 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     );
   }
 
+  Widget _buildDirectoryList(List<dynamic> files) {
+    final directories = files.where((f) => f.isDirectory).toList();
+    return ListView.builder(
+      itemCount: directories.length,
+      itemBuilder: (context, index) {
+        final dir = directories[index];
+        return ListTile(
+          leading: const Icon(Icons.folder_outlined),
+          title: Text(dir.name),
+          onTap: () {
+            // REFACTOR: Trigger a lazy load for the new directory.
+            ref.read(projectHierarchyProvider)?.loadDirectory(dir.uri);
+            setState(() {
+              _currentPathUri = dir.uri;
+            });
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildPathNavigator() {
     final projectRootUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
@@ -126,11 +135,13 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           onPressed: _currentPathUri == projectRootUri
               ? null
               : () {
+                  final segments = _currentPathUri.split('%2F');
+                  final newPath =
+                      segments.sublist(0, segments.length - 1).join('%2F');
+                  // REFACTOR: Trigger lazy load for the parent directory.
+                  ref.read(projectHierarchyProvider)?.loadDirectory(newPath);
                   setState(() {
-                    // This logic is okay for SAF URIs
-                    final segments = _currentPathUri.split('%2F');
-                    _currentPathUri =
-                        segments.sublist(0, segments.length - 1).join('%2F');
+                    _currentPathUri = newPath;
                   });
                 },
         ),

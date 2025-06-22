@@ -2,10 +2,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project_repository.dart'; // REFACTOR
-import '../../../app/app_notifier.dart'; // REFACTOR
+import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project_hierarchy_cache.dart'; // NEW IMPORT
+import '../../../app/app_notifier.dart';
+import '../../../logs/logs_provider.dart'; // NEW IMPORT
 
-// ... (SearchState model is unchanged) ...
 class SearchState {
   final String query;
   final List<DocumentFile> results;
@@ -30,37 +31,55 @@ class SearchState {
   }
 }
 
-// REFACTOR: The family parameter is now just the project ID for simplicity.
+// REFACTOR: Provider now depends on the hierarchy cache.
 final searchStateProvider = StateNotifierProvider.autoDispose
     .family<SearchStateNotifier, SearchState, String>((ref, projectId) {
-  final repo = ref.watch(projectRepositoryProvider);
-  if (repo == null) {
-    // Return a dummy notifier if the repository isn't ready.
-    return SearchStateNotifier(null, '');
-  }
+  final hierarchyCache = ref.watch(projectHierarchyProvider);
   final project = ref.watch(appNotifierProvider).value?.currentProject;
-  return SearchStateNotifier(repo, project?.rootUri ?? '');
+  final talker = ref.read(talkerProvider);
+
+  return SearchStateNotifier(
+    hierarchyCache,
+    project?.rootUri ?? '',
+    talker,
+  );
 });
 
 class SearchStateNotifier extends StateNotifier<SearchState> {
-  // REFACTOR: Now depends on the repository, not a direct FileHandler.
-  final ProjectRepository? _repo;
+  // REFACTOR: Depend on the cache, not the whole repository.
+  final ProjectHierarchyCache? _hierarchyCache;
   final String _rootUri;
+  final Talker _talker;
   List<DocumentFile>? _allFilesCache;
   Timer? _debounce;
 
-  SearchStateNotifier(this._repo, this._rootUri) : super(SearchState());
+  SearchStateNotifier(this._hierarchyCache, this._rootUri, this._talker)
+      : super(SearchState());
 
+  // REFACTOR: This method now uses and populates the central cache.
   Future<void> _fetchAllFiles() async {
-    if (_repo == null) return;
+    if (_hierarchyCache == null || _rootUri.isEmpty) return;
+    if (!mounted) return;
     state = state.copyWith(isLoading: true);
+
     final allFiles = <DocumentFile>[];
     final directoriesToScan = <String>[_rootUri];
+    final scannedUris = <String>{};
 
     while (directoriesToScan.isNotEmpty) {
       final currentDirUri = directoriesToScan.removeAt(0);
+      if (scannedUris.contains(currentDirUri)) continue;
+      scannedUris.add(currentDirUri);
+
       try {
-        final items = await _repo!.listDirectory(currentDirUri);
+        // Ensure the directory is loaded in the central cache. This will
+        // fetch it from the file system if it's not already there.
+        await _hierarchyCache!.loadDirectory(currentDirUri);
+
+        // Get the now-cached contents.
+        final items = _hierarchyCache!.state[currentDirUri];
+        if (items == null) continue; // Should not happen, but a safe check.
+
         for (final item in items) {
           if (item.isDirectory) {
             directoriesToScan.add(item.uri);
@@ -68,19 +87,21 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
             allFiles.add(item);
           }
         }
-      } catch (e) {
-        // Log error but continue scanning other directories.
-        // talker.error('Error scanning directory $currentDirUri: $e');
+      } catch (e, st) {
+        _talker.handle(e, st, 'Error scanning directory $currentDirUri during search');
       }
     }
     _allFilesCache = allFiles;
-    state = state.copyWith(isLoading: false);
+    if (mounted) {
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   void search(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      if (_repo == null) return;
+      if (_hierarchyCache == null) return;
+      if (!mounted) return;
       state = state.copyWith(query: query);
       if (query.isEmpty) {
         state = state.copyWith(results: []);
@@ -91,7 +112,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
         await _fetchAllFiles();
       }
 
-      if (_allFilesCache == null) return;
+      if (_allFilesCache == null || !mounted) return;
 
       final lowerCaseQuery = query.toLowerCase();
       final results = _allFilesCache!
