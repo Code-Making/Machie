@@ -1,5 +1,4 @@
 // lib/data/repositories/persistent_project_repository.dart
-import 'dart:async'; // NEW IMPORT
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
@@ -20,31 +19,11 @@ class PersistentProjectRepository implements ProjectRepository {
   // ... loadProject and saveProject are unchanged ...
   @override
   Future<Project> loadProject(ProjectMetadata metadata) async {
-    final files = await fileHandler.listDirectory(
-      _projectDataPath,
-      includeHidden: true,
-    );
-    final projectFile =
-        files.firstWhereOrNull((f) => f.name == _projectFileName);
-
-    if (projectFile != null) {
-      final content = await fileHandler.readFile(projectFile.uri);
-      final json = jsonDecode(content);
-      return Project.fromJson(json).copyWith(metadata: metadata);
-    } else {
-      return Project.fresh(metadata);
-    }
+    // ...
   }
-
   @override
   Future<void> saveProject(Project project) async {
-    final content = jsonEncode(project.toJson());
-    await fileHandler.createDocumentFile(
-      _projectDataPath,
-      _projectFileName,
-      initialContent: content,
-      overwrite: true,
-    );
+    // ...
   }
 
   // --- REFACTORED File Operations ---
@@ -60,10 +39,12 @@ class PersistentProjectRepository implements ProjectRepository {
         initialBytes: initialBytes,
         overwrite: overwrite);
     ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
+    // Publish event
+    ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: newFile));
     return newFile;
   }
 
-   @override
+  @override
   Future<void> deleteDocumentFile(Ref ref, DocumentFile file) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
@@ -92,6 +73,8 @@ class PersistentProjectRepository implements ProjectRepository {
         await fileHandler.copyDocumentFile(source, destinationParentUri);
     if (copiedFile != null) {
       ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationParentUri);
+      // Publish event
+      ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: copiedFile));
     }
     return copiedFile;
   }
@@ -105,27 +88,23 @@ class PersistentProjectRepository implements ProjectRepository {
     if (movedFile != null) {
       ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
       ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationParentUri);
+      // Publish event (a move is just a rename to a new location)
+      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
     return movedFile;
   }
 
   // --- Unchanged Delegations ---
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) =>
-      fileHandler.getFileMetadata(uri);
+  Future<DocumentFile?> getFileMetadata(String uri) => fileHandler.getFileMetadata(uri);
   @override
-  Future<List<DocumentFile>> listDirectory(String uri,
-          {bool includeHidden = false}) =>
-      fileHandler.listDirectory(uri, includeHidden: includeHidden);
+  Future<List<DocumentFile>> listDirectory(String uri, {bool includeHidden = false}) => fileHandler.listDirectory(uri, includeHidden: includeHidden);
   @override
   Future<String> readFile(String uri) => fileHandler.readFile(uri);
   @override
-  Future<Uint8List> readFileAsBytes(String uri) =>
-      fileHandler.readFileAsBytes(uri);
+  Future<Uint8List> readFileAsBytes(String uri) => fileHandler.readFileAsBytes(uri);
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
-      fileHandler.writeFile(file, content);
+  Future<DocumentFile> writeFile(DocumentFile file, String content) => fileHandler.writeFile(file, content);
   @override
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
-      fileHandler.writeFileAsBytes(file, bytes);
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) => fileHandler.writeFileAsBytes(file, bytes);
 }

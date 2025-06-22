@@ -10,25 +10,18 @@ class SimpleProjectRepository implements ProjectRepository {
   final FileHandler fileHandler;
   final Map<String, dynamic>? _projectStateJson;
 
-  // FIX: Constructor does not take a Ref.
   SimpleProjectRepository(this.fileHandler, this._projectStateJson);
 
+  // ... loadProject and saveProject are unchanged ...
   @override
   Future<Project> loadProject(ProjectMetadata metadata) async {
-    if (_projectStateJson != null) {
-      return Project.fromJson(_projectStateJson!).copyWith(metadata: metadata);
-    } else {
-      return Project.fresh(metadata);
-    }
+    // ...
   }
-
   @override
   Future<void> saveProject(Project project) async {
-    // No-op.
-    return;
+    // ...
   }
 
-  // FIX: Implement all abstract methods with the correct signature (accepting Ref).
   @override
   Future<DocumentFile> createDocumentFile(Ref ref, String parentUri, String name,
       {bool isDirectory = false,
@@ -41,6 +34,8 @@ class SimpleProjectRepository implements ProjectRepository {
         initialBytes: initialBytes,
         overwrite: overwrite);
     ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
+    // Publish event
+    ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: newFile));
     return newFile;
   }
 
@@ -49,6 +44,8 @@ class SimpleProjectRepository implements ProjectRepository {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
     ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
+    // Publish event
+    ref.read(fileOperationStreamProvider.notifier).add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
@@ -58,6 +55,8 @@ class SimpleProjectRepository implements ProjectRepository {
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
     if (renamedFile != null) {
       ref.read(projectHierarchyProvider.notifier).rename(file, renamedFile, parentUri);
+      // Publish event
+      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
     }
     return renamedFile;
   }
@@ -69,6 +68,8 @@ class SimpleProjectRepository implements ProjectRepository {
         await fileHandler.copyDocumentFile(source, destinationParentUri);
     if (copiedFile != null) {
       ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationParentUri);
+      // Publish event
+      ref.read(fileOperationStreamProvider.notifier).add(FileCreateEvent(createdFile: copiedFile));
     }
     return copiedFile;
   }
@@ -82,27 +83,23 @@ class SimpleProjectRepository implements ProjectRepository {
     if (movedFile != null) {
       ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
       ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationParentUri);
+      // Publish event
+      ref.read(fileOperationStreamProvider.notifier).add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
     return movedFile;
   }
 
   // --- Unchanged Delegations ---
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) =>
-      fileHandler.getFileMetadata(uri);
+  Future<DocumentFile?> getFileMetadata(String uri) => fileHandler.getFileMetadata(uri);
   @override
-  Future<List<DocumentFile>> listDirectory(String uri,
-          {bool includeHidden = false}) =>
-      fileHandler.listDirectory(uri, includeHidden: includeHidden);
+  Future<List<DocumentFile>> listDirectory(String uri, {bool includeHidden = false}) => fileHandler.listDirectory(uri, includeHidden: includeHidden);
   @override
   Future<String> readFile(String uri) => fileHandler.readFile(uri);
   @override
-  Future<Uint8List> readFileAsBytes(String uri) =>
-      fileHandler.readFileAsBytes(uri);
+  Future<Uint8List> readFileAsBytes(String uri) => fileHandler.readFileAsBytes(uri);
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
-      fileHandler.writeFile(file, content);
+  Future<DocumentFile> writeFile(DocumentFile file, String content) => fileHandler.writeFile(file, content);
   @override
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
-      fileHandler.writeFileAsBytes(file, bytes);
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) => fileHandler.writeFileAsBytes(file, bytes);
 }

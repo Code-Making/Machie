@@ -281,16 +281,23 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
   
-    // NEW: Handler for file events.
+  // REFACTOR: The handler is now aware of all event types.
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
     
     switch (event) {
+      case FileCreateEvent():
+        // No action needed here. The file hierarchy is already updated by the
+        // repository, and the UI will react to that change automatically.
+        // This event exists for potential future subscribers (e.g., an indexer).
+        break;
+        
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
         final newProject = _editorService.updateTabFile(project, oldFile.uri, newFile);
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
         break;
+        
       case FileDeleteEvent(deletedFile: final deletedFile):
         final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
         if (tabIndex != -1) {
