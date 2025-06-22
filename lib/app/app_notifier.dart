@@ -26,15 +26,13 @@ import '../project/project_models.dart';
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
 );
-// ... (providers are unchanged) ...
+
 final navigatorKeyProvider = Provider((ref) => GlobalKey<NavigatorState>());
 final rootScaffoldMessengerKeyProvider = Provider(
   (ref) => GlobalKey<ScaffoldMessengerState>(),
 );
 
-
 class AppNotifier extends AsyncNotifier<AppState> {
-  // ... build() and other methods are unchanged ...
   late AppStateRepository _appStateRepository;
   late ProjectService _projectService;
   late EditorService _editorService;
@@ -72,6 +70,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
+  // ... (unchanged methods up to saveCurrentTabAs) ...
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));
   void setBottomToolbarOverride(Widget? widget) =>
@@ -94,12 +93,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
     state = AsyncData(updater(previousState));
   }
   
-  // REFACTOR: Add a generic project updater method.
   void updateCurrentProject(Project newProject) {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
-  // --- Project Management (delegates to ProjectService) ---
   Future<void> openProjectFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -158,11 +155,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  // REFACTOR: DELETED `performFileOperation`. UI commands will call ExplorerService directly.
-
   void clearClipboard() => ref.read(clipboardProvider.notifier).state = null;
 
-  // --- Tab Management (delegates to EditorService) ---
   void markCurrentTabDirty() {
     final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
@@ -182,12 +176,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       file,
       explicitPlugin: explicitPlugin,
     );
-
-    // This switch now handles the result and returns a status to the caller.
+    
     switch (result) {
       case OpenFileSuccess(project: final newProject):
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
-        // The file was opened successfully.
         return true;
 
       case OpenFileShowChooser(plugins: final plugins):
@@ -195,15 +187,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
         if (context == null) return false;
         final chosenPlugin = await showOpenWithDialog(context, plugins);
         if (chosenPlugin != null) {
-          // Recursively call and return the result of that attempt.
           return await openFileInEditor(file, explicitPlugin: chosenPlugin);
         }
-        // User cancelled the dialog.
         return false;
 
       case OpenFileError(message: final msg):
         MachineToast.error(msg);
-        // The file was not opened.
         return false;
     }
   }
@@ -228,7 +217,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _editorService.saveCurrentTab(project, content: content);
   }
 
-  // REFACTOR: This method is now clean of implementation details.
   Future<void> saveCurrentTabAsBytes(Uint8List bytes) async {
     final project = state.value?.currentProject;
     if (project == null) return;
@@ -274,7 +262,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return;
     }
 
-    ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
+    // FIX: This invalidation call is no longer needed because the repository
+    // now updates the ProjectHierarchyCache, which the UI declaratively watches.
+    // ref.invalidate(currentProjectDirectoryContentsProvider(result.parentUri));
+    
     MachineToast.info("Saved as ${newFile.name}");
   }
 
@@ -309,6 +300,4 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
     await _appStateRepository.saveAppState(appState);
   }
-
-  // REFACTOR: DELETED the `_rehydrateTabs` helper method.
 }
