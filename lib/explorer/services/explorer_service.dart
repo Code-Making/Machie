@@ -6,7 +6,7 @@ import '../../data/repositories/project_repository.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
 import '../../app/app_notifier.dart';
-import '../../utils/clipboard.dart'; // REFACTOR: Add this missing import
+import '../../utils/clipboard.dart';
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
@@ -24,7 +24,7 @@ class ExplorerService {
     return repo;
   }
 
-  /// Updates a specific part of the explorer's workspace state and persists it.
+  // ... (updateWorkspace is unchanged) ...
   Future<Project> updateWorkspace(
     Project project,
     ExplorerWorkspaceState Function(ExplorerWorkspaceState) updater,
@@ -34,26 +34,23 @@ class ExplorerService {
     await _repo.saveProject(newProject);
     return newProject;
   }
-
-  // REFACTOR: New methods to replace performFileOperation
+  
+  // REFACTOR: All methods just call the repository. The cache update is
+  // now an implementation detail of the repository itself.
   Future<void> createFile(String parentUri, String name) async {
     await _repo.createDocumentFile(parentUri, name, isDirectory: false);
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   Future<void> createFolder(String parentUri, String name) async {
     await _repo.createDocumentFile(parentUri, name, isDirectory: true);
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   Future<void> renameItem(DocumentFile item, String newName) async {
     await _repo.renameDocumentFile(item, newName);
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   Future<void> deleteItem(DocumentFile item) async {
     await _repo.deleteDocumentFile(item);
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   Future<void> pasteItem(
@@ -69,11 +66,9 @@ class ExplorerService {
     } else {
       await _repo.moveDocumentFile(sourceFile, destinationFolder.uri);
     }
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 
   Future<void> importFile(DocumentFile pickedFile, String projectRootUri) async {
     await _repo.copyDocumentFile(pickedFile, projectRootUri);
-    _ref.invalidate(currentProjectDirectoryContentsProvider);
   }
 }
