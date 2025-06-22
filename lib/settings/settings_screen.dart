@@ -9,11 +9,11 @@ import 'settings_models.dart';
 
 // NEW: A map of available accent colors for the UI.
 const Map<String, Color> kAccentColors = {
+  'Orange': Colors.orange, // TODO: find the old accent color and add a color picker
   'Red': Colors.red,
   'Blue': Colors.blue,
   'Green': Colors.green,
   'Purple': Colors.purple,
-  'Orange': Colors.orange,
   'Teal': Colors.teal,
 };
 
@@ -92,7 +92,7 @@ class _GeneralSettingsCard extends ConsumerWidget {
         Text(
           'Theme',
           style: Theme.of(context).textTheme.titleLarge,
-        ),
+        ),/*
         const SizedBox(height: 16),
         DropdownButtonFormField<ThemeMode>(
           decoration: const InputDecoration(
@@ -110,7 +110,7 @@ class _GeneralSettingsCard extends ConsumerWidget {
               notifier.updatePluginSettings(settings.copyWith(themeMode: value));
             }
           },
-        ),
+        ),*/
         const SizedBox(height: 20),
         Text('Accent Color', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
