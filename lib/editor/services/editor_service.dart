@@ -1,9 +1,10 @@
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart'; // NEW IMPORT for Widget
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
+import '../../app/app_notifier.dart'; // NEW IMPORT
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
@@ -11,6 +12,9 @@ import '../../project/project_models.dart';
 import '../../logs/logs_provider.dart';
 import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
+import '../../explorer/common/save_as_dialog.dart';
+import '../../utils/toast.dart';
+
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -20,6 +24,95 @@ class EditorService {
   final Ref _ref;
   EditorService(this._ref);
 
+  // --- Helpers to get current state ---
+  Project? get _currentProject => _ref.read(appNotifierProvider).value?.currentProject;
+  EditorTab? get _currentTab => _currentProject?.session.currentTab;
+
+  // --- NEW: Facade methods for plugins to call ---
+
+  void markCurrentTabDirty() {
+    final uri = _currentTab?.file.uri;
+    if (uri != null) {
+      _ref.read(tabStateManagerProvider.notifier).markDirty(uri);
+    }
+  }
+
+  void markCurrentTabClean() {
+    final uri = _currentTab?.file.uri;
+    if (uri != null) {
+      _ref.read(tabStateManagerProvider.notifier).markClean(uri);
+    }
+  }
+
+  /// Updates the immutable EditorTab model for the currently active tab.
+  void updateCurrentTabModel(EditorTab newTabModel) {
+    final project = _currentProject;
+    if (project == null) return;
+    
+    final newTabs = List<EditorTab>.from(project.session.tabs);
+    newTabs[project.session.currentTabIndex] = newTabModel;
+    
+    final newProject = project.copyWith(
+      session: project.session.copyWith(tabs: newTabs),
+    );
+    _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
+  }
+
+  void setBottomToolbarOverride(Widget? widget) {
+    _ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(widget);
+  }
+
+  void clearBottomToolbarOverride() {
+    _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
+  }
+
+  /// Initiates the "Save As" flow for the current tab.
+  Future<void> saveCurrentTabAs({
+    Future<Uint8List?> Function()? byteDataProvider,
+    Future<String?> Function()? stringDataProvider,
+  }) async {
+    final repo = _ref.read(projectRepositoryProvider);
+    final context = _ref.read(navigatorKeyProvider).currentContext;
+    final currentTab = _currentTab;
+
+    if (repo == null || context == null || currentTab == null) return;
+
+    final result = await showDialog<SaveAsDialogResult>(
+      context: context,
+      builder: (_) => SaveAsDialog(initialFileName: currentTab.file.name),
+    );
+    if (result == null) return;
+
+    final DocumentFile newFile;
+    if (byteDataProvider != null) {
+      final bytes = await byteDataProvider();
+      if (bytes == null) return;
+      newFile = await repo.createDocumentFile(
+        _ref,
+        result.parentUri,
+        result.fileName,
+        initialBytes: bytes,
+        overwrite: true,
+      );
+    } else if (stringDataProvider != null) {
+      final content = await stringDataProvider();
+      if (content == null) return;
+      newFile = await repo.createDocumentFile(
+        _ref,
+        result.parentUri,
+        result.fileName,
+        initialContent: content,
+        overwrite: true,
+      );
+    } else {
+      return;
+    }
+    
+    MachineToast.info("Saved as ${newFile.name}");
+  }
+
+  // --- Existing Service Methods ---
+  
   ProjectRepository get _repo {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) {
@@ -27,7 +120,7 @@ class EditorService {
     }
     return repo;
   }
-
+  
   /// Handles activating/deactivating plugin logic when switching tabs.
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
