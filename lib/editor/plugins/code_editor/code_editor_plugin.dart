@@ -10,6 +10,7 @@ import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
+import '../../services/editor_service.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
@@ -424,7 +425,7 @@ class CodeEditorPlugin implements EditorPlugin {
     );
     if (selectedLanguageKey != null) {
       final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
-      ref.read(appNotifierProvider.notifier).updateCurrentTab(updatedTab);
+      ref.read(editorServiceProvider).updateCurrentTabModel(updatedTab);
     }
   }
   Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {

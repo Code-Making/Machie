@@ -259,48 +259,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _editorService.saveCurrentTab(project, bytes: bytes);
   }
 
+    // FIX: This logic is now fully encapsulated in EditorService.
+  // The AppNotifier method is just a clean, simple delegation.
   Future<void> saveCurrentTabAs({
     Future<Uint8List?> Function()? byteDataProvider,
     Future<String?> Function()? stringDataProvider,
   }) async {
-    final repo = ref.read(projectRepositoryProvider);
-    final context = ref.read(navigatorKeyProvider).currentContext;
-    final currentTab = state.value?.currentProject?.session.currentTab;
-
-    if (repo == null || context == null || currentTab == null) return;
-
-    final result = await showDialog<SaveAsDialogResult>(
-      context: context,
-      builder: (_) => SaveAsDialog(initialFileName: currentTab.file.name),
+    await _editorService.saveCurrentTabAs(
+      byteDataProvider: byteDataProvider,
+      stringDataProvider: stringDataProvider,
     );
-    if (result == null) return;
-
-    final DocumentFile newFile;
-    if (byteDataProvider != null) {
-      final bytes = await byteDataProvider();
-      if (bytes == null) return;
-      newFile = await repo.createDocumentFile(
-        ref,
-        result.parentUri,
-        result.fileName,
-        initialBytes: bytes,
-        overwrite: true,
-      );
-    } else if (stringDataProvider != null) {
-      final content = await stringDataProvider();
-      if (content == null) return;
-      newFile = await repo.createDocumentFile(
-        ref,
-        result.parentUri,
-        result.fileName,
-        initialContent: content,
-        overwrite: true,
-      );
-    } else {
-      return;
-    }
-    
-    MachineToast.info("Saved as ${newFile.name}");
   }
 
   void closeTab(int index) {
