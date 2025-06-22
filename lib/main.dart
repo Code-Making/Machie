@@ -26,40 +26,59 @@ final appStartupProvider = FutureProvider<void>((ref) async {
 // --------------------
 //     ThemeData
 // --------------------
-ThemeData darkTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFFF44336), // Red-500
-    brightness: Brightness.dark,
-  ).copyWith(surface: const Color(0xFF2B2B29)),
-  appBarTheme: const AppBarTheme(
-    backgroundColor: Color(0xFF2B2B29),
-    elevation: 1,
-    scrolledUnderElevation: 1,
-    centerTitle: true,
-    titleTextStyle: TextStyle(fontSize: 14),
-    // REFACTOR: Reduced toolbar height to make the AppBar more compact.
-    toolbarHeight: 48,
-  ),
-  tabBarTheme: TabBarTheme(
-    indicator: const UnderlineTabIndicator(
-      borderSide: BorderSide(color: Color(0xFFF44336), width: 2.0),
+// NEW: A helper function to create ThemeData instances to avoid code duplication.
+ThemeData _createThemeData(Color seedColor, Brightness brightness) {
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    ).copyWith(
+      // Keep surface consistent for dark mode, use default for light
+      surface: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
     ),
-    unselectedLabelColor: Colors.grey[400],
-    indicatorSize: TabBarIndicatorSize.tab,
-    // REFACTOR: Reduced horizontal padding to make tabs narrower.
-    labelPadding: const EdgeInsets.symmetric(horizontal: 8.0),
-  ),
-  elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A3A3A)),
-  ),
-  // REFACTOR: Add a theme for the drawer.
-  drawerTheme: const DrawerThemeData(
-    // We can't set a dynamic width here, so this will be an override in the widget.
-    // However, we could set a static width or background color if needed.
-    backgroundColor: Color(0xFF212121), // A slightly darker background for the drawer
-  ),
-);
+    appBarTheme: AppBarTheme(
+      backgroundColor: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
+      elevation: 1,
+      scrolledUnderElevation: 1,
+      centerTitle: true,
+      titleTextStyle: const TextStyle(fontSize: 14),
+      toolbarHeight: 48,
+    ),
+    tabBarTheme: TabBarTheme(
+      indicator: UnderlineTabIndicator(
+        borderSide: BorderSide(color: seedColor, width: 2.0),
+      ),
+      unselectedLabelColor: Colors.grey[400],
+      indicatorSize: TabBarIndicatorSize.tab,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8.0),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+          backgroundColor: brightness == Brightness.dark ? const Color(0xFF3A3A3A) : null),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor: brightness == Brightness.dark ? const Color(0xFF212121) : null,
+    ),
+  );
+}
+
+// NEW: A provider that builds and returns the theme configuration.
+final themeConfigProvider = Provider((ref) {
+  // Watch the settings provider for changes.
+  final settings = ref.watch(settingsProvider);
+  final generalSettings = settings.pluginSettings[GeneralSettings] as GeneralSettings;
+
+  final seedColor = Color(generalSettings.accentColorValue);
+  final themeMode = generalSettings.themeMode;
+  
+  // Create both light and dark themes based on the seed color.
+  final lightTheme = _createThemeData(seedColor, Brightness.light);
+  final darkTheme = _createThemeData(seedColor, Brightness.dark);
+  
+  // Return all the necessary parts for MaterialApp in a record.
+  return (light: lightTheme, dark: darkTheme, mode: themeMode);
+});
 // --------------------
 //     Main
 // --------------------
@@ -83,26 +102,30 @@ void main() {
       runApp(
         ProviderScope(
           overrides: [
-            // Provide the Talker instance to the provider
             talkerProvider.overrideWithValue(talker),
           ],
           observers: [riverpodObserver],
           child: LifecycleHandler(
             child: Consumer(
               builder: (context, ref, child) {
+                // REFACTOR: Watch the new theme provider.
+                final themeConfig = ref.watch(themeConfigProvider);
+                
                 return MaterialApp(
                   navigatorKey: ref.watch(navigatorKeyProvider),
                   scaffoldMessengerKey: ref.watch(
                     rootScaffoldMessengerKeyProvider,
                   ),
-                  theme: darkTheme,
+                  // REFACTOR: Apply the dynamic theme configuration.
+                  theme: themeConfig.light,
+                  darkTheme: themeConfig.dark,
+                  themeMode: themeConfig.mode,
                   home: AppStartupWidget(
                     onLoaded: (context) => const AppScreen(),
                   ),
                   routes: {
                     '/settings': (_) => const SettingsScreen(),
                     '/command-settings': (_) => const CommandSettingsScreen(),
-                    // NEW: Add route for Talker screen
                     '/logs':
                         (_) => TalkerScreen(talker: ref.read(talkerProvider)),
                   },
@@ -114,7 +137,6 @@ void main() {
       );
     },
     (error, stack) {
-      // Report errors to Talker
       talker.handle(error, stack, 'Unhandled error');
     },
   );

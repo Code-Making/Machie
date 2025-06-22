@@ -7,6 +7,16 @@ import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
 import 'settings_models.dart';
 
+// NEW: A map of available accent colors for the UI.
+const Map<String, Color> kAccentColors = {
+  'Red': Colors.red,
+  'Blue': Colors.blue,
+  'Green': Colors.green,
+  'Purple': Colors.purple,
+  'Orange': Colors.orange,
+  'Teal': Colors.teal,
+};
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -64,41 +74,112 @@ class _GeneralSettingsCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Fullscreen Mode',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Hide App Bar'),
-              value: settings.hideAppBarInFullScreen,
-              onChanged: (value) {
-                notifier.updatePluginSettings(
-                  settings.copyWith(hideAppBarInFullScreen: value),
-                );
-              },
-            ),
-            SwitchListTile(
-              title: const Text('Hide Tab Bar'),
-              value: settings.hideTabBarInFullScreen,
-              onChanged: (value) {
-                notifier.updatePluginSettings(
-                  settings.copyWith(hideTabBarInFullScreen: value),
-                );
-              },
-            ),
-            SwitchListTile(
-              title: const Text('Hide Bottom Toolbar'),
-              value: settings.hideBottomToolbarInFullScreen,
-              onChanged: (value) {
-                notifier.updatePluginSettings(
-                  settings.copyWith(hideBottomToolbarInFullScreen: value),
-                );
-              },
-            ),
+            // REFACTOR: Separate Theme and Fullscreen sections for clarity.
+            _buildThemeSettings(context, notifier),
+            const Divider(height: 32),
+            _buildFullscreenSettings(context, notifier),
           ],
         ),
       ),
+    );
+  }
+  
+  // NEW: Widget for Theme settings
+  Widget _buildThemeSettings(BuildContext context, SettingsNotifier notifier) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Theme',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<ThemeMode>(
+          decoration: const InputDecoration(
+            labelText: 'Theme Mode',
+            border: OutlineInputBorder(),
+          ),
+          value: settings.themeMode,
+          items: const [
+            DropdownMenuItem(value: ThemeMode.system, child: Text('System Default')),
+            DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+            DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              notifier.updatePluginSettings(settings.copyWith(themeMode: value));
+            }
+          },
+        ),
+        const SizedBox(height: 20),
+        Text('Accent Color', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: kAccentColors.entries.map((entry) {
+            final color = entry.value;
+            final isSelected = settings.accentColorValue == color.value;
+            return GestureDetector(
+              onTap: () {
+                notifier.updatePluginSettings(settings.copyWith(accentColorValue: color.value));
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 3)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // NEW: Widget for Fullscreen settings
+  Widget _buildFullscreenSettings(BuildContext context, SettingsNotifier notifier) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fullscreen Mode',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          title: const Text('Hide App Bar'),
+          value: settings.hideAppBarInFullScreen,
+          onChanged: (value) {
+            notifier.updatePluginSettings(
+              settings.copyWith(hideAppBarInFullScreen: value),
+            );
+          },
+        ),
+        SwitchListTile(
+          title: const Text('Hide Tab Bar'),
+          value: settings.hideTabBarInFullScreen,
+          onChanged: (value) {
+            notifier.updatePluginSettings(
+              settings.copyWith(hideTabBarInFullScreen: value),
+            );
+          },
+        ),
+        SwitchListTile(
+          title: const Text('Hide Bottom Toolbar'),
+          value: settings.hideBottomToolbarInFullScreen,
+          onChanged: (value) {
+            notifier.updatePluginSettings(
+              settings.copyWith(hideBottomToolbarInFullScreen: value),
+            );
+          },
+        ),
+      ],
     );
   }
 }
