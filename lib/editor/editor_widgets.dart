@@ -6,6 +6,7 @@ import 'package:re_editor/re_editor.dart';
 import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_notifier.dart';
+import 'tab_state_manager.dart';
 
 class TabBarWidget extends ConsumerStatefulWidget {
   const TabBarWidget({super.key});
@@ -84,8 +85,9 @@ class TabWidget extends ConsumerWidget {
         (s) => s.value?.currentProject?.session.currentTabIndex == index,
       ),
     );
+    // REFACTOR: Watch the consolidated manager for the isDirty flag.
     final isDirty = ref.watch(
-      tabStateProvider.select((stateMap) => stateMap[tab.file.uri] ?? false),
+      tabStateManagerProvider.select((stateMap) => stateMap[tab.file.uri]?.isDirty ?? false),
     );
 
     return Material(
