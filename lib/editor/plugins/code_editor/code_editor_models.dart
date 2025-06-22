@@ -20,7 +20,7 @@ class CodeEditorTab extends EditorTab {
   @override
   void dispose() {}
 
-  // MODIFIED: Added back copyWith for immutable updates.
+  @override
   CodeEditorTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,

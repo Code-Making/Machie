@@ -186,39 +186,6 @@ class EditorService {
       }
     }
     
-      // NEW: Consolidates the logic for updating a tab after a file operation.
-  Project updateTabFile(Project project, String oldUri, DocumentFile newFile) {
-    final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
-    if (tabIndex == -1) return project;
-
-    final oldTab = project.session.tabs[tabIndex];
-    // Create a new tab instance with the updated file. `copyWith` is not on the abstract
-    // class, so we need to handle specific types.
-    EditorTab newTab;
-    if (oldTab is CodeEditorTab) {
-      newTab = oldTab.copyWith(file: newFile);
-    } else if (oldTab is GlitchEditorTab) {
-      newTab = oldTab.copyWith(file: newFile);
-    } else {
-      // Fallback for other tab types, may need to be extended.
-      // This part depends on creating a fresh tab.
-      return project;
-    }
-
-    // Update the tab list in the project state
-    final newTabs = List<EditorTab>.from(project.session.tabs);
-    newTabs[tabIndex] = newTab;
-
-    // Update the "hot" state cache key
-    _ref.read(tabStateManagerProvider.notifier).rekeyState(oldUri, newFile.uri);
-    _ref.read(tabStateProvider.notifier).removeTab(oldUri);
-    _ref.read(tabStateProvider.notifier).initTab(newFile.uri);
-    
-    return project.copyWith(
-      session: project.session.copyWith(tabs: newTabs),
-    );
-  }
-
     final newProject = project.copyWith(
       session: project.session.copyWith(
         tabs: newTabs,
@@ -242,6 +209,28 @@ class EditorService {
     }
     return newProject;
   }
+  
+  Project updateTabFile(Project project, String oldUri, DocumentFile newFile) {
+    final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
+    if (tabIndex == -1) return project;
+
+    final oldTab = project.session.tabs[tabIndex];
+    
+    // FIX: The ugly if/else chain is replaced by a single, abstract call.
+    final newTab = oldTab.copyWith(file: newFile);
+
+    final newTabs = List<EditorTab>.from(project.session.tabs);
+    newTabs[tabIndex] = newTab;
+
+    _ref.read(tabStateManagerProvider.notifier).rekeyState(oldUri, newFile.uri);
+    _ref.read(tabStateProvider.notifier).removeTab(oldUri);
+    _ref.read(tabStateProvider.notifier).initTab(newFile.uri);
+    
+    return project.copyWith(
+      session: project.session.copyWith(tabs: newTabs),
+    );
+  }
+  
   Project reorderTabs(Project project, int oldIndex, int newIndex) {
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
