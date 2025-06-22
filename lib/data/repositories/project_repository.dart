@@ -13,7 +13,6 @@ sealed class FileOperationEvent {
   const FileOperationEvent();
 }
 
-// NEW: Event for when a new file or folder is created or copied.
 class FileCreateEvent extends FileOperationEvent {
   final DocumentFile createdFile;
   const FileCreateEvent({required this.createdFile});
@@ -30,10 +29,19 @@ class FileDeleteEvent extends FileOperationEvent {
   const FileDeleteEvent({required this.deletedFile});
 }
 
-final fileOperationStreamProvider = StreamProvider.autoDispose<FileOperationEvent>((ref) {
-  final controller = StreamController<FileOperationEvent>();
+// FIX: Create a provider for the StreamController itself. We use .broadcast()
+// to allow multiple listeners if needed in the future.
+final fileOperationControllerProvider =
+    Provider<StreamController<FileOperationEvent>>((ref) {
+  final controller = StreamController<FileOperationEvent>.broadcast();
   ref.onDispose(() => controller.close());
-  return controller.stream;
+  return controller;
+});
+
+// FIX: The StreamProvider now simply listens to the controller's stream.
+final fileOperationStreamProvider =
+    StreamProvider.autoDispose<FileOperationEvent>((ref) {
+  return ref.watch(fileOperationControllerProvider).stream;
 });
 
 // --- End of New Section ---
