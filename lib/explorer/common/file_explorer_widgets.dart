@@ -99,7 +99,6 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// ... (DirectoryItem and other widgets are mostly unchanged but benefit from the new system)
 class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
@@ -130,10 +129,9 @@ class DirectoryItem extends ConsumerWidget {
         subtitle: subtitle != null ? Text(subtitle!) : null,
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
-          // This part remains the same, but it now controls the expansion
-          // state used by the already-loaded or soon-to-be-loaded DirectoryView.
           if (expanded) {
-            ref.read(projectHierarchyProvider)?.loadDirectory(item.uri);
+            // FIX: You must call methods on the .notifier.
+            ref.read(projectHierarchyProvider.notifier).loadDirectory(item.uri);
           }
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
@@ -148,8 +146,6 @@ class DirectoryItem extends ConsumerWidget {
         },
         childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
-          // The isExpanded check ensures the child DirectoryView is only in the
-          // widget tree when needed, allowing its initState to trigger the lazy load.
           if (isExpanded)
             Consumer(
               builder: (context, ref, _) {
@@ -168,6 +164,7 @@ class DirectoryItem extends ConsumerWidget {
         ],
       );
     } else {
+      // Unchanged file logic
       childWidget = ListTile(
         key: ValueKey(item.uri),
         contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),

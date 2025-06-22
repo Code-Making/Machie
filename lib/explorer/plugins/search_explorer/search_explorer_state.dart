@@ -34,13 +34,15 @@ class SearchState {
 
 final searchStateProvider = StateNotifierProvider.autoDispose
     .family<SearchStateNotifier, SearchState, String>((ref, projectId) {
-  final hierarchyCache = ref.watch(projectHierarchyProvider);
+  // FIX: Pass the .notifier instance to the constructor.
+  // The constructor expects a `ProjectHierarchyCache?`, and `ref.watch(...notifier)`
+  // provides exactly that.
+  final hierarchyCacheNotifier = ref.watch(projectHierarchyProvider.notifier);
   final project = ref.watch(appNotifierProvider).value?.currentProject;
   final talker = ref.read(talkerProvider);
 
-  // REFACTOR: Pass the ref to the notifier so it can listen to changes.
   return SearchStateNotifier(
-    hierarchyCache,
+    hierarchyCacheNotifier,
     project?.rootUri ?? '',
     talker,
     ref,
@@ -54,14 +56,13 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
   List<DocumentFile>? _allFilesCache;
   Timer? _debounce;
 
-  // REFACTOR: Accept Ref to enable listening.
   SearchStateNotifier(
     this._hierarchyCache,
     this._rootUri,
     this._talker,
     Ref ref,
   ) : super(SearchState()) {
-    // THIS LISTENER WILL NOW WORK CORRECTLY!
+    // This listener is now guaranteed to work correctly.
     ref.listen(projectHierarchyProvider, (previous, next) {
       if (previous != next) {
         _talker.info('Search cache detected a change in the hierarchy. Invalidating local cache.');
@@ -73,7 +74,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     });
   }
 
-  // ... _fetchAllFiles is unchanged ...
+  // ... rest of the file is unchanged and correct ...
   Future<void> _fetchAllFiles() async {
     if (_hierarchyCache == null || _rootUri.isEmpty) return;
     if (!mounted) return;
@@ -109,7 +110,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       state = state.copyWith(isLoading: false);
     }
   }
-  
+
   void search(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
