@@ -1,10 +1,10 @@
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // NEW IMPORT for Widget
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
-import '../../app/app_notifier.dart';
+import '../../app/app_notifier.dart'; // NEW IMPORT
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
@@ -28,7 +28,7 @@ class EditorService {
   Project? get _currentProject => _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
 
-  // --- Facade methods for plugins to call ---
+  // --- NEW: Facade methods for plugins to call ---
 
   void markCurrentTabDirty() {
     final uri = _currentTab?.file.uri;
@@ -44,10 +44,10 @@ class EditorService {
     }
   }
 
-  // REFACTOR: This method now correctly returns the updated Project object.
-  Project? updateCurrentTabModel(EditorTab newTabModel) {
+  /// Updates the immutable EditorTab model for the currently active tab.
+  void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
-    if (project == null) return null;
+    if (project == null) return;
     
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[project.session.currentTabIndex] = newTabModel;
@@ -55,8 +55,7 @@ class EditorService {
     final newProject = project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
     );
-    // The AppNotifier will now receive this new project state.
-    return newProject;
+    _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
   }
 
   void setBottomToolbarOverride(Widget? widget) {
