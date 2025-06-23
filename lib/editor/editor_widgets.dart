@@ -1,4 +1,4 @@
-// lib/screens/editor_screen.dart
+// lib/editor/editor_widgets.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
@@ -7,6 +7,7 @@ import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_manager.dart';
 
+// ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
   const TabBarWidget({super.key});
 
@@ -70,6 +71,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   }
 }
 
+
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
@@ -84,9 +86,9 @@ class TabWidget extends ConsumerWidget {
         (s) => s.value?.currentProject?.session.currentTabIndex == index,
       ),
     );
-    // REFACTOR: Watch the consolidated manager for the isDirty flag.
+    // FIX: Watch the correct provider for the dirty state.
     final isDirty = ref.watch(
-      tabStateManagerProvider.select((stateMap) => stateMap[tab.file.uri]?.isDirty ?? false),
+      tabMetadataProvider.select((metadataMap) => metadataMap[tab.file.uri]?.isDirty ?? false),
     );
 
     return Material(
@@ -95,7 +97,6 @@ class TabWidget extends ConsumerWidget {
         onTap: () => ref.read(appNotifierProvider.notifier).switchTab(index),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 220),
-          // REFACTOR: Remove left padding from the container.
           padding: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
             border: Border(
@@ -111,10 +112,8 @@ class TabWidget extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // REFACTOR: Use GestureDetector and Padding for precise control.
-              // This creates a tappable area with no external whitespace.
               GestureDetector(
-                behavior: HitTestBehavior.opaque, // Ensures the padding is tappable
+                behavior: HitTestBehavior.opaque,
                 onTap: () =>
                     ref.read(appNotifierProvider.notifier).closeTab(index),
                 child: Padding(
@@ -148,10 +147,10 @@ class TabWidget extends ConsumerWidget {
     );
   }
 }
-// ... (EditorContentSwitcher and _EditorContentProxy are unchanged)
+
+// ... EditorContentSwitcher and _EditorContentProxy are unchanged ...
 class EditorContentSwitcher extends ConsumerWidget {
   const EditorContentSwitcher({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUri = ref.watch(
@@ -159,17 +158,14 @@ class EditorContentSwitcher extends ConsumerWidget {
         (s) => s.value?.currentProject?.session.currentTab?.file.uri,
       ),
     );
-
     return KeyedSubtree(
       key: ValueKey(currentUri),
       child: const _EditorContentProxy(),
     );
   }
 }
-
 class _EditorContentProxy extends ConsumerWidget {
   const _EditorContentProxy();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(

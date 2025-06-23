@@ -167,10 +167,8 @@ class CustomEditorIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Get state from the TabStateManager by watching it.
-        // FIX: Correctly select and unwrap the state.
     final tabState = ref.watch(
-      tabStateManagerProvider.select((s) => s[tab.file.uri]?.state as CodeEditorTabState?),
+      tabStateManagerProvider.select((s) => s[tab.file.uri] as CodeEditorTabState?),
     );
     final highlightedLines = tabState?.bracketHighlightState.highlightedLines ?? const {};
 

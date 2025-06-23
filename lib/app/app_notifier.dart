@@ -196,7 +196,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void markCurrentTabDirty() {
     final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
     if (currentUri != null) {
-      _ref.read(tabMetadataProvider.notifier).markDirty(currentUri);
+      ref.read(tabMetadataProvider.notifier).markDirty(currentUri);
     }
   }
 
