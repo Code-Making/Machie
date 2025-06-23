@@ -18,7 +18,7 @@ import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart';
 import 'code_editor_logic.dart';
-import '../../tab_state_registry.dart'; // NEW IMPORT
+import '../../tab_state_manager.dart';
 
 class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
@@ -31,7 +31,6 @@ class BracketHighlightState {
   });
 }
 
-// REFACTOR: The state object now knows how to dispose of its controller.
 class CodeEditorTabState implements TabState {
   final CodeLineEditingController controller;
   CodeLinePosition? mark;
@@ -42,11 +41,6 @@ class CodeEditorTabState implements TabState {
     this.mark,
     this.bracketHighlightState = const BracketHighlightState(),
   });
-
-  @override
-  void dispose() {
-    controller.dispose();
-  }
 }
 
 class CodeEditorPlugin implements EditorPlugin {
@@ -66,9 +60,12 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<void> dispose() async {}
 
   CodeEditorTabState? getTabState(WidgetRef ref, EditorTab tab) {
-    return ref.read(tabStateRegistryProvider).get<CodeEditorTabState>(tab.file.uri);
+    return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
   }
-
+  
+  CodeLineEditingController? getControllerForTab(WidgetRef ref, EditorTab tab) {
+    return getTabState(ref, tab)?.controller;
+  }
 
   @override
   void disposeTab(EditorTab tab) {}
@@ -129,6 +126,10 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTabState(controller: controller);
   }
 
+  @override
+  void disposeTabState(TabState state) {
+    (state as CodeEditorTabState).controller.dispose();
+  }
 
   @override
   Future<EditorTab> createTabFromSerialization(
@@ -152,11 +153,16 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
+    final controller = getControllerForTab(ref, codeTab);
 
-    // The widget now gets its own controller from the registry.
+    if (controller == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return CodeEditorMachine(
       key: ValueKey(codeTab.file.uri),
       tab: codeTab,
+      controller: controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
         return CustomEditorIndicator(
