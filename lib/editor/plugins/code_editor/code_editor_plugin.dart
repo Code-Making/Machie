@@ -31,18 +31,6 @@ class BracketHighlightState {
   });
 }
 
-class CodeEditorTabState implements TabState {
-  final CodeLineEditingController controller;
-  CodeLinePosition? mark;
-  BracketHighlightState bracketHighlightState;
-
-  CodeEditorTabState({
-    required this.controller,
-    this.mark,
-    this.bracketHighlightState = const BracketHighlightState(),
-  });
-}
-
 class CodeEditorPlugin implements EditorPlugin {
   @override
   String get name => 'Code Editor';
@@ -87,48 +75,8 @@ class CodeEditorPlugin implements EditorPlugin {
       plugin: this,
       commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
+      initialContent: data as String,
     );
-  }
-
-  @override
-  Future<TabState?> createTabState(EditorTab tab, dynamic data) async {
-    final String initialContent = data as String;
-
-    // REFACTOR: The circular reference is removed. The spanBuilder is now self-sufficient.
-    final controller = CodeLineEditingController(
-      spanBuilder: ({
-        required BuildContext context,
-        required int index,
-        required CodeLine codeLine,
-        required TextSpan textSpan,
-        required TextStyle style,
-      }) {
-        // The builder can find its own tab via the widget tree, which is a much cleaner pattern.
-        // We'll pass the tab to the CodeEditorMachine widget, which will then pass it to this builder.
-        // However, we need a way to get the *specific* tab instance this controller belongs to.
-        // The most robust way is to find the CodeEditorMachine widget up the tree.
-        final codeEditorMachine = context.findAncestorWidgetOfExactType<CodeEditorMachine>();
-        if (codeEditorMachine == null) {
-          return textSpan; // Failsafe
-        }
-        
-        return buildHighlightingSpan(
-          context: context,
-          index: index,
-          tab: codeEditorMachine.tab,
-          codeLine: codeLine,
-          textSpan: textSpan,
-          style: style,
-        );
-      },
-      codeLines: CodeLines.fromText(initialContent),
-    );
-    return CodeEditorTabState(controller: controller);
-  }
-
-  @override
-  void disposeTabState(TabState state) {
-    (state as CodeEditorTabState).controller.dispose();
   }
 
   @override
@@ -153,16 +101,10 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    final controller = getControllerForTab(ref, codeTab);
-
-    if (controller == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
 
     return CodeEditorMachine(
       key: ValueKey(codeTab.file.uri),
       tab: codeTab,
-      controller: controller,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
         return CustomEditorIndicator(
@@ -174,20 +116,7 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     );
   }
-  
-  // ... (unchanged helpers and commands) ...
-  CodeEditorTab? _getTab(WidgetRef ref) {
-    final tab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
-    return tab is CodeEditorTab ? tab : null;
-  }
-  CodeLineEditingController? _getController(WidgetRef ref) {
-    final tab = _getTab(ref);
-    return tab != null ? getControllerForTab(ref, tab) : null;
-  }
+
   @override
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());

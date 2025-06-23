@@ -107,10 +107,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
           Expanded(
-            child:
-                currentTab != null
-                    ? const EditorContentSwitcher()
-                    : const Center(child: Text('Open a file to start editing')),
+            // FIX: Use the new EditorView which contains the IndexedStack.
+            child: const EditorView(),
           ),
           if (currentPlugin != null && (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),

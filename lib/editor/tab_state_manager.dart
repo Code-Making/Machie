@@ -1,53 +1,6 @@
 // lib/editor/tab_state_manager.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// --- HOT STATE MANAGEMENT ---
-
-/// An abstract marker class for plugin-specific, "hot" tab state (e.g., controllers, images).
-/// This state is managed for the lifetime of a tab but is not persisted.
-abstract class TabState {}
-
-/// Manages the "hot" state for all open tabs.
-final tabStateManagerProvider =
-    StateNotifierProvider<TabStateManager, Map<String, TabState>>((ref) {
-  return TabStateManager();
-});
-
-class TabStateManager extends StateNotifier<Map<String, TabState>> {
-  TabStateManager() : super({});
-
-  /// Adds a new state object for a given tab.
-  void addState(String tabUri, TabState tabState) {
-    state = {...state, tabUri: tabState};
-  }
-
-  /// Removes and returns the state for a given tab.
-  TabState? removeState(String tabUri) {
-    final newState = Map<String, TabState>.from(state);
-    final removedState = newState.remove(tabUri);
-    state = newState;
-    return removedState;
-  }
-
-  /// Retrieves the state for a specific tab.
-  T? getState<T extends TabState>(String tabUri) {
-    return state[tabUri] as T?;
-  }
-
-  /// Efficiently re-keys the hot state when a file is renamed or moved.
-  void rekeyState(String oldUri, String newUri) {
-    if (state.containsKey(oldUri)) {
-      final tabState = state[oldUri]!;
-      final newState = Map<String, TabState>.from(state)
-        ..remove(oldUri)
-        ..[newUri] = tabState;
-      state = newState;
-    }
-  }
-}
-
-// --- METADATA (BIDIRECTIONAL) STATE MANAGEMENT ---
-
 /// Holds metadata about a tab, such as its dirty status.
 class TabMetadata {
   final bool isDirty;
@@ -80,7 +33,7 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   }
   
   void markDirty(String tabUri) {
-    if (state[tabUri]?.isDirty == false) {
+    if (state.containsKey(tabUri) && state[tabUri]?.isDirty == false) {
       state = {
         ...state,
         tabUri: state[tabUri]!.copyWith(isDirty: true),
@@ -89,7 +42,7 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   }
 
   void markClean(String tabUri) {
-    if (state[tabUri]?.isDirty == true) {
+    if (state.containsKey(tabUri) && state[tabUri]?.isDirty == true) {
       state = {
         ...state,
         tabUri: state[tabUri]!.copyWith(isDirty: false),

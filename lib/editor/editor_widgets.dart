@@ -148,31 +148,28 @@ class TabWidget extends ConsumerWidget {
   }
 }
 
-// ... EditorContentSwitcher and _EditorContentProxy are unchanged ...
-class EditorContentSwitcher extends ConsumerWidget {
-  const EditorContentSwitcher({super.key});
+// NEW: The body of the AppScreen will now use this directly.
+class EditorView extends ConsumerWidget {
+  const EditorView({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUri = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab?.file.uri,
-      ),
+    final project = ref.watch(appNotifierProvider).value?.currentProject;
+    if (project == null || project.session.tabs.isEmpty) {
+      return const Center(child: Text('Open a file to start editing'));
+    }
+
+    // Use an IndexedStack to preserve the state of each editor widget.
+    return IndexedStack(
+      index: project.session.currentTabIndex,
+      children: project.session.tabs.map((tab) {
+        // We use a ValueKey to ensure Flutter can correctly identify
+        // the widget if the list of tabs is reordered.
+        return KeyedSubtree(
+          key: ValueKey(tab.file.uri),
+          child: tab.plugin.buildEditor(tab, ref),
+        );
+      }).toList(),
     );
-    return KeyedSubtree(
-      key: ValueKey(currentUri),
-      child: const _EditorContentProxy(),
-    );
-  }
-}
-class _EditorContentProxy extends ConsumerWidget {
-  const _EditorContentProxy();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
-    return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
   }
 }

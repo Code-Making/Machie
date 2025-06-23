@@ -29,11 +29,6 @@ abstract class EditorPlugin {
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
   
-  // REFACTOR: The data read by the service is now passed to the state creation method.
-  Future<TabState?> createTabState(EditorTab tab, dynamic data);
-
-  void disposeTabState(TabState state);
-
   void disposeTab(EditorTab tab) {}
 
   PluginSettings? get settings;
