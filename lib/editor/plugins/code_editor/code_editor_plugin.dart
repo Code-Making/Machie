@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart'; // NEW: For CodeEditorTapRegion
+import 'package:re_editor/re_editor.dart';
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
@@ -15,27 +15,21 @@ import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_logic.dart';
-import '../../tab_state_manager.dart'; // NEW: For tabMetadataProvider
+import '../../tab_state_manager.dart';
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
   String get name => 'Code Editor';
   @override
   Widget get icon => const Icon(Icons.code);
-  
-  // FIX: Constructor for settings was missing.
   @override
   final PluginSettings? settings = CodeEditorSettings();
-  
-  // FIX: Cast to the correct settings type.
   @override
   Widget buildSettingsUI(PluginSettings settings) =>
       CodeEditorSettingsUI(settings: settings as CodeEditorSettings);
-      
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
-  // ... unchanged methods ...
   @override
   Future<void> dispose() async {}
   @override
@@ -51,6 +45,7 @@ class CodeEditorPlugin implements EditorPlugin {
   void activateTab(EditorTab tab, Ref ref) {}
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
+
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
     return CodeEditorTab(
@@ -61,6 +56,7 @@ class CodeEditorPlugin implements EditorPlugin {
       initialContent: data as String,
     );
   }
+
   @override
   Future<EditorTab> createTabFromSerialization(
     Map<String, dynamic> tabJson,
@@ -79,28 +75,32 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
     return CodeEditorMachine(
+      // The GlobalKey from the tab model is passed to the widget's key property.
+      // This is how we can access its state later.
       key: codeTab.editorKey,
       tab: codeTab,
     );
   }
   
-  // This helper now safely casts the generic state to the specific state type.
+  /// Helper to find the state of the currently active editor widget.
   _CodeEditorMachineState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab,
     ));
+    // Ensure the current tab is a CodeEditorTab before trying to access its state.
     if (tab is! CodeEditorTab) return null;
     // The key is generic, so the state is of type State<StatefulWidget>?
-    // We safely cast it to the type we expect.
+    // We safely cast it to the specific State type we need.
     return tab.editorKey.currentState as _CodeEditorMachineState?;
   }
 
-  // FIX: Use the correct CodeEditorTapRegion widget.
   @override
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
 
+  // The command definitions are now much cleaner. They find the active
+  // editor's State object and call public methods directly on it.
   @override
   List<Command> getCommands() => [
         _createCommand(
@@ -150,7 +150,9 @@ class CodeEditorPlugin implements EditorPlugin {
       },
       canExecute: (ref) {
         final editorState = _getActiveEditorState(ref);
-        // FIX: Watch the metadata provider to react to changes.
+        // The canExecute function needs to be reactive. Since the editor state
+        // itself isn't a provider, we watch the metadata provider which gets
+        // updated by the editor state. This triggers a rebuild of the button.
         ref.watch(tabMetadataProvider);
         return canExecute?.call(ref, editorState) ?? (editorState != null);
       },
