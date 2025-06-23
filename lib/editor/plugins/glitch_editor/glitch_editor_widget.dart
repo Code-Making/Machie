@@ -45,6 +45,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   bool _isLoading = true;
 
+  final Random _random = Random();
+
   // --- PUBLIC PROPERTIES (for the command system) ---
   bool get isDirty => ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
 
@@ -203,10 +205,11 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
+    // This is the primary router for glitch effects. It's now clean and simple.
   void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     switch (settings.type) {
       case GlitchBrushType.scatter:
-        _applyScatter(canvas, _strokeSample!, pos, settings);
+        _applyScatter(canvas, pos, settings);
         break;
       case GlitchBrushType.repeater:
         _applyRepeater(canvas, pos, settings);
@@ -217,18 +220,20 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  // --- Glitch Logic (all private now) ---
-  // ... (All the private _applyScatter, _applyRepeater, _applyHeal, etc. methods
-  // would be moved from the old plugin file into here, unchanged.)
+  // --- Glitch Logic (all private and adapted to local state) ---
 
   void _applyScatter(
     Canvas canvas,
-    ui.Image source,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
+    // The source image is now always the local _strokeSample
+    final source = _strokeSample;
+    if (source == null) return;
+
     final radius = settings.radius * 500;
     final count = (settings.frequency * 20).toInt().clamp(1, 50);
+
     for (int i = 0; i < count; i++) {
       final srcX = pos.dx + _random.nextDouble() * radius - (radius / 2);
       final srcY = pos.dy + _random.nextDouble() * radius - (radius / 2);
@@ -249,88 +254,99 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   
   void _applyRepeater(
     Canvas canvas,
-    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
     final radius = settings.radius * 500;
     final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
-    if (state.repeaterSample == null) {
-      _createRepeaterSample(state, pos, settings);
-      state.lastRepeaterPosition = pos;
-      state.repeaterPath.add(pos);
-      _drawRepeaterSample(canvas, state, pos);
+    
+    // Check local state property _repeaterSample
+    if (_repeaterSample == null) {
+      _createRepeaterSample(pos, settings);
+      _lastRepeaterPosition = pos;
+      _repeaterPath.add(pos);
+      _drawRepeaterSample(canvas, pos);
       return;
     }
-    state.repeaterPath.add(pos);
-    if (state.repeaterPath.length > 1) {
-      final currentSegment = state.repeaterPath.sublist(
-        state.repeaterPath.length - 2,
+    
+    _repeaterPath.add(pos);
+    if (_repeaterPath.length > 1) {
+      final currentSegment = _repeaterPath.sublist(
+        _repeaterPath.length - 2,
       );
       final start = currentSegment[0];
       final end = currentSegment[1];
       final direction = (end - start);
       final distance = direction.distance;
+
       if (distance > 0) {
         final stepVector = direction / distance;
         double accumulatedDistance = 0;
         int stepCount = 0;
-        var currentDrawPos = state.lastRepeaterPosition!;
+        var currentDrawPos = _lastRepeaterPosition!;
         while (accumulatedDistance < distance) {
           final nextDrawDistance = min(spacing, distance - accumulatedDistance);
           currentDrawPos += stepVector * nextDrawDistance;
           accumulatedDistance += nextDrawDistance;
           if (accumulatedDistance >= spacing || stepCount == 0) {
-            _drawRepeaterSample(canvas, state, currentDrawPos);
+            _drawRepeaterSample(canvas, currentDrawPos);
           }
           stepCount++;
         }
-        state.lastRepeaterPosition = currentDrawPos;
+        _lastRepeaterPosition = currentDrawPos;
       }
     }
   }
   
   void _createRepeaterSample(
-    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
+    if (_strokeSample == null) return;
+    
     final radius = settings.radius * 500;
-    state.repeaterSampleRect =
+    // Mutate local state property _repeaterSampleRect
+    _repeaterSampleRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
-    state.repeaterSampleRect = Rect.fromLTRB(
-      state.repeaterSampleRect!.left.clamp(0, state.strokeSample!.width.toDouble()),
-      state.repeaterSampleRect!.top.clamp(0, state.strokeSample!.height.toDouble()),
-      state.repeaterSampleRect!.right.clamp(0, state.strokeSample!.width.toDouble()),
-      state.repeaterSampleRect!.bottom.clamp(0, state.strokeSample!.height.toDouble()),
+            
+    _repeaterSampleRect = Rect.fromLTRB(
+      _repeaterSampleRect!.left.clamp(0, _strokeSample!.width.toDouble()),
+      _repeaterSampleRect!.top.clamp(0, _strokeSample!.height.toDouble()),
+      _repeaterSampleRect!.right.clamp(0, _strokeSample!.width.toDouble()),
+      _repeaterSampleRect!.bottom.clamp(0, _strokeSample!.height.toDouble()),
     );
+    
     final sampleRecorder = ui.PictureRecorder();
     final sampleCanvas = Canvas(sampleRecorder);
     sampleCanvas.drawImageRect(
-      state.strokeSample!,
-      state.repeaterSampleRect!,
-      Rect.fromLTWH(0, 0, state.repeaterSampleRect!.width, state.repeaterSampleRect!.height),
+      _strokeSample!,
+      _repeaterSampleRect!,
+      Rect.fromLTWH(0, 0, _repeaterSampleRect!.width, _repeaterSampleRect!.height),
       Paint(),
     );
     final samplePicture = sampleRecorder.endRecording();
-    state.repeaterSample = samplePicture.toImageSync(
-      state.repeaterSampleRect!.width.toInt(),
-      state.repeaterSampleRect!.height.toInt(),
+    
+    // Mutate local state property _repeaterSample
+    _repeaterSample = samplePicture.toImageSync(
+      _repeaterSampleRect!.width.toInt(),
+      _repeaterSampleRect!.height.toInt(),
     );
     samplePicture.dispose();
   }
 
-  void _drawRepeaterSample(Canvas canvas, GlitchTabState state, Offset pos) {
+  void _drawRepeaterSample(Canvas canvas, Offset pos) {
+    if (_repeaterSample == null || _repeaterSampleRect == null) return;
+
     final destRect = Rect.fromCenter(
       center: pos,
-      width: state.repeaterSampleRect!.width,
-      height: state.repeaterSampleRect!.height,
+      width: _repeaterSampleRect!.width,
+      height: _repeaterSampleRect!.height,
     );
     canvas.drawImageRect(
-      state.repeaterSample!,
-      Rect.fromLTWH(0, 0, state.repeaterSample!.width.toDouble(), state.repeaterSample!.height.toDouble()),
+      _repeaterSample!,
+      Rect.fromLTWH(0, 0, _repeaterSample!.width.toDouble(), _repeaterSample!.height.toDouble()),
       destRect,
       Paint()..blendMode = BlendMode.srcOver,
     );
@@ -338,23 +354,26 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   
   void _applyHeal(
     Canvas canvas,
-    GlitchTabState state,
     Offset pos,
     GlitchBrushSettings settings,
   ) {
+    if (_originalImage == null) return;
+    
     final radius = settings.radius * 500;
     final sourceRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
+            
     final clampedSourceRect = Rect.fromLTRB(
-      sourceRect.left.clamp(0, state.originalImage.width.toDouble()),
-      sourceRect.top.clamp(0, state.originalImage.height.toDouble()),
-      sourceRect.right.clamp(0, state.originalImage.width.toDouble()),
-      sourceRect.bottom.clamp(0, state.originalImage.height.toDouble()),
+      sourceRect.left.clamp(0, _originalImage!.width.toDouble()),
+      sourceRect.top.clamp(0, _originalImage!.height.toDouble()),
+      sourceRect.right.clamp(0, _originalImage!.width.toDouble()),
+      sourceRect.bottom.clamp(0, _originalImage!.height.toDouble()),
     );
+    
     canvas.drawImageRect(
-      state.originalImage,
+      _originalImage!,
       clampedSourceRect,
       clampedSourceRect,
       Paint(),

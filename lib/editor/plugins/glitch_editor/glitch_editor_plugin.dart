@@ -1,5 +1,4 @@
 // lib/plugins/glitch_editor/glitch_editor_plugin.dart
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
@@ -15,8 +14,7 @@ import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
 
 class GlitchEditorPlugin implements EditorPlugin {
-  // These providers are now for the *active* glitch editor's UI settings,
-  // which is a correct use of providers (shared UI state, not document state).
+  // These providers remain here as they control the plugin's UI, not its document state.
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
   final isZoomModeProvider = StateProvider((ref) => false);
   final isSlidingProvider = StateProvider((ref) => false);
@@ -73,7 +71,6 @@ class GlitchEditorPlugin implements EditorPlugin {
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final glitchTab = tab as GlitchEditorTab;
     return GlitchEditorWidget(
-      // The GlobalKey from the tab model is passed to the widget's key.
       key: glitchTab.editorKey,
       tab: glitchTab,
       plugin: this,
@@ -85,7 +82,6 @@ class GlitchEditorPlugin implements EditorPlugin {
     return const BottomToolbar();
   }
 
-  /// Helper to find the state of the currently active editor widget.
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab,
@@ -102,9 +98,9 @@ class GlitchEditorPlugin implements EditorPlugin {
           icon: const Icon(Icons.save),
           defaultPosition: CommandPosition.appBar,
           sourcePlugin: runtimeType.toString(),
-          execute: (ref) => _getActiveEditorState(ref)?.save(),
+          // FIX: Use async closure for async method call
+          execute: (ref) async => await _getActiveEditorState(ref)?.save(),
           canExecute: (ref) {
-            // Watch the metadata provider to rebuild the button when the dirty state changes.
             ref.watch(tabMetadataProvider);
             return _getActiveEditorState(ref)?.isDirty ?? false;
           },
@@ -115,7 +111,8 @@ class GlitchEditorPlugin implements EditorPlugin {
           icon: const Icon(Icons.save_as),
           defaultPosition: CommandPosition.appBar,
           sourcePlugin: runtimeType.toString(),
-          execute: (ref) => _getActiveEditorState(ref)?.saveAs(),
+          // FIX: Use async closure for async method call
+          execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
           canExecute: (ref) => _getActiveEditorState(ref) != null,
         ),
         BaseCommand(
@@ -124,13 +121,13 @@ class GlitchEditorPlugin implements EditorPlugin {
           icon: const Icon(Icons.refresh),
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
+          // FIX: This method is synchronous, no async needed.
           execute: (ref) => _getActiveEditorState(ref)?.resetImage(),
           canExecute: (ref) {
             ref.watch(tabMetadataProvider);
             return _getActiveEditorState(ref)?.isDirty ?? false;
           },
         ),
-        // The icons for these commands are now dynamic Consumer widgets.
         BaseCommand(
           id: 'zoom_mode',
           label: 'Toggle Zoom',
@@ -140,6 +137,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           }),
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
+          // FIX: This method is synchronous, no async needed.
           execute: (ref) =>
               ref.read(isZoomModeProvider.notifier).update((state) => !state),
         ),
@@ -159,6 +157,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           }),
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
+          // FIX: This method is synchronous, no async needed.
           execute: (ref) => ref
               .read(editorServiceProvider)
               .setBottomToolbarOverride(GlitchToolbar(plugin: this)),
