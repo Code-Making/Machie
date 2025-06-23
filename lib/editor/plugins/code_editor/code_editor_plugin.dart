@@ -1,35 +1,20 @@
 // lib/editor/plugins/code_editor/code_editor_plugin.dart
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
+import '../../../editor/services/editor_service.dart';
 import '../../editor_tab_models.dart';
-import '../../services/editor_service.dart';
 import '../plugin_models.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
-import 'code_editor_state.dart';
 import 'code_editor_logic.dart';
-import '../../tab_state_manager.dart';
-
-class BracketHighlightState {
-  final Set<CodeLinePosition> bracketPositions;
-  final CodeLinePosition? matchingBracketPosition;
-  final Set<int> highlightedLines;
-  const BracketHighlightState({
-    this.bracketPositions = const {},
-    this.matchingBracketPosition,
-    this.highlightedLines = const {},
-  });
-}
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
@@ -46,14 +31,6 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<void> dispose() async {}
-
-  CodeEditorTabState? getTabState(WidgetRef ref, EditorTab tab) {
-    return ref.read(tabStateManagerProvider.notifier).getState(tab.file.uri);
-  }
-  
-  CodeLineEditingController? getControllerForTab(WidgetRef ref, EditorTab tab) {
-    return getTabState(ref, tab)?.controller;
-  }
 
   @override
   void disposeTab(EditorTab tab) {}
@@ -75,6 +52,8 @@ class CodeEditorPlugin implements EditorPlugin {
       plugin: this,
       commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
       languageKey: inferredLanguageKey,
+      // Pass the initial content directly to the tab model.
+      // The widget will use this on its first build.
       initialContent: data as String,
     );
   }
@@ -101,26 +80,41 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-
     return CodeEditorMachine(
-      key: ValueKey(codeTab.file.uri),
+      key: ValueKey(codeTab.file.uri), // Key is still important for IndexedStack
       tab: codeTab,
+      // The stateful widget now receives the initial content directly.
+      initialContent: codeTab.initialContent,
       commentFormatter: codeTab.commentFormatter,
       indicatorBuilder: (context, editingController, chunkController, notifier) {
         return CustomEditorIndicator(
           controller: editingController,
           chunkController: chunkController,
           notifier: notifier,
-          tab: codeTab,
         );
       },
     );
+  }
+  
+  CodeEditorTab? _getTab(WidgetRef ref) {
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
+    return tab is CodeEditorTab ? tab : null;
+  }
+
+  // Helper now reads the active controller from its dedicated provider.
+  CodeLineEditingController? _getController(WidgetRef ref) {
+    return ref.watch(activeCodeControllerProvider);
   }
 
   @override
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
+
   @override
   List<Command> getCommands() => [
         _createCommand(
@@ -130,9 +124,8 @@ class CodeEditorPlugin implements EditorPlugin {
           defaultPosition: CommandPosition.appBar,
           execute: (ref, ctrl) async {
             if (ctrl == null) return;
-            await ref
-                .read(appNotifierProvider.notifier)
-                .saveCurrentTab(content: ctrl.text);
+            final project = ref.read(appNotifierProvider).value!.currentProject!;
+            await ref.read(editorServiceProvider).saveCurrentTab(project, content: ctrl.text);
           },
           canExecute: (ref, ctrl) => ref.watch(isCurrentCodeTabDirtyProvider),
         ),
@@ -141,7 +134,10 @@ class CodeEditorPlugin implements EditorPlugin {
           label: 'Set Mark',
           icon: Icons.bookmark_add,
           defaultPosition: CommandPosition.pluginToolbar,
-          execute: _setMarkPosition,
+          execute: (ref, ctrl) async {
+            if (ctrl == null) return;
+            ref.read(codeEditorMarkPositionProvider.notifier).state = ctrl.selection.base;
+          },
         ),
         _createCommand(
           id: 'select_to_mark',
@@ -149,12 +145,7 @@ class CodeEditorPlugin implements EditorPlugin {
           icon: Icons.bookmark_added,
           defaultPosition: CommandPosition.pluginToolbar,
           execute: _selectToMark,
-          canExecute: (ref, ctrl) {
-            final tab = _getTab(ref);
-            if (tab == null) return false;
-            final tabState = getTabState(ref, tab);
-            return tabState?.mark != null;
-          },
+          canExecute: (ref, ctrl) => ref.watch(codeEditorMarkPositionProvider) != null,
         ),
         _createCommand(id: 'copy', label: 'Copy', icon: Icons.content_copy, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.copy()),
         _createCommand(id: 'cut', label: 'Cut', icon: Icons.content_cut, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.cut()),
@@ -162,9 +153,6 @@ class CodeEditorPlugin implements EditorPlugin {
         _createCommand(id: 'indent', label: 'Indent', icon: Icons.format_indent_increase, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.applyIndent()),
         _createCommand(id: 'outdent', label: 'Outdent', icon: Icons.format_indent_decrease, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.applyOutdent()),
         _createCommand(id: 'toggle_comment', label: 'Toggle Comment', icon: Icons.comment, defaultPosition: CommandPosition.pluginToolbar, execute: _toggleComments),
-        _createCommand(id: 'reformat', label: 'Reformat', icon: Icons.format_align_left, defaultPosition: CommandPosition.pluginToolbar, execute: _reformatDocument),
-        _createCommand(id: 'select_brackets', label: 'Select Brackets', icon: Icons.code, defaultPosition: CommandPosition.pluginToolbar, execute: _selectBetweenBrackets),
-        _createCommand(id: 'extend_selection', label: 'Extend Selection', icon: Icons.horizontal_rule, defaultPosition: CommandPosition.pluginToolbar, execute: _extendSelection),
         _createCommand(id: 'select_all', label: 'Select All', icon: Icons.select_all, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.selectAll()),
         _createCommand(id: 'move_line_up', label: 'Move Line Up', icon: Icons.arrow_upward, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.moveSelectionLinesUp()),
         _createCommand(id: 'move_line_down', label: 'Move Line Down', icon: Icons.arrow_downward, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.moveSelectionLinesDown()),
@@ -173,6 +161,7 @@ class CodeEditorPlugin implements EditorPlugin {
         _createCommand(id: 'show_cursor', label: 'Show Cursor', icon: Icons.center_focus_strong, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => ctrl?.makeCursorVisible()),
         _createCommand(id: 'switch_language', label: 'Switch Language', icon: Icons.language, defaultPosition: CommandPosition.pluginToolbar, execute: (ref, ctrl) => _showLanguageSelectionDialog(ref), canExecute: (ref, ctrl) => _getTab(ref) is CodeEditorTab),
       ];
+
   Command _createCommand({
     required String id,
     required String label,
@@ -197,6 +186,7 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     );
   }
+
   Future<void> _toggleComments(
     WidgetRef ref,
     CodeLineEditingController? ctrl,
@@ -210,120 +200,28 @@ class CodeEditorPlugin implements EditorPlugin {
     );
     ctrl.runRevocableOp(() => ctrl.value = formatted);
   }
-  Future<void> _reformatDocument(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
+  
+  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
     if (ctrl == null) return;
-    try {
-      final formattedValue = _formatCodeValue(ctrl.value);
-      ctrl.runRevocableOp(() {
-        ctrl.value = formattedValue.copyWith(
-          selection: const CodeLineSelection.zero(),
-          composing: TextRange.empty,
-        );
-      });
-    } catch (e) {
-    }
-  }
-  CodeLineEditingValue _formatCodeValue(CodeLineEditingValue value) {
-    final buffer = StringBuffer();
-    int indentLevel = 0;
-    final indent = '  ';
-    final codeLines = value.codeLines.toList();
-    for (final line in codeLines) {
-      final trimmed = line.text.trim();
-      if (trimmed.startsWith('}') ||
-          trimmed.startsWith(']') ||
-          trimmed.startsWith(')')) {
-        indentLevel = indentLevel > 0 ? indentLevel - 1 : 0;
-      }
-      buffer.write(indent * indentLevel);
-      buffer.writeln(trimmed);
-      if (trimmed.endsWith('{') ||
-          trimmed.endsWith('[') ||
-          trimmed.endsWith('(')) {
-        indentLevel++;
-      }
-    }
-    return CodeLineEditingValue(
-      codeLines: CodeLines.fromText(buffer.toString().trim()),
-      selection: value.selection,
-      composing: value.composing,
+    final mark = ref.read(codeEditorMarkPositionProvider);
+    if (mark == null) return;
+    final currentPosition = ctrl.selection.base;
+    final start = _comparePositions(mark, currentPosition) < 0 ? mark : currentPosition;
+    final end = _comparePositions(mark, currentPosition) < 0 ? currentPosition : mark;
+    ctrl.selection = CodeLineSelection(
+      baseIndex: start.index,
+      baseOffset: start.offset,
+      extentIndex: end.index,
+      extentOffset: end.offset,
     );
   }
-  Future<void> _selectBetweenBrackets(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return;
-    final controller = ctrl;
-    final selection = controller.selection;
-    if (!selection.isCollapsed) {
-      return;
-    }
-    try {
-      final position = selection.base;
-      final brackets = {'(': ')', '[': ']', '{': '}'};
-      CodeLinePosition? start;
-      CodeLinePosition? end;
-      for (int offset = 0; offset <= 1; offset++) {
-        final index = position.offset - offset;
-        if (index >= 0 &&
-            index < controller.codeLines[position.index].text.length) {
-          final char = controller.codeLines[position.index].text[index];
-          if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-            final match = _findMatchingBracket(
-              controller.codeLines,
-              CodeLinePosition(index: position.index, offset: index),
-              brackets,
-            );
-            if (match != null) {
-              start = CodeLinePosition(index: position.index, offset: index);
-              end = match;
-              break;
-            }
-          }
-        }
-      }
-      if (start == null || end == null) {
-        return;
-      }
-      final orderedStart = _comparePositions(start, end) < 0 ? start : end;
-      final orderedEnd = _comparePositions(start, end) < 0 ? end : start;
-      controller.selection = CodeLineSelection(
-        baseIndex: orderedStart.index,
-        baseOffset: orderedStart.offset,
-        extentIndex: orderedEnd.index,
-        extentOffset: orderedEnd.offset + 1,
-      );
-      _extendSelection(ref, ctrl);
-    } catch (e) {
-    }
-  }
-  Future<void> _extendSelection(
-    WidgetRef ref,
-    CodeLineEditingController? ctrl,
-  ) async {
-    if (ctrl == null) return;
-    final controller = ctrl;
-    final selection = controller.selection;
-    final newBaseOffset = 0;
-    final extentLineLength =
-        controller.codeLines[selection.extentIndex].text.length;
-    final newExtentOffset = extentLineLength;
-    controller.selection = CodeLineSelection(
-      baseIndex: selection.baseIndex,
-      baseOffset: newBaseOffset,
-      extentIndex: selection.extentIndex,
-      extentOffset: newExtentOffset,
-    );
-  }
+
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
     return a.offset.compareTo(b.offset);
   }
+
   Future<void> _showLanguageSelectionDialog(WidgetRef ref) async {
     final BuildContext context = ref.context;
     final currentTab = _getTab(ref);
@@ -339,9 +237,7 @@ class CodeEditorPlugin implements EditorPlugin {
               shrinkWrap: true,
               itemCount: CodeThemes.languageNameToModeMap.keys.length,
               itemBuilder: (context, index) {
-                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
-                  index,
-                );
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(index);
                 return ListTile(
                   title: Text(CodeThemes.formatLanguageName(langKey)),
                   onTap: () => Navigator.pop(ctx, langKey),
@@ -355,107 +251,6 @@ class CodeEditorPlugin implements EditorPlugin {
     if (selectedLanguageKey != null) {
       final updatedTab = currentTab.copyWith(languageKey: selectedLanguageKey);
       ref.read(editorServiceProvider).updateCurrentTabModel(updatedTab);
-    }
-  }
-  Future<void> _setMarkPosition(WidgetRef ref, CodeLineEditingController? ctrl) async {
-    final tab = _getTab(ref);
-    if (ctrl == null || tab == null) return;
-    final tabState = getTabState(ref, tab);
-    if (tabState != null) {
-      tabState.mark = ctrl.selection.base;
-    }
-  }
-  Future<void> _selectToMark(WidgetRef ref, CodeLineEditingController? ctrl) async {
-    final tab = _getTab(ref);
-    if (ctrl == null || tab == null) return;
-    final mark = getTabState(ref, tab)?.mark;
-    if (mark == null) return;
-    final currentPosition = ctrl.selection.base;
-    final start = _comparePositions(mark, currentPosition) < 0 ? mark : currentPosition;
-    final end = _comparePositions(mark, currentPosition) < 0 ? currentPosition : mark;
-    ctrl.selection = CodeLineSelection(
-      baseIndex: start.index,
-      baseOffset: start.offset,
-      extentIndex: end.index,
-      extentOffset: end.offset,
-    );
-  }
-  void handleBracketHighlight(WidgetRef ref, CodeEditorTab tab) {
-    final tabState = getTabState(ref, tab);
-    if (tabState == null) return;
-
-    final controller = tabState.controller;
-    final selection = controller.selection;
-    if (!selection.isCollapsed) {
-      tabState.bracketHighlightState = const BracketHighlightState();
-      return;
-    }
-    final position = selection.base;
-    final brackets = {'(': ')', '[': ']', '{': '}'};
-    final line = controller.codeLines[position.index].text;
-    Set<CodeLinePosition> newPositions = {};
-    CodeLinePosition? matchPosition;
-    Set<int> newHighlightedLines = {};
-    for (int offset in [position.offset, position.offset - 1]) {
-      if (offset >= 0 && offset < line.length) {
-        final char = line[offset];
-        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-          final currentPosition = CodeLinePosition(index: position.index, offset: offset);
-          matchPosition = _findMatchingBracket(controller.codeLines, currentPosition, brackets);
-          if (matchPosition != null) {
-            newPositions.add(currentPosition);
-            newPositions.add(matchPosition);
-            newHighlightedLines.add(currentPosition.index);
-            newHighlightedLines.add(matchPosition.index);
-            break;
-          }
-        }
-      }
-    }
-    tabState.bracketHighlightState = BracketHighlightState(
-      bracketPositions: newPositions,
-      matchingBracketPosition: matchPosition,
-      highlightedLines: newHighlightedLines,
-    );
-  }
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
-    final line = codeLines[position.index].text;
-    final char = line[position.offset];
-    final isOpen = brackets.keys.contains(char);
-    final target = isOpen ? brackets[char] : brackets.keys.firstWhere((k) => brackets[k] == char, orElse: () => '');
-    if (target?.isEmpty ?? true) return null;
-    int stack = 1;
-    int index = position.index;
-    int offset = position.offset;
-    final direction = isOpen ? 1 : -1;
-    while (true) {
-      offset += direction;
-      if (direction > 0) {
-        if (offset >= codeLines[index].text.length) {
-          index++;
-          if (index >= codeLines.length) return null;
-          offset = 0;
-        }
-      } else {
-        if (offset < 0) {
-          index--;
-          if (index < 0) return null;
-          offset = codeLines[index].text.length - 1;
-        }
-      }
-      final currentChar = codeLines[index].text[offset];
-      if (currentChar == char) {
-        stack++;
-      } else if (currentChar == target) {
-        stack--;
-      }
-      if (stack == 0) {
-        return CodeLinePosition(index: index, offset: offset);
-      }
     }
   }
 }
