@@ -83,7 +83,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
   
   /// Helper to find the state of the currently active editor widget.
-  _CodeEditorMachineState? _getActiveEditorState(WidgetRef ref) {
+  CodeEditorMachineState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab,
     ));
@@ -91,7 +91,7 @@ class CodeEditorPlugin implements EditorPlugin {
     if (tab is! CodeEditorTab) return null;
     // The key is generic, so the state is of type State<StatefulWidget>?
     // We safely cast it to the specific State type we need.
-    return tab.editorKey.currentState as _CodeEditorMachineState?;
+    return tab.editorKey.currentState as CodeEditorMachineState?;
   }
 
   @override
@@ -134,9 +134,9 @@ class CodeEditorPlugin implements EditorPlugin {
     required IconData icon,
     required CommandPosition defaultPosition,
     // The execute function now receives the specific State type.
-    required FutureOr<void> Function(WidgetRef, _CodeEditorMachineState?) execute,
+    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?) execute,
     // The canExecute function also receives the specific State type.
-    bool Function(WidgetRef, _CodeEditorMachineState?)? canExecute,
+    bool Function(WidgetRef, CodeEditorMachineState?)? canExecute,
   }) {
     return BaseCommand(
       id: id,
