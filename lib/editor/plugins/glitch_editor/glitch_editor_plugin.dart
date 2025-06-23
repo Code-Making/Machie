@@ -401,14 +401,35 @@ class GlitchEditorPlugin implements EditorPlugin {
             (s) => s[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.isDirty ?? false
           )),
         ),
-        // ... zoom_mode command ...
+        BaseCommand(
+          id: 'zoom_mode',
+          label: 'Toggle Zoom',
+          icon: Consumer(builder: (context, ref, _) {
+            final isZoomOn = ref.watch(isZoomModeProvider);
+            return Icon(isZoomOn ? Icons.zoom_in_map : Icons.zoom_out_map);
+          }),
+          defaultPosition: CommandPosition.pluginToolbar,
+          sourcePlugin: runtimeType.toString(),
+          execute: (ref) async =>
+              ref.read(isZoomModeProvider.notifier).update((state) => !state),
+        ),
+        // FIX: The `icon` property is now a Consumer widget.
         BaseCommand(
           id: 'toggle_brush_settings',
           label: 'Brush Settings',
-          icon: const Icon(Icons.brush),
+          icon: Consumer(builder: (context, ref, _) {
+            final brushType = ref.watch(brushSettingsProvider.select((s) => s.type));
+            switch (brushType) {
+              case GlitchBrushType.scatter:
+                return const Icon(Icons.scatter_plot);
+              case GlitchBrushType.repeater:
+                return const Icon(Icons.line_axis);
+              case GlitchBrushType.heal:
+                return const Icon(Icons.healing);
+            }
+          }),
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
-          // FIX: Call the correct service method.
           execute: (ref) async => ref
               .read(editorServiceProvider)
               .setBottomToolbarOverride(GlitchToolbar(plugin: this)),
