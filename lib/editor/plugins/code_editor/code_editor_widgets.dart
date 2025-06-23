@@ -12,22 +12,21 @@ import '../../../settings/settings_notifier.dart';
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_plugin.dart';
-import '../../tab_state_registry.dart'; // NEW IMPORT
+import '../../tab_state_manager.dart';
 
 final canUndoProvider = StateProvider<bool>((ref) => false);
 final canRedoProvider = StateProvider<bool>((ref) => false);
 
-// REFACTOR: This widget is now a ConsumerStatefulWidget
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeEditorTab tab;
-  // REMOVED: The controller is no longer passed in.
-  // final CodeLineEditingController controller;
+  final CodeLineEditingController controller;
   final CodeCommentFormatter? commentFormatter;
   final CodeIndicatorBuilder? indicatorBuilder;
 
   const CodeEditorMachine({
     super.key,
     required this.tab,
+    required this.controller,
     this.commentFormatter,
     this.indicatorBuilder,
   });
@@ -37,35 +36,23 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
 }
 
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
-  // FIX: The widget now owns its controller, retrieved from the registry.
-  late final CodeLineEditingController _controller;
   late final FocusNode _focusNode;
   late final Map<LogicalKeyboardKey, AxisDirection> _arrowKeyDirections;
 
   @override
   void initState() {
     super.initState();
-    // FIX: Retrieve the controller from the registry ONCE.
-    final tabState = ref.read(tabStateRegistryProvider).get<CodeEditorTabState>(widget.tab.file.uri);
-    
-    // This should ideally never happen if the service logic is correct.
-    if (tabState == null) {
-      // Handle error case, maybe show an error widget or throw.
-      // For now, we'll create a dummy controller to prevent a null crash.
-      _controller = CodeLineEditingController.empty();
-    } else {
-      _controller = tabState.controller;
-    }
-
     _focusNode = FocusNode();
     _focusNode.addListener(_handleFocusChange);
+
     _arrowKeyDirections = {
       LogicalKeyboardKey.arrowUp: AxisDirection.up,
       LogicalKeyboardKey.arrowDown: AxisDirection.down,
       LogicalKeyboardKey.arrowLeft: AxisDirection.left,
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
-    _addControllerListeners(_controller);
+
+    _addControllerListeners(widget.controller);
     _updateAllStatesFromController();
   }
 
