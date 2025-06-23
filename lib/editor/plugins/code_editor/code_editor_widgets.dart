@@ -8,6 +8,7 @@ import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
 import '../../tab_state_manager.dart';
+import '../../../app/app_notifier.dart';
 
 // Helper class for bracket highlight data
 class _BracketHighlightState {
@@ -27,10 +28,10 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
 
   @override
   // The State class is now public to be accessible via the GlobalKey.
-  _CodeEditorMachineState createState() => _CodeEditorMachineState();
+  CodeEditorMachineState createState() => CodeEditorMachineState();
 }
 
-class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
+class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   // --- STATE ---
   // The widget's State object is now the single source of truth for "hot" state.
   late final CodeLineEditingController controller;
