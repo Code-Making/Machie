@@ -1,10 +1,10 @@
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
-import 'package:flutter/material.dart'; // NEW IMPORT for Widget
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
-import '../../app/app_notifier.dart'; // NEW IMPORT
+import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
@@ -33,18 +33,19 @@ class EditorService {
   void markCurrentTabDirty() {
     final uri = _currentTab?.file.uri;
     if (uri != null) {
-      _ref.read(tabStateManagerProvider.notifier).markDirty(uri);
+      _ref.read(tabMetadataProvider.notifier).markDirty(uri);
     }
   }
 
   void markCurrentTabClean() {
     final uri = _currentTab?.file.uri;
     if (uri != null) {
-      _ref.read(tabStateManagerProvider.notifier).markClean(uri);
+      _ref.read(tabMetadataProvider.notifier).markClean(uri);
     }
   }
 
   /// Updates the immutable EditorTab model for the currently active tab.
+  /// Used by plugins to change their own tab's properties (e.g., language mode).
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
@@ -121,13 +122,11 @@ class EditorService {
     return repo;
   }
   
-  /// Handles activating/deactivating plugin logic when switching tabs.
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
 
-  /// Restores all tabs from a saved session when a project is opened.
   Future<Project> rehydrateTabs(Project project) async {
     final projectStateJson = project.toJson();
     final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
@@ -155,8 +154,8 @@ class EditorService {
           
           final tabState = await plugin.createTabState(tab, data);
           if (tabState != null) {
-            // Call the single, consolidated addState method.
             _ref.read(tabStateManagerProvider.notifier).addState(tab.file.uri, tabState);
+            _ref.read(tabMetadataProvider.notifier).initTab(tab.file.uri);
           }
         } catch (e) {
           _ref.read(talkerProvider).error('Could not restore tab: $e');
@@ -168,12 +167,7 @@ class EditorService {
     );
   }
 
-  /// Opens a file in the editor, creating a new tab or switching to an existing one.
-  Future<OpenFileResult> openFile(
-    Project project,
-    DocumentFile file, {
-    EditorPlugin? explicitPlugin,
-  }) async {
+  Future<OpenFileResult> openFile(Project project, DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     final existingIndex =
         project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
     if (existingIndex != -1) {
@@ -205,10 +199,10 @@ class EditorService {
 
     final newTab = await chosenPlugin.createTab(file, data);
 
-    // Call the single, consolidated addState method.
     final tabState = await chosenPlugin.createTabState(newTab, data);
     if (tabState != null) {
       _ref.read(tabStateManagerProvider.notifier).addState(newTab.file.uri, tabState);
+      _ref.read(tabMetadataProvider.notifier).initTab(newTab.file.uri);
     }
 
     final oldTab = project.session.currentTab;
@@ -225,12 +219,7 @@ class EditorService {
     );
   }
   
-  /// Saves the content of the current tab to its file.
-  Future<bool> saveCurrentTab(
-    Project project, {
-    String? content,
-    Uint8List? bytes,
-  }) async {
+  Future<bool> saveCurrentTab(Project project, {String? content, Uint8List? bytes}) async {
     final tabToSave = project.session.currentTab;
     if (tabToSave == null) return false;
 
@@ -242,8 +231,7 @@ class EditorService {
       } else {
         return false;
       }
-      // Use the consolidated notifier to mark the tab as clean.
-      _ref.read(tabStateManagerProvider.notifier).markClean(tabToSave.file.uri);
+      _ref.read(tabMetadataProvider.notifier).markClean(tabToSave.file.uri);
       return true;
     } catch (e) {
       _ref.read(talkerProvider).error("Failed to save tab: $e");
@@ -251,7 +239,6 @@ class EditorService {
     }
   }
 
-  /// Switches the active tab to the one at the given index.
   Project switchTab(Project project, int index) {
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);
@@ -262,7 +249,6 @@ class EditorService {
     return newProject;
   }
 
-  /// Closes the tab at the given index.
   Project closeTab(Project project, int index) {
     final closedTab = project.session.tabs[index];
     final oldTab = project.session.currentTab;
@@ -289,11 +275,11 @@ class EditorService {
       ),
     );
 
-    // Use the consolidated notifier to remove the tab's state.
     final tabState = _ref.read(tabStateManagerProvider.notifier).removeState(closedTab.file.uri);
     if (tabState != null) {
       closedTab.plugin.disposeTabState(tabState);
     }
+    _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.file.uri);
 
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.plugin.disposeTab(closedTab);
@@ -306,7 +292,6 @@ class EditorService {
     return newProject;
   }
 
-  /// Reorders the tabs in the session.
   Project reorderTabs(Project project, int oldIndex, int newIndex) {
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
@@ -323,23 +308,18 @@ class EditorService {
     );
   }
 
-  /// Updates a tab's underlying file metadata, e.g., after a rename or move operation.
   Project updateTabFile(Project project, String oldUri, DocumentFile newFile) {
     final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
     if (tabIndex == -1) return project;
 
     final oldTab = project.session.tabs[tabIndex];
-    
-    // Create a new tab instance with the updated file using the abstract `copyWith`.
     final newTab = oldTab.copyWith(file: newFile);
 
-    // Update the tab list in the project's session state.
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[tabIndex] = newTab;
 
-    // Use the consolidated state manager to re-key the tab's state,
-    // preserving its "hot" state and dirty status.
     _ref.read(tabStateManagerProvider.notifier).rekeyState(oldUri, newFile.uri);
+    _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
     
     return project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
@@ -347,7 +327,6 @@ class EditorService {
   }
 }
 
-// Result types for the `openFile` method.
 @immutable
 sealed class OpenFileResult {}
 

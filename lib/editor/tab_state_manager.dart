@@ -1,67 +1,86 @@
+// lib/editor/tab_state_manager.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
-import 'editor_tab_models.dart';
 
-// REFACTOR: The abstract TabState marker class remains the same.
+// --- HOT STATE MANAGEMENT ---
+
+/// An abstract marker class for plugin-specific, "hot" tab state (e.g., controllers, images).
+/// This state is managed for the lifetime of a tab but is not persisted.
 abstract class TabState {}
 
-// NEW: A wrapper class to hold both the hot state and its dirty status.
-class ManagedTabState {
-  final TabState state;
-  final bool isDirty;
-
-  const ManagedTabState({required this.state, this.isDirty = false});
-
-  ManagedTabState copyWith({TabState? state, bool? isDirty}) {
-    return ManagedTabState(
-      state: state ?? this.state,
-      isDirty: isDirty ?? this.isDirty,
-    );
-  }
-}
-
-// REFACTOR: The provider now provides the consolidated manager.
+/// Manages the "hot" state for all open tabs.
 final tabStateManagerProvider =
-    StateNotifierProvider<TabStateManager, Map<String, ManagedTabState>>((ref) {
+    StateNotifierProvider<TabStateManager, Map<String, TabState>>((ref) {
   return TabStateManager();
 });
 
-// REFACTOR: The StateNotifier is updated to manage the new wrapper class.
-class TabStateManager extends StateNotifier<Map<String, ManagedTabState>> {
+class TabStateManager extends StateNotifier<Map<String, TabState>> {
   TabStateManager() : super({});
 
-  /// Adds a new state object for a given tab, initializing it as clean.
+  /// Adds a new state object for a given tab.
   void addState(String tabUri, TabState tabState) {
-    state = {...state, tabUri: ManagedTabState(state: tabState)};
+    state = {...state, tabUri: tabState};
   }
 
   /// Removes and returns the state for a given tab.
   TabState? removeState(String tabUri) {
-    final newState = Map<String, ManagedTabState>.from(state);
-    final removed = newState.remove(tabUri);
+    final newState = Map<String, TabState>.from(state);
+    final removedState = newState.remove(tabUri);
     state = newState;
-    return removed?.state;
+    return removedState;
   }
 
   /// Retrieves the state for a specific tab.
   T? getState<T extends TabState>(String tabUri) {
-    return state[tabUri]?.state as T?;
+    return state[tabUri] as T?;
   }
 
-  /// Efficiently re-keys the hot state and its dirty status when a file is renamed.
+  /// Efficiently re-keys the hot state when a file is renamed or moved.
   void rekeyState(String oldUri, String newUri) {
     if (state.containsKey(oldUri)) {
-      final managedState = state[oldUri]!;
-      final newState = Map<String, ManagedTabState>.from(state)
+      final tabState = state[oldUri]!;
+      final newState = Map<String, TabState>.from(state)
         ..remove(oldUri)
-        ..[newUri] = managedState; // The entire object (including isDirty) is moved.
+        ..[newUri] = tabState;
       state = newState;
     }
   }
+}
 
-  // NEW: Methods to manage dirty state, replacing the old TabStateNotifier.
+// --- METADATA (BIDIRECTIONAL) STATE MANAGEMENT ---
+
+/// Holds metadata about a tab, such as its dirty status.
+class TabMetadata {
+  final bool isDirty;
+  const TabMetadata({this.isDirty = false});
+
+  TabMetadata copyWith({bool? isDirty}) {
+    return TabMetadata(isDirty: isDirty ?? this.isDirty);
+  }
+}
+
+/// Manages metadata (like dirty status) for all open tabs.
+final tabMetadataProvider =
+    StateNotifierProvider<TabMetadataNotifier, Map<String, TabMetadata>>((ref) {
+  return TabMetadataNotifier();
+});
+
+class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
+  TabMetadataNotifier() : super({});
+
+  /// Initializes metadata for a new tab.
+  void initTab(String tabUri) {
+    if (state.containsKey(tabUri)) return;
+    state = {...state, tabUri: const TabMetadata()};
+  }
+  
+  /// Removes metadata for a closed tab.
+  void removeTab(String tabUri) {
+    final newState = Map<String, TabMetadata>.from(state)..remove(tabUri);
+    state = newState;
+  }
+  
   void markDirty(String tabUri) {
-    if (state.containsKey(tabUri) && !state[tabUri]!.isDirty) {
+    if (state[tabUri]?.isDirty == false) {
       state = {
         ...state,
         tabUri: state[tabUri]!.copyWith(isDirty: true),
@@ -70,11 +89,22 @@ class TabStateManager extends StateNotifier<Map<String, ManagedTabState>> {
   }
 
   void markClean(String tabUri) {
-    if (state.containsKey(tabUri) && state[tabUri]!.isDirty) {
+    if (state[tabUri]?.isDirty == true) {
       state = {
         ...state,
         tabUri: state[tabUri]!.copyWith(isDirty: false),
       };
+    }
+  }
+
+  /// Efficiently re-keys the metadata when a file is renamed or moved.
+  void rekeyState(String oldUri, String newUri) {
+    if (state.containsKey(oldUri)) {
+      final metadata = state[oldUri]!;
+      final newState = Map<String, TabMetadata>.from(state)
+        ..remove(oldUri)
+        ..[newUri] = metadata;
+      state = newState;
     }
   }
 }
