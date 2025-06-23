@@ -355,8 +355,7 @@ class GlitchEditorPlugin implements EditorPlugin {
               state.dispose();
             }
           },
-          // FIX: Correctly watch the consolidated state manager.
-          canExecute: (ref) => ref.watch(tabStateManagerProvider.select(
+          canExecute: (ref) => ref.watch(tabMetadataProvider.select(
             (s) => s[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.isDirty ?? false
           )),
         ),
@@ -398,8 +397,7 @@ class GlitchEditorPlugin implements EditorPlugin {
             ref.read(editorServiceProvider).markCurrentTabClean();
             // The `updateCurrentTab` call is correctly removed, as the widget will react to the state change.
           },
-          // FIX: Correctly watch the consolidated state manager.
-          canExecute: (ref) => ref.watch(tabStateManagerProvider.select(
+          canExecute: (ref) => ref.watch(tabMetadataProvider.select(
             (s) => s[ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab?.file.uri]?.isDirty ?? false
           )),
         ),
