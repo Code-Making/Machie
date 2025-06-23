@@ -115,10 +115,8 @@ class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   @override
   Widget build(BuildContext context) {
     // REFACTOR: Watch for changes in the tab's state and update the display image.
-    final managedState = ref.watch(
-      tabStateManagerProvider.select((s) => s[widget.tab.file.uri]),
-    );
-    _displayImage = (managedState?.state as GlitchTabState?)?.image;
+    final hotState = ref.watch(tabStateManagerProvider.select((s) => s[widget.tab.file.uri]));
+    _displayImage = (hotState as GlitchTabState?)?.image;
 
     if (_displayImage == null) {
       return const Center(child: CircularProgressIndicator());
