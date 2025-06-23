@@ -86,12 +86,12 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
 
   /// Helper to find the state of the currently active editor widget.
-  _GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
+  GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab,
     ));
     if (tab is! GlitchEditorTab) return null;
-    return tab.editorKey.currentState as _GlitchEditorWidgetState?;
+    return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
 
   @override

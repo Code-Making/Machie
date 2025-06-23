@@ -23,10 +23,10 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  _GlitchEditorWidgetState createState() => _GlitchEditorWidgetState();
+  GlitchEditorWidgetState createState() => GlitchEditorWidgetState();
 }
 
-class _GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
+class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // --- STATE ---
   // All "hot" state is now here, inside the widget's State object.
   ui.Image? _displayImage;
