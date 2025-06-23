@@ -122,7 +122,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
           // FIX: This method is synchronous, no async needed.
-          execute: (ref) => _getActiveEditorState(ref)?.resetImage(),
+          execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
           canExecute: (ref) {
             ref.watch(tabMetadataProvider);
             return _getActiveEditorState(ref)?.isDirty ?? false;
@@ -138,7 +138,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
           // FIX: This method is synchronous, no async needed.
-          execute: (ref) =>
+          execute: (ref) async =>
               ref.read(isZoomModeProvider.notifier).update((state) => !state),
         ),
         BaseCommand(
@@ -158,7 +158,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           defaultPosition: CommandPosition.pluginToolbar,
           sourcePlugin: runtimeType.toString(),
           // FIX: This method is synchronous, no async needed.
-          execute: (ref) => ref
+          execute: (ref) async => ref
               .read(editorServiceProvider)
               .setBottomToolbarOverride(GlitchToolbar(plugin: this)),
         ),
