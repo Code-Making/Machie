@@ -18,18 +18,28 @@ class _BracketHighlightState {
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeEditorTab tab;
-  const CodeEditorMachine({super.key, required this.tab});
+
+  const CodeEditorMachine({
+    // The key is now the GlobalKey from the tab model, passed from the plugin.
+    super.key,
+    required this.tab,
+  });
+
   @override
-  ConsumerState<CodeEditorMachine> createState() => _CodeEditorMachineState();
+  // The State class is now public to be accessible via the GlobalKey.
+  _CodeEditorMachineState createState() => _CodeEditorMachineState();
 }
 
-// FIX: Make the class public by removing the leading underscore.
 class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
+  // --- STATE ---
+  // The widget's State object is now the single source of truth for "hot" state.
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
+  
   CodeLinePosition? _markPosition;
   _BracketHighlightState _bracketHighlightState = const _BracketHighlightState();
 
+  // --- PUBLIC PROPERTIES (for the command system) ---
   bool get isDirty => ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
   bool get canUndo => controller.canUndo;
   bool get canRedo => controller.canRedo;
@@ -39,6 +49,9 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    
+    // The widget creates and owns its controller, initializing it with
+    // the content passed via the tab model.
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
@@ -54,23 +67,76 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     super.dispose();
   }
 
+  // --- LOGIC AND METHODS (moved from plugin) ---
+
   void _onControllerChange() {
     if (!mounted) return;
+    
+    // Update global metadata via the service facade. This keeps the
+    // UI outside this widget (like the tab bar) in sync.
     ref.read(editorServiceProvider).markCurrentTabDirty();
+    
+    // Update local state and trigger a rebuild of this widget if necessary.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
   }
   
-  Future<void> save() async { /* ... */ }
-  void setMark() { /* ... */ }
-  void selectToMark() { /* ... */ }
-  void toggleComments() { /* ... */ }
+  Future<void> save() async {
+    final project = ref.read(appNotifierProvider).value!.currentProject!;
+    await ref.read(editorServiceProvider).saveCurrentTab(project, content: controller.text);
+  }
 
+  void setMark() {
+    setState(() {
+      _markPosition = controller.selection.base;
+    });
+  }
+  
+  void selectToMark() {
+    if (_markPosition == null) return;
+    final currentPosition = controller.selection.base;
+    final start = _comparePositions(_markPosition!, currentPosition) < 0 ? _markPosition! : currentPosition;
+    final end = _comparePositions(_markPosition!, currentPosition) < 0 ? currentPosition : _markPosition!;
+    controller.selection = CodeLineSelection(
+      baseIndex: start.index,
+      baseOffset: start.offset,
+      extentIndex: end.index,
+      extentOffset: end.offset,
+    );
+  }
+  
+  void toggleComments() {
+    final formatted = widget.tab.commentFormatter.format(
+      controller.value,
+      controller.options.indent,
+      true,
+    );
+    controller.runRevocableOp(() => controller.value = formatted);
+  }
+  
   Future<void> showLanguageSelectionDialog() async {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog( /* ... */ ),
+      builder: (ctx) => AlertDialog(
+          title: const Text('Select Language'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: CodeThemes.languageNameToModeMap.keys.length,
+              itemBuilder: (context, index) {
+                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
+                  index,
+                );
+                return ListTile(
+                  title: Text(CodeThemes.formatLanguageName(langKey)),
+                  onTap: () => Navigator.pop(ctx, langKey),
+                );
+              },
+            ),
+          ),
+        ),
     );
     if (selectedLanguageKey != null) {
       final updatedTab = widget.tab.copyWith(languageKey: selectedLanguageKey);
@@ -79,18 +145,78 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   _BracketHighlightState _calculateBracketHighlights() {
-    // ... logic unchanged
-    return const _BracketHighlightState(); // FIX: Placeholder return
+    final selection = controller.selection;
+    if (!selection.isCollapsed) {
+      return const _BracketHighlightState();
+    }
+    final position = selection.base;
+    final brackets = {'(': ')', '[': ']', '{': '}'};
+    final line = controller.codeLines[position.index].text;
+    Set<CodeLinePosition> newPositions = {};
+    Set<int> newHighlightedLines = {};
+    for (int offset in [position.offset, position.offset - 1]) {
+      if (offset >= 0 && offset < line.length) {
+        final char = line[offset];
+        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
+          final currentPosition = CodeLinePosition(index: position.index, offset: offset);
+          final matchPosition = _findMatchingBracket(controller.codeLines, currentPosition, brackets);
+          if (matchPosition != null) {
+            newPositions.add(currentPosition);
+            newPositions.add(matchPosition);
+            newHighlightedLines.add(currentPosition.index);
+            newHighlightedLines.add(matchPosition.index);
+            break;
+          }
+        }
+      }
+    }
+    return _BracketHighlightState(
+      bracketPositions: newPositions,
+      highlightedLines: newHighlightedLines,
+    );
   }
-
+  
   CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
-    // ... logic unchanged
-    return null; // FIX: Placeholder return
+    final line = codeLines[position.index].text;
+    final char = line[position.offset];
+    final isOpen = brackets.keys.contains(char);
+    final target = isOpen ? brackets[char] : brackets.keys.firstWhere((k) => brackets[k] == char, orElse: () => '');
+    if (target == null || target.isEmpty) return null;
+    int stack = 1;
+    int index = position.index;
+    int offset = position.offset;
+    final direction = isOpen ? 1 : -1;
+    while (true) {
+      offset += direction;
+      if (direction > 0) {
+        if (offset >= codeLines[index].text.length) {
+          index++;
+          if (index >= codeLines.length) return null;
+          offset = 0;
+        }
+      } else {
+        if (offset < 0) {
+          index--;
+          if (index < 0) return null;
+          offset = codeLines[index].text.length - 1;
+        }
+      }
+      final currentChar = codeLines[index].text[offset];
+      if (currentChar == char) {
+        stack++;
+      } else if (currentChar == target) {
+        stack--;
+      }
+      if (stack == 0) {
+        return CodeLinePosition(index: index, offset: offset);
+      }
+    }
   }
   
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
-    // ... logic unchanged
-    return 0; // FIX: Placeholder return
+    if (a.index < b.index) return -1;
+    if (a.index > b.index) return 1;
+    return a.offset.compareTo(b.offset);
   }
 
   TextSpan _buildHighlightingSpan({
@@ -101,13 +227,60 @@ class _CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     required TextStyle style,
   }) {
     final highlightState = _bracketHighlightState;
-    // ... logic unchanged
-    return textSpan; // FIX: Placeholder return
+    final highlightPositions =
+        highlightState.bracketPositions
+            .where((pos) => pos.index == index)
+            .map((pos) => pos.offset)
+            .toSet();
+
+    if (highlightPositions.isEmpty) {
+      return textSpan;
+    }
+
+    final builtSpans = <TextSpan>[];
+    int currentPosition = 0;
+    
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      int lastSplit = 0;
+      
+      for (int i = 0; i < text.length; i++) {
+        final absolutePosition = currentPosition + i;
+        if (highlightPositions.contains(absolutePosition)) {
+          if (i > lastSplit) {
+            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+          }
+          builtSpans.add(TextSpan(
+            text: text[i],
+            style: spanStyle.copyWith(
+              backgroundColor: Colors.yellow.withOpacity(0.3),
+              fontWeight: FontWeight.bold,
+            ),
+          ));
+          lastSplit = i + 1;
+        }
+      }
+      if (lastSplit < text.length) {
+        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+      }
+      currentPosition += text.length;
+      
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
+    }
+
+    processSpan(textSpan);
+    return TextSpan(children: builtSpans, style: style);
   }
   
   @override
   Widget build(BuildContext context) {
-    // FIX: Correctly access settings
     final codeEditorSettings = ref.watch(settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
     final currentLanguageKey = widget.tab.languageKey;
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
@@ -144,7 +317,7 @@ class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
-  // It now receives the state directly from its parent.
+  // It now receives the state directly from its parent widget.
   final _BracketHighlightState bracketHighlightState;
 
   const CustomEditorIndicator({
@@ -178,7 +351,7 @@ class CustomEditorIndicator extends StatelessWidget {
   }
 }
 
-class _CustomLineNumberWidget extends ConsumerWidget {
+class _CustomLineNumberWidget extends StatelessWidget {
   final CodeLineEditingController controller;
   final CodeIndicatorValueNotifier notifier;
   final Set<int> highlightedLines;
@@ -190,7 +363,7 @@ class _CustomLineNumberWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return ValueListenableBuilder<CodeIndicatorValue?>(
