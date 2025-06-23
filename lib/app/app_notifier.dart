@@ -1,11 +1,9 @@
 // lib/app/app_notifier.dart
 import 'dart:async';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
@@ -16,9 +14,7 @@ import '../editor/tab_state_manager.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
 import '../explorer/common/save_as_dialog.dart';
-
 import '../explorer/common/file_explorer_dialogs.dart';
-
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
@@ -85,8 +81,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     
     switch (event) {
       case FileCreateEvent():
-        // No action needed here. The file hierarchy is already updated by the
-        // repository, and the UI will react to that change automatically.
+        // No action needed here.
         break;
         
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
@@ -104,12 +99,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
   }
 
-  void setAppBarOverride(Widget? widget) =>
-      _updateStateSync((s) => s.copyWith(appBarOverride: widget));
   void setBottomToolbarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(bottomToolbarOverride: widget));
-  void clearAppBarOverride() =>
-      _updateStateSync((s) => s.copyWith(clearAppBarOverride: true));
   void clearBottomToolbarOverride() =>
       _updateStateSync((s) => s.copyWith(clearBottomToolbarOverride: true));
 
@@ -193,13 +184,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   void clearClipboard() => ref.read(clipboardProvider.notifier).state = null;
 
-  void markCurrentTabDirty() {
-    final currentUri = state.value?.currentProject?.session.currentTab?.file.uri;
-    if (currentUri != null) {
-      ref.read(tabMetadataProvider.notifier).markDirty(currentUri);
-    }
-  }
-
   Future<bool> openFileInEditor(
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
@@ -245,30 +229,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (project == null) return;
     final newProject = _editorService.reorderTabs(project, oldIndex, newIndex);
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
-  }
-
-  Future<void> saveCurrentTab({required String content}) async {
-    final project = state.value?.currentProject;
-    if (project == null) return;
-    await _editorService.saveCurrentTab(project, content: content);
-  }
-
-  Future<void> saveCurrentTabAsBytes(Uint8List bytes) async {
-    final project = state.value?.currentProject;
-    if (project == null) return;
-    await _editorService.saveCurrentTab(project, bytes: bytes);
-  }
-
-    // FIX: This logic is now fully encapsulated in EditorService.
-  // The AppNotifier method is just a clean, simple delegation.
-  Future<void> saveCurrentTabAs({
-    Future<Uint8List?> Function()? byteDataProvider,
-    Future<String?> Function()? stringDataProvider,
-  }) async {
-    await _editorService.saveCurrentTabAs(
-      byteDataProvider: byteDataProvider,
-      stringDataProvider: stringDataProvider,
-    );
   }
 
   void closeTab(int index) {

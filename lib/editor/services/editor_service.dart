@@ -28,7 +28,7 @@ class EditorService {
   Project? get _currentProject => _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
 
-  // --- NEW: Facade methods for plugins to call ---
+  // --- Facade methods for plugins to call ---
 
   void markCurrentTabDirty() {
     final uri = _currentTab?.file.uri;
@@ -45,7 +45,6 @@ class EditorService {
   }
 
   /// Updates the immutable EditorTab model for the currently active tab.
-  /// Used by plugins to change their own tab's properties (e.g., language mode).
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
@@ -112,7 +111,7 @@ class EditorService {
     MachineToast.info("Saved as ${newFile.name}");
   }
 
-  // --- Existing Service Methods ---
+  // --- Core Service Methods ---
   
   ProjectRepository get _repo {
     final repo = _ref.read(projectRepositoryProvider);
@@ -152,11 +151,8 @@ class EditorService {
           final tab = await plugin.createTab(file, data);
           tabs.add(tab);
           
-          final tabState = await plugin.createTabState(tab, data);
-          if (tabState != null) {
-            _ref.read(tabStateManagerProvider.notifier).addState(tab.file.uri, tabState);
-            _ref.read(tabMetadataProvider.notifier).initTab(tab.file.uri);
-          }
+          // No "hot state" to create, but we must initialize the metadata.
+          _ref.read(tabMetadataProvider.notifier).initTab(tab.file.uri);
         } catch (e) {
           _ref.read(talkerProvider).error('Could not restore tab: $e');
         }
@@ -199,11 +195,8 @@ class EditorService {
 
     final newTab = await chosenPlugin.createTab(file, data);
 
-    final tabState = await chosenPlugin.createTabState(newTab, data);
-    if (tabState != null) {
-      _ref.read(tabStateManagerProvider.notifier).addState(newTab.file.uri, tabState);
-      _ref.read(tabMetadataProvider.notifier).initTab(newTab.file.uri);
-    }
+    // No "hot state" to create, but we must initialize the metadata.
+    _ref.read(tabMetadataProvider.notifier).initTab(newTab.file.uri);
 
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(
@@ -275,10 +268,6 @@ class EditorService {
       ),
     );
 
-    final tabState = _ref.read(tabStateManagerProvider.notifier).removeState(closedTab.file.uri);
-    if (tabState != null) {
-      closedTab.plugin.disposeTabState(tabState);
-    }
     _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.file.uri);
 
     closedTab.plugin.deactivateTab(closedTab, _ref);
@@ -318,7 +307,6 @@ class EditorService {
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[tabIndex] = newTab;
 
-    _ref.read(tabStateManagerProvider.notifier).rekeyState(oldUri, newFile.uri);
     _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
     
     return project.copyWith(
