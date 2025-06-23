@@ -23,11 +23,13 @@ class AppScreen extends ConsumerStatefulWidget {
 }
 
 class _AppScreenState extends ConsumerState<AppScreen> {
+  // REFACTOR: The key is now part of the state, created once.
   late final GlobalKey<ScaffoldState> _scaffoldKey;
 
   @override
   void initState() {
     super.initState();
+    // REFACTOR: Initialize the key here.
     _scaffoldKey = GlobalKey<ScaffoldState>();
     BackButtonInterceptor.add(_backButtonInterceptor);
   }
@@ -48,6 +50,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
       return true;
     }
 
+    // Use the mounted context from the stateful widget.
     if (!mounted) return true;
     final shouldExit = await showConfirmDialog(
       context,
@@ -76,6 +79,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final appBarOverride = appState?.appBarOverride;
 
     return Scaffold(
+      // REFACTOR: Use the stateful key instance.
       key: _scaffoldKey,
       appBar: (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
           ? (appBarOverride != null
@@ -86,6 +90,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
               : AppBar(
                   leading: IconButton(
                     icon: const Icon(Icons.menu),
+                    // REFACTOR: Use the stateful key to open the drawer.
                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
                   actions: [
@@ -102,18 +107,10 @@ class _AppScreenState extends ConsumerState<AppScreen> {
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
           Expanded(
-            // FIX: This is the core of the change.
-            // We use KeyedSubtree directly here, keyed by the tab's unique URI.
-            // When the URI changes (i.e., we switch tabs), Flutter will throw away
-            // the old widget tree and build a new one, correctly initializing the editor.
-            child: KeyedSubtree(
-              key: ValueKey(currentTab?.file.uri),
-              child: currentTab != null
-                  // Directly build the editor widget for the current tab.
-                  ? currentTab.plugin.buildEditor(currentTab, ref)
-                  // Show a placeholder if no tab is open.
-                  : const Center(child: Text('Open a file to start editing')),
-            ),
+            child:
+                currentTab != null
+                    ? const EditorContentSwitcher()
+                    : const Center(child: Text('Open a file to start editing')),
           ),
           if (currentPlugin != null && (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),
@@ -122,39 +119,3 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     );
   }
 }
-
-// DELETED: The following widgets are no longer needed as their logic has been
-// moved directly into the AppScreen's build method for clarity and correctness.
-/*
-class EditorContentSwitcher extends ConsumerWidget {
-  const EditorContentSwitcher({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentUri = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab?.file.uri,
-      ),
-    );
-
-    return KeyedSubtree(
-      key: ValueKey(currentUri),
-      child: const _EditorContentProxy(),
-    );
-  }
-}
-
-class _EditorContentProxy extends ConsumerWidget {
-  const _EditorContentProxy();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
-    return tab != null ? tab.plugin.buildEditor(tab, ref) : const SizedBox();
-  }
-}
-*/
