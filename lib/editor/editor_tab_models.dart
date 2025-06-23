@@ -50,14 +50,17 @@ abstract class WorkspaceTab {
 @immutable
 abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
+  
+  // NEW: A generalized GlobalKey. It's generic to hold the state of any editor widget.
+  final GlobalKey<State<StatefulWidget>> editorKey;
 
-  const EditorTab({required this.file, required super.plugin});
+  EditorTab({required this.file, required super.plugin})
+      // The key is created with each new tab instance.
+      : editorKey = GlobalKey<State<StatefulWidget>>();
 
   @override
   String get title => file.name;
 
-  // NEW: The copyWith method is now part of the abstract class.
-  // This allows services to create copies without knowing the concrete type.
   EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin});
 
   @override

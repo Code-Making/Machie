@@ -1,6 +1,6 @@
 // lib/editor/plugins/code_editor/code_editor_models.dart
-import 'package:flutter/material.dart'; // NEW IMPORT for GlobalKey
 import 'package:re_editor/re_editor.dart';
+import 'package:flutter/material.dart';
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
 import '../../../data/file_handler/file_handler.dart';
@@ -11,16 +11,13 @@ class CodeEditorTab extends EditorTab {
   final String? languageKey;
   final String initialContent;
 
-  // NEW: A key to uniquely identify the state of the editor widget instance.
-  final GlobalKey<_CodeEditorMachineState> editorKey;
-
   CodeEditorTab({
     required super.file,
     required super.plugin,
     required this.commentFormatter,
     this.languageKey,
     required this.initialContent,
-  }) : editorKey = GlobalKey<_CodeEditorMachineState>(); // Key is created with the tab
+  });
 
   @override
   void dispose() {}
@@ -33,8 +30,6 @@ class CodeEditorTab extends EditorTab {
     String? languageKey,
     String? initialContent,
   }) {
-    // Note: We don't copy the key. The new tab instance gets a new key.
-    // This is fine because the widget it's attached to will also be new.
     return CodeEditorTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
@@ -53,4 +48,35 @@ class CodeEditorTab extends EditorTab {
   };
 }
 
-// ... CodeEditorSettings is unchanged ...
+// ... CodeEditorSettings is unchanged but correctly imported now ...
+class CodeEditorSettings extends PluginSettings {
+  bool wordWrap;
+  double fontSize;
+  String fontFamily;
+  String themeName;
+  CodeEditorSettings({
+    this.wordWrap = false,
+    this.fontSize = 14,
+    this.fontFamily = 'JetBrainsMono',
+    this.themeName = 'Atom One Dark',
+  });
+  @override
+  Map<String, dynamic> toJson() => {
+    'wordWrap': wordWrap, 'fontSize': fontSize, 'fontFamily': fontFamily, 'themeName': themeName,
+  };
+  @override
+  void fromJson(Map<String, dynamic> json) {
+    wordWrap = json['wordWrap'] ?? false;
+    fontSize = json['fontSize']?.toDouble() ?? 14;
+    fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
+    themeName = json['themeName'] ?? 'Atom One Dark';
+  }
+  CodeEditorSettings copyWith({bool? wordWrap, double? fontSize, String? fontFamily, String? themeName}) {
+    return CodeEditorSettings(
+      wordWrap: wordWrap ?? this.wordWrap,
+      fontSize: fontSize ?? this.fontSize,
+      fontFamily: fontFamily ?? this.fontFamily,
+      themeName: themeName ?? this.themeName,
+    );
+  }
+}
