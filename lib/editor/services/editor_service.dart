@@ -310,22 +310,6 @@ class EditorService {
     );
   }
 
-  Project updateTabFile(Project project, String oldUri, DocumentFile newFile) {
-    final tabIndex = project.session.tabs.indexWhere(
-      (t) => t.file.uri == oldUri,
-    );
-    if (tabIndex == -1) return project;
-
-    final oldTab = project.session.tabs[tabIndex];
-    final newTab = oldTab.copyWith(file: newFile);
-
-    final newTabs = List<EditorTab>.from(project.session.tabs);
-    newTabs[tabIndex] = newTab;
-
-    _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
-
-    return project.copyWith(session: project.session.copyWith(tabs: newTabs));
-  }
 }
 
 @immutable
