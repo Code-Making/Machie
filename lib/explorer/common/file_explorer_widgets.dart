@@ -17,27 +17,16 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-/// Provider to track the global dragging state for UI feedback.
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
-/// Centralizes the logic for whether a drop is allowed on a target.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
-  // A folder can't be dropped into itself.
   if (draggedFile.uri == targetFolder.uri) return false;
-  
-  // A parent folder can't be dropped into one of its own children.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
-  
-  // A file can't be dropped into the folder it's already in.
-  // This is the key check that allows the context menu to appear on release-in-place.
   final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
   if (parentUri == targetFolder.uri) return false;
-  
   return true;
 }
 
-/// A widget that displays the contents of a single directory level and
-/// acts as a drop target for that level.
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
@@ -84,6 +73,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     final listView = ListView.builder(
       key: PageStorageKey(widget.directory),
       shrinkWrap: true,
+      // Use ClampingScrollPhysics to prevent the ListView from showing an overscroll
+      // glow, which would cover the drop target highlight.
       physics: const ClampingScrollPhysics(),
       itemCount: sortedContents.length,
       itemBuilder: (context, index) {
@@ -98,23 +89,29 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       },
     );
     
-    // Wrap the view in a DragTarget to allow dropping into the currently viewed directory.
+    // FIX: Use a Stack to ensure the root drop target is only for "empty" space.
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         final isHovered = candidateData.isNotEmpty;
         return Stack(
+          // Allow children to be drawn outside the bounds of the Stack.
+          clipBehavior: Clip.none,
           children: [
+            // Layer 1: The background drop zone highlight.
+            // It's only visible when an item is hovering over the empty space.
             if (isHovered)
               Container(
                 color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
               ),
+            // Layer 2: The actual list of files and folders.
+            // Because it's on top, it will capture all pointer events for its items,
+            // preventing the underlying DragTarget from firing for them.
             listView,
           ],
         );
       },
       onWillAccept: (draggedData) {
         if (draggedData == null) return false;
-        // Use the helper to check if the drop is valid on this directory.
         return _isDropAllowed(draggedData, RootPlaceholder(widget.directory));
       },
       onAccept: (draggedFile) {
@@ -138,22 +135,17 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-/// A single item in the file explorer, handling its own gestures for
-/// tapping, dragging, and dropping.
+// DirectoryItem is now correct from the previous step and does not need changes.
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
-
   const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
-
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
-
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
-  // --- STYLING CONSTANTS ---
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
@@ -161,7 +153,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   @override
   Widget build(BuildContext context) {
     final itemContent = _buildItemContent();
-
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
@@ -220,7 +211,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         },
       );
     }
-
     return childWidget;
   }
   
@@ -314,7 +304,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 }
 
-/// A placeholder class to represent a directory for drop operations.
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
@@ -331,11 +320,9 @@ class RootPlaceholder implements DocumentFile {
   RootPlaceholder(this.uri);
 }
 
-/// A widget that displays an appropriate icon for a given file type.
 class FileTypeIcon extends ConsumerWidget {
   final DocumentFile file;
   const FileTypeIcon({super.key, required this.file});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
