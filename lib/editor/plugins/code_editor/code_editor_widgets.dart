@@ -144,9 +144,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           ),
         ),
     );
-    if (selectedLanguageKey != null) {
-      final updatedTab = widget.tab.copyWith(languageKey: selectedLanguageKey);
-      ref.read(editorServiceProvider).updateCurrentTabModel(updatedTab);
+    if (selectedLanguageKey != null && selectedLanguageKey != _languageKey) {
       setState(() {
         _languageKey = selectedLanguageKey;
       });
