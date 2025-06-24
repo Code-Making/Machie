@@ -65,6 +65,14 @@ class ExplorerService {
       await _repo.moveDocumentFile(_ref, sourceFile, destinationFolder.uri);
     }
   }
+  
+  Future<void> moveItem(DocumentFile source, DocumentFile destinationFolder) async {
+    if (!destinationFolder.isDirectory) {
+      throw Exception('Destination must be a folder.');
+    }
+    // The repository's moveDocumentFile already handles cache updates and events.
+    await _repo.moveDocumentFile(_ref, source, destinationFolder.uri);
+  }
 
   Future<void> importFile(
     DocumentFile pickedFile,

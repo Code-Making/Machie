@@ -13,6 +13,10 @@ import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
 import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
+import '../services/explorer_service.dart'; // NEW IMPORT
+
+// NEW: Provider to track the global dragging state.
+final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
 // DirectoryView remains unchanged as it just passes data down.
 class DirectoryView extends ConsumerStatefulWidget {
@@ -91,7 +95,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// All changes are made within the DirectoryItem widget.
+
+// This widget is now much more complex, handling gestures, dragging, and dropping.
 class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
@@ -106,19 +111,50 @@ class DirectoryItem extends ConsumerWidget {
     this.subtitle,
   });
 
-  // --- STYLING CONSTANTS ---
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
-  static const double _kVerticalPadding = 2.0; // Small vertical padding
+  static const double _kVerticalPadding = 2.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // This is the core UI for the item (ListTile or ExpansionTile).
+    final Widget itemContent = _buildItemContent(context, ref);
+
+    // We wrap the item content in a Draggable.
+    return Draggable<DocumentFile>(
+      // The data being dragged is the DocumentFile itself.
+      data: item,
+      // This is the widget that appears under the user's finger.
+      feedback: _buildDragFeedback(context),
+      // This is what's left behind in the list while dragging.
+      childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
+      // Callback when the drag starts.
+      onDragStarted: () {
+        ref.read(isDraggingFileProvider.notifier).state = true;
+      },
+      // Callback when the drag ends, whether it was accepted or cancelled.
+      onDragEnd: (details) {
+        ref.read(isDraggingFileProvider.notifier).state = false;
+        // If the drag was cancelled (not dropped on a valid target),
+        // we interpret it as a "long-press-and-hold" and show the context menu.
+        if (!details.wasAccepted) {
+          showFileContextMenu(context, ref, item);
+        }
+      },
+      // The actual visible widget in the list.
+      child: itemContent,
+    );
+  }
+  
+  /// Builds the main content (the ListTile or ExpansionTile) and wraps it
+  /// in a DragTarget if it's a directory.
+  Widget _buildItemContent(BuildContext context, WidgetRef ref) {
     final explorerNotifier = ref.read(activeExplorerNotifierProvider);
-    
-    // Calculate the indentation for the current item.
     final double currentIndent = depth * _kBaseIndent;
 
+    // The actual UI widget (ListTile or ExpansionTile)
     Widget childWidget;
+
     if (item.isDirectory) {
       childWidget = ExpansionTile(
         key: PageStorageKey<String>(item.uri),
@@ -213,10 +249,76 @@ class DirectoryItem extends ConsumerWidget {
         },
       );
     }
+    
+    // If the item is a directory, wrap it in a DragTarget to allow drops.
+    if (item.isDirectory) {
+      return DragTarget<DocumentFile>(
+        builder: (context, candidateData, rejectedData) {
+          // Highlight the folder if a file is being dragged anywhere.
+          final bool isDragging = ref.watch(isDraggingFileProvider);
+          // Highlight it more strongly if a file is hovering directly over it.
+          final bool isHovered = candidateData.isNotEmpty;
+          
+          Color? backgroundColor;
+          if (isHovered) {
+            backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
+          } else if (isDragging) {
+            backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
+          }
+          
+          // Apply a background color to give visual feedback.
+          return Container(
+            color: backgroundColor,
+            child: childWidget,
+          );
+        },
+        // This function determines if the target will accept the drop.
+        onWillAccept: (draggedData) {
+          if (draggedData == null) return false;
+          // Prevent dropping an item onto itself.
+          if (draggedData.uri == item.uri) return false;
+          // Prevent dropping a parent folder into its own child.
+          if (item.uri.startsWith(draggedData.uri)) return false;
+          
+          return true;
+        },
+        // This function is called when a drop is successfully completed.
+        onAccept: (draggedFile) {
+          ref.read(explorerServiceProvider).moveItem(draggedFile, item);
+        },
+      );
+    }
 
+    // If it's not a directory, just return the widget without a DragTarget.
+    // We still have the onTap gesture from the original ListTile.
     return GestureDetector(
-      onLongPress: () => showFileContextMenu(context, ref, item),
+      onTap: item.isDirectory ? null : () async {
+        final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
+        if (success && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
       child: childWidget,
+    );
+  }
+
+  /// Builds the floating widget that follows the user's finger during a drag.
+  Widget _buildDragFeedback(BuildContext context) {
+    return Material(
+      elevation: 4.0,
+      color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+      borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+        child: ListTile(
+          leading: FileTypeIcon(file: item),
+          title: Text(
+            item.name,
+            style: const TextStyle(fontSize: _kFontSize, color: Colors.white),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
     );
   }
 }
