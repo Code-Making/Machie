@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'plugins/plugin_models.dart';
 import '../data/file_handler/file_handler.dart';
+import 'package:uuid/uuid.dart'; // NEW IMPORT
 
-// ... TabSessionState is unchanged ...
 @immutable
 class TabSessionState {
   final List<EditorTab> tabs;
@@ -36,7 +36,6 @@ class TabSessionState {
   }
 }
 
-// ... WorkspaceTab is unchanged ...
 @immutable
 abstract class WorkspaceTab {
   String get title;
@@ -49,18 +48,21 @@ abstract class WorkspaceTab {
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
+  // NEW: A stable, unique ID for the lifetime of the tab session.
+  final String id;
   final DocumentFile file;
-
-  // NEW: A generalized GlobalKey. It's generic to hold the state of any editor widget.
   final GlobalKey<State<StatefulWidget>> editorKey;
 
   EditorTab({required this.file, required super.plugin})
-    // The key is created with each new tab instance.
-    : editorKey = GlobalKey<State<StatefulWidget>>();
+      : id = const Uuid().v4(), // Generate a unique ID on creation
+        editorKey = GlobalKey<State<StatefulWidget>>();
 
   @override
   String get title => file.name;
 
+  // The copyWith method must now handle the id.
+  // When we copy, we are creating a conceptually new tab session,
+  // so it's okay for it to get a new key and ID.
   EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin});
 
   @override

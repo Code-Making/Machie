@@ -168,18 +168,16 @@ class EditorView extends ConsumerWidget {
       return const Center(child: Text('Open a file to start editing'));
     }
 
-    // Use an IndexedStack to preserve the state of each editor widget.
     return IndexedStack(
       index: project.session.currentTabIndex,
-      children:
-          project.session.tabs.map((tab) {
-            // We use a ValueKey to ensure Flutter can correctly identify
-            // the widget if the list of tabs is reordered.
-            return KeyedSubtree(
-              key: ValueKey(tab.file.uri),
-              child: tab.plugin.buildEditor(tab, ref),
-            );
-          }).toList(),
+      children: project.session.tabs.map((tab) {
+        // FIX: The key now uses the stable `tab.id`.
+        // This prevents the widget from being destroyed on a rename.
+        return KeyedSubtree(
+          key: ValueKey(tab.id),
+          child: tab.plugin.buildEditor(tab, ref),
+        );
+      }).toList(),
     );
   }
 }

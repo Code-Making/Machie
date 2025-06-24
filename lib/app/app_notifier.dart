@@ -73,29 +73,37 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
-  /// Handles events published by the ProjectRepository to keep the UI in sync.
-  void _handleFileOperationEvent(FileOperationEvent event) {
+void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
-
+    
     switch (event) {
       case FileCreateEvent():
-        // No action needed here.
         break;
-
+        
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-        final newProject = _editorService.updateTabFile(
-          project,
-          oldFile.uri,
-          newFile,
-        );
-        _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        // Find the index of the tab with the old URI.
+        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldFile.uri);
+        if (tabIndex != -1) {
+          final oldTab = project.session.tabs[tabIndex];
+          // Create a new tab instance with the updated file.
+          final newTab = oldTab.copyWith(file: newFile);
+          
+          // Create a new list of tabs with the updated one.
+          final newTabs = List<EditorTab>.from(project.session.tabs);
+          newTabs[tabIndex] = newTab;
+          
+          // Update the project state. The UI will reactively rebuild the tab bar title,
+          // and the Editor widget will receive the new tab in `didUpdateWidget`.
+          final newProject = project.copyWith(
+            session: project.session.copyWith(tabs: newTabs)
+          );
+          _updateStateSync((s) => s.copyWith(currentProject: newProject));
+        }
         break;
-
+        
       case FileDeleteEvent(deletedFile: final deletedFile):
-        final tabIndex = project.session.tabs.indexWhere(
-          (t) => t.file.uri == deletedFile.uri,
-        );
+        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
         if (tabIndex != -1) {
           final newProject = _editorService.closeTab(project, tabIndex);
           _updateStateSync((s) => s.copyWith(currentProject: newProject));

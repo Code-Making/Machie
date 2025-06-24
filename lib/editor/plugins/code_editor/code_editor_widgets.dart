@@ -71,6 +71,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     controller.addListener(_onControllerChange);
   }
+  
+  @override
+  void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // This is the key lifecycle method.
+    // It's called when the parent rebuilds with a new `tab` instance,
+    // but because the `ValueKey(tab.id)` is the same, this State object is reused.
+    if (widget.tab.file.uri != oldWidget.tab.file.uri) {
+      // A rename has occurred.
+      // We can update any internal state that depends on the URI.
+      setState(() {
+        _languageKey = CodeThemes.inferLanguageKey(widget.tab.file.uri);
+        _commentFormatter = CodeEditorLogic.getCommentFormatter(widget.tab.file.uri);
+      });
+    }
+  }
 
   @override
   void dispose() {
