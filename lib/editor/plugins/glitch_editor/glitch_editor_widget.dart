@@ -7,6 +7,7 @@ import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
+import 'glitch_toolbar.dart'; // Import the toolbar
 import '../../tab_state_manager.dart';
 
 // The State class is now public to be accessible via the GlobalKey.

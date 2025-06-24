@@ -163,7 +163,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
       // FIX: This method is synchronous, no async needed.
-      execute: (ref) => _getActiveEditorState(ref)?.toggleToolbar(),
+      execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
     ),
   ];
 }
