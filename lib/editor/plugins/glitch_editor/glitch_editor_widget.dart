@@ -35,6 +35,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   Rect? _repeaterSampleRect;
   Offset? _lastRepeaterPosition;
   List<Offset> _repeaterPath = [];
+  
+  bool _isToolbarVisible = false;
+
 
   final TransformationController _transformationController =
       TransformationController();
@@ -118,6 +121,12 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (success && mounted) {
       updateOriginalImage();
     }
+  }
+  
+  void toggleToolbar() {
+    setState(() {
+      _isToolbarVisible = !_isToolbarVisible;
+    });
   }
 
   // NEW: Public method for the command to call.
@@ -426,7 +435,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final brushSettings = ref.watch(widget.plugin.brushSettingsProvider);
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return InteractiveViewer(
+    final editorContent = InteractiveViewer(
       transformationController: _transformationController,
       minScale: 0.1,
       maxScale: 4.0,
@@ -457,6 +466,28 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
           ],
         ),
       ),
+    );
+
+    // FIX: Wrap the InteractiveViewer in a Stack to overlay the toolbar.
+    return Stack(
+      children: [
+        // The main editor content is the first layer.
+        editorContent,
+
+        // The toolbar is the second layer, positioned at the bottom.
+        // We use AnimatedPositioned and Visibility for a nice effect.
+        if (_isToolbarVisible)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: GlitchToolbar(
+              plugin: widget.plugin,
+              // Pass a callback to allow the toolbar to close itself.
+              onClose: () => toggleToolbar(),
+            ),
+          ),
+      ],
     );
   }
 }
