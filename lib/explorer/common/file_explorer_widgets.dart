@@ -17,6 +17,8 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
+import '../../logs/logs_provider.dart';
+
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
 // REFACTORED: This function now correctly prevents drops into the same folder.
@@ -119,9 +121,10 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
-
+ 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final talker = ref.read(talkerProvider);
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         final isDragging = ref.watch(isDraggingFileProvider);
@@ -164,8 +167,12 @@ class RootDropZone extends ConsumerWidget {
           ),
         );
       },
-      onWillAccept: (data) => data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri)),
+      onWillAccept: (data) {
+          talker.info("Root will accept");
+          data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri));
+      },
       onAccept: (file) {
+        talker.info("rooy Accept");
         ref.read(explorerServiceProvider).moveItem(file, RootPlaceholder(projectRootUri));
       },
     );
@@ -190,11 +197,11 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-    
+  late talker;
   @override
   Widget build(BuildContext context) {
+    talker = ref.read(talkerProvider);
     final itemContent = _buildItemContent();
-
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
@@ -202,10 +209,13 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       delay: const Duration(seconds: 1),
       onDragStarted: () {
         ref.read(isDraggingFileProvider.notifier).state = true;
+        talker.info("Drag start : ${widget.item.name}");
       },
       onDragEnd: (details) {
+        talker.info("Drag end : ${widget.item.name}");
         ref.read(isDraggingFileProvider.notifier).state = false;
         if (!details.wasAccepted) {
+          talker.info("Drag end accepted : ${widget.item.name}");
           showFileContextMenu(context, ref, widget.item);
         }
       },
@@ -246,8 +256,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           );
         },
         // Use the corrected logic here.
-        onWillAccept: (draggedData) => draggedData != null && _isDropAllowed(draggedData, widget.item),
+        onWillAccept: (draggedData) {
+            talker.info("Will accept : ${widget.item}");
+            draggedData != null && _isDropAllowed(draggedData, widget.item);
+        },
         onAccept: (draggedFile) {
+          talker.info("On Accept : ${widget.item.name}");
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
