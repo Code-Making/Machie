@@ -21,8 +21,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   final Set<EditorPlugin> _plugins;
 
   SettingsNotifier({required Set<EditorPlugin> plugins})
-      : _plugins = plugins,
-        super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
+    : _plugins = plugins,
+      super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
     loadSettings();
   }
 
@@ -43,8 +43,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   void updatePluginSettings(MachineSettings newSettings) {
     // REFACTOR: Use the new base class for the map type.
-    final updatedSettings = Map<Type, MachineSettings>.from(state.pluginSettings)
-      ..[newSettings.runtimeType] = newSettings;
+    final updatedSettings = Map<Type, MachineSettings>.from(
+      state.pluginSettings,
+    )..[newSettings.runtimeType] = newSettings;
     state = state.copyWith(pluginSettings: updatedSettings);
     _saveSettings();
   }
@@ -72,7 +73,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         final settingsInstance = newSettings.values.firstWhereOrNull(
           (s) => s.runtimeType.toString() == typeString,
         );
-        
+
         if (settingsInstance != null) {
           settingsInstance.fromJson(entry.value);
           newSettings[settingsInstance.runtimeType] = settingsInstance;

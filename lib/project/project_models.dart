@@ -23,12 +23,12 @@ class ProjectMetadata {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'rootUri': rootUri,
-        'projectTypeId': projectTypeId,
-        'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'rootUri': rootUri,
+    'projectTypeId': projectTypeId,
+    'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
+  };
 
   factory ProjectMetadata.fromJson(Map<String, dynamic> json) =>
       ProjectMetadata(
@@ -80,9 +80,9 @@ class Project {
   }
 
   Map<String, dynamic> toJson() => {
-        'session': session.toJson(),
-        'workspace': workspace.toJson(),
-      };
+    'session': session.toJson(),
+    'workspace': workspace.toJson(),
+  };
 
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(

@@ -32,8 +32,11 @@ class SearchState {
   }
 }
 
-final searchStateProvider = StateNotifierProvider.autoDispose
-    .family<SearchStateNotifier, SearchState, String>((ref, projectId) {
+final searchStateProvider = StateNotifierProvider.autoDispose.family<
+  SearchStateNotifier,
+  SearchState,
+  String
+>((ref, projectId) {
   // FIX: Pass the .notifier instance to the constructor.
   // The constructor expects a `ProjectHierarchyCache?`, and `ref.watch(...notifier)`
   // provides exactly that.
@@ -65,7 +68,9 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     // This listener is now guaranteed to work correctly.
     ref.listen(projectHierarchyProvider, (previous, next) {
       if (previous != next) {
-        _talker.info('Search cache detected a change in the hierarchy. Invalidating local cache.');
+        _talker.info(
+          'Search cache detected a change in the hierarchy. Invalidating local cache.',
+        );
         _allFilesCache = null;
         if (state.query.isNotEmpty) {
           search(state.query);
@@ -102,7 +107,11 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
           }
         }
       } catch (e, st) {
-        _talker.handle(e, st, 'Error scanning directory $currentDirUri during search');
+        _talker.handle(
+          e,
+          st,
+          'Error scanning directory $currentDirUri during search',
+        );
       }
     }
     _allFilesCache = allFiles;
@@ -129,9 +138,10 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       if (_allFilesCache == null || !mounted) return;
 
       final lowerCaseQuery = query.toLowerCase();
-      final results = _allFilesCache!
-          .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
-          .toList();
+      final results =
+          _allFilesCache!
+              .where((file) => file.name.toLowerCase().contains(lowerCaseQuery))
+              .toList();
 
       if (mounted) {
         state = state.copyWith(results: results);

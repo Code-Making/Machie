@@ -14,7 +14,6 @@ import '../explorer/common/file_explorer_dialogs.dart';
 import '../settings/settings_notifier.dart';
 import '../settings/settings_models.dart';
 
-
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
 
@@ -41,8 +40,11 @@ class _AppScreenState extends ConsumerState<AppScreen> {
   }
 
   Future<bool> _backButtonInterceptor(
-      bool stopDefaultButtonEvent, RouteInfo info) async {
-    final isFullScreen = ref.read(appNotifierProvider).value?.isFullScreen ?? false;
+    bool stopDefaultButtonEvent,
+    RouteInfo info,
+  ) async {
+    final isFullScreen =
+        ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     final notifier = ref.read(appNotifierProvider.notifier);
 
     if (isFullScreen) {
@@ -71,36 +73,41 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final currentTab = appState?.currentProject?.session.currentTab;
     final currentPlugin = currentTab?.plugin;
     final isFullScreen = appState?.isFullScreen ?? false;
-    
-    final generalSettings = ref.watch(settingsProvider.select(
-      (s) => s.pluginSettings[GeneralSettings] as GeneralSettings?,
-    )) ?? GeneralSettings();
+
+    final generalSettings =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.pluginSettings[GeneralSettings] as GeneralSettings?,
+          ),
+        ) ??
+        GeneralSettings();
 
     final appBarOverride = appState?.appBarOverride;
 
     return Scaffold(
       // REFACTOR: Use the stateful key instance.
       key: _scaffoldKey,
-      appBar: (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
-          ? (appBarOverride != null
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(kToolbarHeight),
-                  child: appBarOverride,
-                )
-              : AppBar(
-                  leading: IconButton(
-                    icon: const Icon(Icons.menu),
-                    // REFACTOR: Use the stateful key to open the drawer.
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  actions: [
-                    currentPlugin is CodeEditorPlugin
-                        ? CodeEditorTapRegion(child: const AppBarCommands())
-                        : const AppBarCommands(),
-                  ],
-                  title: Text(currentTab?.file.name ?? 'Machine'),
-                ))
-          : null,
+      appBar:
+          (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
+              ? (appBarOverride != null
+                  ? PreferredSize(
+                    preferredSize: const Size.fromHeight(kToolbarHeight),
+                    child: appBarOverride,
+                  )
+                  : AppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.menu),
+                      // REFACTOR: Use the stateful key to open the drawer.
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                    actions: [
+                      currentPlugin is CodeEditorPlugin
+                          ? CodeEditorTapRegion(child: const AppBarCommands())
+                          : const AppBarCommands(),
+                    ],
+                    title: Text(currentTab?.file.name ?? 'Machine'),
+                  ))
+              : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
@@ -110,7 +117,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
             // FIX: Use the new EditorView which contains the IndexedStack.
             child: const EditorView(),
           ),
-          if (currentPlugin != null && (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
+          if (currentPlugin != null &&
+              (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),
         ],
       ),

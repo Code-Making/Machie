@@ -28,11 +28,13 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     _fileNameController = TextEditingController(text: widget.initialFileName);
     _currentPathUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _currentPathUri.isNotEmpty) {
         // FIX: Call the method on the .notifier instance.
-        ref.read(projectHierarchyProvider.notifier).loadDirectory(_currentPathUri);
+        ref
+            .read(projectHierarchyProvider.notifier)
+            .loadDirectory(_currentPathUri);
       }
     });
   }
@@ -51,10 +53,11 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         content: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     // FIX: Watch the provider directly to get the state (the Map).
     // Then, access the specific directory's contents from the map.
-    final directoryContents = ref.watch(projectHierarchyProvider)[_currentPathUri];
+    final directoryContents =
+        ref.watch(projectHierarchyProvider)[_currentPathUri];
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -66,9 +69,10 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             _buildPathNavigator(),
             const Divider(),
             Expanded(
-              child: directoryContents == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildDirectoryList(directoryContents),
+              child:
+                  directoryContents == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildDirectoryList(directoryContents),
             ),
             const Divider(),
             TextField(
@@ -130,18 +134,22 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_upward),
-          onPressed: _currentPathUri == projectRootUri
-              ? null
-              : () {
-                  final segments = _currentPathUri.split('%2F');
-                  final newPath =
-                      segments.sublist(0, segments.length - 1).join('%2F');
-                  // FIX: Call the method on the .notifier instance.
-                  ref.read(projectHierarchyProvider.notifier).loadDirectory(newPath);
-                  setState(() {
-                    _currentPathUri = newPath;
-                  });
-                },
+          onPressed:
+              _currentPathUri == projectRootUri
+                  ? null
+                  : () {
+                    final segments = _currentPathUri.split('%2F');
+                    final newPath = segments
+                        .sublist(0, segments.length - 1)
+                        .join('%2F');
+                    // FIX: Call the method on the .notifier instance.
+                    ref
+                        .read(projectHierarchyProvider.notifier)
+                        .loadDirectory(newPath);
+                    setState(() {
+                      _currentPathUri = newPath;
+                    });
+                  },
         ),
         Expanded(
           child: Text(

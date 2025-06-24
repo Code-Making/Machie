@@ -9,7 +9,8 @@ import 'settings_models.dart';
 
 // NEW: A map of available accent colors for the UI.
 const Map<String, Color> kAccentColors = {
-  'Orange': Colors.orange, // TODO: find the old accent color and add a color picker
+  'Orange':
+      Colors.orange, // TODO: find the old accent color and add a color picker
   'Red': Colors.red,
   'Blue': Colors.blue,
   'Green': Colors.green,
@@ -32,7 +33,8 @@ class SettingsScreen extends ConsumerWidget {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
     // REFACTOR: This cast is now correct because we know it's a GeneralSettings object.
-    final generalSettings = settings.pluginSettings[GeneralSettings] as GeneralSettings?;
+    final generalSettings =
+        settings.pluginSettings[GeneralSettings] as GeneralSettings?;
 
     return ListView(
       children: [
@@ -50,7 +52,9 @@ class SettingsScreen extends ConsumerWidget {
               (plugin) => _PluginSettingsCard(
                 plugin: plugin,
                 // REFACTOR: This cast is also correct.
-                settings: settings.pluginSettings[plugin.settings.runtimeType]! as PluginSettings,
+                settings:
+                    settings.pluginSettings[plugin.settings.runtimeType]!
+                        as PluginSettings,
               ),
             ),
       ],
@@ -83,16 +87,14 @@ class _GeneralSettingsCard extends ConsumerWidget {
       ),
     );
   }
-  
+
   // NEW: Widget for Theme settings
   Widget _buildThemeSettings(BuildContext context, SettingsNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Theme',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),/*
+        Text('Theme', style: Theme.of(context).textTheme.titleLarge),
+        /*
         const SizedBox(height: 16),
         DropdownButtonFormField<ThemeMode>(
           decoration: const InputDecoration(
@@ -117,40 +119,47 @@ class _GeneralSettingsCard extends ConsumerWidget {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: kAccentColors.entries.map((entry) {
-            final color = entry.value;
-            final isSelected = settings.accentColorValue == color.value;
-            return GestureDetector(
-              onTap: () {
-                notifier.updatePluginSettings(settings.copyWith(accentColorValue: color.value));
-              },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: isSelected
-                      ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 3)
-                      : null,
-                ),
-              ),
-            );
-          }).toList(),
+          children:
+              kAccentColors.entries.map((entry) {
+                final color = entry.value;
+                final isSelected = settings.accentColorValue == color.value;
+                return GestureDetector(
+                  onTap: () {
+                    notifier.updatePluginSettings(
+                      settings.copyWith(accentColorValue: color.value),
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border:
+                          isSelected
+                              ? Border.all(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                width: 3,
+                              )
+                              : null,
+                    ),
+                  ),
+                );
+              }).toList(),
         ),
       ],
     );
   }
 
   // NEW: Widget for Fullscreen settings
-  Widget _buildFullscreenSettings(BuildContext context, SettingsNotifier notifier) {
+  Widget _buildFullscreenSettings(
+    BuildContext context,
+    SettingsNotifier notifier,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Fullscreen Mode',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Fullscreen Mode', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
         SwitchListTile(
           title: const Text('Hide App Bar'),
@@ -183,7 +192,6 @@ class _GeneralSettingsCard extends ConsumerWidget {
     );
   }
 }
-
 
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
@@ -218,7 +226,6 @@ class _PluginSettingsCard extends ConsumerWidget {
     );
   }
 }
-
 
 class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});

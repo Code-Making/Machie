@@ -8,7 +8,6 @@ import '../project/project_models.dart';
 import 'explorer_plugin_registry.dart';
 import 'common/new_project_screen.dart';
 import 'services/explorer_service.dart';
-import 'explorer_workspace_state.dart';
 
 // ... (ExplorerHostDrawer, ExplorerHostView, and _ExplorerHostViewState are unchanged) ...
 class ExplorerHostDrawer extends ConsumerWidget {
@@ -21,8 +20,7 @@ class ExplorerHostDrawer extends ConsumerWidget {
     );
 
     return Drawer(
-      width:
-          MediaQuery.of(context).size.width,
+      width: MediaQuery.of(context).size.width,
       child:
           currentProject == null
               ? const ProjectSelectionScreen()
@@ -30,6 +28,7 @@ class ExplorerHostDrawer extends ConsumerWidget {
     );
   }
 }
+
 class ExplorerHostView extends ConsumerStatefulWidget {
   final Project project;
 
@@ -38,6 +37,7 @@ class ExplorerHostView extends ConsumerStatefulWidget {
   @override
   ConsumerState<ExplorerHostView> createState() => _ExplorerHostViewState();
 }
+
 class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   @override
   void initState() {
@@ -52,8 +52,9 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   void _initializeActiveExplorer() {
     final activePluginId = widget.project.workspace.activeExplorerPluginId;
     final registry = ref.read(explorerRegistryProvider);
-    final activePlugin =
-        registry.firstWhereOrNull((p) => p.id == activePluginId);
+    final activePlugin = registry.firstWhereOrNull(
+      (p) => p.id == activePluginId,
+    );
     if (activePlugin != null) {
       ref.read(activeExplorerProvider.notifier).state = activePlugin;
     }
@@ -100,7 +101,6 @@ class _ExplorerHostViewState extends ConsumerState<ExplorerHostView> {
   }
 }
 
-
 class ExplorerTypeDropdown extends ConsumerWidget {
   final Project currentProject;
   const ExplorerTypeDropdown({super.key, required this.currentProject});
@@ -127,7 +127,9 @@ class ExplorerTypeDropdown extends ConsumerWidget {
             );
 
             // 3. Update the global app state with the new project object.
-            ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
+            ref
+                .read(appNotifierProvider.notifier)
+                .updateCurrentProject(newProject);
           }
         },
         isExpanded: true,
@@ -214,6 +216,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
     );
   }
 }
+
 class ProjectSelectionScreen extends ConsumerWidget {
   const ProjectSelectionScreen({super.key});
 
@@ -289,6 +292,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
     );
   }
 }
+
 class ManageProjectsScreen extends ConsumerWidget {
   const ManageProjectsScreen({super.key});
 

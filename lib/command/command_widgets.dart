@@ -70,7 +70,6 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
-
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
@@ -84,21 +83,25 @@ class AppBarCommands extends ConsumerWidget {
     }
 
     final items = ref.watch(appBarCommandsProvider);
-    final currentPlugin = ref.watch(appNotifierProvider.select(
-      (s) => s.value?.currentProject?.session.currentTab?.plugin,
-    ));
+    final currentPlugin = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin,
+      ),
+    );
 
     final commandRow = Row(
-      mainAxisSize: MainAxisSize.min, // Prevent row from expanding unnecessarily
-      children: items.map((item) {
-        if (item is Command) {
-          return CommandButton(command: item);
-        }
-        if (item is CommandGroup) {
-          return CommandGroupButton(commandGroup: item);
-        }
-        return const SizedBox.shrink();
-      }).toList(),
+      mainAxisSize:
+          MainAxisSize.min, // Prevent row from expanding unnecessarily
+      children:
+          items.map((item) {
+            if (item is Command) {
+              return CommandButton(command: item);
+            }
+            if (item is CommandGroup) {
+              return CommandGroupButton(commandGroup: item);
+            }
+            return const SizedBox.shrink();
+          }).toList(),
     );
 
     if (currentPlugin is CodeEditorPlugin) {
@@ -140,9 +143,11 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     }
 
     final items = ref.watch(pluginToolbarCommandsProvider);
-    final currentPlugin = ref.watch(appNotifierProvider.select(
-      (s) => s.value?.currentProject?.session.currentTab?.plugin,
-    ));
+    final currentPlugin = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin,
+      ),
+    );
 
     final listView = ListView.builder(
       key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
@@ -164,9 +169,10 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     final container = Container(
       height: 48,
       color: Theme.of(context).bottomAppBarTheme.color,
-      child: currentPlugin is CodeEditorPlugin
-          ? CodeEditorTapRegion(child: listView)
-          : listView,
+      child:
+          currentPlugin is CodeEditorPlugin
+              ? CodeEditorTapRegion(child: listView)
+              : listView,
     );
 
     return container;
@@ -219,19 +225,23 @@ class CommandGroupButton extends ConsumerWidget {
       ),
     );
 
-    final commandsInGroup = commandGroup.commandIds
-        .map((id) => notifier.allRegisteredCommands.firstWhereOrNull(
-              (c) =>
-                  c.id == id &&
-                  (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
-            ))
-        .whereType<Command>()
-        .toList();
+    final commandsInGroup =
+        commandGroup.commandIds
+            .map(
+              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
+                (c) =>
+                    c.id == id &&
+                    (c.sourcePlugin == currentPluginName ||
+                        c.sourcePlugin == 'App'),
+              ),
+            )
+            .whereType<Command>()
+            .toList();
 
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     // REFACTOR: Use a GlobalKey to manage opening the menu manually.
     final key = GlobalKey();
 

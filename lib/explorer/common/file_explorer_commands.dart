@@ -15,12 +15,12 @@ import '../services/explorer_service.dart'; // REFACTOR: Import service
 // ... (_DividerCommand is unchanged) ...
 class _DividerCommand extends FileContextCommand {
   const _DividerCommand()
-      : super(
-          id: 'divider',
-          label: '',
-          icon: const SizedBox.shrink(),
-          sourcePlugin: '',
-        );
+    : super(
+        id: 'divider',
+        label: '',
+        icon: const SizedBox.shrink(),
+        sourcePlugin: '',
+      );
   @override
   bool canExecuteFor(WidgetRef ref, DocumentFile item) => true;
   @override
@@ -32,50 +32,53 @@ void showFileContextMenu(
   WidgetRef ref,
   DocumentFile item,
 ) {
-  final compatiblePlugins = ref
-      .read(activePluginsProvider)
-      .where((p) => p.supportsFile(item))
-      .toList();
+  final compatiblePlugins =
+      ref
+          .read(activePluginsProvider)
+          .where((p) => p.supportsFile(item))
+          .toList();
 
-  final allCommands = FileContextCommands.getCommands(
-    ref,
-    item,
-    compatiblePlugins,
-  ).where((cmd) => cmd.canExecuteFor(ref, item)).toList();
+  final allCommands =
+      FileContextCommands.getCommands(
+        ref,
+        item,
+        compatiblePlugins,
+      ).where((cmd) => cmd.canExecuteFor(ref, item)).toList();
 
   showModalBottomSheet(
     context: context,
-    builder: (ctx) => SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                item.name,
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
+    builder:
+        (ctx) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    item.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Divider(),
+                ...allCommands.map((command) {
+                  if (command is _DividerCommand) {
+                    return const Divider(height: 1, indent: 16, endIndent: 16);
+                  }
+                  return ListTile(
+                    leading: command.icon,
+                    title: Text(command.label),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      command.executeFor(ref, item);
+                    },
+                  );
+                }),
+              ],
             ),
-            const Divider(),
-            ...allCommands.map((command) {
-              if (command is _DividerCommand) {
-                return const Divider(height: 1, indent: 16, endIndent: 16);
-              }
-              return ListTile(
-                leading: command.icon,
-                title: Text(command.label),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  command.executeFor(ref, item);
-                },
-              );
-            }),
-          ],
+          ),
         ),
-      ),
-    ),
   );
 }
 
@@ -182,7 +185,8 @@ class FileContextCommands {
         icon: const Icon(Icons.content_paste),
         sourcePlugin: 'FileExplorer',
         canExecuteFor:
-            (ref, item) => item.isDirectory && clipboardContent != null && repo != null,
+            (ref, item) =>
+                item.isDirectory && clipboardContent != null && repo != null,
         executeFor: (ref, item) async {
           if (clipboardContent == null) return;
           try {

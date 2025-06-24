@@ -1,6 +1,5 @@
 // lib/editor/plugins/plugin_models.dart
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
 import '../editor_tab_models.dart';
-import '../tab_state_manager.dart';
 import '../../settings/settings_models.dart';
 
 enum PluginDataRequirement { string, bytes }
@@ -22,13 +20,13 @@ abstract class EditorPlugin {
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
   bool supportsFile(DocumentFile file);
-  
+
   Future<EditorTab> createTab(DocumentFile file, dynamic data);
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
-  
+
   void disposeTab(EditorTab tab) {}
 
   PluginSettings? get settings;
@@ -47,6 +45,6 @@ abstract class EditorPlugin {
 }
 
 abstract class PluginSettings extends MachineSettings {
-//  Map<String, dynamic> toJson();
-//  void fromJson(Map<String, dynamic> json);
+  //  Map<String, dynamic> toJson();
+  //  void fromJson(Map<String, dynamic> json);
 }

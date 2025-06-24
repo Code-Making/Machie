@@ -23,9 +23,9 @@ class ExplorerWorkspaceState {
   }
 
   Map<String, dynamic> toJson() => {
-        'activeExplorerPluginId': activeExplorerPluginId,
-        'pluginStates': pluginStates,
-      };
+    'activeExplorerPluginId': activeExplorerPluginId,
+    'pluginStates': pluginStates,
+  };
 
   // REFACTOR: Add copyWith for easier updates in the service layer.
   ExplorerWorkspaceState copyWith({

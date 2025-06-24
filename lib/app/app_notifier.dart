@@ -1,6 +1,5 @@
 // lib/app/app_notifier.dart
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +8,8 @@ import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../project/services/project_service.dart';
 import '../editor/services/editor_service.dart';
-import '../editor/editor_tab_models.dart';
-import '../editor/tab_state_manager.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
-import '../explorer/common/save_as_dialog.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
@@ -43,7 +39,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final talker = ref.read(talkerProvider);
 
     // Subscribe to file operation events.
-    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (previous, next) {
+    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
+      previous,
+      next,
+    ) {
       next.whenData((event) {
         _handleFileOperationEvent(event);
       });
@@ -78,19 +77,25 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
-    
+
     switch (event) {
       case FileCreateEvent():
         // No action needed here.
         break;
-        
+
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-        final newProject = _editorService.updateTabFile(project, oldFile.uri, newFile);
+        final newProject = _editorService.updateTabFile(
+          project,
+          oldFile.uri,
+          newFile,
+        );
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
         break;
-        
+
       case FileDeleteEvent(deletedFile: final deletedFile):
-        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == deletedFile.uri);
+        final tabIndex = project.session.tabs.indexWhere(
+          (t) => t.file.uri == deletedFile.uri,
+        );
         if (tabIndex != -1) {
           final newProject = _editorService.closeTab(project, tabIndex);
           _updateStateSync((s) => s.copyWith(currentProject: newProject));
@@ -116,7 +121,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (previousState == null) return;
     state = AsyncData(updater(previousState));
   }
-  
+
   void updateCurrentProject(Project newProject) {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
@@ -134,12 +139,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-      final rehydratedProject = await _editorService.rehydrateTabs(result.project);
+      final rehydratedProject = await _editorService.rehydrateTabs(
+        result.project,
+      );
       return s.copyWith(
         currentProject: rehydratedProject,
         lastOpenedProjectId: result.project.id,
         knownProjects:
-            result.isNew ? [...s.knownProjects, result.metadata] : s.knownProjects,
+            result.isNew
+                ? [...s.knownProjects, result.metadata]
+                : s.knownProjects,
       );
     });
     await saveAppState();
@@ -196,7 +205,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       file,
       explicitPlugin: explicitPlugin,
     );
-    
+
     switch (result) {
       case OpenFileSuccess(project: final newProject):
         _updateStateSync((s) => s.copyWith(currentProject: newProject));
@@ -237,7 +246,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final newProject = _editorService.closeTab(project, index);
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
-  
+
   void toggleFullScreen() {
     _updateStateSync((s) => s.copyWith(isFullScreen: !s.isFullScreen));
   }

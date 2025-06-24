@@ -45,7 +45,9 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
     }
 
     return Container(
-      color: Theme.of(context).tabBarTheme.unselectedLabelColor?.withOpacity(0.1),
+      color: Theme.of(
+        context,
+      ).tabBarTheme.unselectedLabelColor?.withOpacity(0.1),
       height: 32,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
@@ -71,7 +73,6 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   }
 }
 
-
 class TabWidget extends ConsumerWidget {
   final EditorTab tab;
   final int index;
@@ -88,7 +89,9 @@ class TabWidget extends ConsumerWidget {
     );
     // FIX: Watch the correct provider for the dirty state.
     final isDirty = ref.watch(
-      tabMetadataProvider.select((metadataMap) => metadataMap[tab.file.uri]?.isDirty ?? false),
+      tabMetadataProvider.select(
+        (metadataMap) => metadataMap[tab.file.uri]?.isDirty ?? false,
+      ),
     );
 
     return Material(
@@ -104,9 +107,10 @@ class TabWidget extends ConsumerWidget {
                 color: theme.dividerColor.withOpacity(0.2),
                 width: 1,
               ),
-              bottom: isActive
-                  ? BorderSide(color: theme.colorScheme.primary, width: 2)
-                  : BorderSide.none,
+              bottom:
+                  isActive
+                      ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                      : BorderSide.none,
             ),
           ),
           child: Row(
@@ -114,10 +118,14 @@ class TabWidget extends ConsumerWidget {
             children: [
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () =>
-                    ref.read(appNotifierProvider.notifier).closeTab(index),
+                onTap:
+                    () =>
+                        ref.read(appNotifierProvider.notifier).closeTab(index),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8.0,
+                    vertical: 4.0,
+                  ),
                   child: Icon(
                     Icons.close,
                     size: 16,
@@ -132,9 +140,10 @@ class TabWidget extends ConsumerWidget {
                   softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isActive
-                        ? Colors.white
-                        : isDirty
+                    color:
+                        isActive
+                            ? Colors.white
+                            : isDirty
                             ? Colors.orange.shade300
                             : Colors.white70,
                   ),
@@ -162,14 +171,15 @@ class EditorView extends ConsumerWidget {
     // Use an IndexedStack to preserve the state of each editor widget.
     return IndexedStack(
       index: project.session.currentTabIndex,
-      children: project.session.tabs.map((tab) {
-        // We use a ValueKey to ensure Flutter can correctly identify
-        // the widget if the list of tabs is reordered.
-        return KeyedSubtree(
-          key: ValueKey(tab.file.uri),
-          child: tab.plugin.buildEditor(tab, ref),
-        );
-      }).toList(),
+      children:
+          project.session.tabs.map((tab) {
+            // We use a ValueKey to ensure Flutter can correctly identify
+            // the widget if the list of tabs is reordered.
+            return KeyedSubtree(
+              key: ValueKey(tab.file.uri),
+              child: tab.plugin.buildEditor(tab, ref),
+            );
+          }).toList(),
     );
   }
 }

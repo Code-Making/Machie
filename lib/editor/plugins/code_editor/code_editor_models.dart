@@ -1,5 +1,4 @@
 // lib/editor/plugins/code_editor/code_editor_models.dart
-import 'package:re_editor/re_editor.dart';
 import 'package:flutter/material.dart';
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
@@ -53,7 +52,10 @@ class CodeEditorSettings extends PluginSettings {
   });
   @override
   Map<String, dynamic> toJson() => {
-    'wordWrap': wordWrap, 'fontSize': fontSize, 'fontFamily': fontFamily, 'themeName': themeName,
+    'wordWrap': wordWrap,
+    'fontSize': fontSize,
+    'fontFamily': fontFamily,
+    'themeName': themeName,
   };
   @override
   void fromJson(Map<String, dynamic> json) {
@@ -62,7 +64,13 @@ class CodeEditorSettings extends PluginSettings {
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
     themeName = json['themeName'] ?? 'Atom One Dark';
   }
-  CodeEditorSettings copyWith({bool? wordWrap, double? fontSize, String? fontFamily, String? themeName}) {
+
+  CodeEditorSettings copyWith({
+    bool? wordWrap,
+    double? fontSize,
+    String? fontFamily,
+    String? themeName,
+  }) {
     return CodeEditorSettings(
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,

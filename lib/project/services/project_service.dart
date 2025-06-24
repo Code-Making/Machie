@@ -18,7 +18,11 @@ class OpenProjectResult {
   final Project project;
   final ProjectMetadata metadata;
   final bool isNew;
-  OpenProjectResult({required this.project, required this.metadata, required this.isNew});
+  OpenProjectResult({
+    required this.project,
+    required this.metadata,
+    required this.isNew,
+  });
 }
 
 class ProjectService {
@@ -75,14 +79,14 @@ class ProjectService {
     final repo = _ref.read(projectRepositoryProvider);
     await repo?.saveProject(project);
   }
-  
+
   Future<void> closeProject(Project project) async {
     await saveProject(project);
 
     // FIX: The hierarchyCache property no longer exists on the repo.
     // The provider is autoDispose, so it will be cleaned up automatically when
     // the projectRepositoryProvider becomes null. No action needed here.
-    
+
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
@@ -90,7 +94,7 @@ class ProjectService {
     }
     _ref.read(projectRepositoryProvider.notifier).state = null;
   }
-  
+
   // ... _createNewProjectMetadata and _ensureProjectDataFolder are unchanged ...
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
@@ -117,7 +121,8 @@ class ProjectService {
     final machineDir = files.firstWhereOrNull(
       (f) => f.name == '.machine' && f.isDirectory,
     );
-    final dir = machineDir ??
+    final dir =
+        machineDir ??
         // FIX: The low-level FileHandler does not take a Ref. Removed the incorrect argument.
         await handler.createDocumentFile(
           projectRootUri,
