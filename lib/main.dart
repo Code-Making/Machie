@@ -108,7 +108,7 @@ void main() {
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     // This makes the system navigation bar background black.
-    systemNavigationBarColor: Colors.black,
+    systemNavigationBarColor: Color(0xFF2B2B29),
 
     // This makes the icons on the navigation bar (back, home, etc.) white.
     systemNavigationBarIconBrightness: Brightness.light,
