@@ -14,7 +14,10 @@ import '../../../app/app_notifier.dart';
 class _BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final Set<int> highlightedLines;
-  const _BracketHighlightState({this.bracketPositions = const {}, this.highlightedLines = const {}});
+  const _BracketHighlightState({
+    this.bracketPositions = const {},
+    this.highlightedLines = const {},
+  });
 }
 
 class CodeEditorMachine extends ConsumerStatefulWidget {
@@ -36,15 +39,17 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   // The widget's State object is now the single source of truth for "hot" state.
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
-  
+
   CodeLinePosition? _markPosition;
-  _BracketHighlightState _bracketHighlightState = const _BracketHighlightState();
- 
- late CodeCommentFormatter _commentFormatter;
- late String? _languageKey;
+  _BracketHighlightState _bracketHighlightState =
+      const _BracketHighlightState();
+
+  late CodeCommentFormatter _commentFormatter;
+  late String? _languageKey;
 
   // --- PUBLIC PROPERTIES (for the command system) ---
-  bool get isDirty => ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
+  bool get isDirty =>
+      ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
   bool get canUndo => controller.canUndo;
   bool get canRedo => controller.canRedo;
   bool get hasMark => _markPosition != null;
@@ -53,10 +58,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    
+
     // Initialize the internal state from the tab's file URI.
     _languageKey = CodeThemes.inferLanguageKey(widget.tab.file.uri);
-    _commentFormatter = CodeEditorLogic.getCommentFormatter(widget.tab.file.uri);
+    _commentFormatter = CodeEditorLogic.getCommentFormatter(
+      widget.tab.file.uri,
+    );
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
@@ -77,20 +84,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   void _onControllerChange() {
     if (!mounted) return;
-    
+
     // Update global metadata via the service facade. This keeps the
     // UI outside this widget (like the tab bar) in sync.
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    
+
     // Update local state and trigger a rebuild of this widget if necessary.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
   }
-  
+
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
-    await ref.read(editorServiceProvider).saveCurrentTab(project, content: controller.text);
+    await ref
+        .read(editorServiceProvider)
+        .saveCurrentTab(project, content: controller.text);
   }
 
   void setMark() {
@@ -98,12 +107,18 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       _markPosition = controller.selection.base;
     });
   }
-  
+
   void selectToMark() {
     if (_markPosition == null) return;
     final currentPosition = controller.selection.base;
-    final start = _comparePositions(_markPosition!, currentPosition) < 0 ? _markPosition! : currentPosition;
-    final end = _comparePositions(_markPosition!, currentPosition) < 0 ? currentPosition : _markPosition!;
+    final start =
+        _comparePositions(_markPosition!, currentPosition) < 0
+            ? _markPosition!
+            : currentPosition;
+    final end =
+        _comparePositions(_markPosition!, currentPosition) < 0
+            ? currentPosition
+            : _markPosition!;
     controller.selection = CodeLineSelection(
       baseIndex: start.index,
       baseOffset: start.offset,
@@ -111,7 +126,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       extentOffset: end.offset,
     );
   }
-  
+
   void toggleComments() {
     final formatted = _commentFormatter.format(
       controller.value,
@@ -120,29 +135,29 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     controller.runRevocableOp(() => controller.value = formatted);
   }
-  
+
   Future<void> showLanguageSelectionDialog() async {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-          title: const Text('Select Language'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: CodeThemes.languageNameToModeMap.keys.length,
-              itemBuilder: (context, index) {
-                final langKey = CodeThemes.languageNameToModeMap.keys.elementAt(
-                  index,
-                );
-                return ListTile(
-                  title: Text(CodeThemes.formatLanguageName(langKey)),
-                  onTap: () => Navigator.pop(ctx, langKey),
-                );
-              },
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Select Language'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: CodeThemes.languageNameToModeMap.keys.length,
+                itemBuilder: (context, index) {
+                  final langKey = CodeThemes.languageNameToModeMap.keys
+                      .elementAt(index);
+                  return ListTile(
+                    title: Text(CodeThemes.formatLanguageName(langKey)),
+                    onTap: () => Navigator.pop(ctx, langKey),
+                  );
+                },
+              ),
             ),
           ),
-        ),
     );
     if (selectedLanguageKey != null && selectedLanguageKey != _languageKey) {
       setState(() {
@@ -165,8 +180,15 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       if (offset >= 0 && offset < line.length) {
         final char = line[offset];
         if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-          final currentPosition = CodeLinePosition(index: position.index, offset: offset);
-          final matchPosition = _findMatchingBracket(controller.codeLines, currentPosition, brackets);
+          final currentPosition = CodeLinePosition(
+            index: position.index,
+            offset: offset,
+          );
+          final matchPosition = _findMatchingBracket(
+            controller.codeLines,
+            currentPosition,
+            brackets,
+          );
           if (matchPosition != null) {
             newPositions.add(currentPosition);
             newPositions.add(matchPosition);
@@ -182,12 +204,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       highlightedLines: newHighlightedLines,
     );
   }
-  
-  CodeLinePosition? _findMatchingBracket(CodeLines codeLines, CodeLinePosition position, Map<String, String> brackets) {
+
+  CodeLinePosition? _findMatchingBracket(
+    CodeLines codeLines,
+    CodeLinePosition position,
+    Map<String, String> brackets,
+  ) {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
     final isOpen = brackets.keys.contains(char);
-    final target = isOpen ? brackets[char] : brackets.keys.firstWhere((k) => brackets[k] == char, orElse: () => '');
+    final target =
+        isOpen
+            ? brackets[char]
+            : brackets.keys.firstWhere(
+              (k) => brackets[k] == char,
+              orElse: () => '',
+            );
     if (target == null || target.isEmpty) return null;
     int stack = 1;
     int index = position.index;
@@ -219,7 +251,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       }
     }
   }
-  
+
   int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
     if (a.index < b.index) return -1;
     if (a.index > b.index) return 1;
@@ -246,33 +278,39 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     final builtSpans = <TextSpan>[];
     int currentPosition = 0;
-    
+
     void processSpan(TextSpan span) {
       final text = span.text ?? '';
       final spanStyle = span.style ?? style;
       int lastSplit = 0;
-      
+
       for (int i = 0; i < text.length; i++) {
         final absolutePosition = currentPosition + i;
         if (highlightPositions.contains(absolutePosition)) {
           if (i > lastSplit) {
-            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+            builtSpans.add(
+              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
+            );
           }
-          builtSpans.add(TextSpan(
-            text: text[i],
-            style: spanStyle.copyWith(
-              backgroundColor: Colors.yellow.withOpacity(0.3),
-              fontWeight: FontWeight.bold,
+          builtSpans.add(
+            TextSpan(
+              text: text[i],
+              style: spanStyle.copyWith(
+                backgroundColor: Colors.yellow.withOpacity(0.3),
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ));
+          );
           lastSplit = i + 1;
         }
       }
       if (lastSplit < text.length) {
-        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+        builtSpans.add(
+          TextSpan(text: text.substring(lastSplit), style: spanStyle),
+        );
       }
       currentPosition += text.length;
-      
+
       if (span.children != null) {
         for (final child in span.children!) {
           if (child is TextSpan) {
@@ -285,10 +323,14 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     processSpan(textSpan);
     return TextSpan(children: builtSpans, style: style);
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    final codeEditorSettings = ref.watch(settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
@@ -297,7 +339,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       child: CodeEditor(
         controller: controller,
         commentFormatter: _commentFormatter,
-        indicatorBuilder: (context, editingController, chunkController, notifier) {
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
           return CustomEditorIndicator(
             controller: editingController,
             chunkController: chunkController,
@@ -309,7 +356,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontSize: codeEditorSettings?.fontSize ?? 12.0,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
-            theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
+            theme:
+                CodeThemes.availableCodeThemes[selectedThemeName] ??
+                CodeThemes.availableCodeThemes['Atom One Dark']!,
             languages: CodeThemes.getHighlightThemeMode(_languageKey),
           ),
         ),

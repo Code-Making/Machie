@@ -38,7 +38,8 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
       surface: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
+      backgroundColor:
+          brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
       elevation: 1,
       scrolledUnderElevation: 1,
       centerTitle: true,
@@ -55,10 +56,13 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-          backgroundColor: brightness == Brightness.dark ? const Color(0xFF3A3A3A) : null),
+        backgroundColor:
+            brightness == Brightness.dark ? const Color(0xFF3A3A3A) : null,
+      ),
     ),
     drawerTheme: DrawerThemeData(
-      backgroundColor: brightness == Brightness.dark ? const Color(0xFF212121) : null,
+      backgroundColor:
+          brightness == Brightness.dark ? const Color(0xFF212121) : null,
     ),
   );
 }
@@ -67,15 +71,16 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
 final themeConfigProvider = Provider((ref) {
   // Watch the settings provider for changes.
   final settings = ref.watch(settingsProvider);
-  final generalSettings = settings.pluginSettings[GeneralSettings] as GeneralSettings;
+  final generalSettings =
+      settings.pluginSettings[GeneralSettings] as GeneralSettings;
 
   final seedColor = Color(generalSettings.accentColorValue);
   final themeMode = generalSettings.themeMode;
-  
+
   // Create both light and dark themes based on the seed color.
   final lightTheme = _createThemeData(seedColor, Brightness.light);
   final darkTheme = _createThemeData(seedColor, Brightness.dark);
-  
+
   // Return all the necessary parts for MaterialApp in a record.
   return (light: lightTheme, dark: darkTheme, mode: themeMode);
 });
@@ -101,16 +106,14 @@ void main() {
     () {
       runApp(
         ProviderScope(
-          overrides: [
-            talkerProvider.overrideWithValue(talker),
-          ],
+          overrides: [talkerProvider.overrideWithValue(talker)],
           observers: [riverpodObserver],
           child: LifecycleHandler(
             child: Consumer(
               builder: (context, ref, child) {
                 // REFACTOR: Watch the new theme provider.
                 final themeConfig = ref.watch(themeConfigProvider);
-                
+
                 return MaterialApp(
                   navigatorKey: ref.watch(navigatorKeyProvider),
                   scaffoldMessengerKey: ref.watch(

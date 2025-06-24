@@ -5,7 +5,6 @@ import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
-import '../../app/app_notifier.dart';
 import '../../utils/clipboard.dart';
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
@@ -34,7 +33,7 @@ class ExplorerService {
     await _repo.saveProject(newProject);
     return newProject;
   }
-  
+
   // REFACTOR: Pass the service's Ref to the repository methods.
   Future<void> createFile(String parentUri, String name) async {
     await _repo.createDocumentFile(_ref, parentUri, name, isDirectory: false);
@@ -67,7 +66,10 @@ class ExplorerService {
     }
   }
 
-  Future<void> importFile(DocumentFile pickedFile, String projectRootUri) async {
+  Future<void> importFile(
+    DocumentFile pickedFile,
+    String projectRootUri,
+  ) async {
     await _repo.copyDocumentFile(_ref, pickedFile, projectRootUri);
   }
 }

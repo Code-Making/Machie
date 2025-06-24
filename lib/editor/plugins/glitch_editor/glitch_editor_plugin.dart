@@ -35,7 +35,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     final ext = file.name.split('.').last.toLowerCase();
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
-  
+
   @override
   Future<void> dispose() async {}
   @override
@@ -49,11 +49,7 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
-    return GlitchEditorTab(
-      file: file,
-      plugin: this,
-      initialImageData: data,
-    );
+    return GlitchEditorTab(file: file, plugin: this, initialImageData: data);
   }
 
   @override
@@ -83,84 +79,94 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
-    final tab = ref.watch(appNotifierProvider.select(
-      (s) => s.value?.currentProject?.session.currentTab,
-    ));
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     if (tab is! GlitchEditorTab) return null;
     return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
 
   @override
   List<Command> getCommands() => [
-        BaseCommand(
-          id: 'save',
-          label: 'Save Image',
-          icon: const Icon(Icons.save),
-          defaultPosition: CommandPosition.appBar,
-          sourcePlugin: runtimeType.toString(),
-          // FIX: Use async closure for async method call
-          execute: (ref) async => await _getActiveEditorState(ref)?.save(),
-          canExecute: (ref) {
-            ref.watch(tabMetadataProvider);
-            return _getActiveEditorState(ref)?.isDirty ?? false;
-          },
-        ),
-        BaseCommand(
-          id: 'save_as',
-          label: 'Save As...',
-          icon: const Icon(Icons.save_as),
-          defaultPosition: CommandPosition.appBar,
-          sourcePlugin: runtimeType.toString(),
-          // FIX: Use async closure for async method call
-          execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
-          canExecute: (ref) => _getActiveEditorState(ref) != null,
-        ),
-        BaseCommand(
-          id: 'reset',
-          label: 'Reset',
-          icon: const Icon(Icons.refresh),
-          defaultPosition: CommandPosition.pluginToolbar,
-          sourcePlugin: runtimeType.toString(),
-          // FIX: This method is synchronous, no async needed.
-          execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
-          canExecute: (ref) {
-            ref.watch(tabMetadataProvider);
-            return _getActiveEditorState(ref)?.isDirty ?? false;
-          },
-        ),
-        BaseCommand(
-          id: 'zoom_mode',
-          label: 'Toggle Zoom',
-          icon: Consumer(builder: (context, ref, _) {
-            final isZoomOn = ref.watch(isZoomModeProvider);
-            return Icon(isZoomOn ? Icons.zoom_out_map : Icons.zoom_in_map);
-          }),
-          defaultPosition: CommandPosition.pluginToolbar,
-          sourcePlugin: runtimeType.toString(),
-          // FIX: This method is synchronous, no async needed.
-          execute: (ref) async =>
+    BaseCommand(
+      id: 'save',
+      label: 'Save Image',
+      icon: const Icon(Icons.save),
+      defaultPosition: CommandPosition.appBar,
+      sourcePlugin: runtimeType.toString(),
+      // FIX: Use async closure for async method call
+      execute: (ref) async => await _getActiveEditorState(ref)?.save(),
+      canExecute: (ref) {
+        ref.watch(tabMetadataProvider);
+        return _getActiveEditorState(ref)?.isDirty ?? false;
+      },
+    ),
+    BaseCommand(
+      id: 'save_as',
+      label: 'Save As...',
+      icon: const Icon(Icons.save_as),
+      defaultPosition: CommandPosition.appBar,
+      sourcePlugin: runtimeType.toString(),
+      // FIX: Use async closure for async method call
+      execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
+      canExecute: (ref) => _getActiveEditorState(ref) != null,
+    ),
+    BaseCommand(
+      id: 'reset',
+      label: 'Reset',
+      icon: const Icon(Icons.refresh),
+      defaultPosition: CommandPosition.pluginToolbar,
+      sourcePlugin: runtimeType.toString(),
+      // FIX: This method is synchronous, no async needed.
+      execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
+      canExecute: (ref) {
+        ref.watch(tabMetadataProvider);
+        return _getActiveEditorState(ref)?.isDirty ?? false;
+      },
+    ),
+    BaseCommand(
+      id: 'zoom_mode',
+      label: 'Toggle Zoom',
+      icon: Consumer(
+        builder: (context, ref, _) {
+          final isZoomOn = ref.watch(isZoomModeProvider);
+          return Icon(isZoomOn ? Icons.zoom_out_map : Icons.zoom_in_map);
+        },
+      ),
+      defaultPosition: CommandPosition.pluginToolbar,
+      sourcePlugin: runtimeType.toString(),
+      // FIX: This method is synchronous, no async needed.
+      execute:
+          (ref) async =>
               ref.read(isZoomModeProvider.notifier).update((state) => !state),
-        ),
-        BaseCommand(
-          id: 'toggle_brush_settings',
-          label: 'Brush Settings',
-          icon: Consumer(builder: (context, ref, _) {
-            final brushType = ref.watch(brushSettingsProvider.select((s) => s.type));
-            switch (brushType) {
-              case GlitchBrushType.scatter:
-                return const Icon(Icons.scatter_plot);
-              case GlitchBrushType.repeater:
-                return const Icon(Icons.line_axis);
-              case GlitchBrushType.heal:
-                return const Icon(Icons.healing);
-            }
-          }),
-          defaultPosition: CommandPosition.pluginToolbar,
-          sourcePlugin: runtimeType.toString(),
-          // FIX: This method is synchronous, no async needed.
-          execute: (ref) async => ref
+    ),
+    BaseCommand(
+      id: 'toggle_brush_settings',
+      label: 'Brush Settings',
+      icon: Consumer(
+        builder: (context, ref, _) {
+          final brushType = ref.watch(
+            brushSettingsProvider.select((s) => s.type),
+          );
+          switch (brushType) {
+            case GlitchBrushType.scatter:
+              return const Icon(Icons.scatter_plot);
+            case GlitchBrushType.repeater:
+              return const Icon(Icons.line_axis);
+            case GlitchBrushType.heal:
+              return const Icon(Icons.healing);
+          }
+        },
+      ),
+      defaultPosition: CommandPosition.pluginToolbar,
+      sourcePlugin: runtimeType.toString(),
+      // FIX: This method is synchronous, no async needed.
+      execute:
+          (ref) async => ref
               .read(editorServiceProvider)
               .setBottomToolbarOverride(GlitchToolbar(plugin: this)),
-        ),
-      ];
+    ),
+  ];
 }

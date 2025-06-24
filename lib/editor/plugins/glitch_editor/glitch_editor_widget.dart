@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
-import 'glitch_editor_math.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import '../../tab_state_manager.dart';
@@ -37,7 +36,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   Offset? _lastRepeaterPosition;
   List<Offset> _repeaterPath = [];
 
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
   List<Offset> _currentStrokePoints = [];
   GlitchBrushSettings? _liveBrushSettings;
   Offset _imageDisplayOffset = Offset.zero;
@@ -48,7 +48,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   final Random _random = Random();
 
   // --- PUBLIC PROPERTIES (for the command system) ---
-  bool get isDirty => ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
+  bool get isDirty =>
+      ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
 
   @override
   void initState() {
@@ -80,10 +81,14 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _isLoading = false;
     });
   }
-  
+
   void _updateImageDisplayParams() {
-    if (_displayImage == null || !context.mounted || context.size == null) return;
-    final imageSize = Size(_displayImage!.width.toDouble(), _displayImage!.height.toDouble());
+    if (_displayImage == null || !context.mounted || context.size == null)
+      return;
+    final imageSize = Size(
+      _displayImage!.width.toDouble(),
+      _displayImage!.height.toDouble(),
+    );
     final widgetSize = context.size!;
     final fitted = applyBoxFit(BoxFit.contain, imageSize, widgetSize);
     final destinationSize = fitted.destination;
@@ -95,12 +100,14 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   // --- Public API for Commands ---
-  
+
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || _displayImage == null) return;
-    
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+
+    final byteData = await _displayImage!.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     if (byteData == null) return;
 
     final editorService = ref.read(editorServiceProvider);
@@ -120,11 +127,15 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   Future<void> saveAs() async {
     final editorService = ref.read(editorServiceProvider);
-    await editorService.saveCurrentTabAs(byteDataProvider: () async {
-      if (_displayImage == null) return null;
-      final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
-      return byteData?.buffer.asUint8List();
-    });
+    await editorService.saveCurrentTabAs(
+      byteDataProvider: () async {
+        if (_displayImage == null) return null;
+        final byteData = await _displayImage!.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        return byteData?.buffer.asUint8List();
+      },
+    );
   }
 
   void resetImage() {
@@ -141,8 +152,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onInteractionStart(ScaleStartDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
-    _liveBrushSettings = ref.read(widget.plugin.brushSettingsProvider).copyWith();
-    
+    _liveBrushSettings =
+        ref.read(widget.plugin.brushSettingsProvider).copyWith();
+
     // Begin stroke logic
     _strokeSample?.dispose();
     _repeaterSample?.dispose();
@@ -156,9 +168,14 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onInteractionUpdate(ScaleUpdateDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
-    final inverseViewerMatrix = Matrix4.tryInvert(_transformationController.value);
+    final inverseViewerMatrix = Matrix4.tryInvert(
+      _transformationController.value,
+    );
     if (inverseViewerMatrix == null) return;
-    final localPoint = MatrixUtils.transformPoint(inverseViewerMatrix, details.localFocalPoint);
+    final localPoint = MatrixUtils.transformPoint(
+      inverseViewerMatrix,
+      details.localFocalPoint,
+    );
     final imagePoint = _convertToImageCoordinates(localPoint);
     setState(() {
       _currentStrokePoints.add(imagePoint);
@@ -168,7 +185,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _onInteractionEnd(ScaleEndDetails details) {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
-    
+
     // Apply the full stroke
     if (_displayImage == null || _currentStrokePoints.isEmpty) return;
 
@@ -182,17 +199,21 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     canvas.drawImage(baseImage, Offset.zero, Paint());
 
     for (final point in _currentStrokePoints) {
-      _applyEffectToCanvas(canvas, point, _liveBrushSettings!.copyWith(
-        radius: _liveBrushSettings!.radius / combinedScale,
-        minBlockSize: _liveBrushSettings!.minBlockSize / combinedScale,
-        maxBlockSize: _liveBrushSettings!.maxBlockSize / combinedScale,
-      ));
+      _applyEffectToCanvas(
+        canvas,
+        point,
+        _liveBrushSettings!.copyWith(
+          radius: _liveBrushSettings!.radius / combinedScale,
+          minBlockSize: _liveBrushSettings!.minBlockSize / combinedScale,
+          maxBlockSize: _liveBrushSettings!.maxBlockSize / combinedScale,
+        ),
+      );
     }
 
     final picture = recorder.endRecording();
     final newImage = picture.toImageSync(baseImage.width, baseImage.height);
     picture.dispose();
-    
+
     setState(() {
       _displayImage?.dispose();
       _displayImage = newImage;
@@ -205,8 +226,12 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
-    // This is the primary router for glitch effects. It's now clean and simple.
-  void _applyEffectToCanvas(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
+  // This is the primary router for glitch effects. It's now clean and simple.
+  void _applyEffectToCanvas(
+    Canvas canvas,
+    Offset pos,
+    GlitchBrushSettings settings,
+  ) {
     switch (settings.type) {
       case GlitchBrushType.scatter:
         _applyScatter(canvas, pos, settings);
@@ -222,11 +247,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   // --- Glitch Logic (all private and adapted to local state) ---
 
-  void _applyScatter(
-    Canvas canvas,
-    Offset pos,
-    GlitchBrushSettings settings,
-  ) {
+  void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     // The source image is now always the local _strokeSample
     final source = _strokeSample;
     if (source == null) return;
@@ -251,15 +272,11 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       );
     }
   }
-  
-  void _applyRepeater(
-    Canvas canvas,
-    Offset pos,
-    GlitchBrushSettings settings,
-  ) {
+
+  void _applyRepeater(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius * 500;
     final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
-    
+
     // Check local state property _repeaterSample
     if (_repeaterSample == null) {
       _createRepeaterSample(pos, settings);
@@ -268,12 +285,10 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _drawRepeaterSample(canvas, pos);
       return;
     }
-    
+
     _repeaterPath.add(pos);
     if (_repeaterPath.length > 1) {
-      final currentSegment = _repeaterPath.sublist(
-        _repeaterPath.length - 2,
-      );
+      final currentSegment = _repeaterPath.sublist(_repeaterPath.length - 2);
       final start = currentSegment[0];
       final end = currentSegment[1];
       final direction = (end - start);
@@ -297,37 +312,39 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       }
     }
   }
-  
-  void _createRepeaterSample(
-    Offset pos,
-    GlitchBrushSettings settings,
-  ) {
+
+  void _createRepeaterSample(Offset pos, GlitchBrushSettings settings) {
     if (_strokeSample == null) return;
-    
+
     final radius = settings.radius * 500;
     // Mutate local state property _repeaterSampleRect
     _repeaterSampleRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
-            
+
     _repeaterSampleRect = Rect.fromLTRB(
       _repeaterSampleRect!.left.clamp(0, _strokeSample!.width.toDouble()),
       _repeaterSampleRect!.top.clamp(0, _strokeSample!.height.toDouble()),
       _repeaterSampleRect!.right.clamp(0, _strokeSample!.width.toDouble()),
       _repeaterSampleRect!.bottom.clamp(0, _strokeSample!.height.toDouble()),
     );
-    
+
     final sampleRecorder = ui.PictureRecorder();
     final sampleCanvas = Canvas(sampleRecorder);
     sampleCanvas.drawImageRect(
       _strokeSample!,
       _repeaterSampleRect!,
-      Rect.fromLTWH(0, 0, _repeaterSampleRect!.width, _repeaterSampleRect!.height),
+      Rect.fromLTWH(
+        0,
+        0,
+        _repeaterSampleRect!.width,
+        _repeaterSampleRect!.height,
+      ),
       Paint(),
     );
     final samplePicture = sampleRecorder.endRecording();
-    
+
     // Mutate local state property _repeaterSample
     _repeaterSample = samplePicture.toImageSync(
       _repeaterSampleRect!.width.toInt(),
@@ -346,32 +363,33 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     );
     canvas.drawImageRect(
       _repeaterSample!,
-      Rect.fromLTWH(0, 0, _repeaterSample!.width.toDouble(), _repeaterSample!.height.toDouble()),
+      Rect.fromLTWH(
+        0,
+        0,
+        _repeaterSample!.width.toDouble(),
+        _repeaterSample!.height.toDouble(),
+      ),
       destRect,
       Paint()..blendMode = BlendMode.srcOver,
     );
   }
-  
-  void _applyHeal(
-    Canvas canvas,
-    Offset pos,
-    GlitchBrushSettings settings,
-  ) {
+
+  void _applyHeal(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     if (_originalImage == null) return;
-    
+
     final radius = settings.radius * 500;
     final sourceRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
-            
+
     final clampedSourceRect = Rect.fromLTRB(
       sourceRect.left.clamp(0, _originalImage!.width.toDouble()),
       sourceRect.top.clamp(0, _originalImage!.height.toDouble()),
       sourceRect.right.clamp(0, _originalImage!.width.toDouble()),
       sourceRect.bottom.clamp(0, _originalImage!.height.toDouble()),
     );
-    
+
     canvas.drawImageRect(
       _originalImage!,
       clampedSourceRect,
@@ -379,9 +397,13 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       Paint(),
     );
   }
+
   Offset _convertToImageCoordinates(Offset widgetPoint) {
     final adjustedPoint = widgetPoint - _imageDisplayOffset;
-    return Offset(adjustedPoint.dx / _imageScale, adjustedPoint.dy / _imageScale);
+    return Offset(
+      adjustedPoint.dx / _imageScale,
+      adjustedPoint.dy / _imageScale,
+    );
   }
 
   @override
@@ -414,12 +436,18 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
           children: [
             if (_displayImage != null)
               CustomPaint(
-                size: Size(_displayImage!.width.toDouble(), _displayImage!.height.toDouble()),
+                size: Size(
+                  _displayImage!.width.toDouble(),
+                  _displayImage!.height.toDouble(),
+                ),
                 painter: _ImagePainter(baseImage: _displayImage!),
               ),
             if (isSliding)
               IgnorePointer(
-                child: _BrushPreview(settings: brushSettings, screenWidth: screenWidth),
+                child: _BrushPreview(
+                  settings: brushSettings,
+                  screenWidth: screenWidth,
+                ),
               ),
           ],
         ),
@@ -445,10 +473,7 @@ class _BrushPreview extends StatelessWidget {
                 ? BoxShape.circle
                 : BoxShape.rectangle,
         color: Colors.white.withOpacity(0.3),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.7),
-          width: 2,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.7), width: 2),
       ),
     );
   }

@@ -32,9 +32,7 @@ class FileExplorerView extends ConsumerWidget {
             state: fileExplorerState,
           ),
         ),
-        FileOperationsFooter(
-          projectRootUri: project.rootUri,
-        ),
+        FileOperationsFooter(projectRootUri: project.rootUri),
       ],
     );
   }

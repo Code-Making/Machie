@@ -23,8 +23,9 @@ class PersistentProjectRepository implements ProjectRepository {
       _projectDataPath,
       includeHidden: true,
     );
-    final projectFile =
-        files.firstWhereOrNull((f) => f.name == _projectFileName);
+    final projectFile = files.firstWhereOrNull(
+      (f) => f.name == _projectFileName,
+    );
 
     if (projectFile != null) {
       final content = await fileHandler.readFile(projectFile.uri);
@@ -48,18 +49,27 @@ class PersistentProjectRepository implements ProjectRepository {
 
   // FIX: All event publishing now uses the correct controller provider.
   @override
-  Future<DocumentFile> createDocumentFile(Ref ref, String parentUri, String name,
-      {bool isDirectory = false,
-      String? initialContent,
-      Uint8List? initialBytes,
-      bool overwrite = false}) async {
-    final newFile = await fileHandler.createDocumentFile(parentUri, name,
-        isDirectory: isDirectory,
-        initialContent: initialContent,
-        initialBytes: initialBytes,
-        overwrite: overwrite);
+  Future<DocumentFile> createDocumentFile(
+    Ref ref,
+    String parentUri,
+    String name, {
+    bool isDirectory = false,
+    String? initialContent,
+    Uint8List? initialBytes,
+    bool overwrite = false,
+  }) async {
+    final newFile = await fileHandler.createDocumentFile(
+      parentUri,
+      name,
+      isDirectory: isDirectory,
+      initialContent: initialContent,
+      initialBytes: initialBytes,
+      overwrite: overwrite,
+    );
     ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
-    ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
+    ref
+        .read(fileOperationControllerProvider)
+        .add(FileCreateEvent(createdFile: newFile));
     return newFile;
   }
 
@@ -68,58 +78,97 @@ class PersistentProjectRepository implements ProjectRepository {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     await fileHandler.deleteDocumentFile(file);
     ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
-    ref.read(fileOperationControllerProvider).add(FileDeleteEvent(deletedFile: file));
+    ref
+        .read(fileOperationControllerProvider)
+        .add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
   Future<DocumentFile?> renameDocumentFile(
-      Ref ref, DocumentFile file, String newName) async {
+    Ref ref,
+    DocumentFile file,
+    String newName,
+  ) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
     if (renamedFile != null) {
-      ref.read(projectHierarchyProvider.notifier).rename(file, renamedFile, parentUri);
-      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: file, newFile: renamedFile));
+      ref
+          .read(projectHierarchyProvider.notifier)
+          .rename(file, renamedFile, parentUri);
+      ref
+          .read(fileOperationControllerProvider)
+          .add(FileRenameEvent(oldFile: file, newFile: renamedFile));
     }
     return renamedFile;
   }
 
   @override
   Future<DocumentFile?> copyDocumentFile(
-      Ref ref, DocumentFile source, String destinationParentUri) async {
-    final copiedFile =
-        await fileHandler.copyDocumentFile(source, destinationParentUri);
+    Ref ref,
+    DocumentFile source,
+    String destinationParentUri,
+  ) async {
+    final copiedFile = await fileHandler.copyDocumentFile(
+      source,
+      destinationParentUri,
+    );
     if (copiedFile != null) {
-      ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationParentUri);
-      ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
+      ref
+          .read(projectHierarchyProvider.notifier)
+          .add(copiedFile, destinationParentUri);
+      ref
+          .read(fileOperationControllerProvider)
+          .add(FileCreateEvent(createdFile: copiedFile));
     }
     return copiedFile;
   }
 
   @override
   Future<DocumentFile?> moveDocumentFile(
-      Ref ref, DocumentFile source, String destinationParentUri) async {
-    final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
-    final movedFile =
-        await fileHandler.moveDocumentFile(source, destinationParentUri);
+    Ref ref,
+    DocumentFile source,
+    String destinationParentUri,
+  ) async {
+    final sourceParentUri = source.uri.substring(
+      0,
+      source.uri.lastIndexOf('%2F'),
+    );
+    final movedFile = await fileHandler.moveDocumentFile(
+      source,
+      destinationParentUri,
+    );
     if (movedFile != null) {
-      ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
-      ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationParentUri);
-      ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
+      ref
+          .read(projectHierarchyProvider.notifier)
+          .remove(source, sourceParentUri);
+      ref
+          .read(projectHierarchyProvider.notifier)
+          .add(movedFile, destinationParentUri);
+      ref
+          .read(fileOperationControllerProvider)
+          .add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
     return movedFile;
   }
 
   // --- Unchanged Delegations ---
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) => fileHandler.getFileMetadata(uri);
+  Future<DocumentFile?> getFileMetadata(String uri) =>
+      fileHandler.getFileMetadata(uri);
   @override
-  Future<List<DocumentFile>> listDirectory(String uri, {bool includeHidden = false}) => fileHandler.listDirectory(uri, includeHidden: includeHidden);
+  Future<List<DocumentFile>> listDirectory(
+    String uri, {
+    bool includeHidden = false,
+  }) => fileHandler.listDirectory(uri, includeHidden: includeHidden);
   @override
   Future<String> readFile(String uri) => fileHandler.readFile(uri);
   @override
-  Future<Uint8List> readFileAsBytes(String uri) => fileHandler.readFileAsBytes(uri);
+  Future<Uint8List> readFileAsBytes(String uri) =>
+      fileHandler.readFileAsBytes(uri);
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) => fileHandler.writeFile(file, content);
+  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
+      fileHandler.writeFile(file, content);
   @override
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) => fileHandler.writeFileAsBytes(file, bytes);
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
+      fileHandler.writeFileAsBytes(file, bytes);
 }

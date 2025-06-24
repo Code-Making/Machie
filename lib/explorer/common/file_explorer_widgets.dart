@@ -9,9 +9,6 @@ import '../../data/repositories/project_repository.dart'; // NEW: For projectHie
 import '../../editor/plugins/plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
-import 'file_explorer_dialogs.dart';
-import '../../utils/toast.dart';
-import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 
 // REFACTOR: The DirectoryView is now purely declarative.
@@ -42,7 +39,9 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       if (mounted) {
         // We check the state directly before firing the request to avoid re-fetching.
         if (ref.read(projectHierarchyProvider)[widget.directory] == null) {
-          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.directory);
+          ref
+              .read(projectHierarchyProvider.notifier)
+              .loadDirectory(widget.directory);
         }
       }
     });
@@ -52,15 +51,17 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   Widget build(BuildContext context) {
     // FIX: Watch the new StateNotifierProvider directly. This will get the state
     // map and rebuild the widget whenever the map changes.
-    final directoryContents = ref.watch(projectHierarchyProvider)[widget.directory];
+    final directoryContents =
+        ref.watch(projectHierarchyProvider)[widget.directory];
 
     // FIX: This now correctly handles the initial loading state.
     if (directoryContents == null) {
       return const Center(
-          child: Padding(
-        padding: EdgeInsets.all(8.0),
-        child: CircularProgressIndicator(),
-      ));
+        child: Padding(
+          padding: EdgeInsets.all(8.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     final sortedContents = List<DocumentFile>.from(directoryContents);
@@ -74,7 +75,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       itemBuilder: (context, index) {
         final item = sortedContents[index];
         final depth =
-            item.uri.split('%2F').length - widget.projectRootUri.split('%2F').length;
+            item.uri.split('%2F').length -
+            widget.projectRootUri.split('%2F').length;
         return DirectoryItem(
           item: item,
           depth: depth,
@@ -83,6 +85,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       },
     );
   }
+
   // ... _applySorting is unchanged ...
   void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
@@ -135,7 +138,9 @@ class DirectoryItem extends ConsumerWidget {
           }
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
-            final newExpanded = Set<String>.from(currentSettings.expandedFolders);
+            final newExpanded = Set<String>.from(
+              currentSettings.expandedFolders,
+            );
             if (expanded) {
               newExpanded.add(item.uri);
             } else {
@@ -150,7 +155,8 @@ class DirectoryItem extends ConsumerWidget {
             Consumer(
               builder: (context, ref, _) {
                 final currentState =
-                    ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
+                    ref.watch(activeExplorerSettingsProvider)
+                        as FileExplorerSettings?;
                 final project =
                     ref.watch(appNotifierProvider).value!.currentProject!;
                 if (currentState == null) return const SizedBox.shrink();
@@ -171,7 +177,9 @@ class DirectoryItem extends ConsumerWidget {
         leading: FileTypeIcon(file: item),
         title: Text(item.name, overflow: TextOverflow.ellipsis),
         subtitle:
-            subtitle != null ? Text(subtitle!, overflow: TextOverflow.ellipsis) : null,
+            subtitle != null
+                ? Text(subtitle!, overflow: TextOverflow.ellipsis)
+                : null,
         onTap: () async {
           final success = await ref
               .read(appNotifierProvider.notifier)

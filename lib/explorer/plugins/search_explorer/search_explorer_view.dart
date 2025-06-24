@@ -75,7 +75,11 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
               }
               final lastSlash = relativePath.lastIndexOf('%2F');
               final subtitle =
-                  lastSlash != -1 ? Uri.decodeComponent(relativePath.substring(0, lastSlash)) : '.';
+                  lastSlash != -1
+                      ? Uri.decodeComponent(
+                        relativePath.substring(0, lastSlash),
+                      )
+                      : '.';
 
               return DirectoryItem(
                 item: file,

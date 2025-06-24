@@ -11,7 +11,6 @@ import 'command_models.dart';
 
 export 'command_models.dart';
 
-
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
   ref,
 ) {
@@ -48,7 +47,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void _initializeCommands(Set<EditorPlugin> plugins) async {
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
-    
+
     // REFACTOR: Add app-level commands to the registry
     final allAppCommands = AppCommands.getCommands();
     final allPluginCommands = plugins.expand((p) => p.getCommands());
@@ -74,6 +73,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
+
   void updateGroup(String groupId, {String? newName, String? newIconName}) {
     final oldGroup = state.commandGroups[groupId];
     if (oldGroup == null) return;
@@ -82,6 +82,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
+
   void deleteGroup(String groupId) {
     final group = state.commandGroups[groupId];
     if (group == null) return;
@@ -108,6 +109,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
       ),
     };
   }
+
   void _updateStateWithLists(Map<String, List<String>> lists) {
     final newGroups = Map.of(state.commandGroups);
     lists.forEach((listId, commands) {
@@ -124,6 +126,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     );
     _saveToPrefs();
   }
+
   void reorderItemInList({
     required String listId,
     required int oldIndex,
@@ -139,6 +142,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
     _updateStateWithLists(lists);
   }
+
   void removeItemFromList({
     required String itemId,
     required String fromListId,
@@ -156,6 +160,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     }
     _updateStateWithLists(lists);
   }
+
   void addItemToList({required String itemId, required String toListId}) {
     final lists = _getMutableLists();
     final targetList = lists[toListId];
@@ -218,14 +223,16 @@ class CommandNotifier extends StateNotifier<CommandState> {
       ...cleanHidden,
       ...loadedGroups.values.expand((g) => g.commandIds),
     };
-    
+
     // REFACTOR: Place new commands in their default positions instead of hiding them.
-    final orphanedCommandIds =
-        allKnownCommandIds.where((id) => !allPlacedCommandIds.contains(id));
+    final orphanedCommandIds = allKnownCommandIds.where(
+      (id) => !allPlacedCommandIds.contains(id),
+    );
 
     for (final commandId in orphanedCommandIds) {
-      final command =
-          _allRegisteredCommands.firstWhereOrNull((c) => c.id == commandId);
+      final command = _allRegisteredCommands.firstWhereOrNull(
+        (c) => c.id == commandId,
+      );
       if (command != null) {
         switch (command.defaultPosition) {
           case CommandPosition.appBar:

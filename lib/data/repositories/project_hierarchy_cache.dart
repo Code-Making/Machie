@@ -25,10 +25,7 @@ class ProjectHierarchyCache
       final contents = await _fileHandler!.listDirectory(uri);
       // Ensure widget is still mounted before updating state
       if (mounted) {
-        state = {
-          ...state,
-          uri: contents,
-        };
+        state = {...state, uri: contents};
       }
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to load directory: $uri');
@@ -42,10 +39,7 @@ class ProjectHierarchyCache
     if (state.containsKey(parentUri)) {
       _talker.info('Adding ${item.name} to cached directory: $parentUri');
       final newContents = List<DocumentFile>.from(state[parentUri]!)..add(item);
-      state = {
-        ...state,
-        parentUri: newContents,
-      };
+      state = {...state, parentUri: newContents};
     }
   }
 
@@ -54,24 +48,20 @@ class ProjectHierarchyCache
       _talker.info('Removing ${item.name} from cached directory: $parentUri');
       final newContents = List<DocumentFile>.from(state[parentUri]!)
         ..removeWhere((f) => f.uri == item.uri);
-      state = {
-        ...state,
-        parentUri: newContents,
-      };
+      state = {...state, parentUri: newContents};
     }
   }
 
   void rename(DocumentFile oldItem, DocumentFile newItem, String parentUri) {
     if (state.containsKey(parentUri)) {
       _talker.info(
-          'Renaming ${oldItem.name} to ${newItem.name} in cached directory: $parentUri');
-      final newContents = List<DocumentFile>.from(state[parentUri]!)
-        ..removeWhere((f) => f.uri == oldItem.uri)
-        ..add(newItem);
-      state = {
-        ...state,
-        parentUri: newContents,
-      };
+        'Renaming ${oldItem.name} to ${newItem.name} in cached directory: $parentUri',
+      );
+      final newContents =
+          List<DocumentFile>.from(state[parentUri]!)
+            ..removeWhere((f) => f.uri == oldItem.uri)
+            ..add(newItem);
+      state = {...state, parentUri: newContents};
     }
   }
 

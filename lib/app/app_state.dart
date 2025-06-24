@@ -45,9 +45,10 @@ class AppState {
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
       currentProject:
           clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      currentProjectState: clearCurrentProjectState
-          ? null
-          : (currentProjectState ?? this.currentProjectState),
+      currentProjectState:
+          clearCurrentProjectState
+              ? null
+              : (currentProjectState ?? this.currentProjectState),
       appBarOverride:
           clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
       bottomToolbarOverride:
@@ -72,13 +73,15 @@ class AppState {
 
   factory AppState.fromJson(Map<String, dynamic> json) {
     return AppState(
-      knownProjects: (json['knownProjects'] as List)
-          .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      knownProjects:
+          (json['knownProjects'] as List)
+              .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
+              .toList(),
       lastOpenedProjectId: json['lastOpenedProjectId'],
-      currentProjectState: json['currentProjectState'] != null
-          ? Map<String, dynamic>.from(json['currentProjectState'])
-          : null,
+      currentProjectState:
+          json['currentProjectState'] != null
+              ? Map<String, dynamic>.from(json['currentProjectState'])
+              : null,
     );
   }
 
@@ -100,12 +103,12 @@ class AppState {
 
   @override
   int get hashCode => Object.hash(
-        const DeepCollectionEquality().hash(knownProjects),
-        lastOpenedProjectId,
-        currentProject,
-        const DeepCollectionEquality().hash(currentProjectState),
-        appBarOverride,
-        bottomToolbarOverride,
-        isFullScreen, // Add to hash
-      );
+    const DeepCollectionEquality().hash(knownProjects),
+    lastOpenedProjectId,
+    currentProject,
+    const DeepCollectionEquality().hash(currentProjectState),
+    appBarOverride,
+    bottomToolbarOverride,
+    isFullScreen, // Add to hash
+  );
 }

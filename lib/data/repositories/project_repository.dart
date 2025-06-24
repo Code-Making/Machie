@@ -33,21 +33,23 @@ class FileDeleteEvent extends FileOperationEvent {
 // to allow multiple listeners if needed in the future.
 final fileOperationControllerProvider =
     Provider<StreamController<FileOperationEvent>>((ref) {
-  final controller = StreamController<FileOperationEvent>.broadcast();
-  ref.onDispose(() => controller.close());
-  return controller;
-});
+      final controller = StreamController<FileOperationEvent>.broadcast();
+      ref.onDispose(() => controller.close());
+      return controller;
+    });
 
 // FIX: The StreamProvider now simply listens to the controller's stream.
 final fileOperationStreamProvider =
     StreamProvider.autoDispose<FileOperationEvent>((ref) {
-  return ref.watch(fileOperationControllerProvider).stream;
-});
+      return ref.watch(fileOperationControllerProvider).stream;
+    });
 
 // --- End of New Section ---
 
 final projectHierarchyProvider = StateNotifierProvider.autoDispose<
-    ProjectHierarchyCache, Map<String, List<DocumentFile>>>((ref) {
+  ProjectHierarchyCache,
+  Map<String, List<DocumentFile>>
+>((ref) {
   // ... implementation unchanged
   final repo = ref.watch(projectRepositoryProvider);
   if (repo == null) {
@@ -56,20 +58,44 @@ final projectHierarchyProvider = StateNotifierProvider.autoDispose<
   return ProjectHierarchyCache(repo.fileHandler, ref.read(talkerProvider));
 });
 
-final projectRepositoryProvider =
-    StateProvider<ProjectRepository?>((ref) => null);
+final projectRepositoryProvider = StateProvider<ProjectRepository?>(
+  (ref) => null,
+);
 
 // ... ProjectRepository abstract class is unchanged ...
 abstract class ProjectRepository {
   FileHandler get fileHandler;
   Future<Project> loadProject(ProjectMetadata metadata);
   Future<void> saveProject(Project project);
-  Future<DocumentFile> createDocumentFile(Ref ref, String parentUri, String name, {bool isDirectory = false, String? initialContent, Uint8List? initialBytes, bool overwrite = false});
+  Future<DocumentFile> createDocumentFile(
+    Ref ref,
+    String parentUri,
+    String name, {
+    bool isDirectory = false,
+    String? initialContent,
+    Uint8List? initialBytes,
+    bool overwrite = false,
+  });
   Future<void> deleteDocumentFile(Ref ref, DocumentFile file);
-  Future<DocumentFile?> renameDocumentFile(Ref ref, DocumentFile file, String newName);
-  Future<DocumentFile?> copyDocumentFile(Ref ref, DocumentFile source, String destinationParentUri);
-  Future<DocumentFile?> moveDocumentFile(Ref ref, DocumentFile source, String destinationParentUri);
-  Future<List<DocumentFile>> listDirectory(String uri, {bool includeHidden = false});
+  Future<DocumentFile?> renameDocumentFile(
+    Ref ref,
+    DocumentFile file,
+    String newName,
+  );
+  Future<DocumentFile?> copyDocumentFile(
+    Ref ref,
+    DocumentFile source,
+    String destinationParentUri,
+  );
+  Future<DocumentFile?> moveDocumentFile(
+    Ref ref,
+    DocumentFile source,
+    String destinationParentUri,
+  );
+  Future<List<DocumentFile>> listDirectory(
+    String uri, {
+    bool includeHidden = false,
+  });
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
   Future<DocumentFile> writeFile(DocumentFile file, String content);

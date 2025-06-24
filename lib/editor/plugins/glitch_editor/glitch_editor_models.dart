@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
-import 'glitch_editor_widget.dart'; // NEW IMPORT for the key's State type
+// NEW IMPORT for the key's State type
 
 @immutable
 class GlitchEditorTab extends EditorTab {
@@ -45,6 +45,7 @@ class GlitchEditorTab extends EditorTab {
 }
 
 enum GlitchBrushType { scatter, repeater, heal }
+
 enum GlitchBrushShape { circle, square }
 
 class GlitchBrushSettings {

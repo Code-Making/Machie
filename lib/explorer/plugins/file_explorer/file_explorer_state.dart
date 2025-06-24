@@ -8,7 +8,8 @@ class FileExplorerSettings implements ExplorerPluginSettings {
   final FileExplorerViewMode viewMode;
   final Set<String> expandedFolders;
 
-  FileExplorerSettings({ // REFACTOR: Make constructor const
+  FileExplorerSettings({
+    // REFACTOR: Make constructor const
     this.viewMode = FileExplorerViewMode.sortByNameAsc,
     this.expandedFolders = const {},
   });
@@ -43,9 +44,9 @@ class FileExplorerSettings implements ExplorerPluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'viewMode': viewMode.name,
-        'expandedFolders': expandedFolders.toList(),
-      };
+    'viewMode': viewMode.name,
+    'expandedFolders': expandedFolders.toList(),
+  };
 }
 
 // REFACTOR: The specific StateNotifier and Provider for file explorer state

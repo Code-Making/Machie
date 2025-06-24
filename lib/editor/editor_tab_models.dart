@@ -24,10 +24,10 @@ class TabSessionState {
   }
 
   Map<String, dynamic> toJson() => {
-        'tabs': tabs.map((t) => t.toJson()).toList(),
-        'currentTabIndex': currentTabIndex,
-      };
-      
+    'tabs': tabs.map((t) => t.toJson()).toList(),
+    'currentTabIndex': currentTabIndex,
+  };
+
   factory TabSessionState.fromJson(Map<String, dynamic> json) {
     return TabSessionState(
       tabs: const [],
@@ -50,13 +50,13 @@ abstract class WorkspaceTab {
 @immutable
 abstract class EditorTab extends WorkspaceTab {
   final DocumentFile file;
-  
+
   // NEW: A generalized GlobalKey. It's generic to hold the state of any editor widget.
   final GlobalKey<State<StatefulWidget>> editorKey;
 
   EditorTab({required this.file, required super.plugin})
-      // The key is created with each new tab instance.
-      : editorKey = GlobalKey<State<StatefulWidget>>();
+    // The key is created with each new tab instance.
+    : editorKey = GlobalKey<State<StatefulWidget>>();
 
   @override
   String get title => file.name;

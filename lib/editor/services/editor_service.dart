@@ -15,7 +15,6 @@ import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../utils/toast.dart';
 
-
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
 });
@@ -25,7 +24,8 @@ class EditorService {
   EditorService(this._ref);
 
   // --- Helpers to get current state ---
-  Project? get _currentProject => _ref.read(appNotifierProvider).value?.currentProject;
+  Project? get _currentProject =>
+      _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
 
   // --- Facade methods for plugins to call ---
@@ -48,10 +48,10 @@ class EditorService {
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
-    
+
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[project.session.currentTabIndex] = newTabModel;
-    
+
     final newProject = project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
     );
@@ -107,12 +107,12 @@ class EditorService {
     } else {
       return;
     }
-    
+
     MachineToast.info("Saved as ${newFile.name}");
   }
 
   // --- Core Service Methods ---
-  
+
   ProjectRepository get _repo {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) {
@@ -120,7 +120,7 @@ class EditorService {
     }
     return repo;
   }
-  
+
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
@@ -128,7 +128,8 @@ class EditorService {
 
   Future<Project> rehydrateTabs(Project project) async {
     final projectStateJson = project.toJson();
-    final sessionJson = projectStateJson['session'] as Map<String, dynamic>? ?? {};
+    final sessionJson =
+        projectStateJson['session'] as Map<String, dynamic>? ?? {};
     final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
     final plugins = _ref.read(activePluginsProvider);
     final List<EditorTab> tabs = [];
@@ -137,20 +138,24 @@ class EditorService {
       final pluginType = tabJson['pluginType'] as String?;
       if (pluginType == null) continue;
 
-      final plugin =
-          plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+      final plugin = plugins.firstWhereOrNull(
+        (p) => p.runtimeType.toString() == pluginType,
+      );
       if (plugin != null) {
         try {
-          final file = await _repo.fileHandler.getFileMetadata(tabJson['fileUri']);
+          final file = await _repo.fileHandler.getFileMetadata(
+            tabJson['fileUri'],
+          );
           if (file == null) continue;
-          
-          final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
-              ? await _repo.fileHandler.readFileAsBytes(file.uri)
-              : await _repo.fileHandler.readFile(file.uri);
-              
+
+          final dynamic data =
+              plugin.dataRequirement == PluginDataRequirement.bytes
+                  ? await _repo.fileHandler.readFileAsBytes(file.uri)
+                  : await _repo.fileHandler.readFile(file.uri);
+
           final tab = await plugin.createTab(file, data);
           tabs.add(tab);
-          
+
           // No "hot state" to create, but we must initialize the metadata.
           _ref.read(tabMetadataProvider.notifier).initTab(tab.file.uri);
         } catch (e) {
@@ -158,14 +163,17 @@ class EditorService {
         }
       }
     }
-    return project.copyWith(
-      session: project.session.copyWith(tabs: tabs),
-    );
+    return project.copyWith(session: project.session.copyWith(tabs: tabs));
   }
 
-  Future<OpenFileResult> openFile(Project project, DocumentFile file, {EditorPlugin? explicitPlugin}) async {
-    final existingIndex =
-        project.session.tabs.indexWhere((t) => t.file.uri == file.uri);
+  Future<OpenFileResult> openFile(
+    Project project,
+    DocumentFile file, {
+    EditorPlugin? explicitPlugin,
+  }) async {
+    final existingIndex = project.session.tabs.indexWhere(
+      (t) => t.file.uri == file.uri,
+    );
     if (existingIndex != -1) {
       return OpenFileSuccess(
         project: switchTab(project, existingIndex),
@@ -174,10 +182,11 @@ class EditorService {
     }
     EditorPlugin? chosenPlugin = explicitPlugin;
     if (chosenPlugin == null) {
-      final compatiblePlugins = _ref
-          .read(activePluginsProvider)
-          .where((p) => p.supportsFile(file))
-          .toList();
+      final compatiblePlugins =
+          _ref
+              .read(activePluginsProvider)
+              .where((p) => p.supportsFile(file))
+              .toList();
       if (compatiblePlugins.isEmpty) {
         return OpenFileError("No plugin available to open '${file.name}'.");
       } else if (compatiblePlugins.length > 1) {
@@ -211,8 +220,12 @@ class EditorService {
       wasAlreadyOpen: false,
     );
   }
-  
-  Future<bool> saveCurrentTab(Project project, {String? content, Uint8List? bytes}) async {
+
+  Future<bool> saveCurrentTab(
+    Project project, {
+    String? content,
+    Uint8List? bytes,
+  }) async {
     final tabToSave = project.session.currentTab;
     if (tabToSave == null) return false;
 
@@ -298,7 +311,9 @@ class EditorService {
   }
 
   Project updateTabFile(Project project, String oldUri, DocumentFile newFile) {
-    final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
+    final tabIndex = project.session.tabs.indexWhere(
+      (t) => t.file.uri == oldUri,
+    );
     if (tabIndex == -1) return project;
 
     final oldTab = project.session.tabs[tabIndex];
@@ -308,10 +323,8 @@ class EditorService {
     newTabs[tabIndex] = newTab;
 
     _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
-    
-    return project.copyWith(
-      session: project.session.copyWith(tabs: newTabs),
-    );
+
+    return project.copyWith(session: project.session.copyWith(tabs: newTabs));
   }
 }
 

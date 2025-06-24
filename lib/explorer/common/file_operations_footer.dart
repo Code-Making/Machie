@@ -17,10 +17,7 @@ import '../plugins/file_explorer/file_explorer_plugin.dart'; // REFACTOR: Import
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
   // REFACTOR: This widget no longer needs projectId
-  const FileOperationsFooter({
-    super.key,
-    required this.projectRootUri,
-  });
+  const FileOperationsFooter({super.key, required this.projectRootUri});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +46,10 @@ class FileOperationsFooter extends ConsumerWidget {
             icon: const Icon(Icons.note_add_outlined),
             tooltip: 'New File',
             onPressed: () async {
-              final newFileName = await showTextInputDialog(context, title: 'New File');
+              final newFileName = await showTextInputDialog(
+                context,
+                title: 'New File',
+              );
               if (newFileName != null && newFileName.isNotEmpty) {
                 try {
                   await explorerService.createFile(projectRootUri, newFileName);
@@ -64,10 +64,16 @@ class FileOperationsFooter extends ConsumerWidget {
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'New Folder',
             onPressed: () async {
-              final newFolderName = await showTextInputDialog(context, title: 'New Folder');
+              final newFolderName = await showTextInputDialog(
+                context,
+                title: 'New Folder',
+              );
               if (newFolderName != null && newFolderName.isNotEmpty) {
                 try {
-                  await explorerService.createFolder(projectRootUri, newFolderName);
+                  await explorerService.createFolder(
+                    projectRootUri,
+                    newFolderName,
+                  );
                 } catch (e, st) {
                   talker.handle(e, st, 'Error creating folder');
                 }
@@ -92,14 +98,17 @@ class FileOperationsFooter extends ConsumerWidget {
           IconButton(
             icon: Icon(
               Icons.content_paste,
-              color: clipboardContent != null
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey,
+              color:
+                  clipboardContent != null
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey,
             ),
             tooltip: 'Paste',
-            onPressed: (pasteCommand != null && pasteCommand.canExecuteFor(ref, rootDoc))
-                ? () => pasteCommand.executeFor(ref, rootDoc)
-                : null,
+            onPressed:
+                (pasteCommand != null &&
+                        pasteCommand.canExecuteFor(ref, rootDoc))
+                    ? () => pasteCommand.executeFor(ref, rootDoc)
+                    : null,
           ),
           // REFACTOR: Conditionally show the sort button.
           if (activeExplorer is FileExplorerPlugin)
@@ -131,11 +140,13 @@ class FileOperationsFooter extends ConsumerWidget {
                 title: const Text('Sort by Name (A-Z)'),
                 onTap: () {
                   // REFACTOR: Use the generic notifier
-                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                  ref
+                      .read(activeExplorerNotifierProvider)
+                      .updateSettings(
                         (settings) =>
                             (settings as FileExplorerSettings).copyWith(
-                          viewMode: FileExplorerViewMode.sortByNameAsc,
-                        ),
+                              viewMode: FileExplorerViewMode.sortByNameAsc,
+                            ),
                       );
                   Navigator.pop(ctx);
                 },
@@ -144,11 +155,13 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Sort by Name (Z-A)'),
                 onTap: () {
-                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                  ref
+                      .read(activeExplorerNotifierProvider)
+                      .updateSettings(
                         (settings) =>
                             (settings as FileExplorerSettings).copyWith(
-                          viewMode: FileExplorerViewMode.sortByNameDesc,
-                        ),
+                              viewMode: FileExplorerViewMode.sortByNameDesc,
+                            ),
                       );
                   Navigator.pop(ctx);
                 },
@@ -157,11 +170,13 @@ class FileOperationsFooter extends ConsumerWidget {
                 leading: const Icon(Icons.schedule),
                 title: const Text('Sort by Date Modified'),
                 onTap: () {
-                  ref.read(activeExplorerNotifierProvider).updateSettings(
+                  ref
+                      .read(activeExplorerNotifierProvider)
+                      .updateSettings(
                         (settings) =>
                             (settings as FileExplorerSettings).copyWith(
-                          viewMode: FileExplorerViewMode.sortByDateModified,
-                        ),
+                              viewMode: FileExplorerViewMode.sortByDateModified,
+                            ),
                       );
                   Navigator.pop(ctx);
                 },

@@ -14,8 +14,8 @@ class TabMetadata {
 /// Manages metadata (like dirty status) for all open tabs.
 final tabMetadataProvider =
     StateNotifierProvider<TabMetadataNotifier, Map<String, TabMetadata>>((ref) {
-  return TabMetadataNotifier();
-});
+      return TabMetadataNotifier();
+    });
 
 class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   TabMetadataNotifier() : super({});
@@ -25,28 +25,22 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
     if (state.containsKey(tabUri)) return;
     state = {...state, tabUri: const TabMetadata()};
   }
-  
+
   /// Removes metadata for a closed tab.
   void removeTab(String tabUri) {
     final newState = Map<String, TabMetadata>.from(state)..remove(tabUri);
     state = newState;
   }
-  
+
   void markDirty(String tabUri) {
     if (state.containsKey(tabUri) && state[tabUri]?.isDirty == false) {
-      state = {
-        ...state,
-        tabUri: state[tabUri]!.copyWith(isDirty: true),
-      };
+      state = {...state, tabUri: state[tabUri]!.copyWith(isDirty: true)};
     }
   }
 
   void markClean(String tabUri) {
     if (state.containsKey(tabUri) && state[tabUri]?.isDirty == true) {
-      state = {
-        ...state,
-        tabUri: state[tabUri]!.copyWith(isDirty: false),
-      };
+      state = {...state, tabUri: state[tabUri]!.copyWith(isDirty: false)};
     }
   }
 
@@ -54,9 +48,10 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   void rekeyState(String oldUri, String newUri) {
     if (state.containsKey(oldUri)) {
       final metadata = state[oldUri]!;
-      final newState = Map<String, TabMetadata>.from(state)
-        ..remove(oldUri)
-        ..[newUri] = metadata;
+      final newState =
+          Map<String, TabMetadata>.from(state)
+            ..remove(oldUri)
+            ..[newUri] = metadata;
       state = newState;
     }
   }
