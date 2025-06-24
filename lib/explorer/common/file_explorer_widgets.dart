@@ -310,9 +310,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         child: ListTile(
-          leading: FileTypeIcon(file: item),
+          leading: FileTypeIcon(file: widget.item),
           title: Text(
-            item.name,
+            widget.item.name,
             style: const TextStyle(fontSize: _kFontSize, color: Colors.white),
             overflow: TextOverflow.ellipsis,
           ),
