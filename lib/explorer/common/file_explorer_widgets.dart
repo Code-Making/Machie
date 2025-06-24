@@ -197,11 +197,10 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-  final talker;
   @override
   Widget build(BuildContext context) {
-    talker = ref.read(talkerProvider);
-    final itemContent = _buildItemContent();
+    final talker = ref.read(talkerProvider);
+    final itemContent = _buildItemContent(talker);
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
@@ -231,7 +230,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     );
   }
   
-  Widget _buildItemContent() {
+  Widget _buildItemContent(Talker talker) {
     Widget childWidget = widget.item.isDirectory
         ? _buildDirectoryTile()
         : _buildFileTile();
