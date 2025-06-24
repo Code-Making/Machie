@@ -5,15 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../data/repositories/project_repository.dart'; // NEW: For projectHierarchyProvider
+import '../../data/repositories/project_repository.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
+import 'file_explorer_dialogs.dart';
+import '../../utils/toast.dart';
+import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 
-// REFACTOR: The DirectoryView is now purely declarative.
+// DirectoryView remains unchanged as it just passes data down.
 class DirectoryView extends ConsumerStatefulWidget {
-  // ... constructor ...
   final String directory;
   final String projectRootUri;
   final FileExplorerSettings state;
@@ -33,15 +35,10 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   @override
   void initState() {
     super.initState();
-    // FIX: Use `ref.read` to call the notifier method, not to watch.
-    // This is a one-time action.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // We check the state directly before firing the request to avoid re-fetching.
         if (ref.read(projectHierarchyProvider)[widget.directory] == null) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.directory);
+          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.directory);
         }
       }
     });
@@ -49,21 +46,15 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Watch the new StateNotifierProvider directly. This will get the state
-    // map and rebuild the widget whenever the map changes.
-    final directoryContents =
-        ref.watch(projectHierarchyProvider)[widget.directory];
+    final directoryContents = ref.watch(projectHierarchyProvider)[widget.directory];
 
-    // FIX: This now correctly handles the initial loading state.
     if (directoryContents == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(8.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(8.0),
+        child: CircularProgressIndicator(),
+      ));
     }
-
+    
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
@@ -75,8 +66,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       itemBuilder: (context, index) {
         final item = sortedContents[index];
         final depth =
-            item.uri.split('%2F').length -
-            widget.projectRootUri.split('%2F').length;
+            item.uri.split('%2F').length - widget.projectRootUri.split('%2F').length;
         return DirectoryItem(
           item: item,
           depth: depth,
@@ -86,7 +76,6 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     );
   }
 
-  // ... _applySorting is unchanged ...
   void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
@@ -102,6 +91,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
+// All changes are made within the DirectoryItem widget.
 class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
@@ -116,31 +106,51 @@ class DirectoryItem extends ConsumerWidget {
     this.subtitle,
   });
 
+  // --- STYLING CONSTANTS ---
+  static const double _kBaseIndent = 16.0;
+  static const double _kFontSize = 14.0;
+  static const double _kVerticalPadding = 2.0; // Small vertical padding
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final explorerNotifier = ref.read(activeExplorerNotifierProvider);
+    
+    // Calculate the indentation for the current item.
+    final double currentIndent = depth * _kBaseIndent;
 
     Widget childWidget;
     if (item.isDirectory) {
       childWidget = ExpansionTile(
         key: PageStorageKey<String>(item.uri),
+        // Set custom padding for compactness and indentation.
+        tilePadding: EdgeInsets.only(
+          left: currentIndent,
+          right: 8.0,
+          top: _kVerticalPadding,
+          bottom: _kVerticalPadding,
+        ),
+        // Remove extra padding from the children, as they will calculate their own.
+        childrenPadding: EdgeInsets.zero,
         leading: Icon(
           isExpanded ? Icons.folder_open : Icons.folder,
           color: Colors.yellow.shade700,
         ),
-        title: Text(item.name),
-        subtitle: subtitle != null ? Text(subtitle!) : null,
+        // Apply the desired font size.
+        title: Text(
+          item.name,
+          style: const TextStyle(fontSize: _kFontSize),
+        ),
+        subtitle: subtitle != null
+            ? Text(subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
+            : null,
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
           if (expanded) {
-            // FIX: You must call methods on the .notifier.
             ref.read(projectHierarchyProvider.notifier).loadDirectory(item.uri);
           }
           explorerNotifier.updateSettings((settings) {
             final currentSettings = settings as FileExplorerSettings;
-            final newExpanded = Set<String>.from(
-              currentSettings.expandedFolders,
-            );
+            final newExpanded = Set<String>.from(currentSettings.expandedFolders);
             if (expanded) {
               newExpanded.add(item.uri);
             } else {
@@ -149,14 +159,12 @@ class DirectoryItem extends ConsumerWidget {
             return currentSettings.copyWith(expandedFolders: newExpanded);
           });
         },
-        childrenPadding: EdgeInsets.only(left: (depth > 0 ? 16.0 : 0)),
         children: [
           if (isExpanded)
             Consumer(
               builder: (context, ref, _) {
                 final currentState =
-                    ref.watch(activeExplorerSettingsProvider)
-                        as FileExplorerSettings?;
+                    ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
                 final project =
                     ref.watch(appNotifierProvider).value!.currentProject!;
                 if (currentState == null) return const SizedBox.shrink();
@@ -170,16 +178,30 @@ class DirectoryItem extends ConsumerWidget {
         ],
       );
     } else {
-      // Unchanged file logic
       childWidget = ListTile(
         key: ValueKey(item.uri),
-        contentPadding: EdgeInsets.only(left: (depth) * 16.0 + 16.0),
+        // Use dense property for a generally more compact layout.
+        dense: true,
+        // Set custom padding. The indent for a file is its parent's indent plus one level.
+        contentPadding: EdgeInsets.only(
+          left: currentIndent + _kBaseIndent,
+          top: _kVerticalPadding,
+          bottom: _kVerticalPadding,
+        ),
         leading: FileTypeIcon(file: item),
-        title: Text(item.name, overflow: TextOverflow.ellipsis),
-        subtitle:
-            subtitle != null
-                ? Text(subtitle!, overflow: TextOverflow.ellipsis)
-                : null,
+        // Apply the desired font size.
+        title: Text(
+          item.name,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: _kFontSize),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: _kFontSize - 2),
+              )
+            : null,
         onTap: () async {
           final success = await ref
               .read(appNotifierProvider.notifier)
@@ -199,6 +221,7 @@ class DirectoryItem extends ConsumerWidget {
   }
 }
 
+// RootPlaceholder and FileTypeIcon are unchanged
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
