@@ -169,7 +169,7 @@ class RootDropZone extends ConsumerWidget {
       },
       onWillAccept: (data) {
           talker.info("Root will accept");
-          data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri));
+          return data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri));
       },
       onAccept: (file) {
         talker.info("rooy Accept");
@@ -197,7 +197,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-  late talker;
+  final talker;
   @override
   Widget build(BuildContext context) {
     talker = ref.read(talkerProvider);
@@ -258,7 +258,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         // Use the corrected logic here.
         onWillAccept: (draggedData) {
             talker.info("Will accept : ${widget.item}");
-            draggedData != null && _isDropAllowed(draggedData, widget.item);
+            return draggedData != null && _isDropAllowed(draggedData, widget.item);
         },
         onAccept: (draggedFile) {
           talker.info("On Accept : ${widget.item.name}");
