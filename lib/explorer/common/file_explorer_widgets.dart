@@ -17,18 +17,24 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-// --- REFACTORED: State Management for Dragging ---
-enum FileDragState { idle, dragging, processing }
-final fileDragStateProvider = StateProvider<FileDragState>((ref) => FileDragState.idle);
+final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
-// --- UNCHANGED: Helper Function ---
+// REFACTORED: This function now correctly prevents drops into the same folder.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
+  // A folder can't be dropped into itself.
   if (draggedFile.uri == targetFolder.uri) return false;
+  
+  // A parent folder can't be dropped into one of its own children.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
+  
+  // A file can't be dropped into the folder it's already in.
+  // This is the key fix.
   final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
   if (parentUri == targetFolder.uri) return false;
+  
   return true;
 }
+
 
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
@@ -108,7 +114,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     });
   }
 }
-// --- REFACTORED: RootDropZone now uses the new enum state ---
+
+// NEW WIDGET: A dedicated, visible drop zone for the project root.
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
@@ -117,21 +124,21 @@ class RootDropZone extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        final dragState = ref.watch(fileDragStateProvider);
-        // Only show when actively dragging.
-        if (dragState != FileDragState.dragging) return const SizedBox.shrink();
+        final isDragging = ref.watch(isDraggingFileProvider);
+        if (!isDragging) return const SizedBox.shrink(); // Hide if not dragging
 
+        final isHovered = candidateData.isNotEmpty;
         final canAccept = candidateData.isNotEmpty && _isDropAllowed(candidateData.first!, RootPlaceholder(projectRootUri));
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
-            color: canAccept
+            color: canAccept 
                 ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
                 : Theme.of(context).colorScheme.error.withOpacity(0.2),
             border: Border.all(
-              color: canAccept
+              color: canAccept 
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.error,
               width: 1.5,
@@ -142,33 +149,39 @@ class RootDropZone extends ConsumerWidget {
             children: [
               Icon(
                 Icons.move_up,
-                color: canAccept
+                color: canAccept 
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.error,
               ),
               const SizedBox(width: 8),
-              const Text('Move to Project Root'),
+              Text(
+                'Move to Project Root',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
             ],
           ),
         );
       },
       onWillAccept: (data) => data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri)),
       onAccept: (file) {
-        // FIX: Set state to processing BEFORE calling the async service.
-        ref.read(fileDragStateProvider.notifier).state = FileDragState.processing;
         ref.read(explorerServiceProvider).moveItem(file, RootPlaceholder(projectRootUri));
       },
     );
   }
 }
 
-// --- REFACTORED: DirectoryItem now uses the new enum state ---
+
+// DirectoryItem is largely the same, but its DragTarget now uses the corrected logic.
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
-  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle });
+
+  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
+
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
@@ -188,13 +201,10 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(seconds: 1),
       onDragStarted: () {
-        // FIX: Set state to dragging.
-        ref.read(fileDragStateProvider.notifier).state = FileDragState.dragging;
+        ref.read(isDraggingFileProvider.notifier).state = true;
       },
       onDragEnd: (details) {
-        // FIX: Always set state back to idle, regardless of outcome.
-        // This happens AFTER onAccept has finished.
-        ref.read(fileDragStateProvider.notifier).state = FileDragState.idle;
+        ref.read(isDraggingFileProvider.notifier).state = false;
         if (!details.wasAccepted) {
           showFileContextMenu(context, ref, widget.item);
         }
@@ -219,13 +229,14 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
-          final dragState = ref.watch(fileDragStateProvider);
+          final bool isDragging = ref.watch(isDraggingFileProvider);
           final bool isHovered = candidateData.isNotEmpty;
           
           Color? backgroundColor;
+          // Use the helper to determine if highlighting should occur.
           if (isHovered && _isDropAllowed(candidateData.first!, widget.item)) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
-          } else if (dragState == FileDragState.dragging) {
+          } else if (isDragging) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
@@ -234,10 +245,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             child: childWidget,
           );
         },
+        // Use the corrected logic here.
         onWillAccept: (draggedData) => draggedData != null && _isDropAllowed(draggedData, widget.item),
         onAccept: (draggedFile) {
-          // FIX: Set state to processing BEFORE calling the async service.
-          ref.read(fileDragStateProvider.notifier).state = FileDragState.processing;
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
