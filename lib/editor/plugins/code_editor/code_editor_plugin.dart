@@ -51,8 +51,6 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTab(
       file: file,
       plugin: this,
-      commentFormatter: CodeEditorLogic.getCommentFormatter(file.uri),
-      languageKey: CodeThemes.inferLanguageKey(file.uri),
       initialContent: data as String,
     );
   }
