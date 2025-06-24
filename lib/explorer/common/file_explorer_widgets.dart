@@ -17,11 +17,11 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-import '../../logs/logs_provider.dart';
+// DELETED: This global provider is no longer needed.
+// enum FileDragState { idle, dragging, processing }
+// final fileDragStateProvider = StateProvider<FileDragState>((ref) => FileDragState.idle);
 
-final isDraggingFileProvider = StateProvider<bool>((ref) => false);
-
-// REFACTORED: This function now correctly prevents drops into the same folder.
+// REFACTORED: The final, robust check.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
   // A folder can't be dropped into itself.
   if (draggedFile.uri == targetFolder.uri) return false;
@@ -30,13 +30,11 @@ bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
   
   // A file can't be dropped into the folder it's already in.
-  // This is the key fix.
   final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
   if (parentUri == targetFolder.uri) return false;
   
   return true;
 }
-
 
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
@@ -121,58 +119,42 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
- 
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final talker = ref.read(talkerProvider);
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        final isDragging = ref.watch(isDraggingFileProvider);
-        if (!isDragging) return const SizedBox.shrink(); // Hide if not dragging
-
-        final isHovered = candidateData.isNotEmpty;
+        // The widget is only visible if a valid file is being dragged over it.
         final canAccept = candidateData.isNotEmpty && _isDropAllowed(candidateData.first!, RootPlaceholder(projectRootUri));
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          padding: const EdgeInsets.all(12.0),
-          decoration: BoxDecoration(
-            color: canAccept 
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-                : Theme.of(context).colorScheme.error.withOpacity(0.2),
-            border: Border.all(
-              color: canAccept 
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.error,
-              width: 1.5,
+        // Use AnimatedOpacity for a smoother appearance/disappearance.
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: canAccept ? 1.0 : 0.0,
+          // Ignore pointer events when not visible to allow taps to pass through.
+          child: IgnorePointer(
+            ignoring: !canAccept,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                border: Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.move_up),
+                  SizedBox(width: 8),
+                  Text('Move to Project Root'),
+                ],
+              ),
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.move_up,
-                color: canAccept 
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Move to Project Root',
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
           ),
         );
       },
-      onWillAccept: (data) {
-          talker.info("Root will accept");
-          return data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri));
-      },
+      onWillAccept: (data) => data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri)),
       onAccept: (file) {
-        talker.info("rooy Accept");
         ref.read(explorerServiceProvider).moveItem(file, RootPlaceholder(projectRootUri));
       },
     );
@@ -180,41 +162,38 @@ class RootDropZone extends ConsumerWidget {
 }
 
 
-// DirectoryItem is largely the same, but its DragTarget now uses the corrected logic.
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
-
-  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
-
+  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle });
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
 
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
+  // --- STATE for hover effect ---
+  bool _isHoveredByDraggable = false;
+
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
+  
   @override
   Widget build(BuildContext context) {
-    final talker = ref.read(talkerProvider);
-    final itemContent = _buildItemContent(talker);
+    final itemContent = _buildItemContent();
+
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(seconds: 1),
-      onDragStarted: () {
-        ref.read(isDraggingFileProvider.notifier).state = true;
-        talker.info("Drag start : ${widget.item.name}");
-      },
+      // No onDragStarted needed anymore.
       onDragEnd: (details) {
-        talker.info("Drag end : ${widget.item.name}");
-        ref.read(isDraggingFileProvider.notifier).state = false;
+        // This logic is now correct. It fires if the drop was not on a
+        // valid, different folder.
         if (!details.wasAccepted) {
-          talker.info("Drag end accepted : ${widget.item.name}");
           showFileContextMenu(context, ref, widget.item);
         }
       },
@@ -230,7 +209,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     );
   }
   
-  Widget _buildItemContent(Talker talker) {
+  Widget _buildItemContent() {
     Widget childWidget = widget.item.isDirectory
         ? _buildDirectoryTile()
         : _buildFileTile();
@@ -238,15 +217,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
-          final bool isDragging = ref.watch(isDraggingFileProvider);
-          final bool isHovered = candidateData.isNotEmpty;
+          // The hover state is now managed locally.
+          final isHovered = _isHoveredByDraggable;
           
           Color? backgroundColor;
-          // Use the helper to determine if highlighting should occur.
-          if (isHovered && _isDropAllowed(candidateData.first!, widget.item)) {
+          if (isHovered) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
-          } else if (isDragging) {
-            backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
           return Container(
@@ -254,13 +230,26 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             child: childWidget,
           );
         },
-        // Use the corrected logic here.
+        // Check if the drop is allowed AND the target is not already hovered.
         onWillAccept: (draggedData) {
-            talker.info("Will accept : ${widget.item}");
-            return draggedData != null && _isDropAllowed(draggedData, widget.item);
+          if (draggedData == null || !_isDropAllowed(draggedData, widget.item)) {
+            return false;
+          }
+          setState(() {
+            _isHoveredByDraggable = true;
+          });
+          return true;
+        },
+        // When the draggable leaves the target area.
+        onLeave: (draggedData) {
+          setState(() {
+            _isHoveredByDraggable = false;
+          });
         },
         onAccept: (draggedFile) {
-          talker.info("On Accept : ${widget.item.name}");
+          setState(() {
+            _isHoveredByDraggable = false;
+          });
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
