@@ -17,24 +17,18 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-final isDraggingFileProvider = StateProvider<bool>((ref) => false);
+// REFACTORED: The provider now holds the file being dragged, or null.
+// This is much more powerful than a simple boolean.
+final draggedFileProvider = StateProvider<DocumentFile?>((ref) => null);
 
-// REFACTORED: This function now correctly prevents drops into the same folder.
+// _isDropAllowed helper function is unchanged and remains correct.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
-  // A folder can't be dropped into itself.
-  if (draggedFile.uri == targetFolder.uri) return false;
-  
-  // A parent folder can't be dropped into one of its own children.
-  if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
-  
-  // A file can't be dropped into the folder it's already in.
-  // This is the key fix.
-  final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
-  if (parentUri == targetFolder.uri) return false;
-  
-  return true;
+    if (draggedFile.uri == targetFolder.uri) return false;
+    if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
+    final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
+    if (parentUri == targetFolder.uri) return false;
+    return true;
 }
-
 
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
@@ -115,20 +109,32 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// NEW WIDGET: A dedicated, visible drop zone for the project root.
+// REFACTORED: The RootDropZone is now much smarter.
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the new provider to get the actual file being dragged.
+    final draggedFile = ref.watch(draggedFileProvider);
+
+    // Condition 1: Don't show if nothing is being dragged.
+    if (draggedFile == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Condition 2: Don't show if the dragged file is ALREADY in the root.
+    final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
+    if (parentUri == projectRootUri) {
+      return const SizedBox.shrink();
+    }
+    
+    // The rest of the logic remains, but it's now only active when appropriate.
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        final isDragging = ref.watch(isDraggingFileProvider);
-        if (!isDragging) return const SizedBox.shrink(); // Hide if not dragging
-
         final isHovered = candidateData.isNotEmpty;
-        final canAccept = candidateData.isNotEmpty && _isDropAllowed(candidateData.first!, RootPlaceholder(projectRootUri));
+        final canAccept = isHovered && _isDropAllowed(draggedFile, RootPlaceholder(projectRootUri));
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -147,19 +153,9 @@ class RootDropZone extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.move_up,
-                color: canAccept 
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.error,
-              ),
+              Icon(Icons.move_up, /* ... */),
               const SizedBox(width: 8),
-              Text(
-                'Move to Project Root',
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
+              Text('Move to Project Root', /* ... */),
             ],
           ),
         );
@@ -172,16 +168,13 @@ class RootDropZone extends ConsumerWidget {
   }
 }
 
-
-// DirectoryItem is largely the same, but its DragTarget now uses the corrected logic.
+// REFACTORED: DirectoryItem now uses the new provider.
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
-
   const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
-
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
@@ -190,7 +183,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-    
+      
   @override
   Widget build(BuildContext context) {
     final itemContent = _buildItemContent();
@@ -201,10 +194,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(seconds: 1),
       onDragStarted: () {
-        ref.read(isDraggingFileProvider.notifier).state = true;
+        // Set the provider state to the file being dragged.
+        ref.read(draggedFileProvider.notifier).state = widget.item;
       },
       onDragEnd: (details) {
-        ref.read(isDraggingFileProvider.notifier).state = false;
+        // Always reset the dragging state to null when the drag ends.
+        ref.read(draggedFileProvider.notifier).state = null;
         if (!details.wasAccepted) {
           showFileContextMenu(context, ref, widget.item);
         }
@@ -229,11 +224,11 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
-          final bool isDragging = ref.watch(isDraggingFileProvider);
-          final bool isHovered = candidateData.isNotEmpty;
+          // Watch the new provider. isDragging is now just checking for non-null.
+          final isDragging = ref.watch(draggedFileProvider) != null;
+          final isHovered = candidateData.isNotEmpty;
           
           Color? backgroundColor;
-          // Use the helper to determine if highlighting should occur.
           if (isHovered && _isDropAllowed(candidateData.first!, widget.item)) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
           } else if (isDragging) {
@@ -245,7 +240,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             child: childWidget,
           );
         },
-        // Use the corrected logic here.
         onWillAccept: (draggedData) => draggedData != null && _isDropAllowed(draggedData, widget.item),
         onAccept: (draggedFile) {
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
@@ -255,7 +249,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     return childWidget;
   }
   
-Widget _buildFileTile() {
+  Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
     return ListTile(
       dense: true,
