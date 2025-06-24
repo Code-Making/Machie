@@ -84,8 +84,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
 
     final appBarOverride = appState?.appBarOverride;
 
-    return SafeArea(
-      child: Scaffold(
+    return Scaffold(
       // REFACTOR: Use the stateful key instance.
       key: _scaffoldKey,
       appBar:
@@ -122,7 +121,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),
         ],
-      ),
       ),
     );
   }
