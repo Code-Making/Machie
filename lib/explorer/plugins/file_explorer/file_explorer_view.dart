@@ -32,6 +32,7 @@ class FileExplorerView extends ConsumerWidget {
             state: fileExplorerState,
           ),
         ),
+        RootDropZone(projectRootUri: project.rootUri),
         FileOperationsFooter(projectRootUri: project.rootUri),
       ],
     );

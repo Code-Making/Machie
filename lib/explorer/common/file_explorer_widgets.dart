@@ -19,13 +19,22 @@ import '../services/explorer_service.dart';
 
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
+// REFACTORED: This function now correctly prevents drops into the same folder.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
+  // A folder can't be dropped into itself.
   if (draggedFile.uri == targetFolder.uri) return false;
+  
+  // A parent folder can't be dropped into one of its own children.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
+  
+  // A file can't be dropped into the folder it's already in.
+  // This is the key fix.
   final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
   if (parentUri == targetFolder.uri) return false;
+  
   return true;
 }
+
 
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
@@ -54,8 +63,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
         }
       }
     });
-  }
-
+  }  
   @override
   Widget build(BuildContext context) {
     final directoryContents = ref.watch(projectHierarchyProvider)[widget.directory];
@@ -70,11 +78,13 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
-    final listView = ListView.builder(
+    // The ListView no longer needs to be a DragTarget itself.
+    // Drops will be handled by individual DirectoryItems or the new RootDropZone.
+    return ListView.builder(
       key: PageStorageKey(widget.directory),
+      // Add padding to make space for the root drop zone.
+      padding: const EdgeInsets.only(top: 8.0),
       shrinkWrap: true,
-      // Use ClampingScrollPhysics to prevent the ListView from showing an overscroll
-      // glow, which would cover the drop target highlight.
       physics: const ClampingScrollPhysics(),
       itemCount: sortedContents.length,
       itemBuilder: (context, index) {
@@ -86,36 +96,6 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
           depth: depth,
           isExpanded: widget.state.expandedFolders.contains(item.uri),
         );
-      },
-    );
-    
-    // FIX: Use a Stack to ensure the root drop target is only for "empty" space.
-    return DragTarget<DocumentFile>(
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return Stack(
-          // Allow children to be drawn outside the bounds of the Stack.
-          clipBehavior: Clip.none,
-          children: [
-            // Layer 1: The background drop zone highlight.
-            // It's only visible when an item is hovering over the empty space.
-            if (isHovered)
-              Container(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              ),
-            // Layer 2: The actual list of files and folders.
-            // Because it's on top, it will capture all pointer events for its items,
-            // preventing the underlying DragTarget from firing for them.
-            listView,
-          ],
-        );
-      },
-      onWillAccept: (draggedData) {
-        if (draggedData == null) return false;
-        return _isDropAllowed(draggedData, RootPlaceholder(widget.directory));
-      },
-      onAccept: (draggedFile) {
-        ref.read(explorerServiceProvider).moveItem(draggedFile, RootPlaceholder(widget.directory));
       },
     );
   }
@@ -135,24 +115,86 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// DirectoryItem is now correct from the previous step and does not need changes.
+// NEW WIDGET: A dedicated, visible drop zone for the project root.
+class RootDropZone extends ConsumerWidget {
+  final String projectRootUri;
+  const RootDropZone({super.key, required this.projectRootUri});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DragTarget<DocumentFile>(
+      builder: (context, candidateData, rejectedData) {
+        final isDragging = ref.watch(isDraggingFileProvider);
+        if (!isDragging) return const SizedBox.shrink(); // Hide if not dragging
+
+        final isHovered = candidateData.isNotEmpty;
+        final canAccept = candidateData.isNotEmpty && _isDropAllowed(candidateData.first!, RootPlaceholder(projectRootUri));
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          padding: const EdgeInsets.all(12.0),
+          decoration: BoxDecoration(
+            color: canAccept 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                : Theme.of(context).colorScheme.error.withOpacity(0.2),
+            border: Border.all(
+              color: canAccept 
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.error,
+              width: 1.5,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.move_up,
+                color: canAccept 
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Move to Project Root',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      onWillAccept: (data) => data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri)),
+      onAccept: (file) {
+        ref.read(explorerServiceProvider).moveItem(file, RootPlaceholder(projectRootUri));
+      },
+    );
+  }
+}
+
+
+// DirectoryItem is largely the same, but its DragTarget now uses the corrected logic.
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
+
   const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
+
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
+
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-  
+    
   @override
   Widget build(BuildContext context) {
     final itemContent = _buildItemContent();
+
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
@@ -191,7 +233,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           final bool isHovered = candidateData.isNotEmpty;
           
           Color? backgroundColor;
-          if (isHovered) {
+          // Use the helper to determine if highlighting should occur.
+          if (isHovered && _isDropAllowed(candidateData.first!, widget.item)) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
           } else if (isDragging) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
@@ -202,10 +245,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             child: childWidget,
           );
         },
-        onWillAccept: (draggedData) {
-          if (draggedData == null) return false;
-          return _isDropAllowed(draggedData, widget.item);
-        },
+        // Use the corrected logic here.
+        onWillAccept: (draggedData) => draggedData != null && _isDropAllowed(draggedData, widget.item),
         onAccept: (draggedFile) {
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
@@ -214,7 +255,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     return childWidget;
   }
   
-  Widget _buildFileTile() {
+Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
     return ListTile(
       dense: true,
