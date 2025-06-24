@@ -104,10 +104,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || _displayImage == null) return;
-
-    final byteData = await _displayImage!.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
+    
+    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) return;
 
     final editorService = ref.read(editorServiceProvider);
@@ -116,13 +114,20 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       bytes: byteData.buffer.asUint8List(),
     );
 
-    // If save was successful, update the "original" image for future resets.
+    // If save was successful, call the public method to update the internal state.
     if (success && mounted) {
-      _originalImage?.dispose();
-      setState(() {
-        _originalImage = _displayImage!.clone();
-      });
+      updateOriginalImage();
     }
+  }
+
+  // NEW: Public method for the command to call.
+  void updateOriginalImage() {
+    if (_displayImage == null) return;
+    // This correctly mutates the widget's internal state.
+    setState(() {
+      _originalImage?.dispose();
+      _originalImage = _displayImage!.clone();
+    });
   }
 
   Future<void> saveAs() async {
