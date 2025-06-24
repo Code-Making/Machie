@@ -39,7 +39,98 @@ class GlitchToolbar extends ConsumerWidget {
                 ),
               ],
             ),
-            // ... (rest of the toolbar UI is unchanged) ...
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildDropdown(
+                  'Brush Type',
+                  settings.type,
+                  GlitchBrushType.values,
+                  (v) => notifier.state = settings.copyWith(type: v),
+                ),
+                _buildIconButton(
+                  'Brush Shape',
+                  settings.shape == GlitchBrushShape.circle
+                      ? Icons.circle_outlined
+                      : Icons.square_outlined,
+                  () {
+                    final newShape =
+                        settings.shape == GlitchBrushShape.circle
+                            ? GlitchBrushShape.square
+                            : GlitchBrushShape.circle;
+                    notifier.state = settings.copyWith(shape: newShape);
+                  },
+                ),
+              ],
+            ),
+            _buildSliderRow(
+              context,
+              ref,
+              'Brush Size',
+              value: settings.radius * 100,
+              min: 1,
+              max: 50,
+              onChanged:
+                  (v) => notifier.state = settings.copyWith(radius: v / 100),
+            ),
+            if (settings.type == GlitchBrushType.scatter) ...[
+              _buildSliderRow(
+                context,
+                ref,
+                'Min Block Size',
+                value: settings.minBlockSize,
+                min: 1,
+                max: 50,
+                onChanged:
+                    (v) =>
+                        notifier.state = settings.copyWith(
+                          minBlockSize:
+                              v > settings.maxBlockSize
+                                  ? settings.maxBlockSize
+                                  : v,
+                        ),
+              ),
+              _buildSliderRow(
+                context,
+                ref,
+                'Max Block Size',
+                value: settings.maxBlockSize,
+                min: 1,
+                max: 50,
+                onChanged:
+                    (v) =>
+                        notifier.state = settings.copyWith(
+                          maxBlockSize:
+                              v < settings.minBlockSize
+                                  ? settings.minBlockSize
+                                  : v,
+                        ),
+              ),
+              _buildSliderRow(
+                context,
+                ref,
+                'Density',
+                value: settings.frequency * 100,
+                min: 1,
+                max: 100,
+                onChanged:
+                    (v) =>
+                        notifier.state = settings.copyWith(frequency: v / 100),
+              ),
+            ],
+            if (settings.type == GlitchBrushType.repeater)
+              _buildSliderRow(
+                context,
+                ref,
+                'Repeat Spacing',
+                value: settings.frequency * 100,
+                min: 1,
+                max: 100,
+                onChanged:
+                    (v) =>
+                        notifier.state = settings.copyWith(frequency: v / 100),
+              ),
           ],
         ),
       ),
