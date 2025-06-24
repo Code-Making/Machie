@@ -7,15 +7,11 @@ import '../../../data/file_handler/file_handler.dart';
 
 @immutable
 class CodeEditorTab extends EditorTab {
-  final CodeCommentFormatter commentFormatter;
-  final String? languageKey;
   final String initialContent;
 
   CodeEditorTab({
     required super.file,
     required super.plugin,
-    required this.commentFormatter,
-    this.languageKey,
     required this.initialContent,
   });
 
@@ -26,15 +22,11 @@ class CodeEditorTab extends EditorTab {
   CodeEditorTab copyWith({
     DocumentFile? file,
     EditorPlugin? plugin,
-    CodeCommentFormatter? commentFormatter,
-    String? languageKey,
     String? initialContent,
   }) {
     return CodeEditorTab(
       file: file ?? this.file,
       plugin: plugin ?? this.plugin,
-      commentFormatter: commentFormatter ?? this.commentFormatter,
-      languageKey: languageKey ?? this.languageKey,
       initialContent: initialContent ?? this.initialContent,
     );
   }
@@ -44,7 +36,6 @@ class CodeEditorTab extends EditorTab {
     'type': 'code',
     'fileUri': file.uri,
     'pluginType': plugin.runtimeType.toString(),
-    'languageKey': languageKey,
   };
 }
 

@@ -39,6 +39,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   
   CodeLinePosition? _markPosition;
   _BracketHighlightState _bracketHighlightState = const _BracketHighlightState();
+ 
+ late CodeCommentFormatter _commentFormatter;
+ late String? _languageKey;
 
   // --- PUBLIC PROPERTIES (for the command system) ---
   bool get isDirty => ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
@@ -51,8 +54,10 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     super.initState();
     _focusNode = FocusNode();
     
-    // The widget creates and owns its controller, initializing it with
-    // the content passed via the tab model.
+    // Initialize the internal state from the tab's file URI.
+    _languageKey = CodeThemes.inferLanguageKey(widget.tab.file.uri);
+    _commentFormatter = CodeEditorLogic.getCommentFormatter(widget.tab.file.uri);
+
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
@@ -108,7 +113,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
   
   void toggleComments() {
-    final formatted = widget.tab.commentFormatter.format(
+    final formatted = _commentFormatter.format(
       controller.value,
       controller.options.indent,
       true,
@@ -142,6 +147,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (selectedLanguageKey != null) {
       final updatedTab = widget.tab.copyWith(languageKey: selectedLanguageKey);
       ref.read(editorServiceProvider).updateCurrentTabModel(updatedTab);
+      setState(() {
+        _languageKey = selectedLanguageKey;
+      });
     }
   }
 
@@ -283,7 +291,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   @override
   Widget build(BuildContext context) {
     final codeEditorSettings = ref.watch(settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?));
-    final currentLanguageKey = widget.tab.languageKey;
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     return Focus(
@@ -291,7 +298,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       autofocus: true,
       child: CodeEditor(
         controller: controller,
-        commentFormatter: widget.tab.commentFormatter,
+        commentFormatter: _commentFormatter,
         indicatorBuilder: (context, editingController, chunkController, notifier) {
           return CustomEditorIndicator(
             controller: editingController,
@@ -305,7 +312,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           codeTheme: CodeHighlightTheme(
             theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? CodeThemes.availableCodeThemes['Atom One Dark']!,
-            languages: CodeThemes.getHighlightThemeMode(currentLanguageKey),
+            languages: CodeThemes.getHighlightThemeMode(_languageKey),
           ),
         ),
         wordWrap: codeEditorSettings?.wordWrap ?? false,
