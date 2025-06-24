@@ -309,7 +309,32 @@ class EditorService {
       ),
     );
   }
+  
+  // RE-INTRODUCED: A clean method to handle the logic of updating a tab's file property.
+  Project updateTabForRenamedFile(Project project, String oldUri, DocumentFile newFile) {
+    final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
+    if (tabIndex == -1) {
+      // If the tab wasn't found, no change is needed.
+      return project;
+    }
 
+    final oldTab = project.session.tabs[tabIndex];
+    // Create a new tab instance with the updated file.
+    final newTab = oldTab.copyWith(file: newFile);
+
+    // Create a new list of tabs with the updated one.
+    final newTabs = List<EditorTab>.from(project.session.tabs);
+    newTabs[tabIndex] = newTab;
+
+    // The key synchronization step: re-key the metadata provider.
+    // The "hot" state manager is gone, so we only need to do this for metadata.
+    _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
+    
+    // Return a new project instance with the updated tab list.
+    return project.copyWith(
+      session: project.session.copyWith(tabs: newTabs),
+    );
+  }
 }
 
 @immutable

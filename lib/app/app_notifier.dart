@@ -73,7 +73,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
-void _handleFileOperationEvent(FileOperationEvent event) {
+  /// Handles events published by the ProjectRepository to keep the UI in sync.
+  void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
     
@@ -82,22 +83,10 @@ void _handleFileOperationEvent(FileOperationEvent event) {
         break;
         
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-        // Find the index of the tab with the old URI.
-        final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldFile.uri);
-        if (tabIndex != -1) {
-          final oldTab = project.session.tabs[tabIndex];
-          // Create a new tab instance with the updated file.
-          final newTab = oldTab.copyWith(file: newFile);
-          
-          // Create a new list of tabs with the updated one.
-          final newTabs = List<EditorTab>.from(project.session.tabs);
-          newTabs[tabIndex] = newTab;
-          
-          // Update the project state. The UI will reactively rebuild the tab bar title,
-          // and the Editor widget will receive the new tab in `didUpdateWidget`.
-          final newProject = project.copyWith(
-            session: project.session.copyWith(tabs: newTabs)
-          );
+        // FIX: Delegate the logic to the EditorService for consistency.
+        final newProject = _editorService.updateTabForRenamedFile(project, oldFile.uri, newFile);
+        // Only update state if the project actually changed.
+        if (newProject != project) {
           _updateStateSync((s) => s.copyWith(currentProject: newProject));
         }
         break;
