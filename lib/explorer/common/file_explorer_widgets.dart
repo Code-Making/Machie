@@ -19,8 +19,6 @@ import '../services/explorer_service.dart';
 
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
-// DirectoryView is unchanged.
-// DirectoryView remains unchanged as it just passes data down.
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
@@ -97,8 +95,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// REFACTORED: This widget now uses LongPressDraggable and a custom gesture detector.
-class DirectoryItem extends ConsumerStatefulWidget {
+// REFACTORED: This widget is now simpler and uses onDragEnd for the context menu.
+class DirectoryItem extends ConsumerWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
@@ -112,94 +110,64 @@ class DirectoryItem extends ConsumerStatefulWidget {
     this.subtitle,
   });
 
-  @override
-  ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
-}
-
-class _DirectoryItemState extends ConsumerState<DirectoryItem> {
-  // --- STATE for Gesture Handling ---
-  Timer? _longPressTimer;
-  bool _isDragStarted = false;
-
   // --- STYLING CONSTANTS ---
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-  
-  void _startLongPressTimer(BuildContext context) {
-    // If a drag hasn't started after 300ms, show the context menu.
-    _longPressTimer = Timer(const Duration(milliseconds: 300), () {
-      if (!_isDragStarted) {
-        showFileContextMenu(context, ref, widget.item);
-      }
-    });
-  }
-
-  void _cancelLongPressTimer() {
-    _longPressTimer?.cancel();
-  }
-  
-  @override
-  void dispose() {
-    _cancelLongPressTimer();
-    super.dispose();
-  }
 
   @override
-  Widget build(BuildContext context) {
-    final itemContent = _buildItemContent(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The core UI widget (ListTile or ExpansionTile)
+    final Widget itemContent = _buildItemContent(context, ref);
 
-    // Use LongPressDraggable for delayed dragging that doesn't conflict with scrolling.
+    // Use LongPressDraggable to handle both dragging and the release-in-place context menu.
     return LongPressDraggable<DocumentFile>(
-      data: widget.item,
+      data: item,
       feedback: _buildDragFeedback(context),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
-      // Delay before a drag starts. This allows for scrolling.
-      delay: const Duration(milliseconds: 200),
+      // Set the delay to 1 second as requested.
+      delay: const Duration(seconds: 1),
       onDragStarted: () {
-        _isDragStarted = true;
-        _cancelLongPressTimer(); // A drag has started, so don't show the menu.
         ref.read(isDraggingFileProvider.notifier).state = true;
       },
+      // This is the key to the new logic.
       onDragEnd: (details) {
+        // Always reset the dragging state.
         ref.read(isDraggingFileProvider.notifier).state = false;
-        _isDragStarted = false;
+        
+        // If the drag was NOT accepted by a target, it means the user
+        // either cancelled it or held and released in place.
+        // In both cases, we show the context menu.
+        if (!details.wasAccepted) {
+          showFileContextMenu(context, ref, item);
+        }
       },
       // The actual widget shown in the list.
-      // We wrap it in a GestureDetector to handle taps and the initial long press.
+      // We only need a GestureDetector for taps on files.
       child: GestureDetector(
-        // This makes the entire row tappable, not just the text.
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.item.isDirectory ? null : () async {
-          final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(widget.item);
-          if (success && mounted) {
+        onTap: item.isDirectory ? null : () async {
+          final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
+          if (success && context.mounted) {
             Navigator.of(context).pop();
           }
         },
-        // Start the timer when the user presses and holds.
-        onLongPressStart: (_) => _startLongPressTimer(context),
-        // If the user lifts their finger, cancel the timer.
-        onLongPressEnd: (_) => _cancelLongPressTimer(),
-        // If the user moves their finger while holding, it's a drag, so cancel.
-        onLongPressMoveUpdate: (_) => _cancelLongPressTimer(),
         child: itemContent,
       ),
     );
   }
-  
-  Widget _buildItemContent(BuildContext context) {
-    // ... This method is now simplified as it doesn't need its own GestureDetector ...
-    // ... It now correctly uses `widget.` to access properties ...
 
+  /// Builds the main content and wraps it in a DragTarget if it's a directory.
+  Widget _buildItemContent(BuildContext context, WidgetRef ref) {
     Widget childWidget;
 
-    if (widget.item.isDirectory) {
-      childWidget = _buildDirectoryTile(context);
+    if (item.isDirectory) {
+      childWidget = _buildDirectoryTile(context, ref);
     } else {
       childWidget = _buildFileTile(context);
     }
     
-    if (widget.item.isDirectory) {
+    // Wrap directory items in a DragTarget.
+    if (item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
           final bool isDragging = ref.watch(isDraggingFileProvider);
@@ -209,6 +177,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           if (isHovered) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
           } else if (isDragging) {
+            // Only highlight non-hovered targets if a drag is in progress.
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
@@ -219,12 +188,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         },
         onWillAccept: (draggedData) {
           if (draggedData == null) return false;
-          if (draggedData.uri == widget.item.uri) return false;
-          if (widget.item.uri.startsWith(draggedData.uri)) return false;
+          if (draggedData.uri == item.uri) return false;
+          if (item.uri.startsWith(draggedData.uri)) return false;
           return true;
         },
         onAccept: (draggedFile) {
-          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
+          ref.read(explorerServiceProvider).moveItem(draggedFile, item);
         },
       );
     }
@@ -233,7 +202,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
   
   Widget _buildFileTile(BuildContext context) {
-    final double currentIndent = widget.depth * _kBaseIndent;
+    final double currentIndent = depth * _kBaseIndent;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.only(
@@ -241,18 +210,18 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         top: _kVerticalPadding,
         bottom: _kVerticalPadding,
       ),
-      leading: FileTypeIcon(file: widget.item),
-      title: Text(widget.item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize)),
-      subtitle: widget.subtitle != null
-          ? Text(widget.subtitle!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize - 2))
+      leading: FileTypeIcon(file: item),
+      title: Text(item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: subtitle != null
+          ? Text(subtitle!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize - 2))
           : null,
     );
   }
   
-  Widget _buildDirectoryTile(BuildContext context) {
-    final double currentIndent = widget.depth * _kBaseIndent;
+  Widget _buildDirectoryTile(BuildContext context, WidgetRef ref) {
+    final double currentIndent = depth * _kBaseIndent;
     return ExpansionTile(
-      key: PageStorageKey<String>(widget.item.uri),
+      key: PageStorageKey<String>(item.uri),
       tilePadding: EdgeInsets.only(
         left: currentIndent,
         right: 8.0,
@@ -261,38 +230,38 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       ),
       childrenPadding: EdgeInsets.zero,
       leading: Icon(
-        widget.isExpanded ? Icons.folder_open : Icons.folder,
+        isExpanded ? Icons.folder_open : Icons.folder,
         color: Colors.yellow.shade700,
       ),
-      title: Text(widget.item.name, style: const TextStyle(fontSize: _kFontSize)),
-      subtitle: widget.subtitle != null
-          ? Text(widget.subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
+      title: Text(item.name, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: subtitle != null
+          ? Text(subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
           : null,
-      initiallyExpanded: widget.isExpanded,
+      initiallyExpanded: isExpanded,
       onExpansionChanged: (expanded) {
         if (expanded) {
-          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.item.uri);
+          ref.read(projectHierarchyProvider.notifier).loadDirectory(item.uri);
         }
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
           final newExpanded = Set<String>.from(currentSettings.expandedFolders);
           if (expanded) {
-            newExpanded.add(widget.item.uri);
+            newExpanded.add(item.uri);
           } else {
-            newExpanded.remove(widget.item.uri);
+            newExpanded.remove(item.uri);
           }
           return currentSettings.copyWith(expandedFolders: newExpanded);
         });
       },
       children: [
-        if (widget.isExpanded)
+        if (isExpanded)
           Consumer(
             builder: (context, ref, _) {
               final currentState = ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
               final project = ref.watch(appNotifierProvider).value!.currentProject!;
               if (currentState == null) return const SizedBox.shrink();
               return DirectoryView(
-                directory: widget.item.uri,
+                directory: item.uri,
                 projectRootUri: project.rootUri,
                 state: currentState,
               );
@@ -310,9 +279,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         child: ListTile(
-          leading: FileTypeIcon(file: widget.item),
+          leading: FileTypeIcon(file: item),
           title: Text(
-            widget.item.name,
+            item.name,
             style: const TextStyle(fontSize: _kFontSize, color: Colors.white),
             overflow: TextOverflow.ellipsis,
           ),
