@@ -16,7 +16,17 @@ class GlitchToolbar extends ConsumerWidget {
     final settings = ref.watch(plugin.brushSettingsProvider);
     final notifier = ref.read(plugin.brushSettingsProvider.notifier);
 
-    return Container(
+    return Material(
+      // We can make it slightly transparent to hint at the content behind it.
+      color: Theme.of(context).bottomAppBarTheme.color?.withOpacity(0.95),
+      elevation: 4.0, // Add a slight shadow to lift it off the content.
+      child: Container(
+        height: 220,
+        // The color is now on the Material widget, so we remove it from here.
+        // color: Theme.of(context).bottomAppBarTheme.color?.withAlpha(240),
+        padding: const EdgeInsets.all(8.0),
+        child: SingleChildScrollView(
+          child: Container(
       height: 220,
       color: Theme.of(context).bottomAppBarTheme.color?.withAlpha(240),
       padding: const EdgeInsets.all(8.0),
@@ -133,7 +143,7 @@ class GlitchToolbar extends ConsumerWidget {
               ),
           ],
         ),
-      ),
+      ),),),
     );
   }
 
