@@ -1,7 +1,7 @@
 // lib/explorer/common/file_explorer_widgets.dart
-import 'dart:async'; // NEW IMPORT for Timer
+import 'dart:async';
 import 'package:collection/collection.dart';
-import 'package:flutter/gestures.dart'; // NEW IMPORT for DragUpdateDetails
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,8 +17,27 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
+/// Provider to track the global dragging state for UI feedback.
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
+/// Centralizes the logic for whether a drop is allowed on a target.
+bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
+  // A folder can't be dropped into itself.
+  if (draggedFile.uri == targetFolder.uri) return false;
+  
+  // A parent folder can't be dropped into one of its own children.
+  if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
+  
+  // A file can't be dropped into the folder it's already in.
+  // This is the key check that allows the context menu to appear on release-in-place.
+  final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
+  if (parentUri == targetFolder.uri) return false;
+  
+  return true;
+}
+
+/// A widget that displays the contents of a single directory level and
+/// acts as a drop target for that level.
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
@@ -62,7 +81,7 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
-    return ListView.builder(
+    final listView = ListView.builder(
       key: PageStorageKey(widget.directory),
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
@@ -76,6 +95,30 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
           depth: depth,
           isExpanded: widget.state.expandedFolders.contains(item.uri),
         );
+      },
+    );
+    
+    // Wrap the view in a DragTarget to allow dropping into the currently viewed directory.
+    return DragTarget<DocumentFile>(
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+        return Stack(
+          children: [
+            if (isHovered)
+              Container(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              ),
+            listView,
+          ],
+        );
+      },
+      onWillAccept: (draggedData) {
+        if (draggedData == null) return false;
+        // Use the helper to check if the drop is valid on this directory.
+        return _isDropAllowed(draggedData, RootPlaceholder(widget.directory));
+      },
+      onAccept: (draggedFile) {
+        ref.read(explorerServiceProvider).moveItem(draggedFile, RootPlaceholder(widget.directory));
       },
     );
   }
@@ -95,59 +138,48 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// REFACTORED: This widget is now simpler and uses onDragEnd for the context menu.
-class DirectoryItem extends ConsumerWidget {
+/// A single item in the file explorer, handling its own gestures for
+/// tapping, dragging, and dropping.
+class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
 
-  const DirectoryItem({
-    super.key,
-    required this.item,
-    required this.depth,
-    required this.isExpanded,
-    this.subtitle,
-  });
+  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
 
+  @override
+  ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
+}
+
+class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   // --- STYLING CONSTANTS ---
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-
+  
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // The core UI widget (ListTile or ExpansionTile)
-    final Widget itemContent = _buildItemContent(context, ref);
+  Widget build(BuildContext context) {
+    final itemContent = _buildItemContent();
 
-    // Use LongPressDraggable to handle both dragging and the release-in-place context menu.
     return LongPressDraggable<DocumentFile>(
-      data: item,
-      feedback: _buildDragFeedback(context),
+      data: widget.item,
+      feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
-      // Set the delay to 1 second as requested.
       delay: const Duration(seconds: 1),
       onDragStarted: () {
         ref.read(isDraggingFileProvider.notifier).state = true;
       },
-      // This is the key to the new logic.
       onDragEnd: (details) {
-        // Always reset the dragging state.
         ref.read(isDraggingFileProvider.notifier).state = false;
-        
-        // If the drag was NOT accepted by a target, it means the user
-        // either cancelled it or held and released in place.
-        // In both cases, we show the context menu.
         if (!details.wasAccepted) {
-          showFileContextMenu(context, ref, item);
+          showFileContextMenu(context, ref, widget.item);
         }
       },
-      // The actual widget shown in the list.
-      // We only need a GestureDetector for taps on files.
       child: GestureDetector(
-        onTap: item.isDirectory ? null : () async {
-          final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
-          if (success && context.mounted) {
+        onTap: widget.item.isDirectory ? null : () async {
+          final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(widget.item);
+          if (success && mounted) {
             Navigator.of(context).pop();
           }
         },
@@ -155,19 +187,13 @@ class DirectoryItem extends ConsumerWidget {
       ),
     );
   }
-
-  /// Builds the main content and wraps it in a DragTarget if it's a directory.
-  Widget _buildItemContent(BuildContext context, WidgetRef ref) {
-    Widget childWidget;
-
-    if (item.isDirectory) {
-      childWidget = _buildDirectoryTile(context, ref);
-    } else {
-      childWidget = _buildFileTile(context);
-    }
+  
+  Widget _buildItemContent() {
+    Widget childWidget = widget.item.isDirectory
+        ? _buildDirectoryTile()
+        : _buildFileTile();
     
-    // Wrap directory items in a DragTarget.
-    if (item.isDirectory) {
+    if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
           final bool isDragging = ref.watch(isDraggingFileProvider);
@@ -177,7 +203,6 @@ class DirectoryItem extends ConsumerWidget {
           if (isHovered) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
           } else if (isDragging) {
-            // Only highlight non-hovered targets if a drag is in progress.
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
@@ -188,12 +213,10 @@ class DirectoryItem extends ConsumerWidget {
         },
         onWillAccept: (draggedData) {
           if (draggedData == null) return false;
-          if (draggedData.uri == item.uri) return false;
-          if (item.uri.startsWith(draggedData.uri)) return false;
-          return true;
+          return _isDropAllowed(draggedData, widget.item);
         },
         onAccept: (draggedFile) {
-          ref.read(explorerServiceProvider).moveItem(draggedFile, item);
+          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
     }
@@ -201,8 +224,8 @@ class DirectoryItem extends ConsumerWidget {
     return childWidget;
   }
   
-  Widget _buildFileTile(BuildContext context) {
-    final double currentIndent = depth * _kBaseIndent;
+  Widget _buildFileTile() {
+    final double currentIndent = widget.depth * _kBaseIndent;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.only(
@@ -210,18 +233,18 @@ class DirectoryItem extends ConsumerWidget {
         top: _kVerticalPadding,
         bottom: _kVerticalPadding,
       ),
-      leading: FileTypeIcon(file: item),
-      title: Text(item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize)),
-      subtitle: subtitle != null
-          ? Text(subtitle!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize - 2))
+      leading: FileTypeIcon(file: widget.item),
+      title: Text(widget.item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: widget.subtitle != null
+          ? Text(widget.subtitle!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize - 2))
           : null,
     );
   }
   
-  Widget _buildDirectoryTile(BuildContext context, WidgetRef ref) {
-    final double currentIndent = depth * _kBaseIndent;
+  Widget _buildDirectoryTile() {
+    final double currentIndent = widget.depth * _kBaseIndent;
     return ExpansionTile(
-      key: PageStorageKey<String>(item.uri),
+      key: PageStorageKey<String>(widget.item.uri),
       tilePadding: EdgeInsets.only(
         left: currentIndent,
         right: 8.0,
@@ -230,38 +253,38 @@ class DirectoryItem extends ConsumerWidget {
       ),
       childrenPadding: EdgeInsets.zero,
       leading: Icon(
-        isExpanded ? Icons.folder_open : Icons.folder,
+        widget.isExpanded ? Icons.folder_open : Icons.folder,
         color: Colors.yellow.shade700,
       ),
-      title: Text(item.name, style: const TextStyle(fontSize: _kFontSize)),
-      subtitle: subtitle != null
-          ? Text(subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
+      title: Text(widget.item.name, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: widget.subtitle != null
+          ? Text(widget.subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
           : null,
-      initiallyExpanded: isExpanded,
+      initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
         if (expanded) {
-          ref.read(projectHierarchyProvider.notifier).loadDirectory(item.uri);
+          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.item.uri);
         }
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
           final newExpanded = Set<String>.from(currentSettings.expandedFolders);
           if (expanded) {
-            newExpanded.add(item.uri);
+            newExpanded.add(widget.item.uri);
           } else {
-            newExpanded.remove(item.uri);
+            newExpanded.remove(widget.item.uri);
           }
           return currentSettings.copyWith(expandedFolders: newExpanded);
         });
       },
       children: [
-        if (isExpanded)
+        if (widget.isExpanded)
           Consumer(
             builder: (context, ref, _) {
               final currentState = ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
               final project = ref.watch(appNotifierProvider).value!.currentProject!;
               if (currentState == null) return const SizedBox.shrink();
               return DirectoryView(
-                directory: item.uri,
+                directory: widget.item.uri,
                 projectRootUri: project.rootUri,
                 state: currentState,
               );
@@ -271,7 +294,7 @@ class DirectoryItem extends ConsumerWidget {
     );
   }
 
-  Widget _buildDragFeedback(BuildContext context) {
+  Widget _buildDragFeedback() {
     return Material(
       elevation: 4.0,
       color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
@@ -279,9 +302,9 @@ class DirectoryItem extends ConsumerWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         child: ListTile(
-          leading: FileTypeIcon(file: item),
+          leading: FileTypeIcon(file: widget.item),
           title: Text(
-            item.name,
+            widget.item.name,
             style: const TextStyle(fontSize: _kFontSize, color: Colors.white),
             overflow: TextOverflow.ellipsis,
           ),
@@ -291,7 +314,7 @@ class DirectoryItem extends ConsumerWidget {
   }
 }
 
-// RootPlaceholder and FileTypeIcon are unchanged
+/// A placeholder class to represent a directory for drop operations.
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
@@ -308,6 +331,7 @@ class RootPlaceholder implements DocumentFile {
   RootPlaceholder(this.uri);
 }
 
+/// A widget that displays an appropriate icon for a given file type.
 class FileTypeIcon extends ConsumerWidget {
   final DocumentFile file;
   const FileTypeIcon({super.key, required this.file});
