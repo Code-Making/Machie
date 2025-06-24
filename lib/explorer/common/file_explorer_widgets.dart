@@ -17,17 +17,17 @@ import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-// REFACTORED: The provider now holds the file being dragged, or null.
-// This is much more powerful than a simple boolean.
-final draggedFileProvider = StateProvider<DocumentFile?>((ref) => null);
+// --- REFACTORED: State Management for Dragging ---
+enum FileDragState { idle, dragging, processing }
+final fileDragStateProvider = StateProvider<FileDragState>((ref) => FileDragState.idle);
 
-// _isDropAllowed helper function is unchanged and remains correct.
+// --- UNCHANGED: Helper Function ---
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
-    if (draggedFile.uri == targetFolder.uri) return false;
-    if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
-    final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
-    if (parentUri == targetFolder.uri) return false;
-    return true;
+  if (draggedFile.uri == targetFolder.uri) return false;
+  if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
+  final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
+  if (parentUri == targetFolder.uri) return false;
+  return true;
 }
 
 class DirectoryView extends ConsumerStatefulWidget {
@@ -108,43 +108,30 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     });
   }
 }
-
-// REFACTORED: The RootDropZone is now much smarter.
+// --- REFACTORED: RootDropZone now uses the new enum state ---
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the new provider to get the actual file being dragged.
-    final draggedFile = ref.watch(draggedFileProvider);
-
-    // Condition 1: Don't show if nothing is being dragged.
-    if (draggedFile == null) {
-      return const SizedBox.shrink();
-    }
-
-    // Condition 2: Don't show if the dragged file is ALREADY in the root.
-    final parentUri = draggedFile.uri.substring(0, draggedFile.uri.lastIndexOf('%2F'));
-    if (parentUri == projectRootUri) {
-      return const SizedBox.shrink();
-    }
-    
-    // The rest of the logic remains, but it's now only active when appropriate.
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        final canAccept = isHovered && _isDropAllowed(draggedFile, RootPlaceholder(projectRootUri));
+        final dragState = ref.watch(fileDragStateProvider);
+        // Only show when actively dragging.
+        if (dragState != FileDragState.dragging) return const SizedBox.shrink();
+
+        final canAccept = candidateData.isNotEmpty && _isDropAllowed(candidateData.first!, RootPlaceholder(projectRootUri));
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
-            color: canAccept 
+            color: canAccept
                 ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
                 : Theme.of(context).colorScheme.error.withOpacity(0.2),
             border: Border.all(
-              color: canAccept 
+              color: canAccept
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.error,
               width: 1.5,
@@ -153,28 +140,35 @@ class RootDropZone extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.move_up, /* ... */),
+              Icon(
+                Icons.move_up,
+                color: canAccept
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(width: 8),
-              Text('Move to Project Root', /* ... */),
+              const Text('Move to Project Root'),
             ],
           ),
         );
       },
       onWillAccept: (data) => data != null && _isDropAllowed(data, RootPlaceholder(projectRootUri)),
       onAccept: (file) {
+        // FIX: Set state to processing BEFORE calling the async service.
+        ref.read(fileDragStateProvider.notifier).state = FileDragState.processing;
         ref.read(explorerServiceProvider).moveItem(file, RootPlaceholder(projectRootUri));
       },
     );
   }
 }
 
-// REFACTORED: DirectoryItem now uses the new provider.
+// --- REFACTORED: DirectoryItem now uses the new enum state ---
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
-  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle, });
+  const DirectoryItem({ super.key, required this.item, required this.depth, required this.isExpanded, this.subtitle });
   @override
   ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
 }
@@ -183,7 +177,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
-      
+    
   @override
   Widget build(BuildContext context) {
     final itemContent = _buildItemContent();
@@ -194,12 +188,13 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(seconds: 1),
       onDragStarted: () {
-        // Set the provider state to the file being dragged.
-        ref.read(draggedFileProvider.notifier).state = widget.item;
+        // FIX: Set state to dragging.
+        ref.read(fileDragStateProvider.notifier).state = FileDragState.dragging;
       },
       onDragEnd: (details) {
-        // Always reset the dragging state to null when the drag ends.
-        ref.read(draggedFileProvider.notifier).state = null;
+        // FIX: Always set state back to idle, regardless of outcome.
+        // This happens AFTER onAccept has finished.
+        ref.read(fileDragStateProvider.notifier).state = FileDragState.idle;
         if (!details.wasAccepted) {
           showFileContextMenu(context, ref, widget.item);
         }
@@ -224,14 +219,13 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
-          // Watch the new provider. isDragging is now just checking for non-null.
-          final isDragging = ref.watch(draggedFileProvider) != null;
-          final isHovered = candidateData.isNotEmpty;
+          final dragState = ref.watch(fileDragStateProvider);
+          final bool isHovered = candidateData.isNotEmpty;
           
           Color? backgroundColor;
           if (isHovered && _isDropAllowed(candidateData.first!, widget.item)) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
-          } else if (isDragging) {
+          } else if (dragState == FileDragState.dragging) {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
@@ -242,6 +236,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         },
         onWillAccept: (draggedData) => draggedData != null && _isDropAllowed(draggedData, widget.item),
         onAccept: (draggedFile) {
+          // FIX: Set state to processing BEFORE calling the async service.
+          ref.read(fileDragStateProvider.notifier).state = FileDragState.processing;
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
@@ -249,7 +245,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     return childWidget;
   }
   
-  Widget _buildFileTile() {
+Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
     return ListTile(
       dense: true,
