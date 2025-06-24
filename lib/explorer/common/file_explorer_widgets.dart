@@ -1,5 +1,7 @@
 // lib/explorer/common/file_explorer_widgets.dart
+import 'dart:async'; // NEW IMPORT for Timer
 import 'package:collection/collection.dart';
+import 'package:flutter/gestures.dart'; // NEW IMPORT for DragUpdateDetails
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,11 +15,11 @@ import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
 import '../../editor/services/editor_service.dart';
 import '../explorer_plugin_registry.dart';
-import '../services/explorer_service.dart'; // NEW IMPORT
+import '../services/explorer_service.dart';
 
-// NEW: Provider to track the global dragging state.
 final isDraggingFileProvider = StateProvider<bool>((ref) => false);
 
+// DirectoryView is unchanged.
 // DirectoryView remains unchanged as it just passes data down.
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
@@ -95,9 +97,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-
-// This widget is now much more complex, handling gestures, dragging, and dropping.
-class DirectoryItem extends ConsumerWidget {
+// REFACTORED: This widget now uses LongPressDraggable and a custom gesture detector.
+class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
   final bool isExpanded;
@@ -111,152 +112,97 @@ class DirectoryItem extends ConsumerWidget {
     this.subtitle,
   });
 
+  @override
+  ConsumerState<DirectoryItem> createState() => _DirectoryItemState();
+}
+
+class _DirectoryItemState extends ConsumerState<DirectoryItem> {
+  // --- STATE for Gesture Handling ---
+  Timer? _longPressTimer;
+  bool _isDragStarted = false;
+
+  // --- STYLING CONSTANTS ---
   static const double _kBaseIndent = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
+  
+  void _startLongPressTimer(BuildContext context) {
+    // If a drag hasn't started after 300ms, show the context menu.
+    _longPressTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!_isDragStarted) {
+        showFileContextMenu(context, ref, widget.item);
+      }
+    });
+  }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // This is the core UI for the item (ListTile or ExpansionTile).
-    final Widget itemContent = _buildItemContent(context, ref);
-
-    // We wrap the item content in a Draggable.
-    return Draggable<DocumentFile>(
-      // The data being dragged is the DocumentFile itself.
-      data: item,
-      // This is the widget that appears under the user's finger.
-      feedback: _buildDragFeedback(context),
-      // This is what's left behind in the list while dragging.
-      childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
-      // Callback when the drag starts.
-      onDragStarted: () {
-        ref.read(isDraggingFileProvider.notifier).state = true;
-      },
-      // Callback when the drag ends, whether it was accepted or cancelled.
-      onDragEnd: (details) {
-        ref.read(isDraggingFileProvider.notifier).state = false;
-        // If the drag was cancelled (not dropped on a valid target),
-        // we interpret it as a "long-press-and-hold" and show the context menu.
-        if (!details.wasAccepted) {
-          showFileContextMenu(context, ref, item);
-        }
-      },
-      // The actual visible widget in the list.
-      child: itemContent,
-    );
+  void _cancelLongPressTimer() {
+    _longPressTimer?.cancel();
   }
   
-  /// Builds the main content (the ListTile or ExpansionTile) and wraps it
-  /// in a DragTarget if it's a directory.
-  Widget _buildItemContent(BuildContext context, WidgetRef ref) {
-    final explorerNotifier = ref.read(activeExplorerNotifierProvider);
-    final double currentIndent = depth * _kBaseIndent;
+  @override
+  void dispose() {
+    _cancelLongPressTimer();
+    super.dispose();
+  }
 
-    // The actual UI widget (ListTile or ExpansionTile)
-    Widget childWidget;
+  @override
+  Widget build(BuildContext context) {
+    final itemContent = _buildItemContent(context);
 
-    if (item.isDirectory) {
-      childWidget = ExpansionTile(
-        key: PageStorageKey<String>(item.uri),
-        // Set custom padding for compactness and indentation.
-        tilePadding: EdgeInsets.only(
-          left: currentIndent,
-          right: 8.0,
-          top: _kVerticalPadding,
-          bottom: _kVerticalPadding,
-        ),
-        // Remove extra padding from the children, as they will calculate their own.
-        childrenPadding: EdgeInsets.zero,
-        leading: Icon(
-          isExpanded ? Icons.folder_open : Icons.folder,
-          color: Colors.yellow.shade700,
-        ),
-        // Apply the desired font size.
-        title: Text(
-          item.name,
-          style: const TextStyle(fontSize: _kFontSize),
-        ),
-        subtitle: subtitle != null
-            ? Text(subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
-            : null,
-        initiallyExpanded: isExpanded,
-        onExpansionChanged: (expanded) {
-          if (expanded) {
-            ref.read(projectHierarchyProvider.notifier).loadDirectory(item.uri);
-          }
-          explorerNotifier.updateSettings((settings) {
-            final currentSettings = settings as FileExplorerSettings;
-            final newExpanded = Set<String>.from(currentSettings.expandedFolders);
-            if (expanded) {
-              newExpanded.add(item.uri);
-            } else {
-              newExpanded.remove(item.uri);
-            }
-            return currentSettings.copyWith(expandedFolders: newExpanded);
-          });
-        },
-        children: [
-          if (isExpanded)
-            Consumer(
-              builder: (context, ref, _) {
-                final currentState =
-                    ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
-                final project =
-                    ref.watch(appNotifierProvider).value!.currentProject!;
-                if (currentState == null) return const SizedBox.shrink();
-                return DirectoryView(
-                  directory: item.uri,
-                  projectRootUri: project.rootUri,
-                  state: currentState,
-                );
-              },
-            ),
-        ],
-      );
-    } else {
-      childWidget = ListTile(
-        key: ValueKey(item.uri),
-        // Use dense property for a generally more compact layout.
-        dense: true,
-        // Set custom padding. The indent for a file is its parent's indent plus one level.
-        contentPadding: EdgeInsets.only(
-          left: currentIndent + _kBaseIndent,
-          top: _kVerticalPadding,
-          bottom: _kVerticalPadding,
-        ),
-        leading: FileTypeIcon(file: item),
-        // Apply the desired font size.
-        title: Text(
-          item.name,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: _kFontSize),
-        ),
-        subtitle: subtitle != null
-            ? Text(
-                subtitle!,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: _kFontSize - 2),
-              )
-            : null,
-        onTap: () async {
-          final success = await ref
-              .read(appNotifierProvider.notifier)
-              .openFileInEditor(item);
-
-          if (success && context.mounted) {
+    // Use LongPressDraggable for delayed dragging that doesn't conflict with scrolling.
+    return LongPressDraggable<DocumentFile>(
+      data: widget.item,
+      feedback: _buildDragFeedback(context),
+      childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
+      // Delay before a drag starts. This allows for scrolling.
+      delay: const Duration(milliseconds: 200),
+      onDragStarted: () {
+        _isDragStarted = true;
+        _cancelLongPressTimer(); // A drag has started, so don't show the menu.
+        ref.read(isDraggingFileProvider.notifier).state = true;
+      },
+      onDragEnd: (details) {
+        ref.read(isDraggingFileProvider.notifier).state = false;
+        _isDragStarted = false;
+      },
+      // The actual widget shown in the list.
+      // We wrap it in a GestureDetector to handle taps and the initial long press.
+      child: GestureDetector(
+        // This makes the entire row tappable, not just the text.
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.item.isDirectory ? null : () async {
+          final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(widget.item);
+          if (success && mounted) {
             Navigator.of(context).pop();
           }
         },
-      );
+        // Start the timer when the user presses and holds.
+        onLongPressStart: (_) => _startLongPressTimer(context),
+        // If the user lifts their finger, cancel the timer.
+        onLongPressEnd: (_) => _cancelLongPressTimer(),
+        // If the user moves their finger while holding, it's a drag, so cancel.
+        onLongPressMoveUpdate: (_) => _cancelLongPressTimer(),
+        child: itemContent,
+      ),
+    );
+  }
+  
+  Widget _buildItemContent(BuildContext context) {
+    // ... This method is now simplified as it doesn't need its own GestureDetector ...
+    // ... It now correctly uses `widget.` to access properties ...
+
+    Widget childWidget;
+
+    if (widget.item.isDirectory) {
+      childWidget = _buildDirectoryTile(context);
+    } else {
+      childWidget = _buildFileTile(context);
     }
     
-    // If the item is a directory, wrap it in a DragTarget to allow drops.
-    if (item.isDirectory) {
+    if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
         builder: (context, candidateData, rejectedData) {
-          // Highlight the folder if a file is being dragged anywhere.
           final bool isDragging = ref.watch(isDraggingFileProvider);
-          // Highlight it more strongly if a file is hovering directly over it.
           final bool isHovered = candidateData.isNotEmpty;
           
           Color? backgroundColor;
@@ -266,43 +212,96 @@ class DirectoryItem extends ConsumerWidget {
             backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
           }
           
-          // Apply a background color to give visual feedback.
           return Container(
             color: backgroundColor,
             child: childWidget,
           );
         },
-        // This function determines if the target will accept the drop.
         onWillAccept: (draggedData) {
           if (draggedData == null) return false;
-          // Prevent dropping an item onto itself.
-          if (draggedData.uri == item.uri) return false;
-          // Prevent dropping a parent folder into its own child.
-          if (item.uri.startsWith(draggedData.uri)) return false;
-          
+          if (draggedData.uri == widget.item.uri) return false;
+          if (widget.item.uri.startsWith(draggedData.uri)) return false;
           return true;
         },
-        // This function is called when a drop is successfully completed.
         onAccept: (draggedFile) {
-          ref.read(explorerServiceProvider).moveItem(draggedFile, item);
+          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         },
       );
     }
 
-    // If it's not a directory, just return the widget without a DragTarget.
-    // We still have the onTap gesture from the original ListTile.
-    return GestureDetector(
-      onTap: item.isDirectory ? null : () async {
-        final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
-        if (success && context.mounted) {
-          Navigator.of(context).pop();
+    return childWidget;
+  }
+  
+  Widget _buildFileTile(BuildContext context) {
+    final double currentIndent = widget.depth * _kBaseIndent;
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.only(
+        left: currentIndent + _kBaseIndent,
+        top: _kVerticalPadding,
+        bottom: _kVerticalPadding,
+      ),
+      leading: FileTypeIcon(file: widget.item),
+      title: Text(widget.item.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: widget.subtitle != null
+          ? Text(widget.subtitle!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: _kFontSize - 2))
+          : null,
+    );
+  }
+  
+  Widget _buildDirectoryTile(BuildContext context) {
+    final double currentIndent = widget.depth * _kBaseIndent;
+    return ExpansionTile(
+      key: PageStorageKey<String>(widget.item.uri),
+      tilePadding: EdgeInsets.only(
+        left: currentIndent,
+        right: 8.0,
+        top: _kVerticalPadding,
+        bottom: _kVerticalPadding,
+      ),
+      childrenPadding: EdgeInsets.zero,
+      leading: Icon(
+        widget.isExpanded ? Icons.folder_open : Icons.folder,
+        color: Colors.yellow.shade700,
+      ),
+      title: Text(widget.item.name, style: const TextStyle(fontSize: _kFontSize)),
+      subtitle: widget.subtitle != null
+          ? Text(widget.subtitle!, style: const TextStyle(fontSize: _kFontSize - 2))
+          : null,
+      initiallyExpanded: widget.isExpanded,
+      onExpansionChanged: (expanded) {
+        if (expanded) {
+          ref.read(projectHierarchyProvider.notifier).loadDirectory(widget.item.uri);
         }
+        ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
+          final currentSettings = settings as FileExplorerSettings;
+          final newExpanded = Set<String>.from(currentSettings.expandedFolders);
+          if (expanded) {
+            newExpanded.add(widget.item.uri);
+          } else {
+            newExpanded.remove(widget.item.uri);
+          }
+          return currentSettings.copyWith(expandedFolders: newExpanded);
+        });
       },
-      child: childWidget,
+      children: [
+        if (widget.isExpanded)
+          Consumer(
+            builder: (context, ref, _) {
+              final currentState = ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
+              final project = ref.watch(appNotifierProvider).value!.currentProject!;
+              if (currentState == null) return const SizedBox.shrink();
+              return DirectoryView(
+                directory: widget.item.uri,
+                projectRootUri: project.rootUri,
+                state: currentState,
+              );
+            },
+          ),
+      ],
     );
   }
 
-  /// Builds the floating widget that follows the user's finger during a drag.
   Widget _buildDragFeedback(BuildContext context) {
     return Material(
       elevation: 4.0,
