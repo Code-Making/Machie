@@ -36,9 +36,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   Rect? _repeaterSampleRect;
   Offset? _lastRepeaterPosition;
   List<Offset> _repeaterPath = [];
-  
-  bool _isToolbarVisible = false;
 
+  bool _isToolbarVisible = false;
 
   final TransformationController _transformationController =
       TransformationController();
@@ -108,8 +107,10 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null || _displayImage == null) return;
-    
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+
+    final byteData = await _displayImage!.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     if (byteData == null) return;
 
     final editorService = ref.read(editorServiceProvider);
@@ -123,7 +124,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       updateOriginalImage();
     }
   }
-  
+
   void toggleToolbar() {
     setState(() {
       _isToolbarVisible = !_isToolbarVisible;

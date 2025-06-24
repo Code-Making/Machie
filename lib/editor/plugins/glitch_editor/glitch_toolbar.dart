@@ -8,7 +8,7 @@ class GlitchToolbar extends ConsumerWidget {
   final GlitchEditorPlugin plugin;
   // NEW: Callback to signal the parent widget to close the panel.
   final VoidCallback onClose;
-  
+
   const GlitchToolbar({super.key, required this.plugin, required this.onClose});
 
   @override
@@ -16,7 +16,7 @@ class GlitchToolbar extends ConsumerWidget {
     final settings = ref.watch(plugin.brushSettingsProvider);
     final notifier = ref.read(plugin.brushSettingsProvider.notifier);
 
-     return Material(
+    return Material(
       // We can make it slightly transparent to hint at the content behind it.
       color: Theme.of(context).bottomAppBarTheme.color?.withOpacity(0.95),
       elevation: 4.0, // Add a slight shadow to lift it off the content.
@@ -27,122 +27,127 @@ class GlitchToolbar extends ConsumerWidget {
         padding: const EdgeInsets.all(8.0),
         child: SingleChildScrollView(
           child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 40),
-                const Text(
-                  "Brush Settings",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: "Close Settings Toolbar",
-                  // FIX: Call the new onClose callback.
-                  onPressed: onClose,
-                ),
-              ],
-            ),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildDropdown(
-                  'Brush Type',
-                  settings.type,
-                  GlitchBrushType.values,
-                  (v) => notifier.state = settings.copyWith(type: v),
-                ),
-                _buildIconButton(
-                  'Brush Shape',
-                  settings.shape == GlitchBrushShape.circle
-                      ? Icons.circle_outlined
-                      : Icons.square_outlined,
-                  () {
-                    final newShape =
-                        settings.shape == GlitchBrushShape.circle
-                            ? GlitchBrushShape.square
-                            : GlitchBrushShape.circle;
-                    notifier.state = settings.copyWith(shape: newShape);
-                  },
-                ),
-              ],
-            ),
-            _buildSliderRow(
-              context,
-              ref,
-              'Brush Size',
-              value: settings.radius * 100,
-              min: 1,
-              max: 50,
-              onChanged:
-                  (v) => notifier.state = settings.copyWith(radius: v / 100),
-            ),
-            if (settings.type == GlitchBrushType.scatter) ...[
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SizedBox(width: 40),
+                  const Text(
+                    "Brush Settings",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: "Close Settings Toolbar",
+                    // FIX: Call the new onClose callback.
+                    onPressed: onClose,
+                  ),
+                ],
+              ),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildDropdown(
+                    'Brush Type',
+                    settings.type,
+                    GlitchBrushType.values,
+                    (v) => notifier.state = settings.copyWith(type: v),
+                  ),
+                  _buildIconButton(
+                    'Brush Shape',
+                    settings.shape == GlitchBrushShape.circle
+                        ? Icons.circle_outlined
+                        : Icons.square_outlined,
+                    () {
+                      final newShape =
+                          settings.shape == GlitchBrushShape.circle
+                              ? GlitchBrushShape.square
+                              : GlitchBrushShape.circle;
+                      notifier.state = settings.copyWith(shape: newShape);
+                    },
+                  ),
+                ],
+              ),
               _buildSliderRow(
                 context,
                 ref,
-                'Min Block Size',
-                value: settings.minBlockSize,
+                'Brush Size',
+                value: settings.radius * 100,
                 min: 1,
                 max: 50,
                 onChanged:
-                    (v) =>
-                        notifier.state = settings.copyWith(
-                          minBlockSize:
-                              v > settings.maxBlockSize
-                                  ? settings.maxBlockSize
-                                  : v,
-                        ),
+                    (v) => notifier.state = settings.copyWith(radius: v / 100),
               ),
-              _buildSliderRow(
-                context,
-                ref,
-                'Max Block Size',
-                value: settings.maxBlockSize,
-                min: 1,
-                max: 50,
-                onChanged:
-                    (v) =>
-                        notifier.state = settings.copyWith(
-                          maxBlockSize:
-                              v < settings.minBlockSize
-                                  ? settings.minBlockSize
-                                  : v,
-                        ),
-              ),
-              _buildSliderRow(
-                context,
-                ref,
-                'Density',
-                value: settings.frequency * 100,
-                min: 1,
-                max: 100,
-                onChanged:
-                    (v) =>
-                        notifier.state = settings.copyWith(frequency: v / 100),
-              ),
+              if (settings.type == GlitchBrushType.scatter) ...[
+                _buildSliderRow(
+                  context,
+                  ref,
+                  'Min Block Size',
+                  value: settings.minBlockSize,
+                  min: 1,
+                  max: 50,
+                  onChanged:
+                      (v) =>
+                          notifier.state = settings.copyWith(
+                            minBlockSize:
+                                v > settings.maxBlockSize
+                                    ? settings.maxBlockSize
+                                    : v,
+                          ),
+                ),
+                _buildSliderRow(
+                  context,
+                  ref,
+                  'Max Block Size',
+                  value: settings.maxBlockSize,
+                  min: 1,
+                  max: 50,
+                  onChanged:
+                      (v) =>
+                          notifier.state = settings.copyWith(
+                            maxBlockSize:
+                                v < settings.minBlockSize
+                                    ? settings.minBlockSize
+                                    : v,
+                          ),
+                ),
+                _buildSliderRow(
+                  context,
+                  ref,
+                  'Density',
+                  value: settings.frequency * 100,
+                  min: 1,
+                  max: 100,
+                  onChanged:
+                      (v) =>
+                          notifier.state = settings.copyWith(
+                            frequency: v / 100,
+                          ),
+                ),
+              ],
+              if (settings.type == GlitchBrushType.repeater)
+                _buildSliderRow(
+                  context,
+                  ref,
+                  'Repeat Spacing',
+                  value: settings.frequency * 100,
+                  min: 1,
+                  max: 100,
+                  onChanged:
+                      (v) =>
+                          notifier.state = settings.copyWith(
+                            frequency: v / 100,
+                          ),
+                ),
             ],
-            if (settings.type == GlitchBrushType.repeater)
-              _buildSliderRow(
-                context,
-                ref,
-                'Repeat Spacing',
-                value: settings.frequency * 100,
-                min: 1,
-                max: 100,
-                onChanged:
-                    (v) =>
-                        notifier.state = settings.copyWith(frequency: v / 100),
-              ),
-          ],
+          ),
         ),
-      ),),
+      ),
     );
   }
 
-Widget _buildDropdown<T>(
+  Widget _buildDropdown<T>(
     String label,
     T value,
     List<T> items,
