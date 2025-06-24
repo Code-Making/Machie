@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_notifier.dart';
@@ -101,6 +102,17 @@ void main() {
       printStateFullData: false, // Truncate long state objects
     ),
   );
+  
+  WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
+
+  // --- 3. SET THE SYSTEM UI STYLE ---
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    // This makes the system navigation bar background black.
+    systemNavigationBarColor: Colors.black,
+
+    // This makes the icons on the navigation bar (back, home, etc.) white.
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   runZonedGuarded(
     () {
