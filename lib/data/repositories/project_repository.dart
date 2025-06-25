@@ -1,5 +1,9 @@
+// =========================================
+// FILE: lib/data/repositories/project_repository.dart
+// =========================================
+
 // lib/data/repositories/project_repository.dart
-import 'dart:async'; // NEW IMPORT
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -7,8 +11,7 @@ import '../../project/project_models.dart';
 import 'project_hierarchy_cache.dart';
 import '../../logs/logs_provider.dart';
 
-// --- NEW: File Operation Event Stream ---
-
+// ... (FileOperationEvent and providers are unchanged) ...
 sealed class FileOperationEvent {
   const FileOperationEvent();
 }
@@ -29,8 +32,6 @@ class FileDeleteEvent extends FileOperationEvent {
   const FileDeleteEvent({required this.deletedFile});
 }
 
-// FIX: Create a provider for the StreamController itself. We use .broadcast()
-// to allow multiple listeners if needed in the future.
 final fileOperationControllerProvider =
     Provider<StreamController<FileOperationEvent>>((ref) {
       final controller = StreamController<FileOperationEvent>.broadcast();
@@ -38,19 +39,16 @@ final fileOperationControllerProvider =
       return controller;
     });
 
-// FIX: The StreamProvider now simply listens to the controller's stream.
 final fileOperationStreamProvider =
     StreamProvider.autoDispose<FileOperationEvent>((ref) {
       return ref.watch(fileOperationControllerProvider).stream;
     });
 
-// --- End of New Section ---
-
+// ... (projectHierarchyProvider and projectRepositoryProvider are unchanged) ...
 final projectHierarchyProvider = StateNotifierProvider.autoDispose<
   ProjectHierarchyCache,
   Map<String, List<DocumentFile>>
 >((ref) {
-  // ... implementation unchanged
   final repo = ref.watch(projectRepositoryProvider);
   if (repo == null) {
     return ProjectHierarchyCache(null, ref.read(talkerProvider));
@@ -62,13 +60,14 @@ final projectRepositoryProvider = StateProvider<ProjectRepository?>(
   (ref) => null,
 );
 
-// ... ProjectRepository abstract class is unchanged ...
+
+// REFACTORED: The ProjectRepository interface is now pure and has no knowledge of `Ref`.
 abstract class ProjectRepository {
   FileHandler get fileHandler;
   Future<Project> loadProject(ProjectMetadata metadata);
   Future<void> saveProject(Project project);
   Future<DocumentFile> createDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -76,19 +75,19 @@ abstract class ProjectRepository {
     Uint8List? initialBytes,
     bool overwrite = false,
   });
-  Future<void> deleteDocumentFile(Ref ref, DocumentFile file);
+  Future<void> deleteDocumentFile(/* REMOVED: Ref ref,*/ DocumentFile file);
   Future<DocumentFile?> renameDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile file,
     String newName,
   );
   Future<DocumentFile?> copyDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   );
   Future<DocumentFile?> moveDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   );

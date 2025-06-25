@@ -1,8 +1,12 @@
+// =========================================
+// FILE: lib/data/repositories/persistent_project_repository.dart
+// =========================================
+
 // lib/data/repositories/persistent_project_repository.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart'; // REMOVED: No longer needed
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import 'project_repository.dart';
@@ -16,7 +20,7 @@ class PersistentProjectRepository implements ProjectRepository {
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
 
-  // FIX: The `else` block was missing, causing a potential null return.
+  // ... (loadProject and saveProject are unchanged) ...
   @override
   Future<Project> loadProject(ProjectMetadata metadata) async {
     final files = await fileHandler.listDirectory(
@@ -47,10 +51,10 @@ class PersistentProjectRepository implements ProjectRepository {
     );
   }
 
-  // FIX: All event publishing now uses the correct controller provider.
+  // REFACTORED: Methods are now pure data operations.
   @override
   Future<DocumentFile> createDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -66,45 +70,30 @@ class PersistentProjectRepository implements ProjectRepository {
       initialBytes: initialBytes,
       overwrite: overwrite,
     );
-    ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
-    ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: newFile));
+    // REMOVED: All ref.read() calls. This logic moves to the service layer.
     return newFile;
   }
 
   @override
-  Future<void> deleteDocumentFile(Ref ref, DocumentFile file) async {
-    final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
+  Future<void> deleteDocumentFile(/* REMOVED: Ref ref,*/ DocumentFile file) async {
+    // REMOVED: parentUri calculation and ref.read() calls. This moves to the service.
     await fileHandler.deleteDocumentFile(file);
-    ref.read(projectHierarchyProvider.notifier).remove(file, parentUri);
-    ref
-        .read(fileOperationControllerProvider)
-        .add(FileDeleteEvent(deletedFile: file));
   }
 
   @override
   Future<DocumentFile?> renameDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile file,
     String newName,
   ) async {
-    final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     final renamedFile = await fileHandler.renameDocumentFile(file, newName);
-    if (renamedFile != null) {
-      ref
-          .read(projectHierarchyProvider.notifier)
-          .rename(file, renamedFile, parentUri);
-      ref
-          .read(fileOperationControllerProvider)
-          .add(FileRenameEvent(oldFile: file, newFile: renamedFile));
-    }
+    // REMOVED: All ref.read() calls. This logic moves to the service layer.
     return renamedFile;
   }
 
   @override
   Future<DocumentFile?> copyDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   ) async {
@@ -112,42 +101,21 @@ class PersistentProjectRepository implements ProjectRepository {
       source,
       destinationParentUri,
     );
-    if (copiedFile != null) {
-      ref
-          .read(projectHierarchyProvider.notifier)
-          .add(copiedFile, destinationParentUri);
-      ref
-          .read(fileOperationControllerProvider)
-          .add(FileCreateEvent(createdFile: copiedFile));
-    }
+    // REMOVED: All ref.read() calls. This logic moves to the service layer.
     return copiedFile;
   }
 
   @override
   Future<DocumentFile?> moveDocumentFile(
-    Ref ref,
+    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final sourceParentUri = source.uri.substring(
-      0,
-      source.uri.lastIndexOf('%2F'),
-    );
     final movedFile = await fileHandler.moveDocumentFile(
       source,
       destinationParentUri,
     );
-    if (movedFile != null) {
-      ref
-          .read(projectHierarchyProvider.notifier)
-          .remove(source, sourceParentUri);
-      ref
-          .read(projectHierarchyProvider.notifier)
-          .add(movedFile, destinationParentUri);
-      ref
-          .read(fileOperationControllerProvider)
-          .add(FileRenameEvent(oldFile: source, newFile: movedFile));
-    }
+    // REMOVED: All ref.read() calls. This logic moves to the service layer.
     return movedFile;
   }
 
