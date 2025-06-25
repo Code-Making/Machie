@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/app/app_screen.dart
+// =========================================
+
 // lib/screens/editor_screen.dart
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +17,7 @@ import '../command/command_widgets.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../settings/settings_notifier.dart';
 import '../settings/settings_models.dart';
+import '../editor/tab_state_manager.dart'; // ADDED
 
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
@@ -22,13 +27,11 @@ class AppScreen extends ConsumerStatefulWidget {
 }
 
 class _AppScreenState extends ConsumerState<AppScreen> {
-  // REFACTOR: The key is now part of the state, created once.
   late final GlobalKey<ScaffoldState> _scaffoldKey;
 
   @override
   void initState() {
     super.initState();
-    // REFACTOR: Initialize the key here.
     _scaffoldKey = GlobalKey<ScaffoldState>();
     BackButtonInterceptor.add(_backButtonInterceptor);
   }
@@ -52,7 +55,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
       return true;
     }
 
-    // Use the mounted context from the stateful widget.
     if (!mounted) return true;
     final shouldExit = await showConfirmDialog(
       context,
@@ -74,6 +76,16 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final currentPlugin = currentTab?.plugin;
     final isFullScreen = appState?.isFullScreen ?? false;
 
+    // REFACTORED: Get the title by watching the metadata for the current tab.
+    // This ensures the title updates on rename without rebuilding the whole screen.
+    final currentTabMetadata = ref.watch(
+      tabMetadataProvider.select(
+        (metadataMap) =>
+            currentTab != null ? metadataMap[currentTab.id] : null,
+      ),
+    );
+    final appBarTitle = currentTabMetadata?.title ?? 'Machine';
+
     final generalSettings =
         ref.watch(
           settingsProvider.select(
@@ -85,7 +97,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final appBarOverride = appState?.appBarOverride;
 
     return Scaffold(
-      // REFACTOR: Use the stateful key instance.
       key: _scaffoldKey,
       appBar:
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
@@ -97,7 +108,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                   : AppBar(
                     leading: IconButton(
                       icon: const Icon(Icons.menu),
-                      // REFACTOR: Use the stateful key to open the drawer.
                       onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                     ),
                     actions: [
@@ -105,7 +115,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                           ? CodeEditorTapRegion(child: const AppBarCommands())
                           : const AppBarCommands(),
                     ],
-                    title: Text(currentTab?.file.name ?? 'Machine'),
+                    // REFACTORED: Use the title from the metadata provider.
+                    title: Text(appBarTitle),
                   ))
               : null,
       drawer: const ExplorerHostDrawer(),
@@ -113,9 +124,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
-          Expanded(
-            // FIX: Use the new EditorView which contains the IndexedStack.
-            child: const EditorView(),
+          const Expanded(
+            child: EditorView(),
           ),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
