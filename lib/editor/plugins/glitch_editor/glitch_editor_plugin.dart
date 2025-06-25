@@ -51,10 +51,10 @@ class GlitchEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id}) async {
     // REFACTORED: The 'file' is no longer part of the tab model.
     // The EditorService will handle associating it with the tab's ID.
-    return GlitchEditorTab(plugin: this, initialImageData: data);
+    return GlitchEditorTab(plugin: this, initialImageData: data, id: id);
   }
 
   @override
