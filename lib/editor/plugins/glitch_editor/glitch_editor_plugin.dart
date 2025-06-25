@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/plugins/glitch_editor/glitch_editor_plugin.dart
+// =========================================
+
 // lib/plugins/glitch_editor/glitch_editor_plugin.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +18,6 @@ import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
 
 class GlitchEditorPlugin implements EditorPlugin {
-  // These providers remain here as they control the plugin's UI, not its document state.
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
   final isZoomModeProvider = StateProvider((ref) => false);
   final isSlidingProvider = StateProvider((ref) => false);
@@ -49,7 +52,9 @@ class GlitchEditorPlugin implements EditorPlugin {
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
-    return GlitchEditorTab(file: file, plugin: this, initialImageData: data);
+    // REFACTORED: The 'file' is no longer part of the tab model.
+    // The EditorService will handle associating it with the tab's ID.
+    return GlitchEditorTab(plugin: this, initialImageData: data);
   }
 
   @override
@@ -57,8 +62,10 @@ class GlitchEditorPlugin implements EditorPlugin {
     Map<String, dynamic> tabJson,
     FileHandler fileHandler,
   ) async {
-    final file = await fileHandler.getFileMetadata(tabJson['fileUri']);
-    if (file == null) throw Exception('File not found: ${tabJson['fileUri']}');
+    final fileUri = tabJson['fileUri']; // Assume fileUri is persisted
+    if (fileUri == null) throw Exception('File URI not found in serialization');
+    final file = await fileHandler.getFileMetadata(fileUri);
+    if (file == null) throw Exception('File not found: $fileUri');
     final fileBytes = await fileHandler.readFileAsBytes(file.uri);
     return createTab(file, fileBytes);
   }
@@ -96,11 +103,13 @@ class GlitchEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.save),
       defaultPosition: CommandPosition.appBar,
       sourcePlugin: runtimeType.toString(),
-      // FIX: Use async closure for async method call
       execute: (ref) async => await _getActiveEditorState(ref)?.save(),
+      // REFACTORED: Check the dirty status from the metadata provider.
       canExecute: (ref) {
-        ref.watch(tabMetadataProvider);
-        return _getActiveEditorState(ref)?.isDirty ?? false;
+        final activeTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        if (activeTabId == null) return false;
+        final metadata = ref.watch(tabMetadataProvider.select((m) => m[activeTabId]));
+        return metadata?.isDirty ?? false;
       },
     ),
     BaseCommand(
@@ -109,7 +118,6 @@ class GlitchEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.save_as),
       defaultPosition: CommandPosition.appBar,
       sourcePlugin: runtimeType.toString(),
-      // FIX: Use async closure for async method call
       execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
@@ -119,11 +127,13 @@ class GlitchEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.refresh),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      // FIX: This method is synchronous, no async needed.
-      execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
+      execute: (ref) => _getActiveEditorState(ref)?.resetImage(),
+      // REFACTORED: Also check the dirty status from the metadata provider.
       canExecute: (ref) {
-        ref.watch(tabMetadataProvider);
-        return _getActiveEditorState(ref)?.isDirty ?? false;
+        final activeTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        if (activeTabId == null) return false;
+        final metadata = ref.watch(tabMetadataProvider.select((m) => m[activeTabId]));
+        return metadata?.isDirty ?? false;
       },
     ),
     BaseCommand(
@@ -137,10 +147,8 @@ class GlitchEditorPlugin implements EditorPlugin {
       ),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      // FIX: This method is synchronous, no async needed.
-      execute:
-          (ref) async =>
-              ref.read(isZoomModeProvider.notifier).update((state) => !state),
+      execute: (ref) =>
+          ref.read(isZoomModeProvider.notifier).update((state) => !state),
     ),
     BaseCommand(
       id: 'toggle_brush_settings',
@@ -162,8 +170,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       ),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      // FIX: This method is synchronous, no async needed.
-      execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
+      execute: (ref) => _getActiveEditorState(ref)?.toggleToolbar(),
     ),
   ];
 }
