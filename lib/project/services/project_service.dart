@@ -2,10 +2,10 @@
 // FILE: lib/project/services/project_service.dart
 // =========================================
 
-// lib/project/services/project_service.dart
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/file_handler/local_file_handler.dart';
 import '../../data/repositories/persistent_project_repository.dart';
@@ -13,18 +13,19 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
-import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
 
+/// A result object for the `openFromFolder` flow.
 class OpenProjectResult {
-  final Project project;
+  final ProjectDto projectDto;
   final ProjectMetadata metadata;
   final bool isNew;
+
   OpenProjectResult({
-    required this.project,
+    required this.projectDto,
     required this.metadata,
     required this.isNew,
   });
@@ -34,6 +35,8 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
+  /// Opens a project from a user-picked folder, creating new metadata if needed.
+  /// This method returns the raw DTO, leaving rehydration to the caller.
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -48,46 +51,77 @@ class ProjectService {
       name: folder.name,
       projectTypeId: projectTypeId,
     );
-    final project = await openProject(meta);
-    return OpenProjectResult(project: project, metadata: meta, isNew: isNew);
+
+    final projectDto = await openProjectDto(meta);
+    return OpenProjectResult(projectDto: projectDto, metadata: meta, isNew: isNew);
   }
 
-  // REFACTORED: openProject now returns the DTO. The service layer's caller
-  // will be responsible for rehydrating it.
+  /// Selects the correct repository and asks it to load the persisted `ProjectDto`.
+  /// This is the primary entry point for loading project data.
   Future<ProjectDto> openProjectDto(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
   }) async {
-    // ... (logic to create the correct repository is the same) ...
+    final fileHandler = LocalFileHandlerFactory.create();
+    final ProjectRepository repo;
+
+    if (metadata.projectTypeId == 'local_persistent') {
+      final projectDataPath = await _ensureProjectDataFolder(
+        fileHandler,
+        metadata.rootUri,
+      );
+      repo = PersistentProjectRepository(fileHandler, projectDataPath);
+    } else if (metadata.projectTypeId == 'simple_local') {
+      // For simple, non-persistent projects, the entire state is passed in.
+      // The repository will construct a DTO from this JSON.
+      repo = SimpleProjectRepository(fileHandler, projectStateJson);
+    } else {
+      throw UnimplementedError(
+        'No repository for project type ${metadata.projectTypeId}',
+      );
+    }
+
+    // Set the active repository for other parts of the app to use for file ops.
+    _ref.read(projectRepositoryProvider.notifier).state = repo;
     
-    // The repository now returns a DTO.
+    // The repository's loadProjectDto method is the single source of truth for
+    // loading the raw, persisted data.
     return await repo.loadProjectDto();
   }
 
-  // REFACTORED: saveProject now orchestrates the conversion to a DTO.
+  /// Saves the current live project state.
+  /// It orchestrates the conversion from a domain model to a DTO before saving.
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
+    if (repo == null) return;
+
+    // Get the live metadata from the provider (e.g., dirty status).
     final liveMetadata = _ref.read(tabMetadataProvider);
     
-    // 1. Convert live domain object to DTO.
+    // 1. Convert the live domain Project object into a persistable ProjectDto.
     final projectDto = project.toDto(liveMetadata);
     
-    // 2. Pass DTO to the repository.
-    await repo?.saveProjectDto(projectDto);
+    // 2. Pass the DTO to the repository for persistence.
+    await repo.saveProjectDto(projectDto);
   }
 
+  /// Saves the project state and cleans up resources.
   Future<void> closeProject(Project project) async {
     await saveProject(project);
 
+    // Deactivate and dispose all tabs to prevent memory leaks.
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
+    
+    // Clear the active repository and tab metadata from the providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).state = {};
   }
 
+  /// Creates a new metadata object for a new project.
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
@@ -102,6 +136,7 @@ class ProjectService {
     );
   }
 
+  /// Ensures the hidden `.machine` directory exists for persistent projects.
   Future<String> _ensureProjectDataFolder(
     FileHandler handler,
     String projectRootUri,
