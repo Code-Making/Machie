@@ -3,6 +3,7 @@
 // =========================================
 
 // lib/editor/tab_state_manager.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
 import '../project/project_models.dart'; // ADDED
