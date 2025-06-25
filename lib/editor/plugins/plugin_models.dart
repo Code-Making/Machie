@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/plugins/plugin_models.dart
+// =========================================
+
 // lib/editor/plugins/plugin_models.dart
 import 'dart:async';
 
@@ -21,7 +25,9 @@ abstract class EditorPlugin {
 
   bool supportsFile(DocumentFile file);
 
-  Future<EditorTab> createTab(DocumentFile file, dynamic data);
+  // REFACTORED: Add the optional 'id' parameter for rehydration.
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id});
+  
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   void activateTab(EditorTab tab, Ref ref);

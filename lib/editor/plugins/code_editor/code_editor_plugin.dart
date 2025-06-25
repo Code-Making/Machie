@@ -50,13 +50,14 @@ class CodeEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id}) async {
     // REFACTORED: The 'file' property is no longer part of the tab model.
     // The EditorService will handle associating the file with the tab's ID
     // in the metadata provider.
     return CodeEditorTab(
       plugin: this,
       initialContent: data as String,
+      id: id,
     );
   }
 

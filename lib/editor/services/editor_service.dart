@@ -40,12 +40,12 @@ class EditorService {
     return repo;
   }
 
-  // REFACTORED: This is the corrected rehydration logic.
+  // REFACTORED: This is the new, correct, and simpler rehydration logic.
   Future<Project> rehydrateTabs(Project project) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
-
-    // The session object from the loaded project contains the persisted metadata.
+    
+    // The session object from the loaded project contains the persisted data.
     final persistedMetadataMap = project.session.tabMetadata;
     final persistedTabsJson = project.session.tabs.map((t) => t.toJson()).toList();
 
@@ -55,19 +55,18 @@ class EditorService {
 
     final List<EditorTab> rehydratedTabs = [];
 
-    // The source of truth for rehydration is the persisted metadata map.
-    // We iterate over its entries.
-    for (final entry in persistedMetadataMap.entries) {
-      final tabId = entry.key;
-      final persistedMetadata = entry.value;
-      final tabJson = tabJsonMap[tabId];
-      final pluginType = tabJson?['pluginType'] as String?;
+    // The source of truth is the persisted JSON order. We iterate through it
+    // to preserve the tab order from the last session.
+    for (final tabJson in persistedTabsJson) {
+      final tabId = tabJson['id'] as String?;
+      final pluginType = tabJson['pluginType'] as String?;
+      final persistedMetadata = persistedMetadataMap[tabId];
 
-      if (pluginType == null) {
-        _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: missing pluginType.');
+      if (tabId == null || pluginType == null || persistedMetadata == null) {
+        _ref.read(talkerProvider).warning('Skipping rehydration for incomplete tab data: $tabJson');
         continue;
       }
-
+      
       final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
       if (plugin == null) {
         _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: plugin $pluginType not found.');
@@ -80,74 +79,34 @@ class EditorService {
         
         if (file == null) {
           _ref.read(talkerProvider).info('Skipping rehydration for tab ID $tabId: file $fileUri not found.');
-          continue; // Skip tabs for files that were deleted.
+          continue;
         }
         
         final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
             ? await _repo.readFileAsBytes(file.uri)
             : await _repo.readFile(file.uri);
         
-        // Create a new tab instance. It will have a new, random ID.
-        final newTab = await plugin.createTab(file, data);
+        // This is the key: Pass the original, stable ID directly to the constructor.
+        final newTab = await plugin.createTab(file, data, id: tabId);
 
-        // This is the crucial step:
-        // We use the NEW tab instance (with its new GlobalKey) but we populate
-        // the metadata provider using the OLD, persisted tab ID.
-        // This links the new widget to the old session data.
-        metadataNotifier.state[tabId] = TabMetadata(
-          file: file, 
-          isDirty: persistedMetadata.isDirty
+        // Populate the metadata provider for the newly created tab.
+        metadataNotifier.state[newTab.id] = TabMetadata(
+          file: file,
+          isDirty: persistedMetadata.isDirty,
         );
-
-        // We also need a way to link the new tab's ID to the old one.
-        // The best way is to create a new Tab object that re-uses the old ID.
-        // Let's assume `EditorTab` has a private constructor or a `copyWith` that can do this.
-        // For now, we will create a map to find the new tab that corresponds to the old ID.
-        // A better approach would be to pass the ID into `createTab`.
-        // Let's create a placeholder tab that just holds the ID, and we'll replace it.
         
-        // This is a simplification. The ideal way is to maintain the original ID.
-        // Let's assume for now that the order is preserved and we can match them up.
-        // We'll add the new tab to our list.
         rehydratedTabs.add(newTab);
         
       } catch (e, st) {
         _ref.read(talkerProvider).handle(e, st, 'Could not restore tab for ${persistedMetadata.file.uri}');
       }
     }
-
-    // Now, we need to create the final list of tabs for the session,
-    // ensuring they have the original persisted IDs.
-    final finalTabs = <EditorTab>[];
-    final rehydratedTabsById = <String, EditorTab>{}; // Map old ID to new tab instance
     
-    // This is a tricky part. Let's rebuild the final tab list using the original persisted order.
-    for (final tabJson in persistedTabsJson) {
-        final oldId = tabJson['id'];
-        // Find the corresponding metadata we just re-populated.
-        final liveMetadata = metadataNotifier.state[oldId];
-        if (liveMetadata != null) {
-            // Find a rehydrated tab that matches the file. This assumes one file = one tab.
-            final correspondingNewTab = rehydratedTabs.firstWhereOrNull((t) {
-                final newMeta = metadataNotifier.state[t.id];
-                return newMeta?.file.uri == liveMetadata.file.uri;
-            });
-
-            if (correspondingNewTab != null) {
-                // This is the key: we create a final tab object that uses the OLD id
-                // but the NEW GlobalKey and other state from the rehydrated tab instance.
-                final finalTab = correspondingNewTab.copyWith(idForRehydration: oldId);
-                finalTabs.add(finalTab);
-                
-                // Clean up the temporary metadata entry for the new random ID.
-                metadataNotifier.removeTab(correspondingNewTab.id);
-            }
-        }
-    }
-    
-    // The project now has the correct tab objects with stable IDs.
+    // The project now has the correct tab objects with stable, original IDs.
     return project.copyWith(
-      session: project.session.copyWith(tabs: finalTabs, tabMetadata: {}), // Clear persisted metadata from the object
+      // Replace the session's tabs with our rehydrated list and clear the now-stale
+      // persisted metadata from the project object itself, as it lives in the provider now.
+      session: project.session.copyWith(tabs: rehydratedTabs, tabMetadata: {}),
     );
   }
   
