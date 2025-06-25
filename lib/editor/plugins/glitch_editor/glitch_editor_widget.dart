@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/plugins/glitch_editor/glitch_editor_widget.dart
+// =========================================
+
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -7,16 +11,15 @@ import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
-import 'glitch_toolbar.dart'; // Import the toolbar
+import 'glitch_toolbar.dart';
 import '../../tab_state_manager.dart';
+import 'glitch_editor_math.dart'; // ADDED MISSING IMPORT
 
-// The State class is now public to be accessible via the GlobalKey.
 class GlitchEditorWidget extends ConsumerStatefulWidget {
   final GlitchEditorTab tab;
   final GlitchEditorPlugin plugin;
 
   const GlitchEditorWidget({
-    // The key is the GlobalKey from the tab model, passed by the plugin.
     super.key,
     required this.tab,
     required this.plugin,
@@ -28,7 +31,6 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 
 class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // --- STATE ---
-  // All "hot" state is now here, inside the widget's State object.
   ui.Image? _displayImage;
   ui.Image? _originalImage;
   ui.Image? _strokeSample;
@@ -50,9 +52,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   final Random _random = Random();
 
-  // --- PUBLIC PROPERTIES (for the command system) ---
-  bool get isDirty =>
-      ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
+  // REFACTORED: The dirty flag is no longer managed here.
+  // The command gets it directly from the metadata provider.
+  // bool get isDirty => ...
 
   @override
   void initState() {
@@ -71,8 +73,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _repeaterSample?.dispose();
     super.dispose();
   }
-
-  // --- LOGIC AND METHODS (moved from plugin/external state) ---
 
   Future<void> _loadImage() async {
     final codec = await ui.instantiateImageCodec(widget.tab.initialImageData);
@@ -114,12 +114,12 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (byteData == null) return;
 
     final editorService = ref.read(editorServiceProvider);
+    // The service now handles getting the file from metadata to save to.
     final success = await editorService.saveCurrentTab(
       project,
       bytes: byteData.buffer.asUint8List(),
     );
 
-    // If save was successful, call the public method to update the internal state.
     if (success && mounted) {
       updateOriginalImage();
     }
@@ -130,11 +130,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _isToolbarVisible = !_isToolbarVisible;
     });
   }
-
-  // NEW: Public method for the command to call.
+  
   void updateOriginalImage() {
     if (_displayImage == null) return;
-    // This correctly mutates the widget's internal state.
     setState(() {
       _originalImage?.dispose();
       _originalImage = _displayImage!.clone();
@@ -143,6 +141,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   Future<void> saveAs() async {
     final editorService = ref.read(editorServiceProvider);
+    // The service handles the entire "Save As" flow.
     await editorService.saveCurrentTabAs(
       byteDataProvider: () async {
         if (_displayImage == null) return null;
@@ -160,6 +159,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _displayImage?.dispose();
       _displayImage = _originalImage!.clone();
     });
+    // The service marks the tab as clean by its ID.
     ref.read(editorServiceProvider).markCurrentTabClean();
   }
 
@@ -171,7 +171,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _liveBrushSettings =
         ref.read(widget.plugin.brushSettingsProvider).copyWith();
 
-    // Begin stroke logic
     _strokeSample?.dispose();
     _repeaterSample?.dispose();
     _strokeSample = _displayImage?.clone();
@@ -202,7 +201,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final isZoomMode = ref.read(widget.plugin.isZoomModeProvider);
     if (isZoomMode) return;
 
-    // Apply the full stroke
     if (_displayImage == null || _currentStrokePoints.isEmpty) return;
 
     final viewerScale = _transformationController.value.getMaxScaleOnAxis();
@@ -239,10 +237,11 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _liveBrushSettings = null;
     });
 
+    // The service marks the current tab as dirty by its ID.
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
-
-  // This is the primary router for glitch effects. It's now clean and simple.
+  
+  // ... (all glitch logic and build method are unchanged) ...
   void _applyEffectToCanvas(
     Canvas canvas,
     Offset pos,
@@ -261,16 +260,11 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     }
   }
 
-  // --- Glitch Logic (all private and adapted to local state) ---
-
   void _applyScatter(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
-    // The source image is now always the local _strokeSample
     final source = _strokeSample;
     if (source == null) return;
-
     final radius = settings.radius * 500;
     final count = (settings.frequency * 20).toInt().clamp(1, 50);
-
     for (int i = 0; i < count; i++) {
       final srcX = pos.dx + _random.nextDouble() * radius - (radius / 2);
       final srcY = pos.dy + _random.nextDouble() * radius - (radius / 2);
@@ -292,8 +286,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _applyRepeater(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     final radius = settings.radius * 500;
     final spacing = (settings.frequency * radius * 2).clamp(5.0, 200.0);
-
-    // Check local state property _repeaterSample
     if (_repeaterSample == null) {
       _createRepeaterSample(pos, settings);
       _lastRepeaterPosition = pos;
@@ -301,7 +293,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _drawRepeaterSample(canvas, pos);
       return;
     }
-
     _repeaterPath.add(pos);
     if (_repeaterPath.length > 1) {
       final currentSegment = _repeaterPath.sublist(_repeaterPath.length - 2);
@@ -309,7 +300,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       final end = currentSegment[1];
       final direction = (end - start);
       final distance = direction.distance;
-
       if (distance > 0) {
         final stepVector = direction / distance;
         double accumulatedDistance = 0;
@@ -331,21 +321,17 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   void _createRepeaterSample(Offset pos, GlitchBrushSettings settings) {
     if (_strokeSample == null) return;
-
     final radius = settings.radius * 500;
-    // Mutate local state property _repeaterSampleRect
     _repeaterSampleRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
-
     _repeaterSampleRect = Rect.fromLTRB(
       _repeaterSampleRect!.left.clamp(0, _strokeSample!.width.toDouble()),
       _repeaterSampleRect!.top.clamp(0, _strokeSample!.height.toDouble()),
       _repeaterSampleRect!.right.clamp(0, _strokeSample!.width.toDouble()),
       _repeaterSampleRect!.bottom.clamp(0, _strokeSample!.height.toDouble()),
     );
-
     final sampleRecorder = ui.PictureRecorder();
     final sampleCanvas = Canvas(sampleRecorder);
     sampleCanvas.drawImageRect(
@@ -360,8 +346,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       Paint(),
     );
     final samplePicture = sampleRecorder.endRecording();
-
-    // Mutate local state property _repeaterSample
     _repeaterSample = samplePicture.toImageSync(
       _repeaterSampleRect!.width.toInt(),
       _repeaterSampleRect!.height.toInt(),
@@ -371,7 +355,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   void _drawRepeaterSample(Canvas canvas, Offset pos) {
     if (_repeaterSample == null || _repeaterSampleRect == null) return;
-
     final destRect = Rect.fromCenter(
       center: pos,
       width: _repeaterSampleRect!.width,
@@ -392,20 +375,17 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   void _applyHeal(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     if (_originalImage == null) return;
-
     final radius = settings.radius * 500;
     final sourceRect =
         settings.shape == GlitchBrushShape.circle
             ? Rect.fromCircle(center: pos, radius: radius / 2)
             : Rect.fromCenter(center: pos, width: radius, height: radius);
-
     final clampedSourceRect = Rect.fromLTRB(
       sourceRect.left.clamp(0, _originalImage!.width.toDouble()),
       sourceRect.top.clamp(0, _originalImage!.height.toDouble()),
       sourceRect.right.clamp(0, _originalImage!.width.toDouble()),
       sourceRect.bottom.clamp(0, _originalImage!.height.toDouble()),
     );
-
     canvas.drawImageRect(
       _originalImage!,
       clampedSourceRect,
@@ -470,14 +450,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       ),
     );
 
-    // FIX: Wrap the InteractiveViewer in a Stack to overlay the toolbar.
     return Stack(
       children: [
-        // The main editor content is the first layer.
         editorContent,
-
-        // The toolbar is the second layer, positioned at the bottom.
-        // We use AnimatedPositioned and Visibility for a nice effect.
         if (_isToolbarVisible)
           Positioned(
             bottom: 0,
@@ -485,7 +460,6 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
             right: 0,
             child: GlitchToolbar(
               plugin: widget.plugin,
-              // Pass a callback to allow the toolbar to close itself.
               onClose: () => toggleToolbar(),
             ),
           ),

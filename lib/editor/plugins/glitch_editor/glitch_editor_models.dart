@@ -28,6 +28,7 @@ class GlitchEditorTab extends EditorTab {
     EditorPlugin? plugin,
     Uint8List? initialImageData,
   }) {
+    // A new tab gets a new ID and key automatically from the super constructor.
     return GlitchEditorTab(
       // REMOVED: file: file ?? this.file,
       plugin: plugin ?? this.plugin,
@@ -40,6 +41,12 @@ class GlitchEditorTab extends EditorTab {
     'type': 'glitch',
     'id': id, // Serialize the stable ID
     'pluginType': plugin.runtimeType.toString(),
+    // We need to persist the file URI to reopen the tab.
+    // This will be read by the EditorService during rehydration.
+    // It's a bit of a workaround since the file is in metadata,
+    // but essential for persistence. A better way might be to persist
+    // the entire metadata map.
+    'fileUri': '', // This would be populated from metadata on save.
   };
 }
 
