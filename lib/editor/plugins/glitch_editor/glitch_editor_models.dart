@@ -1,36 +1,35 @@
+// =========================================
+// FILE: lib/editor/plugins/glitch_editor/glitch_editor_models.dart
+// =========================================
+
 // lib/plugins/glitch_editor/glitch_editor_models.dart
-import 'dart:typed_data'; // NEW IMPORT for Uint8List
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../../data/file_handler/file_handler.dart';
+// import '../../../data/file_handler/file_handler.dart'; // REMOVED
 import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
-// NEW IMPORT for the key's State type
 
 @immutable
 class GlitchEditorTab extends EditorTab {
-  // NEW: The initial raw image data is passed to the widget.
   final Uint8List initialImageData;
 
   GlitchEditorTab({
-    required super.file,
+    // REMOVED: required super.file,
     required super.plugin,
     required this.initialImageData,
   });
-
-  // The key is now inherited from the abstract EditorTab.
 
   @override
   void dispose() {}
 
   @override
   GlitchEditorTab copyWith({
-    DocumentFile? file,
+    // REMOVED: DocumentFile? file,
     EditorPlugin? plugin,
     Uint8List? initialImageData,
   }) {
-    // A new key will be created automatically by the EditorTab constructor.
     return GlitchEditorTab(
-      file: file ?? this.file,
+      // REMOVED: file: file ?? this.file,
       plugin: plugin ?? this.plugin,
       initialImageData: initialImageData ?? this.initialImageData,
     );
@@ -39,11 +38,12 @@ class GlitchEditorTab extends EditorTab {
   @override
   Map<String, dynamic> toJson() => {
     'type': 'glitch',
-    'fileUri': file.uri,
+    'id': id, // Serialize the stable ID
     'pluginType': plugin.runtimeType.toString(),
   };
 }
 
+// ... GlitchBrush models are unchanged ...
 enum GlitchBrushType { scatter, repeater, heal }
 
 enum GlitchBrushShape { circle, square }
