@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'plugins/plugin_models.dart';
 import 'package:uuid/uuid.dart';
 import 'tab_state_manager.dart';
+import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 @immutable
 class TabSessionState {
