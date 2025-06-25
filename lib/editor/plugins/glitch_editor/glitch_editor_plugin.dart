@@ -170,7 +170,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       ),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      execute: (ref) => _getActiveEditorState(ref)?.toggleToolbar(),
+      execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
     ),
   ];
 }
