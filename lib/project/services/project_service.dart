@@ -13,7 +13,6 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
-import '../../editor/editor_tab_models.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -48,16 +47,16 @@ class ProjectService {
       name: folder.name,
       projectTypeId: projectTypeId,
     );
-    // When opening from a folder for the first time, there is no prior session state.
     final project = await openProject(meta);
     return OpenProjectResult(project: project, metadata: meta, isNew: isNew);
   }
 
-  // REFACTORED: Add an optional sessionState parameter.
+  // REFACTORED: Simplified this method significantly.
+  // Its only job is to create the correct repository and load the project.
+  // It does NOT merge session state anymore. The repository handles loading.
   Future<Project> openProject(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
-    TabSessionState? sessionState, // ADDED
   }) async {
     final fileHandler = LocalFileHandlerFactory.create();
     final ProjectRepository repo;
@@ -69,6 +68,7 @@ class ProjectService {
       );
       repo = PersistentProjectRepository(fileHandler, projectDataPath);
     } else if (metadata.projectTypeId == 'simple_local') {
+      // For simple projects, the entire state is passed in.
       repo = SimpleProjectRepository(fileHandler, projectStateJson);
     } else {
       throw UnimplementedError(
@@ -78,16 +78,9 @@ class ProjectService {
 
     _ref.read(projectRepositoryProvider.notifier).state = repo;
     
-    // Load the base project from disk (or memory).
-    final loadedProject = await repo.loadProject(metadata);
-
-    // If a prior session was passed in, use it. Otherwise, use what was loaded.
-    // This is the key to preserving tab state across app restarts.
-    if (sessionState != null) {
-      return loadedProject.copyWith(session: sessionState);
-    }
-    
-    return loadedProject;
+    // The repository's loadProject method is now the single source of truth
+    // for what the project state is, including its last saved session.
+    return await repo.loadProject(metadata);
   }
 
   Future<void> saveProject(Project project) async {

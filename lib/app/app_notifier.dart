@@ -61,34 +61,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       if (meta != null) {
         try {
-          TabSessionState? sessionStateToRestore;
-          Map<String, dynamic>? projectStateForSimpleProject;
-
-          // For simple projects, the session is in SharedPreferences.
-          // For persistent projects, it's loaded from project.json by the repo.
-          if (meta.projectTypeId == 'simple_local') {
-            projectStateForSimpleProject = initialState.currentProjectState;
-            if (projectStateForSimpleProject != null && projectStateForSimpleProject['session'] != null) {
-              sessionStateToRestore = TabSessionState.fromJson(
-                projectStateForSimpleProject['session'] as Map<String, dynamic>,
-              );
-            }
-          }
-          
-          // Step 1: Open the project. This will load the session from the correct source.
-          var project = await _projectService.openProject(
+          // REFACTORED: This is now much simpler.
+          // We call openProject, which loads the project and its last session.
+          final project = await _projectService.openProject(
             meta,
-            projectStateJson: projectStateForSimpleProject,
-            sessionState: sessionStateToRestore,
+            // We only pass the projectStateJson for simple projects.
+            // Persistent projects ignore this and load from their own file.
+            projectStateJson: initialState.currentProjectState,
           );
           
-          // Step 2: Rehydrate the tabs based on the session's metadata.
-          // THIS IS THE FIX: We must assign the result back to our `project` variable.
-          project = await _editorService.rehydrateTabs(project);
+          // Now, rehydrate the tabs from the session that was just loaded.
+          final rehydratedProject = await _editorService.rehydrateTabs(project);
           
-          // Step 3: Return the final, fully rehydrated state.
           return initialState.copyWith(
-            currentProject: project, // Use the final, rehydrated project object.
+            currentProject: rehydratedProject,
             clearCurrentProjectState: true,
           );
         } catch (e, st) {
@@ -99,6 +85,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
+  // ... (The rest of the file is correct and does not need changes) ...
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
@@ -158,7 +145,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-      // NOTE: `rehydrateTabs` on a fresh project will correctly do nothing.
       final rehydratedProject = await _editorService.rehydrateTabs(
         result.project,
       );
@@ -174,6 +160,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
+    // This is also simpler now.
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
@@ -182,35 +169,21 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
       
-      TabSessionState? sessionStateToRestore;
-      Map<String, dynamic>? projectStateForSimpleProject;
-
-      if (meta.projectTypeId == 'simple_local') {
-        if (s.lastOpenedProjectId == projectId) {
-            projectStateForSimpleProject = s.currentProjectState;
-            if (projectStateForSimpleProject != null && projectStateForSimpleProject['session'] != null) {
-              sessionStateToRestore = TabSessionState.fromJson(
-                projectStateForSimpleProject['session'] as Map<String, dynamic>,
-              );
-            }
-        }
-      }
-      
-      var project = await _projectService.openProject(
-        meta, 
-        projectStateJson: projectStateForSimpleProject,
-        sessionState: sessionStateToRestore
+      final project = await _projectService.openProject(
+        meta,
+        projectStateJson: s.currentProjectState
       );
-      // THIS IS THE FIX (also applied here for consistency)
-      project = await _editorService.rehydrateTabs(project);
+      
+      final rehydratedProject = await _editorService.rehydrateTabs(project);
       
       return s.copyWith(
-        currentProject: project,
+        currentProject: rehydratedProject,
         lastOpenedProjectId: project.id,
       );
     });
     await saveAppState();
   }
+  
 Future<void> closeProject() async {
     final projectToClose = state.value?.currentProject;
     if (projectToClose == null) return;
