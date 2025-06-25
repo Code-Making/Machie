@@ -10,6 +10,8 @@ import 'package:collection/collection.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import 'project_repository.dart';
+import '../../data/dto/project_dto.dart'; // ADDED
+
 
 const _projectFileName = 'project.json';
 
@@ -20,29 +22,34 @@ class PersistentProjectRepository implements ProjectRepository {
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
 
-  // ... (loadProject and saveProject are unchanged) ...
+  // REFACTORED: Now returns a DTO.
   @override
-  Future<Project> loadProject(ProjectMetadata metadata) async {
+  Future<ProjectDto> loadProjectDto() async {
     final files = await fileHandler.listDirectory(
       _projectDataPath,
       includeHidden: true,
     );
-    final projectFile = files.firstWhereOrNull(
-      (f) => f.name == _projectFileName,
-    );
+    final projectFile = files.firstWhereOrNull((f) => f.name == _projectFileName);
 
     if (projectFile != null) {
-      final content = await fileHandler.readFile(projectFile.uri);
-      final json = jsonDecode(content);
-      return Project.fromJson(json).copyWith(metadata: metadata);
+      try {
+        final content = await fileHandler.readFile(projectFile.uri);
+        final json = jsonDecode(content);
+        return ProjectDto.fromJson(json);
+      } catch (e) {
+        // Fallback for corrupted file
+        return const ProjectDto(session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}));
+      }
     } else {
-      return Project.fresh(metadata);
+      // Return a fresh, empty DTO if no file exists.
+      return const ProjectDto(session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}));
     }
   }
 
+  // REFACTORED: Now accepts a DTO.
   @override
-  Future<void> saveProject(Project project) async {
-    final content = jsonEncode(project.toJson());
+  Future<void> saveProjectDto(ProjectDto projectDto) async {
+    final content = jsonEncode(projectDto.toJson());
     await fileHandler.createDocumentFile(
       _projectDataPath,
       _projectFileName,

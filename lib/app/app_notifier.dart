@@ -21,6 +21,7 @@ import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
 import '../editor/editor_tab_models.dart';
+import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -56,25 +57,19 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final initialState = await _appStateRepository.loadAppState();
     
     if (initialState.lastOpenedProjectId != null) {
-      final meta = initialState.knownProjects.firstWhereOrNull(
-        (p) => p.id == initialState.lastOpenedProjectId,
-      );
+      final meta = initialState.knownProjects.firstWhereOrNull((p) => p.id == initialState.lastOpenedProjectId);
       if (meta != null) {
         try {
-          // 1. Load the project. It will contain the raw, persisted session data.
-          final project = await _projectService.openProject(
+          // 1. Load the raw DTO from the appropriate repository.
+          final projectDto = await _projectService.openProjectDto(
             meta,
             projectStateJson: initialState.currentProjectState,
           );
           
-          // 2. Call the service to turn the raw session data into a live session state.
-          // This populates the tabMetadataProvider and creates live EditorTab instances.
-          final liveSession = await _editorService.rehydrateTabSession(project.session);
+          // 2. Pass the DTO to the EditorService to get a fully rehydrated, live Project object.
+          final finalProject = await _editorService.rehydrateProjectFromDto(projectDto, meta);
           
-          // 3. Create the final project object for the app state, replacing the
-          //    persisted session with the new, live one.
-          final finalProject = project.copyWith(session: liveSession);
-          
+          // 3. Set the final state.
           return initialState.copyWith(
             currentProject: finalProject,
             clearCurrentProjectState: true,
