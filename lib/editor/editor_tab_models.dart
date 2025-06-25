@@ -1,8 +1,12 @@
+// =========================================
+// FILE: lib/editor/editor_tab_models.dart
+// =========================================
+
 // lib/editor/editor_tab_models.dart
 import 'package:flutter/material.dart';
 import 'plugins/plugin_models.dart';
-import '../data/file_handler/file_handler.dart';
-import 'package:uuid/uuid.dart'; // NEW IMPORT
+// import '../data/file_handler/file_handler.dart'; // REMOVED
+import 'package:uuid/uuid.dart';
 
 @immutable
 class TabSessionState {
@@ -24,13 +28,14 @@ class TabSessionState {
   }
 
   Map<String, dynamic> toJson() => {
+    // We only need to serialize the tab IDs, as metadata is now separate.
     'tabs': tabs.map((t) => t.toJson()).toList(),
     'currentTabIndex': currentTabIndex,
   };
 
   factory TabSessionState.fromJson(Map<String, dynamic> json) {
     return TabSessionState(
-      tabs: const [],
+      tabs: const [], // Tabs are rehydrated by EditorService.
       currentTabIndex: json['currentTabIndex'] ?? 0,
     );
   }
@@ -38,35 +43,32 @@ class TabSessionState {
 
 @immutable
 abstract class WorkspaceTab {
-  String get title;
+  // REFACTORED: The stable ID is now on the base class.
+  final String id;
   final EditorPlugin plugin;
 
-  const WorkspaceTab({required this.plugin});
+  WorkspaceTab({required this.plugin}) : id = const Uuid().v4();
 
   void dispose();
 }
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
-  // NEW: A stable, unique ID for the lifetime of the tab session.
-  final String id;
-  final DocumentFile file;
+  // REFACTORED: file and title are removed. They now live in TabMetadata.
+  // final DocumentFile file;
   final GlobalKey<State<StatefulWidget>> editorKey;
 
-  EditorTab({required this.file, required super.plugin})
-      : id = const Uuid().v4(), // Generate a unique ID on creation
-        editorKey = GlobalKey<State<StatefulWidget>>();
+  EditorTab({required super.plugin})
+      : editorKey = GlobalKey<State<StatefulWidget>>();
 
-  @override
-  String get title => file.name;
-
-  // The copyWith method must now handle the id.
-  // When we copy, we are creating a conceptually new tab session,
-  // so it's okay for it to get a new key and ID.
-  EditorTab copyWith({DocumentFile? file, EditorPlugin? plugin});
+  // REFACTORED: The copyWith method is now much simpler.
+  // In practice, this abstract class will likely never be copied directly.
+  EditorTab copyWith({EditorPlugin? plugin});
 
   @override
   void dispose();
 
+  // The JSON representation of a tab is now its identity and type,
+  // which is used to find its metadata during rehydration.
   Map<String, dynamic> toJson();
 }

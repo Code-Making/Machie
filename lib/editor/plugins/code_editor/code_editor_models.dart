@@ -1,15 +1,19 @@
+// =========================================
+// FILE: lib/editor/plugins/code_editor/code_editor_models.dart
+// =========================================
+
 // lib/editor/plugins/code_editor/code_editor_models.dart
 import 'package:flutter/material.dart';
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
-import '../../../data/file_handler/file_handler.dart';
+// import '../../../data/file_handler/file_handler.dart'; // REMOVED
 
 @immutable
 class CodeEditorTab extends EditorTab {
   final String initialContent;
 
   CodeEditorTab({
-    required super.file,
+    // REMOVED: super.file,
     required super.plugin,
     required this.initialContent,
   });
@@ -19,12 +23,13 @@ class CodeEditorTab extends EditorTab {
 
   @override
   CodeEditorTab copyWith({
-    DocumentFile? file,
+    // REMOVED: DocumentFile? file,
     EditorPlugin? plugin,
     String? initialContent,
   }) {
+    // A new tab gets a new ID and key automatically from the super constructor.
     return CodeEditorTab(
-      file: file ?? this.file,
+      // REMOVED: file: file ?? this.file,
       plugin: plugin ?? this.plugin,
       initialContent: initialContent ?? this.initialContent,
     );
@@ -33,12 +38,12 @@ class CodeEditorTab extends EditorTab {
   @override
   Map<String, dynamic> toJson() => {
     'type': 'code',
-    'fileUri': file.uri,
+    'id': id, // Serialize the stable ID
     'pluginType': plugin.runtimeType.toString(),
   };
 }
 
-// ... CodeEditorSettings is unchanged but correctly imported now ...
+// ... CodeEditorSettings is unchanged ...
 class CodeEditorSettings extends PluginSettings {
   bool wordWrap;
   double fontSize;

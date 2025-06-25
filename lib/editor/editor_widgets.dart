@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/editor_widgets.dart
+// =========================================
+
 // lib/editor/editor_widgets.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +66,8 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
           children: [
             for (int i = 0; i < tabs.length; i++)
               ReorderableDelayedDragStartListener(
-                key: ValueKey(tabs[i].file.uri),
+                // REFACTORED: The key is still the stable tab ID.
+                key: ValueKey(tabs[i].id),
                 index: i,
                 child: TabWidget(tab: tabs[i], index: i),
               ),
@@ -87,12 +92,18 @@ class TabWidget extends ConsumerWidget {
         (s) => s.value?.currentProject?.session.currentTabIndex == index,
       ),
     );
-    // FIX: Watch the correct provider for the dirty state.
-    final isDirty = ref.watch(
-      tabMetadataProvider.select(
-        (metadataMap) => metadataMap[tab.file.uri]?.isDirty ?? false,
-      ),
+    // REFACTORED: Watch the metadata for this specific tab ID.
+    final metadata = ref.watch(
+      tabMetadataProvider.select((map) => map[tab.id]),
     );
+
+    if (metadata == null) {
+      // This can happen briefly during tab closing.
+      return const SizedBox.shrink();
+    }
+
+    final isDirty = metadata.isDirty;
+    final title = metadata.title;
 
     return Material(
       color: Colors.transparent,
@@ -135,7 +146,8 @@ class TabWidget extends ConsumerWidget {
               ),
               Flexible(
                 child: Text(
-                  tab.file.name,
+                  // Use title from metadata
+                  title,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
                   style: TextStyle(
@@ -157,7 +169,6 @@ class TabWidget extends ConsumerWidget {
   }
 }
 
-// NEW: The body of the AppScreen will now use this directly.
 class EditorView extends ConsumerWidget {
   const EditorView({super.key});
 
@@ -171,8 +182,8 @@ class EditorView extends ConsumerWidget {
     return IndexedStack(
       index: project.session.currentTabIndex,
       children: project.session.tabs.map((tab) {
-        // FIX: The key now uses the stable `tab.id`.
-        // This prevents the widget from being destroyed on a rename.
+        // The key is the stable `tab.id`, which is the core of this refactoring.
+        // The widget will NOT be destroyed on a rename.
         return KeyedSubtree(
           key: ValueKey(tab.id),
           child: tab.plugin.buildEditor(tab, ref),
