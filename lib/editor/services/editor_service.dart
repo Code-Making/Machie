@@ -18,7 +18,7 @@ import '../../logs/logs_provider.dart';
 import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
-import '../../explorer/explorer_explorer_state.dart';
+import '../../explorer/explorer_workspace_state.dart';
 import '../../utils/toast.dart';
 import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
