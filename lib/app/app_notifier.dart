@@ -61,15 +61,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       if (meta != null) {
         try {
-          // REFACTORED: This is now a single, clean call.
-          // openProject returns a fully rehydrated, live project.
-          final liveProject = await _projectService.openProject(
+          // 1. Load the project. It will contain the raw, persisted session data.
+          final project = await _projectService.openProject(
             meta,
             projectStateJson: initialState.currentProjectState,
           );
           
+          // 2. Call the service to turn the raw session data into a live session state.
+          // This populates the tabMetadataProvider and creates live EditorTab instances.
+          final liveSession = await _editorService.rehydrateTabSession(project.session);
+          
+          // 3. Create the final project object for the app state, replacing the
+          //    persisted session with the new, live one.
+          final finalProject = project.copyWith(session: liveSession);
+          
           return initialState.copyWith(
-            currentProject: liveProject,
+            currentProject: finalProject,
             clearCurrentProjectState: true,
           );
         } catch (e, st) {
@@ -135,29 +142,24 @@ class AppNotifier extends AsyncNotifier<AppState> {
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
-      
-      // The result from the service now contains a fully rehydrated project.
       final result = await _projectService.openFromFolder(
         folder: folder,
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-      
-      // No more call to editorService.rehydrateTabs needed here!
+            
+      final liveSession = await _editorService.rehydrateTabSession(result.project.session);
+      final finalProject = result.project.copyWith(session: liveSession);
       
       return s.copyWith(
-        currentProject: result.project,
+        currentProject: finalProject,
         lastOpenedProjectId: result.project.id,
-        knownProjects:
-            result.isNew
-                ? [...s.knownProjects, result.metadata]
-                : s.knownProjects,
       );
     });
     await saveAppState();
   }
 
-    // This is also simpler now.
+  // And the same logic for opening a known project.
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
@@ -166,14 +168,17 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
       
-      final liveProject = await _projectService.openProject(
+      final project = await _projectService.openProject(
         meta,
         projectStateJson: s.currentProjectState
       );
       
+      final liveSession = await _editorService.rehydrateTabSession(project.session);
+      final finalProject = project.copyWith(session: liveSession);
+      
       return s.copyWith(
-        currentProject: liveProject,
-        lastOpenedProjectId: liveProject.id,
+        currentProject: finalProject,
+        lastOpenedProjectId: project.id,
       );
     });
     await saveAppState();
