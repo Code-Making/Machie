@@ -115,18 +115,18 @@ class ExplorerTypeDropdown extends ConsumerWidget {
         value: activeExplorer,
         onChanged: (plugin) async {
           if (plugin != null && plugin.id != activeExplorer.id) {
-            // REFACTOR: The logic is now much cleaner.
             // 1. Update the local state provider immediately for a snappy UI response.
             ref.read(activeExplorerProvider.notifier).state = plugin;
 
-            // 2. Call the service to persist the change.
+            // 2. Call the synchronous service method to get the updated project object.
             final explorerService = ref.read(explorerServiceProvider);
-            final newProject = await explorerService.updateWorkspace(
+            final newProject = explorerService.updateWorkspace(
               currentProject,
               (w) => w.copyWith(activeExplorerPluginId: plugin.id),
             );
 
             // 3. Update the global app state with the new project object.
+            // The project will be saved later by the AppNotifier's lifecycle hooks.
             ref
                 .read(appNotifierProvider.notifier)
                 .updateCurrentProject(newProject);
