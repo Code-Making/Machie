@@ -20,6 +20,7 @@ import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
+import '../editor/editor_tab_models.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
