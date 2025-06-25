@@ -13,8 +13,8 @@ import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../editor/tab_state_manager.dart';
-import '../../editor/plugins/plugin_registry.dart'; // ADDED
-import '../../logs/logs_provider.dart'; // ADDED
+import '../../editor/plugins/plugin_registry.dart';
+import '../../logs/logs_provider.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -35,6 +35,9 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
+  // REFACTORED: This method is now correct and simplified.
+  // It determines the metadata for the project, then calls the main
+  // openProject method which handles loading AND rehydration.
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -49,39 +52,38 @@ class ProjectService {
       name: folder.name,
       projectTypeId: projectTypeId,
     );
+    
+    // Call the main, authoritative openProject method. It will return a
+    // fully loaded and rehydrated project.
     final project = await openProject(meta);
+    
     return OpenProjectResult(project: project, metadata: meta, isNew: isNew);
   }
 
-  // REFACTORED: This is now the single point of truth for opening and rehydrating a project.
   Future<Project> openProject(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
   }) async {
     final fileHandler = LocalFileHandlerFactory.create();
+    
+    // For local_persistent, we need to ensure the .machine folder exists to read from it.
+    // This setup step is necessary before creating the repository.
+    if (metadata.projectTypeId == 'local_persistent') {
+      await _ensureProjectDataFolder(fileHandler, metadata.rootUri);
+    }
+    
     final repo = _createRepository(metadata, projectStateJson, fileHandler);
     _ref.read(projectRepositoryProvider.notifier).state = repo;
     
-    // 1. Load the project object, which contains the persisted session data.
     final loadedProject = await repo.loadProject(metadata);
 
-    // 2. Rehydrate the session state right here.
     final rehydratedSession = await _rehydrateSession(loadedProject.session, repo);
     
-    // 3. Return a new Project object with the live, rehydrated session.
     return loadedProject.copyWith(session: rehydratedSession);
   }
 
   ProjectRepository _createRepository(ProjectMetadata metadata, Map<String, dynamic>? projectStateJson, FileHandler fileHandler) {
       if (metadata.projectTypeId == 'local_persistent') {
-        // NOTE: This assumes _ensureProjectDataFolder is synchronous or we await it before.
-        // For simplicity, we assume it's handled, but in a real app, this might need async setup.
-        // Let's make it part of this method.
-        // final projectDataPath = await _ensureProjectDataFolder(fileHandler, metadata.rootUri);
-        // This part needs to be synchronous for the factory pattern here, or the pattern needs adjustment.
-        // Assuming a synchronous way to get the path for now. Let's imagine a setup phase.
-        // A better pattern might be an async factory for the service itself.
-        // For now, let's keep it simple and assume the path is known or can be constructed.
         final projectDataPath = metadata.rootUri + '/.machine'; // Simplification
         return PersistentProjectRepository(fileHandler, projectDataPath);
       } else if (metadata.projectTypeId == 'simple_local') {
@@ -91,8 +93,8 @@ class ProjectService {
       }
   }
 
-  // ADDED: The rehydration logic now lives here, where it belongs.
   Future<TabSessionState> _rehydrateSession(TabSessionState persistedSession, ProjectRepository repo) async {
+    // ... logic from previous step is correct ...
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
 
@@ -140,7 +142,6 @@ class ProjectService {
       }
     }
     
-    // Return a new session state with live tabs and the original index.
     return persistedSession.copyWith(tabs: rehydratedTabs, tabMetadata: {});
   }
 
@@ -164,7 +165,7 @@ class ProjectService {
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).state = {};
   }
-
+  
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
