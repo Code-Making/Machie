@@ -272,10 +272,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final appState = state.value;
     if (appState == null) return;
 
+    // 1. If a persistent project is open, save it to its own directory.
+    // This call is now "fire and forget" from AppNotifier's perspective.
     if (appState.currentProject != null) {
       await _projectService.saveProject(appState.currentProject!);
     }
-    await _appStateRepository.saveAppState(appState);
+    
+    // 2. Get the live tab metadata from the provider.
+    final liveTabMetadata = ref.read(tabMetadataProvider);
+    
+    // 3. Convert the entire AppState into its persistable JSON form.
+    // The AppState.toJson() method will correctly handle including the
+    // simple project's state if necessary.
+    final appStateJson = appState.toJson(liveTabMetadata);
+    
+    // 4. Pass the pure JSON to the repository for saving.
+    await _appStateRepository.saveAppState(appStateJson);
   }
 
   void setBottomToolbarOverride(Widget? widget) =>
