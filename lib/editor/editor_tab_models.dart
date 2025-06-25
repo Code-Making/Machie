@@ -29,6 +29,7 @@ class TabSessionState {
         isDirty: value.isDirty,
       ))),
     );
+  }
 
   EditorTab? get currentTab =>
       tabs.isNotEmpty && currentTabIndex < tabs.length
