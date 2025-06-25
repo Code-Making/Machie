@@ -110,6 +110,87 @@ class EditorService {
       session: project.session.copyWith(tabs: rehydratedTabs, tabMetadata: {}), // Clear persisted metadata
     );
   }
+  
+   // ... updateCurrentTabModel, set/clearBottomToolbarOverride are unchanged ...
+  void updateCurrentTabModel(EditorTab newTabModel) {
+    final project = _currentProject;
+    if (project == null) return;
+    final newTabs = List<EditorTab>.from(project.session.tabs);
+    newTabs[project.session.currentTabIndex] = newTabModel;
+    final newProject = project.copyWith(
+      session: project.session.copyWith(tabs: newTabs),
+    );
+    _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
+  }
+
+  void setBottomToolbarOverride(Widget? widget) {
+    _ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(widget);
+  }
+
+  void clearBottomToolbarOverride() {
+    _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
+  }
+
+  /// Initiates the "Save As" flow for the current tab.
+  Future<void> saveCurrentTabAs({
+    Future<Uint8List?> Function()? byteDataProvider,
+    Future<String?> Function()? stringDataProvider,
+  }) async {
+    final repo = _ref.read(projectRepositoryProvider);
+    final context = _ref.read(navigatorKeyProvider).currentContext;
+    final currentTabId = _currentTab?.id;
+    final currentMetadata =
+        currentTabId != null ? _ref.read(tabMetadataProvider)[currentTabId] : null;
+
+    if (repo == null || context == null || currentMetadata == null) return;
+
+    final result = await showDialog<SaveAsDialogResult>(
+      context: context,
+      builder: (_) => SaveAsDialog(initialFileName: currentMetadata.file.name),
+    );
+    if (result == null) return;
+
+    final DocumentFile newFile;
+    if (byteDataProvider != null) {
+      final bytes = await byteDataProvider();
+      if (bytes == null) return;
+      newFile = await repo.createDocumentFile(
+        result.parentUri,
+        result.fileName,
+        initialBytes: bytes,
+        overwrite: true,
+      );
+    } else if (stringDataProvider != null) {
+      final content = await stringDataProvider();
+      if (content == null) return;
+      newFile = await repo.createDocumentFile(
+        result.parentUri,
+        result.fileName,
+        initialContent: content,
+        overwrite: true,
+      );
+    } else {
+      return;
+    }
+    _ref.read(projectHierarchyProvider.notifier).add(newFile, result.parentUri);
+    _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
+    MachineToast.info("Saved as ${newFile.name}");
+  }
+
+  // --- Core Service Methods ---
+
+  ProjectRepository get _repo {
+    final repo = _ref.read(projectRepositoryProvider);
+    if (repo == null) {
+      throw StateError('ProjectRepository is not available.');
+    }
+    return repo;
+  }
+
+  void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
+    if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
+    if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
+  }
 
 Future<({EditorTab tab, DocumentFile file})?> _createTabForFile(DocumentFile file, {EditorPlugin? explicitPlugin}) async {
     final compatiblePlugins = _ref.read(activePluginsProvider).where((p) => p.supportsFile(file)).toList();
