@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/project/services/project_service.dart
+// =========================================
+
 // lib/project/services/project_service.dart
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,12 +12,13 @@ import '../../data/repositories/persistent_project_repository.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
+import '../../editor/tab_state_manager.dart'; // ADDED
 
-// ... OpenProjectResult and provider are unchanged ...
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
 
+// ... (OpenProjectResult is unchanged) ...
 class OpenProjectResult {
   final Project project;
   final ProjectMetadata metadata;
@@ -29,12 +34,12 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
+  // ... (openFromFolder and openProject are unchanged) ...
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
     required List<ProjectMetadata> knownProjects,
   }) async {
-    // ... implementation unchanged
     ProjectMetadata? meta = knownProjects.firstWhereOrNull(
       (p) => p.rootUri == folder.uri && p.projectTypeId == projectTypeId,
     );
@@ -60,10 +65,8 @@ class ProjectService {
         fileHandler,
         metadata.rootUri,
       );
-      // FIX: The Ref is passed to the methods, not the constructor.
       repo = PersistentProjectRepository(fileHandler, projectDataPath);
     } else if (metadata.projectTypeId == 'simple_local') {
-      // FIX: The Ref is passed to the methods, not the constructor.
       repo = SimpleProjectRepository(fileHandler, projectStateJson);
     } else {
       throw UnimplementedError(
@@ -77,15 +80,16 @@ class ProjectService {
 
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
-    await repo?.saveProject(project);
+    // REFACTORED: Snapshot the live metadata into the project before saving.
+    final liveMetadata = _ref.read(tabMetadataProvider);
+    final projectToSave = project.copyWith(
+      session: project.session.copyWith(tabMetadata: liveMetadata),
+    );
+    await repo?.saveProject(projectToSave);
   }
 
   Future<void> closeProject(Project project) async {
     await saveProject(project);
-
-    // FIX: The hierarchyCache property no longer exists on the repo.
-    // The provider is autoDispose, so it will be cleaned up automatically when
-    // the projectRepositoryProvider becomes null. No action needed here.
 
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
@@ -93,9 +97,11 @@ class ProjectService {
       tab.dispose();
     }
     _ref.read(projectRepositoryProvider.notifier).state = null;
+    // Also clear the metadata for the closed project.
+    _ref.read(tabMetadataProvider.notifier).state = {};
   }
-
-  // ... _createNewProjectMetadata and _ensureProjectDataFolder are unchanged ...
+  
+  // ... (_createNewProjectMetadata and _ensureProjectDataFolder are unchanged) ...
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
@@ -123,7 +129,6 @@ class ProjectService {
     );
     final dir =
         machineDir ??
-        // FIX: The low-level FileHandler does not take a Ref. Removed the incorrect argument.
         await handler.createDocumentFile(
           projectRootUri,
           '.machine',

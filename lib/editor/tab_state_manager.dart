@@ -3,11 +3,10 @@
 // =========================================
 
 // lib/editor/tab_state_manager.dart
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
+import '../project/project_models.dart'; // ADDED
 
-// REFACTORED: Metadata now holds the file and display properties.
 @immutable
 class TabMetadata {
   final DocumentFile file;
@@ -23,9 +22,27 @@ class TabMetadata {
       isDirty: isDirty ?? this.isDirty,
     );
   }
+
+  // ADDED: toJson method for persistence.
+  Map<String, dynamic> toJson() => {
+    // We only need to persist the URI. The full DocumentFile will be
+    // reconstituted from the URI on rehydration.
+    'fileUri': file.uri,
+    'isDirty': isDirty,
+  };
+
+  // ADDED: fromJson factory for rehydration.
+  // Note: This creates a "partial" metadata object. The full DocumentFile
+  // needs to be fetched separately. We'll use a placeholder for now.
+  factory TabMetadata.fromJson(Map<String, dynamic> json) {
+    return TabMetadata(
+      file: IncompleteDocumentFile(uri: json['fileUri']),
+      isDirty: json['isDirty'] ?? false,
+    );
+  }
 }
 
-// REFACTORED: The provider is now keyed by the stable tab ID.
+// ... (TabMetadataNotifier is unchanged) ...
 final tabMetadataProvider =
     StateNotifierProvider<TabMetadataNotifier, Map<String, TabMetadata>>((ref) {
       return TabMetadataNotifier();
@@ -34,13 +51,11 @@ final tabMetadataProvider =
 class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   TabMetadataNotifier() : super({});
 
-  /// Initializes metadata for a new tab.
   void initTab(String tabId, DocumentFile file) {
     if (state.containsKey(tabId)) return;
     state = {...state, tabId: TabMetadata(file: file)};
   }
 
-  /// Removes metadata for a closed tab.
   void removeTab(String tabId) {
     final newState = Map<String, TabMetadata>.from(state)..remove(tabId);
     state = newState;
@@ -58,13 +73,9 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
     }
   }
 
-  // REFACTORED: Method to update the file for a given tab ID.
   void updateFile(String tabId, DocumentFile newFile) {
      if (state.containsKey(tabId)) {
       state = {...state, tabId: state[tabId]!.copyWith(file: newFile)};
     }
   }
-
-  // REFACTORED: This is no longer needed, as the key (tabId) is stable.
-  // void rekeyState(String oldUri, String newUri) { ... }
 }
