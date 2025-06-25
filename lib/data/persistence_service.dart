@@ -28,7 +28,7 @@ class AppStateRepository {
       try {
         return AppState.fromJson(jsonDecode(jsonString));
       } catch (e , st) {
-        talker.handle(e, st, 'Error loading app state');
+        _talker.handle(e, st, 'Error loading app state');
         //print('Error decoding app state, starting fresh. Error: $e');
         return AppState.initial();
       }
