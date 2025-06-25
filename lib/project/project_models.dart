@@ -1,11 +1,33 @@
+// =========================================
+// FILE: lib/project/project_models.dart
+// =========================================
+
 // lib/project/project_models.dart
 import 'package:flutter/foundation.dart';
 import '../editor/editor_tab_models.dart';
 import '../explorer/explorer_workspace_state.dart';
-// REFACTOR: Add for DocumentFile
+import '../data/file_handler/file_handler.dart'; // ADDED
 
-// --- Models ---
+// ADDED: A placeholder implementation for use during deserialization.
+class IncompleteDocumentFile implements DocumentFile {
+  @override
+  final String uri;
+  IncompleteDocumentFile({required this.uri});
 
+  @override
+  String get name => '';
+  @override
+  bool get isDirectory => false;
+  @override
+  int get size => 0;
+  @override
+  DateTime get modifiedDate => DateTime.fromMillisecondsSinceEpoch(0);
+  @override
+  String get mimeType => 'application/octet-stream';
+}
+
+
+// ... (ProjectMetadata is unchanged) ...
 @immutable
 class ProjectMetadata {
   final String id;
@@ -40,6 +62,7 @@ class ProjectMetadata {
       );
 }
 
+// ... (Project class is unchanged) ...
 @immutable
 class Project {
   final ProjectMetadata metadata;
@@ -86,7 +109,6 @@ class Project {
 
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
-      // REFACTOR: Remove const and provide a valid DateTime.
       metadata: ProjectMetadata(
         id: '',
         name: '',
