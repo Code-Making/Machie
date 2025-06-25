@@ -127,7 +127,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.refresh),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      execute: (ref) => _getActiveEditorState(ref)?.resetImage(),
+      execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // REFACTORED: Also check the dirty status from the metadata provider.
       canExecute: (ref) {
         final activeTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
@@ -147,7 +147,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       ),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      execute: (ref) =>
+      execute: (ref) async =>
           ref.read(isZoomModeProvider.notifier).update((state) => !state),
     ),
     BaseCommand(
