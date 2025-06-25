@@ -135,16 +135,18 @@ class AppNotifier extends AsyncNotifier<AppState> {
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
+      
+      // The result from the service now contains a fully rehydrated project.
       final result = await _projectService.openFromFolder(
         folder: folder,
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-      final rehydratedProject = await _editorService.rehydrateTabs(
-        result.project,
-      );
+      
+      // No more call to editorService.rehydrateTabs needed here!
+      
       return s.copyWith(
-        currentProject: rehydratedProject,
+        currentProject: result.project,
         lastOpenedProjectId: result.project.id,
         knownProjects:
             result.isNew
