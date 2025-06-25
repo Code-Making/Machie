@@ -61,20 +61,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       if (meta != null) {
         try {
-          // REFACTORED: This is now much simpler.
-          // We call openProject, which loads the project and its last session.
-          final project = await _projectService.openProject(
+          // REFACTORED: This is now a single, clean call.
+          // openProject returns a fully rehydrated, live project.
+          final liveProject = await _projectService.openProject(
             meta,
-            // We only pass the projectStateJson for simple projects.
-            // Persistent projects ignore this and load from their own file.
             projectStateJson: initialState.currentProjectState,
           );
           
-          // Now, rehydrate the tabs from the session that was just loaded.
-          final rehydratedProject = await _editorService.rehydrateTabs(project);
-          
           return initialState.copyWith(
-            currentProject: rehydratedProject,
+            currentProject: liveProject,
             clearCurrentProjectState: true,
           );
         } catch (e, st) {
@@ -169,15 +164,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
       
-      final project = await _projectService.openProject(
+      final liveProject = await _projectService.openProject(
         meta,
         projectStateJson: s.currentProjectState
       );
       
-      final rehydratedProject = await _editorService.rehydrateTabs(project);
-      
       return s.copyWith(
-        currentProject: rehydratedProject,
+        currentProject: liveProject,
         lastOpenedProjectId: project.id,
       );
     });
