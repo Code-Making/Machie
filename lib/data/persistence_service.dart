@@ -36,18 +36,7 @@ class AppStateRepository {
     return AppState.initial();
   }
 
-  Future<void> saveAppState(AppState state) async {
-    final appState = state.value;
-    if (appState == null) return;
-
-    if (appState.currentProject != null) {
-      await _projectService.saveProject(appState.currentProject!);
-    }
-    
-    // Get the live metadata from the provider.
-    final liveTabMetadata = ref.read(tabMetadataProvider);
-    
-    // Pass it to the repository.
-    await _appStateRepository.saveAppState(appState, liveTabMetadata);
+  Future<void> saveAppState(Map<String, dynamic> appStateJson) async {
+    await _prefs.setString(_appStateKey, jsonEncode(appStateJson));
   }
 }
