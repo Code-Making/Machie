@@ -107,7 +107,7 @@ class EditorService {
     return project.copyWith(
       // Replace the session's tabs with our rehydrated list and clear the now-stale
       // persisted metadata from the project object itself, as it lives in the provider now.
-      session: project.session.copyWith(tabs: rehydratedTabs, tabMetadata: {}),
+      session: project.session.copyWith(tabs: rehydratedTabs),
     );
   }
   
