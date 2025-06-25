@@ -19,7 +19,7 @@ import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
-import '../editor/tab_state_manager.dart'; // ADDED
+import '../editor/tab_state_manager.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -43,7 +43,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _editorService = ref.watch(editorServiceProvider);
     final talker = ref.read(talkerProvider);
 
-    // Subscribe to file operation events.
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
       previous,
       next,
@@ -55,19 +54,28 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     final initialState = await _appStateRepository.loadAppState();
     
-    // Attempt to re-open the last project.
     if (initialState.lastOpenedProjectId != null) {
       final meta = initialState.knownProjects.firstWhereOrNull(
         (p) => p.id == initialState.lastOpenedProjectId,
       );
       if (meta != null) {
         try {
-          // 1. Open project to get persisted session data (like tab URIs).
+          // REFACTORED: Extract the session state from the persisted app state.
+          TabSessionState? sessionStateToRestore;
+          final projectStateJson = initialState.currentProjectState;
+          if (projectStateJson != null && projectStateJson['session'] != null) {
+            sessionStateToRestore = TabSessionState.fromJson(
+              projectStateJson['session'] as Map<String, dynamic>,
+            );
+          }
+          
+          // Call openProject with the restored session state.
           final project = await _projectService.openProject(
             meta,
-            projectStateJson: initialState.currentProjectState,
+            projectStateJson: projectStateJson,
+            sessionState: sessionStateToRestore, // PASS THE RESTORED SESSION
           );
-          // 2. EditorService rehydrates tabs from the session data.
+          
           final rehydratedProject = await _editorService.rehydrateTabs(project);
           
           return initialState.copyWith(
@@ -82,25 +90,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
     return initialState;
   }
 
-  /// Handles events published by the ProjectRepository to keep the UI in sync.
+  // ... (The rest of the file is correct and does not need changes) ...
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
     
     switch (event) {
       case FileCreateEvent():
-        // No action needed here, the explorer will update itself via its own listeners.
         break;
         
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-        // REFACTORED: Delegate to the service. The service updates the metadata.
-        // The AppNotifier's state (Project object) does NOT change, so no
-        // _updateStateSync call is needed. The UI will react to the metadata change.
         _editorService.updateTabForRenamedFile(oldFile.uri, newFile);
         break;
         
       case FileDeleteEvent(deletedFile: final deletedFile):
-        // REFACTORED: To find the tab to close, we must check the metadata provider.
         final metadataMap = ref.read(tabMetadataProvider);
         final tabIdToDelete = metadataMap.entries.firstWhereOrNull(
           (entry) => entry.value.file.uri == deletedFile.uri,
@@ -109,7 +112,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
         if (tabIdToDelete != null) {
           final tabIndex = project.session.tabs.indexWhere((t) => t.id == tabIdToDelete);
           if (tabIndex != -1) {
-            // Service will return a new project object with the tab removed.
             final newProject = _editorService.closeTab(project, tabIndex);
             _updateStateSync((s) => s.copyWith(currentProject: newProject));
           }
@@ -131,8 +133,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     state = AsyncData(updater(previousState));
   }
   
-  // The rest of the methods are mostly delegation to services, so they remain clean.
-
   void updateCurrentProject(Project newProject) {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
@@ -165,13 +165,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-Future<void> openKnownProject(String projectId) async {
+  Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
+      // When opening a known project, the session state will come from its own
+      // project.json, so we don't pass a session state here.
       final project = await _projectService.openProject(meta);
       final rehydratedProject = await _editorService.rehydrateTabs(project);
       return s.copyWith(
@@ -181,8 +183,8 @@ Future<void> openKnownProject(String projectId) async {
     });
     await saveAppState();
   }
-
-  Future<void> closeProject() async {
+  
+Future<void> closeProject() async {
     final projectToClose = state.value?.currentProject;
     if (projectToClose == null) return;
     await _projectService.closeProject(projectToClose);

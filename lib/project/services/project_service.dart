@@ -12,13 +12,12 @@ import '../../data/repositories/persistent_project_repository.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
-import '../../editor/tab_state_manager.dart'; // ADDED
+import '../../editor/tab_state_manager.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
 
-// ... (OpenProjectResult is unchanged) ...
 class OpenProjectResult {
   final Project project;
   final ProjectMetadata metadata;
@@ -34,7 +33,6 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
-  // ... (openFromFolder and openProject are unchanged) ...
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -49,13 +47,16 @@ class ProjectService {
       name: folder.name,
       projectTypeId: projectTypeId,
     );
+    // When opening from a folder for the first time, there is no prior session state.
     final project = await openProject(meta);
     return OpenProjectResult(project: project, metadata: meta, isNew: isNew);
   }
 
+  // REFACTORED: Add an optional sessionState parameter.
   Future<Project> openProject(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
+    TabSessionState? sessionState, // ADDED
   }) async {
     final fileHandler = LocalFileHandlerFactory.create();
     final ProjectRepository repo;
@@ -75,12 +76,21 @@ class ProjectService {
     }
 
     _ref.read(projectRepositoryProvider.notifier).state = repo;
-    return await repo.loadProject(metadata);
+    
+    // Load the base project from disk (or memory).
+    final loadedProject = await repo.loadProject(metadata);
+
+    // If a prior session was passed in, use it. Otherwise, use what was loaded.
+    // This is the key to preserving tab state across app restarts.
+    if (sessionState != null) {
+      return loadedProject.copyWith(session: sessionState);
+    }
+    
+    return loadedProject;
   }
 
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
-    // REFACTORED: Snapshot the live metadata into the project before saving.
     final liveMetadata = _ref.read(tabMetadataProvider);
     final projectToSave = project.copyWith(
       session: project.session.copyWith(tabMetadata: liveMetadata),
@@ -97,11 +107,9 @@ class ProjectService {
       tab.dispose();
     }
     _ref.read(projectRepositoryProvider.notifier).state = null;
-    // Also clear the metadata for the closed project.
     _ref.read(tabMetadataProvider.notifier).state = {};
   }
-  
-  // ... (_createNewProjectMetadata and _ensureProjectDataFolder are unchanged) ...
+
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
