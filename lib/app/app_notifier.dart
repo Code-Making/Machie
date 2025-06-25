@@ -165,7 +165,42 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  // ... other methods like openKnownProject, closeProject, removeKnownProject, etc. are correct ...
+Future<void> openKnownProject(String projectId) async {
+    await _updateState((s) async {
+      if (s.currentProject?.id == projectId) return s;
+      if (s.currentProject != null) {
+        await _projectService.closeProject(s.currentProject!);
+      }
+      final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
+      final project = await _projectService.openProject(meta);
+      final rehydratedProject = await _editorService.rehydrateTabs(project);
+      return s.copyWith(
+        currentProject: rehydratedProject,
+        lastOpenedProjectId: project.id,
+      );
+    });
+    await saveAppState();
+  }
+
+  Future<void> closeProject() async {
+    final projectToClose = state.value?.currentProject;
+    if (projectToClose == null) return;
+    await _projectService.closeProject(projectToClose);
+    _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
+  }
+
+  Future<void> removeKnownProject(String projectId) async {
+    await _updateState((s) async {
+      if (s.currentProject?.id == projectId) {
+        await closeProject();
+        s = state.value!;
+      }
+      return s.copyWith(
+        knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),
+      );
+    });
+    await saveAppState();
+  }
 
   Future<bool> openFileInEditor(
     DocumentFile file, {
