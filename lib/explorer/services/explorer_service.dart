@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../data/repositories/project_hierarchy_cache.dart'; // ADDED: For cache updates
+import '../../data/repositories/project_hierarchy_cache.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
@@ -28,7 +28,6 @@ class ExplorerService {
     return repo;
   }
 
-  // ... (updateWorkspace is unchanged) ...
   Future<Project> updateWorkspace(
     Project project,
     ExplorerWorkspaceState Function(ExplorerWorkspaceState) updater,
@@ -39,14 +38,14 @@ class ExplorerService {
     return newProject;
   }
 
-  // REFACTORED: Service methods now orchestrate repository calls and UI updates.
+  // REFACTORED: Methods now call the pure repository method first,
+  // then update the UI state using the service's own Ref.
   Future<void> createFile(String parentUri, String name) async {
     final newFile = await _repo.createDocumentFile(
       parentUri,
       name,
       isDirectory: false,
     );
-    // ADDED: The UI update logic now lives here.
     _ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
     _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
   }
@@ -57,7 +56,6 @@ class ExplorerService {
       name,
       isDirectory: true,
     );
-    // ADDED: The UI update logic now lives here.
     _ref.read(projectHierarchyProvider.notifier).add(newFolder, parentUri);
     _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFolder));
   }
@@ -66,7 +64,6 @@ class ExplorerService {
     final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
     final renamedFile = await _repo.renameDocumentFile(item, newName);
     if (renamedFile != null) {
-      // ADDED: The UI update logic now lives here.
       _ref.read(projectHierarchyProvider.notifier).rename(item, renamedFile, parentUri);
       _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: item, newFile: renamedFile));
     }
@@ -75,7 +72,6 @@ class ExplorerService {
   Future<void> deleteItem(DocumentFile item) async {
     final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
     await _repo.deleteDocumentFile(item);
-    // ADDED: The UI update logic now lives here.
     _ref.read(projectHierarchyProvider.notifier).remove(item, parentUri);
     _ref.read(fileOperationControllerProvider).add(FileDeleteEvent(deletedFile: item));
   }
@@ -88,13 +84,13 @@ class ExplorerService {
     if (sourceFile == null) {
       throw Exception('Clipboard source file not found.');
     }
+
     if (clipboardItem.operation == ClipboardOperation.copy) {
       final copiedFile = await _repo.copyDocumentFile(
         sourceFile,
         destinationFolder.uri,
       );
       if (copiedFile != null) {
-        // ADDED: The UI update logic now lives here.
         _ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationFolder.uri);
         _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
       }
@@ -108,13 +104,14 @@ class ExplorerService {
       throw Exception('Destination must be a folder.');
     }
     final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
-    final movedFile = await _repo.moveDocumentFile(source, destinationFolder.uri);
-
+    final movedFile = await _repo.moveDocumentFile(
+      source,
+      destinationFolder.uri,
+    );
     if (movedFile != null) {
-        // ADDED: The UI update logic now lives here.
-        _ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
-        _ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationFolder.uri);
-        _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
+      _ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
+      _ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationFolder.uri);
+      _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
     }
   }
 
@@ -124,7 +121,6 @@ class ExplorerService {
   ) async {
     final importedFile = await _repo.copyDocumentFile(pickedFile, projectRootUri);
     if (importedFile != null) {
-      // ADDED: The UI update logic now lives here.
       _ref.read(projectHierarchyProvider.notifier).add(importedFile, projectRootUri);
       _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: importedFile));
     }
