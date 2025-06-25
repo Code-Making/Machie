@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
+// =========================================
+
 // lib/plugins/code_editor/code_editor_widgets.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +14,7 @@ import 'code_editor_logic.dart';
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
 
-// Helper class for bracket highlight data
+// ... (_BracketHighlightState is unchanged) ...
 class _BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final Set<int> highlightedLines;
@@ -24,19 +28,16 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeEditorTab tab;
 
   const CodeEditorMachine({
-    // The key is now the GlobalKey from the tab model, passed from the plugin.
     super.key,
     required this.tab,
   });
 
   @override
-  // The State class is now public to be accessible via the GlobalKey.
   CodeEditorMachineState createState() => CodeEditorMachineState();
 }
 
 class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   // --- STATE ---
-  // The widget's State object is now the single source of truth for "hot" state.
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
 
@@ -48,8 +49,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   late String? _languageKey;
 
   // --- PUBLIC PROPERTIES (for the command system) ---
-  bool get isDirty =>
-      ref.read(tabMetadataProvider)[widget.tab.file.uri]?.isDirty ?? false;
+  // isDirty is no longer needed here; the command gets it from the provider.
   bool get canUndo => controller.canUndo;
   bool get canRedo => controller.canRedo;
   bool get hasMark => _markPosition != null;
@@ -59,11 +59,15 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     super.initState();
     _focusNode = FocusNode();
 
-    // Initialize the internal state from the tab's file URI.
-    _languageKey = CodeThemes.inferLanguageKey(widget.tab.file.uri);
-    _commentFormatter = CodeEditorLogic.getCommentFormatter(
-      widget.tab.file.uri,
-    );
+    // REFACTORED: Get the file URI from the metadata provider using the tab's stable ID.
+    final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
+    if (fileUri == null) {
+      // This should not happen in a normal flow. Handle gracefully.
+      throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
+    }
+    
+    _languageKey = CodeThemes.inferLanguageKey(fileUri);
+    _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
@@ -75,15 +79,16 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // This is the key lifecycle method.
-    // It's called when the parent rebuilds with a new `tab` instance,
-    // but because the `ValueKey(tab.id)` is the same, this State object is reused.
-    if (widget.tab.file.uri != oldWidget.tab.file.uri) {
-      // A rename has occurred.
-      // We can update any internal state that depends on the URI.
+    // This is now the correct way to react to a file rename.
+    // The widget itself is reused, but we listen for changes in the metadata provider.
+    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
+
+    if (newFileUri != null && newFileUri != oldFileUri) {
+      // A rename has occurred. Update internal state that depends on the URI.
       setState(() {
-        _languageKey = CodeThemes.inferLanguageKey(widget.tab.file.uri);
-        _commentFormatter = CodeEditorLogic.getCommentFormatter(widget.tab.file.uri);
+        _languageKey = CodeThemes.inferLanguageKey(newFileUri);
+        _commentFormatter = CodeEditorLogic.getCommentFormatter(newFileUri);
       });
     }
   }
@@ -96,16 +101,14 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     super.dispose();
   }
 
-  // --- LOGIC AND METHODS (moved from plugin) ---
+  // --- LOGIC AND METHODS ---
 
   void _onControllerChange() {
     if (!mounted) return;
-
-    // Update global metadata via the service facade. This keeps the
-    // UI outside this widget (like the tab bar) in sync.
+    
+    // The service now handles marking the tab dirty by its ID.
     ref.read(editorServiceProvider).markCurrentTabDirty();
 
-    // Update local state and trigger a rebuild of this widget if necessary.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
@@ -113,11 +116,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
+    // The service will get the correct file from the metadata provider.
     await ref
         .read(editorServiceProvider)
         .saveCurrentTab(project, content: controller.text);
   }
 
+  // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
   void setMark() {
     setState(() {
       _markPosition = controller.selection.base;
@@ -151,7 +156,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     controller.runRevocableOp(() => controller.value = formatted);
   }
-
+  
   Future<void> showLanguageSelectionDialog() async {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
@@ -181,7 +186,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       });
     }
   }
-
+  
+  // ... (bracket highlighting logic is unchanged) ...
   _BracketHighlightState _calculateBracketHighlights() {
     final selection = controller.selection;
     if (!selection.isCollapsed) {
@@ -342,6 +348,20 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
+    // This listener ensures that if the file is renamed, the widget will rebuild
+    // with the correct syntax highlighting.
+    ref.listen(
+      tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri),
+      (previous, next) {
+        if (previous != next && next != null) {
+          setState(() {
+            _languageKey = CodeThemes.inferLanguageKey(next);
+            _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
+          });
+        }
+      },
+    );
+
     final codeEditorSettings = ref.watch(
       settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -384,11 +404,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 }
 
+// ... (CustomEditorIndicator and _CustomLineNumberWidget are unchanged) ...
 class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
-  // It now receives the state directly from its parent widget.
   final _BracketHighlightState bracketHighlightState;
 
   const CustomEditorIndicator({
