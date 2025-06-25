@@ -2,23 +2,21 @@
 // FILE: lib/editor/editor_tab_models.dart
 // =========================================
 
-// lib/editor/editor_tab_models.dart
 import 'package:flutter/material.dart';
 import 'plugins/plugin_models.dart';
 import 'package:uuid/uuid.dart';
-import 'tab_state_manager.dart'; // ADDED
+import 'tab_state_manager.dart';
 
 @immutable
 class TabSessionState {
   final List<EditorTab> tabs;
   final int currentTabIndex;
-  // ADDED: The metadata map for persistence.
   final Map<String, TabMetadata> tabMetadata;
 
   const TabSessionState({
     this.tabs = const [],
     this.currentTabIndex = 0,
-    this.tabMetadata = const {}, // ADDED
+    this.tabMetadata = const {},
   });
 
   EditorTab? get currentTab =>
@@ -29,35 +27,24 @@ class TabSessionState {
   TabSessionState copyWith({
     List<EditorTab>? tabs,
     int? currentTabIndex,
-    Map<String, TabMetadata>? tabMetadata, // ADDED
+    Map<String, TabMetadata>? tabMetadata,
   }) {
     return TabSessionState(
       tabs: tabs ?? List.from(this.tabs),
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
-      tabMetadata: tabMetadata ?? this.tabMetadata, // ADDED
+      tabMetadata: tabMetadata ?? Map.from(this.tabMetadata),
     );
   }
 
-  // REFACTORED: toJson now serializes the metadata map.
+  // toJson is correct. It prepares the data for persistence.
   Map<String, dynamic> toJson() => {
     'tabs': tabs.map((t) => t.toJson()).toList(),
     'currentTabIndex': currentTabIndex,
     'tabMetadata': tabMetadata.map((key, value) => MapEntry(key, value.toJson())),
   };
 
-  // REFACTORED: fromJson now deserializes the metadata.
-  factory TabSessionState.fromJson(Map<String, dynamic> json) {
-    final metadataJson = json['tabMetadata'] as Map<String, dynamic>? ?? {};
-    final tabMetadata = metadataJson.map(
-      (key, value) => MapEntry(key, TabMetadata.fromJson(value)),
-    );
-
-    return TabSessionState(
-      tabs: const [], // Tabs are rehydrated by EditorService.
-      currentTabIndex: json['currentTabIndex'] ?? 0,
-      tabMetadata: tabMetadata,
-    );
-  }
+  // REMOVED: The flawed fromJson factory is gone.
+  // factory TabSessionState.fromJson(Map<String, dynamic> json) { ... }
 }
 
 // ... (WorkspaceTab and EditorTab are unchanged) ...
@@ -66,7 +53,6 @@ abstract class WorkspaceTab {
   final String id;
   final EditorPlugin plugin;
 
-  // REFACTORED: Add an optional id parameter.
   WorkspaceTab({required this.plugin, String? id}) : id = id ?? const Uuid().v4();
 
   void dispose();

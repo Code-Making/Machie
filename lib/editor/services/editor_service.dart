@@ -39,6 +39,69 @@ class EditorService {
     }
     return repo;
   }
+
+  // REFACTORED: The main rehydration logic is now here, creating a live session state.
+  Future<TabSessionState> rehydrateTabSession(TabSessionState persistedSession) async {
+    final plugins = _ref.read(activePluginsProvider);
+    final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
+    
+    final persistedMetadataMap = persistedSession.tabMetadata;
+    final persistedTabs = persistedSession.tabs;
+
+    final List<EditorTab> rehydratedTabs = [];
+
+    for (final persistedTab in persistedTabs) {
+      final tabId = persistedTab.id;
+      final tabJson = persistedTab.toJson();
+      final pluginType = tabJson['pluginType'] as String?;
+      final persistedMetadata = persistedMetadataMap[tabId];
+
+      if (pluginType == null || persistedMetadata == null) {
+        _ref.read(talkerProvider).warning('Skipping rehydration for incomplete tab data: $tabJson');
+        continue;
+      }
+      
+      final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+      if (plugin == null) {
+        _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: plugin $pluginType not found.');
+        continue;
+      }
+      
+      try {
+        final fileUri = persistedMetadata.file.uri;
+        final file = await _repo.fileHandler.getFileMetadata(fileUri);
+        
+        if (file == null) {
+          _ref.read(talkerProvider).info('Skipping rehydration for tab ID $tabId: file $fileUri not found.');
+          continue;
+        }
+        
+        final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
+            ? await _repo.readFileAsBytes(file.uri)
+            : await _repo.readFile(file.uri);
+        
+        final newTab = await plugin.createTab(file, data, id: tabId);
+        
+        metadataNotifier.state[newTab.id] = TabMetadata(
+          file: file,
+          isDirty: persistedMetadata.isDirty,
+        );
+        
+        rehydratedTabs.add(newTab);
+        
+      } catch (e, st) {
+        _ref.read(talkerProvider).handle(e, st, 'Could not restore tab for ${persistedMetadata.file.uri}');
+      }
+    }
+    
+    // Return a new, fully live TabSessionState.
+    return TabSessionState(
+      tabs: rehydratedTabs,
+      currentTabIndex: persistedSession.currentTabIndex,
+      // The metadata now lives in the provider, so this can be empty in the returned object.
+      tabMetadata: const {},
+    );
+  }
   
   void markCurrentTabDirty() {
     final tabId = _currentTab?.id;
