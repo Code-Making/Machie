@@ -1,18 +1,34 @@
-// lib/app/app_state.dart
+// =========================================
+// FILE: lib/app/app_state.dart
+// =========================================
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import '../project/project_models.dart';
+import '../editor/tab_state_manager.dart'; // ADDED for live metadata access
 
 @immutable
 class AppState {
+  /// A list of metadata for all projects the user has opened.
   final List<ProjectMetadata> knownProjects;
+  
+  /// The ID of the last project that was open. Used to reopen on startup.
   final String? lastOpenedProjectId;
+  
+  /// The live, fully rehydrated domain model for the currently active project.
+  /// This property is NOT persisted directly.
   final Project? currentProject;
+  
+  /// A raw JSON map representing the state of the last active "simple" project.
+  /// This is only populated on save and used on rehydration for simple projects.
   final Map<String, dynamic>? currentProjectState;
+  
+  /// Overrides for the app's main UI components, for contextual toolbars.
+  /// These are ephemeral and not persisted.
   final Widget? appBarOverride;
   final Widget? bottomToolbarOverride;
 
-  // NEW: Ephemeral state for fullscreen mode.
+  /// Ephemeral state for fullscreen mode. Not persisted.
   final bool isFullScreen;
 
   const AppState({
@@ -22,7 +38,7 @@ class AppState {
     this.currentProjectState,
     this.appBarOverride,
     this.bottomToolbarOverride,
-    this.isFullScreen = false, // Default to not fullscreen
+    this.isFullScreen = false,
   });
 
   factory AppState.initial() => const AppState();
@@ -38,7 +54,7 @@ class AppState {
     Widget? bottomToolbarOverride,
     bool clearAppBarOverride = false,
     bool clearBottomToolbarOverride = false,
-    bool? isFullScreen, // Add to copyWith
+    bool? isFullScreen,
   }) {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
@@ -59,18 +75,28 @@ class AppState {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    // Note: `isFullScreen` is NOT serialized, making it ephemeral.
+  /// Converts the AppState into a JSON map for persistence in SharedPreferences.
+  /// Note that ephemeral state like `currentProject`, `isFullScreen`, and UI
+  /// overrides are not saved.
+  Map<String, dynamic> toJson(Map<String, TabMetadata> liveTabMetadata) {
     Map<String, dynamic> json = {
       'knownProjects': knownProjects.map((p) => p.toJson()).toList(),
       'lastOpenedProjectId': lastOpenedProjectId,
+      // We start with a null state for the simple project.
+      'currentProjectState': null,
     };
+    
+    // If the currently open project is a 'simple_local' project, we convert
+    // its live state into a DTO and store that in the AppState JSON.
+    // This is how non-persistent projects save their tab state.
     if (currentProject?.projectTypeId == 'simple_local') {
-      json['currentProjectState'] = currentProject!.toJson();
+      json['currentProjectState'] = currentProject!.toDto(liveTabMetadata).toJson();
     }
+    
     return json;
   }
 
+  /// Creates an AppState instance from a JSON map loaded from SharedPreferences.
   factory AppState.fromJson(Map<String, dynamic> json) {
     return AppState(
       knownProjects:
@@ -78,13 +104,17 @@ class AppState {
               .map((p) => ProjectMetadata.fromJson(p as Map<String, dynamic>))
               .toList(),
       lastOpenedProjectId: json['lastOpenedProjectId'],
+      // We load the raw JSON for the simple project. The AppNotifier will
+      // be responsible for passing this to the services for rehydration.
       currentProjectState:
           json['currentProjectState'] != null
               ? Map<String, dynamic>.from(json['currentProjectState'])
               : null,
     );
   }
-
+  
+  // Equality and hashCode are important for Riverpod to correctly detect
+  // when the state has actually changed.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -98,7 +128,7 @@ class AppState {
         mapEquals(other.currentProjectState, currentProjectState) &&
         other.appBarOverride == appBarOverride &&
         other.bottomToolbarOverride == bottomToolbarOverride &&
-        other.isFullScreen == isFullScreen; // Add to equality check
+        other.isFullScreen == isFullScreen;
   }
 
   @override
@@ -109,6 +139,6 @@ class AppState {
     const DeepCollectionEquality().hash(currentProjectState),
     appBarOverride,
     bottomToolbarOverride,
-    isFullScreen, // Add to hash
+    isFullScreen,
   );
 }
