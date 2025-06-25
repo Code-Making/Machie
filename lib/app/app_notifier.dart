@@ -40,10 +40,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   @override
   Future<AppState> build() async {
     // Initialize dependencies
-    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future));
+    final talker = ref.read(talkerProvider);
+    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future), talker);
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
-    final talker = ref.read(talkerProvider);
 
     // Subscribe to file system events to keep UI in sync
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
