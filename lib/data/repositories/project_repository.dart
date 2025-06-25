@@ -10,6 +10,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import 'project_hierarchy_cache.dart';
 import '../../logs/logs_provider.dart';
+import '../../data/dto/project_dto.dart'; // ADDED
 
 // ... (FileOperationEvent and providers are unchanged) ...
 sealed class FileOperationEvent {
@@ -64,8 +65,8 @@ final projectRepositoryProvider = StateProvider<ProjectRepository?>(
 // REFACTORED: The ProjectRepository interface is now pure and has no knowledge of `Ref`.
 abstract class ProjectRepository {
   FileHandler get fileHandler;
-  Future<Project> loadProject(ProjectMetadata metadata);
-  Future<void> saveProject(Project project);
+  Future<ProjectDto> loadProjectDto();
+  Future<void> saveProjectDto(ProjectDto projectDto);
   Future<DocumentFile> createDocumentFile(
     // REMOVED: Ref ref,
     String parentUri,
