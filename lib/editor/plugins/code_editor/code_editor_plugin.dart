@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/plugins/code_editor/code_editor_plugin.dart
+// =========================================
+
 // lib/editor/plugins/code_editor/code_editor_plugin.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -47,8 +51,10 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   Future<EditorTab> createTab(DocumentFile file, dynamic data) async {
+    // REFACTORED: The 'file' property is no longer part of the tab model.
+    // The EditorService will handle associating the file with the tab's ID
+    // in the metadata provider.
     return CodeEditorTab(
-      file: file,
       plugin: this,
       initialContent: data as String,
     );
@@ -59,7 +65,11 @@ class CodeEditorPlugin implements EditorPlugin {
     Map<String, dynamic> tabJson,
     FileHandler fileHandler,
   ) async {
-    final fileUri = tabJson['fileUri'] as String;
+    // This method is now more complex as metadata is separate.
+    // In a full implementation, the EditorService would handle rehydrating
+    // the metadata and then calling createTab. For now, we assume we can
+    // get the file and create the tab.
+    final fileUri = tabJson['fileUri'] as String; // Assume fileUri is still persisted
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
@@ -72,8 +82,6 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
     return CodeEditorMachine(
-      // The GlobalKey from the tab model is passed to the widget's key property.
-      // This is how we can access its state later.
       key: codeTab.editorKey,
       tab: codeTab,
     );
@@ -86,10 +94,7 @@ class CodeEditorPlugin implements EditorPlugin {
         (s) => s.value?.currentProject?.session.currentTab,
       ),
     );
-    // Ensure the current tab is a CodeEditorTab before trying to access its state.
     if (tab is! CodeEditorTab) return null;
-    // The key is generic, so the state is of type State<StatefulWidget>?
-    // We safely cast it to the specific State type we need.
     return tab.editorKey.currentState as CodeEditorMachineState?;
   }
 
@@ -98,8 +103,9 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
 
-  // The command definitions are now much cleaner. They find the active
-  // editor's State object and call public methods directly on it.
+  // The command definitions are now correct. They find the active
+  // editor's State object and call public methods on it. The canExecute
+  // logic correctly watches the tabMetadataProvider for changes in dirty status.
   @override
   List<Command> getCommands() => [
     _createCommand(
@@ -108,7 +114,13 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: Icons.save,
       defaultPosition: CommandPosition.appBar,
       execute: (ref, editor) => editor?.save(),
-      canExecute: (ref, editor) => editor?.isDirty ?? false,
+      // REFACTORED: The 'isDirty' flag is now on the metadata.
+      canExecute: (ref, editor) {
+        if (editor == null) return false;
+        // Watch the metadata for the current tab to react to dirty state changes.
+        final metadata = ref.watch(tabMetadataProvider.select((m) => m[editor.widget.tab.id]));
+        return metadata?.isDirty ?? false;
+      },
     ),
     _createCommand(
       id: 'set_mark',
@@ -194,7 +206,13 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: Icons.undo,
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.controller.undo(),
-      canExecute: (ref, editor) => editor?.canUndo ?? false,
+      // REFACTORED: The canUndo/canRedo state is local to the widget,
+      // so we need to watch a provider that changes when they do.
+      // Watching the tabMetadataProvider works because it's updated on every keystroke.
+      canExecute: (ref, editor) {
+        ref.watch(tabMetadataProvider.select((m) => m[editor?.widget.tab.id]?.isDirty));
+        return editor?.canUndo ?? false;
+      },
     ),
     _createCommand(
       id: 'redo',
@@ -202,7 +220,10 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: Icons.redo,
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.controller.redo(),
-      canExecute: (ref, editor) => editor?.canRedo ?? false,
+      canExecute: (ref, editor) {
+        ref.watch(tabMetadataProvider.select((m) => m[editor?.widget.tab.id]?.isDirty));
+        return editor?.canRedo ?? false;
+      },
     ),
     _createCommand(
       id: 'show_cursor',
@@ -226,10 +247,7 @@ class CodeEditorPlugin implements EditorPlugin {
     required String label,
     required IconData icon,
     required CommandPosition defaultPosition,
-    // The execute function now receives the specific State type.
-    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?)
-    execute,
-    // The canExecute function also receives the specific State type.
+    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?) execute,
     bool Function(WidgetRef, CodeEditorMachineState?)? canExecute,
   }) {
     return BaseCommand(
@@ -244,10 +262,7 @@ class CodeEditorPlugin implements EditorPlugin {
       },
       canExecute: (ref) {
         final editorState = _getActiveEditorState(ref);
-        // The canExecute function needs to be reactive. Since the editor state
-        // itself isn't a provider, we watch the metadata provider which gets
-        // updated by the editor state. This triggers a rebuild of the button.
-        ref.watch(tabMetadataProvider);
+        // This is the default case for commands that don't have special conditions.
         return canExecute?.call(ref, editorState) ?? (editorState != null);
       },
     );
