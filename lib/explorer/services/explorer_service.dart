@@ -28,13 +28,13 @@ class ExplorerService {
     return repo;
   }
 
-  Future<Project> updateWorkspace(
+  Project updateWorkspace(
     Project project,
     ExplorerWorkspaceState Function(ExplorerWorkspaceState) updater,
-  ) async {
+  ) {
     final newWorkspace = updater(project.workspace);
     final newProject = project.copyWith(workspace: newWorkspace);
-    await _repo.saveProject(newProject);
+    // REMOVED: await _repo.saveProject(newProject);
     return newProject;
   }
 
