@@ -4,6 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../editor/editor_tab_models.dart';
+import '../editor/tab_state_manager.dart';
 import '../explorer/explorer_workspace_state.dart';
 import '../data/file_handler/file_handler.dart';
 
