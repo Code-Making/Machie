@@ -39,15 +39,7 @@ class EditorService {
     }
     return repo;
   }
-  
-  
-  ProjectRepository get _repo {
-    final repo = _ref.read(projectRepositoryProvider);
-    if (repo == null) {
-      throw StateError('ProjectRepository is not available.');
-    }
-    return repo;
-  }
+
   // REFACTORED: This is the corrected rehydration logic.
   Future<Project> rehydrateTabs(Project project) async {
     final plugins = _ref.read(activePluginsProvider);

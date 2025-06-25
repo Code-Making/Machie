@@ -66,7 +66,8 @@ abstract class WorkspaceTab {
   final String id;
   final EditorPlugin plugin;
 
-  WorkspaceTab({required this.plugin}) : id = const Uuid().v4();
+  // REFACTORED: Add an optional id parameter.
+  WorkspaceTab({required this.plugin, String? id}) : id = id ?? const Uuid().v4();
 
   void dispose();
 }
@@ -75,10 +76,8 @@ abstract class WorkspaceTab {
 abstract class EditorTab extends WorkspaceTab {
   final GlobalKey<State<StatefulWidget>> editorKey;
 
-  EditorTab({required super.plugin})
+  EditorTab({required super.plugin, super.id})
       : editorKey = GlobalKey<State<StatefulWidget>>();
-
-  EditorTab copyWith({EditorPlugin? plugin});
 
   @override
   void dispose();
