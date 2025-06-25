@@ -4,9 +4,38 @@
 
 import 'package:flutter/foundation.dart';
 import '../editor/editor_tab_models.dart';
-import '../editor/tab_state_manager.dart';
+import '../editor/plugins/plugin_models.dart'; // ADDED for EditorPlugin
 import '../explorer/explorer_workspace_state.dart';
 import '../data/file_handler/file_handler.dart';
+import '../editor/tab_state_manager.dart';
+
+// REFACTORED: These are now top-level definitions, outside any other class.
+
+/// A placeholder class used only during the initial deserialization of a Project.
+/// It holds the raw JSON of a tab without trying to build a full plugin,
+/// allowing the EditorService to handle the full rehydration.
+class PersistedEditorTab extends EditorTab {
+  final Map<String, dynamic> _json;
+  PersistedEditorTab(this._json) : super(plugin: NoOpPlugin(), id: _json['id']);
+  
+  @override
+  Map<String, dynamic> toJson() => _json;
+  
+  @override
+  void dispose() {}
+}
+
+/// A no-operation plugin implementation used exclusively by [PersistedEditorTab]
+/// to satisfy the constructor requirements without needing a real plugin instance
+/// during the raw deserialization phase.
+class NoOpPlugin implements EditorPlugin {
+  // By using `noSuchMethod`, we don't need to implement every single method
+  // of the EditorPlugin interface, as this class will never be used to
+  // actually perform any operations.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 
 // ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
 class IncompleteDocumentFile implements DocumentFile {
@@ -72,7 +101,6 @@ class Project {
     required this.workspace,
   });
 
-  // ... (getters and copyWith are unchanged) ...
   String get id => metadata.id;
   String get name => metadata.name;
   String get rootUri => metadata.rootUri;
@@ -105,15 +133,12 @@ class Project {
     'workspace': workspace.toJson(),
   };
 
-  // REFACTORED: This now constructs the project by deserializing the session
-  // into a temporary object. The EditorService will replace it.
   factory Project.fromJson(Map<String, dynamic> json) {
-    // Manually deserialize session data here.
     final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
     final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
     final metadataJson = sessionJson['tabMetadata'] as Map<String, dynamic>? ?? {};
 
-    // Create a temporary "persisted" session state.
+    // Use the top-level helper class to create temporary tab objects.
     final persistedSession = TabSessionState(
       tabs: tabsJson.map((t) => PersistedEditorTab(t as Map<String, dynamic>)).toList(),
       currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
@@ -131,21 +156,4 @@ class Project {
       ),
     );
   }
-}
-
-// Helper class to temporarily hold persisted tab data without full logic.
-class PersistedEditorTab extends EditorTab {
-  final Map<String, dynamic> _json;
-  PersistedEditorTab(this._json) : super(plugin: NoOpPlugin(), id: _json['id']);
-  
-  @override
-  Map<String, dynamic> toJson() => _json;
-  
-  @override
-  void dispose() {}
-}
-
-class NoOpPlugin implements EditorPlugin {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
