@@ -39,10 +39,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   @override
   Future<AppState> build() async {
     final prefs = await ref.watch(sharedPreferencesProvider.future);
-    _appStateRepository = AppStateRepository(prefs);
+    final talker = ref.read(talkerProvider);
+    _appStateRepository = AppStateRepository(prefs, talker);
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
-    final talker = ref.read(talkerProvider);
 
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
       previous,

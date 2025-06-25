@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_state.dart';
-
+import '../logs/logs_provider.dart';
 // REFACTOR: This class is now effectively a repository for AppState.
 // Its role is clear: interact with SharedPreferences for global app data.
 
@@ -19,16 +19,16 @@ class AppStateRepository {
   static const _appStateKey = 'app_state';
 
   final SharedPreferences _prefs;
-
-  AppStateRepository(this._prefs);
+  final Talker _talker;
+  AppStateRepository(this._prefs, this._talker);
 
   Future<AppState> loadAppState() async {
     final jsonString = _prefs.getString(_appStateKey);
     if (jsonString != null) {
       try {
         return AppState.fromJson(jsonDecode(jsonString));
-      } catch (e /*, st*/) {
-        //talker.handle(e, st, 'Forgot to write talker message');
+      } catch (e , st) {
+        talker.handle(e, st, 'Error loading app state');
         //print('Error decoding app state, starting fresh. Error: $e');
         return AppState.initial();
       }
