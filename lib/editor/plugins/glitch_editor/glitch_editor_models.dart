@@ -14,27 +14,13 @@ class GlitchEditorTab extends EditorTab {
   final Uint8List initialImageData;
 
   GlitchEditorTab({
-    // REMOVED: required super.file,
     required super.plugin,
     required this.initialImageData,
+    super.id, // ADDED
   });
 
   @override
   void dispose() {}
-
-  @override
-  GlitchEditorTab copyWith({
-    // REMOVED: DocumentFile? file,
-    EditorPlugin? plugin,
-    Uint8List? initialImageData,
-  }) {
-    // A new tab gets a new ID and key automatically from the super constructor.
-    return GlitchEditorTab(
-      // REMOVED: file: file ?? this.file,
-      plugin: plugin ?? this.plugin,
-      initialImageData: initialImageData ?? this.initialImageData,
-    );
-  }
 
   @override
   Map<String, dynamic> toJson() => {

@@ -13,27 +13,13 @@ class CodeEditorTab extends EditorTab {
   final String initialContent;
 
   CodeEditorTab({
-    // REMOVED: super.file,
     required super.plugin,
     required this.initialContent,
+    super.id, // ADDED
   });
 
   @override
   void dispose() {}
-
-  @override
-  CodeEditorTab copyWith({
-    // REMOVED: DocumentFile? file,
-    EditorPlugin? plugin,
-    String? initialContent,
-  }) {
-    // A new tab gets a new ID and key automatically from the super constructor.
-    return CodeEditorTab(
-      // REMOVED: file: file ?? this.file,
-      plugin: plugin ?? this.plugin,
-      initialContent: initialContent ?? this.initialContent,
-    );
-  }
 
   @override
   Map<String, dynamic> toJson() => {
