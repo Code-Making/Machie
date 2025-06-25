@@ -42,6 +42,7 @@ class EditorService {
 
   // REFACTORED: This is the new, correct, and simpler rehydration logic.
   Future<Project> rehydrateTabs(Project project) async {
+    _ref.read(talkerProvider).info('Starting rehydration');
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     
