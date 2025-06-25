@@ -2,13 +2,16 @@
 // FILE: lib/data/repositories/simple_project_repository.dart
 // =========================================
 
-// lib/data/repositories/simple_project_repository.dart
+import 'dart:convert';
 import 'dart:typed_data';
-// import 'package:flutter_riverpod/flutter_riverpod.dart'; // REMOVED
+import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import 'project_repository.dart';
 
+/// A repository for "simple" projects that do not persist a `project.json`
+/// file in their directory. Their state is loaded from a JSON map provided
+/// at creation time (typically from SharedPreferences). Saving is a no-op.
 class SimpleProjectRepository implements ProjectRepository {
   @override
   final FileHandler fileHandler;
@@ -16,26 +19,38 @@ class SimpleProjectRepository implements ProjectRepository {
 
   SimpleProjectRepository(this.fileHandler, this._projectStateJson);
 
-  // ... (loadProject and saveProject are unchanged) ...
+  // REFACTORED: Implements the new DTO-based method.
   @override
-  Future<Project> loadProject(ProjectMetadata metadata) async {
+  Future<ProjectDto> loadProjectDto() async {
     if (_projectStateJson != null) {
-      return Project.fromJson(_projectStateJson!).copyWith(metadata: metadata);
+      // If state was provided (from SharedPreferences), decode it into a DTO.
+      return ProjectDto.fromJson(_projectStateJson!);
     } else {
-      return Project.fresh(metadata);
+      // Otherwise, return a fresh, empty DTO for a new simple project.
+      return const ProjectDto(
+        session: TabSessionStateDto(
+          tabs: [],
+          currentTabIndex: 0,
+          tabMetadata: {},
+        ),
+      );
     }
   }
 
+  // REFACTORED: Implements the new DTO-based method.
   @override
-  Future<void> saveProject(Project project) async {
-    // No-op.
+  Future<void> saveProjectDto(ProjectDto projectDto) async {
+    // No-op. Simple projects are not saved to their own directory.
+    // Their state is handled by the AppState/PersistenceService.
     return;
   }
 
-  // REFACTORED: Methods are now pure data operations.
+  // --- File operations are delegated directly to the fileHandler ---
+  // These methods are now pure data operations, as the service layer
+  // handles all the UI state updates (cache, events, etc.).
+
   @override
   Future<DocumentFile> createDocumentFile(
-    // REMOVED: Ref ref,
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -43,7 +58,7 @@ class SimpleProjectRepository implements ProjectRepository {
     Uint8List? initialBytes,
     bool overwrite = false,
   }) async {
-    final newFile = await fileHandler.createDocumentFile(
+    return await fileHandler.createDocumentFile(
       parentUri,
       name,
       isDirectory: isDirectory,
@@ -51,53 +66,41 @@ class SimpleProjectRepository implements ProjectRepository {
       initialBytes: initialBytes,
       overwrite: overwrite,
     );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return newFile;
   }
 
   @override
-  Future<void> deleteDocumentFile(/* REMOVED: Ref ref,*/ DocumentFile file) async {
-    // REMOVED: parentUri calculation and ref.read() calls. This moves to the service.
+  Future<void> deleteDocumentFile(DocumentFile file) async {
     await fileHandler.deleteDocumentFile(file);
   }
 
   @override
   Future<DocumentFile?> renameDocumentFile(
-    // REMOVED: Ref ref,
     DocumentFile file,
     String newName,
   ) async {
-    final renamedFile = await fileHandler.renameDocumentFile(file, newName);
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return renamedFile;
+    return await fileHandler.renameDocumentFile(file, newName);
   }
 
   @override
   Future<DocumentFile?> copyDocumentFile(
-    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final copiedFile = await fileHandler.copyDocumentFile(
+    return await fileHandler.copyDocumentFile(
       source,
       destinationParentUri,
     );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return copiedFile;
   }
 
   @override
   Future<DocumentFile?> moveDocumentFile(
-    // REMOVED: Ref ref,
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final movedFile = await fileHandler.moveDocumentFile(
+    return await fileHandler.moveDocumentFile(
       source,
       destinationParentUri,
     );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return movedFile;
   }
 
   // --- Unchanged Delegations ---
