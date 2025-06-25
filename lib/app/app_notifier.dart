@@ -171,7 +171,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       
       return s.copyWith(
         currentProject: liveProject,
-        lastOpenedProjectId: project.id,
+        lastOpenedProjectId: liveProject.id,
       );
     });
     await saveAppState();
