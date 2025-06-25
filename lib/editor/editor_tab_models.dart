@@ -18,6 +18,16 @@ class TabSessionState {
     this.currentTabIndex = 0,
     this.tabMetadata = const {},
   });
+  
+  TabSessionStateDto toDto(Map<String, TabMetadata> liveMetadata) {
+    return TabSessionStateDto(
+      tabs: tabs.map((t) => t.toDto()).toList(),
+      currentTabIndex: currentTabIndex,
+      tabMetadata: liveMetadata.map((key, value) => MapEntry(key, TabMetadataDto(
+        fileUri: value.file.uri,
+        isDirty: value.isDirty,
+      ))),
+    );
 
   EditorTab? get currentTab =>
       tabs.isNotEmpty && currentTabIndex < tabs.length
@@ -27,24 +37,12 @@ class TabSessionState {
   TabSessionState copyWith({
     List<EditorTab>? tabs,
     int? currentTabIndex,
-    Map<String, TabMetadata>? tabMetadata,
   }) {
     return TabSessionState(
       tabs: tabs ?? List.from(this.tabs),
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
-      tabMetadata: tabMetadata ?? Map.from(this.tabMetadata),
     );
   }
-
-  // toJson is correct. It prepares the data for persistence.
-  Map<String, dynamic> toJson() => {
-    'tabs': tabs.map((t) => t.toJson()).toList(),
-    'currentTabIndex': currentTabIndex,
-    'tabMetadata': tabMetadata.map((key, value) => MapEntry(key, value.toJson())),
-  };
-
-  // REMOVED: The flawed fromJson factory is gone.
-  // factory TabSessionState.fromJson(Map<String, dynamic> json) { ... }
 }
 
 // ... (WorkspaceTab and EditorTab are unchanged) ...
@@ -68,5 +66,10 @@ abstract class EditorTab extends WorkspaceTab {
   @override
   void dispose();
 
-  Map<String, dynamic> toJson();
+  EditorTabDto toDto() {
+    return EditorTabDto(
+      id: id,
+      pluginType: plugin.runtimeType.toString(),
+    );
+  }
 }

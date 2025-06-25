@@ -8,33 +8,7 @@ import '../editor/plugins/plugin_models.dart'; // ADDED for EditorPlugin
 import '../explorer/explorer_workspace_state.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/tab_state_manager.dart';
-
-// REFACTORED: These are now top-level definitions, outside any other class.
-
-/// A placeholder class used only during the initial deserialization of a Project.
-/// It holds the raw JSON of a tab without trying to build a full plugin,
-/// allowing the EditorService to handle the full rehydration.
-class PersistedEditorTab extends EditorTab {
-  final Map<String, dynamic> _json;
-  PersistedEditorTab(this._json) : super(plugin: NoOpPlugin(), id: _json['id']);
-  
-  @override
-  Map<String, dynamic> toJson() => _json;
-  
-  @override
-  void dispose() {}
-}
-
-/// A no-operation plugin implementation used exclusively by [PersistedEditorTab]
-/// to satisfy the constructor requirements without needing a real plugin instance
-/// during the raw deserialization phase.
-class NoOpPlugin implements EditorPlugin {
-  // By using `noSuchMethod`, we don't need to implement every single method
-  // of the EditorPlugin interface, as this class will never be used to
-  // actually perform any operations.
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 
 // ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
@@ -128,32 +102,9 @@ class Project {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'session': session.toJson(),
-    'workspace': workspace.toJson(),
-  };
-
-  factory Project.fromJson(Map<String, dynamic> json) {
-    final sessionJson = json['session'] as Map<String, dynamic>? ?? {};
-    final tabsJson = sessionJson['tabs'] as List<dynamic>? ?? [];
-    final metadataJson = sessionJson['tabMetadata'] as Map<String, dynamic>? ?? {};
-
-    // Use the top-level helper class to create temporary tab objects.
-    final persistedSession = TabSessionState(
-      tabs: tabsJson.map((t) => PersistedEditorTab(t as Map<String, dynamic>)).toList(),
-      currentTabIndex: sessionJson['currentTabIndex'] ?? 0,
-      tabMetadata: metadataJson.map((k, v) => MapEntry(k, TabMetadata.fromJson(v))),
-    );
-
-    return Project(
-      metadata: ProjectMetadata(
-        id: '', name: '', rootUri: '', projectTypeId: '',
-        lastOpenedDateTime: DateTime.fromMillisecondsSinceEpoch(0),
-      ),
-      session: persistedSession,
-      workspace: ExplorerWorkspaceState.fromJson(
-        json['workspace'] as Map<String, dynamic>? ?? {},
-      ),
+    ProjectDto toDto(Map<String, TabMetadata> liveMetadata) {
+    return ProjectDto(
+      session: session.toDto(liveMetadata),
     );
   }
 }

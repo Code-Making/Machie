@@ -19,6 +19,7 @@ import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../utils/toast.dart';
+import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -40,41 +41,28 @@ class EditorService {
     return repo;
   }
 
-  // REFACTORED: The main rehydration logic is now here, creating a live session state.
-  Future<TabSessionState> rehydrateTabSession(TabSessionState persistedSession) async {
+  
+  // REFACTORED: This is the new, single rehydration entry point.
+  Future<Project> rehydrateProjectFromDto(ProjectDto dto, ProjectMetadata metadata) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     
-    final persistedMetadataMap = persistedSession.tabMetadata;
-    final persistedTabs = persistedSession.tabs;
-
     final List<EditorTab> rehydratedTabs = [];
 
-    for (final persistedTab in persistedTabs) {
-      final tabId = persistedTab.id;
-      final tabJson = persistedTab.toJson();
-      final pluginType = tabJson['pluginType'] as String?;
-      final persistedMetadata = persistedMetadataMap[tabId];
+    // Iterate through the DTO's tabs to preserve order.
+    for (final tabDto in dto.session.tabs) {
+      final tabId = tabDto.id;
+      final pluginType = tabDto.pluginType;
+      final persistedMetadata = dto.session.tabMetadata[tabId];
 
-      if (pluginType == null || persistedMetadata == null) {
-        _ref.read(talkerProvider).warning('Skipping rehydration for incomplete tab data: $tabJson');
-        continue;
-      }
+      if (persistedMetadata == null) continue;
       
       final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
-      if (plugin == null) {
-        _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: plugin $pluginType not found.');
-        continue;
-      }
+      if (plugin == null) continue;
       
       try {
-        final fileUri = persistedMetadata.file.uri;
-        final file = await _repo.fileHandler.getFileMetadata(fileUri);
-        
-        if (file == null) {
-          _ref.read(talkerProvider).info('Skipping rehydration for tab ID $tabId: file $fileUri not found.');
-          continue;
-        }
+        final file = await _repo.fileHandler.getFileMetadata(persistedMetadata.fileUri);
+        if (file == null) continue;
         
         final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
             ? await _repo.readFileAsBytes(file.uri)
@@ -90,16 +78,18 @@ class EditorService {
         rehydratedTabs.add(newTab);
         
       } catch (e, st) {
-        _ref.read(talkerProvider).handle(e, st, 'Could not restore tab for ${persistedMetadata.file.uri}');
+        _ref.read(talkerProvider).handle(e, st, 'Could not restore tab for ${persistedMetadata.fileUri}');
       }
     }
     
-    // Return a new, fully live TabSessionState.
-    return TabSessionState(
-      tabs: rehydratedTabs,
-      currentTabIndex: persistedSession.currentTabIndex,
-      // The metadata now lives in the provider, so this can be empty in the returned object.
-      tabMetadata: const {},
+    // Construct the final, live Project domain object.
+    return Project(
+      metadata: metadata,
+      session: TabSessionState(
+        tabs: rehydratedTabs,
+        currentTabIndex: dto.session.currentTabIndex,
+      ),
+      workspace: const ExplorerWorkspaceState(activeExplorerPluginId: 'com.machine.file_explorer'), // Or rehydrate this too
     );
   }
   
