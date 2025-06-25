@@ -1,3 +1,7 @@
+// =========================================
+// FILE: lib/editor/services/editor_service.dart
+// =========================================
+
 // lib/editor/services/editor_service.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -6,6 +10,7 @@ import 'package:collection/collection.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
+import '../../data/repositories/project_hierarchy_cache.dart'; // ADDED
 import '../../editor/editor_tab_models.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../../project/project_models.dart';
@@ -23,12 +28,10 @@ class EditorService {
   final Ref _ref;
   EditorService(this._ref);
 
-  // --- Helpers to get current state ---
+  // ... (getters and helper methods are unchanged) ...
   Project? get _currentProject =>
       _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
-
-  // --- Facade methods for plugins to call ---
 
   void markCurrentTabDirty() {
     final uri = _currentTab?.file.uri;
@@ -44,14 +47,11 @@ class EditorService {
     }
   }
 
-  /// Updates the immutable EditorTab model for the currently active tab.
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
-
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[project.session.currentTabIndex] = newTabModel;
-
     final newProject = project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
     );
@@ -83,12 +83,13 @@ class EditorService {
     );
     if (result == null) return;
 
+    // REFACTORED: Call the pure repository method first, then update UI state.
     final DocumentFile newFile;
     if (byteDataProvider != null) {
       final bytes = await byteDataProvider();
       if (bytes == null) return;
       newFile = await repo.createDocumentFile(
-        _ref,
+        // REMOVED: _ref
         result.parentUri,
         result.fileName,
         initialBytes: bytes,
@@ -98,7 +99,7 @@ class EditorService {
       final content = await stringDataProvider();
       if (content == null) return;
       newFile = await repo.createDocumentFile(
-        _ref,
+        // REMOVED: _ref
         result.parentUri,
         result.fileName,
         initialContent: content,
@@ -108,10 +109,14 @@ class EditorService {
       return;
     }
 
+    // ADDED: Orchestrate the UI updates after the file is created.
+    _ref.read(projectHierarchyProvider.notifier).add(newFile, result.parentUri);
+    _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: newFile));
+    
     MachineToast.info("Saved as ${newFile.name}");
   }
 
-  // --- Core Service Methods ---
+  // --- Core Service Methods (mostly unchanged) ---
 
   ProjectRepository get _repo {
     final repo = _ref.read(projectRepositoryProvider);
@@ -120,7 +125,8 @@ class EditorService {
     }
     return repo;
   }
-
+  
+  // ... (rehydrateTabs, openFile, saveCurrentTab, switchTab, closeTab, reorderTabs are unchanged) ...
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
@@ -156,7 +162,6 @@ class EditorService {
           final tab = await plugin.createTab(file, data);
           tabs.add(tab);
 
-          // No "hot state" to create, but we must initialize the metadata.
           _ref.read(tabMetadataProvider.notifier).initTab(tab.file.uri);
         } catch (e) {
           _ref.read(talkerProvider).error('Could not restore tab: $e');
@@ -204,7 +209,6 @@ class EditorService {
 
     final newTab = await chosenPlugin.createTab(file, data);
 
-    // No "hot state" to create, but we must initialize the metadata.
     _ref.read(tabMetadataProvider.notifier).initTab(newTab.file.uri);
 
     final oldTab = project.session.currentTab;
@@ -310,33 +314,31 @@ class EditorService {
     );
   }
   
-  // RE-INTRODUCED: A clean method to handle the logic of updating a tab's file property.
+  /// Handles updating an open tab when its underlying file is renamed or moved.
+  /// This is called by the AppNotifier in response to a FileRenameEvent.
   Project updateTabForRenamedFile(Project project, String oldUri, DocumentFile newFile) {
     final tabIndex = project.session.tabs.indexWhere((t) => t.file.uri == oldUri);
     if (tabIndex == -1) {
-      // If the tab wasn't found, no change is needed.
       return project;
     }
 
     final oldTab = project.session.tabs[tabIndex];
-    // Create a new tab instance with the updated file.
     final newTab = oldTab.copyWith(file: newFile);
 
-    // Create a new list of tabs with the updated one.
     final newTabs = List<EditorTab>.from(project.session.tabs);
     newTabs[tabIndex] = newTab;
 
-    // The key synchronization step: re-key the metadata provider.
-    // The "hot" state manager is gone, so we only need to do this for metadata.
+    // This is the crucial step: tell the metadata provider to update its key
+    // so that state like "isDirty" is preserved for the renamed tab.
     _ref.read(tabMetadataProvider.notifier).rekeyState(oldUri, newFile.uri);
     
-    // Return a new project instance with the updated tab list.
     return project.copyWith(
       session: project.session.copyWith(tabs: newTabs),
     );
   }
 }
 
+// ... (OpenFileResult classes are unchanged) ...
 @immutable
 sealed class OpenFileResult {}
 
