@@ -20,7 +20,6 @@ import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
-import '../editor/editor_tab_models.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -39,10 +38,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   @override
   Future<AppState> build() async {
     final prefs = await ref.watch(sharedPreferencesProvider.future);
-    final talker = ref.read(talkerProvider);
-    _appStateRepository = AppStateRepository(prefs, talker);
+    _appStateRepository = AppStateRepository(prefs);
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
+    final talker = ref.read(talkerProvider);
 
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
       previous,
@@ -61,20 +60,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       if (meta != null) {
         try {
-          // REFACTORED: Extract the session state from the persisted app state.
-          TabSessionState? sessionStateToRestore;
-          final projectStateJson = initialState.currentProjectState;
-          if (projectStateJson != null && projectStateJson['session'] != null) {
-            sessionStateToRestore = TabSessionState.fromJson(
-              projectStateJson['session'] as Map<String, dynamic>,
-            );
-          }
-          
-          // Call openProject with the restored session state.
+          // REFACTORED: Unified and corrected logic
           final project = await _projectService.openProject(
             meta,
-            projectStateJson: projectStateJson,
-            sessionState: sessionStateToRestore, // PASS THE RESTORED SESSION
+            // Pass the entire state for simple projects. The service will extract the session.
+            projectStateJson: meta.projectTypeId == 'simple_local' 
+                ? initialState.currentProjectState 
+                : null,
           );
           
           final rehydratedProject = await _editorService.rehydrateTabs(project);
@@ -90,8 +82,69 @@ class AppNotifier extends AsyncNotifier<AppState> {
     }
     return initialState;
   }
+  
+  // This helper encapsulates the logic for opening any project, whether on startup or manually.
+  Future<Project> _openAndRehydrate(ProjectMetadata meta, AppState appState) async {
+    final project = await _projectService.openProject(
+      meta,
+      projectStateJson: meta.projectTypeId == 'simple_local' && appState.lastOpenedProjectId == meta.id
+          ? appState.currentProjectState
+          : null,
+    );
+    return await _editorService.rehydrateTabs(project);
+  }
 
-  // ... (The rest of the file is correct and does not need changes) ...
+  Future<void> openKnownProject(String projectId) async {
+    await _updateState((s) async {
+      if (s.currentProject?.id == projectId) return s;
+      if (s.currentProject != null) {
+        await _projectService.closeProject(s.currentProject!);
+      }
+      final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
+      
+      // REFACTORED: Use the unified helper method.
+      final rehydratedProject = await _openAndRehydrate(meta, s);
+      
+      return s.copyWith(
+        currentProject: rehydratedProject,
+        lastOpenedProjectId: project.id,
+        // Clear the state if the newly opened project is not a simple one,
+        // or if it's a different simple project.
+        clearCurrentProjectState: meta.projectTypeId != 'simple_local' || s.lastOpenedProjectId != projectId,
+      );
+    });
+    await saveAppState();
+  }
+
+  Future<void> openProjectFromFolder({
+    required DocumentFile folder,
+    required String projectTypeId,
+  }) async {
+    await _updateState((s) async {
+      if (s.currentProject != null) {
+        await _projectService.closeProject(s.currentProject!);
+      }
+      final result = await _projectService.openFromFolder(
+        folder: folder,
+        projectTypeId: projectTypeId,
+        knownProjects: s.knownProjects,
+      );
+      // A newly opened project from a folder will never have tabs to rehydrate,
+      // so we just use the project object as is.
+      return s.copyWith(
+        currentProject: result.project,
+        lastOpenedProjectId: result.project.id,
+        knownProjects:
+            result.isNew
+                ? [...s.knownProjects, result.metadata]
+                : s.knownProjects,
+      );
+    });
+    await saveAppState();
+  }
+  
+  // ... The rest of the file is correct ...
+
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
@@ -138,64 +191,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
 
-  Future<void> openProjectFromFolder({
-    required DocumentFile folder,
-    required String projectTypeId,
-  }) async {
-    await _updateState((s) async {
-      if (s.currentProject != null) {
-        await _projectService.closeProject(s.currentProject!);
-      }
-      final result = await _projectService.openFromFolder(
-        folder: folder,
-        projectTypeId: projectTypeId,
-        knownProjects: s.knownProjects,
-      );
-      final rehydratedProject = await _editorService.rehydrateTabs(
-        result.project,
-      );
-      return s.copyWith(
-        currentProject: rehydratedProject,
-        lastOpenedProjectId: result.project.id,
-        knownProjects:
-            result.isNew
-                ? [...s.knownProjects, result.metadata]
-                : s.knownProjects,
-      );
-    });
-    await saveAppState();
-  }
-
-  Future<void> openKnownProject(String projectId) async {
-    await _updateState((s) async {
-      if (s.currentProject?.id == projectId) return s;
-      if (s.currentProject != null) {
-        await _projectService.closeProject(s.currentProject!);
-      }
-      final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
-      // When opening a known project, the session state will come from its own
-      // project.json, so we don't pass a session state here.
-      final project = await _projectService.openProject(meta);
-      final rehydratedProject = await _editorService.rehydrateTabs(project);
-      return s.copyWith(
-        currentProject: rehydratedProject,
-        lastOpenedProjectId: project.id,
-      );
-    });
-    await saveAppState();
-  }
-  
-Future<void> closeProject() async {
-    final projectToClose = state.value?.currentProject;
-    if (projectToClose == null) return;
-    await _projectService.closeProject(projectToClose);
+  Future<void> closeProject(Project project) async {
+    await _projectService.closeProject(project);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
   }
 
   Future<void> removeKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) {
-        await closeProject();
+        await closeProject(s.currentProject!);
         s = state.value!;
       }
       return s.copyWith(
@@ -263,7 +267,6 @@ Future<void> closeProject() async {
     _updateStateSync((s) => s.copyWith(isFullScreen: !s.isFullScreen));
   }
   
-  // ... (boilerplate like saveAppState, clearClipboard, etc. are unchanged)
   void setBottomToolbarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(bottomToolbarOverride: widget));
   void clearBottomToolbarOverride() =>
