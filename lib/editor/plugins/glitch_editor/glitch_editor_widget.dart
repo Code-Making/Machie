@@ -3,6 +3,7 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
+import 'dart:typed_data'; // Import for Uint8List
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
