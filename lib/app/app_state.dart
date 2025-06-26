@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import '../project/project_models.dart';
 import '../data/dto/app_state_dto.dart'; // ADDED
+import '../data/dto/project_dto.dart'; // ADDED
 import '../editor/tab_state_manager.dart'; // ADDED
 
 @immutable
