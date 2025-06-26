@@ -13,11 +13,14 @@ import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
+import 'project/services/cache_service.dart'; // ADDED
+
 // --------------------
 //   Global Providers
 // --------------------
 
 final appStartupProvider = FutureProvider<void>((ref) async {
+  await ref.read(cacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
   ref.read(settingsProvider);
   ref.read(commandProvider);
