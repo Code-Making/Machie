@@ -22,6 +22,7 @@ class AppStateRepository {
 
   /// Loads the AppStateDto from SharedPreferences.
   Future<AppStateDto> loadAppStateDto() async {
+      _talker.info("Loading app state");
     final jsonString = _prefs.getString(_appStateKey);
     if (jsonString != null) {
       try {
@@ -32,6 +33,7 @@ class AppStateRepository {
         return const AppStateDto();
       }
     }
+    _talker.info("No app state to load");
     return const AppStateDto(); // Return fresh DTO if nothing is saved.
   }
 

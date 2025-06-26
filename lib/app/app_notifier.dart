@@ -38,12 +38,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
   late ProjectService _projectService;
   late EditorService _editorService;
   late ExplorerService _explorerService; // ADDED
-
+  late Talker _talker;
   @override
   Future<AppState> build() async {
     // Initialize dependencies
-    final talker = ref.read(talkerProvider);
-    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future), talker);
+    _talker = ref.read(talkerProvider);
+    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future), _talker);
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
     _explorerService = ref.watch(explorerServiceProvider); // ADDED
@@ -304,9 +304,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
   
   // REFACTORED: The save logic is now clean and follows the DTO pattern.
   Future<void> saveAppState() async {
+    _talker.info("Saving app state")
     final appState = state.value;
-    if (appState == null) return;
-
+    if (appState == null) {
+        _talker.info("No app state to save")
+        return;
+    }
     // First, save the persistent project to its own file if one is open.
     if (appState.currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(appState.currentProject!);

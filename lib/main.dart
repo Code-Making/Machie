@@ -121,6 +121,7 @@ void main() {
           overrides: [talkerProvider.overrideWithValue(talker)],
           observers: [riverpodObserver],
           child: LifecycleHandler(
+            talker: talker,
             child: Consumer(
               builder: (context, ref, child) {
                 // REFACTOR: Watch the new theme provider.
