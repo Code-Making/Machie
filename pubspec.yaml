@@ -57,6 +57,8 @@ dependencies:
   talker_riverpod_logger: ^4.9.0
   fluttertoast: ^8.2.12
   back_button_interceptor: ^8.0.4
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
