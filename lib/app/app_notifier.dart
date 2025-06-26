@@ -60,13 +60,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
     
         // 1. Load the raw DTO for the entire app state.
     final appStateDto = await _appStateRepository.loadAppStateDto();
-    
+    _talker.info("AppState loaded");
+    _talker.info("Checking last opened project");
     // 2. Attempt to re-open the last project based on the DTO.
     if (appStateDto.lastOpenedProjectId != null) {
       final meta = appStateDto.knownProjects.firstWhereOrNull(
         (p) => p.id == appStateDto.lastOpenedProjectId,
       );
       if (meta != null) {
+            _talker.info("Found Project to load");
         try {
           // A. Load the project's DTO (either from its file or from the AppStateDto for simple projects)
           final projectDto = await _projectService.openProjectDto(
@@ -85,6 +87,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
             session: liveSession,
             workspace: liveWorkspace,
           );
+              _talker.info("Project should be loaded");
           // C. Construct the final live AppState.
           return AppState(
             knownProjects: appStateDto.knownProjects,
