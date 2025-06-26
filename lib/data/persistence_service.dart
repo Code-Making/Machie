@@ -1,42 +1,42 @@
-// lib/data/persistence_service.dart
+// =========================================
+// UPDATED: lib/data/persistence_service.dart
+// =========================================
+
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../app/app_state.dart';
+import '../data/dto/app_state_dto.dart'; // ADDED
 import '../logs/logs_provider.dart';
-// REFACTOR: This class is now effectively a repository for AppState.
-// Its role is clear: interact with SharedPreferences for global app data.
 
-final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
-  ref,
-) async {
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
   return await SharedPreferences.getInstance();
 });
 
-/// Manages saving and loading the global application state.
+/// Manages saving and loading the app state DTO to/from SharedPreferences.
 class AppStateRepository {
   static const _appStateKey = 'app_state';
-
   final SharedPreferences _prefs;
   final Talker _talker;
+
   AppStateRepository(this._prefs, this._talker);
 
-  Future<AppState> loadAppState() async {
+  /// Loads the AppStateDto from SharedPreferences.
+  Future<AppStateDto> loadAppStateDto() async {
     final jsonString = _prefs.getString(_appStateKey);
     if (jsonString != null) {
       try {
-        return AppState.fromJson(jsonDecode(jsonString));
-      } catch (e , st) {
-        _talker.handle(e, st, 'Error loading app state');
-        //print('Error decoding app state, starting fresh. Error: $e');
-        return AppState.initial();
+        return AppStateDto.fromJson(jsonDecode(jsonString));
+      } catch (e, st) {
+        // Corrupted data, start with a fresh DTO.
+        _talker.handle(e, st, 'Error loading app state, starting fresh');
+        return const AppStateDto();
       }
     }
-    return AppState.initial();
+    return const AppStateDto(); // Return fresh DTO if nothing is saved.
   }
 
-  Future<void> saveAppState(Map<String, dynamic> appStateJson) async {
-    await _prefs.setString(_appStateKey, jsonEncode(appStateJson));
+  /// Saves the AppStateDto to SharedPreferences.
+  Future<void> saveAppStateDto(AppStateDto dto) async {
+    await _prefs.setString(_appStateKey, jsonEncode(dto.toJson()));
   }
 }
