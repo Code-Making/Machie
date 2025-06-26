@@ -13,6 +13,7 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
+import 'cache_service.dart'; // ADDED
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -105,18 +106,29 @@ class ProjectService {
     await repo.saveProjectDto(projectDto);
   }
 
-  /// Saves the project state and cleans up resources.
+  // UPDATED: closeProject now triggers the caching logic.
   Future<void> closeProject(Project project) async {
+    // Get the cache service.
+    final cacheService = _ref.read(cacheServiceProvider);
+
+    // Iterate through all open tabs and cache their hot state.
+    for (final tab in project.session.tabs) {
+      final hotState = await tab.plugin.serializeHotState(tab);
+      if (hotState != null) {
+        await cacheService.cacheTabState(project.id, tab.id, hotState);
+      }
+    }
+
+    // Now, save the project's metadata (list of open tabs, etc.).
     await saveProject(project);
 
-    // Deactivate and dispose all tabs to prevent memory leaks.
+    // Deactivate and dispose all tabs.
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
     
-    // Clear the active repository and tab metadata from the providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).state = {};
   }

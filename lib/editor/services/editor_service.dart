@@ -20,7 +20,8 @@ import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../utils/toast.dart';
-import 'package:machine/data/dto/project_dto.dart'; // ADDED
+import '../../data/dto/project_dto.dart'; // ADDED
+import '../../project/services/cache_service.dart'; // ADDED
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -45,9 +46,81 @@ class EditorService {
   
   // --- Main Rehydration Logic ---
 
+  // UPDATED: The rehydration logic now checks the cache.
+  Future<TabSessionState> rehydrateTabSession(ProjectDto dto, ProjectMetadata projectMetadata) async {
+    final plugins = _ref.read(activePluginsProvider);
+    final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
+    final cacheService = _ref.read(cacheServiceProvider); // ADDED
+    
+    final List<EditorTab> rehydratedTabs = [];
+
+    for (final tabDto in dto.session.tabs) {
+      final tabId = tabDto.id;
+      final pluginType = tabDto.pluginType;
+      final persistedMetadata = dto.session.tabMetadata[tabId];
+
+      if (persistedMetadata == null) continue;
+      
+      final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
+      if (plugin == null) continue;
+      
+      try {
+        final file = await _repo.fileHandler.getFileMetadata(persistedMetadata.fileUri);
+        if (file == null) continue;
+        
+        dynamic dataToLoad;
+        bool wasLoadedFromCache = false;
+
+        // --- CACHE CHECK ---
+        // 1. Check the cache for this tab's hot state.
+        final cachedState = await cacheService.getTabState(projectMetadata.id, tabId);
+
+        if (cachedState != null) {
+          // 2. If found, use the cached data.
+          // We look for keys that our plugins defined ('content' or 'imageData').
+          if (cachedState['content'] != null) {
+            dataToLoad = cachedState['content'];
+            wasLoadedFromCache = true;
+          } else if (cachedState['imageData'] != null) {
+            dataToLoad = cachedState['imageData'];
+            wasLoadedFromCache = true;
+          }
+          // Clean up the cache for this tab now that we've used it.
+          await cacheService.clearTabState(projectMetadata.id, tabId);
+        }
+        
+        // 3. If no data was loaded from cache, fall back to reading from the file.
+        if (dataToLoad == null) {
+          dataToLoad = plugin.dataRequirement == PluginDataRequirement.bytes
+              ? await _repo.readFileAsBytes(file.uri)
+              : await _repo.readFile(file.uri);
+        }
+        // --- END OF CACHE CHECK ---
+
+        final newTab = await plugin.createTab(file, dataToLoad, id: tabId);
+        
+        // Populate the metadata, marking it as dirty if it was restored from cache.
+        metadataNotifier.state[newTab.id] = TabMetadata(
+          file: file,
+          isDirty: wasLoadedFromCache || persistedMetadata.isDirty,
+        );
+        
+        rehydratedTabs.add(newTab);
+        
+      } catch (e, st) {
+        _ref.read(talkerProvider).handle(e, st, 'Could not restore tab for ${persistedMetadata.fileUri}');
+      }
+    }
+    
+    return TabSessionState(
+      tabs: rehydratedTabs,
+      currentTabIndex: dto.session.currentTabIndex,
+    );
+  }
+
   // REFACTORED: The method now has a single, clear responsibility.
   // It takes a DTO and returns a live domain object for its specific domain.
-  Future<TabSessionState> rehydrateTabSession(TabSessionStateDto dto) async {
+  Future<TabSessionState> _rehydrateWithoutCache(TabSessionStateDto dto) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     

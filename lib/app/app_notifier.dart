@@ -78,7 +78,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
           );
           
           // STEP 2: Delegate rehydration of each sub-domain to its specific service.
-          final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
+          final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
           final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
           
           // STEP 3: Assemble the final, fully rehydrated Project object.
@@ -158,7 +158,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         knownProjects: s.knownProjects,
       );
       
-      final liveSession = await _editorService.rehydrateTabSession(result.projectDto.session);
+      final liveSession = await _editorService.rehydrateTabSession(result.projectDto.session, result.metadata);
       final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
 
       final finalProject = Project(
@@ -201,7 +201,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
             : null,
       );
       
-      final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
+      final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
       final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
       
       final finalProject = Project(
