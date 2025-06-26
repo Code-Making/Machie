@@ -78,24 +78,48 @@ class TabSessionStateDto {
   };
 }
 
-// DTO for the Project itself
+// NEW: DTO for the ExplorerWorkspaceState
+@immutable
+class ExplorerWorkspaceStateDto {
+  final String activeExplorerPluginId;
+  final Map<String, dynamic> pluginStates;
+
+  const ExplorerWorkspaceStateDto({
+    required this.activeExplorerPluginId,
+    required this.pluginStates,
+  });
+
+  factory ExplorerWorkspaceStateDto.fromJson(Map<String, dynamic> json) {
+    return ExplorerWorkspaceStateDto(
+      activeExplorerPluginId: json['activeExplorerPluginId'] ?? 'com.machine.file_explorer',
+      pluginStates: Map<String, dynamic>.from(json['pluginStates'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'activeExplorerPluginId': activeExplorerPluginId,
+    'pluginStates': pluginStates,
+  };
+}
+
+
+// UPDATED: ProjectDto now includes the workspace DTO.
 @immutable
 class ProjectDto {
   final TabSessionStateDto session;
-  // We can add workspace DTOs here later if needed.
-  // final ExplorerWorkspaceStateDto workspace;
+  final ExplorerWorkspaceStateDto workspace;
 
-  const ProjectDto({required this.session});
+  const ProjectDto({required this.session, required this.workspace});
 
   factory ProjectDto.fromJson(Map<String, dynamic> json) {
     return ProjectDto(
       session: TabSessionStateDto.fromJson(json['session'] ?? {}),
-      // workspace: ...
+      workspace: ExplorerWorkspaceStateDto.fromJson(json['workspace'] ?? {}),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'session': session.toJson(),
-    // 'workspace': workspace.toJson(),
+    'workspace': workspace.toJson(),
   };
 }

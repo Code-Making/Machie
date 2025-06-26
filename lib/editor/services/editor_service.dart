@@ -45,46 +45,34 @@ class EditorService {
   
   // --- Main Rehydration Logic ---
 
-  /// Converts a persisted DTO into a live, fully-functional Project domain object.
-  /// This is the single entry point for restoring a project session.
-  Future<Project> rehydrateProjectFromDto(ProjectDto dto, ProjectMetadata metadata) async {
+  // REFACTORED: The method now has a single, clear responsibility.
+  // It takes a DTO and returns a live domain object for its specific domain.
+  Future<TabSessionState> rehydrateTabSession(TabSessionStateDto dto) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     
     final List<EditorTab> rehydratedTabs = [];
 
-    // Iterate through the DTO's tabs to preserve order.
-    for (final tabDto in dto.session.tabs) {
+    for (final tabDto in dto.tabs) {
       final tabId = tabDto.id;
       final pluginType = tabDto.pluginType;
-      final persistedMetadata = dto.session.tabMetadata[tabId];
+      final persistedMetadata = dto.tabMetadata[tabId];
 
-      if (persistedMetadata == null) {
-        _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: missing metadata.');
-        continue;
-      }
+      if (persistedMetadata == null) continue;
       
       final plugin = plugins.firstWhereOrNull((p) => p.runtimeType.toString() == pluginType);
-      if (plugin == null) {
-        _ref.read(talkerProvider).warning('Skipping rehydration for tab ID $tabId: plugin $pluginType not found.');
-        continue;
-      }
+      if (plugin == null) continue;
       
       try {
         final file = await _repo.fileHandler.getFileMetadata(persistedMetadata.fileUri);
-        if (file == null) {
-          _ref.read(talkerProvider).info('Skipping rehydration for tab ID $tabId: file ${persistedMetadata.fileUri} not found.');
-          continue;
-        }
+        if (file == null) continue;
         
         final dynamic data = plugin.dataRequirement == PluginDataRequirement.bytes
             ? await _repo.readFileAsBytes(file.uri)
             : await _repo.readFile(file.uri);
         
-        // Create the tab instance, passing the original, stable ID to the constructor.
         final newTab = await plugin.createTab(file, data, id: tabId);
         
-        // Populate the live metadata provider for the newly created tab.
         metadataNotifier.state[newTab.id] = TabMetadata(
           file: file,
           isDirty: persistedMetadata.isDirty,
@@ -97,15 +85,9 @@ class EditorService {
       }
     }
     
-    // Construct the final, live Project domain object.
-    return Project(
-      metadata: metadata,
-      session: TabSessionState(
-        tabs: rehydratedTabs,
-        currentTabIndex: dto.session.currentTabIndex,
-      ),
-      // TODO: Rehydrate workspace state from a DTO in a similar fashion.
-      workspace: const ExplorerWorkspaceState(activeExplorerPluginId: 'com.machine.file_explorer'),
+    return TabSessionState(
+      tabs: rehydratedTabs,
+      currentTabIndex: dto.currentTabIndex,
     );
   }
   

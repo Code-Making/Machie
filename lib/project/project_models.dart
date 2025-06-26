@@ -102,9 +102,10 @@ class Project {
     );
   }
 
-    ProjectDto toDto(Map<String, TabMetadata> liveMetadata) {
+  ProjectDto toDto(Map<String, TabMetadata> liveMetadata) {
     return ProjectDto(
       session: session.toDto(liveMetadata),
+      workspace: workspace.toDto(),
     );
   }
 }
