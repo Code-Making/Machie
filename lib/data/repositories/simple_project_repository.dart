@@ -23,15 +23,19 @@ class SimpleProjectRepository implements ProjectRepository {
   @override
   Future<ProjectDto> loadProjectDto() async {
     if (_projectStateJson != null) {
-      // If state was provided (from SharedPreferences), decode it into a DTO.
       return ProjectDto.fromJson(_projectStateJson!);
     } else {
-      // Otherwise, return a fresh, empty DTO for a new simple project.
+      // Return a fresh, empty DTO for a new simple project.
       return const ProjectDto(
         session: TabSessionStateDto(
           tabs: [],
           currentTabIndex: 0,
           tabMetadata: {},
+        ),
+        // FIXED: Provide the required 'workspace' argument.
+        workspace: ExplorerWorkspaceStateDto(
+          activeExplorerPluginId: 'com.machine.file_explorer',
+          pluginStates: {},
         ),
       );
     }

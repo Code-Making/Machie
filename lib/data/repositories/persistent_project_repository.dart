@@ -22,7 +22,6 @@ class PersistentProjectRepository implements ProjectRepository {
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
 
-  // REFACTORED: Now returns a DTO.
   @override
   Future<ProjectDto> loadProjectDto() async {
     final files = await fileHandler.listDirectory(
@@ -37,12 +36,20 @@ class PersistentProjectRepository implements ProjectRepository {
         final json = jsonDecode(content);
         return ProjectDto.fromJson(json);
       } catch (e) {
-        // Fallback for corrupted file
-        return const ProjectDto(session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}));
+        // Fallback for corrupted file. Return a fresh, empty DTO.
+        return const ProjectDto(
+          session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}),
+          // FIXED: Provide the required 'workspace' argument.
+          workspace: ExplorerWorkspaceStateDto(activeExplorerPluginId: 'com.machine.file_explorer', pluginStates: {}),
+        );
       }
     } else {
       // Return a fresh, empty DTO if no file exists.
-      return const ProjectDto(session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}));
+      return const ProjectDto(
+        session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}),
+        // FIXED: Provide the required 'workspace' argument.
+        workspace: ExplorerWorkspaceStateDto(activeExplorerPluginId: 'com.machine.file_explorer', pluginStates: {}),
+      );
     }
   }
 
