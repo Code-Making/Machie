@@ -44,6 +44,23 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
+  
+  CodeEditorMachineState? _getEditorState(EditorTab tab) {
+    if (tab.editorKey.currentState is CodeEditorMachineState) {
+      return tab.editorKey.currentState as CodeEditorMachineState;
+    }
+    return null;
+  }
+  
+  @override
+  Future<Map<String, dynamic>?> serializeHotState(EditorTab tab) async {
+    final editorState = _getEditorState(tab);
+    if (editorState == null) return null;
+    
+    // Delegate the actual serialization to a public method on the widget's State object.
+    return editorState.getHotState();
+  }
+  
   @override
   void activateTab(EditorTab tab, Ref ref) {}
   @override

@@ -121,6 +121,14 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         .read(editorServiceProvider)
         .saveCurrentTab(project, content: controller.text);
   }
+  
+    /// Returns the current unsaved state of the editor for caching.
+  Map<String, dynamic> getHotState() {
+    return {
+      // The key 'content' will be used to identify this data during rehydration.
+      'content': controller.text,
+    };
+  }
 
   // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
   void setMark() {

@@ -84,6 +84,23 @@ class GlitchEditorPlugin implements EditorPlugin {
   Widget buildToolbar(WidgetRef ref) {
     return const BottomToolbar();
   }
+  
+  /// Helper to get the active editor's state object.
+  GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
+    if (tab.editorKey.currentState is GlitchEditorWidgetState) {
+      return tab.editorKey.currentState as GlitchEditorWidgetState;
+    }
+    return null;
+  }
+  
+  @override
+  Future<Map<String, dynamic>?> serializeHotState(EditorTab tab) async {
+    final editorState = _getEditorState(tab);
+    if (editorState == null) return null;
+    
+    // Delegate the actual serialization to a public method on the widget's State object.
+    return await editorState.getHotState();
+  }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(
