@@ -23,7 +23,6 @@ import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
 import '../editor/editor_tab_models.dart';
-import '../data/dto/project_dto.dart'; // ADDED
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -76,9 +75,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
             projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
           
-          // B. Rehydrate the project DTO into a live Project object.
-          final finalProject = await _editorService.rehydrateProjectFromDto(projectDto, meta);
+          // STEP 2: Delegate rehydration of each sub-domain to its specific service.
+          final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
+          final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
           
+          // STEP 3: Assemble the final, fully rehydrated Project object.
+          final finalProject = Project(
+            metadata: meta,
+            session: liveSession,
+            workspace: liveWorkspace,
+          );
           // C. Construct the final live AppState.
           return AppState(
             knownProjects: appStateDto.knownProjects,
