@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/dto/app_state_dto.dart';
 import '../data/dto/project_dto.dart';
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
@@ -58,42 +59,43 @@ class AppNotifier extends AsyncNotifier<AppState> {
       });
     });
     
-    final initialState = await _appStateRepository.loadAppState();
+        // 1. Load the raw DTO for the entire app state.
+    final appStateDto = await _appStateRepository.loadAppStateDto();
     
-    if (initialState.lastOpenedProjectId != null) {
-      final meta = initialState.knownProjects.firstWhereOrNull(
-        (p) => p.id == initialState.lastOpenedProjectId,
+    // 2. Attempt to re-open the last project based on the DTO.
+    if (appStateDto.lastOpenedProjectId != null) {
+      final meta = appStateDto.knownProjects.firstWhereOrNull(
+        (p) => p.id == appStateDto.lastOpenedProjectId,
       );
       if (meta != null) {
         try {
-          // STEP 1: Load the raw DTO from the repository.
+          // A. Load the project's DTO (either from its file or from the AppStateDto for simple projects)
           final projectDto = await _projectService.openProjectDto(
             meta,
-            projectStateJson: initialState.currentProjectState,
+            // Pass the DTO for the simple project if it exists.
+            projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
           
-          // STEP 2: Delegate rehydration of each sub-domain to its specific service.
-          final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
-          final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
+          // B. Rehydrate the project DTO into a live Project object.
+          final finalProject = await _editorService.rehydrateProjectFromDto(projectDto, meta);
           
-          // STEP 3: Assemble the final, fully rehydrated Project object.
-          final finalProject = Project(
-            metadata: meta,
-            session: liveSession,
-            workspace: liveWorkspace,
-          );
-          
-          return initialState.copyWith(
+          // C. Construct the final live AppState.
+          return AppState(
+            knownProjects: appStateDto.knownProjects,
+            lastOpenedProjectId: appStateDto.lastOpenedProjectId,
             currentProject: finalProject,
-            clearCurrentProjectState: true,
           );
         } catch (e, st) {
-          talker.handle(e, st, 'Failed to auto-open last project');
+          ref.read(talkerProvider).handle(e, st, 'Failed to auto-open last project');
         }
       }
     }
     
-    return initialState;
+    // 3. Fallback: If no project was reopened, construct a default live AppState.
+    return AppState(
+      knownProjects: appStateDto.knownProjects,
+      lastOpenedProjectId: appStateDto.lastOpenedProjectId,
+    );
   }
 
   /// Handles events published by the ProjectRepository to keep the UI in sync.
@@ -284,26 +286,24 @@ class AppNotifier extends AsyncNotifier<AppState> {
   
   // --- State Persistence & Helpers ---
   
+  // REFACTORED: The save logic is now clean and follows the DTO pattern.
   Future<void> saveAppState() async {
     final appState = state.value;
     if (appState == null) return;
 
-    // 1. If a persistent project is open, save it to its own directory.
-    // This call is now "fire and forget" from AppNotifier's perspective.
-    if (appState.currentProject != null) {
+    // First, save the persistent project to its own file if one is open.
+    if (appState.currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(appState.currentProject!);
     }
     
-    // 2. Get the live tab metadata from the provider.
+    // Get the live metadata from the provider.
     final liveTabMetadata = ref.read(tabMetadataProvider);
     
-    // 3. Convert the entire AppState into its persistable JSON form.
-    // The AppState.toJson() method will correctly handle including the
-    // simple project's state if necessary.
-    final appStateJson = appState.toJson(liveTabMetadata);
+    // Convert the live AppState domain object into its DTO form.
+    final appStateDto = appState.toDto(liveTabMetadata);
     
-    // 4. Pass the pure JSON to the repository for saving.
-    await _appStateRepository.saveAppState(appStateJson);
+    // Pass the pure DTO to the repository for saving.
+    await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
   void setBottomToolbarOverride(Widget? widget) =>
