@@ -11,6 +11,7 @@ import '../../data/repositories/project_hierarchy_cache.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
+import '../../data/dto/project_dto.dart'; // ADDED
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
@@ -26,6 +27,17 @@ class ExplorerService {
       throw StateError('ProjectRepository is not available.');
     }
     return repo;
+  }
+  
+  // NEW: A dedicated rehydration method for the explorer workspace.
+  ExplorerWorkspaceState rehydrateWorkspace(ExplorerWorkspaceStateDto dto) {
+    // For now, this is a simple 1-to-1 mapping.
+    // If explorer plugins needed more complex rehydration (e.g., async calls),
+    // that logic would go here.
+    return ExplorerWorkspaceState(
+      activeExplorerPluginId: dto.activeExplorerPluginId,
+      pluginStates: dto.pluginStates,
+    );
   }
 
   Project updateWorkspace(

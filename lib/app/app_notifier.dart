@@ -14,6 +14,7 @@ import '../project/services/project_service.dart';
 import '../editor/services/editor_service.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
+import '../explorer/services/explorer_service.dart'; // ADDED
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
 import '../utils/toast.dart';
@@ -21,7 +22,7 @@ import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
 import '../editor/editor_tab_models.dart';
-import 'package:machine/data/dto/project_dto.dart'; // ADDED
+import '../data/dto/project_dto.dart'; // ADDED
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -36,14 +37,16 @@ class AppNotifier extends AsyncNotifier<AppState> {
   late AppStateRepository _appStateRepository;
   late ProjectService _projectService;
   late EditorService _editorService;
+  late ExplorerService _explorerService; // ADDED
 
   @override
   Future<AppState> build() async {
     // Initialize dependencies
-    final talker = ref.read(talkerProvider);
-    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future), talker);
+    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future));
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
+    _explorerService = ref.watch(explorerServiceProvider); // ADDED
+    final talker = ref.read(talkerProvider);
 
     // Subscribe to file system events to keep UI in sync
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
@@ -54,31 +57,35 @@ class AppNotifier extends AsyncNotifier<AppState> {
         _handleFileOperationEvent(event);
       });
     });
-
-    // Load the last known state of the app
+    
     final initialState = await _appStateRepository.loadAppState();
     
-    // Attempt to re-open the last project
     if (initialState.lastOpenedProjectId != null) {
       final meta = initialState.knownProjects.firstWhereOrNull(
         (p) => p.id == initialState.lastOpenedProjectId,
       );
       if (meta != null) {
         try {
-          // 1. Load the raw DTO from the appropriate repository.
+          // STEP 1: Load the raw DTO from the repository.
           final projectDto = await _projectService.openProjectDto(
             meta,
-            // Pass the entire persisted state for simple projects.
             projectStateJson: initialState.currentProjectState,
           );
           
-          // 2. Pass the DTO to the EditorService to get a fully rehydrated, live Project object.
-          final finalProject = await _editorService.rehydrateProjectFromDto(projectDto, meta);
+          // STEP 2: Delegate rehydration of each sub-domain to its specific service.
+          final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
+          final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
           
-          // 3. Return the final, ready-to-use application state.
+          // STEP 3: Assemble the final, fully rehydrated Project object.
+          final finalProject = Project(
+            metadata: meta,
+            session: liveSession,
+            workspace: liveWorkspace,
+          );
+          
           return initialState.copyWith(
             currentProject: finalProject,
-            clearCurrentProjectState: true, // No longer need the raw JSON
+            clearCurrentProjectState: true,
           );
         } catch (e, st) {
           talker.handle(e, st, 'Failed to auto-open last project');
@@ -86,7 +93,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
     }
     
-    // Fallback to the initial loaded state if re-opening fails.
     return initialState;
   }
 
@@ -141,15 +147,18 @@ class AppNotifier extends AsyncNotifier<AppState> {
         knownProjects: s.knownProjects,
       );
       
-      final finalProject = await _editorService.rehydrateProjectFromDto(result.projectDto, result.metadata);
+      final liveSession = await _editorService.rehydrateTabSession(result.projectDto.session);
+      final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
+      
+      final finalProject = Project(
+          metadata: meta,
+          session: liveSession,
+          workspace: liveWorkspace,
+      );
       
       return s.copyWith(
         currentProject: finalProject,
-        lastOpenedProjectId: finalProject.id,
-        knownProjects:
-            result.isNew
-                ? [...s.knownProjects, result.metadata]
-                : s.knownProjects,
+        lastOpenedProjectId: result.project.id,
       );
     });
     await saveAppState();
@@ -166,14 +175,21 @@ class AppNotifier extends AsyncNotifier<AppState> {
       
       final projectDto = await _projectService.openProjectDto(
         meta,
-        projectStateJson: s.currentProjectState // Will be null for persistent projects, which is correct
+        projectStateJson: s.currentProjectState
       );
       
-      final finalProject = await _editorService.rehydrateProjectFromDto(projectDto, meta);
+      final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
+      final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
+      
+      final finalProject = Project(
+          metadata: meta,
+          session: liveSession,
+          workspace: liveWorkspace,
+      );
       
       return s.copyWith(
         currentProject: finalProject,
-        lastOpenedProjectId: finalProject.id,
+        lastOpenedProjectId: project.id,
       );
     });
     await saveAppState();
