@@ -158,7 +158,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         knownProjects: s.knownProjects,
       );
       
-      final liveSession = await _editorService.rehydrateTabSession(result.projectDto.session, result.metadata);
+      final liveSession = await _editorService.rehydrateTabSession(result.projectDto, result.metadata);
       final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
 
       final finalProject = Project(
