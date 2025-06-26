@@ -151,14 +151,14 @@ class AppNotifier extends AsyncNotifier<AppState> {
       final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
       
       final finalProject = Project(
-          metadata: meta,
+          metadata: result.metadata,
           session: liveSession,
           workspace: liveWorkspace,
       );
       
       return s.copyWith(
         currentProject: finalProject,
-        lastOpenedProjectId: result.project.id,
+        lastOpenedProjectId: finalProject.id,
       );
     });
     await saveAppState();
@@ -189,7 +189,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       
       return s.copyWith(
         currentProject: finalProject,
-        lastOpenedProjectId: project.id,
+        lastOpenedProjectId: finalProject.id,
       );
     });
     await saveAppState();
