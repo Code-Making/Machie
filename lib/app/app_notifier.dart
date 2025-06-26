@@ -174,16 +174,25 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   /// Opens a project from the list of previously known projects.
   Future<void> openKnownProject(String projectId) async {
+    // We don't use the current state `s` here because we need the raw DTO
+    // to correctly handle simple projects.
+    final appStateDto = await _appStateRepository.loadAppStateDto();
+
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
-      final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
+      final meta = appStateDto.knownProjects.firstWhere((p) => p.id == projectId);
       
+      // Load DTO, passing the simple project state if it matches the one we are opening.
       final projectDto = await _projectService.openProjectDto(
         meta,
-        projectStateJson: s.currentProjectState
+        // FIXED: Get the DTO for the simple project from the loaded AppStateDto,
+        // but only if the last opened project ID matches the one we're trying to open.
+        projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
+          ? appStateDto.currentSimpleProjectDto?.toJson()
+          : null,
       );
       
       final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
@@ -198,6 +207,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return s.copyWith(
         currentProject: finalProject,
         lastOpenedProjectId: finalProject.id,
+        knownProjects: appStateDto.knownProjects, // Use the fresh list from DTO
       );
     });
     await saveAppState();
