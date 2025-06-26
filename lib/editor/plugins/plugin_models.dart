@@ -30,6 +30,18 @@ abstract class EditorPlugin {
   
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
+  // --- NEW METHOD FOR CACHING ---
+  /// Serializes the "hot" (unsaved) state from a live editor widget.
+  ///
+  /// This method uses the tab's `editorKey` to access the widget's State
+  /// and extract any data that needs to be cached, like unsaved text or
+  /// image manipulations.
+  ///
+  /// Returns a JSON-encodable map of the state, or `null` if the plugin
+  /// has no hot state to cache or if the editor is not active.
+  Future<Map<String, dynamic>?> serializeHotState(EditorTab tab);
+  // --- END OF NEW METHOD ---
+
   void activateTab(EditorTab tab, Ref ref);
   void deactivateTab(EditorTab tab, Ref ref);
 

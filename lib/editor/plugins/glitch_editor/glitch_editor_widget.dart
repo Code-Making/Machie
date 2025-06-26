@@ -101,6 +101,24 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     );
     _imageScale = destinationSize.width / imageSize.width;
   }
+  
+  // --- PUBLIC API FOR CACHING ---
+  
+  /// Returns the current unsaved state of the editor for caching.
+  /// This is an async operation because encoding an image takes time.
+  Future<Map<String, dynamic>?> getHotState() async {
+    if (_displayImage == null) return null;
+
+    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return null;
+    
+    final Uint8List bytes = byteData.buffer.asUint8List();
+    
+    return {
+      // The key 'imageData' will be used to identify this data during rehydration.
+      'imageData': bytes,
+    };
+  }
 
   // --- Public API for Commands ---
 
