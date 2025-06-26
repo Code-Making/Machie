@@ -28,7 +28,7 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    talker.info("Changing app state to $state");
+    this.talker.info("Changing app state to $state");
     // When the app is paused or detached, trigger a save of the entire app state.
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {

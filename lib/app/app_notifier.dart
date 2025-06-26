@@ -304,10 +304,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   
   // REFACTORED: The save logic is now clean and follows the DTO pattern.
   Future<void> saveAppState() async {
-    _talker.info("Saving app state")
+    _talker.info("Saving app state");
     final appState = state.value;
     if (appState == null) {
-        _talker.info("No app state to save")
+        _talker.info("No app state to save");
         return;
     }
     // First, save the persistent project to its own file if one is open.
