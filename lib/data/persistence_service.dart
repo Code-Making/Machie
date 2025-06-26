@@ -25,6 +25,7 @@ class AppStateRepository {
       _talker.info("Loading app state");
     final jsonString = _prefs.getString(_appStateKey);
     if (jsonString != null) {
+      _talker.info("loading appState String: $jsonString");
       try {
         return AppStateDto.fromJson(jsonDecode(jsonString));
       } catch (e, st) {
@@ -39,6 +40,8 @@ class AppStateRepository {
 
   /// Saves the AppStateDto to SharedPreferences.
   Future<void> saveAppStateDto(AppStateDto dto) async {
-    await _prefs.setString(_appStateKey, jsonEncode(dto.toJson()));
+    final appStateString = jsonEncode(dto.toJson());
+    _talker.info("saving appState String: $appStateString");
+    await _prefs.setString(_appStateKey, appStateString);
   }
 }
