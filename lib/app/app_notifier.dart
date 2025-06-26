@@ -160,7 +160,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       
       final liveSession = await _editorService.rehydrateTabSession(result.projectDto.session);
       final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
-      
+
       final finalProject = Project(
           metadata: result.metadata,
           session: liveSession,
@@ -170,32 +170,35 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return s.copyWith(
         currentProject: finalProject,
         lastOpenedProjectId: finalProject.id,
+        knownProjects:
+            result.isNew
+                ? [...s.knownProjects, result.metadata]
+                : s.knownProjects,
       );
     });
+    // Call save explicitly after a major state change.
     await saveAppState();
   }
 
   /// Opens a project from the list of previously known projects.
   Future<void> openKnownProject(String projectId) async {
-    // We don't use the current state `s` here because we need the raw DTO
-    // to correctly handle simple projects.
-    final appStateDto = await _appStateRepository.loadAppStateDto();
-
+    // CORRECTED: This method now operates on the live state `s`.
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
-      final meta = appStateDto.knownProjects.firstWhere((p) => p.id == projectId);
+      // Use the 's' (live state) to find the metadata.
+      final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
       
-      // Load DTO, passing the simple project state if it matches the one we are opening.
+      // Load DTO for the project. For simple projects, we need to check if it was the
+      // one most recently saved in SharedPreferences. This requires loading the DTO.
+      final appStateDto = await _appStateRepository.loadAppStateDto();
       final projectDto = await _projectService.openProjectDto(
         meta,
-        // FIXED: Get the DTO for the simple project from the loaded AppStateDto,
-        // but only if the last opened project ID matches the one we're trying to open.
         projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
-          ? appStateDto.currentSimpleProjectDto?.toJson()
-          : null,
+            ? appStateDto.currentSimpleProjectDto?.toJson()
+            : null,
       );
       
       final liveSession = await _editorService.rehydrateTabSession(projectDto.session);
@@ -207,12 +210,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
           workspace: liveWorkspace,
       );
       
+      // Important: We return s.copyWith to ensure no state is lost,
+      // particularly the knownProjects list which might have been updated
+      // just before this method was called.
       return s.copyWith(
         currentProject: finalProject,
         lastOpenedProjectId: finalProject.id,
-        knownProjects: appStateDto.knownProjects, // Use the fresh list from DTO
       );
     });
+    // Call save explicitly after a major state change.
     await saveAppState();
   }
 
