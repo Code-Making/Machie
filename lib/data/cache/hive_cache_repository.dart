@@ -30,11 +30,10 @@ class HiveCacheRepository implements CacheRepository {
     }
   }
 
-  // REFACTORED: The 'get' method now handles manual type casting.
+  // REFACTORED: This is the corrected 'get' method.
   @override
   Future<T?> get<T>(String boxName, String key) async {
     final box = await _openBox(boxName);
-    // 1. Get the value from the box as a `dynamic` type.
     final dynamic value = box.get(key);
 
     if (value == null) {
@@ -43,24 +42,33 @@ class HiveCacheRepository implements CacheRepository {
 
     _talker.verbose('CACHE GET: box="$boxName", key="$key"');
 
-    // 2. Check if the retrieved value is of the expected type T.
-    // This is especially important for our Map.
+    // THE FIX: Check if the retrieved value is an instance of the
+    // type T that the caller expects.
     if (value is T) {
+      // If it's already the correct type (e.g., for simple types like String, int),
+      // we can return it directly.
       return value;
     }
     
-    // 3. THE FIX: If T is a Map<String, dynamic> and the value is a Map,
-    //    we perform a safe, manual cast.
-    if (T == Map<String, dynamic> && value is Map) {
+    // If the value is a Map, but not of the exact type T, we attempt a cast.
+    // This handles the case where Hive returns Map<dynamic, dynamic> and we
+    // expect Map<String, dynamic>.
+    if (value is Map) {
       try {
+        // Attempt to cast the map. This is where the conversion happens.
         final castedMap = Map<String, dynamic>.from(value);
-        return castedMap as T;
+        // We then check if this newly casted map is compatible with the
+        // requested type T before returning.
+        if (castedMap is T) {
+          return castedMap;
+        }
       } catch (e) {
         _talker.error('HiveCacheRepository: Failed to cast map for key "$key" in box "$boxName". Error: $e');
         return null;
       }
     }
 
+    // If all checks and casts fail, log a warning and return null.
     _talker.warning('HiveCacheRepository: Type mismatch for key "$key" in box "$boxName". Expected $T but got ${value.runtimeType}.');
     return null;
   }
