@@ -12,6 +12,7 @@ import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../project/services/project_service.dart';
+import '../project/services/cache_service.dart';
 import '../editor/services/editor_service.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
