@@ -2,18 +2,15 @@
 // UPDATED: lib/data/cache/hive_cache_repository.dart
 // =========================================
 
-import 'dart:convert'; // ADDED for jsonEncode
+import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:talker_flutter/talker_flutter.dart'; // ADDED
+import 'package:talker_flutter/talker_flutter.dart';
 import 'cache_repository.dart';
 
-/// A [CacheRepository] implementation that uses the Hive database for storage.
 class HiveCacheRepository implements CacheRepository {
-  // ADDED: A logger instance.
   final Talker _talker;
 
-  // ADDED: The constructor now accepts a Talker instance.
   HiveCacheRepository(this._talker);
 
   @override
@@ -23,49 +20,71 @@ class HiveCacheRepository implements CacheRepository {
     _talker.info('HiveCacheRepository initialized at: ${appDocumentDir.path}');
   }
 
-  Future<Box<T>> _openBox<T>(String boxName) async {
+  // REFACTORED: We will always open boxes as containing `dynamic` data
+  // to avoid type issues when Hive deserializes maps.
+  Future<Box> _openBox(String boxName) async {
     if (Hive.isBoxOpen(boxName)) {
-      return Hive.box<T>(boxName);
+      return Hive.box(boxName);
     } else {
-      return await Hive.openBox<T>(boxName);
+      return await Hive.openBox(boxName);
     }
   }
 
+  // REFACTORED: The 'get' method now handles manual type casting.
   @override
   Future<T?> get<T>(String boxName, String key) async {
-    final box = await _openBox<T>(boxName);
-    final value = box.get(key);
-    
-    // ADDED: Log when data is retrieved from the cache.
-    if (value != null) {
-      _talker.verbose('CACHE GET: box="$boxName", key="$key"');
+    final box = await _openBox(boxName);
+    // 1. Get the value from the box as a `dynamic` type.
+    final dynamic value = box.get(key);
+
+    if (value == null) {
+      return null;
+    }
+
+    _talker.verbose('CACHE GET: box="$boxName", key="$key"');
+
+    // 2. Check if the retrieved value is of the expected type T.
+    // This is especially important for our Map.
+    if (value is T) {
+      return value;
     }
     
-    return value;
+    // 3. THE FIX: If T is a Map<String, dynamic> and the value is a Map,
+    //    we perform a safe, manual cast.
+    if (T == Map<String, dynamic> && value is Map) {
+      try {
+        final castedMap = Map<String, dynamic>.from(value);
+        return castedMap as T;
+      } catch (e) {
+        _talker.error('HiveCacheRepository: Failed to cast map for key "$key" in box "$boxName". Error: $e');
+        return null;
+      }
+    }
+
+    _talker.warning('HiveCacheRepository: Type mismatch for key "$key" in box "$boxName". Expected $T but got ${value.runtimeType}.');
+    return null;
   }
 
-  // UPDATED: The put method now logs the data being saved.
+  // UPDATED: The put method now uses the generic _openBox helper.
   @override
   Future<void> put<T>(String boxName, String key, T value) async {
-    final box = await _openBox<T>(boxName);
+    final box = await _openBox(boxName); // No type argument needed here.
     await box.put(key, value);
-
-    // --- LOGGING THE SAVED DATA ---
+    
     String formattedValue;
-    // Use a pretty-printed JSON format for maps, which is most of our state.
     if (value is Map) {
       formattedValue = const JsonEncoder.withIndent('  ').convert(value);
     } else {
       formattedValue = value.toString();
     }
     
-    // Log with 'verbose' level so it's detailed but can be filtered out in production.
     _talker.verbose(
       'CACHE PUT: box="$boxName", key="$key"\nValue:\n$formattedValue'
     );
-    await box.flush();
-    // --- END OF LOGGING ---
+        await box.flush();
   }
+
+  // --- The rest of the file is unchanged and correct ---
 
   @override
   Future<void> delete(String boxName, String key) async {
