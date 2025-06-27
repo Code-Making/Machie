@@ -76,7 +76,7 @@ class EditorService {
         // --- CACHE CHECK ---
         // 1. Check the cache for this tab's hot state.
         final cachedState = await cacheService.getTabState(projectMetadata.id, tabId);
-
+        talker.info("Cache: $cachedState");
         if (cachedState != null) {
           // 2. If found, use the cached data.
           // We look for keys that our plugins defined ('content' or 'imageData').
