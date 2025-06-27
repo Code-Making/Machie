@@ -51,10 +51,12 @@ class EditorService {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
     final cacheService = _ref.read(cacheServiceProvider); // ADDED
-    
-    final List<EditorTab> rehydratedTabs = [];
+    final talker = _ref.read(talkerProvider);
 
+    final List<EditorTab> rehydratedTabs = [];
+    talker.info("Rehydrating tabs");
     for (final tabDto in dto.session.tabs) {
+      talker.info("Tab : ${tabDto.id}, ${tabDto.pluginType}");
       final tabId = tabDto.id;
       final pluginType = tabDto.pluginType;
       final persistedMetadata = dto.session.tabMetadata[tabId];
@@ -70,7 +72,7 @@ class EditorService {
         
         dynamic dataToLoad;
         bool wasLoadedFromCache = false;
-
+        talker.info("Trying to load cache");
         // --- CACHE CHECK ---
         // 1. Check the cache for this tab's hot state.
         final cachedState = await cacheService.getTabState(projectMetadata.id, tabId);
@@ -79,9 +81,11 @@ class EditorService {
           // 2. If found, use the cached data.
           // We look for keys that our plugins defined ('content' or 'imageData').
           if (cachedState['content'] != null) {
+            talker.info("Found cache");
             dataToLoad = cachedState['content'];
             wasLoadedFromCache = true;
           } else if (cachedState['imageData'] != null) {
+            talker.info("Found cache");
             dataToLoad = cachedState['imageData'];
             wasLoadedFromCache = true;
           }
@@ -91,6 +95,7 @@ class EditorService {
         
         // 3. If no data was loaded from cache, fall back to reading from the file.
         if (dataToLoad == null) {
+          talker.info("No cache, loading from file");
           dataToLoad = plugin.dataRequirement == PluginDataRequirement.bytes
               ? await _repo.readFileAsBytes(file.uri)
               : await _repo.readFile(file.uri);
