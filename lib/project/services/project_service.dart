@@ -95,40 +95,25 @@ class ProjectService {
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) return;
-
-    // Get the live metadata from the provider (e.g., dirty status).
-    final liveMetadata = _ref.read(tabMetadataProvider);
     
-    // 1. Convert the live domain Project object into a persistable ProjectDto.
+    final liveMetadata = _ref.read(tabMetadataProvider);
     final projectDto = project.toDto(liveMetadata);
     
-    // 2. Pass the DTO to the repository for persistence.
     await repo.saveProjectDto(projectDto);
   }
 
-  // UPDATED: closeProject now triggers the caching logic.
   Future<void> closeProject(Project project) async {
-    // Get the cache service.
-    final cacheService = _ref.read(cacheServiceProvider);
-
-    // Iterate through all open tabs and cache their hot state.
-    for (final tab in project.session.tabs) {
-      final hotState = await tab.plugin.serializeHotState(tab);
-      if (hotState != null) {
-        await cacheService.cacheTabState(project.id, tab.id, hotState);
-      }
-    }
-
-    // Now, save the project's metadata (list of open tabs, etc.).
+    // Save the project's final state (list of tabs, etc.).
     await saveProject(project);
 
-    // Deactivate and dispose all tabs.
+    // Deactivate and dispose all live tab widgets and controllers.
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
     
+    // Clear the active project-specific providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).state = {};
   }

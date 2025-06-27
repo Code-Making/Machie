@@ -315,22 +315,34 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<void> saveAppState() async {
     _talker.info("Saving app state");
     final appState = state.value;
-    if (appState == null) {
-        _talker.info("No app state to save");
-        return;
+    if (appState == null) return;
+
+    final currentProject = appState.currentProject;
+
+    // --- STEP 1: Cache the hot state of any open tabs ---
+    if (currentProject != null) {
+      final cacheService = ref.read(cacheServiceProvider);
+      // Iterate through all open tabs and cache their hot state.
+      for (final tab in currentProject.session.tabs) {
+        final hotState = await tab.plugin.serializeHotState(tab);
+        if (hotState != null) {
+          _talker.info("Caching tabs");
+          // Tell the cache service to save this tab's unsaved work.
+          await cacheService.cacheTabState(currentProject.id, tab.id, hotState);
+        }
+      }
     }
-    // First, save the persistent project to its own file if one is open.
-    if (appState.currentProject?.projectTypeId == 'local_persistent') {
-      await _projectService.saveProject(appState.currentProject!);
+
+    // --- STEP 2: Save the persistent project file (project.json) ---
+    // This saves the list of open tabs, dirty status, etc.
+    if (currentProject?.projectTypeId == 'local_persistent') {
+      await _projectService.saveProject(currentProject!);
     }
     
-    // Get the live metadata from the provider.
+    // --- STEP 3: Save the global application state (SharedPreferences) ---
+    // This saves the list of known projects and the state of any open "simple" project.
     final liveTabMetadata = ref.read(tabMetadataProvider);
-    
-    // Convert the live AppState domain object into its DTO form.
     final appStateDto = appState.toDto(liveTabMetadata);
-    
-    // Pass the pure DTO to the repository for saving.
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
