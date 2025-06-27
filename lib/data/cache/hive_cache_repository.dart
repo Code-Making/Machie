@@ -30,7 +30,7 @@ class HiveCacheRepository implements CacheRepository {
     }
   }
 
-  // REFACTORED: This is the corrected 'get' method.
+  // REFACTORED: This is the final, simplified, and type-safe `get` method.
   @override
   Future<T?> get<T>(String boxName, String key) async {
     final box = await _openBox(boxName);
@@ -39,38 +39,27 @@ class HiveCacheRepository implements CacheRepository {
     if (value == null) {
       return null;
     }
-
+    
     _talker.verbose('CACHE GET: box="$boxName", key="$key"');
 
-    // THE FIX: Check if the retrieved value is an instance of the
-    // type T that the caller expects.
-    if (value is T) {
-      // If it's already the correct type (e.g., for simple types like String, int),
-      // we can return it directly.
-      return value;
-    }
-    
-    // If the value is a Map, but not of the exact type T, we attempt a cast.
-    // This handles the case where Hive returns Map<dynamic, dynamic> and we
-    // expect Map<String, dynamic>.
-    if (value is Map) {
-      try {
-        // Attempt to cast the map. This is where the conversion happens.
-        final castedMap = Map<String, dynamic>.from(value);
-        // We then check if this newly casted map is compatible with the
-        // requested type T before returning.
-        if (castedMap is T) {
-          return castedMap;
-        }
-      } catch (e) {
-        _talker.error('HiveCacheRepository: Failed to cast map for key "$key" in box "$boxName". Error: $e');
-        return null;
+    try {
+      // If the retrieved value is a Map (which is what Hive returns for JSON-like objects),
+      // we perform the cast to the specific Map type our app uses.
+      if (value is Map) {
+        // This cast is safe because the call site in CacheService
+        // specifically requests Future<Map<String, dynamic>?>.
+        return Map<String, dynamic>.from(value) as T?;
       }
+      
+      // If it's a simple type (String, int, etc.), this cast will work directly.
+      return value as T?;
+    } catch (e) {
+      _talker.error(
+        'HiveCacheRepository: Failed to cast value for key "$key" in box "$boxName". '
+        'Expected type $T but got ${value.runtimeType}. Error: $e'
+      );
+      return null;
     }
-
-    // If all checks and casts fail, log a warning and return null.
-    _talker.warning('HiveCacheRepository: Type mismatch for key "$key" in box "$boxName". Expected $T but got ${value.runtimeType}.');
-    return null;
   }
 
   // UPDATED: The put method now uses the generic _openBox helper.
