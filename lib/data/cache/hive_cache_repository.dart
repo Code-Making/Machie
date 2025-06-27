@@ -3,51 +3,62 @@
 // =========================================
 
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart'; // Ensure this is imported
+import 'package:path_provider/path_provider.dart';
 import 'cache_repository.dart';
 
-/// A [CacheRepository] implementation that uses the Hive database for storage.
 class HiveCacheRepository implements CacheRepository {
   
-  // REFACTORED: The init method now uses path_provider to ensure
-  // the database is stored in a permanent location.
   @override
   Future<void> init() async {
-    // 1. Get the directory for storing permanent application files.
     final appDocumentDir = await getApplicationDocumentsDirectory();
-
-    // 2. Initialize Hive in that specific, permanent directory.
-    // This prevents the OS from clearing the cache.
     Hive.init(appDocumentDir.path);
-    
-    // Note: We are no longer calling Hive.initFlutter() as we are now
-    // explicitly providing the path. Hive.init() is sufficient.
   }
 
-  /// Helper to safely open a Hive box.
   Future<Box<T>> _openBox<T>(String boxName) async {
-    // This part of the logic remains robust. If a box is already open,
-    // it returns the instance; otherwise, it opens it.
     if (Hive.isBoxOpen(boxName)) {
       return Hive.box<T>(boxName);
     } else {
-      // Hive will use the path we provided in init() to open/create the box file.
       return await Hive.openBox<T>(boxName);
     }
   }
 
+  // REFACTORED: The 'get' method is now type-safe.
   @override
   Future<T?> get<T>(String boxName, String key) async {
-    final box = await _openBox<T>(boxName);
-    return box.get(key);
+    // We open the box without a strict type argument initially, as Hive
+    // stores maps as Map<dynamic, dynamic>.
+    final box = await _openBox(boxName);
+    final dynamic value = box.get(key);
+
+    if (value == null) {
+      return null;
+    }
+
+    // This is the crucial part. If the requested type T is a Map,
+    // we perform a safe, manual cast from Map<dynamic, dynamic>
+    // to the specific Map type required (e.g., Map<String, dynamic>).
+    if (T == Map<String, dynamic> && value is Map) {
+      return Map<String, dynamic>.from(value) as T;
+    }
+
+    // If it's not a map or if the types already match, we can cast directly.
+    if (value is T) {
+      return value;
+    }
+
+    // If the cast is not possible, return null to prevent a runtime crash.
+    return null;
   }
 
   @override
   Future<void> put<T>(String boxName, String key, T value) async {
+    // The 'put' method is generally safe, as Hive handles serialization.
     final box = await _openBox<T>(boxName);
     await box.put(key, value);
   }
-
+  
+  // ... The rest of the file is unchanged and correct ...
+  
   @override
   Future<void> delete(String boxName, String key) async {
     final box = await _openBox(boxName);
@@ -56,8 +67,6 @@ class HiveCacheRepository implements CacheRepository {
 
   @override
   Future<void> clearBox(String boxName) async {
-    // To ensure all resources are released, we should close the box
-    // before deleting it from disk.
     if (Hive.isBoxOpen(boxName)) {
       await Hive.box(boxName).close();
     }
