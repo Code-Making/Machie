@@ -22,33 +22,33 @@ class HiveCacheRepository implements CacheRepository {
     }
   }
 
-  // REFACTORED: The 'get' method is now type-safe.
-  @override
-  Future<T?> get<T>(String boxName, String key) async {
-    // We open the box without a strict type argument initially, as Hive
-    // stores maps as Map<dynamic, dynamic>.
-    final box = await _openBox(boxName);
-    final dynamic value = box.get(key);
+// REFACTORED: The 'get' method is now type-safe.
+@override
+Future<T?> get<T>(String boxName, String key) async {
+  // We open the box without a strict type argument initially, as Hive
+  // stores maps as Map<dynamic, dynamic>.
+  final box = await _openBox(boxName);
+  final dynamic value = box.get(key);
 
-    if (value == null) {
-      return null;
-    }
-
-    // This is the crucial part. If the requested type T is a Map,
-    // we perform a safe, manual cast from Map<dynamic, dynamic>
-    // to the specific Map type required (e.g., Map<String, dynamic>).
-    if (T == Map<String, dynamic> && value is Map) {
-      return Map<String, dynamic>.from(value) as T;
-    }
-
-    // If it's not a map or if the types already match, we can cast directly.
-    if (value is T) {
-      return value;
-    }
-
-    // If the cast is not possible, return null to prevent a runtime crash.
+  if (value == null) {
     return null;
   }
+
+  // This is the crucial part. If the requested type T is a Map,
+  // we perform a safe, manual cast from Map<dynamic, dynamic>
+  // to the specific Map type required (e.g., Map<String, dynamic>).
+  if (T == Map<String, dynamic> && value is Map<dynamic, dynamic>) {
+    return value.cast<String, dynamic>() as T;
+  }
+
+  // If it's not a map or if the types already match, we can cast directly.
+  if (value is T) {
+    return value;
+  }
+
+  // If the cast is not possible, return null to prevent a runtime crash.
+  return null;
+}
 
   @override
   Future<void> put<T>(String boxName, String key, T value) async {
