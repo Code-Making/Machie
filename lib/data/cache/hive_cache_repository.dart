@@ -63,7 +63,7 @@ class HiveCacheRepository implements CacheRepository {
     _talker.verbose(
       'CACHE PUT: box="$boxName", key="$key"\nValue:\n$formattedValue'
     );
-    await box.flush()
+    await box.flush();
     // --- END OF LOGGING ---
   }
 
