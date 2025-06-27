@@ -31,32 +31,18 @@ class HiveCacheRepository implements CacheRepository {
     }
   }
 
-@override
-Future<T?> get<T>(String boxName, String key) async {
-  final box = await _openBox(boxName);
-  final dynamic value = box.get(key);
-
-  if (value == null) {
-    return null;
-  }
-
-  // Special handling for Map<String, dynamic>
-  if (T == Map<String, dynamic>) {
-    if (value is Map) {
-      try {
-        // Convert Map<dynamic, dynamic> to Map<String, dynamic>
-        return Map<String, dynamic>.from(value);
-      } catch (e) {
-        _talker.error('Failed to convert map to Map<String, dynamic>', e);
-        return null;
-      }
+  @override
+  Future<T?> get<T>(String boxName, String key) async {
+    final box = await _openBox<T>(boxName);
+    final value = box.get(key);
+    
+    // ADDED: Log when data is retrieved from the cache.
+    if (value != null) {
+      _talker.verbose('CACHE GET: box="$boxName", key="$key"');
     }
-    return null;
+    
+    return value;
   }
-
-  // For non-Map types
-  return value is T ? value : null;
-}
 
   // UPDATED: The put method now logs the data being saved.
   @override
