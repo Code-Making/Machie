@@ -327,7 +327,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       for (final tab in currentProject.session.tabs) {
         final hotState = await tab.plugin.serializeHotState(tab);
         if (hotState != null) {
-          _talker.info("Caching tabs");
+          _talker.info("Caching tabs hotstate :$hotState");
           // Tell the cache service to save this tab's unsaved work.
           await cacheService.cacheTabState(currentProject.id, tab.id, hotState);
         }
