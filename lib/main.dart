@@ -50,7 +50,7 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
       titleTextStyle: const TextStyle(fontSize: 14),
       toolbarHeight: 48,
     ),
-    tabBarTheme: TabBarTheme(
+    tabBarTheme: TabBarThemeData(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(color: seedColor, width: 2.0),
       ),
