@@ -16,6 +16,12 @@ import 'glitch_editor_widget.dart';
 import 'glitch_toolbar.dart';
 import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
+import 'package:machine/data/dto/tab_hot_state_dto.dart'; // ADDED
+import 'package:machine/data/cache/type_adapters.dart'; // ADDED
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart'; // ADDED
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart'; // ADDED
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_widget.dart';
+import 'dart:typed_data'; // ADDED for type casting
 
 class GlitchEditorPlugin implements EditorPlugin {
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
@@ -85,6 +91,12 @@ class GlitchEditorPlugin implements EditorPlugin {
     return const BottomToolbar();
   }
   
+  @override
+  String get hotStateDtoType => 'com.machine.glitch_editor_state';
+
+  @override
+  TypeAdapter<TabHotStateDto> get hotStateAdapter => GlitchEditorHotStateAdapter();
+  
   /// Helper to get the active editor's state object.
   GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is GlitchEditorWidgetState) {
@@ -94,12 +106,14 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
   
   @override
-  Future<Map<String, dynamic>?> serializeHotState(EditorTab tab) async {
+  Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
     
-    // Delegate the actual serialization to a public method on the widget's State object.
-    return await editorState.getHotState();
+    final stateMap = await editorState.getHotState();
+    if (stateMap == null || stateMap['imageData'] == null) return null;
+
+    return GlitchEditorHotStateDto(imageData: stateMap['imageData'] as Uint8List);
   }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
