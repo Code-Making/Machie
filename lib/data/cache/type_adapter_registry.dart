@@ -8,6 +8,8 @@ import '../../editor/plugins/plugin_models.dart';
 import 'type_adapters.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 
+import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart';
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
 /// A registry that holds all the type adapters for hot state DTOs.
 ///
 /// It discovers adapters dynamically from the registered [EditorPlugin]s.
