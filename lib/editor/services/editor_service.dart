@@ -23,6 +23,11 @@ import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart'; // ADDED
 import '../../project/services/cache_service.dart'; // ADDED
 
+import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart';
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
+import 'package:machine/project/services/cache_service.dart';
+
+
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
 });
@@ -74,28 +79,23 @@ class EditorService {
         bool wasLoadedFromCache = false;
         talker.info("Trying to load cache");
         // --- CACHE CHECK ---
-        // 1. Check the cache for this tab's hot state.
-        final cachedState = await cacheService.getTabState(projectMetadata.id, tabId);
-        talker.info("Cache: $cachedState");
-        if (cachedState != null) {
-          // 2. If found, use the cached data.
-          // We look for keys that our plugins defined ('content' or 'imageData').
-          if (cachedState['content'] != null) {
-            talker.info("Found cache");
-            dataToLoad = cachedState['content'];
-            wasLoadedFromCache = true;
-          } else if (cachedState['imageData'] != null) {
-            talker.info("Found cache");
-            dataToLoad = cachedState['imageData'];
-            wasLoadedFromCache = true;
+final cachedDto = await cacheService.getTabState(projectMetadata.id, tabId);
+
+        if (cachedDto != null) {
+          wasLoadedFromCache = true;
+          // Use pattern matching to extract the data from the correct DTO type.
+          switch (cachedDto) {
+            case CodeEditorHotStateDto():
+              dataToLoad = cachedDto.content;
+              break;
+            case GlitchEditorHotStateDto():
+              dataToLoad = cachedDto.imageData;
+              break;
           }
-          // Clean up the cache for this tab now that we've used it.
           await cacheService.clearTabState(projectMetadata.id, tabId);
         }
         
-        // 3. If no data was loaded from cache, fall back to reading from the file.
         if (dataToLoad == null) {
-          talker.info("No cache, loading from file");
           dataToLoad = plugin.dataRequirement == PluginDataRequirement.bytes
               ? await _repo.readFileAsBytes(file.uri)
               : await _repo.readFile(file.uri);
@@ -167,6 +167,17 @@ class EditorService {
       tabs: rehydratedTabs,
       currentTabIndex: dto.currentTabIndex,
     );
+  }
+  
+    // ADDED: A new method to handle the caching logic.
+  Future<void> cacheAllTabs(Project project) async {
+    final cacheService = _ref.read(cacheServiceProvider);
+    for (final tab in project.session.tabs) {
+      final hotStateDto = await tab.plugin.serializeHotState(tab);
+      if (hotStateDto != null) {
+        await cacheService.cacheTabState(project.id, tab.id, hotStateDto);
+      }
+    }
   }
   
   void markCurrentTabDirty() {

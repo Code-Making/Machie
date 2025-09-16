@@ -24,6 +24,7 @@ import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
 import '../editor/editor_tab_models.dart';
+import 'package:machine/editor/services/editor_service.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -314,34 +315,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
   
   // REFACTORED: The save logic is now clean and follows the DTO pattern.
   Future<void> saveAppState() async {
-    _talker.info("Saving app state");
     final appState = state.value;
     if (appState == null) return;
 
     final currentProject = appState.currentProject;
 
-    // --- STEP 1: Cache the hot state of any open tabs ---
+    // 1. If a project is open, tell the EditorService to cache its hot state.
     if (currentProject != null) {
-      final cacheService = ref.read(cacheServiceProvider);
-      // Iterate through all open tabs and cache their hot state.
-      for (final tab in currentProject.session.tabs) {
-        final hotState = await tab.plugin.serializeHotState(tab);
-        if (hotState != null) {
-          _talker.info("Caching tabs hotstate :$hotState");
-          // Tell the cache service to save this tab's unsaved work.
-          await cacheService.cacheTabState(currentProject.id, tab.id, hotState);
-        }
-      }
+      await _editorService.cacheAllTabs(currentProject);
     }
 
-    // --- STEP 2: Save the persistent project file (project.json) ---
-    // This saves the list of open tabs, dirty status, etc.
+    // 2. Save the persistent project file (project.json).
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
     
-    // --- STEP 3: Save the global application state (SharedPreferences) ---
-    // This saves the list of known projects and the state of any open "simple" project.
+    // 3. Save the global application state (SharedPreferences).
     final liveTabMetadata = ref.read(tabMetadataProvider);
     final appStateDto = appState.toDto(liveTabMetadata);
     await _appStateRepository.saveAppStateDto(appStateDto);

@@ -18,6 +18,11 @@ import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
 import '../../tab_state_manager.dart';
+import 'package:machine/data/dto/tab_hot_state_dto.dart'; // ADDED
+import 'package:machine/data/cache/type_adapters.dart'; // ADDED
+import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_adapter.dart'; // ADDED
+import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart'; // ADDED
+import 'package:machine/editor/plugins/code_editor/code_editor_widgets.dart';
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
@@ -36,6 +41,9 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<void> dispose() async {}
   @override
   void disposeTab(EditorTab tab) {}
+  
+  
+  
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
@@ -45,6 +53,13 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
   
+  @override
+  String get hotStateDtoType => 'com.machine.code_editor_state';
+
+  @override
+  TypeAdapter<TabHotStateDto> get hotStateAdapter => CodeEditorHotStateAdapter();
+  
+  /// Helper to get the active editor's state object.
   CodeEditorMachineState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is CodeEditorMachineState) {
       return tab.editorKey.currentState as CodeEditorMachineState;
@@ -53,12 +68,13 @@ class CodeEditorPlugin implements EditorPlugin {
   }
   
   @override
-  Future<Map<String, dynamic>?> serializeHotState(EditorTab tab) async {
+  Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
     
-    // Delegate the actual serialization to a public method on the widget's State object.
-    return editorState.getHotState();
+    // The state object now returns a Map, so we construct the DTO here.
+    final stateMap = editorState.getHotState();
+    return CodeEditorHotStateDto(content: stateMap['content']);
   }
   
   @override
