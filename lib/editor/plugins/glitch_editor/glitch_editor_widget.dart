@@ -9,7 +9,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
+import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/project/services/cache_service.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
@@ -61,7 +63,11 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void initState() {
     super.initState();
     _transformationController.addListener(_updateImageDisplayParams);
-    _loadImage();
+    _loadHotState().then((loaded) {
+      if (mounted && !loaded) {
+        _loadImage();
+      }
+    });
   }
 
   @override
@@ -73,6 +79,45 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _strokeSample?.dispose();
     _repeaterSample?.dispose();
     super.dispose();
+  }
+
+  Future<bool> _loadHotState() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project == null) return false;
+
+    final cacheService = ref.read(cacheServiceProvider);
+    final dto = await cacheService.getTabState(project.id, widget.tab.id);
+
+    if (dto is GlitchEditorHotStateDto && dto.imageData.isNotEmpty) {
+      await _applyHotState(dto.imageData);
+      // If we successfully loaded a cached state, it means the content
+      // is different from the saved file, so the tab is dirty.
+      ref.read(editorServiceProvider).markTabDirty(widget.tab.id);
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _applyHotState(Uint8List hotStateImageData) async {
+    // Decode the cached image for display
+    final hotStateCodec = await ui.instantiateImageCodec(hotStateImageData);
+    final hotStateFrame = await hotStateCodec.getNextFrame();
+
+    // Also decode the original image from the file for the "Reset" functionality
+    final originalCodec =
+        await ui.instantiateImageCodec(widget.tab.initialImageData);
+    final originalFrame = await originalCodec.getNextFrame();
+
+    if (!mounted) return;
+
+    setState(() {
+      _displayImage?.dispose();
+      _originalImage?.dispose();
+
+      _displayImage = hotStateFrame.image;
+      _originalImage = originalFrame.image;
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadImage() async {
@@ -102,19 +147,20 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     );
     _imageScale = destinationSize.width / imageSize.width;
   }
-  
+
   // --- PUBLIC API FOR CACHING ---
-  
+
   /// Returns the current unsaved state of the editor for caching.
   /// This is an async operation because encoding an image takes time.
   Future<Map<String, dynamic>?> getHotState() async {
     if (_displayImage == null) return null;
 
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    final byteData =
+        await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) return null;
-    
+
     final Uint8List bytes = byteData.buffer.asUint8List();
-    
+
     return {
       // The key 'imageData' will be used to identify this data during rehydration.
       'imageData': bytes,
@@ -149,7 +195,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _isToolbarVisible = !_isToolbarVisible;
     });
   }
-  
+
   void updateOriginalImage() {
     if (_displayImage == null) return;
     setState(() {
@@ -259,7 +305,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     // The service marks the current tab as dirty by its ID.
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
-  
+
   // ... (all glitch logic and build method are unchanged) ...
   void _applyEffectToCanvas(
     Canvas canvas,
@@ -289,8 +335,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       final srcY = pos.dy + _random.nextDouble() * radius - (radius / 2);
       final dstX = pos.dx + _random.nextDouble() * radius - (radius / 2);
       final dstY = pos.dy + _random.nextDouble() * radius - (radius / 2);
-      final size =
-          settings.minBlockSize +
+      final size = settings.minBlockSize +
           _random.nextDouble() *
               (settings.maxBlockSize - settings.minBlockSize);
       canvas.drawImageRect(
@@ -341,10 +386,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _createRepeaterSample(Offset pos, GlitchBrushSettings settings) {
     if (_strokeSample == null) return;
     final radius = settings.radius * 500;
-    _repeaterSampleRect =
-        settings.shape == GlitchBrushShape.circle
-            ? Rect.fromCircle(center: pos, radius: radius / 2)
-            : Rect.fromCenter(center: pos, width: radius, height: radius);
+    _repeaterSampleRect = settings.shape == GlitchBrushShape.circle
+        ? Rect.fromCircle(center: pos, radius: radius / 2)
+        : Rect.fromCenter(center: pos, width: radius, height: radius);
     _repeaterSampleRect = Rect.fromLTRB(
       _repeaterSampleRect!.left.clamp(0, _strokeSample!.width.toDouble()),
       _repeaterSampleRect!.top.clamp(0, _strokeSample!.height.toDouble()),
@@ -395,10 +439,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   void _applyHeal(Canvas canvas, Offset pos, GlitchBrushSettings settings) {
     if (_originalImage == null) return;
     final radius = settings.radius * 500;
-    final sourceRect =
-        settings.shape == GlitchBrushShape.circle
-            ? Rect.fromCircle(center: pos, radius: radius / 2)
-            : Rect.fromCenter(center: pos, width: radius, height: radius);
+    final sourceRect = settings.shape == GlitchBrushShape.circle
+        ? Rect.fromCircle(center: pos, radius: radius / 2)
+        : Rect.fromCenter(center: pos, width: radius, height: radius);
     final clampedSourceRect = Rect.fromLTRB(
       sourceRect.left.clamp(0, _originalImage!.width.toDouble()),
       sourceRect.top.clamp(0, _originalImage!.height.toDouble()),
@@ -499,10 +542,9 @@ class _BrushPreview extends StatelessWidget {
       width: radius,
       height: radius,
       decoration: BoxDecoration(
-        shape:
-            settings.shape == GlitchBrushShape.circle
-                ? BoxShape.circle
-                : BoxShape.rectangle,
+        shape: settings.shape == GlitchBrushShape.circle
+            ? BoxShape.circle
+            : BoxShape.rectangle,
         color: Colors.white.withOpacity(0.3),
         border: Border.all(color: Colors.white.withOpacity(0.7), width: 2),
       ),
