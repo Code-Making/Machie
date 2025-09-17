@@ -38,54 +38,75 @@ class CacheService {
 
   /// Caches the "hot state" of a specific editor tab using its DTO.
   Future<void> cacheTabState(String projectId, String tabId, TabHotStateDto dto) async {
+    _talker.info('--> cacheTabState: Caching state for tab "$tabId" in project "$projectId". DTO: ${dto.runtimeType}');
     // 1. Determine the DTO type string.
     final type = _getDtoType(dto);
     if (type == null) {
-      _talker.error('Could not cache tab "$tabId": DTO type not found in registry.');
+      _talker.error('--> cacheTabState: Could not cache tab "$tabId": DTO type not found in registry.');
       return;
     }
+    _talker.verbose('--> cacheTabState: Found DTO type: "$type"');
 
     // 2. Get the corresponding adapter.
     final adapter = _adapterRegistry.getAdapter(type);
     if (adapter == null) {
-      _talker.error('Could not cache tab "$tabId": No adapter found for type "$type".');
+      _talker.error('--> cacheTabState: Could not cache tab "$tabId": No adapter found for type "$type".');
       return;
     }
+    _talker.verbose('--> cacheTabState: Found adapter for type "$type".');
 
     // 3. Convert the DTO to a JSON map.
     final json = adapter.toJson(dto);
 
     // 4. Inject the type identifier into the JSON map for later deserialization.
     json[_typeKey] = type;
+    _talker.verbose('--> cacheTabState: Converted DTO to JSON: $json');
 
-    _talker.info('CacheService: Caching state for tab "$tabId" in project "$projectId".');
-    await _cacheRepository.put<Map<String, dynamic>>(projectId, tabId, json);
+    try {
+      await _cacheRepository.put<Map<String, dynamic>>(projectId, tabId, json);
+      _talker.info('--> cacheTabState: Successfully cached state for tab "$tabId".');
+    } catch (e, st) {
+      _talker.handle(e, st, '--> cacheTabState: Failed to cache state for tab "$tabId".');
+    }
   }
 
   /// Retrieves and deserializes the cached "hot state" for a specific editor tab.
   Future<TabHotStateDto?> getTabState(String projectId, String tabId) async {
-    _talker.info('CacheService: Getting state for tab "$tabId" in project "$projectId".');
+    _talker.info('--> getTabState: Getting state for tab "$tabId" in project "$projectId".');
     
     // 1. Get the raw JSON map from the repository.
     final json = await _cacheRepository.get<Map<String, dynamic>>(projectId, tabId);
-    if (json == null) return null;
+    if (json == null) {
+      _talker.warning('--> getTabState: No cached state found for tab "$tabId".');
+      return null;
+    }
+    _talker.verbose('--> getTabState: Retrieved JSON from cache: $json');
 
     // 2. Extract the type identifier.
     final type = json[_typeKey] as String?;
     if (type == null) {
-      _talker.error('Could not deserialize tab "$tabId": JSON is missing type key.');
+      _talker.error('--> getTabState: Could not deserialize tab "$tabId": JSON is missing type key "$_typeKey".');
       return null;
     }
+    _talker.verbose('--> getTabState: Extracted DTO type: "$type"');
 
     // 3. Look up the correct adapter.
     final adapter = _adapterRegistry.getAdapter(type);
     if (adapter == null) {
-      _talker.error('Could not deserialize tab "$tabId": No adapter found for type "$type".');
+      _talker.error('--> getTabState: Could not deserialize tab "$tabId": No adapter found for type "$type".');
       return null;
     }
+    _talker.verbose('--> getTabState: Found adapter for type "$type".');
 
     // 4. Use the adapter to convert the JSON map back into a strongly-typed DTO.
-    return adapter.fromJson(json);
+    try {
+      final dto = adapter.fromJson(json);
+      _talker.info('--> getTabState: Successfully deserialized DTO for tab "$tabId". DTO: ${dto.runtimeType}');
+      return dto;
+    } catch (e, st) {
+      _talker.handle(e, st, '--> getTabState: Failed to deserialize DTO for tab "$tabId".');
+      return null;
+    }
   }
 
   /// Helper to find the DTO type string for a given DTO instance.
