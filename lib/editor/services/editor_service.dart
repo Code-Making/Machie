@@ -179,7 +179,8 @@ final cachedDto = await cacheService.getTabState(projectMetadata.id, tabId);
 
       // THE FIX: Only attempt to serialize and cache the hot state
       // if the tab is actually marked as dirty (has unsaved changes).
-      if (metadata != null && metadata.isDirty) {
+      if (metadata != null){
+          if(metadata.isDirty) {
         final hotStateDto = await tab.plugin.serializeHotState(tab);
         if (hotStateDto != null) {
           await cacheService.cacheTabState(project.id, tab.id, hotStateDto);
@@ -190,8 +191,14 @@ final cachedDto = await cacheService.getTabState(projectMetadata.id, tabId);
             'The editor widget might not be ready or its state is invalid.'
           );
         }
+      } else {
+           _ref.read(talkerProvider).warning(
+            'Tab "${metadata.title}" was not dirty'
+            'The editor widget might not be ready or its state is invalid.'
+          );
       }
     }
+  }
   }
   
   void markCurrentTabDirty() {
