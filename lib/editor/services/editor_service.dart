@@ -169,13 +169,27 @@ final cachedDto = await cacheService.getTabState(projectMetadata.id, tabId);
     );
   }
   
-    // ADDED: A new method to handle the caching logic.
+  // REFACTORED: The caching logic now checks if the tab is dirty before proceeding.
   Future<void> cacheAllTabs(Project project) async {
     final cacheService = _ref.read(cacheServiceProvider);
+    final metadataMap = _ref.read(tabMetadataProvider); // Get the live metadata
+
     for (final tab in project.session.tabs) {
-      final hotStateDto = await tab.plugin.serializeHotState(tab);
-      if (hotStateDto != null) {
-        await cacheService.cacheTabState(project.id, tab.id, hotStateDto);
+      final metadata = metadataMap[tab.id];
+
+      // THE FIX: Only attempt to serialize and cache the hot state
+      // if the tab is actually marked as dirty (has unsaved changes).
+      if (metadata != null && metadata.isDirty) {
+        final hotStateDto = await tab.plugin.serializeHotState(tab);
+        if (hotStateDto != null) {
+          await cacheService.cacheTabState(project.id, tab.id, hotStateDto);
+        } else {
+          // Add a log to see why serialization might have failed.
+          _ref.read(talkerProvider).warning(
+            'Tab "${metadata.title}" was dirty, but serializeHotState returned null. '
+            'The editor widget might not be ready or its state is invalid.'
+          );
+        }
       }
     }
   }
