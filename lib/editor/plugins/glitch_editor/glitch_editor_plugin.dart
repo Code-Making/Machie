@@ -57,20 +57,8 @@ class GlitchEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id, TabHotStateDto? hotState}) async {
-    print('--> createTab: Creating GlitchEditorTab. ID: $id, File: ${file.name}');
-    if (hotState is GlitchEditorHotStateDto) {
-      print('--> createTab: Restoring from hot state: $hotState');
-      // If we have hot state, we pass it to the tab.
-      // The tab will then pass it to the widget.
-      return GlitchEditorTab(
-        plugin: this,
-        initialImageData: data,
-        id: id,
-        hotState: hotState,
-      );
-    }
-    print('--> createTab: No hot state provided, creating new tab.');
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id}) async {
+    // REFACTORED: The 'file' is no longer part of the tab model.
     // The EditorService will handle associating it with the tab's ID.
     return GlitchEditorTab(plugin: this, initialImageData: data, id: id);
   }
@@ -120,35 +108,12 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
-    if (editorState == null) {
-      print('--> serializeHotState: Editor state is null for tab ${tab.id}');
-      return null;
-    }
+    if (editorState == null) return null;
     
     final stateMap = await editorState.getHotState();
-    if (stateMap == null) {
-      print('--> serializeHotState: getHotState() returned null for tab ${tab.id}');
-      return null;
-    }
+    if (stateMap == null || stateMap['imageData'] == null) return null;
 
-    print('--> serializeHotState: Hot state from editor: $stateMap');
-
-    // This is where the full state needs to be captured.
-    // Assuming getHotState() returns a map with all the required values.
-    final dto = GlitchEditorHotStateDto(
-      seed: stateMap['seed'] ?? 0,
-      resolution: stateMap['resolution'] ?? 0.1,
-      volume: stateMap['volume'] ?? 0.1,
-      speed: stateMap['speed'] ?? 0.5,
-      blendMode: stateMap['blendMode'] ?? 0,
-      colorMode: stateMap['colorMode'] ?? 0,
-      isGlitching: stateMap['isGlitching'] ?? true,
-      isStatic: stateMap['isStatic'] ?? false,
-      isFreezed: stateMap['isFreezed'] ?? false,
-    );
-
-    print('--> serializeHotState: Serialized DTO: $dto');
-    return dto;
+    return GlitchEditorHotStateDto(imageData: stateMap['imageData'] as Uint8List);
   }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
