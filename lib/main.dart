@@ -25,6 +25,11 @@ import 'data/background_worker.dart'; // ADDED
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(cacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
+  await Workmanager().initialize(
+    callbackDispatcher,
+    // Set isInDebugMode to true to see native logs from the plugin.
+    isInDebugMode: true, 
+  );
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
@@ -110,11 +115,7 @@ void main() {
   );
   
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-  await Workmanager().initialize(
-    callbackDispatcher,
-    // Set isInDebugMode to true to see native logs from the plugin.
-    isInDebugMode: true, 
-  );
+  
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     // This makes the system navigation bar background black.
