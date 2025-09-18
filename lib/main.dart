@@ -15,6 +15,9 @@ import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
 import 'project/services/cache_service.dart'; // ADDED
 
+import 'package:workmanager/workmanager.dart'; // ADDED
+import 'data/background_worker.dart'; // ADDED
+
 // --------------------
 //   Global Providers
 // --------------------
@@ -107,7 +110,11 @@ void main() {
   );
   
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-
+  await Workmanager().initialize(
+    callbackDispatcher,
+    // Set isInDebugMode to true to see native logs from the plugin.
+    isInDebugMode: true, 
+  );
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     // This makes the system navigation bar background black.
