@@ -1,16 +1,17 @@
 // =========================================
-// NEW FILE: lib/data/background_worker.dart
+// UPDATED: lib/data/background_worker.dart
 // =========================================
 
 import 'dart:async';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ADDED
 import 'background_tasks.dart';
 import 'cache/hive_cache_repository.dart';
 import 'dto/app_state_dto.dart';
-import 'dto/project_dto.dart';
+// REMOVED: No longer need ProjectDto here for this installment
+// import 'dto/project_dto.dart'; 
 import 'persistence_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // A top-level function that is the entry point for the background isolate.
 @pragma('vm:entry-point')
@@ -21,9 +22,11 @@ void callbackDispatcher() {
     final talker = Talker(
       logger: TalkerLogger(
         settings: TalkerLoggerSettings(
-          // Customize colors for easy identification in the console
+          // FIXED: Use LogLevel for the keys, not TalkerLogType.
           colors: {
-            TalkerLogType.info: AnsiPen()..cyan(),
+            LogLevel.info: AnsiPen()..cyan(),
+            LogLevel.error: AnsiPen()..red(),
+            LogLevel.warning: AnsiPen()..yellow(),
           },
         ),
       ),
@@ -36,8 +39,9 @@ void callbackDispatcher() {
       final cacheRepo = HiveCacheRepository(talker);
       await cacheRepo.init();
 
+      // FIXED: Get an instance of SharedPreferences for the background isolate.
       final prefs = await SharedPreferences.getInstance();
-      final appStateRepo = AppStateRepository(prefs);
+      final appStateRepo = AppStateRepository(prefs); // Pass the prefs instance.
 
       // --- Main Task Router ---
       switch (taskName) {
@@ -48,17 +52,17 @@ void callbackDispatcher() {
           }
 
           // 1. Deserialize all DTOs from the input data.
-          final appStateDto = AppStateDto.fromJson(inputData['appStateDto']);
+          // The inputData itself is Map<String, dynamic>, so we need to access the nested map.
+          final appStateDto = AppStateDto.fromJson(inputData['appStateDto'] as Map<String, dynamic>);
           
           final hotStatesData = inputData['hotStates'] as Map<String, dynamic>? ?? {};
-          // Here we would deserialize hot state DTOs, but since they are already maps,
-          // we can use them directly for now.
           
           final projectId = appStateDto.lastOpenedProjectId;
 
           // 2. Perform the I/O operations.
           if (projectId != null) {
             // Cache each dirty tab's state.
+            talker.info('Caching hot states for ${hotStatesData.length} tabs...');
             for (final entry in hotStatesData.entries) {
               final tabId = entry.key;
               final stateMap = entry.value as Map<String, dynamic>;
@@ -67,6 +71,7 @@ void callbackDispatcher() {
           }
           
           // Save the global app state.
+          talker.info('Saving AppStateDto...');
           await appStateRepo.saveAppStateDto(appStateDto);
 
           talker.info('Background task "$taskName" completed successfully.');
@@ -74,10 +79,9 @@ void callbackDispatcher() {
       }
       
       talker.warning('No handler for task: $taskName');
-      return Future.value(true); // Default to success if task is unknown.
+      return Future.value(true);
     } catch (err, st) {
       talker.handle(err, st, 'Error executing background task: $taskName');
-      // In a production app, you might want to report this to a crash logging service.
       return Future.value(false); // Indicate failure.
     }
   });
