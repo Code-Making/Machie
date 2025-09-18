@@ -15,9 +15,6 @@ import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
 import 'project/services/cache_service.dart'; // ADDED
 
-import 'package:workmanager/workmanager.dart'; // ADDED
-import 'data/background_worker.dart'; // ADDED
-
 // --------------------
 //   Global Providers
 // --------------------
@@ -25,11 +22,7 @@ import 'data/background_worker.dart'; // ADDED
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(cacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
-  await Workmanager().initialize(
-    callbackDispatcher,
-    // Set isInDebugMode to true to see native logs from the plugin.
-    isInDebugMode: true, 
-  );
+  
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
