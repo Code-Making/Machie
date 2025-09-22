@@ -305,6 +305,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   void toggleFullScreen() {
     _updateStateSync((s) => s.copyWith(isFullScreen: !s.isFullScreen));
+    saveAppState();
   }
   
   void updateCurrentProject(Project newProject) {

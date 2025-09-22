@@ -13,6 +13,8 @@ import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
 
 // ... (_BracketHighlightState is unchanged) ...
 class _BracketHighlightState {
@@ -353,6 +355,28 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     processSpan(textSpan);
     return TextSpan(children: builtSpans, style: style);
   }
+  
+    KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+            final arrowKeyDirections = {
+      LogicalKeyboardKey.arrowUp: AxisDirection.up,
+      LogicalKeyboardKey.arrowDown: AxisDirection.down,
+      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+      LogicalKeyboardKey.arrowRight: AxisDirection.right,
+    };
+        final direction = arrowKeyDirections[event.logicalKey];
+        final shiftPressed = event.isShiftPressed;
+        
+        if (direction != null) {
+          if (shiftPressed) {
+            controller.extendSelection(direction);
+          } else {
+            controller.moveCursor(direction);
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      }
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +403,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     return Focus(
       focusNode: _focusNode,
+      onKey: _handleKeyEvent,
       autofocus: true,
       child: CodeEditor(
         controller: controller,

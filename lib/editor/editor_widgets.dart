@@ -181,14 +181,25 @@ class EditorView extends ConsumerWidget {
 
     return IndexedStack(
       index: project.session.currentTabIndex,
-      children: project.session.tabs.map((tab) {
-        // The key is the stable `tab.id`, which is the core of this refactoring.
-        // The widget will NOT be destroyed on a rename.
+      children: List.generate(project.session.tabs.length, (index) {
+        final tab = project.session.tabs[index];
+        final bool isActive = index == project.session.currentTabIndex;
+
+        // The KeyedSubtree ensures the State of the editor widget is preserved.
         return KeyedSubtree(
           key: ValueKey(tab.id),
-          child: tab.plugin.buildEditor(tab, ref),
+          child: TickerMode(
+            // Mute animations and tickers for inactive tabs.
+            enabled: isActive,
+            child: FocusTraversalGroup(
+              // This is the crucial part for focus.
+              // It prevents focus from escaping this group via traversal keys.
+              policy: OrderedTraversalPolicy(), // or WidgetOrderTraversalPolicy()
+              child: tab.plugin.buildEditor(tab, ref),
+            ),
+          ),
         );
-      }).toList(),
+      }),
     );
   }
 }
