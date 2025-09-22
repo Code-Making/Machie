@@ -152,10 +152,7 @@ class TabWidget extends ConsumerWidget {
                   softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
-                    color:
-                        isActive
-                            ? Colors.white
-                            : isDirty
+                    color: isDirty
                             ? Colors.orange.shade300
                             : Colors.white70,
                   ),
