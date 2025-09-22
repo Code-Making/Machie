@@ -124,8 +124,11 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
-          const Expanded(
-            child: EditorView(),
+          Expanded(
+            // CORRECTED: Wrap the EditorView's container in a FocusScope.
+            child: FocusScope(
+              child: const EditorView(),
+            ),
           ),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
