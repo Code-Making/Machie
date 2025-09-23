@@ -17,8 +17,6 @@ import 'code_editor_state.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
 import '../../../command/command_models.dart'; // ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
-e.dart'; // <-- ADD THIS IMPORT
-
 // ... (_BracketHighlightState is unchanged) ...
 class _BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
