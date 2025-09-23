@@ -108,19 +108,23 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // NEW METHOD: A helper to build the contextual AppBar.
   Widget _buildSelectionAppBar() {
     final plugin = widget.tab.plugin as CodeEditorPlugin;
+    
+    // We find all our commands by ID from the plugin's command list.
     final allCommands = plugin.getCommands();
     final cutCommand = allCommands.firstWhere((c) => c.id == 'cut');
     final copyCommand = allCommands.firstWhere((c) => c.id == 'copy');
     final pasteCommand = allCommands.firstWhere((c) => c.id == 'paste');
+    final commentCommand = allCommands.firstWhere((c) => c.id == 'toggle_comment');     // <-- ADDED
+    final moveLineUpCommand = allCommands.firstWhere((c) => c.id == 'move_line_up');   // <-- ADDED
+    final moveLineDownCommand = allCommands.firstWhere((c) => c.id == 'move_line_down'); // <-- ADDED
 
     return CodeEditorSelectionAppBar(
       cutCommand: cutCommand,
       copyCommand: copyCommand,
       pasteCommand: pasteCommand,
-      onDone: () {
-        controller.selection =
-            CodeLineSelection.fromPosition(position: controller.selection.extent);
-      },
+      commentCommand: commentCommand,          // <-- ADDED
+      moveLineUpCommand: moveLineUpCommand,      // <-- ADDED
+      moveLineDownCommand: moveLineDownCommand,  // <-- ADDED
     );
   }
 
@@ -596,51 +600,49 @@ class _CustomLineNumberWidget extends StatelessWidget {
   }
 }
 
-/// An AppBar widget specifically for when text is selected in the Code Editor.
 class CodeEditorSelectionAppBar extends ConsumerWidget {
   final Command cutCommand;
   final Command copyCommand;
   final Command pasteCommand;
-  final VoidCallback onDone;
+  final Command commentCommand;       // <-- ADDED
+  final Command moveLineUpCommand;    // <-- ADDED
+  final Command moveLineDownCommand;  // <-- ADDED
 
   const CodeEditorSelectionAppBar({
     super.key,
     required this.cutCommand,
     required this.copyCommand,
     required this.pasteCommand,
-    required this.onDone,
+    required this.commentCommand,      // <-- ADDED
+    required this.moveLineUpCommand,   // <-- ADDED
+    required this.moveLineDownCommand, // <-- ADDED
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // We use a Material widget to provide the background color and elevation
-    // that an AppBar would normally have.
-    return Material(
-      elevation: 4.0,
-      color: Theme.of(context).appBarTheme.backgroundColor,
-      child: SafeArea(
-        child: Container(
-          height: kToolbarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // "Done" button to exit the selection mode.
-              IconButton(
-                icon: const Icon(Icons.done),
-                tooltip: 'Done',
-                onPressed: onDone,
-              ),
+    // WRAPPED in CodeEditorTapRegion
+    return CodeEditorTapRegion(
+      child: Material(
+        elevation: 4.0,
+        color: Theme.of(context).appBarTheme.backgroundColor,
+        child: SafeArea(
+          child: Container(
+            height: kToolbarHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Row(
               // The contextual commands.
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CommandButton(command: cutCommand),
-                  CommandButton(command: copyCommand),
-                  CommandButton(command: pasteCommand),
-                ],
-              ),
-            ],
+              children: [
+                // Use a Spacer to push the other commands to the right
+                const Spacer(), 
+                CommandButton(command: commentCommand),
+                CommandButton(command: moveLineUpCommand),
+                CommandButton(command: moveLineDownCommand),
+                const VerticalDivider(indent: 12, endIndent: 12), // Visual separator
+                CommandButton(command: cutCommand),
+                CommandButton(command: copyCommand),
+                CommandButton(command: pasteCommand),
+              ],
+            ),
           ),
         ),
       ),
