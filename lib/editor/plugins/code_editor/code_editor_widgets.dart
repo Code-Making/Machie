@@ -15,6 +15,7 @@ import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 
 // ... (_BracketHighlightState is unchanged) ...
 class _BracketHighlightState {
@@ -52,9 +53,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   // --- PUBLIC PROPERTIES (for the command system) ---
   // isDirty is no longer needed here; the command gets it from the provider.
-  bool get canUndo => controller.canUndo;
-  bool get canRedo => controller.canRedo;
-  bool get hasMark => _markPosition != null;
+  //bool get canUndo => controller.canUndo;
+  //bool get canRedo => controller.canRedo;
+  //bool get hasMark => _markPosition != null;
 
   @override
   void initState() {
@@ -76,6 +77,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       spanBuilder: _buildHighlightingSpan,
     );
     controller.addListener(_onControllerChange);
+    
+        _updateStateProvider(); 
   }
   
   @override
@@ -114,6 +117,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
+        _updateStateProvider();
   }
 
   Future<void> save() async {
@@ -131,12 +135,23 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       'content': controller.text,
     };
   }
+  
+    // NEW METHOD: Centralizes updating the state provider.
+  void _updateStateProvider() {
+    // Use the tab's stable ID to get the correct notifier instance.
+    ref.read(codeEditorStateProvider(widget.tab.id).notifier).update(
+          canUndo: controller.canUndo,
+          canRedo: controller.canRedo,
+          hasMark: _markPosition != null,
+        );
+  }
 
   // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
   void setMark() {
     setState(() {
       _markPosition = controller.selection.base;
     });
+    _updateStateProvider();
   }
 
   void selectToMark() {
