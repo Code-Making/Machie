@@ -78,6 +78,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange); // <-- NEW LISTENER
+    // This listener is the key to the whole feature.
+    // It watches for a change in the 'hasSelection' state and does something
+    // (a "side effect") without causing this widget to rebuild.
+    ref.listen<bool>(
+      codeEditorStateProvider(widget.tab.id).select((s) => s.hasSelection),
+      (previous, hasSelection) {
+        final appNotifier = ref.read(appNotifierProvider.notifier);
+        if (hasSelection) {
+          // When a selection is made, set the override.
+          appNotifier.setAppBarOverride(_buildSelectionAppBar());
+        } else {
+          // When the selection is cleared, remove the override.
+          appNotifier.clearAppBarOverride();
+        }
+      },
+    );
     _updateStateProvider(); 
   }
   
@@ -97,12 +113,37 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       });
     }
   }
+  
+    // NEW METHOD: A helper to build the contextual AppBar.
+  Widget _buildSelectionAppBar() {
+    final plugin = widget.tab.plugin as CodeEditorPlugin;
+    // We can find our commands by ID from the plugin's command list.
+    final allCommands = plugin.getCommands();
+    final cutCommand = allCommands.firstWhere((c) => c.id == 'cut');
+    final copyCommand = allCommands.firstWhere((c) => c.id == 'copy');
+    final pasteCommand = allCommands.firstWhere((c) => c.id == 'paste');
+
+    return CodeEditorSelectionAppBar(
+      cutCommand: cutCommand,
+      copyCommand: copyCommand,
+      pasteCommand: pasteCommand,
+      // The "onDone" callback simply collapses the selection in the controller.
+      // This will trigger _onControllerChange -> _updateStateProvider,
+      // which will set hasSelection to false and cause the ref.listen
+      // to fire and clear the override. A perfect reactive loop!
+      onDone: () => controller.collapseSelection(),
+    );
+  }
 
   @override
   void dispose() {
     // Make sure to remove the new listener.
     controller.dirty.removeListener(_onDirtyStateChange); // <-- REMOVE LISTENER
     controller.removeListener(_onControllerChange);
+    final hasSelection = ref.read(codeEditorStateProvider(widget.tab.id)).hasSelection;
+    if (hasSelection) {
+        ref.read(appNotifierProvider.notifier).clearAppBarOverride();
+    }
     controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -162,11 +203,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   
     // NEW METHOD: Centralizes updating the state provider.
   void _updateStateProvider() {
-    // Use the tab's stable ID to get the correct notifier instance.
     ref.read(codeEditorStateProvider(widget.tab.id).notifier).update(
           canUndo: controller.canUndo,
           canRedo: controller.canRedo,
           hasMark: _markPosition != null,
+          hasSelection: !controller.selection.isCollapsed, // <-- THE TRIGGER
         );
   }
 
@@ -552,6 +593,58 @@ class _CustomLineNumberWidget extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// An AppBar widget specifically for when text is selected in the Code Editor.
+class CodeEditorSelectionAppBar extends ConsumerWidget {
+  final Command cutCommand;
+  final Command copyCommand;
+  final Command pasteCommand;
+  final VoidCallback onDone;
+
+  const CodeEditorSelectionAppBar({
+    super.key,
+    required this.cutCommand,
+    required this.copyCommand,
+    required this.pasteCommand,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // We use a Material widget to provide the background color and elevation
+    // that an AppBar would normally have.
+    return Material(
+      elevation: 4.0,
+      color: Theme.of(context).appBarTheme.backgroundColor,
+      child: SafeArea(
+        child: Container(
+          height: kToolbarHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // "Done" button to exit the selection mode.
+              IconButton(
+                icon: const Icon(Icons.done),
+                tooltip: 'Done',
+                onPressed: onDone,
+              ),
+              // The contextual commands.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CommandButton(command: cutCommand),
+                  CommandButton(command: copyCommand),
+                  CommandButton(command: pasteCommand),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
