@@ -52,6 +52,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
+  
+  bool _wasSelectionActive = false;
 
   // --- PUBLIC PROPERTIES (for the command system) ---
   // isDirty is no longer needed here; the command gets it from the provider.
@@ -83,19 +85,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // This listener is the key to the whole feature.
     // It watches for a change in the 'hasSelection' state and does something
     // (a "side effect") without causing this widget to rebuild.
-    ref.listen<bool>(
-      codeEditorStateProvider(widget.tab.id).select((s) => s.hasSelection),
-      (previous, hasSelection) {
-        final appNotifier = ref.read(appNotifierProvider.notifier);
-        if (hasSelection) {
-          // When a selection is made, set the override.
-          appNotifier.setAppBarOverride(_buildSelectionAppBar());
-        } else {
-          // When the selection is cleared, remove the override.
-          appNotifier.clearAppBarOverride();
-        }
-      },
-    );
     _updateStateProvider(); 
   }
   
@@ -129,23 +118,21 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       copyCommand: copyCommand,
       pasteCommand: pasteCommand,
       onDone: () {
-        // CORRECTED: This is the proper way to collapse the selection.
-        // It creates a new collapsed selection at the end of the current selection.
         controller.selection =
-            CodeLineSelection.fromPosition(position: controller.selection.extent); // <-- THIS LINE IS THE FIX
+            CodeLineSelection.fromPosition(position: controller.selection.extent);
       },
     );
   }
 
   @override
   void dispose() {
-    // Make sure to remove the new listener.
-    controller.dirty.removeListener(_onDirtyStateChange); // <-- REMOVE LISTENER
-    controller.removeListener(_onControllerChange);
-    final hasSelection = ref.read(codeEditorStateProvider(widget.tab.id)).hasSelection;
-    if (hasSelection) {
+    // Check if an override is active and clear it. This is good practice.
+    if (_wasSelectionActive) {
         ref.read(appNotifierProvider.notifier).clearAppBarOverride();
     }
+    
+    controller.dirty.removeListener(_onDirtyStateChange);
+    controller.removeListener(_onControllerChange);
     controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -168,18 +155,28 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void _onControllerChange() {
     if (!mounted) return;
     
-    // REMOVED: No longer need to manually mark as dirty here.
-    // The controller.dirty listener will handle it automatically.
-    // ref.read(editorServiceProvider).markCurrentTabDirty(); 
-
-    // This is still needed for things that aren't the dirty flag,
-    // like bracket highlighting and undo/redo status.
+    // 1. First, handle UI-specific updates that need setState.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
 
-    // The logic to update the Undo/Redo/Mark status for commands is still valid.
-    _updateStateProvider(); 
+    // 2. Then, update the reactive state provider for commands.
+    _updateStateProvider();
+
+    // 3. Now, handle the AppBar override side-effect.
+    final isSelectionActive = !controller.selection.isCollapsed;
+    
+    // Only trigger the side-effect if the selection state has *changed*.
+    if (isSelectionActive != _wasSelectionActive) {
+      final appNotifier = ref.read(appNotifierProvider.notifier);
+      if (isSelectionActive) {
+        appNotifier.setAppBarOverride(_buildSelectionAppBar());
+      } else {
+        appNotifier.clearAppBarOverride();
+      }
+      // Update our local tracker to the new state.
+      _wasSelectionActive = isSelectionActive;
+    }
   }
 
   Future<void> save() async {
