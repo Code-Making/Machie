@@ -336,6 +336,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final appStateDto = appState.toDto(liveTabMetadata);
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
+  
+  // ADDED: Methods to manage the AppBar override
+  void setAppBarOverride(Widget? widget) =>
+      _updateStateSync((s) => s.copyWith(appBarOverride: widget));
+
+  void clearAppBarOverride() =>
+      _updateStateSync((s) => s.copyWith(
 
   void setBottomToolbarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(bottomToolbarOverride: widget));
