@@ -23,6 +23,7 @@ import 'package:machine/data/cache/type_adapters.dart'; // ADDED
 import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_adapter.dart'; // ADDED
 import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart'; // ADDED
 import 'package:machine/editor/plugins/code_editor/code_editor_widgets.dart';
+import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 
 class CodeEditorPlugin implements EditorPlugin {
   @override
@@ -169,8 +170,12 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: Icons.bookmark_added,
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.selectToMark(),
-      canExecute: (ref, editor) => editor?.hasMark ?? false,
-    ),
+canExecute: (ref, editor) {
+        if (editor == null) return false;
+        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        return editorState.hasMark;
+      },
+      ),
     _createCommand(
       id: 'copy',
       label: 'Copy',
@@ -243,9 +248,10 @@ class CodeEditorPlugin implements EditorPlugin {
       // REFACTORED: The canUndo/canRedo state is local to the widget,
       // so we need to watch a provider that changes when they do.
       // Watching the tabMetadataProvider works because it's updated on every keystroke.
-      canExecute: (ref, editor) {
-        ref.watch(tabMetadataProvider.select((m) => m[editor?.widget.tab.id]?.isDirty));
-        return editor?.canUndo ?? false;
+canExecute: (ref, editor) {
+        if (editor == null) return false;
+        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        return editorState.canUndo;
       },
     ),
     _createCommand(
@@ -255,8 +261,9 @@ class CodeEditorPlugin implements EditorPlugin {
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.controller.redo(),
       canExecute: (ref, editor) {
-        ref.watch(tabMetadataProvider.select((m) => m[editor?.widget.tab.id]?.isDirty));
-        return editor?.canRedo ?? false;
+        if (editor == null) return false;
+        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        return editorState.canRedo;
       },
     ),
     _createCommand(
