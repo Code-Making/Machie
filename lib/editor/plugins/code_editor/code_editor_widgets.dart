@@ -77,8 +77,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       spanBuilder: _buildHighlightingSpan,
     );
     controller.addListener(_onControllerChange);
-    
-        _updateStateProvider(); 
+    controller.dirty.addListener(_onDirtyStateChange); // <-- NEW LISTENER
+    _updateStateProvider(); 
   }
   
   @override
@@ -100,6 +100,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   void dispose() {
+    // Make sure to remove the new listener.
+    controller.dirty.removeListener(_onDirtyStateChange); // <-- REMOVE LISTENER
     controller.removeListener(_onControllerChange);
     controller.dispose();
     _focusNode.dispose();
@@ -107,25 +109,47 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   // --- LOGIC AND METHODS ---
+  
+    // NEW METHOD: Handles changes from controller.dirty
+  void _onDirtyStateChange() {
+    if (!mounted) return;
+
+    final editorService = ref.read(editorServiceProvider);
+    if (controller.dirty.value) {
+      editorService.markCurrentTabDirty();
+    } else {
+      editorService.markCurrentTabClean();
+    }
+  }
 
   void _onControllerChange() {
     if (!mounted) return;
     
-    // The service now handles marking the tab dirty by its ID.
-    ref.read(editorServiceProvider).markCurrentTabDirty();
+    // REMOVED: No longer need to manually mark as dirty here.
+    // The controller.dirty listener will handle it automatically.
+    // ref.read(editorServiceProvider).markCurrentTabDirty(); 
 
+    // This is still needed for things that aren't the dirty flag,
+    // like bracket highlighting and undo/redo status.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
-        _updateStateProvider();
+
+    // The logic to update the Undo/Redo/Mark status for commands is still valid.
+    _updateStateProvider(); 
   }
 
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
-    // The service will get the correct file from the metadata provider.
-    await ref
+    final success = await ref
         .read(editorServiceProvider)
         .saveCurrentTab(project, content: controller.text);
+
+    // If the save was successful, we tell the controller that its
+    // current state is the new "clean" baseline.
+    if (success) {
+      controller.markCurrentStateAsClean(); // <-- USE NEW API
+    }
   }
   
     /// Returns the current unsaved state of the editor for caching.
