@@ -119,7 +119,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // NEW METHOD: A helper to build the contextual AppBar.
   Widget _buildSelectionAppBar() {
     final plugin = widget.tab.plugin as CodeEditorPlugin;
-    // We can find our commands by ID from the plugin's command list.
     final allCommands = plugin.getCommands();
     final cutCommand = allCommands.firstWhere((c) => c.id == 'cut');
     final copyCommand = allCommands.firstWhere((c) => c.id == 'copy');
@@ -131,8 +130,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       pasteCommand: pasteCommand,
       onDone: () {
         // CORRECTED: This is the proper way to collapse the selection.
+        // It creates a new collapsed selection at the end of the current selection.
         controller.selection =
-            CodeLineSelection.fromPosition(controller.selection.extent);
+            CodeLineSelection.fromPosition(position: controller.selection.extent); // <-- THIS LINE IS THE FIX
       },
     );
   }
