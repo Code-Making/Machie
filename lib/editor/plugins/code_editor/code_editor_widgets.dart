@@ -14,6 +14,8 @@ import 'code_editor_logic.dart';
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
 import 'code_editor_state.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
 import '../../../command/command_models.dart'; // ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
@@ -127,11 +129,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       cutCommand: cutCommand,
       copyCommand: copyCommand,
       pasteCommand: pasteCommand,
-      // The "onDone" callback simply collapses the selection in the controller.
-      // This will trigger _onControllerChange -> _updateStateProvider,
-      // which will set hasSelection to false and cause the ref.listen
-      // to fire and clear the override. A perfect reactive loop!
-      onDone: () => controller.collapseSelection(),
+      onDone: () {
+        // CORRECTED: This is the proper way to collapse the selection.
+        controller.selection =
+            CodeLineSelection.fromPosition(controller.selection.extent);
+      },
     );
   }
 
