@@ -45,8 +45,8 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
       child: AppFlowyEditor(
         editorState: editorState,
         editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-        // Pass the editorState to the builder method
-        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(editorState),
+        // REFACTORED: No longer need to pass editorState here.
+        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
       ),
     );
   }
