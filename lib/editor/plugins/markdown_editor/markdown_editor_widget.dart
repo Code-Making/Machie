@@ -57,9 +57,10 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
     return documentToMarkdown(editorState.document);
   }
 
+// ... inside _MarkdownEditorWidgetState class ...
+
   @override
   Widget build(BuildContext context) {
-    // This structure now perfectly mirrors the robust example you provided.
     return MobileToolbarV2(
       editorState: editorState,
       toolbarHeight: 48.0,
@@ -72,12 +73,15 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
       ],
       child: Container(
         color: Theme.of(context).drawerTheme.backgroundColor,
-        // The main content is now the editor nested within the floating toolbar.
         child: MobileFloatingToolbar(
           editorState: editorState,
           editorScrollController: editorScrollController,
+          // THE FIX: Provide the required height for the floating toolbar.
+          floatingToolbarHeight: 42, // A reasonable default height.
           toolbarBuilder: (context, anchor, closeToolbar) {
-            // This provides the native-like cut/copy/paste/select all menu.
+            // THE FIX: Provide null for the newly required callbacks.
+            // These are platform-specific (mostly iOS) and not essential
+            // for the core editing experience we're building.
             return AdaptiveTextSelectionToolbar.editable(
               clipboardStatus: ClipboardStatus.pasteable,
               onCopy: () {
@@ -93,6 +97,10 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
                 closeToolbar();
               },
               onSelectAll: () => selectAllCommand.execute(editorState),
+              onLiveTextInput: null, // <-- ADDED
+              onLookUp: null,        // <-- ADDED
+              onSearchWeb: null,     // <-- ADDED
+              onShare: null,         // <-- ADDED
               anchors: TextSelectionToolbarAnchors(
                 primaryAnchor: anchor,
               ),
@@ -103,7 +111,7 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
             editorScrollController: editorScrollController,
             editorStyle: MarkdownEditorTheme.getEditorStyle(context),
             blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
-            showMagnifier: true, // A nice touch for mobile UX
+            showMagnifier: true,
           ),
         ),
       ),
