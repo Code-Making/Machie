@@ -33,7 +33,7 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
     editorState = EditorState(
       document: widget.tab.initialDocument,
     );
-    
+
     editorScrollController = EditorScrollController(
       editorState: editorState,
       shrinkWrap: false,
@@ -57,70 +57,72 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // THE FIX: Wrap the entire editor experience in its own Scaffold.
-    // This gives MobileToolbarV2 the clean layout context it needs to
-    // show its secondary panels correctly.
-    return Scaffold(
-      // We set the background to transparent so it blends with the main app theme.
-      backgroundColor: Colors.transparent,
-      body: MobileToolbar(
-        editorState: editorState,
-        toolbarItems: [
-          textDecorationMobileToolbarItemV2,
-          buildTextAndBackgroundColorMobileToolbarItem(),
-          blocksMobileToolbarItem,
-          todoListMobileToolbarItem,
-          linkMobileToolbarItem,
-          dividerMobileToolbarItem,
-        ],
-        // The child is now the Column containing the editor itself.
-        child: Column(
-          children: [
-            Expanded(
-              child: Container(
-                color: Theme.of(context).drawerTheme.backgroundColor,
-                child: MobileFloatingToolbar(
-                  editorState: editorState,
-                  editorScrollController: editorScrollController,
-                  floatingToolbarHeight: 42,
-                  toolbarBuilder: (context, anchor, closeToolbar) {
-                    return AdaptiveTextSelectionToolbar.editable(
-                      clipboardStatus: ClipboardStatus.pasteable,
-                      onCopy: () {
-                        copyCommand.execute(editorState);
-                        closeToolbar();
-                      },
-                      onCut: () {
-                        cutCommand.execute(editorState);
-                        closeToolbar();
-                      },
-                      onPaste: () {
-                        pasteCommand.execute(editorState);
-                        closeToolbar();
-                      },
-                      onSelectAll: () => selectAllCommand.execute(editorState),
-                      onLiveTextInput: null,
-                      onLookUp: null,
-                      onSearchWeb: null,
-                      onShare: null,
-                      anchors: TextSelectionToolbarAnchors(
-                        primaryAnchor: anchor,
-                      ),
-                    );
+    final theme = Theme.of(context);
+
+    // THE FIX: Use a Column to place the editor above the toolbar.
+    // The MobileToolbar will then manage its own height relative to the keyboard.
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            color: theme.drawerTheme.backgroundColor,
+            child: MobileFloatingToolbar(
+              editorState: editorState,
+              editorScrollController: editorScrollController,
+              floatingToolbarHeight: 42,
+              toolbarBuilder: (context, anchor, closeToolbar) {
+                return AdaptiveTextSelectionToolbar.editable(
+                  clipboardStatus: ClipboardStatus.pasteable,
+                  onCopy: () {
+                    copyCommand.execute(editorState);
+                    closeToolbar();
                   },
-                  child: AppFlowyEditor(
-                    editorState: editorState,
-                    editorScrollController: editorScrollController,
-                    editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-                    blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
-                    showMagnifier: true,
+                  onCut: () {
+                    cutCommand.execute(editorState);
+                    closeToolbar();
+                  },
+                  onPaste: () {
+                    pasteCommand.execute(editorState);
+                    closeToolbar();
+                  },
+                  onSelectAll: () => selectAllCommand.execute(editorState),
+                  onLiveTextInput: null,
+                  onLookUp: null,
+                  onSearchWeb: null,
+                  onShare: null,
+                  anchors: TextSelectionToolbarAnchors(
+                    primaryAnchor: anchor,
                   ),
-                ),
+                );
+              },
+              child: AppFlowyEditor(
+                editorState: editorState,
+                editorScrollController: editorScrollController,
+                editorStyle: MarkdownEditorTheme.getEditorStyle(context),
+                blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+                showMagnifier: true,
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        // Use the older, more complex toolbar that correctly handles keyboard height.
+        MobileToolbar(
+          editorState: editorState,
+          toolbarItems: [
+            textDecorationMobileToolbarItem, // Note: these are the V1 items
+            buildTextAndBackgroundColorMobileToolbarItem(),
+            blocksMobileToolbarItem,
+            linkMobileToolbarItem,
+            dividerMobileToolbarItem,
+          ],
+          // Pass in colors from our app's theme to style the toolbar.
+          backgroundColor: theme.bottomAppBarTheme.color ?? theme.colorScheme.surface,
+          foregroundColor: theme.colorScheme.onSurface,
+          itemHighlightColor: theme.colorScheme.primary,
+          tabbarSelectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+          tabbarSelectedForegroundColor: theme.colorScheme.primary,
+        ),
+      ],
     );
   }
 }
