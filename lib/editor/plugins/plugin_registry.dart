@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart'; // NEW IMPORT
-import 'markdown_editor/markdown_editor_plugin.dart'; // <-- ADD THIS IMPORT
 
 export 'plugin_models.dart';
 
@@ -11,7 +10,6 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
     CodeEditorPlugin(),
     GlitchEditorPlugin(), // NEW: Register the GlitchEditorPlugin
-    MarkdownEditorPlugin(), // <-- REGISTER THE NEW PLUGIN
   },
 );
 
