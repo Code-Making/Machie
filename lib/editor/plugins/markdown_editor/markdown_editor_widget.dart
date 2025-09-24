@@ -19,10 +19,10 @@ class MarkdownEditorWidget extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<MarkdownEditorWidget> createState() =>
-      _MarkdownEditorWidgetState();
+      MarkdownEditorWidgetState();
 }
 
-class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
+class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   late final EditorState editorState;
 
   @override
@@ -66,7 +66,7 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   }
 }
 
-// ... (at the end of the file, after _MarkdownEditorWidgetState)
+// ... (at the end of the file, after MarkdownEditorWidgetState)
 
 /// A toolbar for the Markdown editor, leveraging AppFlowy's mobile toolbar.
 class MarkdownToolbar extends StatelessWidget {
