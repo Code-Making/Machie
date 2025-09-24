@@ -70,6 +70,8 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
           textDecorationMobileToolbarItemV2,
           buildTextAndBackgroundColorMobileToolbarItem(),
           blocksMobileToolbarItem,
+          todoListMobileToolbarItem,
+          listMobileToolbarItem,
           linkMobileToolbarItem,
           dividerMobileToolbarItem,
         ],
