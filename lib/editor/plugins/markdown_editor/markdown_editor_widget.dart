@@ -55,31 +55,11 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).drawerTheme.backgroundColor,
-      child: AppFlowyEditor(
-        editorState: editorState,
-        editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
-      ),
-    );
-  }
-}
-
-// ... (at the end of the file, after MarkdownEditorWidgetState)
-
-/// A toolbar for the Markdown editor, leveraging AppFlowy's mobile toolbar.
-class MarkdownToolbar extends StatelessWidget {
-  final EditorState editorState;
-
-  const MarkdownToolbar({super.key, required this.editorState});
-
-  @override
-  Widget build(BuildContext context) {
+    // THE FIX: The MobileToolbarV2 now wraps the AppFlowyEditor,
+    // providing it as the required 'child'.
     return MobileToolbarV2(
       editorState: editorState,
       toolbarHeight: 48.0,
-      // We can compose the toolbar items we want from AppFlowy's pre-built list.
       toolbarItems: [
         textDecorationMobileToolbarItemV2,
         buildTextAndBackgroundColorMobileToolbarItem(),
@@ -87,6 +67,16 @@ class MarkdownToolbar extends StatelessWidget {
         linkMobileToolbarItem,
         dividerMobileToolbarItem,
       ],
+      child: Container(
+        color: Theme.of(context).drawerTheme.backgroundColor,
+        child: AppFlowyEditor(
+          editorState: editorState,
+          editorStyle: MarkdownEditorTheme.getEditorStyle(context),
+          blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+        ),
+      ),
     );
   }
 }
+
+// REMOVED: The separate MarkdownToolbar widget is no longer needed.
