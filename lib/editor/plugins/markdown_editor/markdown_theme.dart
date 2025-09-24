@@ -112,11 +112,13 @@ class MarkdownEditorTheme {
           );
         },
       ),
-      // THE FIX: The EditorState is passed as the third argument directly.
-      iconBuilder: (context, node, editorState) {
+      // THE FIX: This now correctly uses the expected signature for TodoList's iconBuilder
+      // which is: Widget Function(BlockComponentContext context, Node node, EditorState editorState)
+      iconBuilder: (BuildContext context, Node node, EditorState editorState) {
         final checked = node.attributes[TodoListBlockKeys.checked] as bool;
         return GestureDetector(
           onTap: () {
+            // Now `editorState` is the correct type and has the `transaction` property.
             final transaction = editorState.transaction;
             transaction.updateNode(node, {TodoListBlockKeys.checked: !checked});
             editorState.apply(transaction);
@@ -130,7 +132,7 @@ class MarkdownEditorTheme {
       },
     );
 
-    // THE FIX: Loop through the MODIFIED map and apply the common configuration
+    // Loop through the MODIFIED map and apply the common configuration
     // to each builder's existing configuration.
     for (final key in builders.keys) {
       final builder = builders[key]!;
