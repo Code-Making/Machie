@@ -11,7 +11,6 @@ class MarkdownEditorTheme {
   
   // ... getEditorStyle() is unchanged and correct ...
   static EditorStyle getEditorStyle(BuildContext context) {
-    // ...
     final theme = Theme.of(context);
     return EditorStyle(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -57,7 +56,6 @@ class MarkdownEditorTheme {
     );
   }
 
-  // REFACTORED: No longer needs editorState
   static Map<String, BlockComponentBuilder> getBlockComponentBuilders() {
     final builders = Map<String, BlockComponentBuilder>.from(standardBlockComponentBuilderMap);
 
@@ -104,12 +102,13 @@ class MarkdownEditorTheme {
           );
         },
       ),
-      // THE FIX: Use the correct signature which provides a `onCheckboxChanged` callback.
-      iconBuilder: (BlockComponentContext context, Node node, VoidCallback onCheckboxChanged) {
+      // THE FIX: This now uses the exact signature from the source code.
+      // `BuildContext` not `BlockComponentContext`.
+      // `onCheck` not `onCheckboxChanged`.
+      iconBuilder: (BuildContext context, Node node, VoidCallback onCheck) {
         final checked = node.attributes[TodoListBlockKeys.checked] as bool;
         return GestureDetector(
-          // Simply call the provided callback. The library handles the transaction.
-          onTap: onCheckboxChanged,
+          onTap: onCheck,
           child: Icon(
             checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
             size: 20,
