@@ -4,7 +4,7 @@
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
-import 'package.flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/markdown_editor/markdown_editor_models.dart';
 import 'package:machine/editor/plugins/markdown_editor/markdown_theme.dart';
 import 'package:machine/editor/services/editor_service.dart'; // <-- ADD THIS IMPORT
