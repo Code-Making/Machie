@@ -120,6 +120,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                   ))
               : null,
       drawer: const ExplorerHostDrawer(),
+      resizeToAvoidBottomInset: false,
       body: Column(
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)

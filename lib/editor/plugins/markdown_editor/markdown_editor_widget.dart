@@ -57,69 +57,68 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // THE FIX: Wrap the entire editor experience in its own Scaffold.
+    // This gives MobileToolbarV2 the clean layout context it needs to
+    // show its secondary panels correctly.
     return Scaffold(
+      // We set the background to transparent so it blends with the main app theme.
       backgroundColor: Colors.transparent,
-      // THE FIX: The body of our inner Scaffold is now wrapped in a SafeArea.
-      // This ensures that the layout within MobileToolbarV2 can correctly
-      // calculate the keyboard's height and position its panels accordingly.
-      body: SafeArea(
-        maintainBottomViewPadding: true,
-        child: MobileToolbarV2(
-          editorState: editorState,
-          toolbarHeight: 48.0,
-          toolbarItems: [
-            textDecorationMobileToolbarItemV2,
-            buildTextAndBackgroundColorMobileToolbarItem(),
-            blocksMobileToolbarItem,
-            linkMobileToolbarItem,
-            dividerMobileToolbarItem,
-          ],
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
-                  color: Theme.of(context).drawerTheme.backgroundColor,
-                  child: MobileFloatingToolbar(
+      body: MobileToolbarV2(
+        editorState: editorState,
+        toolbarItems: [
+          textDecorationMobileToolbarItemV2,
+          buildTextAndBackgroundColorMobileToolbarItem(),
+          blocksMobileToolbarItem,
+          todoListMobileToolbarItem,
+          linkMobileToolbarItem,
+          dividerMobileToolbarItem,
+        ],
+        // The child is now the Column containing the editor itself.
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                color: Theme.of(context).drawerTheme.backgroundColor,
+                child: MobileFloatingToolbar(
+                  editorState: editorState,
+                  editorScrollController: editorScrollController,
+                  floatingToolbarHeight: 42,
+                  toolbarBuilder: (context, anchor, closeToolbar) {
+                    return AdaptiveTextSelectionToolbar.editable(
+                      clipboardStatus: ClipboardStatus.pasteable,
+                      onCopy: () {
+                        copyCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onCut: () {
+                        cutCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onPaste: () {
+                        pasteCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onSelectAll: () => selectAllCommand.execute(editorState),
+                      onLiveTextInput: null,
+                      onLookUp: null,
+                      onSearchWeb: null,
+                      onShare: null,
+                      anchors: TextSelectionToolbarAnchors(
+                        primaryAnchor: anchor,
+                      ),
+                    );
+                  },
+                  child: AppFlowyEditor(
                     editorState: editorState,
                     editorScrollController: editorScrollController,
-                    floatingToolbarHeight: 42,
-                    toolbarBuilder: (context, anchor, closeToolbar) {
-                      return AdaptiveTextSelectionToolbar.editable(
-                        clipboardStatus: ClipboardStatus.pasteable,
-                        onCopy: () {
-                          copyCommand.execute(editorState);
-                          closeToolbar();
-                        },
-                        onCut: () {
-                          cutCommand.execute(editorState);
-                          closeToolbar();
-                        },
-                        onPaste: () {
-                          pasteCommand.execute(editorState);
-                          closeToolbar();
-                        },
-                        onSelectAll: () => selectAllCommand.execute(editorState),
-                        onLiveTextInput: null,
-                        onLookUp: null,
-                        onSearchWeb: null,
-                        onShare: null,
-                        anchors: TextSelectionToolbarAnchors(
-                          primaryAnchor: anchor,
-                        ),
-                      );
-                    },
-                    child: AppFlowyEditor(
-                      editorState: editorState,
-                      editorScrollController: editorScrollController,
-                      editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-                      blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
-                      showMagnifier: true,
-                    ),
+                    editorStyle: MarkdownEditorTheme.getEditorStyle(context),
+                    blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+                    showMagnifier: true,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
