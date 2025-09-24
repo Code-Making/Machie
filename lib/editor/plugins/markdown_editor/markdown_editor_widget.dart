@@ -24,7 +24,7 @@ class MarkdownEditorWidget extends ConsumerStatefulWidget {
 
 class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   late final EditorState editorState;
-  late final EditorScrollController editorScrollController; // <-- ADDED
+  late final EditorScrollController editorScrollController;
 
   @override
   void initState() {
@@ -33,12 +33,10 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
     editorState = EditorState(
       document: widget.tab.initialDocument,
     );
-
-    // ADDED: Initialize the scroll controller. This is crucial for
-    // the floating toolbar to know where to position itself.
+    
     editorScrollController = EditorScrollController(
       editorState: editorState,
-      shrinkWrap: false, // Use false for expanded editors
+      shrinkWrap: false,
     );
 
     editorState.transactionStream.listen((_) {
@@ -48,7 +46,7 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   void dispose() {
-    editorScrollController.dispose(); // <-- ADDED
+    editorScrollController.dispose();
     editorState.dispose();
     super.dispose();
   }
@@ -57,62 +55,70 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
     return documentToMarkdown(editorState.document);
   }
 
-// ... inside _MarkdownEditorWidgetState class ...
-
   @override
   Widget build(BuildContext context) {
-    return MobileToolbarV2(
-      editorState: editorState,
-      toolbarHeight: 48.0,
-      toolbarItems: [
-        textDecorationMobileToolbarItemV2,
-        buildTextAndBackgroundColorMobileToolbarItem(),
-        blocksMobileToolbarItem,
-        linkMobileToolbarItem,
-        dividerMobileToolbarItem,
-      ],
-      child: Container(
-        color: Theme.of(context).drawerTheme.backgroundColor,
-        child: MobileFloatingToolbar(
-          editorState: editorState,
-          editorScrollController: editorScrollController,
-          // THE FIX: Provide the required height for the floating toolbar.
-          floatingToolbarHeight: 42, // A reasonable default height.
-          toolbarBuilder: (context, anchor, closeToolbar) {
-            // THE FIX: Provide null for the newly required callbacks.
-            // These are platform-specific (mostly iOS) and not essential
-            // for the core editing experience we're building.
-            return AdaptiveTextSelectionToolbar.editable(
-              clipboardStatus: ClipboardStatus.pasteable,
-              onCopy: () {
-                copyCommand.execute(editorState);
-                closeToolbar();
-              },
-              onCut: () {
-                cutCommand.execute(editorState);
-                closeToolbar();
-              },
-              onPaste: () {
-                pasteCommand.execute(editorState);
-                closeToolbar();
-              },
-              onSelectAll: () => selectAllCommand.execute(editorState),
-              onLiveTextInput: null, // <-- ADDED
-              onLookUp: null,        // <-- ADDED
-              onSearchWeb: null,     // <-- ADDED
-              onShare: null,         // <-- ADDED
-              anchors: TextSelectionToolbarAnchors(
-                primaryAnchor: anchor,
+    // THE FIX: Wrap the entire editor experience in its own Scaffold.
+    // This gives MobileToolbarV2 the clean layout context it needs to
+    // show its secondary panels correctly.
+    return Scaffold(
+      // We set the background to transparent so it blends with the main app theme.
+      backgroundColor: Colors.transparent,
+      body: MobileToolbarV2(
+        editorState: editorState,
+        toolbarHeight: 48.0,
+        toolbarItems: [
+          textDecorationMobileToolbarItemV2,
+          buildTextAndBackgroundColorMobileToolbarItem(),
+          blocksMobileToolbarItem,
+          linkMobileToolbarItem,
+          dividerMobileToolbarItem,
+        ],
+        // The child is now the Column containing the editor itself.
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                color: Theme.of(context).drawerTheme.backgroundColor,
+                child: MobileFloatingToolbar(
+                  editorState: editorState,
+                  editorScrollController: editorScrollController,
+                  floatingToolbarHeight: 42,
+                  toolbarBuilder: (context, anchor, closeToolbar) {
+                    return AdaptiveTextSelectionToolbar.editable(
+                      clipboardStatus: ClipboardStatus.pasteable,
+                      onCopy: () {
+                        copyCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onCut: () {
+                        cutCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onPaste: () {
+                        pasteCommand.execute(editorState);
+                        closeToolbar();
+                      },
+                      onSelectAll: () => selectAllCommand.execute(editorState),
+                      onLiveTextInput: null,
+                      onLookUp: null,
+                      onSearchWeb: null,
+                      onShare: null,
+                      anchors: TextSelectionToolbarAnchors(
+                        primaryAnchor: anchor,
+                      ),
+                    );
+                  },
+                  child: AppFlowyEditor(
+                    editorState: editorState,
+                    editorScrollController: editorScrollController,
+                    editorStyle: MarkdownEditorTheme.getEditorStyle(context),
+                    blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+                    showMagnifier: true,
+                  ),
+                ),
               ),
-            );
-          },
-          child: AppFlowyEditor(
-            editorState: editorState,
-            editorScrollController: editorScrollController,
-            editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-            blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
-            showMagnifier: true,
-          ),
+            ),
+          ],
         ),
       ),
     );
