@@ -1,11 +1,12 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/markdown_editor/markdown_editor_widget.dart
+// FILE: lib/editor/plugins/markdown_editor/markdown_editor_widget.dart
 // =========================================
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/markdown_editor/markdown_editor_models.dart';
+import 'package:machine/editor/plugins/markdown_editor/markdown_theme.dart'; // <-- ADD THIS IMPORT
 
 class MarkdownEditorWidget extends ConsumerStatefulWidget {
   final MarkdownEditorTab tab;
@@ -27,8 +28,6 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   void initState() {
     super.initState();
 
-    // Initialize the AppFlowy editor's core state object with the
-    // document that was parsed when the tab was created.
     editorState = EditorState(
       document: widget.tab.initialDocument,
     );
@@ -36,7 +35,6 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   void dispose() {
-    // It's crucial to dispose the editorState to free up resources.
     editorState.dispose();
     super.dispose();
   }
@@ -44,11 +42,17 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   @override
   Widget build(BuildContext context) {
     // The AppFlowyEditor widget is the heart of the UI.
-    return AppFlowyEditor(
-      editorState: editorState,
-      // We can customize the style later if needed.
-      // For now, the default desktop style is fine.
-      editorStyle: EditorStyle.desktop(),
+    return Container(
+      // Set the background color for the editor area.
+      // We use the main app's drawer color to match.
+      color: Theme.of(context).drawerTheme.backgroundColor,
+      child: AppFlowyEditor(
+        editorState: editorState,
+        
+        // APPLY THE CUSTOM THEME
+        editorStyle: MarkdownEditorTheme.getEditorStyle(context),
+        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+      ),
     );
   }
 }
