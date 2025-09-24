@@ -27,7 +27,6 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
   @override
   void initState() {
     super.initState();
-
     editorState = EditorState(
       document: widget.tab.initialDocument,
     );
@@ -41,17 +40,13 @@ class _MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // The AppFlowyEditor widget is the heart of the UI.
     return Container(
-      // Set the background color for the editor area.
-      // We use the main app's drawer color to match.
       color: Theme.of(context).drawerTheme.backgroundColor,
       child: AppFlowyEditor(
         editorState: editorState,
-        
-        // APPLY THE CUSTOM THEME
         editorStyle: MarkdownEditorTheme.getEditorStyle(context),
-        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(),
+        // Pass the editorState to the builder method
+        blockComponentBuilders: MarkdownEditorTheme.getBlockComponentBuilders(editorState),
       ),
     );
   }
