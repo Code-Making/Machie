@@ -10,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// Provides a dark theme configuration for the AppFlowy editor.
 class MarkdownEditorTheme {
   
-  /// Creates a customized [EditorStyle] for a dark theme.
+  // ... getEditorStyle() is unchanged and correct ...
   static EditorStyle getEditorStyle(BuildContext context) {
     final theme = Theme.of(context);
     return EditorStyle(
@@ -40,8 +40,6 @@ class MarkdownEditorTheme {
           backgroundColor: Colors.grey.shade800.withOpacity(0.5),
         ),
       ),
-      // THIS IS THE REQUIRED PARAMETER. We can provide a basic implementation
-      // that makes links tappable.
       textSpanDecorator: (context, node, index, text, before, _) {
         final href = text.attributes?[AppFlowyRichTextKeys.href];
         if (href is String) {
@@ -50,7 +48,6 @@ class MarkdownEditorTheme {
             style: before.style,
             recognizer: TapGestureRecognizer()
               ..onTap = () {
-                // In a real app, you'd launch the URL here.
                 debugPrint('Tapped link: $href');
               },
           );
@@ -60,44 +57,37 @@ class MarkdownEditorTheme {
     );
   }
 
+
   /// Creates a map of customized [BlockComponentBuilder]s for a dark theme.
   static Map<String, BlockComponentBuilder> getBlockComponentBuilders(EditorState editorState) {
-    final standardBuilders = Map<String, BlockComponentBuilder>.from(standardBlockComponentBuilderMap);
+    // Start with a mutable copy of the standard builders
+    final builders = Map<String, BlockComponentBuilder>.from(standardBlockComponentBuilderMap);
 
     // Common configuration for padding and placeholder
     final commonConfiguration = BlockComponentConfiguration(
       padding: (node) => const EdgeInsets.symmetric(vertical: 8),
       placeholderText: (node) => 'Type here...',
     );
-
-    // Apply common configuration to all builders
-    for (final key in standardBuilders.keys) {
-      standardBuilders[key] = standardBuilders[key]!.copyWith(
-        configuration: commonConfiguration,
-      );
-    }
     
-    // --- Customize specific block types by replacing them in the map ---
+    // --- Customize specific block types by creating NEW instances ---
 
-    // HEADING BLOCK: This is the correct way to style headings.
+    // HEADING BLOCK
     final levelToFontSize = [32.0, 24.0, 20.0, 18.0, 16.0, 16.0];
     final levelToFontWeight = [FontWeight.w800, FontWeight.w700, FontWeight.w600, FontWeight.w600, FontWeight.w600, FontWeight.w600];
     final levelToColor = [Colors.white, Colors.grey.shade100, Colors.grey.shade200, Colors.grey.shade300, Colors.grey.shade300, Colors.grey.shade300];
 
-    standardBuilders[HeadingBlockKeys.type] = HeadingBlockComponentBuilder(
-      configuration: commonConfiguration,
+    builders[HeadingBlockKeys.type] = HeadingBlockComponentBuilder(
       textStyleBuilder: (level) {
         return GoogleFonts.inter(
           fontSize: levelToFontSize.elementAt(level - 1),
-          fontWeight: levelToFontWeight.elementAt(level-1),
-          color: levelToColor.elementAt(level-1),
+          fontWeight: levelToFontWeight.elementAt(level - 1),
+          color: levelToColor.elementAt(level - 1),
         );
       },
     );
 
     // QUOTE BLOCK
-    standardBuilders[QuoteBlockKeys.type] = QuoteBlockComponentBuilder(
-      configuration: commonConfiguration,
+    builders[QuoteBlockKeys.type] = QuoteBlockComponentBuilder(
       iconBuilder: (context, node) {
         return Container(
           margin: const EdgeInsets.only(right: 8.0),
@@ -112,8 +102,8 @@ class MarkdownEditorTheme {
     );
     
     // TODO-LIST BLOCK
-    standardBuilders[TodoListBlockKeys.type] = TodoListBlockComponentBuilder(
-      configuration: commonConfiguration.copyWith(
+    builders[TodoListBlockKeys.type] = TodoListBlockComponentBuilder(
+      configuration: BlockComponentConfiguration(
         textStyle: (node, {textSpan}) {
           final checked = node.attributes[TodoListBlockKeys.checked] as bool;
           return TextStyle(
@@ -122,6 +112,7 @@ class MarkdownEditorTheme {
           );
         },
       ),
+      // THE FIX: The EditorState is passed as the third argument directly.
       iconBuilder: (context, node, editorState) {
         final checked = node.attributes[TodoListBlockKeys.checked] as bool;
         return GestureDetector(
@@ -138,7 +129,17 @@ class MarkdownEditorTheme {
         );
       },
     );
+
+    // THE FIX: Loop through the MODIFIED map and apply the common configuration
+    // to each builder's existing configuration.
+    for (final key in builders.keys) {
+      final builder = builders[key]!;
+      builders[key]!.configuration = builder.configuration.copyWith(
+        padding: commonConfiguration.padding,
+        placeholderText: commonConfiguration.placeholderText,
+      );
+    }
     
-    return standardBuilders;
+    return builders;
   }
 }
