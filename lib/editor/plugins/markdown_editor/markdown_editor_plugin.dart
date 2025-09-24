@@ -15,6 +15,7 @@ import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/markdown_editor/markdown_editor_models.dart';
 import 'package:machine/editor/plugins/markdown_editor/markdown_editor_widget.dart';
 import 'package:machine/editor/plugins/plugin_models.dart';
+import 'package:machine/editor/services/editor_service.dart'; // <-- THE MISSING IMPORT
 
 class MarkdownEditorPlugin implements EditorPlugin {
   @override
@@ -96,15 +97,16 @@ class MarkdownEditorPlugin implements EditorPlugin {
     ];
   }
 
+// ... inside MarkdownEditorPlugin class ...
+
   @override
   Widget buildToolbar(WidgetRef ref) {
-    final editorState = _getActiveEditorState(ref)?.editorState;
-    if (editorState == null) {
-      // If there's no active markdown editor, show an empty toolbar.
-      return const SizedBox.shrink();
-    }
-    return MarkdownToolbar(editorState: editorState);
+    // The toolbar is now built inside the main editor widget,
+    // so this plugin doesn't need a separate bottom toolbar.
+    return const SizedBox.shrink();
   }
+
+// ... rest of the file ...
   
   @override
   void activateTab(EditorTab tab, Ref ref) {}
