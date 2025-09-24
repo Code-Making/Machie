@@ -3,22 +3,25 @@
 // =========================================
 
 // lib/plugins/code_editor/code_editor_widgets.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:re_editor/re_editor.dart';
-import '../../../editor/services/editor_service.dart';
-import '../../../settings/settings_notifier.dart';
+
 import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
+import 'code_editor_state.dart';
+import 'code_editor_plugin.dart'; // ADDED: For type cast
+
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
-import 'code_editor_state.dart';
-import 'dart:io';
-import 'package:flutter/services.dart';
-import 'code_editor_plugin.dart'; // ADDED: For type cast
 import '../../../command/command_models.dart'; // ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
+import '../../../editor/services/editor_service.dart';
+import '../../../settings/settings_notifier.dart';
+
 // ... (_BracketHighlightState is unchanged) ...
 class _BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
