@@ -3,15 +3,15 @@
 // =========================================
 
 import 'package:appflowy_editor/appflowy_editor.dart';
-import 'package:flutter/gestures.dart'; // Required for TapGestureRecognizer
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Provides a dark theme configuration for the AppFlowy editor.
 class MarkdownEditorTheme {
   
   // ... getEditorStyle() is unchanged and correct ...
   static EditorStyle getEditorStyle(BuildContext context) {
+    // ...
     final theme = Theme.of(context);
     return EditorStyle(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -57,25 +57,19 @@ class MarkdownEditorTheme {
     );
   }
 
-
-  /// Creates a map of customized [BlockComponentBuilder]s for a dark theme.
-  static Map<String, BlockComponentBuilder> getBlockComponentBuilders(EditorState editorState) {
-    // Start with a mutable copy of the standard builders
+  // REFACTORED: No longer needs editorState
+  static Map<String, BlockComponentBuilder> getBlockComponentBuilders() {
     final builders = Map<String, BlockComponentBuilder>.from(standardBlockComponentBuilderMap);
 
-    // Common configuration for padding and placeholder
     final commonConfiguration = BlockComponentConfiguration(
       padding: (node) => const EdgeInsets.symmetric(vertical: 8),
       placeholderText: (node) => 'Type here...',
     );
     
-    // --- Customize specific block types by creating NEW instances ---
-
-    // HEADING BLOCK
+    // ... (Heading and Quote builders are unchanged) ...
     final levelToFontSize = [32.0, 24.0, 20.0, 18.0, 16.0, 16.0];
     final levelToFontWeight = [FontWeight.w800, FontWeight.w700, FontWeight.w600, FontWeight.w600, FontWeight.w600, FontWeight.w600];
     final levelToColor = [Colors.white, Colors.grey.shade100, Colors.grey.shade200, Colors.grey.shade300, Colors.grey.shade300, Colors.grey.shade300];
-
     builders[HeadingBlockKeys.type] = HeadingBlockComponentBuilder(
       textStyleBuilder: (level) {
         return GoogleFonts.inter(
@@ -85,8 +79,6 @@ class MarkdownEditorTheme {
         );
       },
     );
-
-    // QUOTE BLOCK
     builders[QuoteBlockKeys.type] = QuoteBlockComponentBuilder(
       iconBuilder: (context, node) {
         return Container(
@@ -100,7 +92,7 @@ class MarkdownEditorTheme {
         );
       },
     );
-    
+
     // TODO-LIST BLOCK
     builders[TodoListBlockKeys.type] = TodoListBlockComponentBuilder(
       configuration: BlockComponentConfiguration(
@@ -112,17 +104,12 @@ class MarkdownEditorTheme {
           );
         },
       ),
-      // THE FIX: This now correctly uses the expected signature for TodoList's iconBuilder
-      // which is: Widget Function(BlockComponentContext context, Node node, EditorState editorState)
-      iconBuilder: (BuildContext context, Node node, EditorState editorState) {
+      // THE FIX: Use the correct signature which provides a `onCheckboxChanged` callback.
+      iconBuilder: (BlockComponentContext context, Node node, VoidCallback onCheckboxChanged) {
         final checked = node.attributes[TodoListBlockKeys.checked] as bool;
         return GestureDetector(
-          onTap: () {
-            // Now `editorState` is the correct type and has the `transaction` property.
-            final transaction = editorState.transaction;
-            transaction.updateNode(node, {TodoListBlockKeys.checked: !checked});
-            editorState.apply(transaction);
-          },
+          // Simply call the provided callback. The library handles the transaction.
+          onTap: onCheckboxChanged,
           child: Icon(
             checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
             size: 20,
@@ -132,8 +119,6 @@ class MarkdownEditorTheme {
       },
     );
 
-    // Loop through the MODIFIED map and apply the common configuration
-    // to each builder's existing configuration.
     for (final key in builders.keys) {
       final builder = builders[key]!;
       builders[key]!.configuration = builder.configuration.copyWith(
