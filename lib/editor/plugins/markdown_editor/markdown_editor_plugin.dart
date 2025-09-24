@@ -1,6 +1,8 @@
 // =========================================
 // NEW FILE: lib/editor/plugins/markdown_editor/markdown_editor_plugin.dart
 // =========================================
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/editor/tab_state_manager.dart';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
@@ -54,12 +56,56 @@ class MarkdownEditorPlugin implements EditorPlugin {
 
   // --- Methods to be implemented in future installments ---
 
-  @override
-  List<Command> getCommands() => [];
+  // ADDED: Helper to get the state of the currently active editor widget.
+  MarkdownEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
+    final tab = ref.watch(
+      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab),
+    );
+    if (tab is! MarkdownEditorTab) return null;
+    return tab.editorKey.currentState as MarkdownEditorWidgetState?;
+  }
 
   @override
-  Widget buildToolbar(WidgetRef ref) => const SizedBox.shrink();
+  List<Command> getCommands() {
+    return [
+      BaseCommand(
+        id: 'save',
+        label: 'Save',
+        icon: const Icon(Icons.save),
+        defaultPosition: CommandPosition.appBar,
+        sourcePlugin: runtimeType.toString(),
+        execute: (ref) async {
+          final editorState = _getActiveEditorState(ref);
+          if (editorState == null) return;
+          
+          final project = ref.read(appNotifierProvider).value!.currentProject!;
+          final content = editorState.getMarkdownContent();
+          
+          await ref
+              .read(editorServiceProvider)
+              .saveCurrentTab(project, content: content);
+        },
+        canExecute: (ref) {
+          final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+          if (tab == null) return false;
+          // The command is enabled if the corresponding tab's metadata is dirty.
+          final metadata = ref.watch(tabMetadataProvider.select((m) => m[tab.id]));
+          return metadata?.isDirty ?? false;
+        },
+      ),
+    ];
+  }
 
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    final editorState = _getActiveEditorState(ref)?.editorState;
+    if (editorState == null) {
+      // If there's no active markdown editor, show an empty toolbar.
+      return const SizedBox.shrink();
+    }
+    return MarkdownToolbar(editorState: editorState);
+  }
+  
   @override
   void activateTab(EditorTab tab, Ref ref) {}
 
