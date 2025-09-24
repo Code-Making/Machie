@@ -3,41 +3,41 @@
 // =========================================
 
 import 'package:appflowy_editor/appflowy_editor.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package.flutter/gestures.dart';
+import 'package.flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MarkdownEditorTheme {
   
-  // ... getEditorStyle() is unchanged and correct ...
+  // This is the core of the new theme strategy.
+  // It provides a consistent dark look and feel for the entire editor canvas.
+  static EditorTheme editorTheme(BuildContext context) {
+    final theme = Theme.of(context);
+    return EditorTheme(
+      // Background color for the entire editor
+      backgroundColor: theme.drawerTheme.backgroundColor ?? const Color(0xFF212121),
+      // Default text color
+      textColor: Colors.grey.shade300,
+      // Color for block elements like dividers and quote bars
+      blockColor: Colors.grey.shade700,
+      // Placeholder text color
+      placeholderTextColor: Colors.grey.shade600,
+      // Padding for the entire document canvas
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    );
+  }
+
   static EditorStyle getEditorStyle(BuildContext context) {
     final theme = Theme.of(context);
     return EditorStyle(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.zero, // Padding is now handled by EditorTheme
       cursorColor: theme.colorScheme.primary,
       selectionColor: theme.colorScheme.primary.withOpacity(0.3),
-      dragHandleColor: theme.colorScheme.primary,
       textStyleConfiguration: TextStyleConfiguration(
-        text: GoogleFonts.inter(
-          fontSize: 16.0,
-          color: Colors.grey.shade300,
-        ),
-        bold: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-        italic: const TextStyle(
-          fontStyle: FontStyle.italic,
-        ),
-        href: TextStyle(
-          color: theme.colorScheme.secondary,
-          decoration: TextDecoration.underline,
-        ),
-        code: GoogleFonts.firaCode(
-          fontSize: 14.0,
-          color: Colors.cyan.shade300,
-          backgroundColor: Colors.grey.shade800.withOpacity(0.5),
-        ),
+        text: GoogleFonts.inter(fontSize: 16.0),
+        bold: const TextStyle(fontWeight: FontWeight.bold),
+        code: GoogleFonts.firaCode(fontSize: 14.0, backgroundColor: Colors.grey.shade800.withOpacity(0.5)),
+        href: TextStyle(color: theme.colorScheme.secondary, decoration: TextDecoration.underline),
       ),
       textSpanDecorator: (context, node, index, text, before, _) {
         final href = text.attributes?[AppFlowyRichTextKeys.href];
@@ -45,10 +45,7 @@ class MarkdownEditorTheme {
           return TextSpan(
             text: text.text,
             style: before.style,
-            recognizer: TapGestureRecognizer()
-              ..onTap = () {
-                debugPrint('Tapped link: $href');
-              },
+            recognizer: TapGestureRecognizer()..onTap = () => debugPrint('Tapped link: $href'),
           );
         }
         return before;
@@ -56,75 +53,38 @@ class MarkdownEditorTheme {
     );
   }
 
+  // We still need custom builders, but only for things the EditorTheme can't handle,
+  // like the checkbox icon and heading font sizes.
   static Map<String, BlockComponentBuilder> getBlockComponentBuilders() {
     final builders = Map<String, BlockComponentBuilder>.from(standardBlockComponentBuilderMap);
 
-    final commonConfiguration = BlockComponentConfiguration(
-      padding: (node) => const EdgeInsets.symmetric(vertical: 8),
-      placeholderText: (node) => 'Type here...',
-    );
-    
-    // ... (Heading and Quote builders are unchanged) ...
+    // Headings
     final levelToFontSize = [32.0, 24.0, 20.0, 18.0, 16.0, 16.0];
     final levelToFontWeight = [FontWeight.w800, FontWeight.w700, FontWeight.w600, FontWeight.w600, FontWeight.w600, FontWeight.w600];
-    final levelToColor = [Colors.white, Colors.grey.shade100, Colors.grey.shade200, Colors.grey.shade300, Colors.grey.shade300, Colors.grey.shade300];
     builders[HeadingBlockKeys.type] = HeadingBlockComponentBuilder(
-      textStyleBuilder: (level) {
-        return GoogleFonts.inter(
-          fontSize: levelToFontSize.elementAt(level - 1),
-          fontWeight: levelToFontWeight.elementAt(level - 1),
-          color: levelToColor.elementAt(level - 1),
-        );
-      },
-    );
-    builders[QuoteBlockKeys.type] = QuoteBlockComponentBuilder(
-      iconBuilder: (context, node) {
-        return Container(
-          margin: const EdgeInsets.only(right: 8.0),
-          width: 4,
-          height: node.children.isEmpty ? 20 : null,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade700,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        );
-      },
+      textStyleBuilder: (level) => GoogleFonts.inter(
+        fontSize: levelToFontSize.elementAt(level - 1),
+        fontWeight: levelToFontWeight.elementAt(level - 1),
+      ),
     );
 
-    // TODO-LIST BLOCK
+    // Todo-List Checkbox Icon
     builders[TodoListBlockKeys.type] = TodoListBlockComponentBuilder(
-      configuration: BlockComponentConfiguration(
-        textStyle: (node, {textSpan}) {
-          final checked = node.attributes[TodoListBlockKeys.checked] as bool;
-          return TextStyle(
-            color: checked ? Colors.grey.shade600 : Colors.grey.shade300,
-            decoration: checked ? TextDecoration.lineThrough : null,
-          );
-        },
-      ),
-      // THE FIX: This now uses the exact signature from the source code.
-      // `BuildContext` not `BlockComponentContext`.
-      // `onCheck` not `onCheckboxChanged`.
       iconBuilder: (BuildContext context, Node node, VoidCallback onCheck) {
         final checked = node.attributes[TodoListBlockKeys.checked] as bool;
         return GestureDetector(
           onTap: onCheck,
-          child: Icon(
-            checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-            size: 20,
-            color: checked ? Colors.grey.shade600 : Colors.grey.shade400,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4.0),
+            child: Icon(
+              checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              size: 20,
+              color: checked ? Colors.grey.shade600 : Colors.grey.shade400,
+            ),
           ),
         );
       },
     );
-
-    for (final key in builders.keys) {
-      final builder = builders[key]!;
-      builders[key]!.configuration = builder.configuration.copyWith(
-        padding: commonConfiguration.padding,
-        placeholderText: commonConfiguration.placeholderText,
-      );
-    }
     
     return builders;
   }
