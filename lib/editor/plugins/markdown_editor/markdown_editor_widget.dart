@@ -65,13 +65,11 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
       backgroundColor: Colors.transparent,
       body: MobileToolbarV2(
         editorState: editorState,
-        toolbarHeight: 48.0,
         toolbarItems: [
           textDecorationMobileToolbarItemV2,
           buildTextAndBackgroundColorMobileToolbarItem(),
           blocksMobileToolbarItem,
           todoListMobileToolbarItem,
-          listMobileToolbarItem,
           linkMobileToolbarItem,
           dividerMobileToolbarItem,
         ],
