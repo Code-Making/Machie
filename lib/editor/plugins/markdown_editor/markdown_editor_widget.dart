@@ -63,8 +63,7 @@ class MarkdownEditorWidgetState extends ConsumerState<MarkdownEditorWidget> {
     return Scaffold(
       // We set the background to transparent so it blends with the main app theme.
       backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: false,
-      body: MobileToolbarV2(
+      body: MobileToolbar(
         editorState: editorState,
         toolbarItems: [
           textDecorationMobileToolbarItemV2,
