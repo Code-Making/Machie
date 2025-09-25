@@ -508,6 +508,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         child: CodeEditor(
           controller: controller,
           findController: findController,
+          findBuilder: (context, controller, readOnly) {
+            return CodeFindPanelView(
+              controller: controller,
+              readOnly: readOnly,
+            );
+          },
           commentFormatter: _commentFormatter,
           
           // REMOVED: The scrollbarBuilder is no longer needed because
