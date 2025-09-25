@@ -157,6 +157,33 @@ class CodeEditorPlugin implements EditorPlugin {
         return metadata?.isDirty ?? false;
       },
     ),
+    // ... inside CodeEditorPlugin class, in the getCommands() list ...
+
+  @override
+  List<Command> getCommands() => [
+    // ... existing commands (extend_selection, find, etc.)
+    _createCommand(
+      id: 'extend_selection',
+      label: 'Extend Selection',
+      icon: Icons.select_all,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.extendSelection(),
+      canExecute: (ref, editor) => editor != null,
+    ),
+    _createCommand(
+      id: 'select_line',
+      label: 'Select Line',
+      icon: Icons.segment, // A fitting icon for selecting a line segment
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.selectCurrentLine(), // Method to be created
+    ),
+    _createCommand(
+      id: 'select_chunk',
+      label: 'Select Chunk/Block',
+      icon: Icons.view_headline, // A fitting icon for selecting a code block
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.selectCurrentChunk(), // Method to be created
+    ),
     _createCommand(
       id: 'extend_selection',
       label: 'Extend Selection',
