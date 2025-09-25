@@ -50,8 +50,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
   late final CodeFindController findController;
-
+  CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
+  
   _BracketHighlightState _bracketHighlightState =
       const _BracketHighlightState();
 
@@ -151,6 +152,26 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   // --- LOGIC AND METHODS ---
+  
+    /// Selects the full line where the cursor's selection starts.
+  void selectCurrentLine() {
+    // Get the line index of where the selection begins.
+    final int currentIndex = controller.selection.start.index;
+    controller.selectLine(currentIndex);
+    // Notify the app that the selection has changed (e.g., for the contextual app bar)
+    _onControllerChange();
+  }
+
+  /// Expands the selection to the nearest code chunk (e.g., a foldable block).
+  void selectCurrentChunk() {
+    // We must have a reference to the chunk controller, which is provided
+    // by the editor's indicatorBuilder.
+    if (_chunkController == null) return;
+    
+    // The controller method requires the list of available chunks.
+    controller.selectChunk(_chunkController!.chunks);
+    _onControllerChange();
+  }
   
   void extendSelection() {
     final CodeLineSelection currentSelection = controller.selection;
@@ -681,6 +702,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             chunkController,
             notifier,
           ) {
+            _chunkController = chunkController;
             return CustomEditorIndicator(
               controller: editingController,
               chunkController: chunkController,
