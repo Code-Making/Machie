@@ -158,6 +158,22 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     ),
     _createCommand(
+      id: 'find',
+      label: 'Find',
+      icon: Icons.search,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.showFindPanel(), // Method we will create
+      canExecute: (ref, editor) => editor != null,
+    ),
+    _createCommand(
+      id: 'find_and_replace',
+      label: 'Replace',
+      icon: Icons.find_replace,
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.showReplacePanel(), // Method we will create
+      canExecute: (ref, editor) => editor != null,
+    ),
+    _createCommand(
       id: 'set_mark',
       label: 'Set Mark',
       icon: Icons.bookmark_add,
