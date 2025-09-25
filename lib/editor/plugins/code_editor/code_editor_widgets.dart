@@ -242,6 +242,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         if (lastQuote != -1) {
           final nextQuote = line.indexOf(quote, endPos.offset);
           if (nextQuote != -1) {
+            // CORRECTED: Use the default constructor with all four parameters.
             return CodeLineSelection(
               baseIndex: startPos.index,
               baseOffset: lastQuote,
@@ -275,7 +276,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         final matchPos = _findMatchingBracket(codeLines, searchPos, pairs);
         if (matchPos != null) {
           // Check if this new block fully contains the original selection
-          final blockSelection = CodeLineSelection(
+          // CORRECTED: Use the named constructor CodeLineSelection.from()
+          final blockSelection = CodeLineSelection.from(
             base: searchPos,
             extent: CodeLinePosition(index: matchPos.index, offset: matchPos.offset + 1)
           );
