@@ -14,6 +14,7 @@ import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
 import 'code_editor_state.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
+import 'code_find_panel_view.dart';
 
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
@@ -48,6 +49,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
+  late final CodeFindController findController;
 
   CodeLinePosition? _markPosition;
   _BracketHighlightState _bracketHighlightState =
@@ -83,6 +85,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
     );
+    
+    findController = CodeFindController(controller);
+    
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange); // <-- NEW LISTENER
     // This listener is the key to the whole feature.
@@ -137,7 +142,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (_wasSelectionActive) {
         ref.read(appNotifierProvider.notifier).clearAppBarOverride();
     }
-    
+    findController.dispose();
     controller.dirty.removeListener(_onDirtyStateChange);
     controller.removeListener(_onControllerChange);
     controller.dispose();
@@ -146,6 +151,15 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   // --- LOGIC AND METHODS ---
+  
+    // --- NEW PUBLIC METHODS for Commands ---
+  void showFindPanel() {
+    findController.findMode();
+  }
+
+  void showReplacePanel() {
+    findController.replaceMode();
+  }
   
     // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
@@ -493,6 +507,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         autofocus: true,
         child: CodeEditor(
           controller: controller,
+          findController: findController,
           commentFormatter: _commentFormatter,
           
           // REMOVED: The scrollbarBuilder is no longer needed because
