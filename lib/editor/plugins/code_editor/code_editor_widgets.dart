@@ -467,8 +467,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   @override
   Widget build(BuildContext context) {
-    // This listener ensures that if the file is renamed, the widget will rebuild
-    // with the correct syntax highlighting.
+    // ... (ref.listen and settings logic at the top of build is unchanged) ...
     ref.listen(
       tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri),
       (previous, next) {
@@ -488,56 +487,50 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
-    return Focus(
-      focusNode: _focusNode,
-      onKey: _handleKeyEvent,
-      autofocus: true,
-      child: CodeEditor(
-        controller: controller,
-        commentFormatter: _commentFormatter,
-        
-        // --- ADDED THIS SECTION ---
-        scrollbarBuilder: (context, child, details) {
-          // THE FIX: Check for a null controller. If null, it means there's
-          // nothing to scroll, so we just return the editor content without a scrollbar.
-          if (details.controller == null) {
-            return child;
-          }
-
-          return InstantDraggableScrollbar(
-            // The compiler now knows details.controller is not null here.
-            controller: details.controller!,
-            child: child, 
-          );
-        },
-        // --- END OF ADDED SECTION ---
-
-        indicatorBuilder: (
-          context,
-          editingController,
-          chunkController,
-          notifier,
-        ) {
-          return CustomEditorIndicator(
-            controller: editingController,
-            chunkController: chunkController,
-            notifier: notifier,
-            bracketHighlightState: _bracketHighlightState,
-          );
-        },
-        style: CodeEditorStyle(
-          fontSize: codeEditorSettings?.fontSize ?? 12.0,
-          fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-          codeTheme: CodeHighlightTheme(
-            theme:
-                CodeThemes.availableCodeThemes[selectedThemeName] ??
-                CodeThemes.availableCodeThemes['Atom One Dark']!,
-            languages: CodeThemes.getHighlightThemeMode(_languageKey),
+    // --- THIS IS THE MODIFIED SECTION ---
+    return ScrollConfiguration(
+      // Provide an instance of our custom behavior.
+      behavior: InstantDragScrollBehavior(),
+      child: Focus(
+        focusNode: _focusNode
+        onKey: _handleKeyEvent,
+        autofocus: true,
+        child: CodeEditor(
+          controller: controller,
+          commentFormatter: _commentFormatter,
+          
+          // REMOVED: The scrollbarBuilder is no longer needed because
+          // the ScrollBehavior is now handling scrollbar creation for us.
+          // scrollbarBuilder: (context, child, details) { ... },
+          
+          indicatorBuilder: (
+            context,
+            editingController,
+            chunkController,
+            notifier,
+          ) {
+            return CustomEditorIndicator(
+              controller: editingController,
+              chunkController: chunkController,
+              notifier: notifier,
+              bracketHighlightState: _bracketHighlightState,
+            );
+          },
+          style: CodeEditorStyle(
+            fontSize: codeEditorSettings?.fontSize ?? 12.0,
+            fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+            codeTheme: CodeHighlightTheme(
+              theme:
+                  CodeThemes.availableCodeThemes[selectedThemeName] ??
+                  CodeThemes.availableCodeThemes['Atom One Dark']!,
+              languages: CodeThemes.getHighlightThemeMode(_languageKey),
+            ),
           ),
+          wordWrap: codeEditorSettings?.wordWrap ?? false,
         ),
-        wordWrap: codeEditorSettings?.wordWrap ?? false,
       ),
     );
+    // --- END OF MODIFIED SECTION ---
   }
 }
 

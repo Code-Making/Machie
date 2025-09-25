@@ -1,94 +1,114 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-/// A custom scrollbar that allows dragging the thumb with a normal press
-/// instead of requiring a long-press, which is ideal for some mobile UX.
-class InstantDraggableScrollbar extends StatefulWidget {
-  final Widget child;
-  final ScrollController controller;
-  final double thickness;
-  final Color? thumbColor;
-  final Radius radius;
-  final double dragHitboxWidth;
+/// A custom ScrollPhysics that allows us to programmatically set the scroll position.
+/// This is necessary for the immediate-drag scrollbar to work correctly.
+class ImmediateDragScrollPhysics extends ScrollPhysics {
+  double? _position;
 
-  const InstantDraggableScrollbar({
+  void setScrollPosition(double position) {
+    _position = position;
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (_position == null) {
+      return super.applyBoundaryConditions(position, value);
+    }
+    final double result = value - _position!;
+    _position = null; // Reset after use
+    return result;
+  }
+
+  @override
+  ImmediateDragScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return ImmediateDragScrollPhysics()..parent = buildParent(ancestor);
+  }
+}
+
+/// A RawScrollbar that behaves like a desktop scrollbar, allowing for immediate
+/// dragging without a long press.
+class DesktopLikeRawScrollbar extends RawScrollbar {
+  final ImmediateDragScrollPhysics physics;
+
+  const DesktopLikeRawScrollbar({
     super.key,
-    required this.child,
-    required this.controller,
-    this.thickness = 12.0,
-    this.thumbColor,
-    this.radius = const Radius.circular(6.0),
-    this.dragHitboxWidth = 30.0,
+    required this.physics,
+    required super.child,
+    required super.controller,
+    super.scrollbarOrientation,
+    super.thumbVisibility = true, // Always visible for clarity
+    super.thickness = 15.0, // Make it wider and easier to grab
+    super.radius = const Radius.circular(7.5),
+    super.crossAxisMargin = 2,
   });
 
   @override
-  State<InstantDraggableScrollbar> createState() =>
-      _InstantDraggableScrollbarState();
+  RawScrollbarState<DesktopLikeRawScrollbar> createState() => _DesktopLikeRawScrollbarState();
 }
 
-class _InstantDraggableScrollbarState extends State<InstantDraggableScrollbar> {
-  // These variables will hold the state of the drag interaction.
-  double _scrollOffsetOnDragStart = 0;
-  double _gesturePosOnDragStart = 0;
+class _DesktopLikeRawScrollbarState extends RawScrollbarState<DesktopLikeRawScrollbar> {
+  Offset? _downPosition;
+  double? _downOffset;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final effectiveThumbColor =
-        widget.thumbColor ?? theme.colorScheme.onSurface.withOpacity(0.4);
+  void handleThumbPressStart(Offset localPosition) {
+    _downPosition = localPosition;
+    _downOffset = widget.controller.offset;
+    super.handleThumbPressStart(localPosition);
+  }
 
-    return Stack(
-      children: [
-        // The RawScrollbar is now just a visual indicator that listens to the controller.
-        RawScrollbar(
-          controller: widget.controller,
-          thumbVisibility: true,
-          trackVisibility: false,
-          thickness: widget.thickness,
-          radius: widget.radius,
-          thumbColor: effectiveThumbColor,
-          // We need the child to be inside the scrollbar to get the correct notifications.
-          child: widget.child,
-        ),
-        
-        // The gesture detector is laid out on top to capture drag events.
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return GestureDetector(
-              onVerticalDragStart: (details) {
-                // Capture the state at the beginning of the drag.
-                _scrollOffsetOnDragStart = widget.controller.offset;
-                _gesturePosOnDragStart = details.globalPosition.dy;
-              },
-              onVerticalDragUpdate: (details) {
-                // Get the total scrollable distance.
-                final scrollableExtent = widget.controller.position.maxScrollExtent;
-                if (scrollableExtent <= 0) return;
+  @override
+  void handleThumbPressUpdate(Offset localPosition) {
+    if (_downPosition == null || _downOffset == null) {
+      return;
+    }
+    
+    // Calculate how far the user has scrolled based on mouse movement
+    final double scrollDelta = scrollbarPainter.getTrackToScroll(localPosition.dy - _downPosition!.dy);
+    
+    // Use our custom physics to jump to the new position
+    widget.physics.setScrollPosition(_downOffset! + scrollDelta);
+    
+    // This tells the scrollbar to redraw itself at the new position
+    widget.controller.jumpTo(widget.controller.offset);
+    
+    super.handleThumbPressUpdate(localPosition);
+  }
 
-                // Calculate how far the user has dragged their finger.
-                final gestureDelta = details.globalPosition.dy - _gesturePosOnDragStart;
+  @override
+  void handleThumbPressEnd() {
+    _downPosition = null;
+    _downOffset = null;
+    super.handleThumbPressEnd();
+  }
+}
 
-                // Calculate the ratio of the scrollable content's height to the
-                // visible track's height.
-                final trackHeight = constraints.maxHeight;
-                final scrollRatio = scrollableExtent / trackHeight;
+/// A custom ScrollBehavior that applies our DesktopLikeRawScrollbar
+/// for vertical scrolling, while leaving horizontal scrolling as default.
+class InstantDragScrollBehavior extends MaterialScrollBehavior {
+  // We need to hold a single instance of our physics so the scrollbar and
+  // the scrollable can communicate.
+  final ImmediateDragScrollPhysics _physics = ImmediateDragScrollPhysics();
 
-                // Calculate the new scroll offset and clamp it to valid bounds.
-                final newOffset = _scrollOffsetOnDragStart + (gestureDelta * scrollRatio);
-                final clampedOffset = newOffset.clamp(0.0, scrollableExtent);
-                
-                // Tell the controller to jump to the new position.
-                widget.controller.jumpTo(clampedOffset);
-              },
-              // The hit-testable area for the scrollbar drag.
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.transparent, // Makes the entire area interactive.
-              ),
-            );
-          },
-        ),
-      ],
-    );
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    // Check the axis direction from the details provided by the Scrollable.
+    if (details.direction == AxisDirection.down) {
+      // This is the VERTICAL scrollbar. Use our custom one.
+      return DesktopLikeRawScrollbar(
+        physics: _physics,
+        controller: details.controller,
+        child: child,
+      );
+    }
+    
+    // For all other directions (e.g., horizontal), use the default behavior.
+    return super.buildScrollbar(context, child, details);
+  }
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return _physics;
   }
 }
