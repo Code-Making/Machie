@@ -176,158 +176,183 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void extendSelection() {
     final CodeLineSelection currentSelection = controller.selection;
 
-    // If the cursor is just a point, the first step is to select the current word.
-    if (currentSelection.isCollapsed) {
-      final CodeLineSelection? wordSelection = _findWordBoundaryAt(currentSelection.start);
-      if (wordSelection != null) {
-        controller.selection = wordSelection;
-        _onControllerChange(); // Notify UI of selection change
-        return;
-      }
-    }
+    // The core of the new logic: find the next boundary and apply it.
+    final CodeLineSelection? newSelection = _findNextBoundary(currentSelection);
 
-    // If there's already a selection, try to expand to the nearest enclosing block.
-    final CodeLineSelection? blockSelection = _findEnclosingBlock(currentSelection);
-    if (blockSelection != null && blockSelection != currentSelection) {
-      controller.selection = blockSelection;
-      _onControllerChange();
-      return;
-    }
-
-    // As a final fallback, expand the selection to encompass the full lines.
-    final CodeLineSelection lineSelection = _expandToFullLines(currentSelection);
-    if (lineSelection != currentSelection) {
-      controller.selection = lineSelection;
-      _onControllerChange();
+    if (newSelection != null && newSelection != currentSelection) {
+      controller.selection = newSelection;
+      _onControllerChange(); // Notify UI of selection change
     }
   }
 
-  // --- NEW PRIVATE HELPER METHODS ---
+  /// Finds the next logical selection boundary based on the current selection.
+  CodeLineSelection? _findNextBoundary(CodeLineSelection selection) {
+    // Defines the pairs and their order of precedence for searching.
+    const List<List<String>> delimiterPairs = [
+      ['"', '"'],
+      ["'", "'"],
+      ['(', ')'],
+      ['[', ']'],
+      ['{', '}'],
+    ];
 
-  /// Expands the current selection to cover the full text of the lines it spans.
-  CodeLineSelection _expandToFullLines(CodeLineSelection selection) {
+    // Case 1: The selection is just a cursor (collapsed).
+    if (selection.isCollapsed) {
+      for (final pair in delimiterPairs) {
+        final selectionWithin = _findSelectionWithinDelimiters(selection.start, pair[0], pair[1]);
+        if (selectionWithin != null) {
+          return selectionWithin;
+        }
+      }
+      return null; // Nothing found to expand into
+    }
+
+    // Case 2: There is an active selection.
+    // We check if the current selection is already perfectly matching a block.
+    for (final pair in delimiterPairs) {
+      final startChar = _getCharBefore(selection.start);
+      final endChar = _getCharBefore(selection.end); // Use `before` because selection.end is exclusive
+
+      // Is the selection already wrapped by this pair?
+      if (startChar == pair[0] && endChar == pair[1]) {
+        // If so, we need to find the NEXT LARGER block.
+        // We start searching from one character further out.
+        final widerSearchStart = selection.start.offset > 0 
+          ? CodeLinePosition(index: selection.start.index, offset: selection.start.offset - 1)
+          : (selection.start.index > 0 ? CodeLinePosition(index: selection.start.index - 1, offset: controller.codeLines[selection.start.index - 1].text.length) : selection.start);
+        
+        for (final nextPair in delimiterPairs) {
+           final nextBlock = _findSelectionIncludingDelimiters(widerSearchStart, nextPair[0], nextPair[1]);
+           // Ensure the new block is actually larger than the current one.
+           if (nextBlock != null && nextBlock != selection) {
+             return nextBlock;
+           }
+        }
+        // If we found no larger block, we're done.
+        return null; 
+      }
+    }
+
+    // Case 3: The selection is not perfectly wrapped (e.g., it's just the content).
+    // Try to expand to include the delimiters of the current block.
+    for (final pair in delimiterPairs) {
+      final expandedSelection = _findSelectionIncludingDelimiters(selection.start, pair[0], pair[1]);
+      if (expandedSelection != null && expandedSelection.contains(selection)) {
+        return expandedSelection;
+      }
+    }
+    
+    return null;
+  }
+
+  /// Finds the content *between* the nearest enclosing delimiters from a starting point.
+  CodeLineSelection? _findSelectionWithinDelimiters(CodeLinePosition start, String open, String close) {
+    final startDelimiter = _findNearestChar(start, open, forward: false);
+    if (startDelimiter == null) return null;
+
+    final endDelimiter = _findMatchingDelimiter(startDelimiter, open, close);
+    if (endDelimiter == null) return null;
+
+    // Return the selection for the content *inside* the delimiters.
     return CodeLineSelection(
-      baseIndex: selection.start.index,
-      baseOffset: 0,
-      extentIndex: selection.end.index,
-      extentOffset: controller.codeLines[selection.end.index].text.length,
+      baseIndex: startDelimiter.index,
+      baseOffset: startDelimiter.offset + 1,
+      extentIndex: endDelimiter.index,
+      extentOffset: endDelimiter.offset,
     );
   }
 
-  /// Finds the boundaries of the word at a given cursor position.
-  CodeLineSelection? _findWordBoundaryAt(CodeLinePosition position) {
-    final String line = controller.codeLines[position.index].text;
-    if (position.offset >= line.length && line.isNotEmpty) {
-      // Cursor is at the very end of the line, check character before
-      if (line[position.offset - 1].trim().isEmpty) return null;
-    } else if (line.isEmpty || line[position.offset].trim().isEmpty) {
-      // Cursor is on whitespace
-      return null;
-    }
+  /// Finds and selects the nearest block *including* its delimiters.
+  CodeLineSelection? _findSelectionIncludingDelimiters(CodeLinePosition start, String open, String close) {
+    final startDelimiter = _findNearestChar(start, open, forward: false);
+    if (startDelimiter == null) return null;
 
-    int start = position.offset;
-    int end = position.offset;
+    final endDelimiter = _findMatchingDelimiter(startDelimiter, open, close);
+    if (endDelimiter == null) return null;
 
-    // Find the start of the word by moving left
-    while (start > 0 && line[start - 1].trim().isNotEmpty) {
-      start--;
-    }
-    // Find the end of the word by moving right
-    while (end < line.length && line[end].trim().isNotEmpty) {
-      end++;
-    }
-
-    if (start == end) return null;
-
+    // Return the selection for the entire block, including delimiters.
     return CodeLineSelection(
-      baseIndex: position.index,
-      baseOffset: start,
-      extentIndex: position.index,
-      extentOffset: end,
+      baseIndex: startDelimiter.index,
+      baseOffset: startDelimiter.offset,
+      extentIndex: endDelimiter.index,
+      extentOffset: endDelimiter.offset + 1,
     );
   }
 
-  /// Finds the next largest enclosing block (e.g., quotes, brackets) around a selection.
-  CodeLineSelection? _findEnclosingBlock(CodeLineSelection selection) {
-    final CodeLines codeLines = controller.codeLines;
-    final Map<String, String> pairs = {'(': ')', '[': ']', '{': '}', "'": "'", '"': '"'};
+  /// Finds the position of a matching closing delimiter, respecting nested pairs.
+  CodeLinePosition? _findMatchingDelimiter(CodeLinePosition start, String open, String close) {
+    int stack = 1;
+    CodeLinePosition currentPos = CodeLinePosition(index: start.index, offset: start.offset + 1);
 
-    final CodeLinePosition startPos = selection.start;
-    final CodeLinePosition endPos = selection.end;
-
-    // Check for quote expansion on a single line
-    if (startPos.index == endPos.index) {
-      final line = codeLines[startPos.index].text;
-      for (final quote in ["'", '"']) {
-        final lastQuote = line.lastIndexOf(quote, startPos.offset);
-        if (lastQuote != -1) {
-          final nextQuote = line.indexOf(quote, endPos.offset);
-          if (nextQuote != -1) {
-            return CodeLineSelection(
-              baseIndex: startPos.index,
-              baseOffset: lastQuote,
-              extentIndex: startPos.index,
-              extentOffset: nextQuote + 1,
-            );
-          }
+    while (currentPos.index < controller.codeLines.length) {
+      final line = controller.codeLines[currentPos.index].text;
+      while (currentPos.offset < line.length) {
+        final char = line[currentPos.offset];
+        if (char == open && open != close) { // Don't stack for quotes
+          stack++;
+        } else if (char == close) {
+          stack--;
         }
-      }
-    }
-
-    // Check for bracket expansion
-    // Start searching from one character before the selection
-    CodeLinePosition searchPos = startPos.offset > 0 
-        ? CodeLinePosition(index: startPos.index, offset: startPos.offset - 1)
-        : (startPos.index > 0 ? CodeLinePosition(index: startPos.index - 1, offset: codeLines[startPos.index - 1].text.length) : startPos);
-
-    int scanLimit = 1000; // Safety break to prevent infinite loops
-    int count = 0;
-
-    while (count < scanLimit && (searchPos.index > 0 || searchPos.offset >= 0)) {
-      final line = codeLines[searchPos.index].text;
-      if (searchPos.offset >= line.length) {
-          searchPos = CodeLinePosition(index: searchPos.index - 1, offset: codeLines[searchPos.index - 1].text.length - 1);
-          continue;
-      }
-      final char = line[searchPos.offset];
-
-      if (pairs.keys.contains(char)) {
-        // We found an opening bracket. Find its match.
-        final matchPos = _findMatchingBracket(codeLines, searchPos, pairs);
-        if (matchPos != null) {
-          // Check if this new block fully contains the original selection
-
-          // --- THIS BLOCK IS THE FIX ---
-          // We must use the default constructor and pass the four integer
-          // properties from our start (searchPos) and end (matchPos) positions.
-          final CodeLineSelection blockSelection = CodeLineSelection(
-            baseIndex: searchPos.index,
-            baseOffset: searchPos.offset,
-            extentIndex: matchPos.index,
-            extentOffset: matchPos.offset + 1, // +1 to include the closing bracket
-          );
-          // --- END OF FIX ---
-
-          if (blockSelection.contains(selection) && blockSelection != selection) {
-            return blockSelection;
-          }
+        if (stack == 0) {
+          return currentPos;
         }
+        currentPos = CodeLinePosition(index: currentPos.index, offset: currentPos.offset + 1);
       }
-
-      // Move to the previous character
-      if (searchPos.offset > 0) {
-        searchPos = CodeLinePosition(index: searchPos.index, offset: searchPos.offset - 1);
-      } else if (searchPos.index > 0) {
-        searchPos = CodeLinePosition(index: searchPos.index - 1, offset: codeLines[searchPos.index - 1].text.length);
-      } else {
-        break; // Reached start of document
-      }
-      count++;
+      // Move to the next line
+      currentPos = CodeLinePosition(index: currentPos.index + 1, offset: 0);
     }
-
-    return null; // No enclosing block found
+    return null; // No match found
   }
-  
+
+  /// Finds the nearest instance of a character from a position, searching forward or backward.
+  CodeLinePosition? _findNearestChar(CodeLinePosition start, String charToFind, {required bool forward}) {
+    CodeLinePosition currentPos = start;
+
+    if (forward) {
+      while (currentPos.index < controller.codeLines.length) {
+        final line = controller.codeLines[currentPos.index].text;
+        final foundOffset = line.indexOf(charToFind, currentPos.offset);
+        if (foundOffset != -1) {
+          return CodeLinePosition(index: currentPos.index, offset: foundOffset);
+        }
+        currentPos = CodeLinePosition(index: currentPos.index + 1, offset: 0);
+      }
+    } else { // Backward
+      while (currentPos.index >= 0) {
+        final line = controller.codeLines[currentPos.index].text;
+        final foundOffset = line.lastIndexOf(charToFind, currentPos.offset);
+        if (foundOffset != -1) {
+          return CodeLinePosition(index: currentPos.index, offset: foundOffset);
+        }
+        // Move to previous line
+        currentPos = CodeLinePosition(index: currentPos.index - 1, offset: (currentPos.index > 0) ? controller.codeLines[currentPos.index - 1].text.length : 0);
+      }
+    }
+    return null;
+  }
+
+  /// Helper to get the character at a specific position.
+  String? _getChar(CodeLinePosition pos) {
+    if (pos.index < 0 || pos.index >= controller.codeLines.length) return null;
+    final line = controller.codeLines[pos.index].text;
+    if (pos.offset < 0 || pos.offset >= line.length) return null;
+    return line[pos.offset];
+  }
+
+  /// Helper to get the character immediately before a position.
+  String? _getCharBefore(CodeLinePosition pos) {
+    if (pos.offset > 0) {
+      return _getChar(CodeLinePosition(index: pos.index, offset: pos.offset - 1));
+    }
+    if (pos.index > 0) {
+      final prevLine = controller.codeLines[pos.index - 1].text;
+      if (prevLine.isNotEmpty) {
+        return _getChar(CodeLinePosition(index: pos.index - 1, offset: prevLine.length - 1));
+      }
+    }
+    return null;
+  }
+
     // --- NEW PUBLIC METHODS for Commands ---
   void showFindPanel() {
     findController.findMode();
