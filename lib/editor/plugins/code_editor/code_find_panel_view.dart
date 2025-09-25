@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
+// --- CONSTANTS (UNCHANGED) ---
 const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
 const double _kDefaultFindPanelWidth = 360;
 const double _kDefaultFindPanelHeight = 36;
@@ -58,20 +59,27 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ((controller.value!.replaceMode ? _kDefaultReplacePanelHeight : _kDefaultFindPanelHeight) + margin.vertical)
   );
 
+  // --- REFACTORED build() METHOD ---
   @override
   Widget build(BuildContext context) {
+    // Use the safer ValueListenableBuilder pattern.
     return ValueListenableBuilder<CodeFindValue?>(
       valueListenable: controller,
       builder: (context, value, child) {
+        // If value is null, the panel is hidden.
         if (value == null) {
           return const SizedBox.shrink();
         }
+        
+        // This is the main UI structure.
         return Container(
           margin: margin,
           alignment: Alignment.topRight,
           height: preferredSize.height,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            // THE FIX: Wrap the content in a Material widget.
+            // This provides the background color and shadow, making it visible.
             child: Material(
               elevation: 4,
               child: SizedBox(
@@ -90,6 +98,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       }
     );
   }
+
+  // --- REFACTORED builder methods to accept `value` ---
 
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
     final String result;
@@ -203,6 +213,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ],
     );
   }
+
+  // --- UNCHANGED HELPER METHODS ---
 
   Widget _buildTextField({
     required BuildContext context,
