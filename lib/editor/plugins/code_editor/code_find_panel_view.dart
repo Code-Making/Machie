@@ -1,8 +1,11 @@
+// =========================================
+// FILE: lib/editor/plugins/code_editor/code_find_panel_view.dart
+// =========================================
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-// --- CONSTANTS (UNCHANGED) ---
+// ... (Constants are unchanged) ...
 const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
 const double _kDefaultFindPanelWidth = 360;
 const double _kDefaultFindPanelHeight = 36;
@@ -16,6 +19,7 @@ const EdgeInsetsGeometry _kDefaultFindPadding = EdgeInsets.only(left: 5, right: 
 const EdgeInsetsGeometry _kDefaultFindInputContentPadding = EdgeInsets.only(left: 5, right: 5);
 
 class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
+  // ... (Properties and constructor are unchanged) ...
   final CodeFindController controller;
   final EdgeInsetsGeometry margin;
   final bool readOnly;
@@ -52,6 +56,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     )
   });
 
+
   @override
   Size get preferredSize => Size(
     double.infinity,
@@ -59,27 +64,21 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ((controller.value!.replaceMode ? _kDefaultReplacePanelHeight : _kDefaultFindPanelHeight) + margin.vertical)
   );
 
-  // --- REFACTORED build() METHOD ---
   @override
   Widget build(BuildContext context) {
-    // Use the safer ValueListenableBuilder pattern.
+    // This part is correct now, with the ValueListenableBuilder and Material wrapper
     return ValueListenableBuilder<CodeFindValue?>(
       valueListenable: controller,
       builder: (context, value, child) {
-        // If value is null, the panel is hidden.
         if (value == null) {
           return const SizedBox.shrink();
         }
-        
-        // This is the main UI structure.
         return Container(
           margin: margin,
           alignment: Alignment.topRight,
           height: preferredSize.height,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            // THE FIX: Wrap the content in a Material widget.
-            // This provides the background color and shadow, making it visible.
             child: Material(
               elevation: 4,
               child: SizedBox(
@@ -99,7 +98,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // --- REFACTORED builder methods to accept `value` ---
+  // --- THE FIX IS IN THESE TWO METHODS ---
 
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
     final String result;
@@ -108,115 +107,125 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     } else {
       result = '${value.result!.index + 1}/${value.result!.matches.length}';
     }
-    return Row(
-      children: [
-        SizedBox(
-          width: _kDefaultFindPanelWidth / 1.75,
-          height: _kDefaultFindPanelHeight,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              _buildTextField(
-                context: context,
-                controller: controller.findInputController,
-                focusNode: controller.findInputFocusNode,
-                iconsWidth: _kDefaultFindIconWidth * 1.5
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _buildCheckText(
-                    context: context,
-                    text: 'Aa',
-                    checked: value.option.caseSensitive,
-                    onPressed: () {
-                      controller.toggleCaseSensitive();
-                    }
-                  ),
-                  _buildCheckText(
-                    context: context,
-                    text: '.*',
-                    checked: value.option.regex,
-                    onPressed: () {
-                      controller.toggleRegex();
-                    }
-                  )
-                ],
-              )
-            ],
-          )
-        ),
-        Text(result,
-          style: TextStyle(
-            color: resultFontColor,
-            fontSize: resultFontSize
-          )
-        ),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _buildIconButton(
-                onPressed: value.result == null ? null : () {
-                  controller.previousMatch();
-                },
-                icon: Icons.arrow_upward,
-                tooltip: 'Previous'
-              ),
-              _buildIconButton(
-                onPressed: value.result == null ? null : () {
-                  controller.nextMatch();
-                },
-                icon: Icons.arrow_downward,
-                tooltip: 'Next'
-              ),
-              _buildIconButton(
-                onPressed: () {
-                  controller.close();
-                },
-                icon: Icons.close,
-                tooltip: 'Close'
-              )
-            ],
+    // WRAP the Row in a SizedBox to constrain its height
+    return SizedBox(
+      height: _kDefaultFindPanelHeight,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _kDefaultFindPanelWidth / 1.75,
+            height: _kDefaultFindPanelHeight,
+            child: Stack(
+              // ... Stack content is unchanged ...
+              alignment: Alignment.center,
+              children: [
+                _buildTextField(
+                  context: context,
+                  controller: controller.findInputController,
+                  focusNode: controller.findInputFocusNode,
+                  iconsWidth: _kDefaultFindIconWidth * 1.5
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildCheckText(
+                      context: context,
+                      text: 'Aa',
+                      checked: value.option.caseSensitive,
+                      onPressed: () {
+                        controller.toggleCaseSensitive();
+                      }
+                    ),
+                    _buildCheckText(
+                      context: context,
+                      text: '.*',
+                      checked: value.option.regex,
+                      onPressed: () {
+                        controller.toggleRegex();
+                      }
+                    )
+                  ],
+                )
+              ],
+            )
           ),
-        )
-      ],
+          Text(result,
+            style: TextStyle(
+              color: resultFontColor,
+              fontSize: resultFontSize
+            )
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // ... IconButtons are unchanged ...
+                _buildIconButton(
+                  onPressed: value.result == null ? null : () {
+                    controller.previousMatch();
+                  },
+                  icon: Icons.arrow_upward,
+                  tooltip: 'Previous'
+                ),
+                _buildIconButton(
+                  onPressed: value.result == null ? null : () {
+                    controller.nextMatch();
+                  },
+                  icon: Icons.arrow_downward,
+                  tooltip: 'Next'
+                ),
+                _buildIconButton(
+                  onPressed: () {
+                    controller.close();
+                  },
+                  icon: Icons.close,
+                  tooltip: 'Close'
+                )
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
-    return Row(
-      children: [
-        SizedBox(
-          width: _kDefaultFindPanelWidth / 1.75,
-          height: _kDefaultFindPanelHeight,
-          child: _buildTextField(
-            context: context,
-            controller: controller.replaceInputController,
-            focusNode: controller.replaceInputFocusNode,
+    // WRAP the Row in a SizedBox to constrain its height
+    return SizedBox(
+      height: _kDefaultFindPanelHeight,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _kDefaultFindPanelWidth / 1.75,
+            height: _kDefaultFindPanelHeight,
+            child: _buildTextField(
+              context: context,
+              controller: controller.replaceInputController,
+              focusNode: controller.replaceInputFocusNode,
+            ),
           ),
-        ),
-        _buildIconButton(
-          onPressed: value.result == null || readOnly ? null : () {
-            controller.replaceMatch();
-          },
-          icon: Icons.done,
-          tooltip: 'Replace'
-        ),
-        _buildIconButton(
-          onPressed: value.result == null || readOnly ? null : () {
-            controller.replaceAllMatches();
-          },
-          icon: Icons.done_all,
-          tooltip: 'Replace All'
-        )
-      ],
+          // ... IconButtons are unchanged ...
+          _buildIconButton(
+            onPressed: value.result == null || readOnly ? null : () {
+              controller.replaceMatch();
+            },
+            icon: Icons.done,
+            tooltip: 'Replace'
+          ),
+          _buildIconButton(
+            onPressed: value.result == null || readOnly ? null : () {
+              controller.replaceAllMatches();
+            },
+            icon: Icons.done_all,
+            tooltip: 'Replace All'
+          )
+        ],
+      ),
     );
   }
 
-  // --- UNCHANGED HELPER METHODS ---
-
-  Widget _buildTextField({
+  // ... (_buildTextField, _buildCheckText, _buildIconButton methods are unchanged) ...
+    Widget _buildTextField({
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
