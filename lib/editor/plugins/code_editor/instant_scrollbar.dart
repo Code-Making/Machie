@@ -48,15 +48,15 @@ class _InstantDraggableScrollbarState extends State<InstantDraggableScrollbar> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return GestureDetector(
-                // Use the vertical drag gestures for immediate response
+                // CORRECTED: Use the handleDrag... methods which correctly accept the details object.
                 onVerticalDragStart: (details) {
-                  _scrollbarKey.currentState?.handleThumbPressStart(details.localPosition);
+                  _scrollbarKey.currentState?.handleDragStart(details);
                 },
                 onVerticalDragUpdate: (details) {
-                  _scrollbarKey.currentState?.handleThumbPressUpdate(details.localPosition);
+                  _scrollbarKey.currentState?.handleDragUpdate(details);
                 },
                 onVerticalDragEnd: (details) {
-                  _scrollbarKey.currentState?.handleThumbPressEnd();
+                  _scrollbarKey.currentState?.handleDragEnd(details);
                 },
                 // The hit-testable area for the scrollbar drag
                 child: Container(
