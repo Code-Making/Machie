@@ -160,21 +160,21 @@ class CodeEditorPlugin implements EditorPlugin {
     _createCommand(
       id: 'select_line',
       label: 'Select Line',
-      icon: Icons.segment, // A fitting icon for selecting a line segment
+      icon: Icons.horizontal_rule, // A fitting icon for selecting a line segment
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.selectCurrentLine(), // Method to be created
     ),
     _createCommand(
       id: 'select_chunk',
       label: 'Select Chunk/Block',
-      icon: Icons.view_headline, // A fitting icon for selecting a code block
+      icon: Icons.unfold_more, // A fitting icon for selecting a code block
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.selectCurrentChunk(), // Method to be created
     ),
     _createCommand(
       id: 'extend_selection',
       label: 'Extend Selection',
-      icon: Icons.select_all, // A different icon to distinguish from 'Select All'
+      icon: Icons.code, // A different icon to distinguish from 'Select All'
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.extendSelection(), // Method we will create
       canExecute: (ref, editor) => editor != null,
