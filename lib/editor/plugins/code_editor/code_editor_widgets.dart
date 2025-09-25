@@ -275,12 +275,16 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         final matchPos = _findMatchingBracket(codeLines, searchPos, pairs);
         if (matchPos != null) {
           // Check if this new block fully contains the original selection
+
           // --- THIS BLOCK IS THE FIX ---
-          final CodeLineRange blockRange = CodeLineRange(
-            start: searchPos,
-            end: CodeLinePosition(index: matchPos.index, offset: matchPos.offset + 1),
+          // We must use the default constructor and pass the four integer
+          // properties from our start (searchPos) and end (matchPos) positions.
+          final CodeLineSelection blockSelection = CodeLineSelection(
+            baseIndex: searchPos.index,
+            baseOffset: searchPos.offset,
+            extentIndex: matchPos.index,
+            extentOffset: matchPos.offset + 1, // +1 to include the closing bracket
           );
-          final CodeLineSelection blockSelection = CodeLineSelection.fromRange(range: blockRange);
           // --- END OF FIX ---
 
           if (blockSelection.contains(selection) && blockSelection != selection) {
