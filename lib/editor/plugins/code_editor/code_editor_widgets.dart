@@ -14,6 +14,7 @@ import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
 import 'code_editor_state.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
+import 'instant_scrollbar.dart'; // <-- ADD THIS IMPORT
 
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
@@ -494,6 +495,18 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       child: CodeEditor(
         controller: controller,
         commentFormatter: _commentFormatter,
+        
+        // --- ADDED THIS SECTION ---
+        scrollbarBuilder: (context, child, details) {
+          // 'details' provides the ScrollableDetails, which includes the
+          // all-important controller needed to link our scrollbar.
+          return InstantDraggableScrollbar(
+            controller: details.controller,
+            child: child, // It is crucial to return the child widget here.
+          );
+        },
+        // --- END OF ADDED SECTION ---
+
         indicatorBuilder: (
           context,
           editingController,
