@@ -498,11 +498,16 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         
         // --- ADDED THIS SECTION ---
         scrollbarBuilder: (context, child, details) {
-          // 'details' provides the ScrollableDetails, which includes the
-          // all-important controller needed to link our scrollbar.
+          // THE FIX: Check for a null controller. If null, it means there's
+          // nothing to scroll, so we just return the editor content without a scrollbar.
+          if (details.controller == null) {
+            return child;
+          }
+
           return InstantDraggableScrollbar(
-            controller: details.controller,
-            child: child, // It is crucial to return the child widget here.
+            // The compiler now knows details.controller is not null here.
+            controller: details.controller!,
+            child: child, 
           );
         },
         // --- END OF ADDED SECTION ---
