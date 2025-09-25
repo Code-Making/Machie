@@ -228,9 +228,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
         if (closeDelimiterPos != null) {
           // We found a valid block. Check if it contains our original starting point.
-          // This ensures we don't latch onto a block that starts before us but ends before us.
           final blockEndPos = _getNextPosition(closeDelimiterPos);
-          if (blockEndPos.isAfterOrSameAs(startPos)) {
+          
+          // --- THIS LINE IS THE FIX ---
+          // Replace the non-existent method with our new helper.
+          if (_isPositionAfterOrSameAs(blockEndPos, startPos)) {
+          // --- END OF FIX ---
+            
             // Success! We found the smallest enclosing block.
             final fullSelection = CodeLineSelection(
               baseIndex: openDelimiterPos.index, baseOffset: openDelimiterPos.offset,
@@ -254,6 +258,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     }
 
     return null; // No enclosing block found.
+  }
+
+  // ... [The `_findMatchingDelimiter` method is unchanged] ...
+
+  // --- UTILITY HELPERS ---
+
+  // --- NEW HELPER METHOD ---
+  /// Compares two positions. Returns true if p1 is after or at the same location as p2.
+  bool _isPositionAfterOrSameAs(CodeLinePosition p1, CodeLinePosition p2) {
+    if (p1.index > p2.index) {
+      return true;
+    }
+    if (p1.index == p2.index && p1.offset >= p2.offset) {
+      return true;
+    }
+    return false;
   }
 
 
