@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 class ImmediateDragScrollPhysics extends ScrollPhysics {
   double? _position;
 
-  // Use the constructor to set the parent physics.
-  const ImmediateDragScrollPhysics({ScrollPhysics? parent}) : super(parent: parent);
+  // CORRECTED: Removed 'const' because this class has a non-final field '_position'.
+  ImmediateDragScrollPhysics({ScrollPhysics? parent}) : super(parent: parent);
 
   void setScrollPosition(double position) {
     _position = position;
@@ -25,7 +25,6 @@ class ImmediateDragScrollPhysics extends ScrollPhysics {
 
   @override
   ImmediateDragScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    // CORRECTED: Use the constructor to set the parent.
     return ImmediateDragScrollPhysics(parent: buildParent(ancestor));
   }
 }
@@ -57,7 +56,6 @@ class _DesktopLikeRawScrollbarState extends RawScrollbarState<DesktopLikeRawScro
 
   @override
   void handleThumbPressStart(Offset localPosition) {
-    // CORRECTED: Add a null-check guard for the controller's position.
     if (widget.controller == null || !widget.controller!.hasClients) {
       return;
     }
@@ -72,24 +70,19 @@ class _DesktopLikeRawScrollbarState extends RawScrollbarState<DesktopLikeRawScro
       return;
     }
     
-    // Calculate how far the user has scrolled based on mouse movement
     final double scrollDelta = scrollbarPainter.getTrackToScroll(localPosition.dy - _downPosition!.dy);
     
-    // Use our custom physics to jump to the new position
     widget.physics.setScrollPosition(_downOffset! + scrollDelta);
     
-    // This tells the scrollbar to redraw itself at the new position
     widget.controller!.jumpTo(widget.controller!.offset);
     
     super.handleThumbPressUpdate(localPosition);
   }
 
-  // CORRECTED: The signature for handleThumbPressEnd has changed.
   @override
   void handleThumbPressEnd(Offset localPosition, Velocity velocity) {
     _downPosition = null;
     _downOffset = null;
-    // CORRECTED: Pass the required arguments to the super method.
     super.handleThumbPressEnd(localPosition, velocity);
   }
 }
@@ -99,13 +92,13 @@ class _DesktopLikeRawScrollbarState extends RawScrollbarState<DesktopLikeRawScro
 class InstantDragScrollBehavior extends MaterialScrollBehavior {
   // We need to hold a single instance of our physics so the scrollbar and
   // the scrollable can communicate.
-  final ImmediateDragScrollPhysics _physics = const ImmediateDragScrollPhysics();
+  // CORRECTED: Removed 'const' from the instantiation. `final` is sufficient
+  // to ensure we use the same instance throughout the lifecycle of this behavior.
+  final ImmediateDragScrollPhysics _physics = ImmediateDragScrollPhysics();
 
   @override
   Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
-    // Check the axis direction from the details provided by the Scrollable.
     if (details.direction == AxisDirection.down) {
-      // This is the VERTICAL scrollbar. Use our custom one.
       return DesktopLikeRawScrollbar(
         physics: _physics,
         controller: details.controller,
@@ -113,7 +106,6 @@ class InstantDragScrollBehavior extends MaterialScrollBehavior {
       );
     }
     
-    // For all other directions (e.g., horizontal), use the default behavior.
     return super.buildScrollbar(context, child, details);
   }
 
