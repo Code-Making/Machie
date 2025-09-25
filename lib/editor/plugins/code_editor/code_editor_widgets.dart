@@ -492,7 +492,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       // Provide an instance of our custom behavior.
       behavior: InstantDragScrollBehavior(),
       child: Focus(
-        focusNode: _focusNode
+        focusNode: _focusNode,
         onKey: _handleKeyEvent,
         autofocus: true,
         child: CodeEditor(
