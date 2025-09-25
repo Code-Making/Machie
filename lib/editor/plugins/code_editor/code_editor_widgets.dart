@@ -177,29 +177,29 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     final CodeLineSelection currentSelection = controller.selection;
     CodeLineSelection? newSelection;
 
-    // Hierarchy of expansion:
-    // 1. If collapsed, select content of the innermost block.
-    // 2. If content is selected, expand to include the block's delimiters.
-    // 3. If a block with delimiters is selected, find the next parent block.
-    
-    if (currentSelection.isCollapsed) {
-      newSelection = _findSmallestEnclosingBlock(currentSelection, selectContents: true);
-    } else {
-      // Check if the current selection already includes delimiters.
-      final charBefore = _getChar(currentSelection.start);
-      final charAfter = _getChar(CodeLinePosition(
-        index: currentSelection.end.index, 
-        offset: currentSelection.end.offset - 1
-      ));
-      
-      final enclosingPair = _getDelimiterPair(charBefore, charAfter);
+    // Determine the starting point for our backward scan.
+    CodeLinePosition startScanPos = currentSelection.start;
 
-      if (enclosingPair != null) {
-        // Already have delimiters, find the parent block.
-        newSelection = _findSmallestEnclosingBlock(currentSelection, selectContents: true, startSearchOutside: true);
+    // If the current selection is already a valid block, we need to
+    // start searching for the *next* block from outside of it.
+    final charBefore = _getChar(currentSelection.start);
+    final charAfter = _getChar(_getPreviousPosition(currentSelection.end));
+    if (_isDelimiterPair(charBefore, charAfter)) {
+      startScanPos = _getPreviousPosition(currentSelection.start);
+    }
+    
+    // Find the smallest block that contains our starting position.
+    final enclosingBlock = _findSmallestEnclosingBlock(startScanPos);
+
+    if (enclosingBlock != null) {
+      // Logic to decide whether to select contents or the whole block.
+      if (currentSelection == enclosingBlock.contents) {
+        // We already have the contents selected, so expand to the full block.
+        newSelection = enclosingBlock.full;
       } else {
-        // Just content is selected, so expand to include the delimiters of the current block.
-        newSelection = _findSmallestEnclosingBlock(currentSelection, selectContents: false);
+        // Otherwise, select the contents. This handles both a collapsed cursor
+        // and expanding from a partial selection.
+        newSelection = enclosingBlock.contents;
       }
     }
 
@@ -209,78 +209,55 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     }
   }
 
-  /// Finds the smallest block that fully contains the [selection].
-  CodeLineSelection? _findSmallestEnclosingBlock(CodeLineSelection selection, {
-    bool selectContents = false,
-    bool startSearchOutside = false
-  }) {
-    final CodeLinePosition startScanPos = startSearchOutside ? 
-      _getPreviousPosition(selection.start) : selection.start;
-
-    final openDelimiterPos = _findEnclosingOpenDelimiter(startScanPos);
-    if (openDelimiterPos == null) {
-      return null;
-    }
-
-    final openChar = _getChar(openDelimiterPos)!;
-    final closeChar = _getDelimiterPair(openChar, null)![1];
-
-    final closeDelimiterPos = _findMatchingDelimiter(openDelimiterPos, openChar, closeChar);
-    if (closeDelimiterPos == null) {
-      return null;
-    }
-    
-    final int baseOffset = selectContents ? openDelimiterPos.offset + 1 : openDelimiterPos.offset;
-    final int extentOffset = selectContents ? closeDelimiterPos.offset : closeDelimiterPos.offset + 1;
-
-    return CodeLineSelection(
-      baseIndex: openDelimiterPos.index,
-      baseOffset: baseOffset,
-      extentIndex: closeDelimiterPos.index,
-      extentOffset: extentOffset,
-    );
-  }
-
-  /// Scans backwards from a position to find the first unmatched opening delimiter.
-  CodeLinePosition? _findEnclosingOpenDelimiter(CodeLinePosition startPos) {
-    final List<String> openDelimiters = ['(', '[', '{', '"', "'"];
-    final List<String> closeDelimiters = [')', ']', '}', '"', "'"];
-    List<String> stack = [];
+  /// A small record to hold the results of a block search.
+  ({CodeLineSelection full, CodeLineSelection contents})? _findSmallestEnclosingBlock(CodeLinePosition startPos) {
+    const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
     
     CodeLinePosition currentPos = startPos;
 
     while (true) {
       final char = _getChar(currentPos);
-      if (char != null) {
-        if (closeDelimiters.contains(char)) {
-          // Push the corresponding opener onto the stack for quotes
-          if (char == '"' || char == "'") {
-             stack.add(char);
-          } else {
-             stack.add(openDelimiters[closeDelimiters.indexOf(char)]);
-          }
-        } else if (openDelimiters.contains(char)) {
-          if (stack.isNotEmpty && stack.last == char) {
-            stack.removeLast();
-          } else if (stack.isEmpty) {
-            // Found our enclosing opener!
-            return currentPos;
+      if (char != null && openDelimiters.contains(char)) {
+        // We found a candidate opening delimiter.
+        final openDelimiterPos = currentPos;
+        final openChar = char;
+        final closeChar = _getMatchingDelimiterChar(openChar);
+
+        // Now, find its corresponding closing delimiter.
+        final closeDelimiterPos = _findMatchingDelimiter(openDelimiterPos, openChar, closeChar);
+
+        if (closeDelimiterPos != null) {
+          // We found a valid block. Check if it contains our original starting point.
+          // This ensures we don't latch onto a block that starts before us but ends before us.
+          final blockEndPos = _getNextPosition(closeDelimiterPos);
+          if (blockEndPos.isAfterOrSameAs(startPos)) {
+            // Success! We found the smallest enclosing block.
+            final fullSelection = CodeLineSelection(
+              baseIndex: openDelimiterPos.index, baseOffset: openDelimiterPos.offset,
+              extentIndex: closeDelimiterPos.index, extentOffset: closeDelimiterPos.offset + 1,
+            );
+            final contentSelection = CodeLineSelection(
+              baseIndex: openDelimiterPos.index, baseOffset: openDelimiterPos.offset + 1,
+              extentIndex: closeDelimiterPos.index, extentOffset: closeDelimiterPos.offset,
+            );
+            return (full: fullSelection, contents: contentSelection);
           }
         }
       }
-      
+
+      // Move to the previous position to continue the search.
       final prevPos = _getPreviousPosition(currentPos);
       if (prevPos == currentPos) {
-        break; // Reached the beginning of the document
+        break; // Reached the beginning of the document.
       }
       currentPos = prevPos;
     }
 
-    return null;
+    return null; // No enclosing block found.
   }
 
+
   /// Finds the position of a matching closing delimiter, respecting nested pairs.
-  /// This is the same as the helper from the bracket-matching feature.
   CodeLinePosition? _findMatchingDelimiter(CodeLinePosition start, String open, String close) {
     int stack = 1;
     CodeLinePosition currentPos = _getNextPosition(start);
@@ -304,18 +281,22 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       }
       currentPos = nextPos;
     }
-    return null;
+    return null; // No match found
   }
 
   // --- UTILITY HELPERS ---
 
-  /// Given one or two characters, returns the full delimiter pair `['open', 'close']` or null.
-  List<String>? _getDelimiterPair(String? char1, String? char2) {
+  /// Given an opening delimiter, returns its closing counterpart.
+  String _getMatchingDelimiterChar(String openChar) {
     const Map<String, String> pairs = {'(': ')', '[': ']', '{': '}', '"': '"', "'": "'"};
-    if (pairs.containsKey(char1) && pairs[char1] == char2) {
-      return [char1!, char2!];
-    }
-    return null;
+    return pairs[openChar]!;
+  }
+
+  /// Checks if two characters form a valid opening/closing pair.
+  bool _isDelimiterPair(String? char1, String? char2) {
+    if (char1 == null || char2 == null) return false;
+    final expectedClose = _getMatchingDelimiterChar(char1);
+    return char2 == expectedClose;
   }
 
   /// Gets the character at a given position.
