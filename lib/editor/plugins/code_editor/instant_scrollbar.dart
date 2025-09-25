@@ -8,13 +8,13 @@ class InstantDraggableScrollbar extends StatefulWidget {
   final double thickness;
   final Color? thumbColor;
   final Radius radius;
-  final double dragHitboxWidth; // Make the tappable area wider than the visual thumb
+  final double dragHitboxWidth;
 
   const InstantDraggableScrollbar({
     super.key,
     required this.child,
     required this.controller,
-    this.thickness = 12.0, // A wider default thickness
+    this.thickness = 12.0,
     this.thumbColor,
     this.radius = const Radius.circular(6.0),
     this.dragHitboxWidth = 30.0,
@@ -26,58 +26,67 @@ class InstantDraggableScrollbar extends StatefulWidget {
 }
 
 class _InstantDraggableScrollbarState extends State<InstantDraggableScrollbar> {
-  // A GlobalKey is needed to access the RawScrollbar's state to manually
-  // trigger the drag handling functions.
-  final GlobalKey<RawScrollbarState> _scrollbarKey = GlobalKey();
+  // These variables will hold the state of the drag interaction.
+  double _scrollOffsetOnDragStart = 0;
+  double _gesturePosOnDragStart = 0;
 
   @override
   Widget build(BuildContext context) {
-    // Determine the thumb color based on the theme if not provided.
     final theme = Theme.of(context);
     final effectiveThumbColor =
         widget.thumbColor ?? theme.colorScheme.onSurface.withOpacity(0.4);
 
     return Stack(
       children: [
-        // The main content of the editor
-        widget.child,
+        // The RawScrollbar is now just a visual indicator that listens to the controller.
+        RawScrollbar(
+          controller: widget.controller,
+          thumbVisibility: true,
+          trackVisibility: false,
+          thickness: widget.thickness,
+          radius: widget.radius,
+          thumbColor: effectiveThumbColor,
+          // We need the child to be inside the scrollbar to get the correct notifications.
+          child: widget.child,
+        ),
         
-        // Align the gesture detector and scrollbar to the right side
-        Align(
-          alignment: Alignment.centerRight,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return GestureDetector(
-                // CORRECTED: Use the handleDrag... methods which correctly accept the details object.
-                onVerticalDragStart: (details) {
-                  _scrollbarKey.currentState?.handleDragStart(details);
-                },
-                onVerticalDragUpdate: (details) {
-                  _scrollbarKey.currentState?.handleDragUpdate(details);
-                },
-                onVerticalDragEnd: (details) {
-                  _scrollbarKey.currentState?.handleDragEnd(details);
-                },
-                // The hit-testable area for the scrollbar drag
-                child: Container(
-                  width: widget.dragHitboxWidth,
-                  color: Colors.transparent, // Makes the container tappable
-                  // The visual scrollbar component
-                  child: RawScrollbar(
-                    key: _scrollbarKey,
-                    controller: widget.controller,
-                    thumbVisibility: true, // Always show the thumb
-                    trackVisibility: false,
-                    thickness: widget.thickness,
-                    radius: widget.radius,
-                    thumbColor: effectiveThumbColor,
-                    // Ensure the scrollbar updates when the content scrolls
-                    notificationPredicate: (notification) => true,
-                  ),
-                ),
-              );
-            },
-          ),
+        // The gesture detector is laid out on top to capture drag events.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GestureDetector(
+              onVerticalDragStart: (details) {
+                // Capture the state at the beginning of the drag.
+                _scrollOffsetOnDragStart = widget.controller.offset;
+                _gesturePosOnDragStart = details.globalPosition.dy;
+              },
+              onVerticalDragUpdate: (details) {
+                // Get the total scrollable distance.
+                final scrollableExtent = widget.controller.position.maxScrollExtent;
+                if (scrollableExtent <= 0) return;
+
+                // Calculate how far the user has dragged their finger.
+                final gestureDelta = details.globalPosition.dy - _gesturePosOnDragStart;
+
+                // Calculate the ratio of the scrollable content's height to the
+                // visible track's height.
+                final trackHeight = constraints.maxHeight;
+                final scrollRatio = scrollableExtent / trackHeight;
+
+                // Calculate the new scroll offset and clamp it to valid bounds.
+                final newOffset = _scrollOffsetOnDragStart + (gestureDelta * scrollRatio);
+                final clampedOffset = newOffset.clamp(0.0, scrollableExtent);
+                
+                // Tell the controller to jump to the new position.
+                widget.controller.jumpTo(clampedOffset);
+              },
+              // The hit-testable area for the scrollbar drag.
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.transparent, // Makes the entire area interactive.
+              ),
+            );
+          },
         ),
       ],
     );
