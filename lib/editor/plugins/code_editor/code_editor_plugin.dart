@@ -157,19 +157,6 @@ class CodeEditorPlugin implements EditorPlugin {
         return metadata?.isDirty ?? false;
       },
     ),
-    // ... inside CodeEditorPlugin class, in the getCommands() list ...
-
-  @override
-  List<Command> getCommands() => [
-    // ... existing commands (extend_selection, find, etc.)
-    _createCommand(
-      id: 'extend_selection',
-      label: 'Extend Selection',
-      icon: Icons.select_all,
-      defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.extendSelection(),
-      canExecute: (ref, editor) => editor != null,
-    ),
     _createCommand(
       id: 'select_line',
       label: 'Select Line',

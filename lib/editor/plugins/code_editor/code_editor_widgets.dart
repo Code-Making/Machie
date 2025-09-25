@@ -169,7 +169,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (_chunkController == null) return;
     
     // The controller method requires the list of available chunks.
-    controller.selectChunk(_chunkController!.chunks);
+    controller.selectChunk(_chunkController!.value);
     _onControllerChange();
   }
   
