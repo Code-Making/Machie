@@ -158,6 +158,14 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     ),
     _createCommand(
+      id: 'extend_selection',
+      label: 'Extend Selection',
+      icon: Icons.select_all, // A different icon to distinguish from 'Select All'
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.extendSelection(), // Method we will create
+      canExecute: (ref, editor) => editor != null,
+    ),
+    _createCommand(
       id: 'find',
       label: 'Find',
       icon: Icons.search,
