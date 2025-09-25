@@ -14,7 +14,6 @@ import 'code_editor_models.dart';
 import 'code_editor_logic.dart';
 import 'code_editor_state.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
-import 'instant_scrollbar.dart'; // <-- ADD THIS IMPORT
 
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
@@ -488,10 +487,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     // --- THIS IS THE MODIFIED SECTION ---
-    return ScrollConfiguration(
-      // Provide an instance of our custom behavior.
-      behavior: InstantDragScrollBehavior(),
-      child: Focus(
+    return Focus(
         focusNode: _focusNode,
         onKey: _handleKeyEvent,
         autofocus: true,
@@ -528,8 +524,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           ),
           wordWrap: codeEditorSettings?.wordWrap ?? false,
         ),
-      ),
-    );
+      );
     // --- END OF MODIFIED SECTION ---
   }
 }
