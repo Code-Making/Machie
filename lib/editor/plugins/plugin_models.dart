@@ -21,6 +21,7 @@ abstract class EditorPlugin {
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
   List<Command> getCommands();
+  List<Command> getAppCommands() => []; // Default to an empty list.
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
   bool supportsFile(DocumentFile file);

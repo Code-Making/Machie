@@ -48,10 +48,17 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
 
-    // REFACTOR: Add app-level commands to the registry
+    // REFACTORED: Add app-level commands from plugins.
     final allAppCommands = AppCommands.getCommands();
-    final allPluginCommands = plugins.expand((p) => p.getCommands());
-    final combinedCommands = [...allAppCommands, ...allPluginCommands];
+    final allPluginEditorCommands = plugins.expand((p) => p.getCommands());
+    final allPluginAppCommands = plugins.expand((p) => p.getAppCommands()); // <-- NEW
+    
+    // Combine them all.
+    final combinedCommands = [
+      ...allAppCommands, 
+      ...allPluginEditorCommands, 
+      ...allPluginAppCommands // <-- NEW
+    ];
 
     for (final cmd in combinedCommands) {
       _allRegisteredCommands.add(cmd);
