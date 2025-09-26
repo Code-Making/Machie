@@ -51,13 +51,15 @@ class CommandNotifier extends StateNotifier<CommandState> {
     // REFACTORED: Add app-level commands from plugins.
     final allAppCommands = AppCommands.getCommands();
     final allPluginEditorCommands = plugins.expand((p) => p.getCommands());
-    final allPluginAppCommands = plugins.expand((p) => p.getAppCommands()); // <-- NEW
-    
+    final allPluginAppCommands = plugins.expand(
+      (p) => p.getAppCommands(),
+    ); // <-- NEW
+
     // Combine them all.
     final combinedCommands = [
-      ...allAppCommands, 
-      ...allPluginEditorCommands, 
-      ...allPluginAppCommands // <-- NEW
+      ...allAppCommands,
+      ...allPluginEditorCommands,
+      ...allPluginAppCommands, // <-- NEW
     ];
 
     for (final cmd in combinedCommands) {

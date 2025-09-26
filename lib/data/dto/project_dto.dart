@@ -19,10 +19,7 @@ class TabMetadataDto {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'fileUri': fileUri,
-    'isDirty': isDirty,
-  };
+  Map<String, dynamic> toJson() => {'fileUri': fileUri, 'isDirty': isDirty};
 }
 
 // DTO for an EditorTab instance
@@ -35,16 +32,10 @@ class EditorTabDto {
   const EditorTabDto({required this.id, required this.pluginType});
 
   factory EditorTabDto.fromJson(Map<String, dynamic> json) {
-    return EditorTabDto(
-      id: json['id'],
-      pluginType: json['pluginType'],
-    );
+    return EditorTabDto(id: json['id'], pluginType: json['pluginType']);
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'pluginType': pluginType,
-  };
+  Map<String, dynamic> toJson() => {'id': id, 'pluginType': pluginType};
 }
 
 // DTO for the entire tab session
@@ -67,7 +58,9 @@ class TabSessionStateDto {
     return TabSessionStateDto(
       tabs: tabsJson.map((t) => EditorTabDto.fromJson(t)).toList(),
       currentTabIndex: json['currentTabIndex'] ?? 0,
-      tabMetadata: metadataJson.map((k, v) => MapEntry(k, TabMetadataDto.fromJson(v))),
+      tabMetadata: metadataJson.map(
+        (k, v) => MapEntry(k, TabMetadataDto.fromJson(v)),
+      ),
     );
   }
 
@@ -91,7 +84,8 @@ class ExplorerWorkspaceStateDto {
 
   factory ExplorerWorkspaceStateDto.fromJson(Map<String, dynamic> json) {
     return ExplorerWorkspaceStateDto(
-      activeExplorerPluginId: json['activeExplorerPluginId'] ?? 'com.machine.file_explorer',
+      activeExplorerPluginId:
+          json['activeExplorerPluginId'] ?? 'com.machine.file_explorer',
       pluginStates: Map<String, dynamic>.from(json['pluginStates'] ?? {}),
     );
   }
@@ -101,7 +95,6 @@ class ExplorerWorkspaceStateDto {
     'pluginStates': pluginStates,
   };
 }
-
 
 // UPDATED: ProjectDto now includes the workspace DTO.
 @immutable

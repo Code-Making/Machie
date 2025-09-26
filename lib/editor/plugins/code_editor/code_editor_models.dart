@@ -60,7 +60,9 @@ class CodeEditorSettings extends PluginSettings {
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
     themeName = json['themeName'] ?? 'Atom One Dark';
-    fontHeight = json['fontHeight']?.toDouble(); // <-- ADDED (will be null if not present)
+    fontHeight =
+        json['fontHeight']
+            ?.toDouble(); // <-- ADDED (will be null if not present)
   }
 
   CodeEditorSettings copyWith({
@@ -78,7 +80,10 @@ class CodeEditorSettings extends PluginSettings {
       themeName: themeName ?? this.themeName,
       // If the special flag is set, force fontHeight to be null.
       // Otherwise, use the provided value or the existing one.
-      fontHeight: setFontHeightToNull ? null : (fontHeight ?? this.fontHeight), // <-- ADDED
+      fontHeight:
+          setFontHeightToNull
+              ? null
+              : (fontHeight ?? this.fontHeight), // <-- ADDED
     );
   }
 }

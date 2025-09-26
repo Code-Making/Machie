@@ -24,7 +24,8 @@ class ExplorerWorkspaceState {
     Map<String, dynamic>? pluginStates,
   }) {
     return ExplorerWorkspaceState(
-      activeExplorerPluginId: activeExplorerPluginId ?? this.activeExplorerPluginId,
+      activeExplorerPluginId:
+          activeExplorerPluginId ?? this.activeExplorerPluginId,
       pluginStates: pluginStates ?? this.pluginStates,
     );
   }

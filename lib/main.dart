@@ -22,7 +22,7 @@ import 'settings/settings_screen.dart';
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(cacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
-  
+
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
@@ -71,6 +71,7 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
     ),
   );
 }
+
 //iii
 // NEW: A provider that builds and returns the theme configuration.
 final themeConfigProvider = Provider((ref) {
@@ -106,17 +107,19 @@ void main() {
       printStateFullData: false, // Truncate long state objects
     ),
   );
-  
-  WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-  
-  // --- 3. SET THE SYSTEM UI STYLE ---
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    // This makes the system navigation bar background black.
-    systemNavigationBarColor: Color(0xFF2B2B29),
 
-    // This makes the icons on the navigation bar (back, home, etc.) white.
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
+
+  // --- 3. SET THE SYSTEM UI STYLE ---
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      // This makes the system navigation bar background black.
+      systemNavigationBarColor: Color(0xFF2B2B29),
+
+      // This makes the icons on the navigation bar (back, home, etc.) white.
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
   runZonedGuarded(
     () {

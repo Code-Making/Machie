@@ -24,7 +24,9 @@ class _GoToLineDialogState extends State<GoToLineDialog> {
   void initState() {
     super.initState();
     // Display the current line number + 1 (since users think in 1-based indexing)
-    _controller = TextEditingController(text: (widget.currentLine + 1).toString());
+    _controller = TextEditingController(
+      text: (widget.currentLine + 1).toString(),
+    );
   }
 
   @override
@@ -78,10 +80,7 @@ class _GoToLineDialogState extends State<GoToLineDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Go'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Go')),
       ],
     );
   }

@@ -7,7 +7,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 // import '../../../data/file_handler/file_handler.dart'; // REMOVED
 import '../../editor_tab_models.dart';
-import '../plugin_models.dart';
 
 @immutable
 class GlitchEditorTab extends EditorTab {

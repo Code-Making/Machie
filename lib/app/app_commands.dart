@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import '../command/command_models.dart';
 import 'app_notifier.dart';
 
-
 class AppCommands {
-    
   static const String scratchpadTabId = 'internal_scratchpad_tab';
-    
+
   static List<Command> getCommands() => [
     BaseCommand(
       id: 'show_logs',

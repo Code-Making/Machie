@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
-import 'settings_models.dart';
 
 // NEW: A map of available accent colors for the UI.
 const Map<String, Color> kAccentColors = {

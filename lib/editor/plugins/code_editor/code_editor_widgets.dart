@@ -3,7 +3,6 @@
 // =========================================
 
 // lib/plugins/code_editor/code_editor_widgets.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -37,10 +36,7 @@ class _BracketHighlightState {
 class CodeEditorMachine extends ConsumerStatefulWidget {
   final CodeEditorTab tab;
 
-  const CodeEditorMachine({
-    super.key,
-    required this.tab,
-  });
+  const CodeEditorMachine({super.key, required this.tab});
 
   @override
   CodeEditorMachineState createState() => CodeEditorMachineState();
@@ -53,13 +49,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   late final CodeFindController findController;
   CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
-  
+
   _BracketHighlightState _bracketHighlightState =
       const _BracketHighlightState();
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
-  
+
   bool _wasSelectionActive = false;
 
   // --- PUBLIC PROPERTIES (for the command system) ---
@@ -79,7 +75,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       // This should not happen in a normal flow. Handle gracefully.
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
-    
+
     _languageKey = CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
@@ -87,23 +83,24 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
     );
-    
+
     findController = CodeFindController(controller);
-    
+
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange); // <-- NEW LISTENER
     // This listener is the key to the whole feature.
     // It watches for a change in the 'hasSelection' state and does something
     // (a "side effect") without causing this widget to rebuild.
-    _updateStateProvider(); 
+    _updateStateProvider();
   }
-  
+
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
     // This is now the correct way to react to a file rename.
     // The widget itself is reused, but we listen for changes in the metadata provider.
-    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri =
+        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
@@ -114,27 +111,33 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       });
     }
   }
-  
-    // NEW METHOD: A helper to build the contextual AppBar.
+
+  // NEW METHOD: A helper to build the contextual AppBar.
   Widget _buildSelectionAppBar() {
     final plugin = widget.tab.plugin as CodeEditorPlugin;
-    
+
     // We find all our commands by ID from the plugin's command list.
     final allCommands = plugin.getCommands();
     final cutCommand = allCommands.firstWhere((c) => c.id == 'cut');
     final copyCommand = allCommands.firstWhere((c) => c.id == 'copy');
     final pasteCommand = allCommands.firstWhere((c) => c.id == 'paste');
-    final commentCommand = allCommands.firstWhere((c) => c.id == 'toggle_comment');     // <-- ADDED
-    final moveLineUpCommand = allCommands.firstWhere((c) => c.id == 'move_line_up');   // <-- ADDED
-    final moveLineDownCommand = allCommands.firstWhere((c) => c.id == 'move_line_down'); // <-- ADDED
+    final commentCommand = allCommands.firstWhere(
+      (c) => c.id == 'toggle_comment',
+    ); // <-- ADDED
+    final moveLineUpCommand = allCommands.firstWhere(
+      (c) => c.id == 'move_line_up',
+    ); // <-- ADDED
+    final moveLineDownCommand = allCommands.firstWhere(
+      (c) => c.id == 'move_line_down',
+    ); // <-- ADDED
 
     return CodeEditorSelectionAppBar(
       cutCommand: cutCommand,
       copyCommand: copyCommand,
       pasteCommand: pasteCommand,
-      commentCommand: commentCommand,          // <-- ADDED
-      moveLineUpCommand: moveLineUpCommand,      // <-- ADDED
-      moveLineDownCommand: moveLineDownCommand,  // <-- ADDED
+      commentCommand: commentCommand, // <-- ADDED
+      moveLineUpCommand: moveLineUpCommand, // <-- ADDED
+      moveLineDownCommand: moveLineDownCommand, // <-- ADDED
     );
   }
 
@@ -142,7 +145,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void dispose() {
     // Check if an override is active and clear it. This is good practice.
     if (_wasSelectionActive) {
-        ref.read(appNotifierProvider.notifier).clearAppBarOverride();
+      ref.read(appNotifierProvider.notifier).clearAppBarOverride();
     }
     findController.dispose();
     controller.dirty.removeListener(_onDirtyStateChange);
@@ -153,7 +156,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   // --- LOGIC AND METHODS ---
-  
+
   Future<void> showGoToLineDialog() async {
     if (!mounted) return;
 
@@ -164,10 +167,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     final int? targetLineIndex = await showDialog<int>(
       context: context,
-      builder: (ctx) => GoToLineDialog(
-        maxLine: maxLines,
-        currentLine: currentLine,
-      ),
+      builder:
+          (ctx) => GoToLineDialog(maxLine: maxLines, currentLine: currentLine),
     );
 
     if (targetLineIndex != null) {
@@ -179,14 +180,16 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       );
 
       // 2. Move the cursor by setting the controller's selection.
-      controller.selection = CodeLineSelection.fromPosition(position: targetPosition);
+      controller.selection = CodeLineSelection.fromPosition(
+        position: targetPosition,
+      );
 
       // 3. Ensure the new cursor position is visible.
       controller.makePositionCenterIfInvisible(targetPosition);
     }
   }
-  
-    /// Selects the full line where the cursor's selection starts.
+
+  /// Selects the full line where the cursor's selection starts.
   void selectCurrentLine() {
     // Get the line index of where the selection begins.
     final int currentIndex = controller.selection.start.index;
@@ -200,13 +203,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // We must have a reference to the chunk controller, which is provided
     // by the editor's indicatorBuilder.
     if (_chunkController == null) return;
-    
+
     // The controller method requires the list of available chunks.
     controller.selectChunk(_chunkController!.value);
     _onControllerChange();
   }
-  
-    void extendSelection() {
+
+  void extendSelection() {
     final CodeLineSelection currentSelection = controller.selection;
     CodeLineSelection? newSelection;
 
@@ -233,9 +236,10 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   /// Finds the smallest block that fully contains the [selection].
   /// Returns a record containing the full block selection and the content-only selection.
-  ({CodeLineSelection full, CodeLineSelection contents})? _findSmallestEnclosingBlock(CodeLineSelection selection) {
+  ({CodeLineSelection full, CodeLineSelection contents})?
+  _findSmallestEnclosingBlock(CodeLineSelection selection) {
     const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
-    
+
     // Start our search scanning backwards from the beginning of the user's selection.
     CodeLinePosition scanPos = selection.start;
 
@@ -249,21 +253,29 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         final closeChar = _getMatchingDelimiterChar(openChar);
 
         // We found a candidate. Now, verify it by finding its real partner.
-        final closeDelimiterPos = _findMatchingDelimiter(openDelimiterPos, openChar, closeChar);
+        final closeDelimiterPos = _findMatchingDelimiter(
+          openDelimiterPos,
+          openChar,
+          closeChar,
+        );
 
         if (closeDelimiterPos != null) {
           // We have a valid pair. Create a selection for the full block.
           final fullBlockSelection = CodeLineSelection(
-            baseIndex: openDelimiterPos.index, baseOffset: openDelimiterPos.offset,
-            extentIndex: closeDelimiterPos.index, extentOffset: closeDelimiterPos.offset + 1,
+            baseIndex: openDelimiterPos.index,
+            baseOffset: openDelimiterPos.offset,
+            extentIndex: closeDelimiterPos.index,
+            extentOffset: closeDelimiterPos.offset + 1,
           );
 
           // The final, critical check: Does this valid block contain our original selection?
           if (fullBlockSelection.contains(selection)) {
             // Success! This is the smallest valid block.
             final contentSelection = CodeLineSelection(
-              baseIndex: openDelimiterPos.index, baseOffset: openDelimiterPos.offset + 1,
-              extentIndex: closeDelimiterPos.index, extentOffset: closeDelimiterPos.offset,
+              baseIndex: openDelimiterPos.index,
+              baseOffset: openDelimiterPos.offset + 1,
+              extentIndex: closeDelimiterPos.index,
+              extentOffset: closeDelimiterPos.offset,
             );
             return (full: fullBlockSelection, contents: contentSelection);
           }
@@ -281,10 +293,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return null; // No enclosing block was found.
   }
 
-
   /// Finds the position of a matching closing delimiter, respecting nested pairs.
   /// This is the same trusted function used for bracket highlighting.
-  CodeLinePosition? _findMatchingDelimiter(CodeLinePosition start, String open, String close) {
+  CodeLinePosition? _findMatchingDelimiter(
+    CodeLinePosition start,
+    String open,
+    String close,
+  ) {
     int stack = 1;
     CodeLinePosition currentPos = _getNextPosition(start);
 
@@ -292,7 +307,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       final char = _getChar(currentPos);
       if (char != null) {
         // For non-quote pairs, handle nesting.
-        if (char == open && open != close) { 
+        if (char == open && open != close) {
           stack++;
         } else if (char == close) {
           stack--;
@@ -301,7 +316,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           return currentPos;
         }
       }
-      
+
       final nextPos = _getNextPosition(currentPos);
       if (nextPos == currentPos) {
         break; // Reached end of document
@@ -315,7 +330,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   /// Given an opening delimiter, returns its closing counterpart.
   String _getMatchingDelimiterChar(String openChar) {
-    const Map<String, String> pairs = {'(': ')', '[': ']', '{': '}', '"': '"', "'": "'"};
+    const Map<String, String> pairs = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '"': '"',
+      "'": "'",
+    };
     return pairs[openChar]!;
   }
 
@@ -338,7 +359,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     }
     return pos; // At start of document
   }
-  
+
   /// Gets the character position immediately after the given one.
   CodeLinePosition _getNextPosition(CodeLinePosition pos) {
     final line = controller.codeLines[pos.index].text;
@@ -351,7 +372,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return pos; // At end of document
   }
 
-    // --- NEW PUBLIC METHODS for Commands ---
+  // --- NEW PUBLIC METHODS for Commands ---
   void showFindPanel() {
     findController.findMode();
   }
@@ -359,8 +380,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void showReplacePanel() {
     findController.replaceMode();
   }
-  
-    // NEW METHOD: Handles changes from controller.dirty
+
+  // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
     if (!mounted) return;
 
@@ -374,7 +395,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   void _onControllerChange() {
     if (!mounted) return;
-    
+
     // 1. First, handle UI-specific updates that need setState.
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
@@ -385,7 +406,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     // 3. Now, handle the AppBar override side-effect.
     final isSelectionActive = !controller.selection.isCollapsed;
-    
+
     // Only trigger the side-effect if the selection state has *changed*.
     if (isSelectionActive != _wasSelectionActive) {
       final appNotifier = ref.read(appNotifierProvider.notifier);
@@ -411,18 +432,20 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       controller.markCurrentStateAsClean(); // <-- USE NEW API
     }
   }
-  
-    /// Returns the current unsaved state of the editor for caching.
+
+  /// Returns the current unsaved state of the editor for caching.
   Map<String, dynamic> getHotState() {
     return {
       // The key 'content' will be used to identify this data during rehydration.
       'content': controller.text,
     };
   }
-  
-    // NEW METHOD: Centralizes updating the state provider.
+
+  // NEW METHOD: Centralizes updating the state provider.
   void _updateStateProvider() {
-    ref.read(codeEditorStateProvider(widget.tab.id).notifier).update(
+    ref
+        .read(codeEditorStateProvider(widget.tab.id).notifier)
+        .update(
           canUndo: controller.canUndo,
           canRedo: controller.canRedo,
           hasMark: _markPosition != null,
@@ -465,7 +488,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     );
     controller.runRevocableOp(() => controller.value = formatted);
   }
-  
+
   Future<void> showLanguageSelectionDialog() async {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
@@ -495,7 +518,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       });
     }
   }
-  
+
   // ... (bracket highlighting logic is unchanged) ...
   _BracketHighlightState _calculateBracketHighlights() {
     final selection = controller.selection;
@@ -654,43 +677,43 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     processSpan(textSpan);
     return TextSpan(children: builtSpans, style: style);
   }
-  
-    KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-        if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
-            final arrowKeyDirections = {
+
+  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+    final arrowKeyDirections = {
       LogicalKeyboardKey.arrowUp: AxisDirection.up,
       LogicalKeyboardKey.arrowDown: AxisDirection.down,
       LogicalKeyboardKey.arrowLeft: AxisDirection.left,
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
-        final direction = arrowKeyDirections[event.logicalKey];
-        final shiftPressed = event.isShiftPressed;
-        
-        if (direction != null) {
-          if (shiftPressed) {
-            controller.extendSelection(direction);
-          } else {
-            controller.moveCursor(direction);
-          }
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+    final direction = arrowKeyDirections[event.logicalKey];
+    final shiftPressed = event.isShiftPressed;
+
+    if (direction != null) {
+      if (shiftPressed) {
+        controller.extendSelection(direction);
+      } else {
+        controller.moveCursor(direction);
       }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
     // ... (ref.listen and settings logic at the top of build is unchanged) ...
-    ref.listen(
-      tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri),
-      (previous, next) {
-        if (previous != next && next != null) {
-          setState(() {
-            _languageKey = CodeThemes.inferLanguageKey(next);
-            _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
-          });
-        }
-      },
-    );
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
+      previous,
+      next,
+    ) {
+      if (previous != next && next != null) {
+        setState(() {
+          _languageKey = CodeThemes.inferLanguageKey(next);
+          _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
+        });
+      }
+    });
 
     final codeEditorSettings = ref.watch(
       settingsProvider.select(
@@ -701,52 +724,48 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
-        focusNode: _focusNode,
-        onKey: _handleKeyEvent,
-        autofocus: true,
-        child: CodeEditor(
-          controller: controller,
-          findController: findController,
-          findBuilder: (context, controller, readOnly) {
-            return CodeFindPanelView(
-              controller: controller,
-              readOnly: readOnly,
-            );
-          },
-          commentFormatter: _commentFormatter,
-          
-          // REMOVED: The scrollbarBuilder is no longer needed because
-          // the ScrollBehavior is now handling scrollbar creation for us.
-          // scrollbarBuilder: (context, child, details) { ... },
-          
-          indicatorBuilder: (
-            context,
-            editingController,
-            chunkController,
-            notifier,
-          ) {
-            _chunkController = chunkController;
-            return CustomEditorIndicator(
-              controller: editingController,
-              chunkController: chunkController,
-              notifier: notifier,
-              bracketHighlightState: _bracketHighlightState,
-            );
-          },
-          style: CodeEditorStyle(
-            fontHeight: codeEditorSettings?.fontHeight, 
-            fontSize: codeEditorSettings?.fontSize ?? 12.0,
-            fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-            codeTheme: CodeHighlightTheme(
-              theme:
-                  CodeThemes.availableCodeThemes[selectedThemeName] ??
-                  CodeThemes.availableCodeThemes['Atom One Dark']!,
-              languages: CodeThemes.getHighlightThemeMode(_languageKey),
-            ),
+      focusNode: _focusNode,
+      onKey: _handleKeyEvent,
+      autofocus: true,
+      child: CodeEditor(
+        controller: controller,
+        findController: findController,
+        findBuilder: (context, controller, readOnly) {
+          return CodeFindPanelView(controller: controller, readOnly: readOnly);
+        },
+        commentFormatter: _commentFormatter,
+
+        // REMOVED: The scrollbarBuilder is no longer needed because
+        // the ScrollBehavior is now handling scrollbar creation for us.
+        // scrollbarBuilder: (context, child, details) { ... },
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
+          _chunkController = chunkController;
+          return CustomEditorIndicator(
+            controller: editingController,
+            chunkController: chunkController,
+            notifier: notifier,
+            bracketHighlightState: _bracketHighlightState,
+          );
+        },
+        style: CodeEditorStyle(
+          fontHeight: codeEditorSettings?.fontHeight,
+          fontSize: codeEditorSettings?.fontSize ?? 12.0,
+          fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+          codeTheme: CodeHighlightTheme(
+            theme:
+                CodeThemes.availableCodeThemes[selectedThemeName] ??
+                CodeThemes.availableCodeThemes['Atom One Dark']!,
+            languages: CodeThemes.getHighlightThemeMode(_languageKey),
           ),
-          wordWrap: codeEditorSettings?.wordWrap ?? false,
         ),
-      );
+        wordWrap: codeEditorSettings?.wordWrap ?? false,
+      ),
+    );
     // --- END OF MODIFIED SECTION ---
   }
 }
@@ -835,17 +854,17 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
   final Command cutCommand;
   final Command copyCommand;
   final Command pasteCommand;
-  final Command commentCommand;       // <-- ADDED
-  final Command moveLineUpCommand;    // <-- ADDED
-  final Command moveLineDownCommand;  // <-- ADDED
+  final Command commentCommand; // <-- ADDED
+  final Command moveLineUpCommand; // <-- ADDED
+  final Command moveLineDownCommand; // <-- ADDED
 
   const CodeEditorSelectionAppBar({
     super.key,
     required this.cutCommand,
     required this.copyCommand,
     required this.pasteCommand,
-    required this.commentCommand,      // <-- ADDED
-    required this.moveLineUpCommand,   // <-- ADDED
+    required this.commentCommand, // <-- ADDED
+    required this.moveLineUpCommand, // <-- ADDED
     required this.moveLineDownCommand, // <-- ADDED
   });
 
@@ -864,11 +883,14 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
               // The contextual commands.
               children: [
                 // Use a Spacer to push the other commands to the right
-                const Spacer(), 
+                const Spacer(),
                 CommandButton(command: commentCommand),
                 CommandButton(command: moveLineUpCommand),
                 CommandButton(command: moveLineDownCommand),
-                const VerticalDivider(indent: 12, endIndent: 12), // Visual separator
+                const VerticalDivider(
+                  indent: 12,
+                  endIndent: 12,
+                ), // Visual separator
                 CommandButton(command: cutCommand),
                 CommandButton(command: copyCommand),
                 CommandButton(command: pasteCommand),

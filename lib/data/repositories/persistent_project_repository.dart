@@ -8,10 +8,8 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 // import 'package:flutter_riverpod/flutter_riverpod.dart'; // REMOVED: No longer needed
 import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
 import 'project_repository.dart';
 import '../../data/dto/project_dto.dart'; // ADDED
-
 
 const _projectFileName = 'project.json';
 
@@ -28,7 +26,9 @@ class PersistentProjectRepository implements ProjectRepository {
       _projectDataPath,
       includeHidden: true,
     );
-    final projectFile = files.firstWhereOrNull((f) => f.name == _projectFileName);
+    final projectFile = files.firstWhereOrNull(
+      (f) => f.name == _projectFileName,
+    );
 
     if (projectFile != null) {
       try {
@@ -38,17 +38,31 @@ class PersistentProjectRepository implements ProjectRepository {
       } catch (e) {
         // Fallback for corrupted file. Return a fresh, empty DTO.
         return const ProjectDto(
-          session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}),
+          session: TabSessionStateDto(
+            tabs: [],
+            currentTabIndex: 0,
+            tabMetadata: {},
+          ),
           // FIXED: Provide the required 'workspace' argument.
-          workspace: ExplorerWorkspaceStateDto(activeExplorerPluginId: 'com.machine.file_explorer', pluginStates: {}),
+          workspace: ExplorerWorkspaceStateDto(
+            activeExplorerPluginId: 'com.machine.file_explorer',
+            pluginStates: {},
+          ),
         );
       }
     } else {
       // Return a fresh, empty DTO if no file exists.
       return const ProjectDto(
-        session: TabSessionStateDto(tabs: [], currentTabIndex: 0, tabMetadata: {}),
+        session: TabSessionStateDto(
+          tabs: [],
+          currentTabIndex: 0,
+          tabMetadata: {},
+        ),
         // FIXED: Provide the required 'workspace' argument.
-        workspace: ExplorerWorkspaceStateDto(activeExplorerPluginId: 'com.machine.file_explorer', pluginStates: {}),
+        workspace: ExplorerWorkspaceStateDto(
+          activeExplorerPluginId: 'com.machine.file_explorer',
+          pluginStates: {},
+        ),
       );
     }
   }
@@ -89,7 +103,9 @@ class PersistentProjectRepository implements ProjectRepository {
   }
 
   @override
-  Future<void> deleteDocumentFile(/* REMOVED: Ref ref,*/ DocumentFile file) async {
+  Future<void> deleteDocumentFile(
+    /* REMOVED: Ref ref,*/ DocumentFile file,
+  ) async {
     // REMOVED: parentUri calculation and ref.read() calls. This moves to the service.
     await fileHandler.deleteDocumentFile(file);
   }

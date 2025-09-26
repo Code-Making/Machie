@@ -13,8 +13,7 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
-import '../../tab_state_manager.dart';
-import 'glitch_editor_math.dart'; // ADDED MISSING IMPORT
+// ADDED MISSING IMPORT
 
 class GlitchEditorWidget extends ConsumerStatefulWidget {
   final GlitchEditorTab tab;
@@ -102,19 +101,21 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     );
     _imageScale = destinationSize.width / imageSize.width;
   }
-  
+
   // --- PUBLIC API FOR CACHING ---
-  
+
   /// Returns the current unsaved state of the editor for caching.
   /// This is an async operation because encoding an image takes time.
   Future<Map<String, dynamic>?> getHotState() async {
     if (_displayImage == null) return null;
 
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    final byteData = await _displayImage!.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     if (byteData == null) return null;
-    
+
     final Uint8List bytes = byteData.buffer.asUint8List();
-    
+
     return {
       // The key 'imageData' will be used to identify this data during rehydration.
       'imageData': bytes,
@@ -149,7 +150,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       _isToolbarVisible = !_isToolbarVisible;
     });
   }
-  
+
   void updateOriginalImage() {
     if (_displayImage == null) return;
     setState(() {
@@ -259,7 +260,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     // The service marks the current tab as dirty by its ID.
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
-  
+
   // ... (all glitch logic and build method are unchanged) ...
   void _applyEffectToCanvas(
     Canvas canvas,

@@ -39,7 +39,7 @@ class HiveCacheRepository implements CacheRepository {
     if (value == null) {
       return null;
     }
-    
+
     _talker.verbose('CACHE GET: box="$boxName", key="$key"');
 
     try {
@@ -50,13 +50,13 @@ class HiveCacheRepository implements CacheRepository {
         // specifically requests Future<Map<String, dynamic>?>.
         return Map<String, dynamic>.from(value) as T?;
       }
-      
+
       // If it's a simple type (String, int, etc.), this cast will work directly.
       return value as T?;
     } catch (e) {
       _talker.error(
         'HiveCacheRepository: Failed to cast value for key "$key" in box "$boxName". '
-        'Expected type $T but got ${value.runtimeType}. Error: $e'
+        'Expected type $T but got ${value.runtimeType}. Error: $e',
       );
       return null;
     }
@@ -67,18 +67,18 @@ class HiveCacheRepository implements CacheRepository {
   Future<void> put<T>(String boxName, String key, T value) async {
     final box = await _openBox(boxName); // No type argument needed here.
     await box.put(key, value);
-    
+
     String formattedValue;
     if (value is Map) {
       formattedValue = const JsonEncoder.withIndent('  ').convert(value);
     } else {
       formattedValue = value.toString();
     }
-    
+
     _talker.verbose(
-      'CACHE PUT: box="$boxName", key="$key"\nValue:\n$formattedValue'
+      'CACHE PUT: box="$boxName", key="$key"\nValue:\n$formattedValue',
     );
-        await box.flush();
+    await box.flush();
   }
 
   // --- The rest of the file is unchanged and correct ---

@@ -2,7 +2,6 @@
 // NEW FILE: lib/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart
 // =========================================
 
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 

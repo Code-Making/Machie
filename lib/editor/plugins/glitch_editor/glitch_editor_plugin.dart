@@ -13,8 +13,6 @@ import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
-import 'glitch_toolbar.dart';
-import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
 import 'package:machine/data/dto/tab_hot_state_dto.dart'; // ADDED
 import 'package:machine/data/cache/type_adapters.dart'; // ADDED
@@ -57,7 +55,11 @@ class GlitchEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id}) async {
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    dynamic data, {
+    String? id,
+  }) async {
     // REFACTORED: The 'file' is no longer part of the tab model.
     // The EditorService will handle associating it with the tab's ID.
     return GlitchEditorTab(plugin: this, initialImageData: data, id: id);
@@ -90,13 +92,14 @@ class GlitchEditorPlugin implements EditorPlugin {
   Widget buildToolbar(WidgetRef ref) {
     return const BottomToolbar();
   }
-  
+
   @override
   String get hotStateDtoType => 'com.machine.glitch_editor_state';
 
   @override
-  TypeAdapter<TabHotStateDto> get hotStateAdapter => GlitchEditorHotStateAdapter();
-  
+  TypeAdapter<TabHotStateDto> get hotStateAdapter =>
+      GlitchEditorHotStateAdapter();
+
   /// Helper to get the active editor's state object.
   GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is GlitchEditorWidgetState) {
@@ -104,16 +107,18 @@ class GlitchEditorPlugin implements EditorPlugin {
     }
     return null;
   }
-  
+
   @override
   Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
-    
+
     final stateMap = await editorState.getHotState();
     if (stateMap == null || stateMap['imageData'] == null) return null;
 
-    return GlitchEditorHotStateDto(imageData: stateMap['imageData'] as Uint8List);
+    return GlitchEditorHotStateDto(
+      imageData: stateMap['imageData'] as Uint8List,
+    );
   }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
@@ -125,7 +130,7 @@ class GlitchEditorPlugin implements EditorPlugin {
     if (tab is! GlitchEditorTab) return null;
     return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
-  
+
   @override
   List<Command> getAppCommands() => [];
 
@@ -140,9 +145,15 @@ class GlitchEditorPlugin implements EditorPlugin {
       execute: (ref) async => await _getActiveEditorState(ref)?.save(),
       // REFACTORED: Check the dirty status from the metadata provider.
       canExecute: (ref) {
-        final activeTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        final activeTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (activeTabId == null) return false;
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[activeTabId]));
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[activeTabId]),
+        );
         return metadata?.isDirty ?? false;
       },
     ),
@@ -164,9 +175,15 @@ class GlitchEditorPlugin implements EditorPlugin {
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // REFACTORED: Also check the dirty status from the metadata provider.
       canExecute: (ref) {
-        final activeTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        final activeTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (activeTabId == null) return false;
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[activeTabId]));
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[activeTabId]),
+        );
         return metadata?.isDirty ?? false;
       },
     ),
@@ -181,8 +198,9 @@ class GlitchEditorPlugin implements EditorPlugin {
       ),
       defaultPosition: CommandPosition.pluginToolbar,
       sourcePlugin: runtimeType.toString(),
-      execute: (ref) async =>
-          ref.read(isZoomModeProvider.notifier).update((state) => !state),
+      execute:
+          (ref) async =>
+              ref.read(isZoomModeProvider.notifier).update((state) => !state),
     ),
     BaseCommand(
       id: 'toggle_brush_settings',

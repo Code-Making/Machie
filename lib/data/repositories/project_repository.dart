@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
 import 'project_hierarchy_cache.dart';
 import '../../logs/logs_provider.dart';
 import '../../data/dto/project_dto.dart'; // ADDED
@@ -60,7 +59,6 @@ final projectHierarchyProvider = StateNotifierProvider.autoDispose<
 final projectRepositoryProvider = StateProvider<ProjectRepository?>(
   (ref) => null,
 );
-
 
 // REFACTORED: The ProjectRepository interface is now pure and has no knowledge of `Ref`.
 abstract class ProjectRepository {
