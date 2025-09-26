@@ -15,6 +15,7 @@ import 'code_editor_logic.dart';
 import 'code_editor_state.dart';
 import 'code_editor_plugin.dart'; // ADDED: For type cast
 import 'code_find_panel_view.dart';
+import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
 
 import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
