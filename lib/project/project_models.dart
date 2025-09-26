@@ -109,3 +109,33 @@ class Project {
     );
   }
 }
+
+
+@immutable
+class VirtualDocumentFile implements DocumentFile {
+  @override
+  final String uri;
+
+  @override
+  final String name;
+
+  @override
+  final bool isDirectory;
+
+  @override
+  final int size;
+
+  @override
+  final DateTime modifiedDate;
+
+  @override
+  final String mimeType;
+
+  const VirtualDocumentFile({
+    required this.uri,
+    required this.name,
+    this.isDirectory = false,
+    this.size = 0,
+    this.mimeType = 'text/plain',
+  }) : modifiedDate = DateTime.now();
+}
