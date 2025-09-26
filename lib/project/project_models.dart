@@ -111,7 +111,7 @@ class Project {
 }
 
 
-@/// A concrete implementation of DocumentFile for in-memory or virtual files...
+// A concrete implementation of DocumentFile for in-memory or virtual files...
 @immutable
 class VirtualDocumentFile implements DocumentFile {
   @override

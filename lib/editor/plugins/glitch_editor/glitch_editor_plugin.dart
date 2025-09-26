@@ -125,6 +125,9 @@ class GlitchEditorPlugin implements EditorPlugin {
     if (tab is! GlitchEditorTab) return null;
     return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
+  
+  @override
+  List<Command> getAppCommands() => [];
 
   @override
   List<Command> getCommands() => [
