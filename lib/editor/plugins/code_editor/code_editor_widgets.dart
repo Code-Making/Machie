@@ -734,6 +734,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             );
           },
           style: CodeEditorStyle(
+            fontHeight: codeEditorSettings?.fontHeight, 
             fontSize: codeEditorSettings?.fontSize ?? 12.0,
             fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
             codeTheme: CodeHighlightTheme(
