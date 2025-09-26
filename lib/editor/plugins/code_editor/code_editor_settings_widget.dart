@@ -35,6 +35,24 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
               (value) =>
                   _updateSettings(_currentSettings.copyWith(wordWrap: value)),
         ),
+                // --- NEW FONT HEIGHT SLIDER ---
+        Text('Line Height: ${currentFontHeightValue < 1.0 ? "Default" : currentFontHeightValue.toStringAsFixed(2)}'),
+        Slider(
+          value: currentFontHeightValue,
+          min: 0.9, // The "default" or null value
+          max: 2.0,
+          divisions: 11, // (2.0 - 0.9) / 0.1 = 11 steps
+          label: currentFontHeightValue < 1.0 ? "Default" : currentFontHeightValue.toStringAsFixed(2),
+          onChanged: (value) {
+            if (value < 1.0) {
+              // If the user slides below 1.0, we set the fontHeight to null.
+              _updateSettings(_currentSettings.copyWith(setFontHeightToNull: true));
+            } else {
+              // Otherwise, we update it with the new value.
+              _updateSettings(_currentSettings.copyWith(fontHeight: value));
+            }
+          },
+        ),
         Slider(
           value: _currentSettings.fontSize,
           min: 8,
