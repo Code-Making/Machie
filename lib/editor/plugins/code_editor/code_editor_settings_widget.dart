@@ -26,6 +26,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
 
   @override
   Widget build(BuildContext context) {
+    final double currentFontHeightValue = _currentSettings.fontHeight ?? 0.9;
     return Column(
       children: [
         SwitchListTile(
