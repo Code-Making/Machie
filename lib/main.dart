@@ -6,14 +6,14 @@ import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_notifier.dart';
-import 'app/lifecycle.dart';
 import 'app/app_screen.dart';
-import 'command/command_notifier.dart'; // NEW IMPORT
-import 'settings/settings_notifier.dart'; // NEW IMPORT
-import 'settings/settings_screen.dart';
+import 'app/lifecycle.dart';
 import 'data/persistence_service.dart';
+import 'command/command_notifier.dart'; // NEW IMPORT
 import 'logs/logs_provider.dart';
 import 'project/services/cache_service.dart'; // ADDED
+import 'settings/settings_notifier.dart'; // NEW IMPORT
+import 'settings/settings_screen.dart';
 
 // --------------------
 //   Global Providers
