@@ -111,6 +111,7 @@ class Project {
 }
 
 
+@/// A concrete implementation of DocumentFile for in-memory or virtual files...
 @immutable
 class VirtualDocumentFile implements DocumentFile {
   @override
@@ -126,12 +127,13 @@ class VirtualDocumentFile implements DocumentFile {
   final int size;
 
   @override
-  final DateTime modifiedDate;
+  final DateTime modifiedDate; // <-- Still final
 
   @override
   final String mimeType;
 
-  const VirtualDocumentFile({
+  // CONSTRUCTOR is no longer const. It now initializes modifiedDate.
+  VirtualDocumentFile({
     required this.uri,
     required this.name,
     this.isDirectory = false,

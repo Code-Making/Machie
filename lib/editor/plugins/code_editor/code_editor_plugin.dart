@@ -25,6 +25,13 @@ import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dar
 import 'package:machine/editor/plugins/code_editor/code_editor_widgets.dart';
 import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 
+import 'package:collection/collection.dart';
+import '../../../app/app_commands.dart'; // Import for scratchpadTabId
+import '../../../project/services/cache_service.dart';
+import '../../tab_state_manager.dart';
+import '../../../project/project_models.dart';
+import 'code_editor_hot_state_dto.dart'; // <-- Now a valid import here
+
 class CodeEditorPlugin implements EditorPlugin {
   @override
   String get name => 'Code Editor';
@@ -137,6 +144,72 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
+  
+  @override
+  List<Command> getAppCommands() => [
+    BaseCommand(
+      id: 'open_scratchpad',
+      label: 'Open Scratchpad',
+      icon: const Icon(Icons.edit_note),
+      defaultPosition: CommandPosition.appBar,
+      sourcePlugin: 'App', // Keep 'App' source to appear globally
+      canExecute: (ref) => ref.watch(appNotifierProvider.select((s) => s.value?.currentProject != null)),
+      execute: (ref) async {
+        final appNotifier = ref.read(appNotifierProvider.notifier);
+        final project = ref.read(appNotifierProvider).value!.currentProject!;
+        
+        // 1. Check if the scratchpad tab is already open.
+        final existingTab = project.session.tabs.firstWhereOrNull(
+          (t) => t.id == AppCommands.scratchpadTabId
+        );
+        if (existingTab != null) {
+          final index = project.session.tabs.indexOf(existingTab);
+          appNotifier.switchTab(index);
+          return;
+        }
+
+        // 2. If not open, create it.
+        final cacheService = ref.read(cacheServiceProvider);
+        // We know `this` is the code editor plugin.
+        final codeEditorPlugin = this; 
+
+        // 3. Define the virtual file for the scratchpad.
+        final scratchpadFile = VirtualDocumentFile(
+          uri: 'scratchpad://${project.id}',
+          name: 'Scratchpad',
+        );
+
+        // 4. Try to load its previous content from the cache.
+        final cachedDto = await cacheService.getTabState(project.id, AppCommands.scratchpadTabId);
+        String initialContent = '';
+        if (cachedDto is CodeEditorHotStateDto) { // <-- This is now valid
+          initialContent = cachedDto.content;
+        }
+
+        // 5. Create the tab using this plugin instance.
+        final newTab = await codeEditorPlugin.createTab(
+          scratchpadFile, 
+          initialContent, 
+          id: AppCommands.scratchpadTabId,
+        );
+
+        // 6. Add the new tab to the app state.
+        final newTabs = [...project.session.tabs, newTab];
+        final newProject = project.copyWith(
+          session: project.session.copyWith(
+            tabs: newTabs,
+            currentTabIndex: newTabs.length - 1,
+          ),
+        );
+        appNotifier.updateCurrentProject(newProject);
+        
+        // 7. Initialize metadata and mark as dirty.
+        final metadataNotifier = ref.read(tabMetadataProvider.notifier);
+        metadataNotifier.initTab(newTab.id, scratchpadFile);
+        metadataNotifier.markDirty(newTab.id);
+      },
+    ),
+  ];
 
   // The command definitions are now correct. They find the active
   // editor's State object and call public methods on it. The canExecute
