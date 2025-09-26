@@ -153,6 +153,29 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   // --- LOGIC AND METHODS ---
   
+    Future<void> showGoToLineDialog() async {
+    // We need the BuildContext to show a dialog.
+    // The key is attached to the widget, so we can get its context.
+    if (!mounted) return;
+
+    final int maxLines = controller.codeLines.length;
+    final int currentLine = controller.selection.start.index;
+
+    final int? targetLineIndex = await showDialog<int>(
+      context: context,
+      builder: (ctx) => GoToLineDialog(
+        maxLine: maxLines,
+        currentLine: currentLine,
+      ),
+    );
+
+    if (targetLineIndex != null) {
+      // The controller has a built-in method to handle this.
+      // It will move the cursor and make sure the view scrolls to it.
+      controller.jumpToLine(targetLineIndex);
+    }
+  }
+  
     /// Selects the full line where the cursor's selection starts.
   void selectCurrentLine() {
     // Get the line index of where the selection begins.

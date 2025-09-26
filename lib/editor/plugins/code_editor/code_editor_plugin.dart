@@ -231,6 +231,13 @@ class CodeEditorPlugin implements EditorPlugin {
       },
     ),
     _createCommand(
+      id: 'goto_line',
+      label: 'Go to Line',
+      icon: Icons.numbers, // Or Icons.line_weight
+      defaultPosition: CommandPosition.pluginToolbar,
+      execute: (ref, editor) => editor?.showGoToLineDialog(), // Method we will create
+    ),
+    _createCommand(
       id: 'select_line',
       label: 'Select Line',
       icon: Icons.horizontal_rule, // A fitting icon for selecting a line segment
