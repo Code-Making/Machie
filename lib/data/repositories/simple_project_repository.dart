@@ -21,7 +21,7 @@ class SimpleProjectRepository implements ProjectRepository {
   @override
   Future<ProjectDto> loadProjectDto() async {
     if (_projectStateJson != null) {
-      return ProjectDto.fromJson(_projectStateJson!);
+      return ProjectDto.fromJson(_projectStateJson);
     } else {
       // Return a fresh, empty DTO for a new simple project.
       return const ProjectDto(

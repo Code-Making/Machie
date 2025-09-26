@@ -22,7 +22,7 @@ class ProjectHierarchyCache
     _talker.info('Lazy loading directory: $uri');
     _loadingUris.add(uri);
     try {
-      final contents = await _fileHandler!.listDirectory(uri);
+      final contents = await _fileHandler.listDirectory(uri);
       // Ensure widget is still mounted before updating state
       if (mounted) {
         state = {...state, uri: contents};

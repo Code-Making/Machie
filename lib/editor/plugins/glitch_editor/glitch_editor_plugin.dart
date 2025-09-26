@@ -18,7 +18,6 @@ import 'package:machine/data/dto/tab_hot_state_dto.dart'; // ADDED
 import 'package:machine/data/cache/type_adapters.dart'; // ADDED
 import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart'; // ADDED
 import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart'; // ADDED
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_widget.dart';
 import 'dart:typed_data'; // ADDED for type casting
 
 class GlitchEditorPlugin implements EditorPlugin {

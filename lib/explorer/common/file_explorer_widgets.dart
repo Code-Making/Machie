@@ -228,11 +228,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             widget.item.isDirectory
                 ? null
                 : () async {
+                  final navigator = Navigator.of(context);
                   final success = await ref
                       .read(appNotifierProvider.notifier)
                       .openFileInEditor(widget.item);
                   if (success && mounted) {
-                    Navigator.of(context).pop();
+                    navigator.pop();
                   }
                 },
         child: itemContent,

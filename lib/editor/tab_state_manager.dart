@@ -79,4 +79,8 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
       state = {...state, tabId: state[tabId]!.copyWith(file: newFile)};
     }
   }
+
+  void clear() {
+    state = {};
+  }
 }

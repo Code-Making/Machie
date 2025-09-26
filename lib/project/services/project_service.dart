@@ -119,7 +119,7 @@ class ProjectService {
 
     // Clear the active project-specific providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
-    _ref.read(tabMetadataProvider.notifier).state = {};
+    _ref.read(tabMetadataProvider.notifier).clear();
   }
 
   /// Creates a new metadata object for a new project.
