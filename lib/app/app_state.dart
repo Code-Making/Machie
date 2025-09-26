@@ -14,7 +14,7 @@ class AppState {
   final List<ProjectMetadata> knownProjects;
   final String? lastOpenedProjectId;
   final Project? currentProject;
-  
+
   // These are ephemeral and not part of the core data state.
   final Widget? appBarOverride;
   final Widget? bottomToolbarOverride;
@@ -32,14 +32,14 @@ class AppState {
   });
 
   factory AppState.initial() => const AppState();
-  
+
   // ADDED: Method to create a DTO from the live state.
   AppStateDto toDto(Map<String, TabMetadata> liveTabMetadata) {
     ProjectDto? simpleProjectDto;
     if (currentProject?.projectTypeId == 'simple_local') {
       simpleProjectDto = currentProject!.toDto(liveTabMetadata);
     }
-    
+
     return AppStateDto(
       knownProjects: knownProjects,
       lastOpenedProjectId: lastOpenedProjectId,
@@ -64,13 +64,18 @@ class AppState {
     return AppState(
       knownProjects: knownProjects ?? List.from(this.knownProjects),
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
-      currentProject: clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      appBarOverride: clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
-      bottomToolbarOverride: clearBottomToolbarOverride ? null : bottomToolbarOverride ?? this.bottomToolbarOverride,
+      currentProject:
+          clearCurrentProject ? null : (currentProject ?? this.currentProject),
+      appBarOverride:
+          clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
+      bottomToolbarOverride:
+          clearBottomToolbarOverride
+              ? null
+              : bottomToolbarOverride ?? this.bottomToolbarOverride,
       isFullScreen: isFullScreen ?? this.isFullScreen,
     );
   }
-  
+
   // ... (equality and hashCode updated to remove currentProjectState) ...
   @override
   bool operator ==(Object other) {

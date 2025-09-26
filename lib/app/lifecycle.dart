@@ -7,7 +7,11 @@ import 'app_notifier.dart';
 class LifecycleHandler extends ConsumerStatefulWidget {
   final Widget child;
   final Talker talker;
-  const LifecycleHandler({super.key, required this.child, required this.talker});
+  const LifecycleHandler({
+    super.key,
+    required this.child,
+    required this.talker,
+  });
   @override
   ConsumerState<LifecycleHandler> createState() => _LifecycleHandlerState();
 }

@@ -2,11 +2,9 @@
 // FILE: lib/data/repositories/simple_project_repository.dart
 // =========================================
 
-import 'dart:convert';
 import 'dart:typed_data';
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../project/project_models.dart';
 import 'project_repository.dart';
 
 /// A repository for "simple" projects that do not persist a `project.json`
@@ -90,10 +88,7 @@ class SimpleProjectRepository implements ProjectRepository {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    return await fileHandler.copyDocumentFile(
-      source,
-      destinationParentUri,
-    );
+    return await fileHandler.copyDocumentFile(source, destinationParentUri);
   }
 
   @override
@@ -101,10 +96,7 @@ class SimpleProjectRepository implements ProjectRepository {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    return await fileHandler.moveDocumentFile(
-      source,
-      destinationParentUri,
-    );
+    return await fileHandler.moveDocumentFile(source, destinationParentUri);
   }
 
   // --- Unchanged Delegations ---

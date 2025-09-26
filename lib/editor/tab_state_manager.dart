@@ -75,7 +75,7 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
   }
 
   void updateFile(String tabId, DocumentFile newFile) {
-     if (state.containsKey(tabId)) {
+    if (state.containsKey(tabId)) {
       state = {...state, tabId: state[tabId]!.copyWith(file: newFile)};
     }
   }

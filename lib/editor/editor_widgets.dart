@@ -152,9 +152,7 @@ class TabWidget extends ConsumerWidget {
                   softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isDirty
-                            ? Colors.orange.shade300
-                            : Colors.white70,
+                    color: isDirty ? Colors.orange.shade300 : Colors.white70,
                   ),
                 ),
               ),
@@ -191,7 +189,8 @@ class EditorView extends ConsumerWidget {
             child: FocusTraversalGroup(
               // This is the crucial part for focus.
               // It prevents focus from escaping this group via traversal keys.
-              policy: OrderedTraversalPolicy(), // or WidgetOrderTraversalPolicy()
+              policy:
+                  OrderedTraversalPolicy(), // or WidgetOrderTraversalPolicy()
               child: tab.plugin.buildEditor(tab, ref),
             ),
           ),

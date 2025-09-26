@@ -6,13 +6,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/dto/app_state_dto.dart';
-import '../data/dto/project_dto.dart';
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../project/services/project_service.dart';
-import '../project/services/cache_service.dart';
 import '../editor/services/editor_service.dart';
 import '../utils/clipboard.dart';
 import 'app_state.dart';
@@ -23,7 +20,6 @@ import '../utils/toast.dart';
 import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
 import '../editor/tab_state_manager.dart';
-import '../editor/editor_tab_models.dart';
 import 'package:machine/editor/services/editor_service.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
@@ -45,7 +41,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<AppState> build() async {
     // Initialize dependencies
     _talker = ref.read(talkerProvider);
-    _appStateRepository = AppStateRepository(await ref.watch(sharedPreferencesProvider.future), _talker);
+    _appStateRepository = AppStateRepository(
+      await ref.watch(sharedPreferencesProvider.future),
+      _talker,
+    );
     _projectService = ref.watch(projectServiceProvider);
     _editorService = ref.watch(editorServiceProvider);
     _explorerService = ref.watch(explorerServiceProvider); // ADDED
@@ -59,8 +58,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
         _handleFileOperationEvent(event);
       });
     });
-    
-        // 1. Load the raw DTO for the entire app state.
+
+    // 1. Load the raw DTO for the entire app state.
     final appStateDto = await _appStateRepository.loadAppStateDto();
     _talker.info("AppState loaded");
     _talker.info("Checking last opened project");
@@ -70,7 +69,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         (p) => p.id == appStateDto.lastOpenedProjectId,
       );
       if (meta != null) {
-            _talker.info("Found Project to load");
+        _talker.info("Found Project to load");
         try {
           // A. Load the project's DTO (either from its file or from the AppStateDto for simple projects)
           final projectDto = await _projectService.openProjectDto(
@@ -78,18 +77,23 @@ class AppNotifier extends AsyncNotifier<AppState> {
             // Pass the DTO for the simple project if it exists.
             projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
-          
+
           // STEP 2: Delegate rehydration of each sub-domain to its specific service.
-          final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
-          final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
-          
+          final liveSession = await _editorService.rehydrateTabSession(
+            projectDto,
+            meta,
+          );
+          final liveWorkspace = _explorerService.rehydrateWorkspace(
+            projectDto.workspace,
+          );
+
           // STEP 3: Assemble the final, fully rehydrated Project object.
           final finalProject = Project(
             metadata: meta,
             session: liveSession,
             workspace: liveWorkspace,
           );
-              _talker.info("Project should be loaded");
+          _talker.info("Project should be loaded");
           // C. Construct the final live AppState.
           return AppState(
             knownProjects: appStateDto.knownProjects,
@@ -97,11 +101,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
             currentProject: finalProject,
           );
         } catch (e, st) {
-          ref.read(talkerProvider).handle(e, st, 'Failed to auto-open last project');
+          ref
+              .read(talkerProvider)
+              .handle(e, st, 'Failed to auto-open last project');
         }
       }
     }
-    
+
     // 3. Fallback: If no project was reopened, construct a default live AppState.
     return AppState(
       knownProjects: appStateDto.knownProjects,
@@ -113,27 +119,32 @@ class AppNotifier extends AsyncNotifier<AppState> {
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
     if (project == null) return;
-    
+
     switch (event) {
       case FileCreateEvent():
         // No action needed here, the explorer will update itself via its own listeners.
         break;
-        
+
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
         // Delegate to the service. The service updates the metadata.
         // The UI (AppBar, TabBar) will react to the metadata provider change.
         _editorService.updateTabForRenamedFile(oldFile.uri, newFile);
         break;
-        
+
       case FileDeleteEvent(deletedFile: final deletedFile):
         // To find the tab to close, we must check the metadata provider.
         final metadataMap = ref.read(tabMetadataProvider);
-        final tabIdToDelete = metadataMap.entries.firstWhereOrNull(
-          (entry) => entry.value.file.uri == deletedFile.uri,
-        )?.key;
-        
+        final tabIdToDelete =
+            metadataMap.entries
+                .firstWhereOrNull(
+                  (entry) => entry.value.file.uri == deletedFile.uri,
+                )
+                ?.key;
+
         if (tabIdToDelete != null) {
-          final tabIndex = project.session.tabs.indexWhere((t) => t.id == tabIdToDelete);
+          final tabIndex = project.session.tabs.indexWhere(
+            (t) => t.id == tabIdToDelete,
+          );
           if (tabIndex != -1) {
             // The service will return a new project object with the tab removed.
             final newProject = _editorService.closeTab(project, tabIndex);
@@ -153,22 +164,27 @@ class AppNotifier extends AsyncNotifier<AppState> {
       if (s.currentProject != null) {
         await _projectService.closeProject(s.currentProject!);
       }
-      
+
       final result = await _projectService.openFromFolder(
         folder: folder,
         projectTypeId: projectTypeId,
         knownProjects: s.knownProjects,
       );
-      
-      final liveSession = await _editorService.rehydrateTabSession(result.projectDto, result.metadata);
-      final liveWorkspace = _explorerService.rehydrateWorkspace(result.projectDto.workspace);
+
+      final liveSession = await _editorService.rehydrateTabSession(
+        result.projectDto,
+        result.metadata,
+      );
+      final liveWorkspace = _explorerService.rehydrateWorkspace(
+        result.projectDto.workspace,
+      );
 
       final finalProject = Project(
-          metadata: result.metadata,
-          session: liveSession,
-          workspace: liveWorkspace,
+        metadata: result.metadata,
+        session: liveSession,
+        workspace: liveWorkspace,
       );
-      
+
       return s.copyWith(
         currentProject: finalProject,
         lastOpenedProjectId: finalProject.id,
@@ -192,26 +208,32 @@ class AppNotifier extends AsyncNotifier<AppState> {
       }
       // Use the 's' (live state) to find the metadata.
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
-      
+
       // Load DTO for the project. For simple projects, we need to check if it was the
       // one most recently saved in SharedPreferences. This requires loading the DTO.
       final appStateDto = await _appStateRepository.loadAppStateDto();
       final projectDto = await _projectService.openProjectDto(
         meta,
-        projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
-            ? appStateDto.currentSimpleProjectDto?.toJson()
-            : null,
+        projectStateJson:
+            (appStateDto.lastOpenedProjectId == projectId)
+                ? appStateDto.currentSimpleProjectDto?.toJson()
+                : null,
       );
-      
-      final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
-      final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
-      
+
+      final liveSession = await _editorService.rehydrateTabSession(
+        projectDto,
+        meta,
+      );
+      final liveWorkspace = _explorerService.rehydrateWorkspace(
+        projectDto.workspace,
+      );
+
       final finalProject = Project(
-          metadata: meta,
-          session: liveSession,
-          workspace: liveWorkspace,
+        metadata: meta,
+        session: liveSession,
+        workspace: liveWorkspace,
       );
-      
+
       // Important: We return s.copyWith to ensure no state is lost,
       // particularly the knownProjects list which might have been updated
       // just before this method was called.
@@ -281,7 +303,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   // --- UI State and Tab Management ---
-  
+
   void switchTab(int index) {
     final project = state.value?.currentProject;
     if (project == null) return;
@@ -307,13 +329,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _updateStateSync((s) => s.copyWith(isFullScreen: !s.isFullScreen));
     saveAppState();
   }
-  
+
   void updateCurrentProject(Project newProject) {
     _updateStateSync((s) => s.copyWith(currentProject: newProject));
   }
-  
+
   // --- State Persistence & Helpers ---
-  
+
   // REFACTORED: The save logic is now clean and follows the DTO pattern.
   Future<void> saveAppState() async {
     final appState = state.value;
@@ -330,13 +352,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
-    
+
     // 3. Save the global application state (SharedPreferences).
     final liveTabMetadata = ref.read(tabMetadataProvider);
     final appStateDto = appState.toDto(liveTabMetadata);
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
-  
+
   // ADDED: Methods to manage the AppBar override
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));

@@ -4,12 +4,11 @@
 
 import 'package:flutter/foundation.dart';
 import '../editor/editor_tab_models.dart';
-import '../editor/plugins/plugin_models.dart'; // ADDED for EditorPlugin
+// ADDED for EditorPlugin
 import '../explorer/explorer_workspace_state.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/tab_state_manager.dart';
 import 'package:machine/data/dto/project_dto.dart'; // ADDED
-
 
 // ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
 class IncompleteDocumentFile implements DocumentFile {
@@ -109,7 +108,6 @@ class Project {
     );
   }
 }
-
 
 // A concrete implementation of DocumentFile for in-memory or virtual files...
 @immutable

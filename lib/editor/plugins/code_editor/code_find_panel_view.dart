@@ -15,8 +15,16 @@ const double _kDefaultFindIconWidth = 30;
 const double _kDefaultFindIconHeight = 30;
 const double _kDefaultFindInputFontSize = 13;
 const double _kDefaultFindResultFontSize = 12;
-const EdgeInsetsGeometry _kDefaultFindPadding = EdgeInsets.only(left: 5, right: 5, top: 2.5, bottom: 2.5);
-const EdgeInsetsGeometry _kDefaultFindInputContentPadding = EdgeInsets.only(left: 5, right: 5);
+const EdgeInsetsGeometry _kDefaultFindPadding = EdgeInsets.only(
+  left: 5,
+  right: 5,
+  top: 2.5,
+  bottom: 2.5,
+);
+const EdgeInsetsGeometry _kDefaultFindInputContentPadding = EdgeInsets.only(
+  left: 5,
+  right: 5,
+);
 
 class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   // ... (Properties and constructor are unchanged) ...
@@ -51,17 +59,20 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       contentPadding: _kDefaultFindInputContentPadding,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(0)),
-        gapPadding: 0
+        gapPadding: 0,
       ),
-    )
+    ),
   });
-
 
   @override
   Size get preferredSize => Size(
     double.infinity,
-    controller.value == null ? 0 :
-      ((controller.value!.replaceMode ? _kDefaultReplacePanelHeight : _kDefaultFindPanelHeight) + margin.vertical)
+    controller.value == null
+        ? 0
+        : ((controller.value!.replaceMode
+                ? _kDefaultReplacePanelHeight
+                : _kDefaultFindPanelHeight) +
+            margin.vertical),
   );
 
   @override
@@ -92,9 +103,9 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
-          )
+          ),
         );
-      }
+      },
     );
   }
 
@@ -123,7 +134,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                   context: context,
                   controller: controller.findInputController,
                   focusNode: controller.findInputFocusNode,
-                  iconsWidth: _kDefaultFindIconWidth * 1.5
+                  iconsWidth: _kDefaultFindIconWidth * 1.5,
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -134,7 +145,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                       checked: value.option.caseSensitive,
                       onPressed: () {
                         controller.toggleCaseSensitive();
-                      }
+                      },
                     ),
                     _buildCheckText(
                       context: context,
@@ -142,18 +153,16 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                       checked: value.option.regex,
                       onPressed: () {
                         controller.toggleRegex();
-                      }
-                    )
+                      },
+                    ),
                   ],
-                )
+                ),
               ],
-            )
+            ),
           ),
-          Text(result,
-            style: TextStyle(
-              color: resultFontColor,
-              fontSize: resultFontSize
-            )
+          Text(
+            result,
+            style: TextStyle(color: resultFontColor, fontSize: resultFontSize),
           ),
           Expanded(
             child: Row(
@@ -161,29 +170,35 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
               children: [
                 // ... IconButtons are unchanged ...
                 _buildIconButton(
-                  onPressed: value.result == null ? null : () {
-                    controller.previousMatch();
-                  },
+                  onPressed:
+                      value.result == null
+                          ? null
+                          : () {
+                            controller.previousMatch();
+                          },
                   icon: Icons.arrow_upward,
-                  tooltip: 'Previous'
+                  tooltip: 'Previous',
                 ),
                 _buildIconButton(
-                  onPressed: value.result == null ? null : () {
-                    controller.nextMatch();
-                  },
+                  onPressed:
+                      value.result == null
+                          ? null
+                          : () {
+                            controller.nextMatch();
+                          },
                   icon: Icons.arrow_downward,
-                  tooltip: 'Next'
+                  tooltip: 'Next',
                 ),
                 _buildIconButton(
                   onPressed: () {
                     controller.close();
                   },
                   icon: Icons.close,
-                  tooltip: 'Close'
-                )
+                  tooltip: 'Close',
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -206,26 +221,32 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           ),
           // ... IconButtons are unchanged ...
           _buildIconButton(
-            onPressed: value.result == null || readOnly ? null : () {
-              controller.replaceMatch();
-            },
+            onPressed:
+                value.result == null || readOnly
+                    ? null
+                    : () {
+                      controller.replaceMatch();
+                    },
             icon: Icons.done,
-            tooltip: 'Replace'
+            tooltip: 'Replace',
           ),
           _buildIconButton(
-            onPressed: value.result == null || readOnly ? null : () {
-              controller.replaceAllMatches();
-            },
+            onPressed:
+                value.result == null || readOnly
+                    ? null
+                    : () {
+                      controller.replaceAllMatches();
+                    },
             icon: Icons.done_all,
-            tooltip: 'Replace All'
-          )
+            tooltip: 'Replace All',
+          ),
         ],
       ),
     );
   }
 
   // ... (_buildTextField, _buildCheckText, _buildIconButton methods are unchanged) ...
-    Widget _buildTextField({
+  Widget _buildTextField({
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
@@ -236,15 +257,12 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       child: TextField(
         maxLines: 1,
         focusNode: focusNode,
-        style: TextStyle(
-          color: inputTextColor,
-          fontSize: inputFontSize
-        ),
+        style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
         decoration: decoration.copyWith(
-          contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(EdgeInsets.only(
-            right: iconsWidth
-          )
-        )),
+          contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
+            EdgeInsets.only(right: iconsWidth),
+          ),
+        ),
         controller: controller,
       ),
     );
@@ -256,7 +274,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     required bool checked,
     required VoidCallback onPressed,
   }) {
-    final Color selectedColor = iconSelectedColor ?? Theme.of(context).primaryColor;
+    final Color selectedColor =
+        iconSelectedColor ?? Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onPressed,
       child: MouseRegion(
@@ -268,27 +287,24 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
             style: TextStyle(
               color: checked ? selectedColor : iconColor,
               fontSize: inputFontSize,
-            )
+            ),
           ),
         ),
-      )
+      ),
     );
   }
 
   Widget _buildIconButton({
     required IconData icon,
     VoidCallback? onPressed,
-    String? tooltip
+    String? tooltip,
   }) {
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(
-        icon,
-        size: iconSize,
-      ),
+      icon: Icon(icon, size: iconSize),
       constraints: const BoxConstraints(
         maxWidth: _kDefaultFindIconWidth,
-        maxHeight: _kDefaultFindIconHeight
+        maxHeight: _kDefaultFindIconHeight,
       ),
       tooltip: tooltip,
       splashRadius: max(_kDefaultFindIconWidth, _kDefaultFindIconHeight) / 2,

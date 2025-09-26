@@ -13,7 +13,7 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
-import 'cache_service.dart'; // ADDED
+// ADDED
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -54,7 +54,11 @@ class ProjectService {
     );
 
     final projectDto = await openProjectDto(meta);
-    return OpenProjectResult(projectDto: projectDto, metadata: meta, isNew: isNew);
+    return OpenProjectResult(
+      projectDto: projectDto,
+      metadata: meta,
+      isNew: isNew,
+    );
   }
 
   /// Selects the correct repository and asks it to load the persisted `ProjectDto`.
@@ -84,7 +88,7 @@ class ProjectService {
 
     // Set the active repository for other parts of the app to use for file ops.
     _ref.read(projectRepositoryProvider.notifier).state = repo;
-    
+
     // The repository's loadProjectDto method is the single source of truth for
     // loading the raw, persisted data.
     return await repo.loadProjectDto();
@@ -95,10 +99,10 @@ class ProjectService {
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) return;
-    
+
     final liveMetadata = _ref.read(tabMetadataProvider);
     final projectDto = project.toDto(liveMetadata);
-    
+
     await repo.saveProjectDto(projectDto);
   }
 
@@ -112,7 +116,7 @@ class ProjectService {
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
-    
+
     // Clear the active project-specific providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).state = {};

@@ -49,9 +49,7 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<void> dispose() async {}
   @override
   void disposeTab(EditorTab tab) {}
-  
-  
-  
+
   @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
@@ -60,13 +58,14 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
-  
+
   @override
   String get hotStateDtoType => 'com.machine.code_editor_state';
 
   @override
-  TypeAdapter<TabHotStateDto> get hotStateAdapter => CodeEditorHotStateAdapter();
-  
+  TypeAdapter<TabHotStateDto> get hotStateAdapter =>
+      CodeEditorHotStateAdapter();
+
   /// Helper to get the active editor's state object.
   CodeEditorMachineState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is CodeEditorMachineState) {
@@ -74,32 +73,32 @@ class CodeEditorPlugin implements EditorPlugin {
     }
     return null;
   }
-  
+
   @override
   Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
-    
+
     // The state object now returns a Map, so we construct the DTO here.
     final stateMap = editorState.getHotState();
     return CodeEditorHotStateDto(content: stateMap['content']);
   }
-  
+
   @override
   void activateTab(EditorTab tab, Ref ref) {}
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id}) async {
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    dynamic data, {
+    String? id,
+  }) async {
     // REFACTORED: The 'file' property is no longer part of the tab model.
     // The EditorService will handle associating the file with the tab's ID
     // in the metadata provider.
-    return CodeEditorTab(
-      plugin: this,
-      initialContent: data as String,
-      id: id,
-    );
+    return CodeEditorTab(plugin: this, initialContent: data as String, id: id);
   }
 
   @override
@@ -111,7 +110,8 @@ class CodeEditorPlugin implements EditorPlugin {
     // In a full implementation, the EditorService would handle rehydrating
     // the metadata and then calling createTab. For now, we assume we can
     // get the file and create the tab.
-    final fileUri = tabJson['fileUri'] as String; // Assume fileUri is still persisted
+    final fileUri =
+        tabJson['fileUri'] as String; // Assume fileUri is still persisted
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
@@ -123,10 +123,7 @@ class CodeEditorPlugin implements EditorPlugin {
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
-    return CodeEditorMachine(
-      key: codeTab.editorKey,
-      tab: codeTab,
-    );
+    return CodeEditorMachine(key: codeTab.editorKey, tab: codeTab);
   }
 
   /// Helper to find the state of the currently active editor widget.
@@ -144,7 +141,7 @@ class CodeEditorPlugin implements EditorPlugin {
   Widget buildToolbar(WidgetRef ref) {
     return CodeEditorTapRegion(child: const BottomToolbar());
   }
-  
+
   @override
   List<Command> getAppCommands() => [
     BaseCommand(
@@ -153,14 +150,17 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.edit_note),
       defaultPosition: CommandPosition.appBar,
       sourcePlugin: 'App', // Keep 'App' source to appear globally
-      canExecute: (ref) => ref.watch(appNotifierProvider.select((s) => s.value?.currentProject != null)),
+      canExecute:
+          (ref) => ref.watch(
+            appNotifierProvider.select((s) => s.value?.currentProject != null),
+          ),
       execute: (ref) async {
         final appNotifier = ref.read(appNotifierProvider.notifier);
         final project = ref.read(appNotifierProvider).value!.currentProject!;
-        
+
         // 1. Check if the scratchpad tab is already open.
         final existingTab = project.session.tabs.firstWhereOrNull(
-          (t) => t.id == AppCommands.scratchpadTabId
+          (t) => t.id == AppCommands.scratchpadTabId,
         );
         if (existingTab != null) {
           final index = project.session.tabs.indexOf(existingTab);
@@ -171,7 +171,7 @@ class CodeEditorPlugin implements EditorPlugin {
         // 2. If not open, create it.
         final cacheService = ref.read(cacheServiceProvider);
         // We know `this` is the code editor plugin.
-        final codeEditorPlugin = this; 
+        final codeEditorPlugin = this;
 
         // 3. Define the virtual file for the scratchpad.
         final scratchpadFile = VirtualDocumentFile(
@@ -180,16 +180,20 @@ class CodeEditorPlugin implements EditorPlugin {
         );
 
         // 4. Try to load its previous content from the cache.
-        final cachedDto = await cacheService.getTabState(project.id, AppCommands.scratchpadTabId);
+        final cachedDto = await cacheService.getTabState(
+          project.id,
+          AppCommands.scratchpadTabId,
+        );
         String initialContent = '';
-        if (cachedDto is CodeEditorHotStateDto) { // <-- This is now valid
+        if (cachedDto is CodeEditorHotStateDto) {
+          // <-- This is now valid
           initialContent = cachedDto.content;
         }
 
         // 5. Create the tab using this plugin instance.
         final newTab = await codeEditorPlugin.createTab(
-          scratchpadFile, 
-          initialContent, 
+          scratchpadFile,
+          initialContent,
           id: AppCommands.scratchpadTabId,
         );
 
@@ -202,7 +206,7 @@ class CodeEditorPlugin implements EditorPlugin {
           ),
         );
         appNotifier.updateCurrentProject(newProject);
-        
+
         // 7. Initialize metadata and mark as dirty.
         final metadataNotifier = ref.read(tabMetadataProvider.notifier);
         metadataNotifier.initTab(newTab.id, scratchpadFile);
@@ -226,7 +230,9 @@ class CodeEditorPlugin implements EditorPlugin {
       canExecute: (ref, editor) {
         if (editor == null) return false;
         // Watch the metadata for the current tab to react to dirty state changes.
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[editor.widget.tab.id]));
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[editor.widget.tab.id]),
+        );
         return metadata?.isDirty ?? false;
       },
     ),
@@ -235,28 +241,34 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Go to Line',
       icon: Icons.numbers, // Or Icons.line_weight
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.showGoToLineDialog(), // Method we will create
+      execute:
+          (ref, editor) =>
+              editor?.showGoToLineDialog(), // Method we will create
     ),
     _createCommand(
       id: 'select_line',
       label: 'Select Line',
-      icon: Icons.horizontal_rule, // A fitting icon for selecting a line segment
+      icon:
+          Icons.horizontal_rule, // A fitting icon for selecting a line segment
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.selectCurrentLine(), // Method to be created
+      execute:
+          (ref, editor) => editor?.selectCurrentLine(), // Method to be created
     ),
     _createCommand(
       id: 'select_chunk',
       label: 'Select Chunk/Block',
       icon: Icons.unfold_more, // A fitting icon for selecting a code block
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.selectCurrentChunk(), // Method to be created
+      execute:
+          (ref, editor) => editor?.selectCurrentChunk(), // Method to be created
     ),
     _createCommand(
       id: 'extend_selection',
       label: 'Extend Selection',
       icon: Icons.code, // A different icon to distinguish from 'Select All'
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.extendSelection(), // Method we will create
+      execute:
+          (ref, editor) => editor?.extendSelection(), // Method we will create
       canExecute: (ref, editor) => editor != null,
     ),
     _createCommand(
@@ -264,7 +276,8 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Find',
       icon: Icons.search,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.showFindPanel(), // Method we will create
+      execute:
+          (ref, editor) => editor?.showFindPanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
     ),
     _createCommand(
@@ -272,7 +285,8 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Replace',
       icon: Icons.find_replace,
       defaultPosition: CommandPosition.pluginToolbar,
-      execute: (ref, editor) => editor?.showReplacePanel(), // Method we will create
+      execute:
+          (ref, editor) => editor?.showReplacePanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
     ),
     _createCommand(
@@ -288,12 +302,14 @@ class CodeEditorPlugin implements EditorPlugin {
       icon: Icons.bookmark_added,
       defaultPosition: CommandPosition.pluginToolbar,
       execute: (ref, editor) => editor?.selectToMark(),
-canExecute: (ref, editor) {
+      canExecute: (ref, editor) {
         if (editor == null) return false;
-        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        final editorState = ref.watch(
+          codeEditorStateProvider(editor.widget.tab.id),
+        );
         return editorState.hasMark;
       },
-      ),
+    ),
     _createCommand(
       id: 'copy',
       label: 'Copy',
@@ -366,9 +382,11 @@ canExecute: (ref, editor) {
       // REFACTORED: The canUndo/canRedo state is local to the widget,
       // so we need to watch a provider that changes when they do.
       // Watching the tabMetadataProvider works because it's updated on every keystroke.
-canExecute: (ref, editor) {
+      canExecute: (ref, editor) {
         if (editor == null) return false;
-        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        final editorState = ref.watch(
+          codeEditorStateProvider(editor.widget.tab.id),
+        );
         return editorState.canUndo;
       },
     ),
@@ -380,7 +398,9 @@ canExecute: (ref, editor) {
       execute: (ref, editor) => editor?.controller.redo(),
       canExecute: (ref, editor) {
         if (editor == null) return false;
-        final editorState = ref.watch(codeEditorStateProvider(editor.widget.tab.id));
+        final editorState = ref.watch(
+          codeEditorStateProvider(editor.widget.tab.id),
+        );
         return editorState.canRedo;
       },
     ),
@@ -406,7 +426,8 @@ canExecute: (ref, editor) {
     required String label,
     required IconData icon,
     required CommandPosition defaultPosition,
-    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?) execute,
+    required FutureOr<void> Function(WidgetRef, CodeEditorMachineState?)
+    execute,
     bool Function(WidgetRef, CodeEditorMachineState?)? canExecute,
   }) {
     return BaseCommand(

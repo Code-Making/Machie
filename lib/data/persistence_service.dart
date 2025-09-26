@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/dto/app_state_dto.dart'; // ADDED
 import '../logs/logs_provider.dart';
 
-final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
+  ref,
+) async {
   return await SharedPreferences.getInstance();
 });
 
@@ -22,7 +24,7 @@ class AppStateRepository {
 
   /// Loads the AppStateDto from SharedPreferences.
   Future<AppStateDto> loadAppStateDto() async {
-      _talker.info("Loading app state");
+    _talker.info("Loading app state");
     final jsonString = _prefs.getString(_appStateKey);
     if (jsonString != null) {
       _talker.info("loading appState String: $jsonString");

@@ -16,7 +16,6 @@ import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../settings/settings_notifier.dart';
-import '../settings/settings_models.dart';
 import '../editor/tab_state_manager.dart'; // ADDED
 
 class AppScreen extends ConsumerStatefulWidget {
@@ -80,8 +79,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     // This ensures the title updates on rename without rebuilding the whole screen.
     final currentTabMetadata = ref.watch(
       tabMetadataProvider.select(
-        (metadataMap) =>
-            currentTab != null ? metadataMap[currentTab.id] : null,
+        (metadataMap) => currentTab != null ? metadataMap[currentTab.id] : null,
       ),
     );
     final appBarTitle = currentTabMetadata?.title ?? 'Machine';
@@ -126,9 +124,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
             const TabBarWidget(),
           Expanded(
             // CORRECTED: Wrap the EditorView's container in a FocusScope.
-            child: FocusScope(
-              child: const EditorView(),
-            ),
+            child: FocusScope(child: const EditorView()),
           ),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))

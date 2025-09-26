@@ -12,15 +12,11 @@ class CodeEditorHotStateAdapter implements TypeAdapter<CodeEditorHotStateDto> {
 
   @override
   CodeEditorHotStateDto fromJson(Map<String, dynamic> json) {
-    return CodeEditorHotStateDto(
-      content: json[_contentKey] as String? ?? '',
-    );
+    return CodeEditorHotStateDto(content: json[_contentKey] as String? ?? '');
   }
 
   @override
   Map<String, dynamic> toJson(CodeEditorHotStateDto object) {
-    return {
-      _contentKey: object.content,
-    };
+    return {_contentKey: object.content};
   }
 }

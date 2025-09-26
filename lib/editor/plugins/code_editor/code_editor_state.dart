@@ -52,5 +52,5 @@ class CodeEditorStateNotifier extends StateNotifier<CodeEditorState> {
 /// The tab's stable ID is used as the family parameter.
 final codeEditorStateProvider = StateNotifierProvider.autoDispose
     .family<CodeEditorStateNotifier, CodeEditorState, String>(
-  (ref, tabId) => CodeEditorStateNotifier(),
-);
+      (ref, tabId) => CodeEditorStateNotifier(),
+    );
