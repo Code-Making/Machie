@@ -95,8 +95,8 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       scannedUris.add(currentDirUri);
 
       try {
-        await _hierarchyCache!.loadDirectory(currentDirUri);
-        final items = _hierarchyCache!.state[currentDirUri];
+        await _hierarchyCache.loadDirectory(currentDirUri);
+        final items = _hierarchyCache.state[currentDirUri];
         if (items == null) continue;
 
         for (final item in items) {

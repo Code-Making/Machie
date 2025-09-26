@@ -18,7 +18,6 @@ class GlitchEditorTab extends EditorTab {
     super.id, // ADDED
   });
 
-  @override
   void dispose() {}
 
   @override

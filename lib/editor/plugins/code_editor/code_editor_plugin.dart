@@ -28,9 +28,7 @@ import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 import 'package:collection/collection.dart';
 import '../../../app/app_commands.dart'; // Import for scratchpadTabId
 import '../../../project/services/cache_service.dart';
-import '../../tab_state_manager.dart';
 import '../../../project/project_models.dart';
-import 'code_editor_hot_state_dto.dart'; // <-- Now a valid import here
 
 class CodeEditorPlugin implements EditorPlugin {
   @override

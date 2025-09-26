@@ -289,7 +289,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
       case OpenFileShowChooser(plugins: final plugins):
         final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context == null) return false;
+        if (context == null || !context.mounted) return false;
         final chosenPlugin = await showOpenWithDialog(context, plugins);
         if (chosenPlugin != null) {
           return await openFileInEditor(file, explicitPlugin: chosenPlugin);

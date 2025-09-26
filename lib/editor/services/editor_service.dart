@@ -23,7 +23,6 @@ import '../../project/services/cache_service.dart'; // ADDED
 
 import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart';
 import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
-import 'package:machine/project/services/cache_service.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -112,10 +111,10 @@ class EditorService {
         final newTab = await plugin.createTab(file, dataToLoad, id: tabId);
 
         // Populate the metadata, marking it as dirty if it was restored from cache.
-        metadataNotifier.state[newTab.id] = TabMetadata(
-          file: file,
-          isDirty: wasLoadedFromCache || persistedMetadata.isDirty,
-        );
+        metadataNotifier.initTab(newTab.id, file);
+        if (wasLoadedFromCache || persistedMetadata.isDirty) {
+          metadataNotifier.markDirty(newTab.id);
+        }
 
         rehydratedTabs.add(newTab);
       } catch (e, st) {
@@ -132,62 +131,6 @@ class EditorService {
     return TabSessionState(
       tabs: rehydratedTabs,
       currentTabIndex: dto.session.currentTabIndex,
-    );
-  }
-
-  // REFACTORED: The method now has a single, clear responsibility.
-  // It takes a DTO and returns a live domain object for its specific domain.
-  Future<TabSessionState> _rehydrateWithoutCache(TabSessionStateDto dto) async {
-    final plugins = _ref.read(activePluginsProvider);
-    final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
-
-    final List<EditorTab> rehydratedTabs = [];
-
-    for (final tabDto in dto.tabs) {
-      final tabId = tabDto.id;
-      final pluginType = tabDto.pluginType;
-      final persistedMetadata = dto.tabMetadata[tabId];
-
-      if (persistedMetadata == null) continue;
-
-      final plugin = plugins.firstWhereOrNull(
-        (p) => p.runtimeType.toString() == pluginType,
-      );
-      if (plugin == null) continue;
-
-      try {
-        final file = await _repo.fileHandler.getFileMetadata(
-          persistedMetadata.fileUri,
-        );
-        if (file == null) continue;
-
-        final dynamic data =
-            plugin.dataRequirement == PluginDataRequirement.bytes
-                ? await _repo.readFileAsBytes(file.uri)
-                : await _repo.readFile(file.uri);
-
-        final newTab = await plugin.createTab(file, data, id: tabId);
-
-        metadataNotifier.state[newTab.id] = TabMetadata(
-          file: file,
-          isDirty: persistedMetadata.isDirty,
-        );
-
-        rehydratedTabs.add(newTab);
-      } catch (e, st) {
-        _ref
-            .read(talkerProvider)
-            .handle(
-              e,
-              st,
-              'Could not restore tab for ${persistedMetadata.fileUri}',
-            );
-      }
-    }
-
-    return TabSessionState(
-      tabs: rehydratedTabs,
-      currentTabIndex: dto.currentTabIndex,
     );
   }
 
