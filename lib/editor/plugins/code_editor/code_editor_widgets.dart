@@ -650,7 +650,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             TextSpan(
               text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withValues(alpha: (0.3 * 255).round()),
+                backgroundColor: Colors.yellow.withValues(alpha: (0.3 * 255.0)),
                 fontWeight: FontWeight.bold,
               ),
             ),

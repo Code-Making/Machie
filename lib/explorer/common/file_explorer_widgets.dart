@@ -151,7 +151,7 @@ class RootDropZone extends ConsumerWidget {
               ),
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha:0.3),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
                   width: 1.5,
@@ -255,7 +255,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           if (isHovered) {
             backgroundColor = Theme.of(
               context,
-            ).colorScheme.primary.withOpacity(0.4);
+            ).colorScheme.primary.withValues(alpha:0.4);
           }
 
           return Container(color: backgroundColor, child: childWidget);
@@ -382,7 +382,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   Widget _buildDragFeedback() {
     return Material(
       elevation: 4.0,
-      color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+      color: Theme.of(context).colorScheme.primary.withValues(alpha:0.7),
       borderRadius: BorderRadius.circular(8),
       child: ConstrainedBox(
         constraints: BoxConstraints(

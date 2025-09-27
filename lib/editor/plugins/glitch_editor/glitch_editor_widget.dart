@@ -504,8 +504,8 @@ class _BrushPreview extends StatelessWidget {
             settings.shape == GlitchBrushShape.circle
                 ? BoxShape.circle
                 : BoxShape.rectangle,
-        color: Colors.white.withOpacity(0.3),
-        border: Border.all(color: Colors.white.withOpacity(0.7), width: 2),
+        color: Colors.white.withValues(alpha:0.3),
+        border: Border.all(color: Colors.white.withValues(alpha:0.7), width: 2),
       ),
     );
   }
