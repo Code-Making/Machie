@@ -20,7 +20,6 @@ class CodeEditorTab extends EditorTab {
 
   void dispose() {}
 
-  @override
   Map<String, dynamic> toJson() => {
     'type': 'code',
     'id': id, // Serialize the stable ID

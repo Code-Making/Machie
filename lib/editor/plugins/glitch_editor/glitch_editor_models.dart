@@ -20,7 +20,6 @@ class GlitchEditorTab extends EditorTab {
 
   void dispose() {}
 
-  @override
   Map<String, dynamic> toJson() => {
     'type': 'glitch',
     'id': id, // Serialize the stable ID
