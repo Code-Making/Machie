@@ -3,24 +3,27 @@
 // =========================================
 
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'app_state.dart';
+
 import '../data/persistence_service.dart';
 import '../data/file_handler/file_handler.dart';
+import '../data/repositories/project_repository.dart';
 import '../editor/plugins/plugin_registry.dart';
-import '../project/services/project_service.dart';
 import '../editor/services/editor_service.dart';
-import '../utils/clipboard.dart';
-import 'app_state.dart';
+import '../editor/tab_state_manager.dart';
 import '../explorer/services/explorer_service.dart'; // ADDED
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
-import '../utils/toast.dart';
-import '../data/repositories/project_repository.dart';
 import '../project/project_models.dart';
-import '../editor/tab_state_manager.dart';
-import 'package:machine/editor/services/editor_service.dart';
+import '../project/services/project_service.dart';
+import '../utils/clipboard.dart';
+import '../utils/toast.dart';
+
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
