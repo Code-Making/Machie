@@ -650,7 +650,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             TextSpan(
               text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withValues(alpha: (0.3 * 255.0)),
+                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -830,7 +830,7 @@ class _CustomLineNumberWidget extends StatelessWidget {
           controller: controller,
           notifier: notifier,
           textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withValues(alpha: (0.6 * 255).round()),
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
             fontSize: 12,
           ),
           focusedTextStyle: TextStyle(
