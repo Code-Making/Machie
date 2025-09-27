@@ -687,7 +687,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       LogicalKeyboardKey.arrowRight: AxisDirection.right,
     };
     final direction = arrowKeyDirections[event.logicalKey];
-    final shiftPressed = event.isShiftPressed;
+    final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
     if (direction != null) {
       if (shiftPressed) {
@@ -725,7 +725,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
       focusNode: _focusNode,
-      onKey: _handleKeyEvent,
+      onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: CodeEditor(
         controller: controller,
