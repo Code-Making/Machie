@@ -18,6 +18,7 @@ class GlitchEditorTab extends EditorTab {
     super.id, // ADDED
   });
 
+  @override
   void dispose() {}
 
   Map<String, dynamic> toJson() => {

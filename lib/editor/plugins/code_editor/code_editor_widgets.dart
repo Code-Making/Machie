@@ -650,7 +650,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             TextSpan(
               text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withOpacity(0.3),
+                backgroundColor: Colors.yellow.withValues(alpha: (0.3 * 255).round()),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -678,8 +678,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return TextSpan(children: builtSpans, style: style);
   }
 
-  KeyEventResult _handleKeyEvent(FocusNode node, RawKeyEvent event) {
-    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final arrowKeyDirections = {
       LogicalKeyboardKey.arrowUp: AxisDirection.up,
       LogicalKeyboardKey.arrowDown: AxisDirection.down,
@@ -830,7 +830,7 @@ class _CustomLineNumberWidget extends StatelessWidget {
           controller: controller,
           notifier: notifier,
           textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: (0.6 * 255).round()),
             fontSize: 12,
           ),
           focusedTextStyle: TextStyle(

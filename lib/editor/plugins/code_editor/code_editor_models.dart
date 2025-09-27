@@ -18,6 +18,8 @@ class CodeEditorTab extends EditorTab {
     super.id, // ADDED
   });
 
+  @override
+  @override
   void dispose() {}
 
   Map<String, dynamic> toJson() => {

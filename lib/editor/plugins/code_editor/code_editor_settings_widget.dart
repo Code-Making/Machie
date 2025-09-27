@@ -72,7 +72,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
                   _updateSettings(_currentSettings.copyWith(fontSize: value)),
         ),
         DropdownButtonFormField<String>(
-          value: _currentSettings.fontFamily,
+          initialValue: _currentSettings.fontFamily,
           items: const [
             DropdownMenuItem(
               value: 'JetBrainsMono',
