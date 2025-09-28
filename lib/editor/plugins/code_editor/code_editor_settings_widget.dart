@@ -87,7 +87,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
         ),
         // NEW: Theme selection dropdown
         DropdownButtonFormField<String>(
-          value: _currentSettings.themeName,
+          initialValue: _currentSettings.themeName,
           decoration: const InputDecoration(labelText: 'Editor Theme'),
           items:
               CodeThemes.availableCodeThemes.keys.map((themeName) {

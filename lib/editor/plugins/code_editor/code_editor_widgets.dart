@@ -23,11 +23,11 @@ import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 
-// ... (_BracketHighlightState is unchanged) ...
-class _BracketHighlightState {
+// ... (BracketHighlightState is unchanged) ...
+class BracketHighlightState {
   final Set<CodeLinePosition> bracketPositions;
   final Set<int> highlightedLines;
-  const _BracketHighlightState({
+  const BracketHighlightState({
     this.bracketPositions = const {},
     this.highlightedLines = const {},
   });
@@ -50,8 +50,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
 
-  _BracketHighlightState _bracketHighlightState =
-      const _BracketHighlightState();
+  BracketHighlightState BracketHighlightState =
+      const BracketHighlightState();
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
@@ -398,7 +398,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     // 1. First, handle UI-specific updates that need setState.
     setState(() {
-      _bracketHighlightState = _calculateBracketHighlights();
+      BracketHighlightState = _calculateBracketHighlights();
     });
 
     // 2. Then, update the reactive state provider for commands.
@@ -520,10 +520,10 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   // ... (bracket highlighting logic is unchanged) ...
-  _BracketHighlightState _calculateBracketHighlights() {
+  BracketHighlightState _calculateBracketHighlights() {
     final selection = controller.selection;
     if (!selection.isCollapsed) {
-      return const _BracketHighlightState();
+      return const BracketHighlightState();
     }
     final position = selection.base;
     final brackets = {'(': ')', '[': ']', '{': '}'};
@@ -553,7 +553,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         }
       }
     }
-    return _BracketHighlightState(
+    return BracketHighlightState(
       bracketPositions: newPositions,
       highlightedLines: newHighlightedLines,
     );
@@ -619,7 +619,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final highlightState = _bracketHighlightState;
+    final highlightState = BracketHighlightState;
     final highlightPositions =
         highlightState.bracketPositions
             .where((pos) => pos.index == index)
@@ -749,7 +749,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             controller: editingController,
             chunkController: chunkController,
             notifier: notifier,
-            bracketHighlightState: _bracketHighlightState,
+            bracketHighlightState: BracketHighlightState,
           );
         },
         style: CodeEditorStyle(
@@ -775,7 +775,7 @@ class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
-  final _BracketHighlightState bracketHighlightState;
+  final BracketHighlightState bracketHighlightState;
 
   const CustomEditorIndicator({
     super.key,

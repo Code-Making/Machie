@@ -86,8 +86,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _updateImageDisplayParams() {
-    if (_displayImage == null || !context.mounted || context.size == null)
+    if (_displayImage == null || !context.mounted || context.size == null){
       return;
+    }
     final imageSize = Size(
       _displayImage!.width.toDouble(),
       _displayImage!.height.toDouble(),
