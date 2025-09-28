@@ -54,7 +54,7 @@ class ActiveExplorerNotifier {
     final currentSettings = _ref.read(activeExplorerSettingsProvider);
     final newSettings = updater(currentSettings);
 
-    final newProject = await explorerService.updateWorkspace(project, (w) {
+    final newProject = explorerService.updateWorkspace(project, (w) {
       final newPluginStates = Map<String, dynamic>.from(w.pluginStates);
       newPluginStates[activePlugin.id] = newSettings.toJson();
       return w.copyWith(pluginStates: newPluginStates);

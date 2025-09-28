@@ -100,12 +100,10 @@ class EditorService {
           await cacheService.clearTabState(projectMetadata.id, tabId);
         }
 
-        if (dataToLoad == null) {
-          dataToLoad =
-              plugin.dataRequirement == PluginDataRequirement.bytes
-                  ? await _repo.readFileAsBytes(file.uri)
-                  : await _repo.readFile(file.uri);
-        }
+        dataToLoad ??=
+            plugin.dataRequirement == PluginDataRequirement.bytes
+                ? await _repo.readFileAsBytes(file.uri)
+                : await _repo.readFile(file.uri);
         // --- END OF CACHE CHECK ---
 
         final newTab = await plugin.createTab(file, dataToLoad, id: tabId);
