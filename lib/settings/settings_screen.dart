@@ -121,11 +121,12 @@ class _GeneralSettingsCard extends ConsumerWidget {
           children:
               kAccentColors.entries.map((entry) {
                 final color = entry.value;
-                final isSelected = settings.accentColorValue == color.value;
+                final isSelected =
+                    settings.accentColorValue == color.toARGB32();
                 return GestureDetector(
                   onTap: () {
                     notifier.updatePluginSettings(
-                      settings.copyWith(accentColorValue: color.value),
+                      settings.copyWith(accentColorValue: color.toARGB32()),
                     );
                   },
                   child: Container(

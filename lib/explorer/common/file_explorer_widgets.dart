@@ -169,14 +169,12 @@ class RootDropZone extends ConsumerWidget {
           ),
         );
       },
-      onWillAccept:
-          (data) =>
-              data != null &&
-              _isDropAllowed(data, RootPlaceholder(projectRootUri)),
-      onAccept: (file) {
+      onWillAcceptWithDetails: (details) =>
+          _isDropAllowed(details.data, RootPlaceholder(projectRootUri)),
+      onAcceptWithDetails: (details) {
         ref
             .read(explorerServiceProvider)
-            .moveItem(file, RootPlaceholder(projectRootUri));
+            .moveItem(details.data, RootPlaceholder(projectRootUri));
       },
     );
   }
@@ -261,9 +259,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           return Container(color: backgroundColor, child: childWidget);
         },
         // Check if the drop is allowed AND the target is not already hovered.
-        onWillAccept: (draggedData) {
-          if (draggedData == null ||
-              !_isDropAllowed(draggedData, widget.item)) {
+        onWillAcceptWithDetails: (details) {
+          if (!_isDropAllowed(details.data, widget.item)) {
             return false;
           }
           setState(() {
@@ -272,16 +269,18 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           return true;
         },
         // When the draggable leaves the target area.
-        onLeave: (draggedData) {
+        onLeave: (details) {
           setState(() {
             _isHoveredByDraggable = false;
           });
         },
-        onAccept: (draggedFile) {
+        onAcceptWithDetails: (details) {
           setState(() {
             _isHoveredByDraggable = false;
           });
-          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
+          ref
+              .read(explorerServiceProvider)
+              .moveItem(details.data, widget.item);
         },
       );
     }
