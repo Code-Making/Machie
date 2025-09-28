@@ -50,7 +50,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
 
-  BracketHighlightState BracketHighlightState =
+  BracketHighlightState _bracketHighlightState =
       const BracketHighlightState();
 
   late CodeCommentFormatter _commentFormatter;
@@ -398,7 +398,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     // 1. First, handle UI-specific updates that need setState.
     setState(() {
-      BracketHighlightState = _calculateBracketHighlights();
+      _bracketHighlightState = _calculateBracketHighlights();
     });
 
     // 2. Then, update the reactive state provider for commands.
@@ -619,7 +619,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final highlightState = BracketHighlightState;
+    final highlightState = _bracketHighlightState;
     final highlightPositions =
         highlightState.bracketPositions
             .where((pos) => pos.index == index)
@@ -749,7 +749,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
             controller: editingController,
             chunkController: chunkController,
             notifier: notifier,
-            bracketHighlightState: BracketHighlightState,
+            bracketHighlightState: _bracketHighlightState,
           );
         },
         style: CodeEditorStyle(
