@@ -76,7 +76,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    _languageKey = CodeThemes.inferLanguageKey(fileUri);
+    _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
     controller = CodeLineEditingController(
@@ -435,9 +435,10 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   /// Returns the current unsaved state of the editor for caching.
   Map<String, dynamic> getHotState() {
+    // THE FIX: Include the language key in the state map.
     return {
-      // The key 'content' will be used to identify this data during rehydration.
       'content': controller.text,
+      'languageKey': _languageKey,
     };
   }
 
@@ -516,6 +517,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       setState(() {
         _languageKey = selectedLanguageKey;
       });
+      // THE FIX: Mark the tab as dirty so the cache system will save this change.
+      ref.read(editorServiceProvider).markCurrentTabDirty();
     }
   }
 

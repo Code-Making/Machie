@@ -77,10 +77,13 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
-
-    // The state object now returns a Map, so we construct the DTO here.
+    
     final stateMap = editorState.getHotState();
-    return CodeEditorHotStateDto(content: stateMap['content']);
+    // THE FIX: Construct the DTO with the language key.
+    return CodeEditorHotStateDto(
+      content: stateMap['content'],
+      languageKey: stateMap['languageKey'],
+    );
   }
 
   @override
@@ -89,15 +92,25 @@ class CodeEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(
-    DocumentFile file,
-    dynamic data, {
-    String? id,
-  }) async {
-    // REFACTORED: The 'file' property is no longer part of the tab model.
-    // The EditorService will handle associating the file with the tab's ID
-    // in the metadata provider.
-    return CodeEditorTab(plugin: this, initialContent: data as String, id: id);
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id, TabHotStateDto? hotState}) async {
+    // We can now pass the hot state directly to createTab.
+    String initialContent;
+    String? initialLanguageKey;
+
+    if (hotState is CodeEditorHotStateDto) {
+      initialContent = hotState.content;
+      initialLanguageKey = hotState.languageKey;
+    } else {
+      initialContent = data as String;
+      initialLanguageKey = null;
+    }
+    
+    return CodeEditorTab(
+      plugin: this,
+      initialContent: initialContent,
+      initialLanguageKey: initialLanguageKey, // <-- Pass it here
+      id: id,
+    );
   }
 
   @override

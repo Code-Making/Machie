@@ -106,7 +106,7 @@ class EditorService {
                 : await _repo.readFile(file.uri);
         // --- END OF CACHE CHECK ---
 
-        final newTab = await plugin.createTab(file, dataToLoad, id: tabId);
+        final newTab = await plugin.createTab(file, dataToLoad, hotState: cachedDto, id: tabId);
 
         // Populate the metadata, marking it as dirty if it was restored from cache.
         metadataNotifier.initTab(newTab.id, file);

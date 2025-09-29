@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/code_editor/code_editor_hot_state_dto.dart
-// =========================================
-
 import 'package:flutter/foundation.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 
@@ -11,5 +7,12 @@ class CodeEditorHotStateDto implements TabHotStateDto {
   /// The full, unsaved text content of the editor.
   final String content;
 
-  const CodeEditorHotStateDto({required this.content});
+  /// The user-overridden language key for syntax highlighting (e.g., 'dart', 'python').
+  /// This is null if the language is just inferred from the file extension.
+  final String? languageKey; // <-- ADDED
+
+  const CodeEditorHotStateDto({
+    required this.content,
+    this.languageKey, // <-- ADDED
+  });
 }
