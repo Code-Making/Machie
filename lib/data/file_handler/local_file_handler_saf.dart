@@ -174,12 +174,16 @@ class SafFileHandler implements LocalFileHandler {
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    if (source.isDirectory) {
-      throw UnsupportedError('Recursive folder move not supported.');
-    }
-    final copied = await copyDocumentFile(source, destinationParentUri);
-    if (copied != null) await deleteDocumentFile(source);
-    return copied;
+    // We need to provide the source file's original parent URI.
+    final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
+
+    final movedFile = await _safUtil.moveTo(
+      source.uri,
+      source.isDirectory,
+      sourceParentUri, // <-- The original parent URI
+      destinationParentUri, // <-- The new parent URI
+    );
+    return movedFile != null ? CustomSAFDocumentFile(movedFile) : null;
   }
 
   @override

@@ -1,4 +1,7 @@
-// lib/explorer/common/file_explorer_commands.dart
+// =========================================
+// UPDATED: lib/explorer/common/file_explorer_commands.dart
+// =========================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,9 +13,8 @@ import '../../utils/clipboard.dart';
 import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
 import '../../data/repositories/project_repository.dart';
-import '../services/explorer_service.dart'; // REFACTOR: Import service
+import '../services/explorer_service.dart';
 
-// ... (_DividerCommand is unchanged) ...
 class _DividerCommand extends FileContextCommand {
   const _DividerCommand()
     : super(
@@ -91,10 +93,44 @@ class FileContextCommands {
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final clipboardContent = ref.watch(clipboardProvider);
     final repo = ref.read(projectRepositoryProvider);
-    // REFACTOR: Get the service
     final explorerService = ref.read(explorerServiceProvider);
 
     final List<FileContextCommand> commands = [];
+
+    // THE FIX: Add directory-specific commands first if the item is a directory.
+    if (item.isDirectory) {
+      commands.addAll([
+        BaseFileContextCommand(
+          id: 'new_file_in_folder',
+          label: 'New File',
+          icon: const Icon(Icons.note_add_outlined),
+          sourcePlugin: 'FileExplorer',
+          canExecuteFor: (ref, item) => item.isDirectory,
+          executeFor: (ref, item) async {
+            final newName = await showTextInputDialog(ref.context, title: 'New File');
+            if (newName != null && newName.isNotEmpty) {
+              // Use the item's URI as the parent URI for the new file.
+              await explorerService.createFile(item.uri, newName);
+            }
+          },
+        ),
+        BaseFileContextCommand(
+          id: 'new_folder_in_folder',
+          label: 'New Folder',
+          icon: const Icon(Icons.create_new_folder_outlined),
+          sourcePlugin: 'FileExplorer',
+          canExecuteFor: (ref, item) => item.isDirectory,
+          executeFor: (ref, item) async {
+            final newName = await showTextInputDialog(ref.context, title: 'New Folder');
+            if (newName != null && newName.isNotEmpty) {
+              // Use the item's URI as the parent URI for the new folder.
+              await explorerService.createFolder(item.uri, newName);
+            }
+          },
+        ),
+        const _DividerCommand(),
+      ]);
+    }
 
     if (!item.isDirectory && compatiblePlugins.length > 1) {
       for (final plugin in compatiblePlugins) {
@@ -128,7 +164,6 @@ class FileContextCommands {
             initialValue: item.name,
           );
           if (newName != null && newName.isNotEmpty && newName != item.name) {
-            // REFACTOR: Call service method
             await explorerService.renameItem(item, newName);
           }
         },
@@ -146,7 +181,6 @@ class FileContextCommands {
             content: 'This action cannot be undone.',
           );
           if (confirm) {
-            // REFACTOR: Call service method
             await explorerService.deleteItem(item);
           }
         },
@@ -190,7 +224,6 @@ class FileContextCommands {
         executeFor: (ref, item) async {
           if (clipboardContent == null) return;
           try {
-            // REFACTOR: Call service method
             await explorerService.pasteItem(item, clipboardContent);
             appNotifier.clearClipboard();
           } catch (e) {
