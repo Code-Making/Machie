@@ -206,6 +206,7 @@ class CodeEditorPlugin implements EditorPlugin {
         final newTab = await codeEditorPlugin.createTab(
           scratchpadFile,
           initialContent,
+          hotState: cachedDto,
           id: AppCommands.scratchpadTabId,
         );
 
