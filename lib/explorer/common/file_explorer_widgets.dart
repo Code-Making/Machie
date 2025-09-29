@@ -16,6 +16,7 @@ import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
+  if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
 
@@ -28,6 +29,7 @@ bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
   return true;
 }
 
+// ... DirectoryView and RootDropZone are unchanged ...
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
@@ -138,7 +140,7 @@ class RootDropZone extends ConsumerWidget {
               ),
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primary.withAlpha(50),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
                   width: 1.5,
@@ -167,6 +169,10 @@ class RootDropZone extends ConsumerWidget {
   }
 }
 
+// =======================================================================
+// THE MAIN FIX is in DirectoryItem and its _DirectoryItemState
+// =======================================================================
+
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
@@ -184,6 +190,7 @@ class DirectoryItem extends ConsumerStatefulWidget {
 }
 
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
+  // THE FIX: Use local state for the hover effect.
   bool _isHoveredByDraggable = false;
 
   static const double _kBaseIndent = 16.0;
@@ -192,135 +199,145 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
 
   @override
   Widget build(BuildContext context) {
-    final itemContent = _buildItemContent();
+    final itemContent = widget.item.isDirectory
+        ? _buildDirectoryTile()
+        : _buildFileTile();
 
+    // The Draggable wraps the entire item.
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
-      delay: const Duration(seconds: 1),
-      onDragEnd: (details) {
-        if (!details.wasAccepted) {
-          showFileContextMenu(context, ref, widget.item);
-        }
-      },
-      child: GestureDetector(
-        onTap:
-            widget.item.isDirectory
-                ? null
-                : () async {
-                  final navigator = Navigator.of(context);
-                  final success = await ref
-                      .read(appNotifierProvider.notifier)
-                      .openFileInEditor(widget.item);
-                  if (success && mounted) {
-                    navigator.pop();
-                  }
-                },
-        child: itemContent,
-      ),
+      delay: const Duration(milliseconds: 500),
+      // THE FIX: The complex onDragEnd logic is no longer needed here.
+      // All actions are now handled by the DragTargets.
+      child: itemContent,
     );
-  }
-
-  Widget _buildItemContent() {
-    Widget childWidget =
-        widget.item.isDirectory ? _buildDirectoryTile() : _buildFileTile();
-
-    if (widget.item.isDirectory) {
-      return DragTarget<DocumentFile>(
-        // THE FIX: Add this line. This makes the topmost widget under the
-        // cursor claim the drop event, preventing parent folders from
-        // intercepting it.
-        behavior: HitTestBehavior.opaque,
-        builder: (context, candidateData, rejectedData) {
-          final isHovered = _isHoveredByDraggable;
-
-          Color? backgroundColor;
-          if (isHovered) {
-            backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
-          }
-
-          return Container(color: backgroundColor, child: childWidget);
-        },
-        onWillAcceptWithDetails: (details) {
-          if (!_isDropAllowed(details.data, widget.item)) {
-            return false;
-          }
-          setState(() {
-            _isHoveredByDraggable = true;
-          });
-          return true;
-        },
-        onLeave: (details) {
-          setState(() {
-            _isHoveredByDraggable = false;
-          });
-        },
-        onAcceptWithDetails: (details) {
-          setState(() {
-            _isHoveredByDraggable = false;
-          });
-          ref
-              .read(explorerServiceProvider)
-              .moveItem(details.data, widget.item);
-        },
-      );
-    }
-    return childWidget;
   }
 
   Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.only(
-        left: currentIndent + _kBaseIndent,
-        top: _kVerticalPadding,
-        bottom: _kVerticalPadding,
-      ),
-      leading: FileTypeIcon(file: widget.item),
-      title: Text(
-        widget.item.name,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: _kFontSize),
-      ),
-      subtitle:
-          widget.subtitle != null
-              ? Text(
+    return GestureDetector(
+      onTap: () async {
+        final navigator = Navigator.of(context);
+        final success = await ref
+            .read(appNotifierProvider.notifier)
+            .openFileInEditor(widget.item);
+        if (success && mounted) {
+          navigator.pop();
+        }
+      },
+      onLongPress: () {
+        // Allow long press to open context menu directly on files
+        showFileContextMenu(context, ref, widget.item);
+      },
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.only(
+          left: currentIndent + _kBaseIndent,
+          top: _kVerticalPadding,
+          bottom: _kVerticalPadding,
+        ),
+        leading: FileTypeIcon(file: widget.item),
+        title: Text(
+          widget.item.name,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: _kFontSize),
+        ),
+        subtitle: widget.subtitle != null
+            ? Text(
                 widget.subtitle!,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: _kFontSize - 2),
               )
-              : null,
+            : null,
+      ),
     );
   }
 
   Widget _buildDirectoryTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
-    return ExpansionTile(
-      key: PageStorageKey<String>(widget.item.uri),
-      tilePadding: EdgeInsets.only(
-        left: currentIndent,
-        right: 8.0,
-        top: _kVerticalPadding,
-        bottom: _kVerticalPadding,
-      ),
-      childrenPadding: EdgeInsets.zero,
-      leading: Icon(
-        widget.isExpanded ? Icons.folder_open : Icons.folder,
-        color: Colors.yellow.shade700,
-      ),
-      title: Text(
-        widget.item.name,
-        style: const TextStyle(fontSize: _kFontSize),
-      ),
-      subtitle:
-          widget.subtitle != null
-              ? Text(
+
+    // THE FIX: The visible part of the tile is built separately so it can
+    // be wrapped in a DragTarget without covering its children.
+    Widget tileContent = Container(
+      color: _isHoveredByDraggable
+          ? Theme.of(context).colorScheme.primary.withAlpha(70)
+          : null,
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.only(
+          left: currentIndent,
+          right: 8.0,
+          top: _kVerticalPadding,
+          bottom: _kVerticalPadding,
+        ),
+        leading: Icon(
+          widget.isExpanded ? Icons.folder_open : Icons.folder,
+          color: Colors.yellow.shade700,
+        ),
+        title: Text(
+          widget.item.name,
+          style: const TextStyle(fontSize: _kFontSize),
+        ),
+        subtitle: widget.subtitle != null
+            ? Text(
                 widget.subtitle!,
                 style: const TextStyle(fontSize: _kFontSize - 2),
               )
-              : null,
+            : null,
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+
+    // THE FIX: The DragTarget now wraps ONLY the visible tile content.
+    final tileWithDropTarget = DragTarget<DocumentFile>(
+      builder: (context, candidateData, rejectedData) {
+        return tileContent;
+      },
+      onWillAcceptWithDetails: (details) {
+        final draggedFile = details.data;
+        // Accept the drop if it's a valid move OR if it's being dropped on itself.
+        final bool isSelfDrop = draggedFile.uri == widget.item.uri;
+        final bool isAllowedMove = _isDropAllowed(draggedFile, widget.item);
+
+        if (isAllowedMove) {
+          // Only show the hover highlight for a valid MOVE operation.
+          setState(() { _isHoveredByDraggable = true; });
+        }
+        
+        return isAllowedMove || isSelfDrop;
+      },
+      onAcceptWithDetails: (details) {
+        final draggedFile = details.data;
+        // THE FIX: This is the core logic. Check if the drop is on the source item.
+        if (draggedFile.uri == widget.item.uri) {
+          // If it is, show the context menu instead of moving.
+          showFileContextMenu(context, ref, widget.item);
+        } else {
+          // Otherwise, perform the move operation.
+          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
+        }
+        // Always reset hover state after any accepted drop.
+        setState(() { _isHoveredByDraggable = false; });
+      },
+      onLeave: (details) {
+        setState(() { _isHoveredByDraggable = false; });
+      },
+    );
+
+    // The ExpansionTile now uses the DragTarget-wrapped tile as its header
+    // and the nested DirectoryView as its child. This physically separates the
+    // parent drop zone from the children.
+    return ExpansionTile(
+      key: PageStorageKey<String>(widget.item.uri),
+      // Use a custom header builder to insert our DragTarget tile.
+      title: tileWithDropTarget,
+      // Remove default padding and indicators, as our custom tile handles them.
+      tilePadding: EdgeInsets.zero,
+      trailing: const SizedBox.shrink(),
+      leading: const SizedBox.shrink(),
+      childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
         if (expanded) {
@@ -363,7 +380,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   Widget _buildDragFeedback() {
     return Material(
       elevation: 4.0,
-      color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+      color: Theme.of(context).colorScheme.primary.withAlpha(180),
       borderRadius: BorderRadius.circular(8),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -382,6 +399,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 }
 
+// ... RootPlaceholder and FileTypeIcon are unchanged ...
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
