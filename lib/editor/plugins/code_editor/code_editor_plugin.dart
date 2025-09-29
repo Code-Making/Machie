@@ -32,6 +32,11 @@ import '../../../project/project_models.dart';
 
 
 class CodeEditorPlugin implements EditorPlugin {
+  static const String pluginId = 'com.machine.code_editor';
+  static const String hotStateId = 'com.machine.code_editor_state';
+
+  @override
+  String get id => pluginId;
   @override
   String get name => 'Code Editor';
   @override
@@ -59,7 +64,7 @@ class CodeEditorPlugin implements EditorPlugin {
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
   @override
-  String get hotStateDtoType => 'com.machine.code_editor_state';
+  String get hotStateDtoType => hotStateId;
 
   @override
   TypeAdapter<TabHotStateDto> get hotStateAdapter =>
@@ -92,23 +97,25 @@ class CodeEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id, TabHotStateDto? hotState}) async {
-    // We can now pass the hot state directly to createTab.
+  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id}) async {
     String initialContent;
     String? initialLanguageKey;
 
-    if (hotState is CodeEditorHotStateDto) {
+    // Prioritize hot state if it exists
+    if (initData.hotState is CodeEditorHotStateDto) {
+      final hotState = initData.hotState as CodeEditorHotStateDto;
       initialContent = hotState.content;
       initialLanguageKey = hotState.languageKey;
     } else {
-      initialContent = data as String;
+      // Fallback to initial data from the file
+      initialContent = initData.stringData ?? '';
       initialLanguageKey = null;
     }
-    
+
     return CodeEditorTab(
       plugin: this,
       initialContent: initialContent,
-      initialLanguageKey: initialLanguageKey, // <-- Pass it here
+      initialLanguageKey: initialLanguageKey,
       id: id,
     );
   }
@@ -118,18 +125,14 @@ class CodeEditorPlugin implements EditorPlugin {
     Map<String, dynamic> tabJson,
     FileHandler fileHandler,
   ) async {
-    // This method is now more complex as metadata is separate.
-    // In a full implementation, the EditorService would handle rehydrating
-    // the metadata and then calling createTab. For now, we assume we can
-    // get the file and create the tab.
-    final fileUri =
-        tabJson['fileUri'] as String; // Assume fileUri is still persisted
+    final fileUri = tabJson['fileUri'] as String;
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) {
       throw Exception('File not found for tab URI: $fileUri');
     }
     final content = await fileHandler.readFile(fileUri);
-    return createTab(file, content);
+    final initData = EditorInitData(stringData: content);
+    return createTab(file, initData);
   }
 
   @override
@@ -161,7 +164,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Open Scratchpad',
       icon: const Icon(Icons.edit_note),
       defaultPosition: CommandPosition.appBar,
-      sourcePlugin: 'App', // Keep 'App' source to appear globally
+      sourcePlugin: 'App',
       canExecute:
           (ref) => ref.watch(
             appNotifierProvider.select((s) => s.value?.currentProject != null),
@@ -170,7 +173,6 @@ class CodeEditorPlugin implements EditorPlugin {
         final appNotifier = ref.read(appNotifierProvider.notifier);
         final project = ref.read(appNotifierProvider).value!.currentProject!;
 
-        // 1. Check if the scratchpad tab is already open.
         final existingTab = project.session.tabs.firstWhereOrNull(
           (t) => t.id == AppCommands.scratchpadTabId,
         );
@@ -180,37 +182,31 @@ class CodeEditorPlugin implements EditorPlugin {
           return;
         }
 
-        // 2. If not open, create it.
         final cacheService = ref.read(cacheServiceProvider);
-        // We know `this` is the code editor plugin.
         final codeEditorPlugin = this;
-
-        // 3. Define the virtual file for the scratchpad.
         final scratchpadFile = VirtualDocumentFile(
           uri: 'scratchpad://${project.id}',
           name: 'Scratchpad',
         );
 
-        // 4. Try to load its previous content from the cache.
+        // Try to load cached DTO.
         final cachedDto = await cacheService.getTabState(
           project.id,
           AppCommands.scratchpadTabId,
         );
-        String initialContent = '';
-        if (cachedDto is CodeEditorHotStateDto) {
-          // <-- This is now valid
-          initialContent = cachedDto.content;
-        }
 
-        // 5. Create the tab using this plugin instance.
+        // Create the unified init data object.
+        final initData = EditorInitData(
+          stringData: '', // No file to read, so default to empty string.
+          hotState: cachedDto,
+        );
+
         final newTab = await codeEditorPlugin.createTab(
           scratchpadFile,
-          initialContent,
-          hotState: cachedDto,
+          initData,
           id: AppCommands.scratchpadTabId,
         );
 
-        // 6. Add the new tab to the app state.
         final newTabs = [...project.session.tabs, newTab];
         final newProject = project.copyWith(
           session: project.session.copyWith(
@@ -220,7 +216,6 @@ class CodeEditorPlugin implements EditorPlugin {
         );
         appNotifier.updateCurrentProject(newProject);
 
-        // 7. Initialize metadata and mark as dirty.
         final metadataNotifier = ref.read(tabMetadataProvider.notifier);
         metadataNotifier.initTab(newTab.id, scratchpadFile);
         metadataNotifier.markDirty(newTab.id);
@@ -448,7 +443,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: label,
       icon: Icon(icon, size: 20),
       defaultPosition: defaultPosition,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute: (ref) async {
         final editorState = _getActiveEditorState(ref);
         await execute(ref, editorState);
