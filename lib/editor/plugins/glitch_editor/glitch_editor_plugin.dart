@@ -113,7 +113,13 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   TypeAdapter<TabHotStateDto> get hotStateAdapter =>
       GlitchEditorHotStateAdapter();
-
+  
+  @override
+  Widget wrapCommandToolbar(Widget toolbar) {
+    // This plugin doesn't need any special wrapping, so just return the toolbar.
+    return toolbar;
+  }
+  
   /// Helper to get the active editor's state object.
   GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is GlitchEditorWidgetState) {
