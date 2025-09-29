@@ -1,10 +1,10 @@
 // =========================================
-// NEW FILE: lib/project/services/project_file_index.dart
+// UPDATED: lib/project/services/project_file_index.dart
 // =========================================
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
+// REMOVED: Unused import for 'collection'.
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -26,7 +26,8 @@ final projectFileIndexProvider = StateNotifierProvider.autoDispose<
 class ProjectFileIndex
     extends StateNotifier<AsyncValue<List<DocumentFile>>> {
   final Ref _ref;
-  StreamSubscription<AsyncValue<FileOperationEvent>>? _fileOpSubscription;
+  // THE FIX: Changed type from StreamSubscription to ProviderSubscription.
+  ProviderSubscription? _fileOpSubscription;
 
   ProjectFileIndex(this._ref) : super(const AsyncValue.loading()) {
     // Listen for changes in the current project.
@@ -34,7 +35,8 @@ class ProjectFileIndex
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
         // When the project changes (or closes), cancel old listeners and rebuild.
-        _fileOpSubscription?.cancel();
+        // THE FIX: Changed .cancel() to .close().
+        _fileOpSubscription?.close();
         if (next != null) {
           _buildIndex(next);
           // Start listening to file operations for the new project context.
@@ -142,7 +144,8 @@ class ProjectFileIndex
 
   @override
   void dispose() {
-    _fileOpSubscription?.cancel();
+    // THE FIX: Changed .cancel() to .close().
+    _fileOpSubscription?.close();
     super.dispose();
   }
 }
