@@ -101,7 +101,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
               ? (appBarOverride != null
                   ? PreferredSize(
-                    preferredSize: const Size.fromHeight(toolbarHeight),
+                    preferredSize: Size.fromHeight(toolbarHeight),
                     child: appBarOverride,
                   )
                   : AppBar(
