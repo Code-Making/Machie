@@ -8,8 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app_notifier.dart';
 import 'app/app_screen.dart';
 import 'app/lifecycle.dart';
-import 'data/persistence_service.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
+import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
 import 'project/services/cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT

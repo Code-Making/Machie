@@ -11,14 +11,15 @@ import '../../editor_tab_models.dart';
 @immutable
 class CodeEditorTab extends EditorTab {
   final String initialContent;
-
+  final String? initialLanguageKey; // <-- ADDED: To pass cached key on creation
+  
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,
+    this.initialLanguageKey, // <-- ADDED
     super.id, // ADDED
   });
 
-  @override
   @override
   void dispose() {}
 

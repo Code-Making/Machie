@@ -26,7 +26,7 @@ abstract class EditorPlugin {
 
   bool supportsFile(DocumentFile file);
 
-  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id});
+  Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id, TabHotStateDto? hotState});
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   // --- UPDATED METHODS & GETTERS FOR CACHING ---
