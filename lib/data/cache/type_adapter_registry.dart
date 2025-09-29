@@ -3,18 +3,16 @@
 // =========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/plugin_registry.dart';
+import '../../editor/plugins/plugin_registry.dart';
 import 'type_adapters.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 
-import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart';
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
-// ADDED: Imports for stable IDs
-import 'package:machine/editor/plugins/code_editor/code_editor_plugin.dart';
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_plugin.dart';
+// REMOVED: No longer need direct imports to DTO implementations.
 
 class TypeAdapterRegistry {
   final Map<String, TypeAdapter<TabHotStateDto>> _adapters = {};
+  // ADDED: A reverse map from DTO Type to its string ID.
+  final Map<Type, String> _dtoTypeToIdMap = {};
 
   TypeAdapterRegistry(List<EditorPlugin> plugins) {
     _registerAdaptersFromPlugins(plugins);
@@ -22,11 +20,17 @@ class TypeAdapterRegistry {
 
   void _registerAdaptersFromPlugins(List<EditorPlugin> plugins) {
     for (final plugin in plugins) {
-      final type = plugin.hotStateDtoType;
+      final typeId = plugin.hotStateDtoType;
       final adapter = plugin.hotStateAdapter;
+      // ADDED: Get the runtime Type from the plugin.
+      final runtimeType = plugin.hotStateDtoRuntimeType;
 
-      if (type != null && adapter != null) {
-        _adapters[type] = adapter;
+      if (typeId != null && adapter != null) {
+        _adapters[typeId] = adapter;
+        // ADDED: Populate the reverse map if the runtimeType is also provided.
+        if (runtimeType != null) {
+          _dtoTypeToIdMap[runtimeType] = typeId;
+        }
       }
     }
   }
@@ -35,15 +39,9 @@ class TypeAdapterRegistry {
     return _adapters[type];
   }
 
-  // REFACTORED: Use stable static IDs for reverse lookup.
+  // REFACTORED: This is now fully dynamic and has no hardcoded checks.
   String? getAdapterTypeForDto(TabHotStateDto dto) {
-    if (dto is CodeEditorHotStateDto) {
-      return CodeEditorPlugin.hotStateId;
-    }
-    if (dto is GlitchEditorHotStateDto) {
-      return GlitchEditorPlugin.hotStateId;
-    }
-    return null;
+    return _dtoTypeToIdMap[dto.runtimeType];
   }
 }
 
