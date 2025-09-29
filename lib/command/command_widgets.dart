@@ -1,11 +1,9 @@
 // lib/command/command_widgets.dart
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
+// REMOVED: No longer needs a direct import to CodeEditorPlugin or re_editor.
 
 import '../app/app_notifier.dart';
-import '../editor/plugins/code_editor/code_editor_plugin.dart';
 import 'command_notifier.dart';
 
 // ... (providers are unchanged) ...
@@ -72,6 +70,7 @@ class AppBarCommands extends ConsumerWidget {
     }
 
     final items = ref.watch(appBarCommandsProvider);
+    // Get the current plugin to ask it how to wrap the toolbar.
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin,
@@ -79,22 +78,21 @@ class AppBarCommands extends ConsumerWidget {
     );
 
     final commandRow = Row(
-      mainAxisSize:
-          MainAxisSize.min, // Prevent row from expanding unnecessarily
-      children:
-          items.map((item) {
-            if (item is Command) {
-              return CommandButton(command: item);
-            }
-            if (item is CommandGroup) {
-              return CommandGroupButton(commandGroup: item);
-            }
-            return const SizedBox.shrink();
-          }).toList(),
+      mainAxisSize: MainAxisSize.min,
+      children: items.map((item) {
+        if (item is Command) {
+          return CommandButton(command: item);
+        }
+        if (item is CommandGroup) {
+          return CommandGroupButton(commandGroup: item);
+        }
+        return const SizedBox.shrink();
+      }).toList(),
     );
 
-    if (currentPlugin is CodeEditorPlugin) {
-      return CodeEditorTapRegion(child: commandRow);
+    // REFACTORED: Delegate wrapping to the plugin.
+    if (currentPlugin != null) {
+      return currentPlugin.wrapCommandToolbar(commandRow);
     }
     return commandRow;
   }
@@ -132,6 +130,7 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     }
 
     final items = ref.watch(pluginToolbarCommandsProvider);
+    // Get the current plugin to ask it how to wrap the toolbar.
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin,
@@ -158,10 +157,10 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
     final container = Container(
       height: 48,
       color: Theme.of(context).bottomAppBarTheme.color,
-      child:
-          currentPlugin is CodeEditorPlugin
-              ? CodeEditorTapRegion(child: listView)
-              : listView,
+      // REFACTORED: Delegate wrapping to the plugin.
+      child: currentPlugin != null
+          ? currentPlugin.wrapCommandToolbar(listView)
+          : listView,
     );
 
     return container;
@@ -207,31 +206,38 @@ class CommandGroupButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
     final currentPluginId = ref.watch(
-      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin.id,
+      ),
     );
 
-    final commandsInGroup =
-        commandGroup.commandIds
-            .map(
-              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-                (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
-              ),
-            )
-            .whereType<Command>()
-            .toList();
+    final commandsInGroup = commandGroup.commandIds
+        .map(
+          (id) => notifier.allRegisteredCommands.firstWhereOrNull(
+            (c) =>
+                c.id == id &&
+                (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
+          ),
+        )
+        .whereType<Command>()
+        .toList();
 
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
+    
+    final currentPlugin = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin,
+      ),
+    );
 
-    // REFACTOR: Use a GlobalKey to manage opening the menu manually.
     final key = GlobalKey();
 
     final dropdown = PopupMenuButton<Command>(
       key: key,
       icon: commandGroup.icon,
       tooltip: commandGroup.label,
-      // We handle execution in the item builder's onTap.
       onSelected: (command) => command.execute(ref),
       itemBuilder: (BuildContext context) {
         return commandsInGroup.map((command) {
@@ -251,6 +257,10 @@ class CommandGroupButton extends ConsumerWidget {
       },
     );
 
-    return CodeEditorTapRegion(child: dropdown);
+    // REFACTORED: Delegate wrapping to the plugin.
+    if (currentPlugin != null) {
+      return currentPlugin.wrapCommandToolbar(dropdown);
+    }
+    return dropdown;
   }
 }

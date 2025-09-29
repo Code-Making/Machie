@@ -41,6 +41,8 @@ class GlitchEditorPlugin implements EditorPlugin {
   final PluginSettings? settings = null;
   @override
   Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
+  @override
+  Type? get hotStateDtoRuntimeType => GlitchEditorHotStateDto;
 
   @override
   bool supportsFile(DocumentFile file) {

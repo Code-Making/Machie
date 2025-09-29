@@ -50,6 +50,15 @@ class CodeEditorPlugin implements EditorPlugin {
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
   @override
+  Type? get hotStateDtoRuntimeType => CodeEditorHotStateDto;
+
+  @override
+  Widget wrapCommandToolbar(Widget toolbar) {
+    // This plugin needs to wrap toolbars to handle editor focus correctly.
+    return CodeEditorTapRegion(child: toolbar);
+  }
+  
+  @override
   Future<void> dispose() async {}
   @override
   void disposeTab(EditorTab tab) {}

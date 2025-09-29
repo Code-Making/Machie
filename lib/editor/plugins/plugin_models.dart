@@ -16,7 +16,6 @@ import '../../settings/settings_models.dart';
 
 enum PluginDataRequirement { string, bytes }
 
-// ADDED: A unified data carrier for creating tabs.
 class EditorInitData {
   final String? stringData;
   final Uint8List? byteData;
@@ -26,7 +25,6 @@ class EditorInitData {
 }
 
 abstract class EditorPlugin {
-  // REFACTORED: Add a stable, required ID.
   String get id;
   String get name;
   Widget get icon;
@@ -38,11 +36,12 @@ abstract class EditorPlugin {
 
   bool supportsFile(DocumentFile file);
 
-  // REFACTORED: Unified method signature using EditorInitData.
   Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id});
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   String? get hotStateDtoType;
+  // ADDED: Exposes the DTO's runtime Type for the registry.
+  Type? get hotStateDtoRuntimeType;
   TypeAdapter<TabHotStateDto>? get hotStateAdapter;
   Future<TabHotStateDto?> serializeHotState(EditorTab tab);
 
@@ -51,6 +50,10 @@ abstract class EditorPlugin {
   void disposeTab(EditorTab tab) {}
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
+
+  // ADDED: Allows plugins to wrap command toolbars with their own widgets.
+  Widget wrapCommandToolbar(Widget toolbar) => toolbar;
+
   Widget buildToolbar(WidgetRef ref) => const SizedBox.shrink();
 
   Future<EditorTab> createTabFromSerialization(
