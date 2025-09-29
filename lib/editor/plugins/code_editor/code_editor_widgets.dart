@@ -880,7 +880,7 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
         color: Theme.of(context).appBarTheme.backgroundColor,
         child: SafeArea(
           child: Container(
-            height: kToolbarHeight,
+            height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: Row(
               // The contextual commands.

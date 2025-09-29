@@ -93,14 +93,15 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         GeneralSettings();
 
     final appBarOverride = appState?.appBarOverride;
-
+    final double toolbarHeight = Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
+    
     return Scaffold(
       key: _scaffoldKey,
       appBar:
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
               ? (appBarOverride != null
                   ? PreferredSize(
-                    preferredSize: const Size.fromHeight(kToolbarHeight),
+                    preferredSize: const Size.fromHeight(toolbarHeight),
                     child: appBarOverride,
                   )
                   : AppBar(
