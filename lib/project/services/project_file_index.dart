@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// REMOVED: Unused import for 'collection'.
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -18,15 +17,16 @@ import '../../project/project_models.dart';
 /// in sync by listening to file operation events. This provides a highly
 /// performant way for features like "Search" or "Go to File" to access
 /// the project's file structure.
-final projectFileIndexProvider = StateNotifierProvider.autoDispose<
-    ProjectFileIndex, AsyncValue<List<DocumentFile>>>(
+// THE FIX: Removed .autoDispose to tie the provider's lifecycle to the app/project
+// instead of the UI widget that displays the search results.
+final projectFileIndexProvider =
+    StateNotifierProvider<ProjectFileIndex, AsyncValue<List<DocumentFile>>>(
   (ref) => ProjectFileIndex(ref),
 );
 
 class ProjectFileIndex
     extends StateNotifier<AsyncValue<List<DocumentFile>>> {
   final Ref _ref;
-  // THE FIX: Changed type from StreamSubscription to ProviderSubscription.
   ProviderSubscription? _fileOpSubscription;
 
   ProjectFileIndex(this._ref) : super(const AsyncValue.loading()) {
@@ -35,7 +35,6 @@ class ProjectFileIndex
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
         // When the project changes (or closes), cancel old listeners and rebuild.
-        // THE FIX: Changed .cancel() to .close().
         _fileOpSubscription?.close();
         if (next != null) {
           _buildIndex(next);
@@ -122,7 +121,8 @@ class ProjectFileIndex
               );
               break;
             case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-              // If a folder was renamed, we need a full rebuild.
+              // If a folder was renamed, we need a full rebuild. This is a safe
+              // trade-off to avoid complex logic of updating all child URIs.
               if (newFile.isDirectory) {
                 final project = _ref.read(appNotifierProvider).value!.currentProject!;
                 _buildIndex(project);
@@ -144,7 +144,6 @@ class ProjectFileIndex
 
   @override
   void dispose() {
-    // THE FIX: Changed .cancel() to .close().
     _fileOpSubscription?.close();
     super.dispose();
   }
