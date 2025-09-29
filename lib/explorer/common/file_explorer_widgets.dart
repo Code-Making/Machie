@@ -169,10 +169,6 @@ class RootDropZone extends ConsumerWidget {
   }
 }
 
-// =======================================================================
-// THE MAIN FIX is in DirectoryItem and its _DirectoryItemState
-// =======================================================================
-
 class DirectoryItem extends ConsumerStatefulWidget {
   final DocumentFile item;
   final int depth;
@@ -190,7 +186,6 @@ class DirectoryItem extends ConsumerStatefulWidget {
 }
 
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
-  // THE FIX: Use local state for the hover effect.
   bool _isHoveredByDraggable = false;
 
   static const double _kBaseIndent = 16.0;
@@ -203,21 +198,26 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         ? _buildDirectoryTile()
         : _buildFileTile();
 
-    // The Draggable wraps the entire item.
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(milliseconds: 500),
-      // THE FIX: The complex onDragEnd logic is no longer needed here.
-      // All actions are now handled by the DragTargets.
+      // THE FIX: Restore the onDragEnd callback to handle "non-drops"
+      // for both files and folders consistently.
+      onDragEnd: (details) {
+        if (!details.wasAccepted) {
+          showFileContextMenu(context, ref, widget.item);
+        }
+      },
       child: itemContent,
     );
   }
 
   Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
-    return GestureDetector(
+    // THE FIX: Remove the conflicting GestureDetector. Use ListTile's onTap.
+    return ListTile(
       onTap: () async {
         final navigator = Navigator.of(context);
         final success = await ref
@@ -227,39 +227,30 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           navigator.pop();
         }
       },
-      onLongPress: () {
-        // Allow long press to open context menu directly on files
-        showFileContextMenu(context, ref, widget.item);
-      },
-      child: ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.only(
-          left: currentIndent + _kBaseIndent,
-          top: _kVerticalPadding,
-          bottom: _kVerticalPadding,
-        ),
-        leading: FileTypeIcon(file: widget.item),
-        title: Text(
-          widget.item.name,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: _kFontSize),
-        ),
-        subtitle: widget.subtitle != null
-            ? Text(
-                widget.subtitle!,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: _kFontSize - 2),
-              )
-            : null,
+      dense: true,
+      contentPadding: EdgeInsets.only(
+        left: currentIndent + _kBaseIndent,
+        top: _kVerticalPadding,
+        bottom: _kVerticalPadding,
       ),
+      leading: FileTypeIcon(file: widget.item),
+      title: Text(
+        widget.item.name,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: _kFontSize),
+      ),
+      subtitle: widget.subtitle != null
+          ? Text(
+              widget.subtitle!,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: _kFontSize - 2),
+            )
+          : null,
     );
   }
 
   Widget _buildDirectoryTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
-
-    // THE FIX: The visible part of the tile is built separately so it can
-    // be wrapped in a DragTarget without covering its children.
     Widget tileContent = Container(
       color: _isHoveredByDraggable
           ? Theme.of(context).colorScheme.primary.withAlpha(70)
@@ -286,23 +277,22 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
                 style: const TextStyle(fontSize: _kFontSize - 2),
               )
             : null,
-        trailing: const Icon(Icons.chevron_right),
+        // The chevron is now part of the ListTile, not the ExpansionTile.
+        // We use a SizedBox to maintain alignment.
+        trailing: const SizedBox(width: 24, height: 24),
       ),
     );
 
-    // THE FIX: The DragTarget now wraps ONLY the visible tile content.
     final tileWithDropTarget = DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return tileContent;
       },
       onWillAcceptWithDetails: (details) {
         final draggedFile = details.data;
-        // Accept the drop if it's a valid move OR if it's being dropped on itself.
-        final bool isSelfDrop = draggedFile.uri == widget.item.uri;
-        final bool isAllowedMove = _isDropAllowed(draggedFile, widget.item);
+        final isSelfDrop = draggedFile.uri == widget.item.uri;
+        final isAllowedMove = _isDropAllowed(draggedFile, widget.item);
 
         if (isAllowedMove) {
-          // Only show the hover highlight for a valid MOVE operation.
           setState(() { _isHoveredByDraggable = true; });
         }
         
@@ -310,15 +300,11 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       },
       onAcceptWithDetails: (details) {
         final draggedFile = details.data;
-        // THE FIX: This is the core logic. Check if the drop is on the source item.
         if (draggedFile.uri == widget.item.uri) {
-          // If it is, show the context menu instead of moving.
           showFileContextMenu(context, ref, widget.item);
         } else {
-          // Otherwise, perform the move operation.
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         }
-        // Always reset hover state after any accepted drop.
         setState(() { _isHoveredByDraggable = false; });
       },
       onLeave: (details) {
@@ -326,16 +312,13 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       },
     );
 
-    // The ExpansionTile now uses the DragTarget-wrapped tile as its header
-    // and the nested DirectoryView as its child. This physically separates the
-    // parent drop zone from the children.
     return ExpansionTile(
       key: PageStorageKey<String>(widget.item.uri),
-      // Use a custom header builder to insert our DragTarget tile.
       title: tileWithDropTarget,
-      // Remove default padding and indicators, as our custom tile handles them.
       tilePadding: EdgeInsets.zero,
-      trailing: const SizedBox.shrink(),
+      // Use a transparent trailing icon to ensure the ExpansionTile's tap
+      // target is full-width, but without drawing a visible icon.
+      trailing: const Icon(Icons.chevron_right, color: Colors.transparent),
       leading: const SizedBox.shrink(),
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
@@ -399,7 +382,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 }
 
-// ... RootPlaceholder and FileTypeIcon are unchanged ...
 class RootPlaceholder implements DocumentFile {
   @override
   final String uri;
