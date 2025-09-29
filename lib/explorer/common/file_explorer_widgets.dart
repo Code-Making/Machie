@@ -1,4 +1,7 @@
-// lib/explorer/common/file_explorer_widgets.dart
+// =========================================
+// UPDATED: lib/explorer/common/file_explorer_widgets.dart
+// =========================================
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,19 +15,10 @@ import 'file_explorer_commands.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-// DELETED: This global provider is no longer needed.
-// enum FileDragState { idle, dragging, processing }
-// final fileDragStateProvider = StateProvider<FileDragState>((ref) => FileDragState.idle);
-
-// REFACTORED: The final, robust check.
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
-  // A folder can't be dropped into itself.
   if (draggedFile.uri == targetFolder.uri) return false;
-
-  // A parent folder can't be dropped into one of its own children.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
 
-  // A file can't be dropped into the folder it's already in.
   final parentUri = draggedFile.uri.substring(
     0,
     draggedFile.uri.lastIndexOf('%2F'),
@@ -82,11 +76,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
-    // The ListView no longer needs to be a DragTarget itself.
-    // Drops will be handled by individual DirectoryItems or the new RootDropZone.
     return ListView.builder(
       key: PageStorageKey(widget.directory),
-      // Add padding to make space for the root drop zone.
       padding: const EdgeInsets.only(top: 8.0),
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
@@ -120,7 +111,6 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
   }
 }
 
-// NEW WIDGET: A dedicated, visible drop zone for the project root.
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   const RootDropZone({super.key, required this.projectRootUri});
@@ -129,7 +119,6 @@ class RootDropZone extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        // The widget is only visible if a valid file is being dragged over it.
         final canAccept =
             candidateData.isNotEmpty &&
             _isDropAllowed(
@@ -137,11 +126,9 @@ class RootDropZone extends ConsumerWidget {
               RootPlaceholder(projectRootUri),
             );
 
-        // Use AnimatedOpacity for a smoother appearance/disappearance.
         return AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
           opacity: canAccept ? 1.0 : 0.0,
-          // Ignore pointer events when not visible to allow taps to pass through.
           child: IgnorePointer(
             ignoring: !canAccept,
             child: Container(
@@ -151,7 +138,7 @@ class RootDropZone extends ConsumerWidget {
               ),
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha:0.3),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.primary,
                   width: 1.5,
@@ -197,7 +184,6 @@ class DirectoryItem extends ConsumerStatefulWidget {
 }
 
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
-  // --- STATE for hover effect ---
   bool _isHoveredByDraggable = false;
 
   static const double _kBaseIndent = 16.0;
@@ -213,10 +199,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(seconds: 1),
-      // No onDragStarted needed anymore.
       onDragEnd: (details) {
-        // This logic is now correct. It fires if the drop was not on a
-        // valid, different folder.
         if (!details.wasAccepted) {
           showFileContextMenu(context, ref, widget.item);
         }
@@ -245,20 +228,20 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
 
     if (widget.item.isDirectory) {
       return DragTarget<DocumentFile>(
+        // THE FIX: Add this line. This makes the topmost widget under the
+        // cursor claim the drop event, preventing parent folders from
+        // intercepting it.
+        behavior: HitTestBehavior.opaque,
         builder: (context, candidateData, rejectedData) {
-          // The hover state is now managed locally.
           final isHovered = _isHoveredByDraggable;
 
           Color? backgroundColor;
           if (isHovered) {
-            backgroundColor = Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha:0.4);
+            backgroundColor = Theme.of(context).colorScheme.primary.withOpacity(0.4);
           }
 
           return Container(color: backgroundColor, child: childWidget);
         },
-        // Check if the drop is allowed AND the target is not already hovered.
         onWillAcceptWithDetails: (details) {
           if (!_isDropAllowed(details.data, widget.item)) {
             return false;
@@ -268,7 +251,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           });
           return true;
         },
-        // When the draggable leaves the target area.
         onLeave: (details) {
           setState(() {
             _isHoveredByDraggable = false;
@@ -381,7 +363,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   Widget _buildDragFeedback() {
     return Material(
       elevation: 4.0,
-      color: Theme.of(context).colorScheme.primary.withValues(alpha:0.7),
+      color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
       borderRadius: BorderRadius.circular(8),
       child: ConstrainedBox(
         constraints: BoxConstraints(
