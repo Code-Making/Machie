@@ -1,8 +1,14 @@
-// lib/command/command_widgets.dart
+// =========================================
+// UPDATED: lib/command/command_widgets.dart
+// =========================================
+
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // REMOVED: No longer needs a direct import to CodeEditorPlugin or re_editor.
 
+import '../app/app_notifier.dart';
+import 'command_notifier.dart';
 import '../app/app_notifier.dart';
 import 'command_notifier.dart';
 
