@@ -20,11 +20,14 @@ import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart';
 import '../../project/services/cache_service.dart';
 
+final editorServiceProvider = Provider<EditorService>((ref) {
+  return EditorService(ref);
+});
+
 class EditorService {
   final Ref _ref;
   EditorService(this._ref);
 
-  // ... (getters are unchanged) ...
   Project? get _currentProject =>
       _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
