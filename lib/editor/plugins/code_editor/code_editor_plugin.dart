@@ -452,7 +452,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: label,
       icon: Icon(icon, size: 20),
       defaultPosition: defaultPosition,
-      sourcePlugin: id,
+      sourcePlugin: this.id,
       execute: (ref) async {
         final editorState = _getActiveEditorState(ref);
         await execute(ref, editorState);
