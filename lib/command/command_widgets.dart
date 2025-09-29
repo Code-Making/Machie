@@ -9,8 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
 import 'command_notifier.dart';
-import '../app/app_notifier.dart';
-import 'command_notifier.dart';
 
 // ... (providers are unchanged) ...
 final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
