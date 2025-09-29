@@ -1,15 +1,17 @@
 // =========================================
-// FILE: lib/editor/editor_tab_models.dart
+// UPDATED: lib/editor/editor_tab_models.dart
 // =========================================
 
 import 'package:flutter/material.dart';
-import 'plugins/plugin_models.dart';
 import 'package:uuid/uuid.dart';
+import 'package:machine/data/dto/project_dto.dart';
+
+import 'plugins/plugin_models.dart';
 import 'tab_state_manager.dart';
-import 'package:machine/data/dto/project_dto.dart'; // ADDED
 
 @immutable
 class TabSessionState {
+  // ... (rest of the class is unchanged) ...
   final List<EditorTab> tabs;
   final int currentTabIndex;
   final Map<String, TabMetadata> tabMetadata;
@@ -46,7 +48,6 @@ class TabSessionState {
   }
 }
 
-// ... (WorkspaceTab and EditorTab are unchanged) ...
 @immutable
 abstract class WorkspaceTab {
   final String id;
@@ -68,7 +69,8 @@ abstract class EditorTab extends WorkspaceTab {
   @override
   void dispose();
 
+  // REFACTORED: Persists the stable plugin ID.
   EditorTabDto toDto() {
-    return EditorTabDto(id: id, pluginType: plugin.runtimeType.toString());
+    return EditorTabDto(id: id, pluginType: plugin.id);
   }
 }

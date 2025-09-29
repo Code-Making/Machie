@@ -5,6 +5,8 @@
 // lib/plugins/glitch_editor/glitch_editor_plugin.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:typed_data';
+
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
@@ -14,17 +16,21 @@ import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import '../../tab_state_manager.dart';
-import 'package:machine/data/dto/tab_hot_state_dto.dart'; // ADDED
-import 'package:machine/data/cache/type_adapters.dart'; // ADDED
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart'; // ADDED
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart'; // ADDED
-import 'dart:typed_data'; // ADDED for type casting
+import '../../../data/dto/tab_hot_state_dto.dart';
+import '../../../data/cache/type_adapters.dart';
+import 'glitch_editor_hot_state_adapter.dart';
+import 'glitch_editor_hot_state_dto.dart';
 
 class GlitchEditorPlugin implements EditorPlugin {
+  static const String pluginId = 'com.machine.glitch_editor';
+  static const String hotStateId = 'com.machine.glitch_editor_state';
+
   final brushSettingsProvider = StateProvider((ref) => GlitchBrushSettings());
   final isZoomModeProvider = StateProvider((ref) => false);
   final isSlidingProvider = StateProvider((ref) => false);
 
+  @override
+  String get id => pluginId;
   @override
   String get name => 'Glitch Editor';
   @override
@@ -54,10 +60,20 @@ class GlitchEditorPlugin implements EditorPlugin {
   void deactivateTab(EditorTab tab, Ref ref) {}
 
   @override
-    Future<EditorTab> createTab(DocumentFile file, dynamic data, {String? id, TabHotStateDto? hotState}) async {
-    // REFACTORED: The 'file' is no longer part of the tab model.
-    // The EditorService will handle associating it with the tab's ID.
-    return GlitchEditorTab(plugin: this, initialImageData: data, id: id);
+  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id}) async {
+    Uint8List initialImageData;
+
+    if (initData.hotState is GlitchEditorHotStateDto) {
+      initialImageData = (initData.hotState as GlitchEditorHotStateDto).imageData;
+    } else {
+      initialImageData = initData.byteData ?? Uint8List(0);
+    }
+
+    return GlitchEditorTab(
+      plugin: this,
+      initialImageData: initialImageData,
+      id: id,
+    );
   }
 
   @override
@@ -65,12 +81,13 @@ class GlitchEditorPlugin implements EditorPlugin {
     Map<String, dynamic> tabJson,
     FileHandler fileHandler,
   ) async {
-    final fileUri = tabJson['fileUri']; // Assume fileUri is persisted
+    final fileUri = tabJson['fileUri'];
     if (fileUri == null) throw Exception('File URI not found in serialization');
     final file = await fileHandler.getFileMetadata(fileUri);
     if (file == null) throw Exception('File not found: $fileUri');
     final fileBytes = await fileHandler.readFileAsBytes(file.uri);
-    return createTab(file, fileBytes);
+    final initData = EditorInitData(byteData: fileBytes);
+    return createTab(file, initData);
   }
 
   @override
@@ -89,7 +106,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   }
 
   @override
-  String get hotStateDtoType => 'com.machine.glitch_editor_state';
+  String get hotStateDtoType => hotStateId;
 
   @override
   TypeAdapter<TabHotStateDto> get hotStateAdapter =>
@@ -136,7 +153,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       label: 'Save Image',
       icon: const Icon(Icons.save),
       defaultPosition: CommandPosition.appBar,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute: (ref) async => await _getActiveEditorState(ref)?.save(),
       // REFACTORED: Check the dirty status from the metadata provider.
       canExecute: (ref) {
@@ -157,7 +174,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       label: 'Save As...',
       icon: const Icon(Icons.save_as),
       defaultPosition: CommandPosition.appBar,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
@@ -166,7 +183,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       label: 'Reset',
       icon: const Icon(Icons.refresh),
       defaultPosition: CommandPosition.pluginToolbar,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // REFACTORED: Also check the dirty status from the metadata provider.
       canExecute: (ref) {
@@ -192,7 +209,7 @@ class GlitchEditorPlugin implements EditorPlugin {
         },
       ),
       defaultPosition: CommandPosition.pluginToolbar,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute:
           (ref) async =>
               ref.read(isZoomModeProvider.notifier).update((state) => !state),
@@ -216,7 +233,7 @@ class GlitchEditorPlugin implements EditorPlugin {
         },
       ),
       defaultPosition: CommandPosition.pluginToolbar,
-      sourcePlugin: runtimeType.toString(),
+      sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
     ),
   ];

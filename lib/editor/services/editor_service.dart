@@ -1,8 +1,7 @@
 // =========================================
-// FILE: lib/editor/services/editor_service.dart
+// UPDATED: lib/editor/services/editor_service.dart
 // =========================================
 
-// lib/editor/services/editor_service.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,20 +17,14 @@ import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../utils/toast.dart';
-import '../../data/dto/project_dto.dart'; // ADDED
-import '../../project/services/cache_service.dart'; // ADDED
-
-import 'package:machine/editor/plugins/code_editor/code_editor_hot_state_dto.dart';
-import 'package:machine/editor/plugins/glitch_editor/glitch_editor_hot_state_dto.dart';
-
-final editorServiceProvider = Provider<EditorService>((ref) {
-  return EditorService(ref);
-});
+import '../../data/dto/project_dto.dart';
+import '../../project/services/cache_service.dart';
 
 class EditorService {
   final Ref _ref;
   EditorService(this._ref);
 
+  // ... (getters are unchanged) ...
   Project? get _currentProject =>
       _ref.read(appNotifierProvider).value?.currentProject;
   EditorTab? get _currentTab => _currentProject?.session.currentTab;
@@ -44,16 +37,14 @@ class EditorService {
     return repo;
   }
 
-  // --- Main Rehydration Logic ---
-
-  // UPDATED: The rehydration logic now checks the cache.
+  // REFACTORED: The rehydration logic is now completely decoupled and unified.
   Future<TabSessionState> rehydrateTabSession(
     ProjectDto dto,
     ProjectMetadata projectMetadata,
   ) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
-    final cacheService = _ref.read(cacheServiceProvider); // ADDED
+    final cacheService = _ref.read(cacheServiceProvider);
     final talker = _ref.read(talkerProvider);
 
     final List<EditorTab> rehydratedTabs = [];
@@ -61,14 +52,13 @@ class EditorService {
     for (final tabDto in dto.session.tabs) {
       talker.info("Tab : ${tabDto.id}, ${tabDto.pluginType}");
       final tabId = tabDto.id;
-      final pluginType = tabDto.pluginType;
+      final pluginId = tabDto.pluginType; // This is now a stable ID
       final persistedMetadata = dto.session.tabMetadata[tabId];
 
       if (persistedMetadata == null) continue;
 
-      final plugin = plugins.firstWhereOrNull(
-        (p) => p.runtimeType.toString() == pluginType,
-      );
+      // REFACTORED: Lookup plugin by its stable ID.
+      final plugin = plugins.firstWhereOrNull((p) => p.id == pluginId);
       if (plugin == null) continue;
 
       try {
@@ -77,38 +67,39 @@ class EditorService {
         );
         if (file == null) continue;
 
-        dynamic dataToLoad;
-        bool wasLoadedFromCache = false;
+        // --- UNIFIED DATA LOADING ---
         talker.info("Trying to load cache");
-        // --- CACHE CHECK ---
         final cachedDto = await cacheService.getTabState(
           projectMetadata.id,
           tabId,
         );
 
-        if (cachedDto != null) {
-          wasLoadedFromCache = true;
-          // Use pattern matching to extract the data from the correct DTO type.
-          switch (cachedDto) {
-            case CodeEditorHotStateDto():
-              dataToLoad = cachedDto.content;
-              break;
-            case GlitchEditorHotStateDto():
-              dataToLoad = cachedDto.imageData;
-              break;
+        String? fileContent;
+        Uint8List? fileBytes;
+        bool wasLoadedFromCache = cachedDto != null;
+
+        // Only load from disk if there's no hot state in the cache.
+        if (!wasLoadedFromCache) {
+          if (plugin.dataRequirement == PluginDataRequirement.bytes) {
+            fileBytes = await _repo.readFileAsBytes(file.uri);
+          } else {
+            fileContent = await _repo.readFile(file.uri);
           }
+        } else {
+          // If we loaded from cache, clear it so it's not stale on next load.
           await cacheService.clearTabState(projectMetadata.id, tabId);
         }
 
-        dataToLoad ??=
-            plugin.dataRequirement == PluginDataRequirement.bytes
-                ? await _repo.readFileAsBytes(file.uri)
-                : await _repo.readFile(file.uri);
-        // --- END OF CACHE CHECK ---
+        // Create the unified data object for the plugin.
+        final initData = EditorInitData(
+          stringData: fileContent,
+          byteData: fileBytes,
+          hotState: cachedDto,
+        );
 
-        final newTab = await plugin.createTab(file, dataToLoad, hotState: cachedDto, id: tabId);
+        final newTab = await plugin.createTab(file, initData, id: tabId);
+        // --- END OF UNIFIED DATA LOADING ---
 
-        // Populate the metadata, marking it as dirty if it was restored from cache.
         metadataNotifier.initTab(newTab.id, file);
         if (wasLoadedFromCache || persistedMetadata.isDirty) {
           metadataNotifier.markDirty(newTab.id);
@@ -132,14 +123,65 @@ class EditorService {
     );
   }
 
+  // REFACTORED: _createTabForFile now uses the unified data model.
+  Future<({EditorTab tab, DocumentFile file})?> _createTabForFile(
+    DocumentFile file, {
+    EditorPlugin? explicitPlugin,
+  }) async {
+    final compatiblePlugins =
+        _ref
+            .read(activePluginsProvider)
+            .where((p) => p.supportsFile(file))
+            .toList();
+
+    EditorPlugin? chosenPlugin = explicitPlugin;
+    if (chosenPlugin == null) {
+      if (compatiblePlugins.isEmpty) return null;
+      chosenPlugin = compatiblePlugins.first;
+    }
+
+    try {
+      final String? fileContent =
+          (chosenPlugin.dataRequirement != PluginDataRequirement.bytes)
+              ? await _repo.readFile(file.uri)
+              : null;
+      final Uint8List? fileBytes =
+          (chosenPlugin.dataRequirement == PluginDataRequirement.bytes)
+              ? await _repo.readFileAsBytes(file.uri)
+              : null;
+
+      final initData = EditorInitData(
+        stringData: fileContent,
+        byteData: fileBytes,
+      );
+
+      final newTab = await chosenPlugin.createTab(file, initData);
+      return (tab: newTab, file: file);
+    } catch (e) {
+      _ref
+          .read(talkerProvider)
+          .error("Could not read file data for tab: ${file.uri}, error: $e");
+      return null;
+    }
+  }
+  
+  // ... (The rest of the file is unchanged, as the core logic for opening, saving, closing tabs, etc., was already correctly designed to call these rehydrated methods) ...
+  final editorServiceProvider = Provider<EditorService>((ref) {
+    return EditorService(ref);
+  });
+  
+  // --- Main Rehydration Logic ---
+  
+  // UPDATED: The rehydration logic now checks the cache.
+  
   // REFACTORED: The caching logic now checks if the tab is dirty before proceeding.
   Future<void> cacheAllTabs(Project project) async {
     final cacheService = _ref.read(cacheServiceProvider);
     final metadataMap = _ref.read(tabMetadataProvider); // Get the live metadata
-
+  
     for (final tab in project.session.tabs) {
       final metadata = metadataMap[tab.id];
-
+  
       // THE FIX: Only attempt to serialize and cache the hot state
       // if the tab is actually marked as dirty (has unsaved changes).
       if (metadata != null) {
@@ -167,21 +209,21 @@ class EditorService {
       }
     }
   }
-
+  
   void markCurrentTabDirty() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
       _ref.read(tabMetadataProvider.notifier).markDirty(tabId);
     }
   }
-
+  
   void markCurrentTabClean() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
       _ref.read(tabMetadataProvider.notifier).markClean(tabId);
     }
   }
-
+  
   // ... updateCurrentTabModel, set/clearBottomToolbarOverride are unchanged ...
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
@@ -193,15 +235,15 @@ class EditorService {
     );
     _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
   }
-
+  
   void setBottomToolbarOverride(Widget? widget) {
     _ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(widget);
   }
-
+  
   void clearBottomToolbarOverride() {
     _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
   }
-
+  
   /// Initiates the "Save As" flow for the current tab.
   Future<void> saveCurrentTabAs({
     Future<Uint8List?> Function()? byteDataProvider,
@@ -214,15 +256,15 @@ class EditorService {
         currentTabId != null
             ? _ref.read(tabMetadataProvider)[currentTabId]
             : null;
-
+  
     if (repo == null || context == null || currentMetadata == null) return;
-
+  
     final result = await showDialog<SaveAsDialogResult>(
       context: context,
       builder: (_) => SaveAsDialog(initialFileName: currentMetadata.file.name),
     );
     if (result == null) return;
-
+  
     final DocumentFile newFile;
     if (byteDataProvider != null) {
       final bytes = await byteDataProvider();
@@ -251,48 +293,14 @@ class EditorService {
         .add(FileCreateEvent(createdFile: newFile));
     MachineToast.info("Saved as ${newFile.name}");
   }
-
+  
   // --- Core Service Methods ---
-
+  
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
-
-  Future<({EditorTab tab, DocumentFile file})?> _createTabForFile(
-    DocumentFile file, {
-    EditorPlugin? explicitPlugin,
-  }) async {
-    final compatiblePlugins =
-        _ref
-            .read(activePluginsProvider)
-            .where((p) => p.supportsFile(file))
-            .toList();
-
-    EditorPlugin? chosenPlugin = explicitPlugin;
-    if (chosenPlugin == null) {
-      if (compatiblePlugins.isEmpty) return null;
-      chosenPlugin = compatiblePlugins.first;
-    }
-
-    final dynamic data;
-    try {
-      if (chosenPlugin.dataRequirement == PluginDataRequirement.bytes) {
-        data = await _repo.readFileAsBytes(file.uri);
-      } else {
-        data = await _repo.readFile(file.uri);
-      }
-    } catch (e) {
-      _ref
-          .read(talkerProvider)
-          .error("Could not read file data for tab: ${file.uri}, error: $e");
-      return null;
-    }
-
-    final newTab = await chosenPlugin.createTab(file, data);
-    return (tab: newTab, file: file);
-  }
-
+  
   Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
@@ -304,7 +312,7 @@ class EditorService {
         metadataMap.entries
             .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
             ?.key;
-
+  
     if (existingTabId != null) {
       final existingIndex = project.session.tabs.indexWhere(
         (t) => t.id == existingTabId,
@@ -316,7 +324,7 @@ class EditorService {
         );
       }
     }
-
+  
     final result = await _createTabForFile(
       file,
       explicitPlugin: explicitPlugin,
@@ -325,24 +333,24 @@ class EditorService {
       // Here we could also handle the "show chooser" logic if multiple plugins are compatible.
       return OpenFileError("No plugin available to open '${file.name}'.");
     }
-
+  
     final newTab = result.tab;
     _ref.read(tabMetadataProvider.notifier).initTab(newTab.id, file);
-
+  
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(
       tabs: [...project.session.tabs, newTab],
       currentTabIndex: project.session.tabs.length,
     );
-
+  
     _handlePluginLifecycle(oldTab, newTab);
-
+  
     return OpenFileSuccess(
       project: project.copyWith(session: newSession),
       wasAlreadyOpen: false,
     );
   }
-
+  
   Future<bool> saveCurrentTab(
     Project project, {
     String? content,
@@ -354,7 +362,7 @@ class EditorService {
             ? _ref.read(tabMetadataProvider)[tabToSaveId]
             : null;
     if (tabToSaveId == null || metadata == null) return false;
-
+  
     try {
       if (content != null) {
         await _repo.writeFile(metadata.file, content);
@@ -370,22 +378,22 @@ class EditorService {
       return false;
     }
   }
-
+  
   Project switchTab(Project project, int index) {
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);
     final newProject = project.copyWith(session: newSession);
     final newTab = newProject.session.currentTab;
-
+  
     _handlePluginLifecycle(oldTab, newTab);
     return newProject;
   }
-
+  
   Project closeTab(Project project, int index) {
     final closedTab = project.session.tabs[index];
     final oldTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs)..removeAt(index);
-
+  
     int newCurrentIndex;
     if (newTabs.isEmpty) {
       newCurrentIndex = 0;
@@ -399,28 +407,28 @@ class EditorService {
         newCurrentIndex = oldIndex;
       }
     }
-
+  
     final newProject = project.copyWith(
       session: project.session.copyWith(
         tabs: newTabs,
         currentTabIndex: newCurrentIndex,
       ),
     );
-
+  
     // REFACTORED: Remove metadata by tab ID.
     _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.id);
-
+  
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.plugin.disposeTab(closedTab);
     closedTab.dispose();
-
+  
     final newTab = newProject.session.currentTab;
     if (oldTab != newTab) {
       newTab?.plugin.activateTab(newTab, _ref);
     }
     return newProject;
   }
-
+  
   Project reorderTabs(Project project, int oldIndex, int newIndex) {
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
@@ -436,7 +444,7 @@ class EditorService {
       ),
     );
   }
-
+  
   // REFACTORED: This is now much simpler. It finds the tab by the old URI
   // and just updates its metadata. The Project object doesn't need to change.
   void updateTabForRenamedFile(String oldUri, DocumentFile newFile) {

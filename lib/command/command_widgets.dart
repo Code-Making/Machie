@@ -12,12 +12,8 @@ import 'command_notifier.dart';
 final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPluginName = ref.watch(
-    appNotifierProvider.select(
-      (s) =>
-          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
-              .toString(),
-    ),
+  final currentPluginId = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
   );
 
   final visibleItems = <dynamic>[];
@@ -29,9 +25,7 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
       continue;
     }
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) =>
-          c.id == id &&
-          (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
+      (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
     );
     if (command != null) {
       visibleItems.add(command);
@@ -39,15 +33,12 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   }
   return visibleItems;
 });
+
 final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPluginName = ref.watch(
-    appNotifierProvider.select(
-      (s) =>
-          s.value?.currentProject?.session.currentTab?.plugin.runtimeType
-              .toString(),
-    ),
+  final currentPluginId = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
   );
 
   final visibleItems = <dynamic>[];
@@ -59,9 +50,7 @@ final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
       continue;
     }
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) =>
-          c.id == id &&
-          (c.sourcePlugin == currentPluginName || c.sourcePlugin == 'App'),
+      (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
     );
     if (command != null) {
       visibleItems.add(command);
@@ -217,22 +206,15 @@ class CommandGroupButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
-    final currentPluginName = ref.watch(
-      appNotifierProvider.select(
-        (s) =>
-            s.value?.currentProject?.session.currentTab?.plugin.runtimeType
-                .toString(),
-      ),
+    final currentPluginId = ref.watch(
+      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
     );
 
     final commandsInGroup =
         commandGroup.commandIds
             .map(
               (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-                (c) =>
-                    c.id == id &&
-                    (c.sourcePlugin == currentPluginName ||
-                        c.sourcePlugin == 'App'),
+                (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
               ),
             )
             .whereType<Command>()
