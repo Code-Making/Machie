@@ -1,8 +1,13 @@
+// =========================================
+// UPDATED: lib/explorer/plugins/search_explorer/search_explorer_view.dart
+// =========================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../project/project_models.dart';
 import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
+import '../../../project/services/project_file_index.dart'; // IMPORT THE NEW SERVICE
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -19,9 +24,8 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
-      ref
-          .read(searchStateProvider(widget.project.id).notifier)
-          .search(_textController.text);
+      // The search notifier no longer needs the project ID.
+      ref.read(searchStateProvider.notifier).search(_textController.text);
     });
   }
 
@@ -33,7 +37,9 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider(widget.project.id));
+    // Watch both the index state (for loading/errors) and the search results.
+    final indexState = ref.watch(projectFileIndexProvider);
+    final searchState = ref.watch(searchStateProvider);
     final projectRootUri = widget.project.rootUri;
 
     return Column(
@@ -56,48 +62,48 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             ),
           ),
         ),
-        if (searchState.isLoading)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Center(child: CircularProgressIndicator()),
-          ),
+        // Use the indexState to handle loading and error states for the whole view.
         Expanded(
-          child: ListView.builder(
-            itemCount: searchState.results.length,
-            itemBuilder: (context, index) {
-              final file = searchState.results[index];
-              String relativePath =
-                  file.uri.startsWith(projectRootUri)
+          child: indexState.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error: $err')),
+            data: (allFiles) {
+              // Once the index is loaded, we can display the search results.
+              if (searchState.query.isNotEmpty && searchState.results.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('No results found for "${searchState.query}"'),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: searchState.results.length,
+                itemBuilder: (context, index) {
+                  final file = searchState.results[index];
+                  String relativePath = file.uri.startsWith(projectRootUri)
                       ? file.uri.substring(projectRootUri.length)
                       : file.uri;
-              if (relativePath.startsWith('/')) {
-                relativePath = relativePath.substring(1);
-              }
-              final lastSlash = relativePath.lastIndexOf('%2F');
-              final subtitle =
-                  lastSlash != -1
+                  if (relativePath.startsWith('/')) {
+                    relativePath = relativePath.substring(1);
+                  }
+                  final lastSlash = relativePath.lastIndexOf('%2F');
+                  final subtitle = lastSlash != -1
                       ? Uri.decodeComponent(
-                        relativePath.substring(0, lastSlash),
-                      )
+                          relativePath.substring(0, lastSlash),
+                        )
                       : '.';
 
-              return DirectoryItem(
-                item: file,
-                depth: 0,
-                isExpanded: false,
-                // REFACTOR: Remove projectId, it's no longer needed.
-                subtitle: subtitle,
+                  return DirectoryItem(
+                    item: file,
+                    depth: 0,
+                    isExpanded: false,
+                    subtitle: subtitle,
+                  );
+                },
               );
             },
           ),
         ),
-        if (searchState.query.isNotEmpty &&
-            searchState.results.isEmpty &&
-            !searchState.isLoading)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text('No results found for "${searchState.query}"'),
-          ),
       ],
     );
   }
