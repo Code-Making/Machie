@@ -737,11 +737,17 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           return CodeFindPanelView(controller: controller, readOnly: readOnly);
         },
         commentFormatter: _commentFormatter,
-
-        // REMOVED: The scrollbarBuilder is no longer needed because
-        // the ScrollBehavior is now handling scrollbar creation for us.
-        // scrollbarBuilder: (context, child, details) { ... },
-        indicatorBuilder: (
+        verticalScrollbarWidth: 16.0,
+        scrollbarBuilder: (context, child, details) {
+    // We use a StatefulWidget here to manage the visibility state.
+    // A simple StatefulWidget is cleaner than a StatefulBuilder for this.
+    return _GrabbableScrollbar(
+      details: details,
+      thickness: 16.0, // Your desired thickness
+      child: child,
+    );
+  },
+  indicatorBuilder: (
           context,
           editingController,
           chunkController,
@@ -901,6 +907,70 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// You can place this helper widget at the bottom of your file.
+class _GrabbableScrollbar extends StatefulWidget {
+  const _GrabbableScrollbar({
+    required this.details,
+    required this.thickness,
+    required this.child,
+  });
+
+  final ScrollableDetails details;
+  final double thickness;
+  final Widget child;
+
+  @override
+  State<_GrabbableScrollbar> createState() => _GrabbableScrollbarState();
+}
+
+class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
+  // This state variable will control the scrollbar's visibility.
+  bool _isScrolling = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for scroll notifications bubbling up from the editor.
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollStartNotification) {
+          // A scroll has started, so make the scrollbar visible.
+          setState(() {
+            _isScrolling = true;
+          });
+        } else if (notification is ScrollEndNotification) {
+          // The scroll has ended, so hide the scrollbar after a short delay.
+          // The delay prevents it from disappearing instantly if the user flings.
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              setState(() {
+                _isScrolling = false;
+              });
+            }
+          });
+        }
+        // Allow the notification to continue bubbling up.
+        return false;
+      },
+      child: RawScrollbar(
+        controller: widget.details.controller,
+        
+        // --- The Key Change ---
+        // The visibility is now controlled by our state variable.
+        thumbVisibility: _isScrolling,
+        // ----------------------
+        
+        thickness: widget.thickness,
+        interactive: true,
+        radius: Radius.circular(widget.thickness / 2),
+        
+        // Let the editor's scroll behavior handle the physics.
+        // We are only concerned with the UI here.
+        child: widget.child,
       ),
     );
   }
