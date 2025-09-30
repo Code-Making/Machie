@@ -1,15 +1,13 @@
 // =========================================
-// FILE: lib/data/repositories/persistent_project_repository.dart
+// UPDATED: lib/data/repositories/persistent_project_repository.dart
 // =========================================
 
-// lib/data/repositories/persistent_project_repository.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
-// import 'package:flutter_riverpod/flutter_riverpod.dart'; // REMOVED: No longer needed
 import '../../data/file_handler/file_handler.dart';
 import 'project_repository.dart';
-import '../../data/dto/project_dto.dart'; // ADDED
+import '../../data/dto/project_dto.dart';
 
 const _projectFileName = 'project.json';
 
@@ -19,7 +17,8 @@ class PersistentProjectRepository implements ProjectRepository {
   final String _projectDataPath;
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
-
+  
+  // ... (loadProjectDto and saveProjectDto are unchanged) ...
   @override
   Future<ProjectDto> loadProjectDto() async {
     final files = await fileHandler.listDirectory(
@@ -36,14 +35,12 @@ class PersistentProjectRepository implements ProjectRepository {
         final json = jsonDecode(content);
         return ProjectDto.fromJson(json);
       } catch (e) {
-        // Fallback for corrupted file. Return a fresh, empty DTO.
         return const ProjectDto(
           session: TabSessionStateDto(
             tabs: [],
             currentTabIndex: 0,
             tabMetadata: {},
           ),
-          // FIXED: Provide the required 'workspace' argument.
           workspace: ExplorerWorkspaceStateDto(
             activeExplorerPluginId: 'com.machine.file_explorer',
             pluginStates: {},
@@ -51,14 +48,12 @@ class PersistentProjectRepository implements ProjectRepository {
         );
       }
     } else {
-      // Return a fresh, empty DTO if no file exists.
       return const ProjectDto(
         session: TabSessionStateDto(
           tabs: [],
           currentTabIndex: 0,
           tabMetadata: {},
         ),
-        // FIXED: Provide the required 'workspace' argument.
         workspace: ExplorerWorkspaceStateDto(
           activeExplorerPluginId: 'com.machine.file_explorer',
           pluginStates: {},
@@ -67,7 +62,6 @@ class PersistentProjectRepository implements ProjectRepository {
     }
   }
 
-  // REFACTORED: Now accepts a DTO.
   @override
   Future<void> saveProjectDto(ProjectDto projectDto) async {
     final content = jsonEncode(projectDto.toJson());
@@ -79,10 +73,9 @@ class PersistentProjectRepository implements ProjectRepository {
     );
   }
 
-  // REFACTORED: Methods are now pure data operations.
+  // ... (createDocumentFile and deleteDocumentFile are unchanged) ...
   @override
   Future<DocumentFile> createDocumentFile(
-    // REMOVED: Ref ref,
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -98,58 +91,40 @@ class PersistentProjectRepository implements ProjectRepository {
       initialBytes: initialBytes,
       overwrite: overwrite,
     );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
     return newFile;
   }
 
   @override
-  Future<void> deleteDocumentFile(
-    /* REMOVED: Ref ref,*/ DocumentFile file,
-  ) async {
-    // REMOVED: parentUri calculation and ref.read() calls. This moves to the service.
+  Future<void> deleteDocumentFile(DocumentFile file) async {
     await fileHandler.deleteDocumentFile(file);
   }
 
+  // REFACTORED: Signatures updated to return non-nullable Futures.
   @override
-  Future<DocumentFile?> renameDocumentFile(
-    // REMOVED: Ref ref,
+  Future<DocumentFile> renameDocumentFile(
     DocumentFile file,
     String newName,
   ) async {
-    final renamedFile = await fileHandler.renameDocumentFile(file, newName);
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return renamedFile;
+    return fileHandler.renameDocumentFile(file, newName);
   }
 
   @override
-  Future<DocumentFile?> copyDocumentFile(
-    // REMOVED: Ref ref,
+  Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final copiedFile = await fileHandler.copyDocumentFile(
-      source,
-      destinationParentUri,
-    );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return copiedFile;
+    return fileHandler.copyDocumentFile(source, destinationParentUri);
   }
 
   @override
-  Future<DocumentFile?> moveDocumentFile(
-    // REMOVED: Ref ref,
+  Future<DocumentFile> moveDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final movedFile = await fileHandler.moveDocumentFile(
-      source,
-      destinationParentUri,
-    );
-    // REMOVED: All ref.read() calls. This logic moves to the service layer.
-    return movedFile;
+    return fileHandler.moveDocumentFile(source, destinationParentUri);
   }
-
-  // --- Unchanged Delegations ---
+  
+  // ... (Unchanged Delegations) ...
   @override
   Future<DocumentFile?> getFileMetadata(String uri) =>
       fileHandler.getFileMetadata(uri);

@@ -1,7 +1,8 @@
-// lib/project/file_handler/local_file_handler_saf.dart
-import 'dart:convert';
-//import 'dart:typed_data'; // NEW IMPORT
+// =========================================
+// UPDATED: lib/data/file_handler/local_file_handler_saf.dart
+// =========================================
 
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
@@ -13,6 +14,7 @@ class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
+  // ... (methods from pickDirectory to deleteDocumentFile are unchanged) ...
   @override
   Future<DocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory(
@@ -71,7 +73,6 @@ class SafFileHandler implements LocalFileHandler {
     return CustomSAFDocumentFile(newFile!);
   }
 
-  // NEW METHOD IMPLEMENTATION
   @override
   Future<DocumentFile> writeFileAsBytes(
     DocumentFile file,
@@ -110,7 +111,6 @@ class SafFileHandler implements LocalFileHandler {
       final createdDir = await _safUtil.mkdirp(parentUri, [name]);
       return CustomSAFDocumentFile(createdDir);
     } else {
-      // Prioritize raw bytes if provided, otherwise use the string content.
       final contentBytes =
           initialBytes ?? Uint8List.fromList(utf8.encode(initialContent ?? ''));
       final mimeType = _inferMimeType(name);
@@ -139,8 +139,9 @@ class SafFileHandler implements LocalFileHandler {
     await _safUtil.delete(file.uri, file.isDirectory);
   }
 
+  // REFACTORED: Removed null check. Throws on failure.
   @override
-  Future<DocumentFile?> renameDocumentFile(
+  Future<DocumentFile> renameDocumentFile(
     DocumentFile file,
     String newName,
   ) async {
@@ -148,32 +149,48 @@ class SafFileHandler implements LocalFileHandler {
     return CustomSAFDocumentFile(renamed);
   }
 
-  // CORRECTED: This method now correctly copies any file type using raw bytes.
+  // REFACTORED: Returns non-nullable Future<DocumentFile>
   @override
-  Future<DocumentFile?> copyDocumentFile(
+  Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final copied = await _safUtil.copyTo(source.uri, source.isDirectory, destinationParentUri);
-    return CustomSAFDocumentFile(copied);
+    if (source.isDirectory) {
+      throw UnsupportedError('Recursive folder copy not supported.');
+    }
+    final contentBytes = await readFileAsBytes(source.uri);
+    return createDocumentFile(
+      destinationParentUri,
+      source.name,
+      initialBytes: contentBytes,
+      overwrite: true,
+    );
   }
 
+  // REFACTORED: Removed null check. Throws on failure.
   @override
-  Future<DocumentFile?> moveDocumentFile(
+  Future<DocumentFile> moveDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final copied = await copyDocumentFile(source, destinationParentUri);
-    if (copied != null) await deleteDocumentFile(source);
-    return copied;
-  }
+    final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
 
+    final movedFile = await _safUtil.moveTo(
+      source.uri,
+      source.isDirectory,
+      sourceParentUri,
+      destinationParentUri,
+    );
+    return CustomSAFDocumentFile(movedFile);
+  }
+  
+  // ... (getFileMetadata, pickFile, pickFiles and CustomSAFDocumentFile are unchanged) ...
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
     final file = await _safUtil.stat(
       uri,
       false,
-    ); // Assume it might be a file or dir
+    );
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
