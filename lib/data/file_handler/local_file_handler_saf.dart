@@ -3,6 +3,7 @@
 // =========================================
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
@@ -14,7 +15,7 @@ class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
-  // ... (methods from pickDirectory to deleteDocumentFile are unchanged) ...
+  // ... (pickDirectory, listDirectory, readFile, readFileAsBytes, writeFile, writeFileAsBytes, _inferMimeType, createDocumentFile, deleteDocumentFile are all unchanged) ...
   @override
   Future<DocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory(
@@ -139,24 +140,46 @@ class SafFileHandler implements LocalFileHandler {
     await _safUtil.delete(file.uri, file.isDirectory);
   }
 
-  // REFACTORED: Removed null check. Throws on failure.
+  // THE FIX: Implemented robust rename with fallback.
   @override
   Future<DocumentFile> renameDocumentFile(
     DocumentFile file,
     String newName,
   ) async {
-    final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
-    return CustomSAFDocumentFile(renamed);
+    try {
+      // 1. Attempt the efficient, native rename first.
+      final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
+      return CustomSAFDocumentFile(renamed);
+    } on PlatformException catch (e) {
+      // 2. If it fails, log it and fall back to a manual copy-delete.
+      debugPrint('Native rename failed: ${e.message}. Falling back to manual rename.');
+
+      // Fallback for directories is not supported as it requires recursion.
+      if (file.isDirectory) {
+        throw Exception('Renaming this folder is not supported on your device.');
+      }
+
+      // Fallback logic for files:
+      final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
+      final bytes = await readFileAsBytes(file.uri);
+      final newFile = await createDocumentFile(
+        parentUri,
+        newName,
+        initialBytes: bytes,
+      );
+      await deleteDocumentFile(file);
+      return newFile;
+    }
   }
 
-  // REFACTORED: Returns non-nullable Future<DocumentFile>
+  // `copyDocumentFile` remains the same, as it already uses the stream-based method.
   @override
   Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
     if (source.isDirectory) {
-      throw UnsupportedError('Recursive folder copy not supported.');
+      throw UnsupportedError('Recursive folder copy is not yet supported.');
     }
     final contentBytes = await readFileAsBytes(source.uri);
     return createDocumentFile(
@@ -167,24 +190,38 @@ class SafFileHandler implements LocalFileHandler {
     );
   }
 
-  // REFACTORED: Removed null check. Throws on failure.
+  // THE FIX: Implemented robust move with fallback.
   @override
   Future<DocumentFile> moveDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
-
-    final movedFile = await _safUtil.moveTo(
-      source.uri,
-      source.isDirectory,
-      sourceParentUri,
-      destinationParentUri,
-    );
-    return CustomSAFDocumentFile(movedFile);
+    try {
+      // 1. Attempt the efficient, native move first.
+      final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
+      final movedFile = await _safUtil.moveTo(
+        source.uri,
+        source.isDirectory,
+        sourceParentUri,
+        destinationParentUri,
+      );
+      return CustomSAFDocumentFile(movedFile);
+    } on PlatformException catch (e) {
+      // 2. If it fails, log it and fall back to a manual copy-delete.
+      debugPrint('Native move failed: ${e.message}. Falling back to manual move.');
+      
+      // Fallback for directories is not supported as it requires recursion.
+      if (source.isDirectory) {
+        throw Exception('Moving this folder is not supported on your device.');
+      }
+      
+      // Fallback logic for files:
+      final copiedFile = await copyDocumentFile(source, destinationParentUri);
+      await deleteDocumentFile(source);
+      return copiedFile;
+    }
   }
-  
-  // ... (getFileMetadata, pickFile, pickFiles and CustomSAFDocumentFile are unchanged) ...
+
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
     final file = await _safUtil.stat(

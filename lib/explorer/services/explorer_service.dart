@@ -10,7 +10,8 @@ import '../../explorer/explorer_workspace_state.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
 import '../../data/dto/project_dto.dart';
-import '../../logs/logs_provider.dart'; // ADDED for logging
+import '../../logs/logs_provider.dart';
+import '../../utils/toast.dart'; // Import the toast utility
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
@@ -30,7 +31,7 @@ class ExplorerService {
     return repo;
   }
   
-  // ... (rehydrateWorkspace and updateWorkspace are unchanged) ...
+  // ... (rehydrateWorkspace, updateWorkspace, createFile, createFolder, deleteItem are unchanged) ...
   ExplorerWorkspaceState rehydrateWorkspace(ExplorerWorkspaceStateDto dto) {
     return ExplorerWorkspaceState(
       activeExplorerPluginId: dto.activeExplorerPluginId,
@@ -47,7 +48,6 @@ class ExplorerService {
     return newProject;
   }
   
-  // ... (createFile and createFolder are unchanged) ...
   Future<void> createFile(String parentUri, String name) async {
     final newFile = await _repo.createDocumentFile(
       parentUri,
@@ -72,7 +72,15 @@ class ExplorerService {
         .add(FileCreateEvent(createdFile: newFolder));
   }
 
-  // REFACTORED: Added try/catch and logging.
+  Future<void> deleteItem(DocumentFile item) async {
+    final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
+    await _repo.deleteDocumentFile(item);
+    _ref.read(projectHierarchyProvider.notifier).remove(item, parentUri);
+    _ref
+        .read(fileOperationControllerProvider)
+        .add(FileDeleteEvent(deletedFile: item));
+  }
+
   Future<void> renameItem(DocumentFile item, String newName) async {
     try {
       final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
@@ -83,21 +91,11 @@ class ExplorerService {
       _talker.info('Renamed "${item.name}" to "${renamedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to rename item: ${item.name}');
-      rethrow;
+      // THE FIX: Show toast instead of crashing.
+      MachineToast.error("Failed to rename '${item.name}'. The name might be invalid or already exist.");
     }
   }
-  
-  // ... (deleteItem is unchanged) ...
-  Future<void> deleteItem(DocumentFile item) async {
-    final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
-    await _repo.deleteDocumentFile(item);
-    _ref.read(projectHierarchyProvider.notifier).remove(item, parentUri);
-    _ref
-        .read(fileOperationControllerProvider)
-        .add(FileDeleteEvent(deletedFile: item));
-  }
-  
-  // REFACTORED: Added try/catch and logging.
+
   Future<void> pasteItem(
     DocumentFile destinationFolder,
     ClipboardItem clipboardItem,
@@ -121,17 +119,18 @@ class ExplorerService {
       }
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to paste item into ${destinationFolder.name}');
-      rethrow;
+      // THE FIX: Show toast instead of crashing.
+      MachineToast.error("Paste operation failed. Please try again.");
     }
   }
 
-  // REFACTORED: Added try/catch and logging.
   Future<void> moveItem(
     DocumentFile source,
     DocumentFile destinationFolder,
   ) async {
     if (!destinationFolder.isDirectory) {
-      throw Exception('Destination must be a folder.');
+      MachineToast.error('Destination must be a folder.');
+      return;
     }
     try {
       final sourceParentUri = source.uri.substring(
@@ -149,11 +148,11 @@ class ExplorerService {
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to move "${source.name}" into "${destinationFolder.name}"');
-      rethrow;
+      // THE FIX: Show toast instead of crashing.
+      MachineToast.error("Failed to move '${source.name}'. Your device may not support this operation.");
     }
   }
   
-  // REFACTORED: Added try/catch and logging.
   Future<void> importFile(
     DocumentFile pickedFile,
     String projectRootUri,
@@ -169,7 +168,8 @@ class ExplorerService {
       _talker.info('Imported file: "${importedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to import file: ${pickedFile.name}');
-      rethrow;
+      // THE FIX: Show toast instead of crashing.
+      MachineToast.error("Failed to import '${pickedFile.name}'.");
     }
   }
 }
