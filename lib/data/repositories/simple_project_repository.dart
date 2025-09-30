@@ -1,5 +1,5 @@
 // =========================================
-// FILE: lib/data/repositories/simple_project_repository.dart
+// UPDATED: lib/data/repositories/simple_project_repository.dart
 // =========================================
 
 import 'dart:typed_data';
@@ -7,9 +7,6 @@ import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import 'project_repository.dart';
 
-/// A repository for "simple" projects that do not persist a `project.json`
-/// file in their directory. Their state is loaded from a JSON map provided
-/// at creation time (typically from SharedPreferences). Saving is a no-op.
 class SimpleProjectRepository implements ProjectRepository {
   @override
   final FileHandler fileHandler;
@@ -17,20 +14,18 @@ class SimpleProjectRepository implements ProjectRepository {
 
   SimpleProjectRepository(this.fileHandler, this._projectStateJson);
 
-  // REFACTORED: Implements the new DTO-based method.
+  // ... (loadProjectDto and saveProjectDto are unchanged) ...
   @override
   Future<ProjectDto> loadProjectDto() async {
     if (_projectStateJson != null) {
-      return ProjectDto.fromJson(_projectStateJson);
+      return ProjectDto.fromJson(_projectStateJson!);
     } else {
-      // Return a fresh, empty DTO for a new simple project.
       return const ProjectDto(
         session: TabSessionStateDto(
           tabs: [],
           currentTabIndex: 0,
           tabMetadata: {},
         ),
-        // FIXED: Provide the required 'workspace' argument.
         workspace: ExplorerWorkspaceStateDto(
           activeExplorerPluginId: 'com.machine.file_explorer',
           pluginStates: {},
@@ -39,18 +34,12 @@ class SimpleProjectRepository implements ProjectRepository {
     }
   }
 
-  // REFACTORED: Implements the new DTO-based method.
   @override
   Future<void> saveProjectDto(ProjectDto projectDto) async {
-    // No-op. Simple projects are not saved to their own directory.
-    // Their state is handled by the AppState/PersistenceService.
     return;
   }
-
-  // --- File operations are delegated directly to the fileHandler ---
-  // These methods are now pure data operations, as the service layer
-  // handles all the UI state updates (cache, events, etc.).
-
+  
+  // ... (createDocumentFile and deleteDocumentFile are unchanged) ...
   @override
   Future<DocumentFile> createDocumentFile(
     String parentUri,
@@ -60,7 +49,7 @@ class SimpleProjectRepository implements ProjectRepository {
     Uint8List? initialBytes,
     bool overwrite = false,
   }) async {
-    return await fileHandler.createDocumentFile(
+    return fileHandler.createDocumentFile(
       parentUri,
       name,
       isDirectory: isDirectory,
@@ -75,31 +64,32 @@ class SimpleProjectRepository implements ProjectRepository {
     await fileHandler.deleteDocumentFile(file);
   }
 
+  // REFACTORED: Signatures updated to return non-nullable Futures.
   @override
-  Future<DocumentFile?> renameDocumentFile(
+  Future<DocumentFile> renameDocumentFile(
     DocumentFile file,
     String newName,
   ) async {
-    return await fileHandler.renameDocumentFile(file, newName);
+    return fileHandler.renameDocumentFile(file, newName);
   }
 
   @override
-  Future<DocumentFile?> copyDocumentFile(
+  Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    return await fileHandler.copyDocumentFile(source, destinationParentUri);
+    return fileHandler.copyDocumentFile(source, destinationParentUri);
   }
 
   @override
-  Future<DocumentFile?> moveDocumentFile(
+  Future<DocumentFile> moveDocumentFile(
     DocumentFile source,
     String destinationParentUri,
   ) async {
-    return await fileHandler.moveDocumentFile(source, destinationParentUri);
+    return fileHandler.moveDocumentFile(source, destinationParentUri);
   }
-
-  // --- Unchanged Delegations ---
+  
+  // ... (Unchanged Delegations) ...
   @override
   Future<DocumentFile?> getFileMetadata(String uri) =>
       fileHandler.getFileMetadata(uri);
