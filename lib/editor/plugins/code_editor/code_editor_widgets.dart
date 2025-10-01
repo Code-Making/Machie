@@ -738,13 +738,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: CodeEditor(
-            autofocus: true,
         controller: controller,
         findController: findController,
         findBuilder: (context, controller, readOnly) {
           return CodeFindPanelView(controller: controller, readOnly: readOnly);
         },
-        focusNode: _focusNode,
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
         scrollbarBuilder: (context, child, details) {
