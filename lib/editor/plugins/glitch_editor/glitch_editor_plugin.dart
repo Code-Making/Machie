@@ -60,6 +60,8 @@ class GlitchEditorPlugin implements EditorPlugin {
   void activateTab(EditorTab tab, Ref ref) {}
   @override
   void deactivateTab(EditorTab tab, Ref ref) {}
+  @override
+  List<CommandPosition> getCommandPositions() => [];
 
   @override
   Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id}) async {
@@ -160,7 +162,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       id: 'save',
       label: 'Save Image',
       icon: const Icon(Icons.save),
-      defaultPosition: CommandPosition.appBar,
+      defaultPosition: AppCommandPositions.appBar,
       sourcePlugin: id,
       execute: (ref) async => await _getActiveEditorState(ref)?.save(),
       // REFACTORED: Check the dirty status from the metadata provider.
@@ -181,7 +183,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       id: 'save_as',
       label: 'Save As...',
       icon: const Icon(Icons.save_as),
-      defaultPosition: CommandPosition.appBar,
+      defaultPosition: AppCommandPositions.appBar,
       sourcePlugin: id,
       execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
@@ -190,7 +192,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       id: 'reset',
       label: 'Reset',
       icon: const Icon(Icons.refresh),
-      defaultPosition: AppCommandPositions.appBar,
+      defaultPosition: AppCommandPositions.pluginToolbar,
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // REFACTORED: Also check the dirty status from the metadata provider.
@@ -216,7 +218,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           return Icon(isZoomOn ? Icons.zoom_out_map : Icons.zoom_in_map);
         },
       ),
-      defaultPosition: AppCommandPositions.appBar,
+      defaultPosition: AppCommandPositions.pluginToolbar,
       sourcePlugin: id,
       execute:
           (ref) async =>
@@ -240,7 +242,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           }
         },
       ),
-      defaultPosition: AppCommandPositions.appBar,
+      defaultPosition: AppCommandPositions.pluginToolbar,
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
     ),
