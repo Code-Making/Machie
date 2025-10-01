@@ -680,34 +680,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     processSpan(textSpan);
     return TextSpan(children: builtSpans, style: style);
   }
- 
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    // If our main focus node doesn't have focus, ignore the event.
-    // This allows descendant focus nodes (like in the find panel) to
-    // handle their own events without interference.
-    if (!_focusNode.hasPrimaryFocus) return KeyEventResult.ignored;
 
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final arrowKeyDirections = {
-      LogicalKeyboardKey.arrowUp: AxisDirection.up,
-      LogicalKeyboardKey.arrowDown: AxisDirection.down,
-      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
-      LogicalKeyboardKey.arrowRight: AxisDirection.right,
-    };
-    final direction = arrowKeyDirections[event.logicalKey];
-    final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-
-    if (direction != null) {
-      if (shiftPressed) {
-        controller.extendSelection(direction);
-      } else {
-        controller.moveCursor(direction);
-      }
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -736,7 +710,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       // focusNode: _focusNode,
       //onKeyEvent: _handleKeyEvent,
       // autofocus: true,
-      child: CodeEditor(
+      return CodeEditor(
             autofocus: true,
         controller: controller,
         findController: findController,
@@ -763,7 +737,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // For extending the selection with Shift + Arrow Keys
     CodeShortcutSelectionExtendIntent: CallbackAction<CodeShortcutSelectionExtendIntent>(
       onInvoke: (intent) {
-        if (_focusNode.hasFocus) {
+        if (_focusNode.hasPrimaryFocus) {
           _controller.extendSelection(intent.direction);
         }
         return null;
