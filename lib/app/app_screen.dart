@@ -47,28 +47,26 @@ class _AppScreenState extends ConsumerState<AppScreen> {
   ) async {
     // === GUARD CLAUSES ===
     // If any of these are true, we return `false` to let the default back
-    // button behavior (like closing a drawer, dialog, or navigating back) happen.
+    // button behavior (like navigating back) happen.
 
-    // 1. Use `ifRouteChanged`. This elegantly handles navigation to other pages
-    //    (like /settings), as well as overlays like dialogs and bottom sheets,
-    //    because they all push a new route.
-    if (info.ifRouteChanged(context)) {
+    if (!mounted) return false;
+
+    // 1. Get the current route's name. The root route is always '/'.
+    //    If we are on any other named route (like '/settings') or an overlay
+    //    route (which often has a null name), we should not intercept.
+    final currentRouteName = ModalRoute.of(context)?.settings.name;
+    if (currentRouteName != '/') {
       return false;
     }
 
-    // 2. Don't intercept if the widget is no longer in the tree.
-    if (!mounted) {
-      return false;
-    }
-
-    // 3. The drawer is part of the Scaffold's state, not a separate route,
+    // 2. The drawer is part of the Scaffold's state, not a separate route,
     //    so we still need to check for it manually.
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
       return false;
     }
 
     // === INTERCEPTION LOGIC ===
-    // If we've gotten this far, we are on the main screen with no overlays open.
+    // If we've gotten this far, we are on the home screen with no overlays open.
 
     final isFullScreen = ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     if (isFullScreen) {
@@ -77,7 +75,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     }
 
     if (_isExitDialogShowing) {
-      return true; // A dialog is already showing, so we "handle" it by doing nothing.
+      return true;
     }
 
     try {
@@ -93,11 +91,9 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         await SystemNavigator.pop();
       }
     } finally {
-      // Always reset the flag after the dialog is dismissed.
       _isExitDialogShowing = false;
     }
     
-    // We return `true` because we have handled the back button event by showing a dialog.
     return true;
   }
 
