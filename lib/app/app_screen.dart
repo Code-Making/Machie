@@ -45,26 +45,49 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     bool stopDefaultButtonEvent,
     RouteInfo info,
   ) async {
-    final isFullScreen =
-        ref.read(appNotifierProvider).value?.isFullScreen ?? false;
-    final notifier = ref.read(appNotifierProvider.notifier);
+    // === GUARD CLAUSES ===
+    // If any of these are true, we return `false` to let the default back
+    // button behavior (like closing a drawer, dialog, or navigating back) happen.
 
+    // THE FIX: Don't intercept if we are not on the main app screen (the root route).
+    // This allows the back button to work normally on pages like Settings.
+    if (info.routeName != '/') {
+      return false;
+    }
+
+    if (!mounted) return false;
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) return false;
+    if (info.isDialogShowing || info.isBottomSheetShowing) return false;
+
+    // === INTERCEPTION LOGIC ===
+    // If we've gotten this far, we are on the main screen with no overlays open.
+
+    final isFullScreen = ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     if (isFullScreen) {
-      notifier.toggleFullScreen();
+      ref.read(appNotifierProvider.notifier).toggleFullScreen();
+      return true; // We handled it. Stop further processing.
+    }
+
+    if (_isExitDialogShowing) {
       return true;
     }
 
-    if (!mounted) return true;
-    final shouldExit = await showConfirmDialog(
-      context,
-      title: 'Exit App?',
-      content: 'Are you sure you want to close the application?',
-    );
+    try {
+      _isExitDialogShowing = true;
+      
+      final shouldExit = await showConfirmDialog(
+        context,
+        title: 'Exit App?',
+        content: 'Are you sure you want to close the application?',
+      );
 
-    if (shouldExit) {
-      await SystemNavigator.pop();
+      if (shouldExit) {
+        await SystemNavigator.pop();
+      }
+    } finally {
+      _isExitDialogShowing = false;
     }
-
+    
     return true;
   }
 
