@@ -1,11 +1,10 @@
 // =========================================
-// FILE: lib/editor/plugins/code_editor/code_find_panel_view.dart
+// UPDATED: lib/editor/plugins/code_editor/code_find_panel_view.dart
 // =========================================
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-// ... (Constants are unchanged) ...
 const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
 const double _kDefaultFindPanelWidth = 360;
 const double _kDefaultFindPanelHeight = 36;
@@ -27,7 +26,6 @@ const EdgeInsetsGeometry _kDefaultFindInputContentPadding = EdgeInsets.only(
 );
 
 class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
-  // ... (Properties and constructor are unchanged) ...
   final CodeFindController controller;
   final EdgeInsetsGeometry margin;
   final bool readOnly;
@@ -77,7 +75,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // This part is correct now, with the ValueListenableBuilder and Material wrapper
     return ValueListenableBuilder<CodeFindValue?>(
       valueListenable: controller,
       builder: (context, value, child) {
@@ -88,19 +85,20 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           margin: margin,
           alignment: Alignment.topRight,
           height: preferredSize.height,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          // THE FIX: Wrap in a ConstrainedBox to allow shrinking, and remove
+          // the SingleChildScrollView which allowed it to overflow.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: _kDefaultFindPanelWidth,
+            ),
             child: Material(
               elevation: 4,
-              child: SizedBox(
-                width: _kDefaultFindPanelWidth,
-                child: Column(
-                  children: [
-                    _buildFindInputView(context, value),
-                    if (value.replaceMode)
-                      _buildReplaceInputView(context, value),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  _buildFindInputView(context, value),
+                  if (value.replaceMode)
+                    _buildReplaceInputView(context, value),
+                ],
               ),
             ),
           ),
@@ -109,8 +107,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // --- THE FIX IS IN THESE TWO METHODS ---
-
+  // THE FIX: The layout of this Row is now flexible using Expanded.
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
     final String result;
     if (value.result == null || value.result!.matches.isEmpty) {
@@ -118,125 +115,106 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     } else {
       result = '${value.result!.index + 1}/${value.result!.matches.length}';
     }
-    // WRAP the Row in a SizedBox to constrain its height
     return SizedBox(
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
-          SizedBox(
-            width: _kDefaultFindPanelWidth / 1.75,
-            height: _kDefaultFindPanelHeight,
-            child: Stack(
-              // ... Stack content is unchanged ...
-              alignment: Alignment.center,
-              children: [
-                _buildTextField(
-                  context: context,
-                  controller: controller.findInputController,
-                  focusNode: controller.findInputFocusNode,
-                  iconsWidth: _kDefaultFindIconWidth * 1.5,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _buildCheckText(
-                      context: context,
-                      text: 'Aa',
-                      checked: value.option.caseSensitive,
-                      onPressed: () {
-                        controller.toggleCaseSensitive();
-                      },
-                    ),
-                    _buildCheckText(
-                      context: context,
-                      text: '.*',
-                      checked: value.option.regex,
-                      onPressed: () {
-                        controller.toggleRegex();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Text(
-            result,
-            style: TextStyle(color: resultFontColor, fontSize: resultFontSize),
-          ),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // ... IconButtons are unchanged ...
-                _buildIconButton(
-                  onPressed:
-                      value.result == null
-                          ? null
-                          : () {
-                            controller.previousMatch();
-                          },
-                  icon: Icons.arrow_upward,
-                  tooltip: 'Previous',
-                ),
-                _buildIconButton(
-                  onPressed:
-                      value.result == null
-                          ? null
-                          : () {
-                            controller.nextMatch();
-                          },
-                  icon: Icons.arrow_downward,
-                  tooltip: 'Next',
-                ),
-                _buildIconButton(
-                  onPressed: () {
-                    controller.close();
-                  },
-                  icon: Icons.close,
-                  tooltip: 'Close',
-                ),
-              ],
+            child: SizedBox(
+              height: _kDefaultFindPanelHeight,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  _buildTextField(
+                    context: context,
+                    controller: controller.findInputController,
+                    focusNode: controller.findInputFocusNode,
+                    iconsWidth: _kDefaultFindIconWidth * 1.5,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildCheckText(
+                        context: context,
+                        text: 'Aa',
+                        checked: value.option.caseSensitive,
+                        onPressed: () {
+                          controller.toggleCaseSensitive();
+                        },
+                      ),
+                      _buildCheckText(
+                        context: context,
+                        text: '.*',
+                        checked: value.option.regex,
+                        onPressed: () {
+                          controller.toggleRegex();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              result,
+              style: TextStyle(color: resultFontColor, fontSize: resultFontSize),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildIconButton(
+                onPressed:
+                    value.result == null ? null : controller.previousMatch,
+                icon: Icons.arrow_upward,
+                tooltip: 'Previous',
+              ),
+              _buildIconButton(
+                onPressed: value.result == null ? null : controller.nextMatch,
+                icon: Icons.arrow_downward,
+                tooltip: 'Next',
+              ),
+              _buildIconButton(
+                onPressed: controller.close,
+                icon: Icons.close,
+                tooltip: 'Close',
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-
+  
+  // THE FIX: The layout of this Row is now flexible using Expanded.
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
-    // WRAP the Row in a SizedBox to constrain its height
     return SizedBox(
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
-          SizedBox(
-            width: _kDefaultFindPanelWidth / 1.75,
-            height: _kDefaultFindPanelHeight,
-            child: _buildTextField(
-              context: context,
-              controller: controller.replaceInputController,
-              focusNode: controller.replaceInputFocusNode,
+          Expanded(
+            child: SizedBox(
+              height: _kDefaultFindPanelHeight,
+              child: _buildTextField(
+                context: context,
+                controller: controller.replaceInputController,
+                focusNode: controller.replaceInputFocusNode,
+              ),
             ),
           ),
-          // ... IconButtons are unchanged ...
           _buildIconButton(
             onPressed:
-                value.result == null || readOnly
-                    ? null
-                    : () {
-                      controller.replaceMatch();
-                    },
+                value.result == null || readOnly ? null : controller.replaceMatch,
             icon: Icons.done,
             tooltip: 'Replace',
           ),
           _buildIconButton(
-            onPressed:
-                value.result == null || readOnly
-                    ? null
-                    : () {
-                      controller.replaceAllMatches();
-                    },
+            onPressed: value.result == null || readOnly
+                ? null
+                : controller.replaceAllMatches,
             icon: Icons.done_all,
             tooltip: 'Replace All',
           ),

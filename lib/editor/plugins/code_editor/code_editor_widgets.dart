@@ -682,7 +682,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    // If our main focus node doesn't have focus, ignore the event.
+    // This allows descendant focus nodes (like in the find panel) to
+    // handle their own events without interference.
+    if (!_focusNode.hasFocus) return KeyEventResult.ignored;
+
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
     final arrowKeyDirections = {
       LogicalKeyboardKey.arrowUp: AxisDirection.up,
       LogicalKeyboardKey.arrowDown: AxisDirection.down,
