@@ -681,6 +681,33 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return TextSpan(children: builtSpans, style: style);
   }
 
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    // If our main editor focus node doesn't have the *primary* focus,
+    // then some other widget (like the find panel's text field) does.
+    // In that case, we must ignore the event and let the other widget handle it.
+    if (!_focusNode.hasPrimaryFocus) return KeyEventResult.ignored;
+
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final arrowKeyDirections = {
+      LogicalKeyboardKey.arrowUp: AxisDirection.up,
+      LogicalKeyboardKey.arrowDown: AxisDirection.down,
+      LogicalKeyboardKey.arrowLeft: AxisDirection.left,
+      LogicalKeyboardKey.arrowRight: AxisDirection.right,
+    };
+    final direction = arrowKeyDirections[event.logicalKey];
+    final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+
+    if (direction != null) {
+      if (shiftPressed) {
+        controller.extendSelection(direction);
+      } else {
+        controller.moveCursor(direction);
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
 
   @override
@@ -706,11 +733,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
 
     // --- THIS IS THE MODIFIED SECTION ---
-    // return Focus(
-      // focusNode: _focusNode,
-      //onKeyEvent: _handleKeyEvent,
-      // autofocus: true,
-      return CodeEditor(
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      autofocus: true,
+      child: CodeEditor(
             autofocus: true,
         controller: controller,
         findController: findController,
@@ -718,48 +745,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           return CodeFindPanelView(controller: controller, readOnly: readOnly);
         },
         focusNode: _focusNode,
-          shortcutOverrideActions: {
-    // Override the default arrow key actions.
-    // The keys are the Intent types from lib/src/code_shortcuts.dart
-    
-    // For moving the cursor
-    CodeShortcutCursorMoveIntent: CallbackAction<CodeShortcutCursorMoveIntent>(
-      onInvoke: (intent) {
-        // You can check if the main editor has focus if you need extra safety,
-        // but the Actions system should handle this automatically.
-        if (_focusNode.hasFocus) {
-           controller.moveCursor(intent.direction);
-        }
-        return null;
-      },
-    ),
-
-    // For extending the selection with Shift + Arrow Keys
-    CodeShortcutSelectionExtendIntent: CallbackAction<CodeShortcutSelectionExtendIntent>(
-      onInvoke: (intent) {
-        if (_focusNode.hasPrimaryFocus) {
-          controller.extendSelection(intent.direction);
-        }
-        return null;
-      },
-    ),
-    
-    // You can add overrides for other intents here as well if needed.
-    // For example, to handle Home/End keys:
-    CodeShortcutCursorMoveLineEdgeIntent: CallbackAction<CodeShortcutCursorMoveLineEdgeIntent>(
-      onInvoke: (intent) {
-        if (_focusNode.hasFocus) {
-          if (intent.forward) {
-            controller.moveCursorToLineEnd();
-          } else {
-            controller.moveCursorToLineStart();
-          }
-        }
-        return null;
-      },
-    ),
-
-  },
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
         scrollbarBuilder: (context, child, details) {
@@ -797,8 +782,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           ),
         ),
         wordWrap: codeEditorSettings?.wordWrap ?? false,
-      );
-    // );
+      ),
+    );
     // --- END OF MODIFIED SECTION ---
   }
 }
