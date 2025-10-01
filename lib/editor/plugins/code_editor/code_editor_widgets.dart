@@ -680,12 +680,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     processSpan(textSpan);
     return TextSpan(children: builtSpans, style: style);
   }
-
+ 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     // If our main focus node doesn't have focus, ignore the event.
     // This allows descendant focus nodes (like in the find panel) to
     // handle their own events without interference.
-    if (!_focusNode.hasFocus) return KeyEventResult.ignored;
+    if (!_focusNode.hasPrimaryFocus) return KeyEventResult.ignored;
 
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
