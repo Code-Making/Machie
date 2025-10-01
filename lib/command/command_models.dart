@@ -1,4 +1,7 @@
-// lib/command/command_models.dart
+// =========================================
+// UPDATED: lib/command/command_models.dart
+// =========================================
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 
-// --- Icon Management ---
-
+// --- Icon Management (Unchanged) ---
 class CommandIcon {
+  // ... (content is unchanged)
   static const Map<String, IconData> availableIcons = {
     'folder': Icons.folder_outlined,
     'edit': Icons.edit_note_outlined,
@@ -29,12 +32,65 @@ class CommandIcon {
   }
 }
 
-// --- Command System ---
+// =======================================================================
+// REFACTORED: CommandPosition is now a flexible class instead of an enum.
+// =======================================================================
+@immutable
+class CommandPosition {
+  final String id;
+  final String label;
+  final IconData icon;
+
+  const CommandPosition({
+    required this.id,
+    required this.label,
+    required this.icon,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CommandPosition &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// Defines the built-in command positions provided by the application shell.
+class AppCommandPositions {
+  static const appBar = CommandPosition(
+    id: 'app_bar',
+    label: 'App Bar',
+    icon: Icons.web_asset_outlined,
+  );
+  static const pluginToolbar = CommandPosition(
+    id: 'plugin_toolbar',
+    label: 'Plugin Toolbar',
+    icon: Icons.build_circle_outlined,
+  );
+  static const contextMenu = CommandPosition(
+    id: 'context_menu',
+    label: 'Context Menu',
+    icon: Icons.touch_app_outlined,
+  );
+  static const hidden = CommandPosition(
+    id: 'hidden',
+    label: 'Hidden',
+    icon: Icons.visibility_off_outlined,
+  );
+  
+  /// A list of all default positions, useful for registration.
+  static List<CommandPosition> get all => [appBar, pluginToolbar];
+}
+// =======================================================================
 
 abstract class Command {
   final String id;
   final String label;
   final Widget icon;
+  // REFACTORED: Now uses the new CommandPosition class.
   final CommandPosition defaultPosition;
   final String sourcePlugin;
 
@@ -51,6 +107,7 @@ abstract class Command {
 }
 
 class BaseCommand extends Command {
+  // ... (content is unchanged)
   final Future<void> Function(WidgetRef) _execute;
   final bool Function(WidgetRef) _canExecute;
 
@@ -74,9 +131,9 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-// MODIFIED: CommandGroup now stores the icon name for persistence.
 @immutable
 class CommandGroup {
+  // ... (content is unchanged)
   final String id;
   final String label;
   final String iconName;
@@ -89,7 +146,6 @@ class CommandGroup {
     this.commandIds = const [],
   });
 
-  // Transient getter for the UI
   Widget get icon => CommandIcon.getIcon(iconName);
 
   CommandGroup copyWith({
@@ -121,6 +177,7 @@ class CommandGroup {
 }
 
 abstract class FileContextCommand {
+  // ... (content is unchanged)
   final String id;
   final String label;
   final Widget icon;
@@ -138,6 +195,7 @@ abstract class FileContextCommand {
 }
 
 class BaseFileContextCommand extends FileContextCommand {
+  // ... (content is unchanged)
   final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
   final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
 
@@ -160,50 +218,40 @@ class BaseFileContextCommand extends FileContextCommand {
       _executeFor(ref, item);
 }
 
-enum CommandPosition { appBar, pluginToolbar, both, hidden, contextMenu }
-
+// REFACTORED: The main state object is now much more generic.
 class CommandState {
-  final List<String> appBarOrder;
-  final List<String> pluginToolbarOrder;
+  // Holds the order of command/group IDs for each position.
+  // Key: CommandPosition.id, Value: List of command/group IDs.
+  final Map<String, List<String>> orderedCommandsByPosition;
+
   final List<String> hiddenOrder;
   final Map<String, Set<String>> commandSources;
   final Map<String, CommandGroup> commandGroups;
+  
+  // A list of all available positions, discovered at runtime.
+  final List<CommandPosition> availablePositions;
 
   const CommandState({
-    this.appBarOrder = const [],
-    this.pluginToolbarOrder = const [],
+    this.orderedCommandsByPosition = const {},
     this.hiddenOrder = const [],
     this.commandSources = const {},
     this.commandGroups = const {},
+    this.availablePositions = const [],
   });
 
   CommandState copyWith({
-    List<String>? appBarOrder,
-    List<String>? pluginToolbarOrder,
+    Map<String, List<String>>? orderedCommandsByPosition,
     List<String>? hiddenOrder,
     Map<String, Set<String>>? commandSources,
     Map<String, CommandGroup>? commandGroups,
+    List<CommandPosition>? availablePositions,
   }) {
     return CommandState(
-      appBarOrder: appBarOrder ?? this.appBarOrder,
-      pluginToolbarOrder: pluginToolbarOrder ?? this.pluginToolbarOrder,
+      orderedCommandsByPosition: orderedCommandsByPosition ?? this.orderedCommandsByPosition,
       hiddenOrder: hiddenOrder ?? this.hiddenOrder,
       commandSources: commandSources ?? this.commandSources,
       commandGroups: commandGroups ?? this.commandGroups,
+      availablePositions: availablePositions ?? this.availablePositions,
     );
-  }
-
-  List<String> getOrderForPosition(CommandPosition position) {
-    switch (position) {
-      case CommandPosition.appBar:
-        return appBarOrder;
-      case CommandPosition.pluginToolbar:
-        return pluginToolbarOrder;
-      case CommandPosition.hidden:
-        return hiddenOrder;
-      case CommandPosition.contextMenu:
-      case CommandPosition.both:
-        return [];
-    }
   }
 }

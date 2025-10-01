@@ -257,7 +257,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'goto_line',
       label: 'Go to Line',
       icon: Icons.numbers, // Or Icons.line_weight
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) =>
               editor?.showGoToLineDialog(), // Method we will create
@@ -267,7 +267,7 @@ class CodeEditorPlugin implements EditorPlugin {
       label: 'Select Line',
       icon:
           Icons.horizontal_rule, // A fitting icon for selecting a line segment
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) => editor?.selectCurrentLine(), // Method to be created
     ),
@@ -275,7 +275,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'select_chunk',
       label: 'Select Chunk/Block',
       icon: Icons.unfold_more, // A fitting icon for selecting a code block
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) => editor?.selectCurrentChunk(), // Method to be created
     ),
@@ -283,7 +283,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'extend_selection',
       label: 'Extend Selection',
       icon: Icons.code, // A different icon to distinguish from 'Select All'
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) => editor?.extendSelection(), // Method we will create
       canExecute: (ref, editor) => editor != null,
@@ -292,7 +292,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'find',
       label: 'Find',
       icon: Icons.search,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) => editor?.showFindPanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
@@ -301,7 +301,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'find_and_replace',
       label: 'Replace',
       icon: Icons.find_replace,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute:
           (ref, editor) => editor?.showReplacePanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
@@ -310,14 +310,14 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'set_mark',
       label: 'Set Mark',
       icon: Icons.bookmark_add,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.setMark(),
     ),
     _createCommand(
       id: 'select_to_mark',
       label: 'Select to Mark',
       icon: Icons.bookmark_added,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.selectToMark(),
       canExecute: (ref, editor) {
         if (editor == null) return false;
@@ -331,70 +331,70 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'copy',
       label: 'Copy',
       icon: Icons.content_copy,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.copy(),
     ),
     _createCommand(
       id: 'cut',
       label: 'Cut',
       icon: Icons.content_cut,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.cut(),
     ),
     _createCommand(
       id: 'paste',
       label: 'Paste',
       icon: Icons.content_paste,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.paste(),
     ),
     _createCommand(
       id: 'indent',
       label: 'Indent',
       icon: Icons.format_indent_increase,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.applyIndent(),
     ),
     _createCommand(
       id: 'outdent',
       label: 'Outdent',
       icon: Icons.format_indent_decrease,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.applyOutdent(),
     ),
     _createCommand(
       id: 'toggle_comment',
       label: 'Toggle Comment',
       icon: Icons.comment,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.toggleComments(),
     ),
     _createCommand(
       id: 'select_all',
       label: 'Select All',
       icon: Icons.select_all,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.selectAll(),
     ),
     _createCommand(
       id: 'move_line_up',
       label: 'Move Line Up',
       icon: Icons.arrow_upward,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.moveSelectionLinesUp(),
     ),
     _createCommand(
       id: 'move_line_down',
       label: 'Move Line Down',
       icon: Icons.arrow_downward,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.moveSelectionLinesDown(),
     ),
     _createCommand(
       id: 'undo',
       label: 'Undo',
       icon: Icons.undo,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.undo(),
       // REFACTORED: The canUndo/canRedo state is local to the widget,
       // so we need to watch a provider that changes when they do.
@@ -411,7 +411,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'redo',
       label: 'Redo',
       icon: Icons.redo,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.redo(),
       canExecute: (ref, editor) {
         if (editor == null) return false;
@@ -425,14 +425,14 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'show_cursor',
       label: 'Show Cursor',
       icon: Icons.center_focus_strong,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.controller.makeCursorVisible(),
     ),
     _createCommand(
       id: 'switch_language',
       label: 'Switch Language',
       icon: Icons.language,
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       execute: (ref, editor) => editor?.showLanguageSelectionDialog(),
       canExecute: (ref, editor) => editor != null,
     ),

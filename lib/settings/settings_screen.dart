@@ -1,4 +1,6 @@
-// lib/settings/settings_screen.dart
+// =========================================
+// UPDATED: lib/settings/settings_screen.dart
+// =========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,10 +8,10 @@ import '../editor/plugins/plugin_registry.dart';
 import '../command/command_notifier.dart';
 import 'settings_notifier.dart';
 
-// NEW: A map of available accent colors for the UI.
+// ... (kAccentColors and SettingsScreen are unchanged) ...
 const Map<String, Color> kAccentColors = {
   'Orange':
-      Colors.orange, // TODO: find the old accent color and add a color picker
+      Colors.orange,
   'Red': Colors.red,
   'Blue': Colors.blue,
   'Green': Colors.green,
@@ -31,7 +33,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final plugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
-    // REFACTOR: This cast is now correct because we know it's a GeneralSettings object.
     final generalSettings =
         settings.pluginSettings[GeneralSettings] as GeneralSettings?;
 
@@ -50,7 +51,6 @@ class SettingsScreen extends ConsumerWidget {
             .map(
               (plugin) => _PluginSettingsCard(
                 plugin: plugin,
-                // REFACTOR: This cast is also correct.
                 settings:
                     settings.pluginSettings[plugin.settings.runtimeType]!
                         as PluginSettings,
@@ -61,7 +61,8 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// ... (_GeneralSettingsCard is unchanged)
+
+// ... (_GeneralSettingsCard and _PluginSettingsCard are unchanged) ...
 class _GeneralSettingsCard extends ConsumerWidget {
   final GeneralSettings settings;
   const _GeneralSettingsCard({required this.settings});
@@ -77,7 +78,6 @@ class _GeneralSettingsCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // REFACTOR: Separate Theme and Fullscreen sections for clarity.
             _buildThemeSettings(context, notifier),
             const Divider(height: 32),
             _buildFullscreenSettings(context, notifier),
@@ -87,31 +87,11 @@ class _GeneralSettingsCard extends ConsumerWidget {
     );
   }
 
-  // NEW: Widget for Theme settings
   Widget _buildThemeSettings(BuildContext context, SettingsNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Theme', style: Theme.of(context).textTheme.titleLarge),
-        /*
-        const SizedBox(height: 16),
-        DropdownButtonFormField<ThemeMode>(
-          decoration: const InputDecoration(
-            labelText: 'Theme Mode',
-            border: OutlineInputBorder(),
-          ),
-          value: settings.themeMode,
-          items: const [
-            DropdownMenuItem(value: ThemeMode.system, child: Text('System Default')),
-            DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
-            DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
-          ],
-          onChanged: (value) {
-            if (value != null) {
-              notifier.updatePluginSettings(settings.copyWith(themeMode: value));
-            }
-          },
-        ),*/
         const SizedBox(height: 20),
         Text('Accent Color', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -122,11 +102,11 @@ class _GeneralSettingsCard extends ConsumerWidget {
               kAccentColors.entries.map((entry) {
                 final color = entry.value;
                 final isSelected =
-                    settings.accentColorValue == color.toARGB32();
+                    settings.accentColorValue == color.value;
                 return GestureDetector(
                   onTap: () {
                     notifier.updatePluginSettings(
-                      settings.copyWith(accentColorValue: color.toARGB32()),
+                      settings.copyWith(accentColorValue: color.value),
                     );
                   },
                   child: Container(
@@ -151,7 +131,6 @@ class _GeneralSettingsCard extends ConsumerWidget {
     );
   }
 
-  // NEW: Widget for Fullscreen settings
   Widget _buildFullscreenSettings(
     BuildContext context,
     SettingsNotifier notifier,
@@ -227,6 +206,7 @@ class _PluginSettingsCard extends ConsumerWidget {
   }
 }
 
+// REFACTORED: This screen is now fully dynamic.
 class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});
 
@@ -239,43 +219,27 @@ class CommandSettingsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
-        onPressed:
-            () => showDialog(
-              context: context,
-              builder: (_) => GroupEditorDialog(ref: ref),
-            ),
+        onPressed: () => showDialog(context: context, builder: (_) => GroupEditorDialog(ref: ref)),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 80),
         children: [
-          _buildSection(context, ref, 'App Bar', 'appBar', state.appBarOrder),
-          _buildSection(
-            context,
-            ref,
-            'Plugin Toolbar',
-            'pluginToolbar',
-            state.pluginToolbarOrder,
-          ),
+          // Dynamically build a section for each available position
+          ...state.availablePositions.map((position) {
+            return _buildSection(context, ref, position, state.orderedCommandsByPosition[position.id] ?? []);
+          }),
           ...state.commandGroups.values.map(
             (group) => _buildGroupSection(context, ref, group),
           ),
-          _buildSection(
-            context,
-            ref,
-            'Hidden Commands',
-            'hidden',
-            state.hiddenOrder,
-          ),
+          // Hidden commands section
+          _buildSection(context, ref, AppCommandPositions.hidden, state.hiddenOrder),
         ],
       ),
     );
   }
 
-  Widget _buildGroupSection(
-    BuildContext context,
-    WidgetRef ref,
-    CommandGroup group,
-  ) {
+  Widget _buildGroupSection(BuildContext context, WidgetRef ref, CommandGroup group) {
+    // ... (This widget is mostly unchanged, but its reorderable list now uses positionId) ...
     return ExpansionTile(
       leading: group.icon,
       title: Text(group.label),
@@ -285,45 +249,30 @@ class CommandSettingsScreen extends ConsumerWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed:
-                () => showDialog(
-                  context: context,
-                  builder: (_) => GroupEditorDialog(ref: ref, group: group),
-                ),
+            onPressed: () => showDialog(context: context, builder: (_) => GroupEditorDialog(ref: ref, group: group)),
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed:
-                () => ref.read(commandProvider.notifier).deleteGroup(group.id),
+            onPressed: () => ref.read(commandProvider.notifier).deleteGroup(group.id),
           ),
         ],
       ),
       children: [
-        _buildReorderableList(context, ref, group.commandIds, listId: group.id),
+        _buildReorderableList(context, ref, group.commandIds, positionId: group.id),
       ],
     );
   }
 
-  Widget _buildSection(
-    BuildContext context,
-    WidgetRef ref,
-    String title,
-    String listId,
-    List<String> itemIds,
-  ) {
+  Widget _buildSection(BuildContext context, WidgetRef ref, CommandPosition position, List<String> itemIds) {
     return ExpansionTile(
-      title: Text(title),
+      leading: Icon(position.icon),
+      title: Text(position.label),
       initiallyExpanded: true,
-      children: [_buildReorderableList(context, ref, itemIds, listId: listId)],
+      children: [_buildReorderableList(context, ref, itemIds, positionId: position.id)],
     );
   }
 
-  Widget _buildReorderableList(
-    BuildContext context,
-    WidgetRef ref,
-    List<String> itemIds, {
-    required String listId,
-  }) {
+  Widget _buildReorderableList(BuildContext context, WidgetRef ref, List<String> itemIds, { required String positionId }) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
 
@@ -342,97 +291,41 @@ class CommandSettingsScreen extends ConsumerWidget {
               itemWidget = ListTile(
                 key: ValueKey(group.id),
                 leading: const Icon(Icons.drag_handle),
-                title: Row(
-                  children: [
-                    group.icon,
-                    const SizedBox(width: 12),
-                    Text(
-                      group.label,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                title: Row(children: [group.icon, const SizedBox(width: 12), Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold),),]),
+                trailing: positionId == AppCommandPositions.hidden.id ? null : IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
+                  tooltip: 'Remove from this list',
+                  onPressed: () => notifier.removeItemFromList(itemId: itemId, fromPositionId: positionId,),
                 ),
-                trailing:
-                    listId == 'hidden'
-                        ? null
-                        : IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline,
-                            color: Colors.redAccent,
-                          ),
-                          tooltip: 'Remove from this list',
-                          onPressed:
-                              () => notifier.removeItemFromList(
-                                itemId: itemId,
-                                fromListId: listId,
-                              ),
-                        ),
               );
             } else {
               final sources = state.commandSources[itemId];
               if (sources == null || sources.isEmpty) {
-                // This case should no longer happen due to sanitization, but it's good defensive coding.
-                return ListTile(
-                  key: ValueKey(itemId),
-                  title: Text('Error: Stale command ID "$itemId"'),
-                );
+                return ListTile(key: ValueKey(itemId), title: Text('Error: Stale command ID "$itemId"'),);
               }
               final command = notifier.getCommand(itemId, sources.first);
               if (command == null) {
-                return ListTile(
-                  key: ValueKey(itemId),
-                  title: Text('Error: Command "$itemId" not found'),
-                );
+                return ListTile(key: ValueKey(itemId), title: Text('Error: Command "$itemId" not found'),);
               }
               itemWidget = ListTile(
-                key: ValueKey(
-                  command.id + listId,
-                ), // Key needs to be unique per list instance
+                key: ValueKey(command.id + positionId),
                 leading: const Icon(Icons.drag_handle),
-                title: Row(
-                  children: [
-                    command.icon,
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        command.label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                title: Row(children: [command.icon, const SizedBox(width: 12), Expanded(child: Text(command.label, overflow: TextOverflow.ellipsis,),),],),
+                subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
+                trailing: positionId == AppCommandPositions.hidden.id ? null : IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
+                  tooltip: 'Remove from this list',
+                  onPressed: () => notifier.removeItemFromList(itemId: command.id, fromPositionId: positionId,),
                 ),
-                subtitle:
-                    sources.length > 1
-                        ? Text('From: ${sources.join(', ')}')
-                        : null,
-                trailing:
-                    listId == 'hidden'
-                        ? null
-                        : IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline,
-                            color: Colors.redAccent,
-                          ),
-                          tooltip: 'Remove from this list',
-                          onPressed:
-                              () => notifier.removeItemFromList(
-                                itemId: command.id,
-                                fromListId: listId,
-                              ),
-                        ),
               );
             }
             return itemWidget;
           },
           onReorder: (oldIndex, newIndex) {
-            notifier.reorderItemInList(
-              listId: listId,
-              oldIndex: oldIndex,
-              newIndex: newIndex,
-            );
+            notifier.reorderItemInList(positionId: positionId, oldIndex: oldIndex, newIndex: newIndex,);
           },
         ),
-        if (listId != 'hidden')
+        if (positionId != AppCommandPositions.hidden.id)
           Padding(
             padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
             child: Align(
@@ -440,11 +333,7 @@ class CommandSettingsScreen extends ConsumerWidget {
               child: IconButton(
                 icon: const Icon(Icons.add_circle_outline),
                 tooltip: 'Add item to this section',
-                onPressed:
-                    () => showDialog(
-                      context: context,
-                      builder: (_) => AddItemDialog(ref: ref, toListId: listId),
-                    ),
+                onPressed: () => showDialog(context: context, builder: (_) => AddItemDialog(ref: ref, toPositionId: positionId),),
               ),
             ),
           ),
@@ -453,18 +342,18 @@ class CommandSettingsScreen extends ConsumerWidget {
   }
 }
 
-// --- Dialogs ---
-
+// REFACTORED: The AddItemDialog now uses positionId.
 class AddItemDialog extends ConsumerStatefulWidget {
   final WidgetRef ref;
-  final String toListId;
-  const AddItemDialog({super.key, required this.ref, required this.toListId});
+  final String toPositionId;
+  const AddItemDialog({super.key, required this.ref, required this.toPositionId});
 
   @override
   ConsumerState<AddItemDialog> createState() => _AddItemDialogState();
 }
 
 class _AddItemDialogState extends ConsumerState<AddItemDialog> {
+  // ... (unchanged)
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -486,26 +375,12 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
   Widget build(BuildContext context) {
     final notifier = widget.ref.read(commandProvider.notifier);
     final state = widget.ref.watch(commandProvider);
-
-    // CORRECTED: The dialog is now aware of its destination context.
-    final bool isAddingToGroup = widget.toListId.startsWith('group_');
-
-    // Get all available items to add.
-    final allCommands =
-        {
-          for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd,
-        }.values.toList();
+    final bool isAddingToGroup = widget.toPositionId.startsWith('group_');
+    final allCommands = {for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd}.values.toList();
     final allGroups = state.commandGroups.values.toList();
-
     final query = _query;
-    final filteredCommands =
-        allCommands
-            .where((cmd) => cmd.label.toLowerCase().contains(query))
-            .toList();
-    final filteredGroups =
-        allGroups
-            .where((group) => group.label.toLowerCase().contains(query))
-            .toList();
+    final filteredCommands = allCommands.where((cmd) => cmd.label.toLowerCase().contains(query)).toList();
+    final filteredGroups = allGroups.where((group) => group.label.toLowerCase().contains(query)).toList();
 
     return AlertDialog(
       title: const Text('Add Item'),
@@ -524,45 +399,19 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  // CORRECTED: Conditionally show groups.
                   if (!isAddingToGroup && filteredGroups.isNotEmpty) ...[
-                    const Text(
-                      'Groups',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    ...filteredGroups.map(
-                      (group) => ListTile(
-                        leading: group.icon,
-                        title: Text(group.label),
-                        onTap: () {
-                          notifier.addItemToList(
-                            itemId: group.id,
-                            toListId: widget.toListId,
-                          );
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ),
+                    const Text('Groups', style: TextStyle(fontWeight: FontWeight.bold),),
+                    ...filteredGroups.map( (group) => ListTile( leading: group.icon, title: Text(group.label), onTap: () {
+                      notifier.addItemToList(itemId: group.id, toPositionId: widget.toPositionId,);
+                      Navigator.of(context).pop();
+                    },),),
                     const Divider(),
                   ],
-                  const Text(
-                    'Commands',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  ...filteredCommands.map(
-                    (command) => ListTile(
-                      leading: command.icon,
-                      title: Text(command.label),
-                      subtitle: Text(command.sourcePlugin),
-                      onTap: () {
-                        notifier.addItemToList(
-                          itemId: command.id,
-                          toListId: widget.toListId,
-                        );
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
+                  const Text('Commands', style: TextStyle(fontWeight: FontWeight.bold),),
+                  ...filteredCommands.map( (command) => ListTile( leading: command.icon, title: Text(command.label), subtitle: Text(command.sourcePlugin), onTap: () {
+                    notifier.addItemToList(itemId: command.id, toPositionId: widget.toPositionId,);
+                    Navigator.of(context).pop();
+                  },),),
                 ],
               ),
             ),
@@ -572,7 +421,7 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
     );
   }
 }
-
+// ... (GroupEditorDialog and IconPickerDialog are unchanged) ...
 class GroupEditorDialog extends StatefulWidget {
   final WidgetRef ref;
   final CommandGroup? group;

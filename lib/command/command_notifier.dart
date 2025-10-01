@@ -1,4 +1,7 @@
-// lib/command/command_notifier.dart
+// =========================================
+// UPDATED: lib/command/command_notifier.dart
+// =========================================
+
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 
 import '../editor/plugins/plugin_registry.dart';
-import '../app/app_commands.dart'; // REFACTOR: Import app-level commands
+import '../app/app_commands.dart';
 import 'command_models.dart';
 
 export 'command_models.dart';
@@ -14,7 +17,6 @@ export 'command_models.dart';
 final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
   ref,
 ) {
-  // REFACTOR: Watch active plugins to re-initialize if they change
   final plugins = ref.watch(activePluginsProvider);
   return CommandNotifier(ref: ref, plugins: plugins);
 });
@@ -26,6 +28,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
   Command? getCommand(String id, String sourcePlugin) {
+    // ... (this method remains unchanged)
     for (final command in _allRegisteredCommands) {
       if (command.id == id && command.sourcePlugin == sourcePlugin) {
         return command;
@@ -45,29 +48,32 @@ class CommandNotifier extends StateNotifier<CommandState> {
   }
 
   void _initializeCommands(Set<EditorPlugin> plugins) async {
+    // --- Discover all commands (unchanged) ---
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
-
-    // REFACTORED: Add app-level commands from plugins.
     final allAppCommands = AppCommands.getCommands();
     final allPluginEditorCommands = plugins.expand((p) => p.getCommands());
-    final allPluginAppCommands = plugins.expand(
-      (p) => p.getAppCommands(),
-    ); // <-- NEW
-
-    // Combine them all.
+    final allPluginAppCommands = plugins.expand((p) => p.getAppCommands());
     final combinedCommands = [
       ...allAppCommands,
       ...allPluginEditorCommands,
-      ...allPluginAppCommands, // <-- NEW
+      ...allPluginAppCommands,
     ];
-
     for (final cmd in combinedCommands) {
       _allRegisteredCommands.add(cmd);
       (commandSources[cmd.id] ??= {}).add(cmd.sourcePlugin);
     }
+    
+    // --- REFACTORED: Discover all command positions ---
+    final allPositions = <CommandPosition>[
+      ...AppCommandPositions.all,
+      ...plugins.expand((p) => p.getCommandPositions()),
+    ];
 
-    state = state.copyWith(commandSources: commandSources);
+    state = state.copyWith(
+      commandSources: commandSources,
+      availablePositions: allPositions,
+    );
     await _loadFromPrefs();
   }
 
@@ -79,10 +85,18 @@ class CommandNotifier extends StateNotifier<CommandState> {
       iconName: iconName,
     );
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
-    state = state.copyWith(commandGroups: newGroups);
+    // REFACTORED: Update the map correctly when removing an item from a group
+    final newPositions = Map.of(state.orderedCommandsByPosition);
+    for (final list in newPositions.values) {
+      list.remove(newGroup.id);
+    }
+    state = state.copyWith(
+      commandGroups: newGroups,
+      orderedCommandsByPosition: newPositions,
+    );
     _saveToPrefs();
   }
-
+  
   void updateGroup(String groupId, {String? newName, String? newIconName}) {
     final oldGroup = state.commandGroups[groupId];
     if (oldGroup == null) return;
@@ -91,28 +105,33 @@ class CommandNotifier extends StateNotifier<CommandState> {
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
   }
-
+  
   void deleteGroup(String groupId) {
     final group = state.commandGroups[groupId];
     if (group == null) return;
     final newGroups = Map.of(state.commandGroups)..remove(groupId);
     final newHiddenOrder = [...state.hiddenOrder, ...group.commandIds];
+    
+    // REFACTORED: Remove the group ID from all position lists
+    final newPositions = Map<String, List<String>>.from(state.orderedCommandsByPosition);
+    newPositions.forEach((key, value) {
+      newPositions[key] = value.where((id) => id != groupId).toList();
+    });
+
     state = state.copyWith(
       commandGroups: newGroups,
       hiddenOrder: newHiddenOrder,
-      appBarOrder: state.appBarOrder.where((id) => id != groupId).toList(),
-      pluginToolbarOrder:
-          state.pluginToolbarOrder.where((id) => id != groupId).toList(),
+      orderedCommandsByPosition: newPositions,
     );
     _saveToPrefs();
   }
 
-  // --- Command Positioning (unchanged) ---
+  // --- REFACTORED: Generic Command Positioning ---
   Map<String, List<String>> _getMutableLists() {
+    // This now generically includes all positions, plus hidden and groups
     return {
-      'appBar': List<String>.from(state.appBarOrder),
-      'pluginToolbar': List<String>.from(state.pluginToolbarOrder),
       'hidden': List<String>.from(state.hiddenOrder),
+      ...Map.from(state.orderedCommandsByPosition).map((key, value) => MapEntry(key, List<String>.from(value))),
       ...state.commandGroups.map(
         (id, group) => MapEntry(id, List<String>.from(group.commandIds)),
       ),
@@ -121,28 +140,27 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   void _updateStateWithLists(Map<String, List<String>> lists) {
     final newGroups = Map.of(state.commandGroups);
+    final newPositions = Map.of(state.orderedCommandsByPosition);
+    
     lists.forEach((listId, commands) {
       if (newGroups.containsKey(listId)) {
         newGroups[listId] = newGroups[listId]!.copyWith(commandIds: commands);
+      } else if (newPositions.containsKey(listId)) {
+        newPositions[listId] = commands;
       }
     });
 
     state = state.copyWith(
-      appBarOrder: lists['appBar'],
-      pluginToolbarOrder: lists['pluginToolbar'],
+      orderedCommandsByPosition: newPositions,
       hiddenOrder: lists['hidden'],
       commandGroups: newGroups,
     );
     _saveToPrefs();
   }
 
-  void reorderItemInList({
-    required String listId,
-    required int oldIndex,
-    required int newIndex,
-  }) {
+  void reorderItemInList({ required String positionId, required int oldIndex, required int newIndex, }) {
     final lists = _getMutableLists();
-    final list = lists[listId];
+    final list = lists[positionId];
     if (list == null) return;
 
     if (oldIndex < newIndex) newIndex--;
@@ -152,17 +170,14 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _updateStateWithLists(lists);
   }
 
-  void removeItemFromList({
-    required String itemId,
-    required String fromListId,
-  }) {
+  void removeItemFromList({ required String itemId, required String fromPositionId, }) {
     final lists = _getMutableLists();
-    lists[fromListId]?.remove(itemId);
+    lists[fromPositionId]?.remove(itemId);
     if (!state.commandGroups.containsKey(itemId)) {
-      final isPlacedElsewhere =
-          (lists['appBar']?.contains(itemId) ?? false) ||
-          (lists['pluginToolbar']?.contains(itemId) ?? false) ||
-          state.commandGroups.values.any((g) => g.commandIds.contains(itemId));
+      final isPlacedElsewhere = lists.entries
+          .where((entry) => entry.key != 'hidden' && entry.key != fromPositionId)
+          .any((entry) => entry.value.contains(itemId));
+      
       if (!isPlacedElsewhere) {
         lists['hidden']?.add(itemId);
       }
@@ -170,25 +185,29 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _updateStateWithLists(lists);
   }
 
-  void addItemToList({required String itemId, required String toListId}) {
+  void addItemToList({required String itemId, required String toPositionId}) {
     final lists = _getMutableLists();
-    final targetList = lists[toListId];
+    final targetList = lists[toPositionId];
     if (targetList == null) return;
 
     if (!targetList.contains(itemId)) {
       targetList.add(itemId);
     }
+    // Remove from all other lists
+    lists.forEach((key, value) {
+      if (key != toPositionId) {
+        value.remove(itemId);
+      }
+    });
+
     _updateStateWithLists(lists);
   }
 
-  // --- Persistence ---
+  // --- REFACTORED: Persistence ---
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('command_app_bar', state.appBarOrder);
-    await prefs.setStringList(
-      'command_plugin_toolbar',
-      state.pluginToolbarOrder,
-    );
+    // Save the generic map
+    await prefs.setString('command_positions', jsonEncode(state.orderedCommandsByPosition));
     await prefs.setStringList('command_hidden', state.hiddenOrder);
     final encodedGroups = state.commandGroups.map(
       (key, value) => MapEntry(key, jsonEncode(value.toJson())),
@@ -199,67 +218,65 @@ class CommandNotifier extends StateNotifier<CommandState> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
+    
+    // Load groups (unchanged)
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
-
     if (groupsJsonString != null) {
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
-        final group = CommandGroup.fromJson(
-          jsonDecode(value as String) as Map<String, dynamic>,
-        );
-        final cleanCommandIds =
-            group.commandIds.where(allKnownCommandIds.contains).toList();
+        final group = CommandGroup.fromJson(jsonDecode(value as String) as Map<String, dynamic>);
+        final cleanCommandIds = group.commandIds.where(allKnownCommandIds.contains).toList();
         loadedGroups[key] = group.copyWith(commandIds: cleanCommandIds);
       });
     }
-
+    
     final allValidGroupIds = loadedGroups.keys.toSet();
     final allValidItemIds = {...allKnownCommandIds, ...allValidGroupIds};
 
-    final loadedAppBar = prefs.getStringList('command_app_bar') ?? [];
-    final loadedToolbar = prefs.getStringList('command_plugin_toolbar') ?? [];
-    final loadedHidden = prefs.getStringList('command_hidden') ?? [];
+    // Load generic positions map
+    final Map<String, List<String>> loadedPositions = {};
+    final positionsJsonString = prefs.getString('command_positions');
+    if (positionsJsonString != null) {
+      final Map<String, dynamic> decoded = jsonDecode(positionsJsonString);
+      decoded.forEach((key, value) {
+        if (state.availablePositions.any((p) => p.id == key)) {
+          loadedPositions[key] = (value as List).cast<String>().where(allValidItemIds.contains).toList();
+        }
+      });
+    }
 
-    final cleanAppBar = loadedAppBar.where(allValidItemIds.contains).toList();
-    final cleanToolbar = loadedToolbar.where(allValidItemIds.contains).toList();
-    final cleanHidden =
-        loadedHidden.where(allKnownCommandIds.contains).toList();
+    final loadedHidden = prefs.getStringList('command_hidden') ?? [];
+    final cleanHidden = loadedHidden.where(allKnownCommandIds.contains).toList();
+
+    // Initialize all available positions in the state map
+    final newPositions = { for (var pos in state.availablePositions) pos.id : <String>[] };
+    newPositions.addAll(loadedPositions);
 
     final allPlacedCommandIds = {
-      ...cleanAppBar.where((id) => !loadedGroups.containsKey(id)),
-      ...cleanToolbar.where((id) => !loadedGroups.containsKey(id)),
+      ...newPositions.values.expand((ids) => ids).where((id) => !loadedGroups.containsKey(id)),
       ...cleanHidden,
       ...loadedGroups.values.expand((g) => g.commandIds),
     };
 
-    // REFACTOR: Place new commands in their default positions instead of hiding them.
     final orphanedCommandIds = allKnownCommandIds.where(
       (id) => !allPlacedCommandIds.contains(id),
     );
 
     for (final commandId in orphanedCommandIds) {
-      final command = _allRegisteredCommands.firstWhereOrNull(
-        (c) => c.id == commandId,
-      );
+      final command = _allRegisteredCommands.firstWhereOrNull((c) => c.id == commandId);
       if (command != null) {
-        switch (command.defaultPosition) {
-          case CommandPosition.appBar:
-            cleanAppBar.add(commandId);
-            break;
-          case CommandPosition.pluginToolbar:
-            cleanToolbar.add(commandId);
-            break;
-          default:
-            cleanHidden.add(commandId);
-            break;
+        final positionId = command.defaultPosition.id;
+        if (newPositions.containsKey(positionId)) {
+          newPositions[positionId]!.add(commandId);
+        } else {
+          cleanHidden.add(commandId);
         }
       }
     }
 
     state = state.copyWith(
-      appBarOrder: cleanAppBar,
-      pluginToolbarOrder: cleanToolbar,
+      orderedCommandsByPosition: newPositions,
       hiddenOrder: cleanHidden,
       commandGroups: loadedGroups,
     );
