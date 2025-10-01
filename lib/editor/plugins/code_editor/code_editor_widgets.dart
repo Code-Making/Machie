@@ -114,31 +114,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   // NEW METHOD: A helper to build the contextual AppBar.
   Widget _buildSelectionAppBar() {
-    final plugin = widget.tab.plugin as CodeEditorPlugin;
-
-    // We find all our commands by ID from the plugin's command list.
-    final allCommands = plugin.getCommands();
-    final cutCommand = allCommands.firstWhere((c) => c.id == 'cut');
-    final copyCommand = allCommands.firstWhere((c) => c.id == 'copy');
-    final pasteCommand = allCommands.firstWhere((c) => c.id == 'paste');
-    final commentCommand = allCommands.firstWhere(
-      (c) => c.id == 'toggle_comment',
-    ); // <-- ADDED
-    final moveLineUpCommand = allCommands.firstWhere(
-      (c) => c.id == 'move_line_up',
-    ); // <-- ADDED
-    final moveLineDownCommand = allCommands.firstWhere(
-      (c) => c.id == 'move_line_down',
-    ); // <-- ADDED
-
-    return CodeEditorSelectionAppBar(
-      cutCommand: cutCommand,
-      copyCommand: copyCommand,
-      pasteCommand: pasteCommand,
-      commentCommand: commentCommand, // <-- ADDED
-      moveLineUpCommand: moveLineUpCommand, // <-- ADDED
-      moveLineDownCommand: moveLineDownCommand, // <-- ADDED
-    );
+    return const CodeEditorSelectionAppBar();
   }
 
   @override
@@ -867,51 +843,32 @@ class _CustomLineNumberWidget extends StatelessWidget {
 }
 
 class CodeEditorSelectionAppBar extends ConsumerWidget {
-  final Command cutCommand;
-  final Command copyCommand;
-  final Command pasteCommand;
-  final Command commentCommand; // <-- ADDED
-  final Command moveLineUpCommand; // <-- ADDED
-  final Command moveLineDownCommand; // <-- ADDED
-
-  const CodeEditorSelectionAppBar({
-    super.key,
-    required this.cutCommand,
-    required this.copyCommand,
-    required this.pasteCommand,
-    required this.commentCommand, // <-- ADDED
-    required this.moveLineUpCommand, // <-- ADDED
-    required this.moveLineDownCommand, // <-- ADDED
-  });
+  const CodeEditorSelectionAppBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // WRAPPED in CodeEditorTapRegion
-    return CodeEditorTapRegion(
-      child: Material(
-        elevation: 4.0,
-        color: Theme.of(context).appBarTheme.backgroundColor,
-        child: SafeArea(
-          child: Container(
-            height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              // The contextual commands.
-              children: [
-                // Use a Spacer to push the other commands to the right
-                const Spacer(),
-                CommandButton(command: commentCommand),
-                CommandButton(command: moveLineUpCommand),
-                CommandButton(command: moveLineDownCommand),
-                const VerticalDivider(
-                  indent: 12,
-                  endIndent: 12,
-                ), // Visual separator
-                CommandButton(command: cutCommand),
-                CommandButton(command: copyCommand),
-                CommandButton(command: pasteCommand),
-              ],
-            ),
+    // We wrap the dynamic CommandToolbar...
+    final toolbar = CommandToolbar(
+      position: CodeEditorPlugin.selectionToolbar, // ...using the new position
+      direction: Axis.horizontal,
+    );
+    
+    // ...inside the necessary Material/Layout widgets.
+    return Material(
+      elevation: 4.0,
+      color: Theme.of(context).appBarTheme.backgroundColor,
+      child: SafeArea(
+        child: Container(
+          height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            children: [
+              const Spacer(),
+              // The plugin is responsible for wrapping its own toolbars.
+              ref.read(activePluginsProvider)
+                .firstWhere((p) => p.id == CodeEditorPlugin.pluginId)
+                .wrapCommandToolbar(toolbar),
+            ],
           ),
         ),
       ),

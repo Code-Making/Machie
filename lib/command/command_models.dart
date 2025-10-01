@@ -9,9 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 
-// --- Icon Management (Unchanged) ---
+// ... (CommandIcon is unchanged) ...
 class CommandIcon {
-  // ... (content is unchanged)
   static const Map<String, IconData> availableIcons = {
     'folder': Icons.folder_outlined,
     'edit': Icons.edit_note_outlined,
@@ -32,9 +31,6 @@ class CommandIcon {
   }
 }
 
-// =======================================================================
-// REFACTORED: CommandPosition is now a flexible class instead of an enum.
-// =======================================================================
 @immutable
 class CommandPosition {
   final String id;
@@ -58,7 +54,6 @@ class CommandPosition {
   int get hashCode => id.hashCode;
 }
 
-/// Defines the built-in command positions provided by the application shell.
 class AppCommandPositions {
   static const appBar = CommandPosition(
     id: 'app_bar',
@@ -81,24 +76,22 @@ class AppCommandPositions {
     icon: Icons.visibility_off_outlined,
   );
   
-  /// A list of all default positions, useful for registration.
   static List<CommandPosition> get all => [appBar, pluginToolbar];
 }
-// =======================================================================
 
 abstract class Command {
   final String id;
   final String label;
   final Widget icon;
-  // REFACTORED: Now uses the new CommandPosition class.
-  final CommandPosition defaultPosition;
+  // THE FIX: Changed from a single object to a List.
+  final List<CommandPosition> defaultPositions;
   final String sourcePlugin;
 
   const Command({
     required this.id,
     required this.label,
     required this.icon,
-    required this.defaultPosition,
+    required this.defaultPositions,
     required this.sourcePlugin,
   });
 
@@ -107,7 +100,6 @@ abstract class Command {
 }
 
 class BaseCommand extends Command {
-  // ... (content is unchanged)
   final Future<void> Function(WidgetRef) _execute;
   final bool Function(WidgetRef) _canExecute;
 
@@ -115,7 +107,7 @@ class BaseCommand extends Command {
     required super.id,
     required super.label,
     required super.icon,
-    required super.defaultPosition,
+    required super.defaultPositions,
     required super.sourcePlugin,
     required Future<void> Function(WidgetRef) execute,
     bool Function(WidgetRef)? canExecute,
@@ -131,9 +123,9 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
+// ... (CommandGroup, FileContextCommand, BaseFileContextCommand, and CommandState are unchanged) ...
 @immutable
 class CommandGroup {
-  // ... (content is unchanged)
   final String id;
   final String label;
   final String iconName;
@@ -177,7 +169,6 @@ class CommandGroup {
 }
 
 abstract class FileContextCommand {
-  // ... (content is unchanged)
   final String id;
   final String label;
   final Widget icon;
@@ -195,7 +186,6 @@ abstract class FileContextCommand {
 }
 
 class BaseFileContextCommand extends FileContextCommand {
-  // ... (content is unchanged)
   final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
   final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
 
@@ -218,19 +208,15 @@ class BaseFileContextCommand extends FileContextCommand {
       _executeFor(ref, item);
 }
 
-// REFACTORED: The main state object is now much more generic.
 class CommandState {
-  // Holds the order of command/group IDs for each position.
-  // Key: CommandPosition.id, Value: List of command/group IDs.
   final Map<String, List<String>> orderedCommandsByPosition;
 
   final List<String> hiddenOrder;
   final Map<String, Set<String>> commandSources;
   final Map<String, CommandGroup> commandGroups;
   
-  // A list of all available positions, discovered at runtime.
   final List<CommandPosition> availablePositions;
-
+  
   const CommandState({
     this.orderedCommandsByPosition = const {},
     this.hiddenOrder = const [],

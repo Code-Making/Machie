@@ -14,8 +14,8 @@ class AppCommands {
       id: 'show_logs',
       label: 'Show Logs',
       icon: const Icon(Icons.bug_report),
-      // REFACTORED
-      defaultPosition: AppCommandPositions.appBar,
+      // THE FIX: Changed to a list.
+      defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
         final navigatorKey = ref.read(navigatorKeyProvider);
@@ -26,8 +26,8 @@ class AppCommands {
       id: 'show_settings',
       label: 'Show Settings',
       icon: const Icon(Icons.settings),
-      // REFACTORED
-      defaultPosition: AppCommandPositions.appBar,
+      // THE FIX: Changed to a list.
+      defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
         final navigatorKey = ref.read(navigatorKeyProvider);
@@ -38,8 +38,8 @@ class AppCommands {
       id: 'toggle_fullscreen',
       label: 'Toggle Fullscreen',
       icon: const Icon(Icons.fullscreen),
-      // REFACTORED
-      defaultPosition: AppCommandPositions.appBar,
+      // THE FIX: Changed to a list.
+      defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: 'App',
       execute: (ref) async {
         ref.read(appNotifierProvider.notifier).toggleFullScreen();

@@ -27,8 +27,8 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
+  // ... (getCommand is unchanged) ...
   Command? getCommand(String id, String sourcePlugin) {
-    // ... (this method remains unchanged)
     for (final command in _allRegisteredCommands) {
       if (command.id == id && command.sourcePlugin == sourcePlugin) {
         return command;
@@ -41,14 +41,13 @@ class CommandNotifier extends StateNotifier<CommandState> {
     }
     return null;
   }
-
+  
   CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
     : super(const CommandState()) {
     _initializeCommands(plugins);
   }
 
   void _initializeCommands(Set<EditorPlugin> plugins) async {
-    // --- Discover all commands (unchanged) ---
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
     final allAppCommands = AppCommands.getCommands();
@@ -64,7 +63,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       (commandSources[cmd.id] ??= {}).add(cmd.sourcePlugin);
     }
     
-    // --- REFACTORED: Discover all command positions ---
     final allPositions = <CommandPosition>[
       ...AppCommandPositions.all,
       ...plugins.expand((p) => p.getCommandPositions()),
@@ -77,7 +75,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     await _loadFromPrefs();
   }
 
-  // --- Group CRUD (unchanged) ---
+  // ... (Group CRUD and generic Command Positioning methods are unchanged) ...
   void createGroup({required String name, required String iconName}) {
     final newGroup = CommandGroup(
       id: 'group_${const Uuid().v4()}',
@@ -85,7 +83,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       iconName: iconName,
     );
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
-    // REFACTORED: Update the map correctly when removing an item from a group
     final newPositions = Map.of(state.orderedCommandsByPosition);
     for (final list in newPositions.values) {
       list.remove(newGroup.id);
@@ -112,7 +109,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final newGroups = Map.of(state.commandGroups)..remove(groupId);
     final newHiddenOrder = [...state.hiddenOrder, ...group.commandIds];
     
-    // REFACTORED: Remove the group ID from all position lists
     final newPositions = Map<String, List<String>>.from(state.orderedCommandsByPosition);
     newPositions.forEach((key, value) {
       newPositions[key] = value.where((id) => id != groupId).toList();
@@ -126,9 +122,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _saveToPrefs();
   }
 
-  // --- REFACTORED: Generic Command Positioning ---
   Map<String, List<String>> _getMutableLists() {
-    // This now generically includes all positions, plus hidden and groups
     return {
       'hidden': List<String>.from(state.hiddenOrder),
       ...Map.from(state.orderedCommandsByPosition).map((key, value) => MapEntry(key, List<String>.from(value))),
@@ -162,11 +156,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final lists = _getMutableLists();
     final list = lists[positionId];
     if (list == null) return;
-
     if (oldIndex < newIndex) newIndex--;
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
-
     _updateStateWithLists(lists);
   }
 
@@ -177,7 +169,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
       final isPlacedElsewhere = lists.entries
           .where((entry) => entry.key != 'hidden' && entry.key != fromPositionId)
           .any((entry) => entry.value.contains(itemId));
-      
       if (!isPlacedElsewhere) {
         lists['hidden']?.add(itemId);
       }
@@ -189,24 +180,19 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final lists = _getMutableLists();
     final targetList = lists[toPositionId];
     if (targetList == null) return;
-
     if (!targetList.contains(itemId)) {
       targetList.add(itemId);
     }
-    // Remove from all other lists
     lists.forEach((key, value) {
       if (key != toPositionId) {
         value.remove(itemId);
       }
     });
-
     _updateStateWithLists(lists);
   }
 
-  // --- REFACTORED: Persistence ---
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    // Save the generic map
     await prefs.setString('command_positions', jsonEncode(state.orderedCommandsByPosition));
     await prefs.setStringList('command_hidden', state.hiddenOrder);
     final encodedGroups = state.commandGroups.map(
@@ -219,7 +205,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final prefs = await SharedPreferences.getInstance();
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
     
-    // Load groups (unchanged)
     final Map<String, CommandGroup> loadedGroups = {};
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
@@ -234,7 +219,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final allValidGroupIds = loadedGroups.keys.toSet();
     final allValidItemIds = {...allKnownCommandIds, ...allValidGroupIds};
 
-    // Load generic positions map
     final Map<String, List<String>> loadedPositions = {};
     final positionsJsonString = prefs.getString('command_positions');
     if (positionsJsonString != null) {
@@ -249,7 +233,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final loadedHidden = prefs.getStringList('command_hidden') ?? [];
     final cleanHidden = loadedHidden.where(allKnownCommandIds.contains).toList();
 
-    // Initialize all available positions in the state map
     final newPositions = { for (var pos in state.availablePositions) pos.id : <String>[] };
     newPositions.addAll(loadedPositions);
 
@@ -263,14 +246,21 @@ class CommandNotifier extends StateNotifier<CommandState> {
       (id) => !allPlacedCommandIds.contains(id),
     );
 
+    // THE FIX: Iterate through the list of default positions for each command.
     for (final commandId in orphanedCommandIds) {
       final command = _allRegisteredCommands.firstWhereOrNull((c) => c.id == commandId);
       if (command != null) {
-        final positionId = command.defaultPosition.id;
-        if (newPositions.containsKey(positionId)) {
-          newPositions[positionId]!.add(commandId);
-        } else {
-          cleanHidden.add(commandId);
+        // A command can now have multiple default positions.
+        for (final position in command.defaultPositions) {
+          final positionId = position.id;
+          if (newPositions.containsKey(positionId)) {
+            newPositions[positionId]!.add(commandId);
+          } else {
+            // If for some reason the position isn't available, hide it as a fallback.
+            if (!cleanHidden.contains(commandId)) {
+              cleanHidden.add(commandId);
+            }
+          }
         }
       }
     }
