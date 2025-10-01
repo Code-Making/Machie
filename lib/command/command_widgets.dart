@@ -5,13 +5,13 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// REMOVED: No longer needs a direct import to CodeEditorPlugin or re_editor.
 
 import '../app/app_notifier.dart';
+import '../command/command_models.dart';
 import 'command_notifier.dart';
 
-// ... (providers are unchanged) ...
-final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
+// REFACTORED: A generic provider family to get commands for any position.
+final commandsForPositionProvider = Provider.family<List<dynamic>, String>((ref, positionId) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginId = ref.watch(
@@ -19,7 +19,8 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   );
 
   final visibleItems = <dynamic>[];
-  final order = commandState.appBarOrder;
+  // Get the order for the specified position
+  final order = commandState.orderedCommandsByPosition[positionId] ?? [];
 
   for (final id in order) {
     if (commandState.commandGroups.containsKey(id)) {
@@ -36,31 +37,53 @@ final appBarCommandsProvider = Provider<List<dynamic>>((ref) {
   return visibleItems;
 });
 
-final pluginToolbarCommandsProvider = Provider<List<dynamic>>((ref) {
-  final commandState = ref.watch(commandProvider);
-  final notifier = ref.read(commandProvider.notifier);
-  final currentPluginId = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
-  );
+// NEW: A generic, reusable CommandToolbar widget.
+class CommandToolbar extends ConsumerWidget {
+  final CommandPosition position;
+  final bool showLabels;
+  final Axis direction;
 
-  final visibleItems = <dynamic>[];
-  final order = commandState.pluginToolbarOrder;
+  const CommandToolbar({
+    super.key,
+    required this.position,
+    this.showLabels = false,
+    this.direction = Axis.horizontal,
+  });
 
-  for (final id in order) {
-    if (commandState.commandGroups.containsKey(id)) {
-      visibleItems.add(commandState.commandGroups[id]!);
-      continue;
-    }
-    final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the new provider family with our position's ID.
+    final items = ref.watch(commandsForPositionProvider(position.id));
+    final currentPlugin = ref.watch(
+      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin),
     );
-    if (command != null) {
-      visibleItems.add(command);
-    }
-  }
-  return visibleItems;
-});
 
+    final List<Widget> children = items.map((item) {
+      if (item is Command) {
+        return CommandButton(command: item, showLabel: showLabels);
+      }
+      if (item is CommandGroup) {
+        return CommandGroupButton(commandGroup: item);
+      }
+      return const SizedBox.shrink();
+    }).toList();
+
+    Widget toolbar;
+    if (direction == Axis.horizontal) {
+      toolbar = Row(mainAxisSize: MainAxisSize.min, children: children);
+    } else {
+      toolbar = Column(mainAxisSize: MainAxisSize.min, children: children);
+    }
+    
+    // Delegate wrapping to the plugin.
+    if (currentPlugin != null) {
+      return currentPlugin.wrapCommandToolbar(toolbar);
+    }
+    return toolbar;
+  }
+}
+
+// REFACTORED: AppBarCommands is now a thin wrapper around CommandToolbar.
 class AppBarCommands extends ConsumerWidget {
   const AppBarCommands({super.key});
 
@@ -73,59 +96,17 @@ class AppBarCommands extends ConsumerWidget {
       return override;
     }
 
-    final items = ref.watch(appBarCommandsProvider);
-    // Get the current plugin to ask it how to wrap the toolbar.
-    final currentPlugin = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab?.plugin,
-      ),
-    );
-
-    final commandRow = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: items.map((item) {
-        if (item is Command) {
-          return CommandButton(command: item);
-        }
-        if (item is CommandGroup) {
-          return CommandGroupButton(commandGroup: item);
-        }
-        return const SizedBox.shrink();
-      }).toList(),
-    );
-
-    // REFACTORED: Delegate wrapping to the plugin.
-    if (currentPlugin != null) {
-      return currentPlugin.wrapCommandToolbar(commandRow);
-    }
-    return commandRow;
+    // Simply use the new generic toolbar.
+    return const CommandToolbar(position: AppCommandPositions.appBar);
   }
 }
 
-class BottomToolbar extends ConsumerStatefulWidget {
+// REFACTORED: BottomToolbar is now a thin wrapper around CommandToolbar.
+class BottomToolbar extends ConsumerWidget {
   const BottomToolbar({super.key});
 
   @override
-  ConsumerState<BottomToolbar> createState() => _BottomToolbarState();
-}
-
-class _BottomToolbarState extends ConsumerState<BottomToolbar> {
-  late final ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final override = ref.watch(
       appNotifierProvider.select((s) => s.value?.bottomToolbarOverride),
     );
@@ -133,44 +114,22 @@ class _BottomToolbarState extends ConsumerState<BottomToolbar> {
       return override;
     }
 
-    final items = ref.watch(pluginToolbarCommandsProvider);
-    // Get the current plugin to ask it how to wrap the toolbar.
-    final currentPlugin = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab?.plugin,
-      ),
-    );
-
-    final listView = ListView.builder(
-      key: const PageStorageKey<String>('bottomToolbarScrollPosition'),
-      controller: _scrollController,
-      scrollDirection: Axis.horizontal,
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item is Command) {
-          return CommandButton(command: item, showLabel: false);
-        }
-        if (item is CommandGroup) {
-          return CommandGroupButton(commandGroup: item);
-        }
-        return const SizedBox.shrink();
-      },
-    );
-
-    final container = Container(
+    return Container(
       height: 48,
       color: Theme.of(context).bottomAppBarTheme.color,
-      // REFACTORED: Delegate wrapping to the plugin.
-      child: currentPlugin != null
-          ? currentPlugin.wrapCommandToolbar(listView)
-          : listView,
+      // Use a ListView to allow horizontal scrolling, wrapping the generic toolbar.
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: const [
+          CommandToolbar(position: AppCommandPositions.pluginToolbar),
+        ],
+      ),
     );
-
-    return container;
   }
 }
 
+
+// ... (CommandButton and CommandGroupButton are unchanged) ...
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
@@ -261,7 +220,6 @@ class CommandGroupButton extends ConsumerWidget {
       },
     );
 
-    // REFACTORED: Delegate wrapping to the plugin.
     if (currentPlugin != null) {
       return currentPlugin.wrapCommandToolbar(dropdown);
     }

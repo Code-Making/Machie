@@ -190,7 +190,7 @@ class GlitchEditorPlugin implements EditorPlugin {
       id: 'reset',
       label: 'Reset',
       icon: const Icon(Icons.refresh),
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // REFACTORED: Also check the dirty status from the metadata provider.
@@ -216,7 +216,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           return Icon(isZoomOn ? Icons.zoom_out_map : Icons.zoom_in_map);
         },
       ),
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       sourcePlugin: id,
       execute:
           (ref) async =>
@@ -240,7 +240,7 @@ class GlitchEditorPlugin implements EditorPlugin {
           }
         },
       ),
-      defaultPosition: CommandPosition.pluginToolbar,
+      defaultPosition: AppCommandPositions.appBar,
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.toggleToolbar(),
     ),

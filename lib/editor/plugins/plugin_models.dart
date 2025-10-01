@@ -30,6 +30,9 @@ abstract class EditorPlugin {
   Widget get icon;
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
+  // ADDED: Allows plugins to declare their own command "slots".
+  List<CommandPosition> getCommandPositions() => [];
+
   List<Command> getCommands();
   List<Command> getAppCommands() => [];
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
@@ -40,7 +43,6 @@ abstract class EditorPlugin {
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   String? get hotStateDtoType;
-  // ADDED: Exposes the DTO's runtime Type for the registry.
   Type? get hotStateDtoRuntimeType;
   TypeAdapter<TabHotStateDto>? get hotStateAdapter;
   Future<TabHotStateDto?> serializeHotState(EditorTab tab);
@@ -51,7 +53,6 @@ abstract class EditorPlugin {
   PluginSettings? get settings;
   Widget buildSettingsUI(PluginSettings settings);
 
-  // ADDED: Allows plugins to wrap command toolbars with their own widgets.
   Widget wrapCommandToolbar(Widget toolbar) => toolbar;
 
   Widget buildToolbar(WidgetRef ref) => const SizedBox.shrink();
