@@ -734,11 +734,11 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
-      focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: CodeEditor(
         controller: controller,
+        focusNode: _focusNode,
         findController: findController,
         findBuilder: (context, controller, readOnly) {
           return CodeFindPanelView(controller: controller, readOnly: readOnly);
