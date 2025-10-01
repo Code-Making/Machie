@@ -54,11 +54,14 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     // 1. Get the current route's name. The root route is always '/'.
     //    If we are on any other named route (like '/settings') or an overlay
     //    route (which often has a null name), we should not intercept.
+    bool canPop = Navigator.of(context).canPop();
     final currentRouteName = ModalRoute.of(context)?.settings.name;
     if (currentRouteName != '/') {
       return false;
     }
-
+    if (canPop == true){
+      return false;
+    }
     // 2. The drawer is part of the Scaffold's state, not a separate route,
     //    so we still need to check for it manually.
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
