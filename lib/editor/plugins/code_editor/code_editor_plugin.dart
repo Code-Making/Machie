@@ -301,7 +301,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'find',
       label: 'Find',
       icon: Icons.search,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute:
           (ref, editor) => editor?.showFindPanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
@@ -310,7 +310,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'find_and_replace',
       label: 'Replace',
       icon: Icons.find_replace,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute:
           (ref, editor) => editor?.showReplacePanel(), // Method we will create
       canExecute: (ref, editor) => editor != null,
@@ -340,21 +340,21 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'copy',
       label: 'Copy',
       icon: Icons.content_copy,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute: (ref, editor) => editor?.controller.copy(),
     ),
     _createCommand(
       id: 'cut',
       label: 'Cut',
       icon: Icons.content_cut,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute: (ref, editor) => editor?.controller.cut(),
     ),
     _createCommand(
       id: 'paste',
       label: 'Paste',
       icon: Icons.content_paste,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute: (ref, editor) => editor?.controller.paste(),
     ),
     _createCommand(
@@ -375,7 +375,7 @@ class CodeEditorPlugin implements EditorPlugin {
       id: 'toggle_comment',
       label: 'Toggle Comment',
       icon: Icons.comment,
-      defaultPositions: [AppCommandPositions.pluginToolbar],
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute: (ref, editor) => editor?.toggleComments(),
     ),
     _createCommand(

@@ -842,18 +842,16 @@ class _CustomLineNumberWidget extends StatelessWidget {
   }
 }
 
-class CodeEditorSelectionAppBar extends ConsumerWidget {
+class CodeEditorSelectionAppBar extends StatelessWidget {
   const CodeEditorSelectionAppBar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final toolbar = CommandToolbar(
       position: CodeEditorPlugin.selectionToolbar,
       direction: Axis.horizontal,
     );
-    
-    // THE FIX: The wrap now happens here, directly and simply.
-    // It is no longer necessary to fetch the plugin from a provider.
+
     return Material(
       elevation: 4.0,
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -861,10 +859,20 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
         child: Container(
           height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          // THE FIX: The layout is now a Row containing a Spacer and an Expanded
+          // SingleChildScrollView, which makes the toolbar right-aligned and scrollable.
           child: Row(
             children: [
               const Spacer(),
-              CodeEditorTapRegion(child: toolbar),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  // Reversing the scroll view makes it feel more natural for a
+                  // right-aligned toolbar that might overflow to the left.
+                  reverse: true,
+                  child: CodeEditorTapRegion(child: toolbar),
+                ),
+              ),
             ],
           ),
         ),
