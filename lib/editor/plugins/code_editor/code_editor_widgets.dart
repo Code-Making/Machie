@@ -847,13 +847,13 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // We wrap the dynamic CommandToolbar...
     final toolbar = CommandToolbar(
-      position: CodeEditorPlugin.selectionToolbar, // ...using the new position
+      position: CodeEditorPlugin.selectionToolbar,
       direction: Axis.horizontal,
     );
     
-    // ...inside the necessary Material/Layout widgets.
+    // THE FIX: The wrap now happens here, directly and simply.
+    // It is no longer necessary to fetch the plugin from a provider.
     return Material(
       elevation: 4.0,
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -864,10 +864,7 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
           child: Row(
             children: [
               const Spacer(),
-              // The plugin is responsible for wrapping its own toolbars.
-              ref.read(activePluginsProvider)
-                .firstWhere((p) => p.id == CodeEditorPlugin.pluginId)
-                .wrapCommandToolbar(toolbar),
+              CodeEditorTapRegion(child: toolbar),
             ],
           ),
         ),

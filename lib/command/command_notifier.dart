@@ -180,14 +180,13 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final lists = _getMutableLists();
     final targetList = lists[toPositionId];
     if (targetList == null) return;
+
     if (!targetList.contains(itemId)) {
       targetList.add(itemId);
     }
-    lists.forEach((key, value) {
-      if (key != toPositionId) {
-        value.remove(itemId);
-      }
-    });
+    
+    lists['hidden']?.remove(itemId);
+    
     _updateStateWithLists(lists);
   }
 
