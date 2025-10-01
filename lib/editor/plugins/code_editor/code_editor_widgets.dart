@@ -797,7 +797,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           ),
         ),
         wordWrap: codeEditorSettings?.wordWrap ?? false,
-      ),
+      );
     // );
     // --- END OF MODIFIED SECTION ---
   }
