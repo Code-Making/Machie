@@ -1,22 +1,19 @@
 // =========================================
-// FILE: lib/app/app_screen.dart
+// UPDATED: lib/app/app_screen.dart
 // =========================================
 
-// lib/screens/editor_screen.dart
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_editor/re_editor.dart';
 
 import 'app_notifier.dart';
-import '../editor/plugins/code_editor/code_editor_plugin.dart';
 import '../editor/editor_widgets.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../settings/settings_notifier.dart';
-import '../editor/tab_state_manager.dart'; // ADDED
+import '../editor/tab_state_manager.dart';
 
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
@@ -27,6 +24,8 @@ class AppScreen extends ConsumerStatefulWidget {
 
 class _AppScreenState extends ConsumerState<AppScreen> {
   late final GlobalKey<ScaffoldState> _scaffoldKey;
+  // This flag is correctly defined here as a member of the State class.
+  bool _isExitDialogShowing = false;
 
   @override
   void initState() {
@@ -41,6 +40,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     super.dispose();
   }
 
+  // THE FIX: The interceptor now uses the correct API from the package documentation.
   Future<bool> _backButtonInterceptor(
     bool stopDefaultButtonEvent,
     RouteInfo info,
@@ -49,15 +49,23 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     // If any of these are true, we return `false` to let the default back
     // button behavior (like closing a drawer, dialog, or navigating back) happen.
 
-    // THE FIX: Don't intercept if we are not on the main app screen (the root route).
-    // This allows the back button to work normally on pages like Settings.
-    if (info.routeName != '/') {
+    // 1. Use `ifRouteChanged`. This elegantly handles navigation to other pages
+    //    (like /settings), as well as overlays like dialogs and bottom sheets,
+    //    because they all push a new route.
+    if (info.ifRouteChanged(context)) {
       return false;
     }
 
-    if (!mounted) return false;
-    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) return false;
-    if (info.isDialogShowing || info.isBottomSheetShowing) return false;
+    // 2. Don't intercept if the widget is no longer in the tree.
+    if (!mounted) {
+      return false;
+    }
+
+    // 3. The drawer is part of the Scaffold's state, not a separate route,
+    //    so we still need to check for it manually.
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      return false;
+    }
 
     // === INTERCEPTION LOGIC ===
     // If we've gotten this far, we are on the main screen with no overlays open.
@@ -69,7 +77,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     }
 
     if (_isExitDialogShowing) {
-      return true;
+      return true; // A dialog is already showing, so we "handle" it by doing nothing.
     }
 
     try {
@@ -85,9 +93,11 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         await SystemNavigator.pop();
       }
     } finally {
+      // Always reset the flag after the dialog is dismissed.
       _isExitDialogShowing = false;
     }
     
+    // We return `true` because we have handled the back button event by showing a dialog.
     return true;
   }
 
@@ -98,8 +108,6 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     final currentPlugin = currentTab?.plugin;
     final isFullScreen = appState?.isFullScreen ?? false;
 
-    // REFACTORED: Get the title by watching the metadata for the current tab.
-    // This ensures the title updates on rename without rebuilding the whole screen.
     final currentTabMetadata = ref.watch(
       tabMetadataProvider.select(
         (metadataMap) => currentTab != null ? metadataMap[currentTab.id] : null,
@@ -117,38 +125,37 @@ class _AppScreenState extends ConsumerState<AppScreen> {
 
     final appBarOverride = appState?.appBarOverride;
     final double toolbarHeight = Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
-    
+
     return Scaffold(
       key: _scaffoldKey,
       appBar:
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
               ? (appBarOverride != null
                   ? PreferredSize(
-                    preferredSize: Size.fromHeight(toolbarHeight),
-                    child: appBarOverride,
-                  )
+                      preferredSize: Size.fromHeight(toolbarHeight),
+                      child: appBarOverride,
+                    )
                   : AppBar(
-                    leading: IconButton(
-                      icon: const Icon(Icons.menu),
-                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                    ),
-                    actions: [
-                      currentPlugin is CodeEditorPlugin
-                          ? CodeEditorTapRegion(child: const AppBarCommands())
-                          : const AppBarCommands(),
-                    ],
-                    // REFACTORED: Use the title from the metadata provider.
-                    title: Text(appBarTitle),
-                  ))
+                      leading: IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                      ),
+                      actions: [
+                        if (currentPlugin != null)
+                          currentPlugin.wrapCommandToolbar(const AppBarCommands())
+                        else
+                          const AppBarCommands(),
+                      ],
+                      title: Text(appBarTitle),
+                    ))
               : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
-          Expanded(
-            // CORRECTED: Wrap the EditorView's container in a FocusScope.
-            child: FocusScope(child: const EditorView()),
+          const Expanded(
+            child: FocusScope(child: EditorView()),
           ),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
