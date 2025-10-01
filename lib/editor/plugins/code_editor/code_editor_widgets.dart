@@ -842,16 +842,18 @@ class _CustomLineNumberWidget extends StatelessWidget {
   }
 }
 
-class CodeEditorSelectionAppBar extends StatelessWidget {
+// in lib/editor/plugins/code_editor/code_editor_widgets.dart
+
+class CodeEditorSelectionAppBar extends ConsumerWidget {
   const CodeEditorSelectionAppBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final toolbar = CommandToolbar(
       position: CodeEditorPlugin.selectionToolbar,
       direction: Axis.horizontal,
     );
-
+    
     return Material(
       elevation: 4.0,
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -859,21 +861,12 @@ class CodeEditorSelectionAppBar extends StatelessWidget {
         child: Container(
           height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          // THE FIX: The layout is now a Row containing a Spacer and an Expanded
-          // SingleChildScrollView, which makes the toolbar right-aligned and scrollable.
-          child: Row(
-            children: [
-              const Spacer(),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  // Reversing the scroll view makes it feel more natural for a
-                  // right-aligned toolbar that might overflow to the left.
-                  reverse: true,
-                  child: CodeEditorTapRegion(child: toolbar),
-                ),
-              ),
-            ],
+          // THE FIX: Wrap the command toolbar in a scrollable widget.
+          // Using `reverse: true` keeps the content anchored to the right side.
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: CodeEditorTapRegion(child: toolbar),
           ),
         ),
       ),
