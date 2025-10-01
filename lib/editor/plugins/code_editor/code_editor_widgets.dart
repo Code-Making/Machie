@@ -728,7 +728,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         // You can check if the main editor has focus if you need extra safety,
         // but the Actions system should handle this automatically.
         if (_focusNode.hasFocus) {
-           _controller.moveCursor(intent.direction);
+           controller.moveCursor(intent.direction);
         }
         return null;
       },
@@ -738,7 +738,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     CodeShortcutSelectionExtendIntent: CallbackAction<CodeShortcutSelectionExtendIntent>(
       onInvoke: (intent) {
         if (_focusNode.hasPrimaryFocus) {
-          _controller.extendSelection(intent.direction);
+          controller.extendSelection(intent.direction);
         }
         return null;
       },
@@ -750,9 +750,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       onInvoke: (intent) {
         if (_focusNode.hasFocus) {
           if (intent.forward) {
-            _controller.moveCursorToLineEnd();
+            controller.moveCursorToLineEnd();
           } else {
-            _controller.moveCursorToLineStart();
+            controller.moveCursorToLineStart();
           }
         }
         return null;
