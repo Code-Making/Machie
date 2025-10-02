@@ -83,13 +83,14 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
               return ListView.builder(
                 itemCount: searchState.results.length,
                 itemBuilder: (context, index) {
-                  final file = searchState.results[index];
-                  // THE FIX: Use the fileHandler to get the relative path.
+                  // THE FIX: Unwrap the SearchResult to get the file.
+                  final searchResult = searchState.results[index];
+                  final file = searchResult.file;
+                  
                   final relativePath = fileHandler.getPathForDisplay(
                     file.uri,
                     relativeTo: projectRootUri,
                   );
-                  // Now we can safely split by '/' because getPathForDisplay guarantees it.
                   final pathSegments = relativePath.split('/');
                   final subtitle = pathSegments.length > 1
                       ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
