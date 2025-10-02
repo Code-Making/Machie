@@ -60,6 +60,7 @@ dependencies:
   back_button_interceptor: ^8.0.4
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  flutter_foreground_task: ^9.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
