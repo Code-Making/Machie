@@ -129,6 +129,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
   Widget _buildPathNavigator() {
     final projectRootUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
+    final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
+    if (fileHandler == null) return const SizedBox.shrink();
 
     return Row(
       children: [
@@ -138,11 +140,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
               _currentPathUri == projectRootUri
                   ? null
                   : () {
-                    final segments = _currentPathUri.split('%2F');
-                    final newPath = segments
-                        .sublist(0, segments.length - 1)
-                        .join('%2F');
-                    // FIX: Call the method on the .notifier instance.
+                    // THE FIX: Use the fileHandler to get the parent URI.
+                    final newPath = fileHandler.getParentUri(_currentPathUri);
                     ref
                         .read(projectHierarchyProvider.notifier)
                         .loadDirectory(newPath);
@@ -153,11 +152,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         ),
         Expanded(
           child: Text(
-            Uri.decodeComponent(
-              _currentPathUri
-                  .split('/')
-                  .lastWhere((s) => s.isNotEmpty, orElse: () => 'Project Root'),
-            ),
+            // THE FIX: Use the fileHandler to get a display-friendly name.
+            fileHandler.getFileName(fileHandler.getPathForDisplay(_currentPathUri)),
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),

@@ -83,7 +83,8 @@ class ExplorerService {
 
   Future<void> renameItem(DocumentFile item, String newName) async {
     try {
-      final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
+      // THE FIX: No more manual substring logic.
+      final parentUri = _repo.fileHandler.getParentUri(item.uri);
       final renamedFile = await _repo.renameDocumentFile(item, newName);
       
       _ref.read(projectHierarchyProvider.notifier).rename(item, renamedFile, parentUri);
@@ -91,7 +92,6 @@ class ExplorerService {
       _talker.info('Renamed "${item.name}" to "${renamedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to rename item: ${item.name}');
-      // THE FIX: Show toast instead of crashing.
       MachineToast.error("Failed to rename '${item.name}'. The name might be invalid or already exist.");
     }
   }
@@ -133,10 +133,8 @@ class ExplorerService {
       return;
     }
     try {
-      final sourceParentUri = source.uri.substring(
-        0,
-        source.uri.lastIndexOf('%2F'),
-      );
+      // THE FIX: No more manual substring logic.
+      final sourceParentUri = _repo.fileHandler.getParentUri(source.uri);
       final movedFile = await _repo.moveDocumentFile(
         source,
         destinationFolder.uri,
@@ -148,7 +146,6 @@ class ExplorerService {
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to move "${source.name}" into "${destinationFolder.name}"');
-      // THE FIX: Show toast instead of crashing.
       MachineToast.error("Failed to move '${source.name}'. Your device may not support this operation.");
     }
   }
