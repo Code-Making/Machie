@@ -131,17 +131,22 @@ class ProjectService {
     await _stopCacheService();
   }
   
-  // ADD THESE HELPER METHODS
   Future<void> _startCacheService() async {
-    if (!await FlutterForegroundTask.isRunningService) {
-      await FlutterForegroundTask.startService(
-        notificationTitle: 'Machine Active',
-        notificationText: 'Unsaved file cache is running.',
-        callback: startCallback,
-      );
+    if (await FlutterForegroundTask.isRunningService) {
+      // If service is already running, no need to start again.
+      return;
     }
-  }
 
+    await FlutterForegroundTask.startService(
+      notificationTitle: 'Machine Active',
+      notificationText: 'Unsaved file cache is running.',
+      // The icon is specified here. The package looks for a drawable resource
+      // with this name. We created 'ic_stat_name.xml' for this purpose.
+      notificationIcon: const NotificationIcon(name: 'ic_stat_name'),
+      callback: startCallback,
+    );
+  }
+    
   Future<void> _stopCacheService() async {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
