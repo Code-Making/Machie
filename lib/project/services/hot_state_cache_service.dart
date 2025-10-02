@@ -9,6 +9,11 @@ import '../../data/cache/type_adapter_registry.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 import '../../logs/logs_provider.dart';
 
+final cacheRepositoryProvider = Provider<CacheRepository>((ref) {
+  final talker = ref.read(talkerProvider);
+  return HiveCacheRepository(talker);
+});
+
 // The provider definition now explicitly wires up the dependencies.
 final hotStateCacheServiceProvider = Provider<HotStateCacheService>((ref) {
   return HotStateCacheService(
