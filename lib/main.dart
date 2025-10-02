@@ -11,7 +11,7 @@ import 'app/lifecycle.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
-import 'project/services/cache_service.dart'; // ADDED
+import 'project/services/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 
@@ -20,7 +20,7 @@ import 'settings/settings_screen.dart';
 // --------------------
 
 final appStartupProvider = FutureProvider<void>((ref) async {
-  await ref.read(cacheRepositoryProvider).init();
+  await ref.read(hotStateCacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
 
   ref.read(settingsProvider);
