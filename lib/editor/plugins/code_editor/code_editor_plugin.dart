@@ -27,7 +27,7 @@ import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/dto/tab_hot_state_dto.dart'; // ADDED
 import '../../../data/cache/type_adapters.dart'; // ADDED
-import '../../../project/services/cache_service.dart';
+import '../../../project/services/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
 
 
@@ -200,7 +200,7 @@ class CodeEditorPlugin implements EditorPlugin {
           return;
         }
 
-        final cacheService = ref.read(cacheServiceProvider);
+        final hotStateCacheService = ref.read(hotStateCacheServiceProvider);
         final codeEditorPlugin = this;
         final scratchpadFile = VirtualDocumentFile(
           uri: 'scratchpad://${project.id}',
@@ -208,7 +208,7 @@ class CodeEditorPlugin implements EditorPlugin {
         );
 
         // Try to load cached DTO.
-        final cachedDto = await cacheService.getTabState(
+        final cachedDto = await hotStateCacheService.getTabState(
           project.id,
           AppCommands.scratchpadTabId,
         );

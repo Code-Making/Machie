@@ -346,9 +346,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     final currentProject = appState.currentProject;
 
-    // 1. If a project is open, tell the EditorService to cache its hot state.
+    // 1. If a project is open, tell the EditorService to persist its hot state.
     if (currentProject != null) {
-      await _editorService.cacheAllTabs(currentProject);
+      // UPDATED: Call the renamed method.
+      await _editorService.persistAllHotTabs(currentProject);
     }
 
     // 2. Save the persistent project file (project.json).
