@@ -14,6 +14,8 @@ import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
 // ADDED
+import 'package:flutter_foreground_task/flutter_foreground_task.dart'; // ADD THIS
+import 'hot_state_task_handler.dart'; // ADD THIS
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -85,7 +87,8 @@ class ProjectService {
         'No repository for project type ${metadata.projectTypeId}',
       );
     }
-
+    // ADD THIS: Start the service when a project's repository is created.
+    await _startCacheService();
     // Set the active repository for other parts of the app to use for file ops.
     _ref.read(projectRepositoryProvider.notifier).state = repo;
 
@@ -116,10 +119,33 @@ class ProjectService {
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
-
+    // Tell the background service to clear its memory for this project
+    await FlutterForegroundTask.sendDataToTask({
+      'command': 'clear_project',
+      'projectId': project.id,
+    });
     // Clear the active project-specific providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
+    
+    await _stopCacheService();
+  }
+  
+  // ADD THESE HELPER METHODS
+  Future<void> _startCacheService() async {
+    if (!await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.startService(
+        notificationTitle: 'Machine Active',
+        notificationText: 'Unsaved file cache is running.',
+        callback: startCallback,
+      );
+    }
+  }
+
+  Future<void> _stopCacheService() async {
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.stopService();
+    }
   }
 
   /// Creates a new metadata object for a new project.

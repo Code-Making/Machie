@@ -15,6 +15,9 @@ import 'project/services/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
 
+import 'package:flutter_foreground_task/flutter_foreground_task.dart'; // ADD THIS
+import 'project/services/hot_state_task_handler.dart'; // ADD THIS
+
 // --------------------
 //   Global Providers
 // --------------------
@@ -109,7 +112,7 @@ void main() {
   );
 
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-
+  _initForegroundTask(); // ADD THIS CALL
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -169,6 +172,36 @@ void main() {
 // --------------------
 //    Lifecycle & Startup
 // --------------------
+
+void _initForegroundTask() {
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'machine_hot_state_service',
+      channelName: 'Machine Hot State Service',
+      channelDescription:
+          'This notification keeps the unsaved file cache alive.',
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
+      iconData: const NotificationIconData(
+        resType: ResourceType.drawable,
+        name: 'ic_stat_name', // The XML file you created
+      ),
+      // You can add buttons to the notification if needed in the future
+      // buttons: [ const NotificationButton(id: 'stopButton', text: 'Stop Service'), ],
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: true,
+      playSound: false,
+    ),
+    foregroundTaskOptions: const ForegroundTaskOptions(
+      // Interval is not used for event-driven tasks, but is required.
+      interval: 500000, 
+      isOnceEvent: false,
+      autoRunOnBoot: false,
+      allowWifiLock: true,
+    ),
+  );
+}
 
 class AppStartupWidget extends ConsumerWidget {
   final WidgetBuilder onLoaded;
