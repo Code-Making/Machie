@@ -178,26 +178,28 @@ void _initForegroundTask() {
     androidNotificationOptions: AndroidNotificationOptions(
       channelId: 'machine_hot_state_service',
       channelName: 'Machine Hot State Service',
-      channelDescription:
-          'This notification keeps the unsaved file cache alive.',
+      channelDescription: 'This notification keeps the unsaved file cache alive.',
       channelImportance: NotificationChannelImportance.LOW,
       priority: NotificationPriority.LOW,
-      iconData: const NotificationIconData(
-        resType: ResourceType.drawable,
+      // CHANGED: The 'iconData' parameter is now 'notificationIcon'.
+      // The 'NotificationIconData' class is now 'NotificationIcon'.
+      // The 'ResourceType' enum is now 'NotificationIconType'.
+      notificationIcon: const NotificationIcon(
         name: 'ic_stat_name', // The XML file you created
+        type: NotificationIconType.drawable,
       ),
-      // You can add buttons to the notification if needed in the future
-      // buttons: [ const NotificationButton(id: 'stopButton', text: 'Stop Service'), ],
+      onlyAlertOnce: true, // A good practice to prevent repeated sounds.
     ),
     iosNotificationOptions: const IOSNotificationOptions(
       showNotification: true,
       playSound: false,
     ),
-    foregroundTaskOptions: const ForegroundTaskOptions(
-      // Interval is not used for event-driven tasks, but is required.
-      interval: 500000, 
-      isOnceEvent: false,
-      autoRunOnBoot: false,
+    foregroundTaskOptions: ForegroundTaskOptions(
+      // CHANGED: 'interval' and 'isOnceEvent' are replaced by 'eventAction'.
+      // For a service that only responds to messages (like ours),
+      // ForegroundTaskEventAction.manual() is the correct choice.
+      eventAction: ForegroundTaskEventAction.manual(),
+      autoRunOnBoot: false, // We don't need this service to run on boot.
       allowWifiLock: true,
     ),
   );
