@@ -8,7 +8,7 @@ import '../../../project/project_models.dart';
 import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
 import '../../../project/services/project_file_index.dart'; // IMPORT THE NEW SERVICE
-import '../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project_repository.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
