@@ -20,7 +20,7 @@ import 'settings/settings_screen.dart';
 // --------------------
 
 final appStartupProvider = FutureProvider<void>((ref) async {
-  await ref.read(hotStateCacheRepositoryProvider).init();
+  await ref.read(cacheRepositoryProvider).init();
   await ref.read(sharedPreferencesProvider.future);
 
   ref.read(settingsProvider);
