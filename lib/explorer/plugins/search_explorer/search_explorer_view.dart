@@ -41,7 +41,10 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
     final indexState = ref.watch(projectFileIndexProvider);
     final searchState = ref.watch(searchStateProvider);
     final projectRootUri = widget.project.rootUri;
-
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+    if (fileHandler == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return Column(
       children: [
         Padding(
@@ -80,17 +83,15 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                 itemCount: searchState.results.length,
                 itemBuilder: (context, index) {
                   final file = searchState.results[index];
-                  String relativePath = file.uri.startsWith(projectRootUri)
-                      ? file.uri.substring(projectRootUri.length)
-                      : file.uri;
-                  if (relativePath.startsWith('/')) {
-                    relativePath = relativePath.substring(1);
-                  }
-                  final lastSlash = relativePath.lastIndexOf('%2F');
-                  final subtitle = lastSlash != -1
-                      ? Uri.decodeComponent(
-                          relativePath.substring(0, lastSlash),
-                        )
+                  // THE FIX: Use the fileHandler to get the relative path.
+                  final relativePath = fileHandler.getPathForDisplay(
+                    file.uri,
+                    relativeTo: projectRootUri,
+                  );
+                  // Now we can safely split by '/' because getPathForDisplay guarantees it.
+                  final pathSegments = relativePath.split('/');
+                  final subtitle = pathSegments.length > 1
+                      ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
                       : '.';
 
                   return DirectoryItem(

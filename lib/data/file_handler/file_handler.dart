@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 abstract class DocumentFile {
+  // ... (properties unchanged) ...
   String get uri;
   String get name;
   bool get isDirectory;
@@ -15,6 +16,7 @@ abstract class DocumentFile {
 }
 
 abstract class FileHandler {
+  // ... (most methods unchanged) ...
   Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(
     String uri, {
@@ -43,7 +45,6 @@ abstract class FileHandler {
 
   Future<void> deleteDocumentFile(DocumentFile file);
 
-  // REFACTORED: These methods are now non-nullable and will throw on failure.
   Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName);
   Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
@@ -54,6 +55,17 @@ abstract class FileHandler {
     String destinationParentUri,
   );
 
-  // This remains nullable as "not found" is a valid state, not an exception.
   Future<DocumentFile?> getFileMetadata(String uri);
+
+  // THE FIX: Add new methods to encapsulate all path and URI manipulation.
+  
+  /// Returns the parent URI of the given URI.
+  String getParentUri(String uri);
+  
+  /// Returns the final component (file or folder name) of the given URI.
+  String getFileName(String uri);
+  
+  /// Returns a user-friendly, decoded path string for display purposes.
+  /// If `relativeTo` is provided, it returns a relative path.
+  String getPathForDisplay(String uri, {String? relativeTo});
 }

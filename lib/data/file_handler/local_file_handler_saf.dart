@@ -14,6 +14,8 @@ import 'local_file_handler.dart';
 class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
+  // THE FIX: Implement the new interface methods with SAF-specific logic.
+  static const String _separator = '%2F';
 
   // ... (pickDirectory, listDirectory, readFile, readFileAsBytes, writeFile, writeFileAsBytes, _inferMimeType, createDocumentFile, deleteDocumentFile are all unchanged) ...
   @override
@@ -241,6 +243,34 @@ class SafFileHandler implements LocalFileHandler {
   Future<List<DocumentFile>> pickFiles() async {
     final files = await _safUtil.pickFiles();
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
+  }
+  @override
+  String getParentUri(String uri) {
+    final lastIndex = uri.lastIndexOf(_separator);
+    // If there's no separator or it's a root URI, there's no parent to return.
+    // In SAF, a root might not have a parent we can navigate "up" to.
+    if (lastIndex == -1 || !uri.substring(0, lastIndex).contains(_separator)) {
+      return uri;
+    }
+    return uri.substring(0, lastIndex);
+  }
+
+  @override
+  String getFileName(String uri) {
+    return uri.split(_separator).last;
+  }
+
+  @override
+  String getPathForDisplay(String uri, {String? relativeTo}) {
+    String path = uri;
+    if (relativeTo != null && path.startsWith(relativeTo)) {
+      path = path.substring(relativeTo.length);
+      if (path.startsWith(_separator)) {
+        path = path.substring(_separator.length);
+      }
+    }
+    // Decode each component of the path for display.
+    return path.split(_separator).map((s) => Uri.decodeComponent(s)).join('/');
   }
 }
 

@@ -15,15 +15,13 @@ import 'file_explorer_commands.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
-bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder) {
+bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
 
-  final parentUri = draggedFile.uri.substring(
-    0,
-    draggedFile.uri.lastIndexOf('%2F'),
-  );
+  // THE FIX: No more manual substring logic.
+  final parentUri = fileHandler.getParentUri(draggedFile.uri);
   if (parentUri == targetFolder.uri) return false;
 
   return true;
@@ -78,6 +76,10 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
+    // THE FIX: Get the FileHandler once to avoid multiple reads.
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+    if (fileHandler == null) return const Center(child: CircularProgressIndicator());
+
     return ListView.builder(
       key: PageStorageKey(widget.directory),
       padding: const EdgeInsets.only(top: 8.0),
@@ -86,9 +88,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       itemCount: sortedContents.length,
       itemBuilder: (context, index) {
         final item = sortedContents[index];
-        final depth =
-            item.uri.split('%2F').length -
-            widget.projectRootUri.split('%2F').length;
+        // THE FIX: Depth calculation is now agnostic to the separator.
+        final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: widget.projectRootUri).split('/').length - 1;
         return DirectoryItem(
           item: item,
           depth: depth,
@@ -119,6 +120,9 @@ class RootDropZone extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+    if (fileHandler == null) return const SizedBox.shrink();
+    
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         final canAccept =
@@ -126,6 +130,7 @@ class RootDropZone extends ConsumerWidget {
             _isDropAllowed(
               candidateData.first!,
               RootPlaceholder(projectRootUri),
+              fileHandler, // Pass the handler
             );
 
         return AnimatedOpacity(
@@ -159,7 +164,7 @@ class RootDropZone extends ConsumerWidget {
         );
       },
       onWillAcceptWithDetails: (details) =>
-          _isDropAllowed(details.data, RootPlaceholder(projectRootUri)),
+          _isDropAllowed(details.data, RootPlaceholder(projectRootUri), fileHandler),
       onAcceptWithDetails: (details) {
         ref
             .read(explorerServiceProvider)
@@ -282,7 +287,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         trailing: const SizedBox(width: 24, height: 24),
       ),
     );
-
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+    if (fileHandler == null) return const SizedBox.shrink();
+    
     final tileWithDropTarget = DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return tileContent;
@@ -290,7 +297,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       onWillAcceptWithDetails: (details) {
         final draggedFile = details.data;
         final isSelfDrop = draggedFile.uri == widget.item.uri;
-        final isAllowedMove = _isDropAllowed(draggedFile, widget.item);
+        final isAllowedMove = _isDropAllowed(draggedFile, widget.item, fileHandler);
 
         if (isAllowedMove) {
           setState(() { _isHoveredByDraggable = true; });
