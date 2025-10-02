@@ -193,7 +193,7 @@ void _initForegroundTask() {
       // CORRECTED: There is no `.manual()` action. To create an event-driven
       // task that doesn't run on a timer, we use `.repeat()` with a very
       // large interval. This effectively makes it wait for manual triggers.
-      eventAction: ForegroundTaskEventAction.repeat(interval: 99999999),
+      eventAction: ForegroundTaskEventAction.repeat(99999999),
       autoRunOnBoot: false,
       allowWifiLock: true,
     ),
