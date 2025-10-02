@@ -18,7 +18,7 @@ import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart';
-import '../../project/services/cache_service.dart';
+import '../../project/services/hot_state_cache_service.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -47,7 +47,7 @@ class EditorService {
   ) async {
     final plugins = _ref.read(activePluginsProvider);
     final metadataNotifier = _ref.read(tabMetadataProvider.notifier);
-    final cacheService = _ref.read(cacheServiceProvider);
+    final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     final talker = _ref.read(talkerProvider);
 
     final List<EditorTab> rehydratedTabs = [];
@@ -72,7 +72,7 @@ class EditorService {
 
         // --- UNIFIED DATA LOADING ---
         talker.info("Trying to load cache");
-        final cachedDto = await cacheService.getTabState(
+        final cachedDto = await hotStateCacheService.getTabState(
           projectMetadata.id,
           tabId,
         );
@@ -90,7 +90,7 @@ class EditorService {
           }
         } else {
           // If we loaded from cache, clear it so it's not stale on next load.
-          await cacheService.clearTabState(projectMetadata.id, tabId);
+          await hotStateCacheService.clearTabState(projectMetadata.id, tabId);
         }
 
         // Create the unified data object for the plugin.
@@ -178,36 +178,23 @@ class EditorService {
   // UPDATED: The rehydration logic now checks the cache.
   
   // REFACTORED: The caching logic now checks if the tab is dirty before proceeding.
-  Future<void> cacheAllTabs(Project project) async {
-    final cacheService = _ref.read(cacheServiceProvider);
-    final metadataMap = _ref.read(tabMetadataProvider); // Get the live metadata
+  Future<void> persistAllHotTabs(Project project) async {
+    // UPDATED: Use the renamed provider.
+    final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
+    final metadataMap = _ref.read(tabMetadataProvider);
   
     for (final tab in project.session.tabs) {
       final metadata = metadataMap[tab.id];
   
-      // THE FIX: Only attempt to serialize and cache the hot state
-      // if the tab is actually marked as dirty (has unsaved changes).
-      if (metadata != null) {
-        if (metadata.isDirty) {
-          final hotStateDto = await tab.plugin.serializeHotState(tab);
-          if (hotStateDto != null) {
-            await cacheService.cacheTabState(project.id, tab.id, hotStateDto);
-          } else {
-            // Add a log to see why serialization might have failed.
-            _ref
-                .read(talkerProvider)
-                .warning(
-                  'Tab "${metadata.title}" was dirty, but serializeHotState returned null. '
-                  'The editor widget might not be ready or its state is invalid.',
-                );
-          }
+      if (metadata != null && metadata.isDirty) {
+        final hotStateDto = await tab.plugin.serializeHotState(tab);
+        if (hotStateDto != null) {
+          // UPDATED: Uses the renamed service variable.
+          await hotStateCacheService.cacheTabState(project.id, tab.id, hotStateDto);
         } else {
-          _ref
-              .read(talkerProvider)
-              .warning(
-                'Tab "${metadata.title}" was not dirty'
-                'The editor widget might not be ready or its state is invalid.',
-              );
+          _ref.read(talkerProvider).warning(
+            'Tab "${metadata.title}" was dirty, but serializeHotState returned null.',
+          );
         }
       }
     }
