@@ -112,6 +112,7 @@ void main() {
   );
 
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
+  FlutterForegroundTask.initCommunicationPort();
   _initForegroundTask(); // ADD THIS CALL
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
@@ -181,25 +182,19 @@ void _initForegroundTask() {
       channelDescription: 'This notification keeps the unsaved file cache alive.',
       channelImportance: NotificationChannelImportance.LOW,
       priority: NotificationPriority.LOW,
-      // CHANGED: The 'iconData' parameter is now 'notificationIcon'.
-      // The 'NotificationIconData' class is now 'NotificationIcon'.
-      // The 'ResourceType' enum is now 'NotificationIconType'.
-      notificationIcon: const NotificationIcon(
-        name: 'ic_stat_name', // The XML file you created
-        type: NotificationIconType.drawable,
-      ),
-      onlyAlertOnce: true, // A good practice to prevent repeated sounds.
+      // The icon is NOT set here. It's set in startService.
+      onlyAlertOnce: true,
     ),
     iosNotificationOptions: const IOSNotificationOptions(
       showNotification: true,
       playSound: false,
     ),
     foregroundTaskOptions: ForegroundTaskOptions(
-      // CHANGED: 'interval' and 'isOnceEvent' are replaced by 'eventAction'.
-      // For a service that only responds to messages (like ours),
-      // ForegroundTaskEventAction.manual() is the correct choice.
-      eventAction: ForegroundTaskEventAction.manual(),
-      autoRunOnBoot: false, // We don't need this service to run on boot.
+      // CORRECTED: There is no `.manual()` action. To create an event-driven
+      // task that doesn't run on a timer, we use `.repeat()` with a very
+      // large interval. This effectively makes it wait for manual triggers.
+      eventAction: ForegroundTaskEventAction.repeat(interval: 99999999),
+      autoRunOnBoot: false,
       allowWifiLock: true,
     ),
   );
