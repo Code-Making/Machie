@@ -394,6 +394,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       // Update our local tracker to the new state.
       _wasSelectionActive = isSelectionActive;
     }
+    if (controller.dirty.value) {
+      final project = ref.read(appNotifierProvider).value?.currentProject;
+      if (project != null) {
+        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+      }
+    }
   }
 
   Future<void> save() async {

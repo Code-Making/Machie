@@ -175,29 +175,26 @@ class EditorService {
   
   // --- Main Rehydration Logic ---
   
-  // UPDATED: The rehydration logic now checks the cache.
-  
-  // REFACTORED: The caching logic now checks if the tab is dirty before proceeding.
-  Future<void> persistAllHotTabs(Project project) async {
-    // UPDATED: Use the renamed provider.
+  // ADD THIS NEW METHOD
+  /// Triggers a debounced update of the tab's hot state to the background cache service.
+  Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
-    final metadataMap = _ref.read(tabMetadataProvider);
-  
-    for (final tab in project.session.tabs) {
-      final metadata = metadataMap[tab.id];
-  
-      if (metadata != null && metadata.isDirty) {
-        final hotStateDto = await tab.plugin.serializeHotState(tab);
-        if (hotStateDto != null) {
-          // UPDATED: Uses the renamed service variable.
-          await hotStateCacheService.cacheTabState(project.id, tab.id, hotStateDto);
-        } else {
-          _ref.read(talkerProvider).warning(
-            'Tab "${metadata.title}" was dirty, but serializeHotState returned null.',
-          );
-        }
+    final metadata = _ref.read(tabMetadataProvider)[tab.id];
+
+    if (metadata != null && metadata.isDirty) {
+      final hotStateDto = await tab.plugin.serializeHotState(tab);
+      if (hotStateDto != null) {
+        // This now calls the new debounced method on the service.
+        hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
       }
     }
+  }
+
+  // RENAME `persistAllHotTabs` to `flushAllHotTabs` for clarity.
+  // This will be called on app pause.
+  Future<void> flushAllHotTabs() async {
+    final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
+    await hotStateCacheService.flush();
   }
   
   void markCurrentTabDirty() {
