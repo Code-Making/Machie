@@ -1,10 +1,11 @@
 // =========================================
-// FILE: lib/project/services/project_service.dart
+// FINAL CORRECTED FILE: lib/project/services/project_service.dart
 // =========================================
-
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/file_handler/local_file_handler.dart';
@@ -13,15 +14,12 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
-// ADDED
-import 'package:flutter_foreground_task/flutter_foreground_task.dart'; // ADD THIS
-import 'hot_state_task_handler.dart'; // ADD THIS
+import 'hot_state_task_handler.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
 
-/// A result object for the `openFromFolder` flow.
 class OpenProjectResult {
   final ProjectDto projectDto;
   final ProjectMetadata metadata;
@@ -38,8 +36,6 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
-  /// Opens a project from a user-picked folder, creating new metadata if needed.
-  /// This method returns the raw DTO, leaving rehydration to the caller.
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -63,8 +59,6 @@ class ProjectService {
     );
   }
 
-  /// Selects the correct repository and asks it to load the persisted `ProjectDto`.
-  /// This is the primary entry point for loading project data.
   Future<ProjectDto> openProjectDto(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
@@ -79,26 +73,19 @@ class ProjectService {
       );
       repo = PersistentProjectRepository(fileHandler, projectDataPath);
     } else if (metadata.projectTypeId == 'simple_local') {
-      // For simple, non-persistent projects, the entire state is passed in.
-      // The repository will construct a DTO from this JSON.
       repo = SimpleProjectRepository(fileHandler, projectStateJson);
     } else {
       throw UnimplementedError(
         'No repository for project type ${metadata.projectTypeId}',
       );
     }
-    // ADD THIS: Start the service when a project's repository is created.
-    await _startCacheService();
-    // Set the active repository for other parts of the app to use for file ops.
-    _ref.read(projectRepositoryProvider.notifier).state = repo;
 
-    // The repository's loadProjectDto method is the single source of truth for
-    // loading the raw, persisted data.
+    _startCacheService();
+
+    _ref.read(projectRepositoryProvider.notifier).state = repo;
     return await repo.loadProjectDto();
   }
 
-  /// Saves the current live project state.
-  /// It orchestrates the conversion from a domain model to a DTO before saving.
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) return;
@@ -110,50 +97,50 @@ class ProjectService {
   }
 
   Future<void> closeProject(Project project) async {
-    // Save the project's final state (list of tabs, etc.).
     await saveProject(project);
 
-    // Deactivate and dispose all live tab widgets and controllers.
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
-    // Tell the background service to clear its memory for this project
-    await FlutterForegroundTask.sendDataToTask({
-      'command': 'clear_project',
-      'projectId': project.id,
-    });
-    // Clear the active project-specific providers.
+    
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask({
+        'command': 'clear_project',
+        'projectId': project.id,
+      });
+    }
+
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
-    
-    await _stopCacheService();
+
+    _stopCacheService();
   }
-  
-  Future<void> _startCacheService() async {
+
+  void _startCacheService() async {
     if (await FlutterForegroundTask.isRunningService) {
-      // If service is already running, no need to start again.
       return;
     }
 
-    await FlutterForegroundTask.startService(
+    FlutterForegroundTask.startService(
       notificationTitle: 'Machine Active',
       notificationText: 'Unsaved file cache is running.',
-      // The icon is specified here. The package looks for a drawable resource
-      // with this name. We created 'ic_stat_name.xml' for this purpose.
-      notificationIcon: const NotificationIcon(name: 'ic_stat_name'),
+      notificationIcon: const NotificationIcon(
+        name: 'ic_stat_name',
+        resType: NotificationIconResType.drawable,
+        metaDataName: 'ic_launcher',
+      ),
       callback: startCallback,
     );
   }
-    
-  Future<void> _stopCacheService() async {
+
+  void _stopCacheService() async {
     if (await FlutterForegroundTask.isRunningService) {
-      await FlutterForegroundTask.stopService();
+      FlutterForegroundTask.stopService();
     }
   }
 
-  /// Creates a new metadata object for a new project.
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
@@ -168,7 +155,6 @@ class ProjectService {
     );
   }
 
-  /// Ensures the hidden `.machine` directory exists for persistent projects.
   Future<String> _ensureProjectDataFolder(
     FileHandler handler,
     String projectRootUri,
@@ -180,8 +166,7 @@ class ProjectService {
     final machineDir = files.firstWhereOrNull(
       (f) => f.name == '.machine' && f.isDirectory,
     );
-    final dir =
-        machineDir ??
+    final dir = machineDir ??
         await handler.createDocumentFile(
           projectRootUri,
           '.machine',
