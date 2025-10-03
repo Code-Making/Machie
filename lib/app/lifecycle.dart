@@ -31,14 +31,38 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
     super.dispose();
   }
 @override
-void didChangeAppLifecycleState(AppLifecycleState state) async {
-  if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-    // This is a fast message-passing operation.
-    await ref.read(hotStateCacheServiceProvider).flush();
-    // This saves SharedPreferences, etc.
-    await ref.read(appNotifierProvider.notifier).saveNonHotState();
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    widget.talker.info("App lifecycle state changed to: $state");
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // When the app comes back to the foreground, tell the service
+        // to cancel any pending shutdown.
+        await ref.read(hotStateCacheServiceProvider).notifyAppIsActive();
+        break;
+
+      case AppLifecycleState.paused:
+        // App is backgrounded. Perform a "soft flush".
+        // The service will save data but keep running.
+        await ref.read(hotStateCacheServiceProvider).flush();
+        await ref.read(appNotifierProvider.notifier).saveNonHotState();
+        break;
+
+      case AppLifecycleState.detached:
+        // The Flutter view is being destroyed. This is our best signal
+        // that the app is closing for good. Perform a "hard flush".
+        // The service will save data and then terminate itself.
+        await ref.read(hotStateCacheServiceProvider).flushAndStop();
+        // We still save the non-hot state as a final measure.
+        await ref.read(appNotifierProvider.notifier).saveNonHotState();
+        break;
+
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.inactive:
+        // No action needed for these intermediate states.
+        break;
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {

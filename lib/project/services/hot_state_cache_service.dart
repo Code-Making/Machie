@@ -65,10 +65,27 @@ class HotStateCacheService {
     });
   }
 
+  // The "soft flush" method, called on `paused`.
   Future<void> flush() async {
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
       _talker.info("[HotStateCacheService] Sent flush command.");
+    }
+  }
+
+  // The "hard flush" method, called on `detached`.
+  Future<void> flushAndStop() async {
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask({'command': 'flush_and_stop'});
+      _talker.info("[HotStateCacheService] Sent flush-and-stop command.");
+    }
+  }
+  
+  // A method to cancel a pending shutdown if the app becomes active again.
+  Future<void> notifyAppIsActive() async {
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask({'command': 'cancel_shutdown'});
+      _talker.info("[HotStateCacheService] Notified service that app is active.");
     }
   }
 
