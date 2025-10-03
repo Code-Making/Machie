@@ -1,7 +1,6 @@
 // =========================================
-// FINAL CORRECTED FILE: lib/project/services/project_service.dart
+// FINAL CORRECTED FILE (for real this time): lib/project/services/project_service.dart
 // =========================================
-
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -15,14 +14,12 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../project_models.dart';
 import '../../editor/tab_state_manager.dart';
-import 'hot_state_cache_service.dart';
 import 'hot_state_task_handler.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
 });
 
-/// A result object for the `openFromFolder` flow.
 class OpenProjectResult {
   final ProjectDto projectDto;
   final ProjectMetadata metadata;
@@ -39,8 +36,6 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
-  /// Opens a project from a user-picked folder, creating new metadata if needed.
-  /// This method returns the raw DTO, leaving rehydration to the caller.
   Future<OpenProjectResult> openFromFolder({
     required DocumentFile folder,
     required String projectTypeId,
@@ -64,8 +59,6 @@ class ProjectService {
     );
   }
 
-  /// Selects the correct repository and asks it to load the persisted `ProjectDto`.
-  /// This is the primary entry point for loading project data.
   Future<ProjectDto> openProjectDto(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
@@ -87,19 +80,12 @@ class ProjectService {
       );
     }
 
-    // Start the service if it's not already running.
     _startCacheService();
 
-    // Set the active repository for other parts of the app to use for file ops.
     _ref.read(projectRepositoryProvider.notifier).state = repo;
-
-    // The repository's loadProjectDto method is the single source of truth for
-    // loading the raw, persisted data.
     return await repo.loadProjectDto();
   }
 
-  /// Saves the current live project state.
-  /// It orchestrates the conversion from a domain model to a DTO before saving.
   Future<void> saveProject(Project project) async {
     final repo = _ref.read(projectRepositoryProvider);
     if (repo == null) return;
@@ -111,14 +97,8 @@ class ProjectService {
   }
 
   Future<void> closeProject(Project project) async {
-    // Perform a soft flush when a project is closed. The service might still
-    // be needed if another project is opened immediately.
-    await _ref.read(hotStateCacheServiceProvider).flush();
-    
-    // Save the project's final "cold" state.
     await saveProject(project);
 
-    // Deactivate and dispose all live tab widgets and controllers.
     for (final tab in project.session.tabs) {
       tab.plugin.deactivateTab(tab, _ref);
       tab.plugin.disposeTab(tab);
@@ -132,24 +112,20 @@ class ProjectService {
       });
     }
 
-    // Clear the active project-specific providers.
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
-    
-    // We no longer stop the service here. The app's `detached` lifecycle
-    // state is now responsible for the final shutdown.
+
+    _stopCacheService();
   }
 
-  /// Starts the cache service if it is not already running.
   void _startCacheService() async {
     if (await FlutterForegroundTask.isRunningService) {
-      // If the service is running, it might be in a pending shutdown state.
-      // Notify it that the app is active to cancel the termination.
-      await _ref.read(hotStateCacheServiceProvider).notifyAppIsActive();
       return;
     }
 
-    // If the service is not running, start it fresh.
+    // CORRECTED: Follow the documentation example exactly. By passing null,
+    // the package will use the default app launcher icon, which is what we want.
+    // This removes the dependency on the incorrect NotificationIcon constructor.
     FlutterForegroundTask.startService(
       notificationTitle: 'Machine Active',
       notificationText: 'Unsaved file cache is running.',
@@ -158,7 +134,12 @@ class ProjectService {
     );
   }
 
-  /// Creates a new metadata object for a new project.
+  void _stopCacheService() async {
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.stopService();
+    }
+  }
+
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
@@ -173,7 +154,6 @@ class ProjectService {
     );
   }
 
-  /// Ensures the hidden `.machine` directory exists for persistent projects.
   Future<String> _ensureProjectDataFolder(
     FileHandler handler,
     String projectRootUri,
