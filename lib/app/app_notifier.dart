@@ -349,7 +349,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     // 1. If a project is open, tell the EditorService to persist its hot state.
     if (currentProject != null) {
       // UPDATED: Call the renamed method.
-      await _editorService.persistAllHotTabs(currentProject);
+      await _editorService.flushAllHotTabs();
     }
 
     // 2. Save the persistent project file (project.json).
