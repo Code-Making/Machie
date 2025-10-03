@@ -23,7 +23,7 @@ class HiveCacheRepository implements CacheRepository {
 
   // REFACTORED: We will always open boxes as containing `dynamic` data
   // to avoid type issues when Hive deserializes maps.
-  Future<Box> _openBox(String boxName) async {
+  Future<IsolatedBox> _openBox(String boxName) async {
     if (IsolatedHive.isBoxOpen(boxName)) {
       return IsolatedHive.box(boxName);
     } else {
