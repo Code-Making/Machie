@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
+import '../project/services/hot_state_cache_service.dart';
 
 // Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {
