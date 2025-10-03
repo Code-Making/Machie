@@ -3,7 +3,7 @@
 // =========================================
 import 'dart:isolate';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-
+import '../../data/cache/cache_repository.dart';
 final Map<String, Map<String, dynamic>> _inMemoryHotState = {};
 
 @pragma('vm:entry-point')
