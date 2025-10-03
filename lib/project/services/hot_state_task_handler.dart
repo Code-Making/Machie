@@ -126,7 +126,13 @@ class HotStateTaskHandler extends TaskHandler {
   }
 
   @override
-  void onNotificationButtonPressed(String id) {}
+  void onNotificationButtonPressed(String id) {
+    if (id == 'STOP_SERVICE_ACTION') {
+      print('[Background Service] "Stop" button pressed. Stopping service.');
+      // CORRECTED: Directly call stopService.
+      FlutterForegroundTask.stopService();
+    }
+  }
 
   @override
   void onNotificationPressed() {}
