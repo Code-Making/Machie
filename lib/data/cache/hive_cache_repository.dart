@@ -35,24 +35,20 @@ class HiveCacheRepository implements CacheRepository {
   @override
   Future<T?> get<T>(String boxName, String key) async {
     final box = await _openBox(boxName);
-    final dynamic value = box.get(key);
-
+    
+    // CORRECTED: Added 'await' here. This is the fix.
+    final dynamic value = await box.get(key);
+    
     if (value == null) {
       return null;
     }
 
     _talker.verbose('CACHE GET: box="$boxName", key="$key"');
-
     try {
-      // If the retrieved value is a Map (which is what Hive returns for JSON-like objects),
-      // we perform the cast to the specific Map type our app uses.
       if (value is Map) {
-        // This cast is safe because the call site in CacheService
-        // specifically requests Future<Map<String, dynamic>?>.
+        // Now that 'value' is a real Map, this cast will succeed.
         return Map<String, dynamic>.from(value) as T?;
       }
-
-      // If it's a simple type (String, int, etc.), this cast will work directly.
       return value as T?;
     } catch (e) {
       _talker.error(
