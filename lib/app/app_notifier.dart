@@ -371,13 +371,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
-  Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
-    final previousState = state.value;
-    if (previousState == null) return;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async => await updater(previousState));
-  }
-
   // ADDED: Methods to manage the AppBar override
   void setAppBarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(appBarOverride: widget));
