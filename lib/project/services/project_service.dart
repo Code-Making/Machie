@@ -1,5 +1,5 @@
 // =========================================
-// FINAL CORRECTED FILE: lib/project/services/project_service.dart
+// FINAL CORRECTED FILE (for real this time): lib/project/services/project_service.dart
 // =========================================
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,14 +123,13 @@ class ProjectService {
       return;
     }
 
+    // CORRECTED: Follow the documentation example exactly. By passing null,
+    // the package will use the default app launcher icon, which is what we want.
+    // This removes the dependency on the incorrect NotificationIcon constructor.
     FlutterForegroundTask.startService(
       notificationTitle: 'Machine Active',
       notificationText: 'Unsaved file cache is running.',
-      notificationIcon: const NotificationIcon(
-        name: 'ic_stat_name',
-        resType: NotificationIconResType.drawable,
-        metaDataName: 'ic_launcher',
-      ),
+      notificationIcon: null,
       callback: startCallback,
     );
   }
