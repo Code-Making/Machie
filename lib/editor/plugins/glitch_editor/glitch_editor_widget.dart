@@ -260,6 +260,12 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
     // The service marks the current tab as dirty by its ID.
     ref.read(editorServiceProvider).markCurrentTabDirty();
+
+    // 2. Trigger the debounced caching mechanism in the background service.
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project != null) {
+      ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+    }
   }
 
   // ... (all glitch logic and build method are unchanged) ...
