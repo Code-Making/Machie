@@ -12,9 +12,12 @@ void startCallback() {
 }
 
 class HotStateTaskHandler extends TaskHandler {
-  @override
+ @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    // In Installment 3, we will initialize Hive here.
+    // CORRECTED: The constructor is simpler now.
+    _hiveRepo = HiveCacheRepository(Talker());
+    await _hiveRepo.init();
+    print('[Background Service] IsolatedHive Initialized.');
   }
 
   // CHANGED: The 'onEvent' method is now 'onReceiveData' and has a new signature.
@@ -44,9 +47,34 @@ class HotStateTaskHandler extends TaskHandler {
     }
   }
 
+// NEW async helper for flushing
+  Future<void> _flushInMemoryState() async {
+    print('[Background Service] Flushing in-memory state to disk...');
+    // Create a copy of the keys to safely iterate
+    final projectsToFlush = _inMemoryHotState.keys.toList();
+
+    for (final projectId in projectsToFlush) {
+      final tabCaches = _inMemoryHotState[projectId]!;
+      final tabsToFlush = tabCaches.keys.toList();
+      for (final tabId in tabsToFlush) {
+        final payload = tabCaches[tabId]!;
+        try {
+          // Use the isolate-safe repository to write to disk.
+          await _hiveRepo.put<Map<String, dynamic>>(projectId, tabId, payload);
+          print('[Background Service] Flushed $projectId/$tabId');
+        } catch (e) {
+          print('[Background Service] ERROR flushing $projectId/$tabId: $e');
+        }
+      }
+    }
+    _inMemoryHotState.clear();
+    print('[Background Service] Flush complete.');
+  }
+
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    print('[Background Service] Service is being destroyed.');
+    print('[Background Service] Service is being destroyed. Final flush attempt...');
+    await _flushInMemoryState(); // Final safety net
   }
 
   // --- Unused callbacks for this implementation ---

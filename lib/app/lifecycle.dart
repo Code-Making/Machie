@@ -29,16 +29,15 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    widget.talker.info("Changing app state to $state");
-    // When the app is paused or detached, trigger a save of the entire app state.
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      await ref.read(appNotifierProvider.notifier).saveAppState();
-    }
+@override
+void didChangeAppLifecycleState(AppLifecycleState state) async {
+  if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    // This is a fast message-passing operation.
+    await ref.read(hotStateCacheServiceProvider).flush();
+    // This saves SharedPreferences, etc.
+    await ref.read(appNotifierProvider.notifier).saveNonHotState();
   }
+}
 
   @override
   Widget build(BuildContext context) {
