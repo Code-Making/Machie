@@ -339,28 +339,43 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   // --- State Persistence & Helpers ---
 
-  // REFACTORED: The save logic is now clean and follows the DTO pattern.
+  // --- State Persistence & Helpers ---
+
+  /// DEPRECATED: This method is now split into `flushAllHotTabs` (in EditorService)
+  /// and `saveNonHotState` (below). It's kept for calls that need to do everything at once.
   Future<void> saveAppState() async {
+    final project = state.value?.currentProject;
+    if (project != null) {
+      await ref.read(editorServiceProvider).flushAllHotTabs();
+    }
+    await saveNonHotState();
+  }
+
+  /// NEW METHOD: Saves the "cold" state of the application.
+  /// This includes the list of known projects, project-specific settings
+  /// (`project.json`), and other global settings. This is a fast operation.
+  Future<void> saveNonHotState() async {
     final appState = state.value;
     if (appState == null) return;
 
     final currentProject = appState.currentProject;
 
-    // 1. If a project is open, tell the EditorService to persist its hot state.
-    if (currentProject != null) {
-      // UPDATED: Call the renamed method.
-      await _editorService.flushAllHotTabs();
-    }
-
-    // 2. Save the persistent project file (project.json).
+    // Save the persistent project file (project.json).
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
 
-    // 3. Save the global application state (SharedPreferences).
+    // Save the global application state (SharedPreferences).
     final liveTabMetadata = ref.read(tabMetadataProvider);
     final appStateDto = appState.toDto(liveTabMetadata);
     await _appStateRepository.saveAppStateDto(appStateDto);
+  }
+
+  Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
+    final previousState = state.value;
+    if (previousState == null) return;
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async => await updater(previousState));
   }
 
   // ADDED: Methods to manage the AppBar override
