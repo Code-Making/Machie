@@ -5,62 +5,63 @@
 import 'dart:isolate';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:machine/data/cache/hive_cache_repository.dart';
-import 'package:talker/talker.dart';
+import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
 
+// The service's private, in-memory copy of unsaved data.
+// Key: Project ID, Value: Map<Tab ID, Serialized DTO Payload>
 final Map<String, Map<String, dynamic>> _inMemoryHotState = {};
-bool _isShutdownPending = false; // The state flag is back.
 
+/// The entry point for the background isolate, required by flutter_foreground_task.
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(HotStateTaskHandler());
 }
 
+/// This class runs in a separate isolate and handles all background operations
+/// for the hot state cache, including receiving updates and flushing them to disk.
 class HotStateTaskHandler extends TaskHandler {
+  // This isolate will have its own instance of the repository.
+  // Because it uses `IsolatedHive`, it will safely communicate with the
+  // single database isolate managed by the `hive_ce` package.
   late HiveCacheRepository _hiveRepo;
 
+  /// Called when the foreground service is started.
+  /// This is where we initialize resources needed for the background task.
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    _isShutdownPending = false; // Reset state on every start.
+    // Instantiate the repository. It's safe to use a simple Talker instance
+    // here as we don't have access to the full Flutter UI logging.
     _hiveRepo = HiveCacheRepository(Talker());
+    
+    // Initialize the connection to the shared Hive database isolate.
     await _hiveRepo.init();
     print('[Background Service] IsolatedHive Initialized.');
   }
 
+  /// Called whenever the main app sends data to the service using
+  /// `FlutterForegroundTask.sendDataToTask`. This is our main communication channel.
   @override
   void onReceiveData(Object data) {
-    if (data is! Map<String, dynamic>) return;
+    if (data is! Map<String, dynamic>) {
+      return;
+    }
 
     final command = data['command'] as String?;
     switch (command) {
       case 'update_hot_state':
-        if (_isShutdownPending) {
-          print('[Background Service] Ignoring state update, shutdown is pending.');
-          return;
-        }
         final String? projectId = data['projectId'];
         final String? tabId = data['tabId'];
         final Map<String, dynamic>? payload = data['payload'];
+
         if (projectId != null && tabId != null && payload != null) {
+          // Store the received payload in our in-memory map.
           (_inMemoryHotState[projectId] ??= {})[tabId] = payload;
           print('[Background Service] Updated in-memory hot state for $projectId/$tabId');
         }
         break;
 
-      case 'flush_hot_state': // The "soft flush"
-        print('[Background Service] Received flush command.');
+      case 'flush_hot_state':
         _flushInMemoryState();
-        break;
-
-      case 'flush_and_stop': // The "hard flush"
-        print('[Background Service] Received flush-and-stop command.');
-        _flushAndStop();
-        break;
-      
-      case 'cancel_shutdown': // In case the app becomes active again.
-        if (_isShutdownPending) {
-          print('[Background Service] Shutdown sequence cancelled by main app.');
-          _isShutdownPending = false;
-        }
         break;
 
       case 'clear_project':
@@ -72,18 +73,9 @@ class HotStateTaskHandler extends TaskHandler {
         break;
     }
   }
-  
-  Future<void> _flushAndStop() async {
-    _isShutdownPending = true;
-    await _flushInMemoryState();
-    if (_isShutdownPending) {
-      print('[Background Service] Flush complete. Stopping service now.');
-      FlutterForegroundTask.stopService();
-    } else {
-      print('[Background Service] Flush complete, but shutdown was cancelled.');
-    }
-  }
 
+  /// Asynchronously writes all data from the in-memory cache to the
+  /// persistent Hive database on disk.
   Future<void> _flushInMemoryState() async {
     print('[Background Service] Flushing in-memory state to disk...');
     if (_inMemoryHotState.isEmpty) {
@@ -91,6 +83,7 @@ class HotStateTaskHandler extends TaskHandler {
       return;
     }
     
+    // Create a copy of the in-memory state to prevent modification during iteration.
     final stateToFlush = Map<String, Map<String, dynamic>>.from(_inMemoryHotState);
     _inMemoryHotState.clear();
 
@@ -100,10 +93,13 @@ class HotStateTaskHandler extends TaskHandler {
         final tabId = tabEntry.key;
         final payload = tabEntry.value;
         try {
+          // Use the isolate-safe repository to write to disk.
           await _hiveRepo.put<Map<String, dynamic>>(projectId, tabId, payload);
           print('[Background Service] Flushed $projectId/$tabId');
         } catch (e) {
           print('[Background Service] ERROR flushing $projectId/$tabId: $e');
+          // If flushing fails, we should consider putting the data back
+          // into the in-memory cache for a retry on the next flush.
           (_inMemoryHotState[projectId] ??= {})[tabId] = payload;
         }
       }
@@ -112,17 +108,22 @@ class HotStateTaskHandler extends TaskHandler {
     print('[Background Service] Flush complete.');
   }
 
+  /// Called when the service is being destroyed. This serves as a final
+  /// opportunity to save any pending data.
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    // This is now our "hard flush" or "final flush".
     print('[Background Service] Service is being destroyed. Final flush attempt...');
-    await _flushInMemoryState();
-    await _hiveRepo.close();
+    await _flushInMemoryState(); // Final safety net to prevent data loss.
+    await _hiveRepo.close(); // Cleanly close the Hive connection.
     print('[Background Service] Service destroyed.');
   }
 
+  // --- Unused callbacks for this implementation ---
+
   @override
-  void onRepeatEvent(DateTime timestamp) {}
+  void onRepeatEvent(DateTime timestamp) {
+    // Not used because our `eventAction` is a long repeat interval.
+  }
 
   @override
   void onNotificationButtonPressed(String id) {}
