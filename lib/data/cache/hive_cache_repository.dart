@@ -3,6 +3,7 @@
 // =========================================
 
 import 'dart:convert';
+import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -16,17 +17,17 @@ class HiveCacheRepository implements CacheRepository {
   @override
   Future<void> init() async {
     final appDocumentDir = await getApplicationDocumentsDirectory();
-    Hive.init(appDocumentDir.path);
-    _talker.info('HiveCacheRepository initialized at: ${appDocumentDir.path}');
+    IsolatedHive.init(appDocumentDir.path);
+    _talker.info('IsolatedHiveCacheRepository initialized at: ${appDocumentDir.path}');
   }
 
   // REFACTORED: We will always open boxes as containing `dynamic` data
   // to avoid type issues when Hive deserializes maps.
   Future<Box> _openBox(String boxName) async {
-    if (Hive.isBoxOpen(boxName)) {
-      return Hive.box(boxName);
+    if (IsolatedHive.isBoxOpen(boxName)) {
+      return IsolatedHive.box(boxName);
     } else {
-      return await Hive.openBox(boxName);
+      return await IsolatedHive.openBox(boxName);
     }
   }
 
@@ -92,15 +93,15 @@ class HiveCacheRepository implements CacheRepository {
 
   @override
   Future<void> clearBox(String boxName) async {
-    if (Hive.isBoxOpen(boxName)) {
-      await Hive.box(boxName).close();
+    if (IsolatedHive.isBoxOpen(boxName)) {
+      await IsolatedHive.box(boxName).close();
     }
-    await Hive.deleteBoxFromDisk(boxName);
+    await IsolatedHive.deleteBoxFromDisk(boxName);
     _talker.info('CACHE CLEARED: box="$boxName"');
   }
 
   @override
   Future<void> close() async {
-    await Hive.close();
+    await IsolatedHive.close();
   }
 }
