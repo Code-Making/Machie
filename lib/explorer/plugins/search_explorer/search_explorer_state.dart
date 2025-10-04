@@ -38,51 +38,65 @@ class SearchState {
 }
 
 final searchStateProvider =
-    StateNotifierProvider.autoDispose<SearchStateNotifier, SearchState>(
-  (ref) => SearchStateNotifier(ref),
-);
+    NotifierProvider<SearchStateNotifier, SearchState>(
+        SearchStateNotifier.new);
 
-class SearchStateNotifier extends StateNotifier<SearchState> {
-  final Ref _ref;
+class SearchStateNotifier extends Notifier<SearchState> {
   Timer? _debounce;
 
-  SearchStateNotifier(this._ref) : super(SearchState());
+  @override
+  SearchState build() {
+    // ADDED: Listen for project changes to clear the search state.
+    ref.listen<Project?>(
+      appNotifierProvider.select((s) => s.value?.currentProject),
+      (previous, next) {
+        // If the project changes (or closes), reset to the initial state.
+        if (previous?.id != next?.id) {
+          state = const SearchState();
+        }
+      },
+    );
+    // Return the initial state.
+    return const SearchState();
+  }
 
   void search(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 150), () {
-      if (!mounted) return;
-
-      final allFiles = _ref.read(projectFileIndexProvider).valueOrNull ?? [];
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 150), () async {
       state = state.copyWith(query: query);
-
+      
       if (query.isEmpty) {
+        // We keep the query text but clear the results.
         state = state.copyWith(results: []);
         return;
       }
 
-      // THE FIX: Use the new fuzzy search algorithm.
-      final lowerCaseQuery = query.toLowerCase();
-      final List<SearchResult> scoredResults = [];
-
-      for (final file in allFiles) {
-        final score = _calculateFuzzyScore(file.name.toLowerCase(), lowerCaseQuery);
-        // Only include results that are actual matches (score > 0).
-        if (score > 0) {
-          scoredResults.add(SearchResult(file: file, score: score));
+      try {
+        await ref.read(projectFileCacheProvider.notifier).ensureFullCacheIsBuilt();
+        final fileCache = ref.read(projectFileCacheProvider);
+        final allFiles = fileCache.directoryContents.values
+            .expand((files) => files)
+            .where((file) => !file.isDirectory)
+            .toList();
+        
+        // ... (rest of search logic is unchanged)
+        final lowerCaseQuery = query.toLowerCase();
+        final List<SearchResult> scoredResults = [];
+        for (final file in allFiles) {
+          final score = _calculateFuzzyScore(file.name.toLowerCase(), lowerCaseQuery);
+          if (score > 0) {
+            scoredResults.add(SearchResult(file: file, score: score));
+          }
         }
-      }
+        scoredResults.sort((a, b) => b.score.compareTo(a.score));
 
-      // Sort results by score in descending order.
-      scoredResults.sort((a, b) => b.score.compareTo(a.score));
-
-      if (mounted) {
         state = state.copyWith(results: scoredResults);
+      } catch (e) {
+        print("Error during file cache build for search: $e");
       }
     });
   }
 
-  // THE FIX: The core fuzzy matching and scoring algorithm.
   int _calculateFuzzyScore(String target, String query) {
     if (query.isEmpty) return 1; // Empty query matches everything
     if (target.isEmpty) return 0; // But can't match an empty target
@@ -132,10 +146,10 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     // This makes shorter, more exact matches score higher.
     return score - target.length;
   }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
-  }
+  // dispose() is no longer needed as Notifier handles this.
+  // @override
+  // void dispose() {
+  //   _debounce?.cancel();
+  //   super.dispose();
+  // }
 }
