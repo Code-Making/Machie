@@ -1,6 +1,7 @@
 // =========================================
-// FINAL CORRECTED FILE (for real this time): lib/project/services/project_service.dart
+// lib/project/services/project_service.dart
 // =========================================
+
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -80,7 +81,7 @@ class ProjectService {
       );
     }
 
-    _startCacheService();
+    // FIX: Removed the call to _startCacheService(). It is now handled globally.
 
     _ref.read(projectRepositoryProvider.notifier).state = repo;
     return await repo.loadProjectDto();
@@ -104,7 +105,7 @@ class ProjectService {
       tab.plugin.disposeTab(tab);
       tab.dispose();
     }
-    
+
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask({
         'command': 'clear_project',
@@ -115,40 +116,10 @@ class ProjectService {
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
 
-    _stopCacheService();
+    // FIX: Removed the call to _stopCacheService(). It is now handled globally.
   }
 
-  void _startCacheService() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      return;
-    }
-
-    // CORRECTED: Follow the documentation example exactly. By passing null,
-    // the package will use the default app launcher icon, which is what we want.
-    // This removes the dependency on the incorrect NotificationIcon constructor.
-    FlutterForegroundTask.startService(
-      notificationTitle: 'Machine Active',
-      notificationText: 'Unsaved file cache is running.',
-      notificationIcon: const NotificationIcon(
-        // This 'metaDataName' MUST match the 'android:name' you
-        // set in the AndroidManifest.xml file.
-        metaDataName: 'my_service_icon_metadata',
-      ), // Let the plugin use the default app icon.
-      
-      // ADDED: A button to allow the user to manually stop the service.
-      notificationButtons: [
-        const NotificationButton(id: 'STOP_SERVICE_ACTION', text: 'Stop Cache Service'),
-      ],
-      
-      callback: startCallback,
-    );
-  }
-
-  void _stopCacheService() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      FlutterForegroundTask.stopService();
-    }
-  }
+  // FIX: The _startCacheService and _stopCacheService methods have been removed entirely.
 
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
