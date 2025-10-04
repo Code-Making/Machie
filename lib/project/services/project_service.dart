@@ -129,7 +129,11 @@ class ProjectService {
     FlutterForegroundTask.startService(
       notificationTitle: 'Machine Active',
       notificationText: 'Unsaved file cache is running.',
-      notificationIcon: null, // Let the plugin use the default app icon.
+      notificationIcon: const NotificationIcon(
+        // This 'metaDataName' MUST match the 'android:name' you
+        // set in the AndroidManifest.xml file.
+        metaDataName: 'my_service_icon_metadata',
+      ), // Let the plugin use the default app icon.
       
       // ADDED: A button to allow the user to manually stop the service.
       notificationButtons: [
