@@ -27,6 +27,15 @@ class _GoToLineDialogState extends State<GoToLineDialog> {
     _controller = TextEditingController(
       text: (widget.currentLine + 1).toString(),
     );
+
+    // ========= THE CHANGE IS HERE =========
+    // After initializing the controller with text, set its selection
+    // to cover the entire text from the beginning (index 0) to the end.
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+    // =====================================
   }
 
   @override
