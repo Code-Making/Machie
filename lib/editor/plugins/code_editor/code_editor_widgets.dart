@@ -167,10 +167,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   void selectOrExpandLines() {
     final CodeLineSelection currentSelection = controller.selection;
-    final List<CodeLine> lines = controller.codeLines;
+    
+    // THIS IS THE FIX: Convert the CodeLines iterable to a List.
+    final List<CodeLine> lines = controller.codeLines.toList();
 
     // A "full line" selection is defined as starting at offset 0 of one line
-    // and ending at offset 0 of a subsequent line.
+    // and ending at offset 0 of a subsequent line. This is a robust check
+    // for selections created by triple-clicking or by this command itself.
     final bool isAlreadyFullLineSelection =
         currentSelection.start.offset == 0 &&
         currentSelection.end.offset == 0 &&
