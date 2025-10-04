@@ -1,15 +1,15 @@
-// = a=======================================
-// FINAL CORRECTED FILE: lib/project/services/project_file_cache.dart
+// =========================================
+// FINAL, SIMPLIFIED FILE: lib/project/services/project_file_cache.dart
 // =========================================
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/logs/logs_provider.dart';
+import 'package.machine/logs/logs_provider.dart';
 import 'package:machine/project/project_models.dart';
 
-// The state class remains the same.
+// The state is now simpler. No more isFullyScanned or scanState.
 class ProjectFileCacheState {
   final Map<String, List<DocumentFile>> directoryContents;
   final Set<String> loadingDirectories;
@@ -30,64 +30,93 @@ class ProjectFileCacheState {
   }
 }
 
-// CORRECTED: The provider is now a NotifierProvider.
 final projectFileCacheProvider =
     NotifierProvider<ProjectFileCacheNotifier, ProjectFileCacheState>(
         ProjectFileCacheNotifier.new);
 
-// CORRECTED: The class now extends Notifier.
 class ProjectFileCacheNotifier extends Notifier<ProjectFileCacheState> {
-
-  // The build method is called once when the provider is first read.
-  // This is the perfect place to set up the initial state and listeners.
   @override
   ProjectFileCacheState build() {
-    // Sync the cache's lifecycle with the current project.
     ref.listen<Project?>(
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
         if (next == null) {
-          // If project is closed, reset the cache to its initial state.
           state = const ProjectFileCacheState();
         }
       },
     );
-
-    // Return the initial state.
     return const ProjectFileCacheState();
   }
 
-  /// Lazily loads the contents of a single directory if not already cached.
-  Future<void> loadDirectory(String uri) async {
-    // `ref` is now a property of the Notifier class, so we can use it directly.
+  /// The SINGLE method for loading directory contents.
+  /// It now returns the list of files it loaded.
+  Future<List<DocumentFile>> loadDirectory(String uri) async {
+    // If we are already loading it, return an empty list to avoid duplicates.
+    if (state.loadingDirectories.contains(uri)) {
+      return [];
+    }
+    // If it's already cached, return the cached content.
+    if (state.directoryContents.containsKey(uri)) {
+      return state.directoryContents[uri]!;
+    }
+
     final repo = ref.read(projectRepositoryProvider);
-    if (repo == null) {
-      ref.read(talkerProvider).warning('Attempted to load directory but no project repository is active.');
-      return;
-    }
+    if (repo == null) return [];
 
-    if (state.directoryContents.containsKey(uri) || state.loadingDirectories.contains(uri)) {
-      return;
-    }
-
-    ref.read(talkerProvider).info('Lazy loading directory: $uri');
+    ref.read(talkerProvider).info('Loading directory: $uri');
     state = state.copyWith(loadingDirectories: {...state.loadingDirectories, uri});
 
     try {
       final contents = await repo.listDirectory(uri);
-      // Riverpod ensures `mounted` is implicitly handled for Notifiers.
       state = state.copyWith(
         directoryContents: {...state.directoryContents, uri: contents},
         loadingDirectories: {...state.loadingDirectories}..remove(uri),
       );
+      return contents;
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load directory: $uri');
       state = state.copyWith(
         loadingDirectories: {...state.loadingDirectories}..remove(uri),
       );
+      // Re-throw the error so the caller (like ensureFullCacheIsBuilt) knows it failed.
+      rethrow;
     }
   }
 
-  // The clear method is no longer needed, as the `ref.listen` in `build`
-  // handles the reset automatically when the project closes.
+  /// Orchestrates the full, recursive scan by repeatedly calling `loadDirectory`.
+  /// Returns a Future that completes when the entire scan is finished.
+  Future<void> ensureFullCacheIsBuilt() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project == null) return;
+
+    // Use a Set to keep track of directories we need to visit.
+    final directoriesToScan = <String>{project.rootUri};
+    // Use a Set to prevent re-scanning directories we've already processed.
+    final scannedUris = <String>{};
+
+    // Keep scanning as long as there are new directories to process.
+    while (directoriesToScan.isNotEmpty) {
+      // Create a list of futures for the current batch of directories to scan.
+      final futures = directoriesToScan.map((uri) async {
+        scannedUris.add(uri);
+        return loadDirectory(uri);
+      }).toList();
+
+      // Clear the set for the next iteration.
+      directoriesToScan.clear();
+
+      // Wait for all directories in the current level to finish loading.
+      final results = await Future.wait(futures);
+
+      // Go through the results and add any new subdirectories to the set for the next loop.
+      for (final files in results) {
+        for (final file in files) {
+          if (file.isDirectory && !scannedUris.contains(file.uri)) {
+            directoriesToScan.add(file.uri);
+          }
+        }
+      }
+    }
+    ref.read(talkerProvider).info('[ProjectFileCache] Full scan validation complete.');
+  }
 }
