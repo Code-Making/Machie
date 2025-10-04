@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
+import '../../project/services/project_file_cache.dart'; // ADD IMPORT
 
 class SaveAsDialogResult {
   final String parentUri;
@@ -33,7 +34,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       if (mounted && _currentPathUri.isNotEmpty) {
         // FIX: Call the method on the .notifier instance.
         ref
-            .read(projectHierarchyProvider.notifier)
+            .read(projectFileCacheProvider.notifier)
             .loadDirectory(_currentPathUri);
       }
     });
@@ -56,8 +57,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
 
     // FIX: Watch the provider directly to get the state (the Map).
     // Then, access the specific directory's contents from the map.
-    final directoryContents =
-        ref.watch(projectHierarchyProvider)[_currentPathUri];
+    final directoryContents = ref.watch(projectFileCacheProvider
+        .select((s) => s.directoryContents[_currentPathUri]));
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -114,13 +115,11 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         return ListTile(
           leading: const Icon(Icons.folder_outlined),
           title: Text(dir.name),
-          onTap: () {
-            // FIX: Call the method on the .notifier instance.
-            ref.read(projectHierarchyProvider.notifier).loadDirectory(dir.uri);
-            setState(() {
-              _currentPathUri = dir.uri;
-            });
-          },
+      onTap: () {
+        // UPDATED: Call the method on the new notifier.
+        ref.read(projectFileCacheProvider.notifier).loadDirectory(dir.uri);
+        setState(() { _currentPathUri = dir.uri; });
+      },
         );
       },
     );
@@ -139,16 +138,12 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           onPressed:
               _currentPathUri == projectRootUri
                   ? null
-                  : () {
-                    // THE FIX: Use the fileHandler to get the parent URI.
-                    final newPath = fileHandler.getParentUri(_currentPathUri);
-                    ref
-                        .read(projectHierarchyProvider.notifier)
-                        .loadDirectory(newPath);
-                    setState(() {
-                      _currentPathUri = newPath;
-                    });
-                  },
+              : () {
+            final newPath = fileHandler.getParentUri(_currentPathUri);
+            // UPDATED: Call the method on the new notifier.
+            ref.read(projectFileCacheProvider.notifier).loadDirectory(newPath);
+            setState(() { _currentPathUri = newPath; });
+          },
         ),
         Expanded(
           child: Text(

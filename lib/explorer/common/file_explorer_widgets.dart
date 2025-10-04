@@ -14,6 +14,7 @@ import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
+import '../../project/services/project_file_cache.dart'; // ADD IMPORT
 
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
   if (!targetFolder.isDirectory) return false;
@@ -50,10 +51,10 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        if (ref.read(projectHierarchyProvider)[widget.directory] == null) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.directory);
+        // UPDATED: Watch the new provider to see if data is missing.
+        if (ref.read(projectFileCacheProvider).directoryContents[widget.directory] == null) {
+          // UPDATED: Call the method on the new notifier.
+          ref.read(projectFileCacheProvider.notifier).loadDirectory(widget.directory);
         }
       }
     });
@@ -61,8 +62,8 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
 
   @override
   Widget build(BuildContext context) {
-    final directoryContents =
-        ref.watch(projectHierarchyProvider)[widget.directory];
+    final directoryContents = ref.watch(
+        projectFileCacheProvider.select((s) => s.directoryContents[widget.directory]));
 
     if (directoryContents == null) {
       return const Center(
@@ -331,9 +332,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
         if (expanded) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.item.uri);
+          ref.read(projectFileCacheProvider.notifier).loadDirectory(widget.item.uri);
         }
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
