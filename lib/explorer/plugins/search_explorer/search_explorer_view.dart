@@ -1,15 +1,14 @@
 // =========================================
-// FINAL CORRECTED FILE: lib/explorer/plugins/search_explorer/search_explorer_view.dart
+// UPDATED: lib/explorer/plugins/search_explorer/search_explorer_view.dart
 // =========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/explorer/common/file_explorer_widgets.dart';
-import 'package:machine/project/project_models.dart';
-// CORRECTED: This is the ONLY import needed for the cache.
-import 'package:machine/project/services/project_file_cache.dart';
+import '../../../project/project_models.dart';
+import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
+import '../../../project/services/project_file_index.dart'; // IMPORT THE NEW SERVICE
+import '../../../data/repositories/project_repository.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -25,11 +24,9 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   @override
   void initState() {
     super.initState();
-    _textController.text = ref.read(searchStateProvider).query;
     _textController.addListener(() {
-      if (_textController.text != ref.read(searchStateProvider).query) {
-        ref.read(searchStateProvider.notifier).search(_textController.text);
-      }
+      // The search notifier no longer needs the project ID.
+      ref.read(searchStateProvider.notifier).search(_textController.text);
     });
   }
 
@@ -41,20 +38,14 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    final fileCacheState = ref.watch(projectFileCacheProvider);
+    // Watch both the index state (for loading/errors) and the search results.
+    final indexState = ref.watch(projectFileIndexProvider);
     final searchState = ref.watch(searchStateProvider);
-
-    // CORRECTED: This is the simple and robust way to detect loading.
-    // If the cache is fetching any directory (either lazily or as part of a full scan),
-    // we consider it to be "scanning".
-    final bool isScanning = fileCacheState.loadingDirectories.isNotEmpty;
-
     final projectRootUri = widget.project.rootUri;
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) {
       return const Center(child: CircularProgressIndicator());
     }
-
     return Column(
       children: [
         Padding(
@@ -72,48 +63,30 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
               filled: true,
               fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.zero,
-              suffixIcon: searchState.query.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _textController.clear();
-                      },
-                    )
-                  : null,
             ),
           ),
         ),
-        
-        // This logic is now correct and reflects the unified state.
-        if (isScanning && searchState.query.isNotEmpty)
-          const LinearProgressIndicator(),
-
+        // Use the indexState to handle loading and error states for the whole view.
         Expanded(
-          child: Builder(
-            builder: (context) {
-              if (searchState.query.isNotEmpty && searchState.results.isEmpty && !isScanning) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text('No results found for "${searchState.query}"'),
-                  ),
+          child: indexState.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error: $err')),
+            data: (allFiles) {
+              // Once the index is loaded, we can display the search results.
+              if (searchState.query.isNotEmpty && searchState.results.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('No results found for "${searchState.query}"'),
                 );
               }
 
-              if (searchState.query.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('Type above to search for files in the project.'),
-                  ),
-                );
-              }
-              
               return ListView.builder(
                 itemCount: searchState.results.length,
                 itemBuilder: (context, index) {
+                  // THE FIX: Unwrap the SearchResult to get the file.
                   final searchResult = searchState.results[index];
                   final file = searchResult.file;
+                  
                   final relativePath = fileHandler.getPathForDisplay(
                     file.uri,
                     relativeTo: projectRootUri,
@@ -122,6 +95,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                   final subtitle = pathSegments.length > 1
                       ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
                       : '.';
+
                   return DirectoryItem(
                     item: file,
                     depth: 0,
