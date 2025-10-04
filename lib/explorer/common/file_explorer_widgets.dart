@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/explorer/common/file_explorer_widgets.dart
-// =========================================
+// =========================================================
+// UPDATED FILE: lib/explorer/common/file_explorer_widgets.dart
+// =========================================================
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -18,16 +18,15 @@ import '../services/explorer_service.dart';
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
+  // A folder cannot be dropped into its own child.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
 
-  // THE FIX: No more manual substring logic.
   final parentUri = fileHandler.getParentUri(draggedFile.uri);
   if (parentUri == targetFolder.uri) return false;
 
   return true;
 }
 
-// ... DirectoryView and RootDropZone are unchanged ...
 class DirectoryView extends ConsumerStatefulWidget {
   final String directory;
   final String projectRootUri;
@@ -45,26 +44,27 @@ class DirectoryView extends ConsumerStatefulWidget {
 }
 
 class _DirectoryViewState extends ConsumerState<DirectoryView> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        if (ref.read(projectHierarchyProvider)[widget.directory] == null) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.directory);
-        }
-      }
-    });
-  }
+  // THE FIX: The initState is no longer needed to load data.
 
   @override
   Widget build(BuildContext context) {
     final directoryContents =
         ref.watch(projectHierarchyProvider)[widget.directory];
 
+    // --- THIS IS THE CORE FIX ---
+    // If the data for this directory isn't in the cache, we are in a loading state.
+    // We must schedule a request to load the data *after* this build completes.
     if (directoryContents == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Check if the widget is still in the tree before calling the notifier.
+        if (mounted) {
+          ref
+              .read(projectHierarchyProvider.notifier)
+              .loadDirectory(widget.directory);
+        }
+      });
+
+      // While the data is loading, return a progress indicator.
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(8.0),
@@ -72,11 +72,11 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
         ),
       );
     }
+    // --- END OF FIX ---
 
     final sortedContents = List<DocumentFile>.from(directoryContents);
     _applySorting(sortedContents, widget.state.viewMode);
 
-    // THE FIX: Get the FileHandler once to avoid multiple reads.
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const Center(child: CircularProgressIndicator());
 
@@ -88,7 +88,6 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
       itemCount: sortedContents.length,
       itemBuilder: (context, index) {
         final item = sortedContents[index];
-        // THE FIX: Depth calculation is now agnostic to the separator.
         final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: widget.projectRootUri).split('/').length - 1;
         return DirectoryItem(
           item: item,
@@ -122,7 +121,7 @@ class RootDropZone extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
-    
+
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         final canAccept =
@@ -130,7 +129,7 @@ class RootDropZone extends ConsumerWidget {
             _isDropAllowed(
               candidateData.first!,
               RootPlaceholder(projectRootUri),
-              fileHandler, // Pass the handler
+              fileHandler,
             );
 
         return AnimatedOpacity(
@@ -208,8 +207,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
       delay: const Duration(milliseconds: 500),
-      // THE FIX: Restore the onDragEnd callback to handle "non-drops"
-      // for both files and folders consistently.
       onDragEnd: (details) {
         if (!details.wasAccepted) {
           showFileContextMenu(context, ref, widget.item);
@@ -221,7 +218,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
 
   Widget _buildFileTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
-    // THE FIX: Remove the conflicting GestureDetector. Use ListTile's onTap.
     return ListTile(
       onTap: () async {
         final navigator = Navigator.of(context);
@@ -282,14 +278,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
                 style: const TextStyle(fontSize: _kFontSize - 2),
               )
             : null,
-        // The chevron is now part of the ListTile, not the ExpansionTile.
-        // We use a SizedBox to maintain alignment.
         trailing: const SizedBox(width: 24, height: 24),
       ),
     );
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
-    
+
     final tileWithDropTarget = DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return tileContent;
@@ -302,7 +296,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         if (isAllowedMove) {
           setState(() { _isHoveredByDraggable = true; });
         }
-        
+
         return isAllowedMove || isSelfDrop;
       },
       onAcceptWithDetails: (details) {
@@ -323,8 +317,6 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       key: PageStorageKey<String>(widget.item.uri),
       title: tileWithDropTarget,
       tilePadding: EdgeInsets.zero,
-      // Use a transparent trailing icon to ensure the ExpansionTile's tap
-      // target is full-width, but without drawing a visible icon.
       trailing: const Icon(Icons.chevron_right, color: Colors.transparent),
       leading: const SizedBox.shrink(),
       childrenPadding: EdgeInsets.zero,
