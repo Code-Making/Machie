@@ -278,7 +278,7 @@ class CodeEditorPlugin implements EditorPlugin {
           Icons.horizontal_rule, // A fitting icon for selecting a line segment
       defaultPositions: [AppCommandPositions.pluginToolbar],
       execute:
-          (ref, editor) => editor?.selectCurrentLine(), // Method to be created
+          (ref, editor) => editor?.selectOrExpandLines(), // Method to be created
     ),
     _createCommand(
       id: 'select_chunk',

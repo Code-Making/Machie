@@ -165,14 +165,49 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     }
   }
 
-  /// Selects the full line where the cursor's selection starts.
-  void selectCurrentLine() {
-    // Get the line index of where the selection begins.
-    final int currentIndex = controller.selection.start.index;
-    controller.selectLine(currentIndex);
-    // Notify the app that the selection has changed (e.g., for the contextual app bar)
+  void selectOrExpandLines() {
+    final CodeLineSelection currentSelection = controller.selection;
+    final List<CodeLine> lines = controller.codeLines;
+
+    // A "full line" selection is defined as starting at offset 0 of one line
+    // and ending at offset 0 of a subsequent line.
+    final bool isAlreadyFullLineSelection =
+        currentSelection.start.offset == 0 &&
+        currentSelection.end.offset == 0 &&
+        currentSelection.end.index > currentSelection.start.index;
+
+    if (isAlreadyFullLineSelection) {
+      // BEHAVIOR 2: The selection is already full lines, so expand to the next line.
+      // We can expand as long as the end of our selection is not at the very end of the document.
+      if (currentSelection.end.index < lines.length) {
+        // Create a new selection that keeps the same start but moves the end
+        // to the beginning of the line *after* the next one.
+        controller.selection = currentSelection.copyWith(
+          extentIndex: currentSelection.end.index + 1,
+          extentOffset: 0,
+        );
+      }
+    } else {
+      // BEHAVIOR 1: The selection is a cursor or partial. Expand to full lines.
+      // The new selection starts at the beginning of the first selected line.
+      final newStartIndex = currentSelection.start.index;
+
+      // The new selection ends at the beginning of the line AFTER the last selected line.
+      // We use clamp to prevent going past the end of the document.
+      final newEndIndex = (currentSelection.end.index + 1).clamp(0, lines.length);
+
+      controller.selection = CodeLineSelection(
+        baseIndex: newStartIndex,
+        baseOffset: 0,
+        extentIndex: newEndIndex,
+        extentOffset: 0,
+      );
+    }
+
+    // This is crucial to update the UI (like the selection app bar).
     _onControllerChange();
   }
+
 
   /// Expands the selection to the nearest code chunk (e.g., a foldable block).
   void selectCurrentChunk() {
