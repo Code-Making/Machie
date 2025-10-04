@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project_repository.dart';
-import 'package.machine/logs/logs_provider.dart';
+import 'package:machine/logs/logs_provider.dart';
 import 'package:machine/project/project_models.dart';
 
 // The state is now simpler. No more isFullyScanned or scanState.
