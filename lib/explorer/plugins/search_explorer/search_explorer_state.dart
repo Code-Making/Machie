@@ -1,35 +1,27 @@
 // =========================================
-// UPDATED: lib/explorer/plugins/search_explorer/search_explorer_state.dart
+// FINAL CORRECTED FILE: lib/explorer/plugins/search_explorer/search_explorer_state.dart
 // =========================================
-
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../project/services/project_file_cache.dart';
+import 'package:machine/app/app_notifier.dart'; // CORRECTED: Added this import
+import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/project/project_models.dart';
-// THE FIX: Create a wrapper class to hold the score.
+import 'package:machine/project/services/project_file_cache.dart';
+
 class SearchResult {
   final DocumentFile file;
   final int score;
-
   SearchResult({required this.file, required this.score});
 }
 
 class SearchState {
   final String query;
-  // THE FIX: The results are now a list of SearchResult.
   final List<SearchResult> results;
 
-  SearchState({
-    this.query = '',
-    this.results = const [],
-  });
+  // The constructor is not const
+  SearchState({this.query = '', this.results = const []});
 
-  SearchState copyWith({
-    String? query,
-    List<SearchResult>? results,
-  }) {
+  SearchState copyWith({String? query, List<SearchResult>? results}) {
     return SearchState(
       query: query ?? this.query,
       results: results ?? this.results,
@@ -38,35 +30,32 @@ class SearchState {
 }
 
 final searchStateProvider =
-    NotifierProvider<SearchStateNotifier, SearchState>(
-        SearchStateNotifier.new);
+    NotifierProvider<SearchStateNotifier, SearchState>(SearchStateNotifier.new);
 
 class SearchStateNotifier extends Notifier<SearchState> {
   Timer? _debounce;
 
   @override
   SearchState build() {
-    // ADDED: Listen for project changes to clear the search state.
     ref.listen<Project?>(
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
-        // If the project changes (or closes), reset to the initial state.
         if (previous?.id != next?.id) {
-          state = const SearchState();
+          // CORRECTED: Removed 'const'
+          state = SearchState();
         }
       },
     );
-    // Return the initial state.
-    return const SearchState();
+    // CORRECTED: Removed 'const'
+    return SearchState();
   }
 
   void search(String query) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 150), () async {
       state = state.copyWith(query: query);
-      
+
       if (query.isEmpty) {
-        // We keep the query text but clear the results.
         state = state.copyWith(results: []);
         return;
       }
@@ -78,8 +67,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
             .expand((files) => files)
             .where((file) => !file.isDirectory)
             .toList();
-        
-        // ... (rest of search logic is unchanged)
+
         final lowerCaseQuery = query.toLowerCase();
         final List<SearchResult> scoredResults = [];
         for (final file in allFiles) {
@@ -146,10 +134,4 @@ class SearchStateNotifier extends Notifier<SearchState> {
     // This makes shorter, more exact matches score higher.
     return score - target.length;
   }
-  // dispose() is no longer needed as Notifier handles this.
-  // @override
-  // void dispose() {
-  //   _debounce?.cancel();
-  //   super.dispose();
-  // }
 }
