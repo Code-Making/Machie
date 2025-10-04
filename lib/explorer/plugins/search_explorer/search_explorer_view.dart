@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/repositories/project_repository.dart';
 import 'package:machine/explorer/common/file_explorer_widgets.dart';
 import 'package:machine/project/project_models.dart';
+// CORRECTED: This is the ONLY import needed for the cache.
 import 'package:machine/project/services/project_file_cache.dart';
 import 'search_explorer_state.dart';
 
@@ -19,20 +20,13 @@ class SearchExplorerView extends ConsumerStatefulWidget {
 }
 
 class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
-  // The TextEditingController is a local UI state object.
   final _textController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // In initState, we synchronize the local UI controller with the
-    // persistent state from our Riverpod provider. This ensures that
-    // if the user switches away and back, the text field shows their last query.
     _textController.text = ref.read(searchStateProvider).query;
-
     _textController.addListener(() {
-      // To prevent redundant calls, we check if the text has actually changed
-      // compared to the state in the provider before triggering a new search.
       if (_textController.text != ref.read(searchStateProvider).query) {
         ref.read(searchStateProvider.notifier).search(_textController.text);
       }
@@ -47,12 +41,13 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    // We watch both the cache provider (for loading state) and the search provider (for results).
     final fileCacheState = ref.watch(projectFileCacheProvider);
     final searchState = ref.watch(searchStateProvider);
 
-    // This is the clean way to determine if the one-time full scan is in progress.
-    final isScanning = fileCacheState.scanState == CacheScanState.fullScanInProgress;
+    // CORRECTED: This is the simple and robust way to detect loading.
+    // If the cache is fetching any directory (either lazily or as part of a full scan),
+    // we consider it to be "scanning".
+    final bool isScanning = fileCacheState.loadingDirectories.isNotEmpty;
 
     final projectRootUri = widget.project.rootUri;
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
@@ -77,13 +72,10 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
               filled: true,
               fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.zero,
-              // The suffix icon's visibility is driven by the persistent state.
               suffixIcon: searchState.query.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
-                        // Clearing the controller will trigger the listener,
-                        // which in turn updates the provider to have an empty query.
                         _textController.clear();
                       },
                     )
@@ -92,14 +84,13 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
           ),
         ),
         
-        // Show the progress bar only when the initial, full scan is running.
-        if (isScanning)
+        // This logic is now correct and reflects the unified state.
+        if (isScanning && searchState.query.isNotEmpty)
           const LinearProgressIndicator(),
 
         Expanded(
           child: Builder(
             builder: (context) {
-              // Case 1: A search is active, the scan is finished, but there are no results.
               if (searchState.query.isNotEmpty && searchState.results.isEmpty && !isScanning) {
                 return Center(
                   child: Padding(
@@ -109,7 +100,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                 );
               }
 
-              // Case 2: The user hasn't typed anything. Guide them.
               if (searchState.query.isEmpty) {
                 return const Center(
                   child: Padding(
@@ -119,24 +109,19 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                 );
               }
               
-              // Case 3: We have results to display.
               return ListView.builder(
                 itemCount: searchState.results.length,
                 itemBuilder: (context, index) {
                   final searchResult = searchState.results[index];
                   final file = searchResult.file;
-                  
                   final relativePath = fileHandler.getPathForDisplay(
                     file.uri,
                     relativeTo: projectRootUri,
                   );
-                  
                   final pathSegments = relativePath.split('/');
                   final subtitle = pathSegments.length > 1
                       ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
                       : '.';
-
-                  // Reuse the DirectoryItem for a consistent UI.
                   return DirectoryItem(
                     item: file,
                     depth: 0,
