@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'dart:async';
+import 'dart:io'; // ADDED: For platform check
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
@@ -24,6 +25,10 @@ import 'project/services/hot_state_task_handler.dart'; // ADD THIS
 
 final appStartupProvider = FutureProvider<void>((ref) async {
   await ref.read(cacheRepositoryProvider).init();
+  // THE FIX: Start the cache service once on app startup (Android only).
+  if (Platform.isAndroid) {
+    await _startCacheService();
+  }
   await ref.read(sharedPreferencesProvider.future);
 
   ref.read(settingsProvider);
@@ -173,6 +178,26 @@ void main() {
 // --------------------
 //    Lifecycle & Startup
 // --------------------
+
+Future<void> _startCacheService() async {
+  if (await FlutterForegroundTask.isRunningService) {
+    return;
+  }
+  FlutterForegroundTask.startService(
+    notificationTitle: 'Machine',
+    notificationText: 'File cache is running.',
+    notificationIcon: const NotificationIcon(
+      metaDataName: 'my_service_icon_metadata',
+    ),
+    notificationButtons: [
+      const NotificationButton(
+        id: 'STOP_SERVICE_ACTION',
+        text: 'Stop Cache Service',
+      ),
+    ],
+    callback: startCallback,
+  );
+}
 
 void _initForegroundTask() {
   FlutterForegroundTask.init(
