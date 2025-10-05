@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/explorer/services/explorer_service.dart
-// =========================================
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/file_handler/file_handler.dart';
@@ -11,7 +7,7 @@ import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
 import '../../data/dto/project_dto.dart';
 import '../../logs/logs_provider.dart';
-import '../../utils/toast.dart'; // Import the toast utility
+import '../../utils/toast.dart';
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
@@ -31,7 +27,6 @@ class ExplorerService {
     return repo;
   }
   
-  // ... (rehydrateWorkspace, updateWorkspace, createFile, createFolder, deleteItem are unchanged) ...
   ExplorerWorkspaceState rehydrateWorkspace(ExplorerWorkspaceStateDto dto) {
     return ExplorerWorkspaceState(
       activeExplorerPluginId: dto.activeExplorerPluginId,
@@ -54,7 +49,7 @@ class ExplorerService {
       name,
       isDirectory: false,
     );
-    _ref.read(projectHierarchyProvider.notifier).add(newFile, parentUri);
+    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: newFile));
@@ -66,16 +61,15 @@ class ExplorerService {
       name,
       isDirectory: true,
     );
-    _ref.read(projectHierarchyProvider.notifier).add(newFolder, parentUri);
+    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: newFolder));
   }
 
   Future<void> deleteItem(DocumentFile item) async {
-    final parentUri = item.uri.substring(0, item.uri.lastIndexOf('%2F'));
     await _repo.deleteDocumentFile(item);
-    _ref.read(projectHierarchyProvider.notifier).remove(item, parentUri);
+    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileDeleteEvent(deletedFile: item));
@@ -83,11 +77,8 @@ class ExplorerService {
 
   Future<void> renameItem(DocumentFile item, String newName) async {
     try {
-      // THE FIX: No more manual substring logic.
-      final parentUri = _repo.fileHandler.getParentUri(item.uri);
       final renamedFile = await _repo.renameDocumentFile(item, newName);
-      
-      _ref.read(projectHierarchyProvider.notifier).rename(item, renamedFile, parentUri);
+      // REMOVED: No longer need to manually update cache
       _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: item, newFile: renamedFile));
       _talker.info('Renamed "${item.name}" to "${renamedFile.name}"');
     } catch (e, st) {
@@ -111,7 +102,7 @@ class ExplorerService {
           sourceFile,
           destinationFolder.uri,
         );
-        _ref.read(projectHierarchyProvider.notifier).add(copiedFile, destinationFolder.uri);
+        // REMOVED: No longer need to manually update cache
         _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
         _talker.info('Pasted (copy) "${copiedFile.name}" into "${destinationFolder.name}"');
       } else {
@@ -119,7 +110,6 @@ class ExplorerService {
       }
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to paste item into ${destinationFolder.name}');
-      // THE FIX: Show toast instead of crashing.
       MachineToast.error("Paste operation failed. Please try again.");
     }
   }
@@ -133,15 +123,11 @@ class ExplorerService {
       return;
     }
     try {
-      // THE FIX: No more manual substring logic.
-      final sourceParentUri = _repo.fileHandler.getParentUri(source.uri);
       final movedFile = await _repo.moveDocumentFile(
         source,
         destinationFolder.uri,
       );
-      
-      _ref.read(projectHierarchyProvider.notifier).remove(source, sourceParentUri);
-      _ref.read(projectHierarchyProvider.notifier).add(movedFile, destinationFolder.uri);
+      // REMOVED: No longer need to manually update cache
       _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
@@ -159,13 +145,11 @@ class ExplorerService {
         pickedFile,
         projectRootUri,
       );
-      
-      _ref.read(projectHierarchyProvider.notifier).add(importedFile, projectRootUri);
+      // REMOVED: No longer need to manually update cache
       _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: importedFile));
       _talker.info('Imported file: "${importedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to import file: ${pickedFile.name}');
-      // THE FIX: Show toast instead of crashing.
       MachineToast.error("Failed to import '${pickedFile.name}'.");
     }
   }

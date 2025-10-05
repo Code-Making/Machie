@@ -234,9 +234,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final projectToClose = state.value?.currentProject;
     if (projectToClose == null) return;
 
-    // THE FIX: Explicitly clear the file hierarchy cache when closing a project.
-    // This ensures the explorer UI correctly reloads for the next project.
-    ref.read(projectHierarchyProvider.notifier).clear();
+    // REMOVED: The call to clear projectHierarchyProvider is no longer needed.
+    // The new ProjectHierarchyService listens for project changes and clears itself.
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));

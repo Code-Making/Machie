@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../project/project_models.dart';
 import '../../common/file_explorer_widgets.dart';
 import 'search_explorer_state.dart';
-import '../../../project/services/project_file_index.dart'; // IMPORT THE NEW SERVICE
+import '../../../project/services/project_hierarchy_service.dart'; // IMPORT THE NEW SERVICE
 import '../../../data/repositories/project_repository.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
@@ -39,7 +39,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   @override
   Widget build(BuildContext context) {
     // Watch both the index state (for loading/errors) and the search results.
-    final indexState = ref.watch(projectFileIndexProvider);
+    final indexState = ref.watch(flatFileIndexProvider);
     final searchState = ref.watch(searchStateProvider);
     final projectRootUri = widget.project.rootUri;
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;

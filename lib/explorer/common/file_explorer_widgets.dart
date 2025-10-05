@@ -1,7 +1,3 @@
-// =========================================================
-// UPDATED FILE: lib/explorer/common/file_explorer_widgets.dart
-// =========================================================
-
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +6,7 @@ import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../editor/plugins/plugin_registry.dart';
+import '../../project/services/project_hierarchy_service.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import 'file_explorer_commands.dart';
 import '../explorer_plugin_registry.dart';
@@ -27,7 +24,7 @@ bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHan
   return true;
 }
 
-class DirectoryView extends ConsumerStatefulWidget {
+class DirectoryView extends ConsumerWidget {
   final String directory;
   final String projectRootUri;
   final FileExplorerSettings state;
@@ -40,31 +37,12 @@ class DirectoryView extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DirectoryView> createState() => _DirectoryViewState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the new family provider with this directory's URI.
+    final directoryContents = ref.watch(directoryContentsProvider(directory));
 
-class _DirectoryViewState extends ConsumerState<DirectoryView> {
-  // THE FIX: The initState is no longer needed to load data.
-
-  @override
-  Widget build(BuildContext context) {
-    final directoryContents =
-        ref.watch(projectHierarchyProvider)[widget.directory];
-
-    // --- THIS IS THE CORE FIX ---
-    // If the data for this directory isn't in the cache, we are in a loading state.
-    // We must schedule a request to load the data *after* this build completes.
+    // If the provider returns null, it means the main tree is still building.
     if (directoryContents == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Check if the widget is still in the tree before calling the notifier.
-        if (mounted) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.directory);
-        }
-      });
-
-      // While the data is loading, return a progress indicator.
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(8.0),
@@ -72,42 +50,42 @@ class _DirectoryViewState extends ConsumerState<DirectoryView> {
         ),
       );
     }
-    // --- END OF FIX ---
-
-    final sortedContents = List<DocumentFile>.from(directoryContents);
-    _applySorting(sortedContents, widget.state.viewMode);
+    
+    final sortedContents = List<FileTreeNode>.from(directoryContents);
+    _applySorting(sortedContents, state.viewMode);
 
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const Center(child: CircularProgressIndicator());
 
     return ListView.builder(
-      key: PageStorageKey(widget.directory),
+      key: PageStorageKey(directory),
       padding: const EdgeInsets.only(top: 8.0),
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
       itemCount: sortedContents.length,
       itemBuilder: (context, index) {
-        final item = sortedContents[index];
-        final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: widget.projectRootUri).split('/').length - 1;
+        final itemNode = sortedContents[index];
+        final item = itemNode.file; // Get the DocumentFile from the node
+        final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').length - 1;
         return DirectoryItem(
           item: item,
           depth: depth,
-          isExpanded: widget.state.expandedFolders.contains(item.uri),
+          isExpanded: state.expandedFolders.contains(item.uri),
         );
       },
     );
   }
 
-  void _applySorting(List<DocumentFile> contents, FileExplorerViewMode mode) {
+  void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
-      if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+      if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
       switch (mode) {
         case FileExplorerViewMode.sortByNameDesc:
-          return b.name.toLowerCase().compareTo(a.name.toLowerCase());
+          return b.file.name.toLowerCase().compareTo(a.file.name.toLowerCase());
         case FileExplorerViewMode.sortByDateModified:
-          return b.modifiedDate.compareTo(a.modifiedDate);
+          return b.file.modifiedDate.compareTo(a.file.modifiedDate);
         default:
-          return a.name.toLowerCase().compareTo(a.name.toLowerCase());
+          return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
       }
     });
   }
@@ -322,11 +300,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
-        if (expanded) {
-          ref
-              .read(projectHierarchyProvider.notifier)
-              .loadDirectory(widget.item.uri);
-        }
+        // NOTE: The call to loadDirectory is now removed. This is correct.
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
           final newExpanded = Set<String>.from(currentSettings.expandedFolders);

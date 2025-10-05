@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../project/services/project_file_index.dart';
+import '../../../project/services/project_hierarchy_service.dart';
 
 // THE FIX: Create a wrapper class to hold the score.
 class SearchResult {
@@ -53,7 +53,7 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     _debounce = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
 
-      final allFiles = _ref.read(projectFileIndexProvider).valueOrNull ?? [];
+      final allFiles = _ref.read(flatFileIndexProvider).valueOrNull ?? [];
       state = state.copyWith(query: query);
 
       if (query.isEmpty) {
