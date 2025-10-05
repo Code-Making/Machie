@@ -66,14 +66,15 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             const Divider(),
             Expanded(
               // --- THIS IS THE FIX ---
-              // Use .when to handle the different states of the AsyncValue
-              child: directoryState.when(
-                data: (nodes) => _buildDirectoryList(nodes),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('Error: $err')),
-                // Handle the null state (before the first load is triggered)
-                orElse: () => const Center(child: CircularProgressIndicator()),
-              ),
+              // First, check if the state itself is null. This happens before the
+              // directory has been requested for the first time.
+              child: directoryState == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : directoryState.when(
+                      data: (nodes) => _buildDirectoryList(nodes),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, stack) => Center(child: Text('Error: $err')),
+                    ),
             ),
             const Divider(),
             TextField(
