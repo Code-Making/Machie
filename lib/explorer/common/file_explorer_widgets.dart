@@ -12,6 +12,7 @@ import 'file_explorer_commands.dart';
 import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
+// (The _isDropAllowed function remains unchanged)
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
@@ -35,19 +36,12 @@ class DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the state for THIS specific directory.
     final directoryState = ref.watch(directoryContentsProvider(directory));
 
-    // --- THIS IS THE FIX ---
-    // Handle the case where the provider returns null (i.e., the directory
-    // hasn't been requested yet). This is a valid state.
     if (directoryState == null) {
-      // For a better UX, you could return a subtle loading indicator or an empty box.
-      // An empty box is often fine as this state is usually very brief.
-      return const SizedBox.shrink();
+      return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()));
     }
 
-    // Now that we know directoryState is not null, we can safely call .when()
     return directoryState.when(
       data: (nodes) {
         final sortedContents = List<FileTreeNode>.from(nodes);
@@ -64,7 +58,7 @@ class DirectoryView extends ConsumerWidget {
           itemBuilder: (context, index) {
             final itemNode = sortedContents[index];
             final item = itemNode.file;
-            final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').length - 1;
+            final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').where((s) => s.isNotEmpty).length;
             return DirectoryItem(
               item: item,
               depth: depth,
@@ -87,7 +81,8 @@ class DirectoryView extends ConsumerWidget {
       ),
     );
   }
-
+  
+  // (_applySorting remains unchanged)
   void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
       if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
@@ -102,6 +97,9 @@ class DirectoryView extends ConsumerWidget {
     });
   }
 }
+
+// (RootDropZone, DirectoryItem, _DirectoryItemState, RootPlaceholder, FileTypeIcon all remain the same as the previous correct version)
+// For completeness, here are the unchanged parts again.
 
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
