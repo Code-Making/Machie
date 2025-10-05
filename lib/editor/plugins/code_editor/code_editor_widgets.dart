@@ -439,6 +439,18 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       }
     }
   }
+  
+  void syncStateToProvider() {
+    // If the widget is no longer in the tree, do nothing.
+    if (!mounted) return;
+    
+    ref.read(codeEditorStateProvider(widget.tab.id).notifier).update(
+          canUndo: controller.canUndo,
+          canRedo: controller.canRedo,
+          hasMark: _markPosition != null,
+          hasSelection: !controller.selection.isCollapsed,
+        );
+  }
 
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
