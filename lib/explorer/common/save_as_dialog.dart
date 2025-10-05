@@ -1,9 +1,8 @@
-// lib/explorer/common/save_as_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../project/services/project_hierarchy_service.dart'; // IMPORT THE NEW SERVICE
+import '../../project/services/project_hierarchy_service.dart';
 
 class SaveAsDialogResult {
   final String parentUri;
@@ -29,8 +28,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     _fileNameController = TextEditingController(text: widget.initialFileName);
     _currentPathUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
-
-    // REMOVED: No longer need to manually trigger loading.
+    // THIS IS THE FIX: The manual loading call has been removed.
   }
 
   @override
@@ -48,8 +46,6 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       );
     }
 
-    // FIX: Watch the provider directly to get the state (the Map).
-    // Then, access the specific directory's contents from the map.
     final directoryContents = ref.watch(directoryContentsProvider(_currentPathUri));
 
     return AlertDialog(
@@ -61,12 +57,12 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           children: [
             _buildPathNavigator(),
             const Divider(),
-      Expanded(
-        child:
-            directoryContents == null
-                ? const Center(child: CircularProgressIndicator())
-                : _buildDirectoryList(directoryContents),
-      ),
+            Expanded(
+              child:
+                  directoryContents == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildDirectoryList(directoryContents),
+            ),
             const Divider(),
             TextField(
               controller: _fileNameController,
@@ -98,18 +94,17 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     );
   }
 
-  Widget _buildDirectoryList(List<FileTreeNode> nodes) { // Note the type change
+  Widget _buildDirectoryList(List<FileTreeNode> nodes) {
     final directories = nodes.where((n) => n.file.isDirectory).toList();
     return ListView.builder(
       itemCount: directories.length,
       itemBuilder: (context, index) {
-        final dirNode = directories[index]; // This is now a FileTreeNode
-        final dir = dirNode.file; // Get the file from the node
+        final dirNode = directories[index];
+        final dir = dirNode.file;
         return ListTile(
           leading: const Icon(Icons.folder_outlined),
           title: Text(dir.name),
           onTap: () {
-            // REMOVED: No need to call loadDirectory.
             setState(() {
               _currentPathUri = dir.uri;
             });
@@ -133,11 +128,7 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
               _currentPathUri == projectRootUri
                   ? null
                   : () {
-                    // THE FIX: Use the fileHandler to get the parent URI.
                     final newPath = fileHandler.getParentUri(_currentPathUri);
-                    ref
-                        .read(projectHierarchyProvider.notifier)
-                        .loadDirectory(newPath);
                     setState(() {
                       _currentPathUri = newPath;
                     });
@@ -145,8 +136,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         ),
         Expanded(
           child: Text(
-            // THE FIX: Use the fileHandler to get a display-friendly name.
-            fileHandler.getFileName(fileHandler.getPathForDisplay(_currentPathUri)),
+            fileHandler.getPathForDisplay(_currentPathUri, relativeTo: projectRootUri).isEmpty
+              ? '/' 
+              : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: projectRootUri),
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
