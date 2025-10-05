@@ -128,7 +128,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     controller.removeListener(_onControllerChange);
     controller.dispose();
     _focusNode.dispose();
-    ref.invalidate(codeEditorStateProvider(tabId));
+    ref.invalidate(codeEditorStateProvider(widget.tab.id));
     super.dispose();
   }
 
