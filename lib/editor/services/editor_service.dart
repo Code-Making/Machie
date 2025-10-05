@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/editor/services/editor_service.dart
-// =========================================
-
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,7 +36,6 @@ class EditorService {
     return repo;
   }
 
-  // REFACTORED: The rehydration logic is now completely decoupled and unified.
   Future<TabSessionState> rehydrateTabSession(
     ProjectDto dto,
     ProjectMetadata projectMetadata,
@@ -55,12 +50,11 @@ class EditorService {
     for (final tabDto in dto.session.tabs) {
       talker.info("Tab : ${tabDto.id}, ${tabDto.pluginType}");
       final tabId = tabDto.id;
-      final pluginId = tabDto.pluginType; // This is now a stable ID
+      final pluginId = tabDto.pluginType;
       final persistedMetadata = dto.session.tabMetadata[tabId];
 
       if (persistedMetadata == null) continue;
 
-      // REFACTORED: Lookup plugin by its stable ID.
       final plugin = plugins.firstWhereOrNull((p) => p.id == pluginId);
       if (plugin == null) continue;
 
@@ -70,7 +64,6 @@ class EditorService {
         );
         if (file == null) continue;
 
-        // --- UNIFIED DATA LOADING ---
         talker.info("Trying to load cache");
         final cachedDto = await hotStateCacheService.getTabState(
           projectMetadata.id,
@@ -81,7 +74,6 @@ class EditorService {
         Uint8List? fileBytes;
         bool wasLoadedFromCache = cachedDto != null;
 
-        // Only load from disk if there's no hot state in the cache.
         if (!wasLoadedFromCache) {
           if (plugin.dataRequirement == PluginDataRequirement.bytes) {
             fileBytes = await _repo.readFileAsBytes(file.uri);
@@ -89,11 +81,9 @@ class EditorService {
             fileContent = await _repo.readFile(file.uri);
           }
         } else {
-          // If we loaded from cache, clear it so it's not stale on next load.
           await hotStateCacheService.clearTabState(projectMetadata.id, tabId);
         }
 
-        // Create the unified data object for the plugin.
         final initData = EditorInitData(
           stringData: fileContent,
           byteData: fileBytes,
@@ -101,7 +91,6 @@ class EditorService {
         );
 
         final newTab = await plugin.createTab(file, initData, id: tabId);
-        // --- END OF UNIFIED DATA LOADING ---
 
         metadataNotifier.initTab(newTab.id, file);
         if (wasLoadedFromCache || persistedMetadata.isDirty) {
@@ -126,7 +115,6 @@ class EditorService {
     );
   }
 
-  // REFACTORED: _createTabForFile now uses the unified data model.
   Future<({EditorTab tab, DocumentFile file})?> _createTabForFile(
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
@@ -168,15 +156,6 @@ class EditorService {
     }
   }
   
-  // ... (The rest of the file is unchanged, as the core logic for opening, saving, closing tabs, etc., was already correctly designed to call these rehydrated methods) ...
-  final editorServiceProvider = Provider<EditorService>((ref) {
-    return EditorService(ref);
-  });
-  
-  // --- Main Rehydration Logic ---
-  
-  // ADD THIS NEW METHOD
-  /// Triggers a debounced update of the tab's hot state to the background cache service.
   Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     final metadata = _ref.read(tabMetadataProvider)[tab.id];
@@ -184,14 +163,11 @@ class EditorService {
     if (metadata != null && metadata.isDirty) {
       final hotStateDto = await tab.plugin.serializeHotState(tab);
       if (hotStateDto != null) {
-        // This now calls the new debounced method on the service.
         hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
       }
     }
   }
 
-  // RENAME `persistAllHotTabs` to `flushAllHotTabs` for clarity.
-  // This will be called on app pause.
   Future<void> flushAllHotTabs() async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     await hotStateCacheService.flush();
@@ -211,7 +187,6 @@ class EditorService {
     }
   }
   
-  // ... updateCurrentTabModel, set/clearBottomToolbarOverride are unchanged ...
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
@@ -231,7 +206,6 @@ class EditorService {
     _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
   }
   
-  /// Initiates the "Save As" flow for the current tab.
   Future<void> saveCurrentTabAs({
     Future<Uint8List?> Function()? byteDataProvider,
     Future<String?> Function()? stringDataProvider,
@@ -274,14 +248,14 @@ class EditorService {
     } else {
       return;
     }
-    _ref.read(projectHierarchyProvider.notifier).add(newFile, result.parentUri);
+
+    // THIS IS THE FIX: The incorrect line was removed. The event stream
+    // is now the single source of truth for hierarchy updates.
     _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: newFile));
     MachineToast.info("Saved as ${newFile.name}");
   }
-  
-  // --- Core Service Methods ---
   
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
@@ -293,7 +267,6 @@ class EditorService {
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
-    // Check if a tab for this file URI is already open by checking metadata
     final metadataMap = _ref.read(tabMetadataProvider);
     final existingTabId =
         metadataMap.entries
@@ -317,7 +290,6 @@ class EditorService {
       explicitPlugin: explicitPlugin,
     );
     if (result == null) {
-      // Here we could also handle the "show chooser" logic if multiple plugins are compatible.
       return OpenFileError("No plugin available to open '${file.name}'.");
     }
   
@@ -402,7 +374,6 @@ class EditorService {
       ),
     );
   
-    // REFACTORED: Remove metadata by tab ID.
     _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.id);
   
     closedTab.plugin.deactivateTab(closedTab, _ref);
@@ -432,8 +403,6 @@ class EditorService {
     );
   }
   
-  // REFACTORED: This is now much simpler. It finds the tab by the old URI
-  // and just updates its metadata. The Project object doesn't need to change.
   void updateTabForRenamedFile(String oldUri, DocumentFile newFile) {
     final metadataMap = _ref.read(tabMetadataProvider);
     final tabId =

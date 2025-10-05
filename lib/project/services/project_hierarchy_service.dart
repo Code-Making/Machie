@@ -35,15 +35,16 @@ class FileTreeNode {
 /// project's file hierarchy. This is the single source of truth for all
 /// file-related UI components.
 class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
-  StreamSubscription? _fileOpSubscription;
+  ProviderSubscription? _projectSubscription;
+  ProviderSubscription? _fileOpSubscription;
 
   @override
   AsyncValue<FileTreeNode?> build() {
     // Rebuild the hierarchy whenever the current project changes.
-    ref.listen<Project?>(
+    _projectSubscription = ref.listen<Project?>(
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
-        _fileOpSubscription?.cancel();
+        _fileOpSubscription?.close();
         if (next != null) {
           _buildHierarchy(next);
           _listenForFileChanges();
@@ -53,6 +54,12 @@ class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
       },
       fireImmediately: true,
     );
+
+    // Clean up subscriptions when the provider is disposed.
+    ref.onDispose(() {
+      _projectSubscription?.close();
+      _fileOpSubscription?.close();
+    });
 
     // Initial state before the listener fires
     return const AsyncValue.data(null);
@@ -87,14 +94,10 @@ class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
         }
       }
       talker.info('[ProjectHierarchyService] File tree built successfully.');
-      if (mounted) {
-        state = AsyncValue.data(rootNode);
-      }
+      state = AsyncValue.data(rootNode);
     } catch (e, st) {
       talker.handle(e, st, '[ProjectHierarchyService] Failed to build file tree.');
-      if (mounted) {
-        state = AsyncValue.error(e, st);
-      }
+      state = AsyncValue.error(e, st);
     }
   }
 
@@ -112,7 +115,6 @@ class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
               final parentUri = ref.read(projectRepositoryProvider)!.fileHandler.getParentUri(file.uri);
               final parentNode = rootNode.findNodeByUri(parentUri);
               if (parentNode != null) {
-                // Avoid adding duplicates if event fires multiple times
                 if (!parentNode.children.any((node) => node.file.uri == file.uri)) {
                   parentNode.children.add(FileTreeNode(file, parent: parentNode));
                   state = AsyncValue.data(rootNode); 
@@ -130,7 +132,6 @@ class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
               break;
               
             case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-              // Renaming a folder invalidates all children URIs, so a full rebuild is safest.
               if (newFile.isDirectory) {
                  final project = ref.read(appNotifierProvider).value!.currentProject!;
                 _buildHierarchy(project);
@@ -157,8 +158,6 @@ final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService
   ProjectHierarchyService.new,
 );
 
-/// A derived provider that returns a flat list of all files (not directories) in the project.
-/// Ideal for the search feature. This is an instantaneous memory operation.
 final flatFileIndexProvider = Provider<AsyncValue<List<DocumentFile>>>((ref) {
   return ref.watch(projectHierarchyServiceProvider).when(
     data: (rootNode) {
@@ -179,8 +178,6 @@ final flatFileIndexProvider = Provider<AsyncValue<List<DocumentFile>>>((ref) {
   );
 });
 
-/// A derived provider that returns the immediate children of a given directory URI.
-/// Ideal for the file explorer view. This is an instantaneous memory operation.
 final directoryContentsProvider = Provider.family<List<FileTreeNode>?, String>((ref, directoryUri) {
   final rootNodeAsync = ref.watch(projectHierarchyServiceProvider);
   
@@ -189,7 +186,7 @@ final directoryContentsProvider = Provider.family<List<FileTreeNode>?, String>((
       if (rootNode == null) return null;
       return rootNode.findNodeByUri(directoryUri)?.children;
     },
-    loading: () => null, // Return null to indicate loading
-    error: (_, __) => [], // Return empty list on error
+    loading: () => null,
+    error: (_, __) => [],
   );
 });
