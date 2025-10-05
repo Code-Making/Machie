@@ -15,12 +15,9 @@ import '../services/explorer_service.dart';
 bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
-  // A folder cannot be dropped into its own child.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
-
   final parentUri = fileHandler.getParentUri(draggedFile.uri);
   if (parentUri == targetFolder.uri) return false;
-
   return true;
 }
 
@@ -41,6 +38,16 @@ class DirectoryView extends ConsumerWidget {
     // Watch the state for THIS specific directory.
     final directoryState = ref.watch(directoryContentsProvider(directory));
 
+    // --- THIS IS THE FIX ---
+    // Handle the case where the provider returns null (i.e., the directory
+    // hasn't been requested yet). This is a valid state.
+    if (directoryState == null) {
+      // For a better UX, you could return a subtle loading indicator or an empty box.
+      // An empty box is often fine as this state is usually very brief.
+      return const SizedBox.shrink();
+    }
+
+    // Now that we know directoryState is not null, we can safely call .when()
     return directoryState.when(
       data: (nodes) {
         final sortedContents = List<FileTreeNode>.from(nodes);
@@ -78,9 +85,6 @@ class DirectoryView extends ConsumerWidget {
           child: Text('Error loading directory:\n$err', textAlign: TextAlign.center),
         ),
       ),
-      // This case handles when the directory hasn't been requested yet.
-      // It should only happen for a split second on initial load.
-      orElse: () => const SizedBox.shrink(),
     );
   }
 
@@ -308,12 +312,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
-        // THIS IS THE TRIGGER FOR LAZY-LOADING
         if (expanded) {
           ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(widget.item.uri);
         }
-        
-        // This part remains the same, to save the expanded state
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
           final newExpanded = Set<String>.from(currentSettings.expandedFolders);

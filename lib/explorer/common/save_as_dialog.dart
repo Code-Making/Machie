@@ -28,7 +28,13 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     _fileNameController = TextEditingController(text: widget.initialFileName);
     _currentPathUri =
         ref.read(appNotifierProvider).value?.currentProject?.rootUri ?? '';
-    // THIS IS THE FIX: The manual loading call has been removed.
+
+    // Trigger the initial load for the root directory after the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentPathUri.isNotEmpty) {
+        ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(_currentPathUri);
+      }
+    });
   }
 
   @override
@@ -46,7 +52,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
       );
     }
 
-    final directoryContents = ref.watch(directoryContentsProvider(_currentPathUri));
+    // Watch the provider for the current path.
+    final directoryState = ref.watch(directoryContentsProvider(_currentPathUri));
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -58,10 +65,15 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
             _buildPathNavigator(),
             const Divider(),
             Expanded(
-              child:
-                  directoryContents == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : _buildDirectoryList(directoryContents),
+              // --- THIS IS THE FIX ---
+              // Use .when to handle the different states of the AsyncValue
+              child: directoryState.when(
+                data: (nodes) => _buildDirectoryList(nodes),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(child: Text('Error: $err')),
+                // Handle the null state (before the first load is triggered)
+                orElse: () => const Center(child: CircularProgressIndicator()),
+              ),
             ),
             const Divider(),
             TextField(
@@ -105,6 +117,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           leading: const Icon(Icons.folder_outlined),
           title: Text(dir.name),
           onTap: () {
+            // Trigger a lazy-load for the new directory
+            ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(dir.uri);
             setState(() {
               _currentPathUri = dir.uri;
             });
@@ -129,6 +143,8 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                   ? null
                   : () {
                     final newPath = fileHandler.getParentUri(_currentPathUri);
+                    // Trigger a lazy-load for the parent directory
+                    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
                     setState(() {
                       _currentPathUri = newPath;
                     });
