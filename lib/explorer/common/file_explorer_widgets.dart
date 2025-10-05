@@ -38,41 +38,49 @@ class DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the new family provider with this directory's URI.
-    final directoryContents = ref.watch(directoryContentsProvider(directory));
+    // Watch the state for THIS specific directory.
+    final directoryState = ref.watch(directoryContentsProvider(directory));
 
-    // If the provider returns null, it means the main tree is still building.
-    if (directoryContents == null) {
-      return const Center(
+    return directoryState.when(
+      data: (nodes) {
+        final sortedContents = List<FileTreeNode>.from(nodes);
+        _applySorting(sortedContents, state.viewMode);
+        final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+        if (fileHandler == null) return const SizedBox.shrink();
+
+        return ListView.builder(
+          key: PageStorageKey(directory),
+          padding: const EdgeInsets.only(top: 8.0),
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
+          itemCount: sortedContents.length,
+          itemBuilder: (context, index) {
+            final itemNode = sortedContents[index];
+            final item = itemNode.file;
+            final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').length - 1;
+            return DirectoryItem(
+              item: item,
+              depth: depth,
+              isExpanded: state.expandedFolders.contains(item.uri),
+            );
+          },
+        );
+      },
+      loading: () => const Center(
         child: Padding(
           padding: EdgeInsets.all(8.0),
           child: CircularProgressIndicator(),
         ),
-      );
-    }
-    
-    final sortedContents = List<FileTreeNode>.from(directoryContents);
-    _applySorting(sortedContents, state.viewMode);
-
-    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
-    if (fileHandler == null) return const Center(child: CircularProgressIndicator());
-
-    return ListView.builder(
-      key: PageStorageKey(directory),
-      padding: const EdgeInsets.only(top: 8.0),
-      shrinkWrap: true,
-      physics: const ClampingScrollPhysics(),
-      itemCount: sortedContents.length,
-      itemBuilder: (context, index) {
-        final itemNode = sortedContents[index];
-        final item = itemNode.file; // Get the DocumentFile from the node
-        final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').length - 1;
-        return DirectoryItem(
-          item: item,
-          depth: depth,
-          isExpanded: state.expandedFolders.contains(item.uri),
-        );
-      },
+      ),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text('Error loading directory:\n$err', textAlign: TextAlign.center),
+        ),
+      ),
+      // This case handles when the directory hasn't been requested yet.
+      // It should only happen for a split second on initial load.
+      orElse: () => const SizedBox.shrink(),
     );
   }
 
@@ -300,7 +308,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
-        // NOTE: The call to loadDirectory is now removed. This is correct.
+        // THIS IS THE TRIGGER FOR LAZY-LOADING
+        if (expanded) {
+          ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(widget.item.uri);
+        }
+        
+        // This part remains the same, to save the expanded state
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;
           final newExpanded = Set<String>.from(currentSettings.expandedFolders);

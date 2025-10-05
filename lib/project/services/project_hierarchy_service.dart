@@ -11,139 +11,146 @@ import '../../project/project_models.dart';
 /// Represents a single node in the project's file tree.
 class FileTreeNode {
   final DocumentFile file;
-  final FileTreeNode? parent;
-  final List<FileTreeNode> children = [];
-
-  FileTreeNode(this.file, {this.parent});
-
-  /// Helper to find a descendant node by its URI path.
-  FileTreeNode? findNodeByUri(String uri) {
-    if (file.uri == uri) {
-      return this;
-    }
-    for (final child in children) {
-      final found = child.findNodeByUri(uri);
-      if (found != null) {
-        return found;
-      }
-    }
-    return null;
-  }
+  FileTreeNode(this.file);
 }
 
-/// A service that builds and maintains a complete in-memory tree of the
-/// project's file hierarchy. This is the single source of truth for all
-/// file-related UI components.
-class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
+/// A service that manages the project's file hierarchy using a hybrid approach:
+/// 1. On-demand lazy-loading for responsive UI browsing.
+/// 2. A concurrent, non-blocking full background scan for search indexing.
+class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileTreeNode>>>> {
   ProviderSubscription? _projectSubscription;
   ProviderSubscription? _fileOpSubscription;
 
   @override
-  AsyncValue<FileTreeNode?> build() {
-    // Rebuild the hierarchy whenever the current project changes.
+  Map<String, AsyncValue<List<FileTreeNode>>> build() {
     _projectSubscription = ref.listen<Project?>(
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
         _fileOpSubscription?.close();
         if (next != null) {
-          _buildHierarchy(next);
+          // Reset state and kick off the hybrid loading process
+          state = {};
+          loadDirectory(next.rootUri); // Immediate load for root UI
+          _startFullBackgroundScan(next); // Non-blocking full scan
           _listenForFileChanges();
         } else {
-          state = const AsyncValue.data(null); // No project open
+          state = {}; // No project open
         }
       },
       fireImmediately: true,
     );
 
-    // Clean up subscriptions when the provider is disposed.
     ref.onDispose(() {
       _projectSubscription?.close();
       _fileOpSubscription?.close();
     });
 
-    // Initial state before the listener fires
-    return const AsyncValue.data(null);
+    return {}; // Initial state is an empty map
   }
 
-  /// Performs the initial, recursive scan of the project directory to build the tree.
-  Future<void> _buildHierarchy(Project project) async {
-    state = const AsyncValue.loading();
-    final repo = ref.read(projectRepositoryProvider);
-    final talker = ref.read(talkerProvider);
-
-    if (repo == null) {
-      state = AsyncValue.error('Project is not open.', StackTrace.current);
+  /// Public method to trigger a lazy-load for a specific directory.
+  /// This is called by the UI when a folder is expanded.
+  Future<void> loadDirectory(String uri) async {
+    // If directory is already loaded or is currently loading, do nothing.
+    if (state.containsKey(uri)) {
       return;
     }
 
-    talker.info('[ProjectHierarchyService] Building file tree...');
+    final repo = ref.read(projectRepositoryProvider);
+    if (repo == null) return;
+    
+    // Set state to loading for this specific directory
+    state = {...state, uri: const AsyncLoading()};
+
     try {
-      final rootFile = VirtualDocumentFile(uri: project.rootUri, name: project.name, isDirectory: true);
-      final rootNode = FileTreeNode(rootFile);
-      
-      final directoriesToScan = [rootNode];
-      while (directoriesToScan.isNotEmpty) {
-        final currentNode = directoriesToScan.removeAt(0);
-        final items = await repo.listDirectory(currentNode.file.uri);
-        for (final item in items) {
-          final childNode = FileTreeNode(item, parent: currentNode);
-          currentNode.children.add(childNode);
-          if (item.isDirectory) {
-            directoriesToScan.add(childNode);
-          }
-        }
-      }
-      talker.info('[ProjectHierarchyService] File tree built successfully.');
-      state = AsyncValue.data(rootNode);
+      final items = await repo.listDirectory(uri);
+      final nodes = items.map((file) => FileTreeNode(file)).toList();
+      state = {...state, uri: AsyncData(nodes)};
     } catch (e, st) {
-      talker.handle(e, st, '[ProjectHierarchyService] Failed to build file tree.');
-      state = AsyncValue.error(e, st);
+      ref.read(talkerProvider).handle(e, st, 'Failed to load directory: $uri');
+      state = {...state, uri: AsyncError(e, st)};
     }
   }
+  
+  /// Kicks off a non-blocking, breadth-first scan of the entire project tree.
+  void _startFullBackgroundScan(Project project) async {
+    final talker = ref.read(talkerProvider);
+    talker.info('[ProjectHierarchyService] Starting full background scan...');
+    
+    final queue = <String>[project.rootUri];
+    final Set<String> scannedUris = {project.rootUri};
 
-  /// Subscribes to file operations to keep the tree in sync without a full rebuild.
+    // Process the queue asynchronously without blocking the UI
+    await for (final uri in Stream.fromIterable(queue)) {
+      // Ensure the project hasn't been closed during the scan
+      if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
+        talker.info('[ProjectHierarchyService] Project changed, abandoning background scan.');
+        return;
+      }
+
+      // Check if we already have the data (loaded by user or a previous scan iteration)
+      final currentState = state[uri];
+      List<FileTreeNode> children;
+      if (currentState is AsyncData<List<FileTreeNode>>) {
+        children = currentState.value;
+      } else {
+        // If not loaded, fetch it now.
+        await loadDirectory(uri);
+        children = state[uri]?.valueOrNull ?? [];
+      }
+      
+      // Add newly discovered subdirectories to the queue for the next iteration
+      for (final childNode in children) {
+        if (childNode.file.isDirectory && !scannedUris.contains(childNode.file.uri)) {
+          queue.add(childNode.file.uri);
+          scannedUris.add(childNode.file.uri);
+        }
+      }
+    }
+    talker.info('[ProjectHierarchyService] Full background scan complete.');
+  }
+
   void _listenForFileChanges() {
     _fileOpSubscription = ref.listen<AsyncValue<FileOperationEvent>>(
       fileOperationStreamProvider,
       (previous, next) {
         next.whenData((event) {
-          if (state.value == null) return;
-          final rootNode = state.value!;
-          
+          final repo = ref.read(projectRepositoryProvider);
+          if (repo == null) return;
+
           switch (event) {
             case FileCreateEvent(createdFile: final file):
-              final parentUri = ref.read(projectRepositoryProvider)!.fileHandler.getParentUri(file.uri);
-              final parentNode = rootNode.findNodeByUri(parentUri);
-              if (parentNode != null) {
-                if (!parentNode.children.any((node) => node.file.uri == file.uri)) {
-                  parentNode.children.add(FileTreeNode(file, parent: parentNode));
-                  state = AsyncValue.data(rootNode); 
+              final parentUri = repo.fileHandler.getParentUri(file.uri);
+              if (state[parentUri] is AsyncData) {
+                final parentContents = state[parentUri]!.value!;
+                if (!parentContents.any((node) => node.file.uri == file.uri)) {
+                   state = {...state, parentUri: AsyncData([...parentContents, FileTreeNode(file)])};
                 }
               }
               break;
 
             case FileDeleteEvent(deletedFile: final file):
-              final parentUri = ref.read(projectRepositoryProvider)!.fileHandler.getParentUri(file.uri);
-              final parentNode = rootNode.findNodeByUri(parentUri);
-              if (parentNode != null) {
-                parentNode.children.removeWhere((node) => node.file.uri == file.uri);
-                state = AsyncValue.data(rootNode);
+              final parentUri = repo.fileHandler.getParentUri(file.uri);
+              if (state[parentUri] is AsyncData) {
+                final parentContents = state[parentUri]!.value!;
+                state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
+              }
+              // If it was a directory, remove its own entry from the state map
+              if (file.isDirectory) {
+                state = Map.from(state)..remove(file.uri);
               }
               break;
               
             case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-              if (newFile.isDirectory) {
-                 final project = ref.read(appNotifierProvider).value!.currentProject!;
-                _buildHierarchy(project);
-              } else {
-                 final parentUri = ref.read(projectRepositoryProvider)!.fileHandler.getParentUri(newFile.uri);
-                 final parentNode = rootNode.findNodeByUri(parentUri);
-                 if (parentNode != null) {
-                    parentNode.children.removeWhere((n) => n.file.uri == oldFile.uri);
-                    parentNode.children.add(FileTreeNode(newFile, parent: parentNode));
-                    state = AsyncValue.data(rootNode);
-                 }
+              // Renaming is complex. The safest and simplest approach is to invalidate
+              // the parent and the (potentially old) directory itself.
+              final parentUri = repo.fileHandler.getParentUri(newFile.uri);
+              state = Map.from(state)..remove(parentUri);
+              if (oldFile.isDirectory) {
+                state = Map.from(state)..remove(oldFile.uri);
               }
+              // Trigger a reload for the parent to show the renamed item
+              loadDirectory(parentUri);
               break;
           }
         });
@@ -154,39 +161,30 @@ class ProjectHierarchyService extends Notifier<AsyncValue<FileTreeNode?>> {
 
 // --- Providers ---
 
-final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService, AsyncValue<FileTreeNode?>>(
+final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService, Map<String, AsyncValue<List<FileTreeNode>>>>(
   ProjectHierarchyService.new,
 );
 
+/// A derived provider that returns a flat list of all files (not directories) in the project.
+/// This will become populated as the background scan runs.
 final flatFileIndexProvider = Provider<AsyncValue<List<DocumentFile>>>((ref) {
-  return ref.watch(projectHierarchyServiceProvider).when(
-    data: (rootNode) {
-      if (rootNode == null) return const AsyncValue.data([]);
-      final allFiles = <DocumentFile>[];
-      final nodesToVisit = [rootNode];
-      while(nodesToVisit.isNotEmpty) {
-        final node = nodesToVisit.removeAt(0);
+  final hierarchyState = ref.watch(projectHierarchyServiceProvider);
+  final allFiles = <DocumentFile>[];
+  
+  for (final entry in hierarchyState.entries) {
+    if (entry.value is AsyncData<List<FileTreeNode>>) {
+      for (final node in entry.value.value!) {
         if (!node.file.isDirectory) {
           allFiles.add(node.file);
         }
-        nodesToVisit.addAll(node.children);
       }
-      return AsyncValue.data(allFiles);
-    },
-    loading: () => const AsyncValue.loading(),
-    error: (e, st) => AsyncValue.error(e, st),
-  );
+    }
+  }
+  return AsyncData(allFiles);
 });
 
-final directoryContentsProvider = Provider.family<List<FileTreeNode>?, String>((ref, directoryUri) {
-  final rootNodeAsync = ref.watch(projectHierarchyServiceProvider);
-  
-  return rootNodeAsync.when(
-    data: (rootNode) {
-      if (rootNode == null) return null;
-      return rootNode.findNodeByUri(directoryUri)?.children;
-    },
-    loading: () => null,
-    error: (_, __) => [],
-  );
+/// A derived provider that returns the loading state and contents of a single directory.
+final directoryContentsProvider = Provider.family<AsyncValue<List<FileTreeNode>>?, String>((ref, directoryUri) {
+  final hierarchyState = ref.watch(projectHierarchyServiceProvider);
+  return hierarchyState[directoryUri];
 });
