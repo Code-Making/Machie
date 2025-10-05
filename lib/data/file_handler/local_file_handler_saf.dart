@@ -39,7 +39,7 @@ class SafFileHandler implements LocalFileHandler {
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
       if (!includeHidden) {
-        files.removeWhere((f) => f.name.startswith('.') && f.isDir);
+        files.removeWhere((f) => f.name.startsWith('.') && f.isDir);
       }
       return files.map((f) => CustomSAFDocumentFile(f)).toList();
     } on PlatformException catch (e) {
