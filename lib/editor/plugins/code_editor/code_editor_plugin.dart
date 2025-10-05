@@ -111,10 +111,17 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   void activateTab(EditorTab tab, Ref ref) {
-    // THE FIX: When a code editor tab becomes active, check its state.
-    // If it has a selection, restore the selection-specific AppBar.
-    final editorState = ref.read(codeEditorStateProvider(tab.id));
-    if (editorState.hasSelection) {
+    // THE FIX:
+    // 1. Get the live widget state object using the GlobalKey.
+    final editorWidgetState = _getEditorState(tab);
+
+    // 2. Tell the widget to push its current internal state into the Riverpod provider.
+    // This synchronizes the global state with the widget's reality.
+    editorWidgetState?.syncStateToProvider();
+
+    // 3. Now that the provider is fresh, read from it to update global UI.
+    final currentEditorState = ref.read(codeEditorStateProvider(tab.id));
+    if (currentEditorState.hasSelection) {
       ref
           .read(appNotifierProvider.notifier)
           .setAppBarOverride(const CodeEditorSelectionAppBar());
@@ -123,9 +130,7 @@ class CodeEditorPlugin implements EditorPlugin {
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
-    // THE FIX: When a code editor tab is no longer active, it must
-    // clean up any global UI it was controlling. This prevents the
-    // selection AppBar from getting "stuck" when switching to another tab.
+    // This part remains correct: always clean up when the tab is no longer active.
     ref.read(appNotifierProvider.notifier).clearAppBarOverride();
   }
   
