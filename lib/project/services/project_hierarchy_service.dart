@@ -50,80 +50,80 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   Future<void> _initializeHierarchy(Project project) async {
     // First, load the root directory to make the UI immediately responsive.
     final rootNodes = await loadDirectory(project.rootUri);
-    // Once the root is loaded, start the non-blocking full scan in the background.
+    // Once the root is successfully loaded, start the non-blocking full scan.
     if (rootNodes != null) {
-      _startFullBackgroundScan(project, rootNodes);
+      _startFullBackgroundScan(project);
     }
   }
 
   /// Public method to trigger a lazy-load for a specific directory.
   /// Returns the loaded nodes, or null if an error occurred.
   Future<List<FileTreeNode>?> loadDirectory(String uri) async {
-    if (state[uri] is AsyncLoading) return null; // Already loading
+    // If directory is already loaded or is currently loading, do nothing.
+    if (state[uri] is AsyncLoading || state[uri] is AsyncData) {
+      return state[uri]?.value;
+    }
 
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return null;
     
+    // FIX: Update state correctly without reading from the provider.
     state = {...state, uri: const AsyncLoading()};
 
     try {
       final items = await repo.listDirectory(uri);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
-      
-      // FIX: Read the latest state map before updating to prevent race conditions.
-      final currentState = ref.read(projectHierarchyServiceProvider);
-      state = {...currentState, uri: AsyncData(nodes)};
+      state = {...state, uri: AsyncData(nodes)};
       return nodes;
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load directory: $uri');
-      final currentState = ref.read(projectHierarchyServiceProvider);
-      state = {...currentState, uri: AsyncError(e, st)};
+      state = {...state, uri: AsyncError(e, st)};
       return null;
     }
   }
   
   /// Kicks off a non-blocking, breadth-first scan of the entire project tree.
-  void _startFullBackgroundScan(Project project, List<FileTreeNode> rootNodes) {
-    // Use an unscoped provider to avoid it being disposed if no UI is listening
-    final container = ProviderContainer();
-    
+  void _startFullBackgroundScan(Project project) {
     // This runs as a fire-and-forget async task.
     unawaited(Future(() async {
-      final talker = container.read(talkerProvider);
+      final talker = ref.read(talkerProvider);
       talker.info('[ProjectHierarchyService] Starting full background scan...');
       
       // FIX: Use a standard while loop which works with a dynamic queue.
-      final queue = rootNodes
-          .where((node) => node.file.isDirectory)
-          .map((node) => node.file.uri)
-          .toList();
-      final Set<String> scannedUris = Set.from(queue)..add(project.rootUri);
+      final queue = <String>[project.rootUri];
+      final Set<String> processedUris = {project.rootUri};
 
       while (queue.isNotEmpty) {
-        // Ensure the project hasn't been closed during the scan
-        if (container.read(appNotifierProvider).value?.currentProject?.id != project.id) {
+        // Ensure the project hasn't been closed during the scan.
+        if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
           talker.info('[ProjectHierarchyService] Project changed, abandoning background scan.');
-          container.dispose();
           return;
         }
 
         final currentUri = queue.removeAt(0);
         
-        // If the directory hasn't been loaded by user interaction yet, load it now.
-        if (ref.read(projectHierarchyServiceProvider)[currentUri] == null) {
-          final children = await loadDirectory(currentUri);
-          if (children != null) {
-            for (final childNode in children) {
-              if (childNode.file.isDirectory && !scannedUris.contains(childNode.file.uri)) {
-                queue.add(childNode.file.uri);
-                scannedUris.add(childNode.file.uri);
-              }
-            }
+        // This directory might have already been loaded by the user.
+        final existingData = state[currentUri]?.valueOrNull;
+        final List<FileTreeNode> children;
+
+        if (existingData != null) {
+          children = existingData;
+        } else {
+          // If not, load it now as part of the scan.
+          children = await loadDirectory(currentUri) ?? [];
+        }
+        
+        for (final childNode in children) {
+          if (childNode.file.isDirectory && !processedUris.contains(childNode.file.uri)) {
+            queue.add(childNode.file.uri);
+            processedUris.add(childNode.file.uri);
           }
         }
+
+        // FIX: Yield to the event loop to prevent freezing the UI on large projects.
+        await Future.delayed(Duration.zero);
       }
       talker.info('[ProjectHierarchyService] Full background scan complete.');
-      container.dispose();
     }));
   }
 
@@ -135,41 +135,37 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
           final repo = ref.read(projectRepositoryProvider);
           if (repo == null) return;
           
-          final currentState = ref.read(projectHierarchyServiceProvider);
-          Map<String, AsyncValue<List<FileTreeNode>>> newState = Map.from(currentState);
-
           switch (event) {
             case FileCreateEvent(createdFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
-              if (newState[parentUri] is AsyncData) {
-                final parentContents = newState[parentUri]!.value!;
+              final parentState = state[parentUri];
+              if (parentState is AsyncData) {
+                final parentContents = parentState.value;
                 if (!parentContents.any((node) => node.file.uri == file.uri)) {
-                   newState[parentUri] = AsyncData([...parentContents, FileTreeNode(file)]);
+                   state = {...state, parentUri: AsyncData([...parentContents, FileTreeNode(file)])};
                 }
               }
               break;
 
             case FileDeleteEvent(deletedFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
-              if (newState[parentUri] is AsyncData) {
-                final parentContents = newState[parentUri]!.value!;
-                newState[parentUri] = AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList());
+              final parentState = state[parentUri];
+              if (parentState is AsyncData) {
+                final parentContents = parentState.value;
+                state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
               }
               if (file.isDirectory) {
-                newState.remove(file.uri);
+                state = Map.from(state)..remove(file.uri);
               }
               break;
               
             case FileRenameEvent():
-              // Renaming is complex. A full invalidation is the simplest, most robust solution.
-              // It will trigger a fresh hybrid load.
               final project = ref.read(appNotifierProvider).value!.currentProject;
               if (project != null) {
                  _initializeHierarchy(project);
               }
-              return; // Exit early as state is being rebuilt
+              break;
           }
-          state = newState;
         });
       },
     );
@@ -186,12 +182,14 @@ final flatFileIndexProvider = Provider.autoDispose<AsyncValue<List<DocumentFile>
   final hierarchyState = ref.watch(projectHierarchyServiceProvider);
   final allFiles = <DocumentFile>[];
   
-  // This can be slow on very large projects. Could be optimized further if needed.
+  // FIX: This now correctly handles AsyncValue and avoids adding duplicates.
+  final addedUris = <String>{};
   for (final entry in hierarchyState.entries) {
     entry.value.whenData((nodes) {
       for (final node in nodes) {
-        if (!node.file.isDirectory) {
+        if (!node.file.isDirectory && !addedUris.contains(node.file.uri)) {
           allFiles.add(node.file);
+          addedUris.add(node.file.uri);
         }
       }
     });
