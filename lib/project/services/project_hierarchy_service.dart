@@ -131,7 +131,6 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
               final parentUri = repo.fileHandler.getParentUri(file.uri);
               final parentAsyncValue = state[parentUri];
 
-              // --- FIX: Correctly check for AsyncData before accessing .value ---
               if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
                 final parentContents = parentAsyncValue.value;
                 if (!parentContents.any((node) => node.file.uri == file.uri)) {
@@ -144,7 +143,6 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
               final parentUri = repo.fileHandler.getParentUri(file.uri);
               final parentAsyncValue = state[parentUri];
               
-              // --- FIX: Correctly check for AsyncData before accessing .value ---
               if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
                 final parentContents = parentAsyncValue.value;
                 state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
@@ -152,14 +150,16 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
 
               if (file.isDirectory) {
                 if (state.containsKey(file.uri)) {
-                  final newState = Map.from(state)..remove(file.uri);
+                  // --- THIS IS THE FIX ---
+                  // Explicitly provide the type arguments to Map.from()
+                  final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state)..remove(file.uri);
                   state = newState;
                 }
               }
               break;
               
             case FileRenameEvent():
-              final project = ref.read(appNotifierProvider).value?.currentProject;
+              final project = ref.read(appNotifierProvider).value!.currentProject;
               if (project != null) {
                  _initializeHierarchy(project);
               }
@@ -183,7 +183,6 @@ final flatFileIndexProvider = Provider.autoDispose<AsyncValue<List<DocumentFile>
   
   final addedUris = <String>{};
   for (final entry in hierarchyState.entries) {
-    // --- FIX: Use whenData to safely unwrap the AsyncValue ---
     entry.value.whenData((nodes) {
       for (final node in nodes) {
         if (!node.file.isDirectory && !addedUris.contains(node.file.uri)) {
