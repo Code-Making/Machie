@@ -8,25 +8,26 @@ import '../../data/repositories/project_repository.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 
-/// Represents a single node in the project's file tree.
+// (FileTreeNode class remains the same)
 class FileTreeNode {
   final DocumentFile file;
   FileTreeNode(this.file);
 }
 
-/// A service that manages the project's file hierarchy using a hybrid approach:
-/// 1. On-demand lazy-loading for responsive UI browsing.
-/// 2. A concurrent, non-blocking full background scan for search indexing.
 class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileTreeNode>>>> {
-  ProviderSubscription? _projectSubscription;
-  ProviderSubscription? _fileOpSubscription;
+  // REMOVED: These member variables are no longer needed.
+  // ProviderSubscription? _projectSubscription;
+  // ProviderSubscription? _fileOpSubscription;
 
   @override
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
-    _projectSubscription = ref.listen<Project?>(
+    // By calling ref.listen here, Riverpod manages the subscription's lifecycle.
+    // It will be automatically closed when this provider is disposed.
+    ref.listen<Project?>(
       appNotifierProvider.select((s) => s.value?.currentProject),
       (previous, next) {
-        _fileOpSubscription?.close();
+        // We still need to clean up the file op listener when the project changes.
+        // But we don't need a member variable for it. We can just re-listen.
         if (next != null) {
           state = {};
           _initializeHierarchy(next);
@@ -38,36 +39,28 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       fireImmediately: true,
     );
 
-    ref.onDispose(() {
-      _projectSubscription?.close();
-      _fileOpSubscription?.close();
-    });
+    // REMOVED: The ref.onDispose block for closing subscriptions is gone.
+    // Riverpod handles this automatically for listeners created in `build`.
 
     return {};
   }
 
-  /// Kicks off the entire loading process for a new project.
+  // (The rest of the class logic is identical, as it was already correct)
+
   Future<void> _initializeHierarchy(Project project) async {
-    // First, load the root directory to make the UI immediately responsive.
     final rootNodes = await loadDirectory(project.rootUri);
-    // Once the root is successfully loaded, start the non-blocking full scan.
     if (rootNodes != null) {
       _startFullBackgroundScan(project);
     }
   }
 
-  /// Public method to trigger a lazy-load for a specific directory.
-  /// Returns the loaded nodes, or null if an error occurred.
   Future<List<FileTreeNode>?> loadDirectory(String uri) async {
     if (state[uri] is AsyncLoading || state[uri] is AsyncData) {
       return state[uri]?.value;
     }
-
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return null;
-    
     state = {...state, uri: const AsyncLoading()};
-
     try {
       final items = await repo.listDirectory(uri);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
@@ -80,38 +73,31 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
     }
   }
   
-  /// Kicks off a non-blocking, breadth-first scan of the entire project tree.
   void _startFullBackgroundScan(Project project) {
     unawaited(Future(() async {
       final talker = ref.read(talkerProvider);
       talker.info('[ProjectHierarchyService] Starting full background scan...');
-      
       final queue = <String>[project.rootUri];
       final Set<String> processedUris = {project.rootUri};
-
       while (queue.isNotEmpty) {
         if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
           talker.info('[ProjectHierarchyService] Project changed, abandoning background scan.');
           return;
         }
-
         final currentUri = queue.removeAt(0);
         final existingData = state[currentUri]?.valueOrNull;
         final List<FileTreeNode> children;
-
         if (existingData != null) {
           children = existingData;
         } else {
           children = await loadDirectory(currentUri) ?? [];
         }
-        
         for (final childNode in children) {
           if (childNode.file.isDirectory && !processedUris.contains(childNode.file.uri)) {
             queue.add(childNode.file.uri);
             processedUris.add(childNode.file.uri);
           }
         }
-
         await Future.delayed(Duration.zero);
       }
       talker.info('[ProjectHierarchyService] Full background scan complete.');
@@ -119,18 +105,18 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   }
 
   void _listenForFileChanges() {
-    _fileOpSubscription = ref.listen<AsyncValue<FileOperationEvent>>(
+    // This listener is now also automatically managed by Riverpod.
+    // We don't need to store its subscription.
+    ref.listen<AsyncValue<FileOperationEvent>>(
       fileOperationStreamProvider,
       (previous, next) {
         next.whenData((event) {
           final repo = ref.read(projectRepositoryProvider);
           if (repo == null) return;
-
           switch (event) {
             case FileCreateEvent(createdFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
               final parentAsyncValue = state[parentUri];
-
               if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
                 final parentContents = parentAsyncValue.value;
                 if (!parentContents.any((node) => node.file.uri == file.uri)) {
@@ -138,26 +124,20 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
                 }
               }
               break;
-
             case FileDeleteEvent(deletedFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
               final parentAsyncValue = state[parentUri];
-              
               if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
                 final parentContents = parentAsyncValue.value;
                 state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
               }
-
               if (file.isDirectory) {
                 if (state.containsKey(file.uri)) {
-                  // --- THIS IS THE FIX ---
-                  // Explicitly provide the type arguments to Map.from()
                   final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state)..remove(file.uri);
                   state = newState;
                 }
               }
               break;
-              
             case FileRenameEvent():
               final project = ref.read(appNotifierProvider).value!.currentProject;
               if (project != null) {
@@ -172,6 +152,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
 }
 
 // --- Providers ---
+// (These remain unchanged)
 
 final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService, Map<String, AsyncValue<List<FileTreeNode>>>>(
   ProjectHierarchyService.new,
@@ -180,7 +161,6 @@ final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService
 final flatFileIndexProvider = Provider.autoDispose<AsyncValue<List<DocumentFile>>>((ref) {
   final hierarchyState = ref.watch(projectHierarchyServiceProvider);
   final allFiles = <DocumentFile>[];
-  
   final addedUris = <String>{};
   for (final entry in hierarchyState.entries) {
     entry.value.whenData((nodes) {
