@@ -110,7 +110,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  void activateTab(EditorTab tab, WidgetRef ref) {
+  void activateTab(EditorTab tab, Ref ref) {
     // THE FIX: When a code editor tab becomes active, check its state.
     // If it has a selection, restore the selection-specific AppBar.
     final editorState = ref.read(codeEditorStateProvider(tab.id));
@@ -122,7 +122,7 @@ class CodeEditorPlugin implements EditorPlugin {
   }
 
   @override
-  void deactivateTab(EditorTab tab, WidgetRef ref) {
+  void deactivateTab(EditorTab tab, Ref ref) {
     // THE FIX: When a code editor tab is no longer active, it must
     // clean up any global UI it was controlling. This prevents the
     // selection AppBar from getting "stuck" when switching to another tab.
