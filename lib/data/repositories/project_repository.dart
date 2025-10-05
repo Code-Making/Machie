@@ -1,16 +1,11 @@
-// =========================================
-// UPDATED: lib/data/repositories/project_repository.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/file_handler/file_handler.dart';
-import 'project_hierarchy_cache.dart';
+import '../file_handler/file_handler.dart';
 import '../../logs/logs_provider.dart';
-import '../../data/dto/project_dto.dart';
+import '../dto/project_dto.dart';
 
-// ... (FileOperationEvent and providers are unchanged) ...
+// ... (FileOperationEvent and related providers are unchanged) ...
 sealed class FileOperationEvent {
   const FileOperationEvent();
 }
@@ -43,21 +38,13 @@ final fileOperationStreamProvider =
       return ref.watch(fileOperationControllerProvider).stream;
     });
 
-final projectHierarchyProvider = StateNotifierProvider.autoDispose<
-  ProjectHierarchyCache,
-  Map<String, List<DocumentFile>>
->((ref) {
-  final repo = ref.watch(projectRepositoryProvider);
-  if (repo == null) {
-    return ProjectHierarchyCache(null, ref.read(talkerProvider));
-  }
-  return ProjectHierarchyCache(repo.fileHandler, ref.read(talkerProvider));
-});
+// REMOVED projectHierarchyProvider
 
 final projectRepositoryProvider = StateProvider<ProjectRepository?>(
   (ref) => null,
 );
 
+// ... (ProjectRepository abstract class is unchanged) ...
 abstract class ProjectRepository {
   FileHandler get fileHandler;
   Future<ProjectDto> loadProjectDto();
@@ -72,7 +59,6 @@ abstract class ProjectRepository {
   });
   Future<void> deleteDocumentFile(DocumentFile file);
   
-  // REFACTORED: These methods are now non-nullable.
   Future<DocumentFile> renameDocumentFile(
     DocumentFile file,
     String newName,
