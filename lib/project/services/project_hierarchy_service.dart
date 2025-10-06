@@ -26,7 +26,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   @override
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
     final talker = ref.read(talkerProvider);
-    talker.log('[HierarchyService] build() called.', pen: _penLifecycle);
+    talker.logCustom(HierararchyLog($1));
 
     // --- THIS IS THE FULLY CORRECTED LISTENER SETUP ---
 
@@ -36,10 +36,10 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       (previousId, nextId) {
         if (nextId != null) {
           final project = ref.read(appNotifierProvider).value!.currentProject!;
-          talker.log('[HierarchyService] Project changed to "${project.name}" ($nextId). Initializing.', pen: _penLifecycle);
+          talker.logCustom(HierararchyLog('[HierarchyService] Project changed to "${project.name}" ($nextId). Initializing.', pen: _penLifecycle));
           _initializeHierarchy(project);
         } else {
-          talker.log('[HierarchyService] Project closed. Clearing state.', pen: _penLifecycle);
+          talker.logCustom(HierararchyLog('[HierarchyService] Project closed. Clearing state.', pen: _penLifecycle));
           state = {};
         }
       },
@@ -68,7 +68,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
         if (previous != null && previous != next) {
           final project = ref.read(appNotifierProvider).value?.currentProject;
           if (project != null) {
-            talker.log('[HierarchyService] Hidden file visibility changed to $next. Reloading hierarchy.', pen: _penLifecycle);
+            talker.logCustom(HierararchyLog('[HierarchyService] Hidden file visibility changed to $next. Reloading hierarchy.', pen: _penLifecycle));
             _initializeHierarchy(project);
           }
         }
@@ -164,15 +164,15 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   Future<List<FileTreeNode>?> loadDirectory(String uri) async {
     final talker = ref.read(talkerProvider);
     if (state[uri] is AsyncLoading) {
-      talker.log('[_loadDirectory] Already loading: $uri', pen: _penLazyLoad);
+      talker.logCustom(HierararchyLog('[_loadDirectory] Already loading: $uri', pen: _penLazyLoad));
       return null;
     }
     if (state[uri] is AsyncData) {
-      talker.log('[_loadDirectory] Already in cache: $uri', pen: _penLazyLoad);
+      talker.logCustom(HierararchyLog('[_loadDirectory] Already in cache: $uri', pen: _penLazyLoad));
       return state[uri]?.value;
     }
 
-    talker.log('[_loadDirectory] Fetching from disk: $uri', pen: _penLazyLoad);
+    talker.logCustom(HierararchyLog('[_loadDirectory] Fetching from disk: $uri', pen: _penLazyLoad));
 
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return null;
@@ -187,7 +187,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       final items = await repo.listDirectory(uri, includeHidden: showHidden);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
       state = {...state, uri: AsyncData(nodes)};
-      talker.log('[_loadDirectory] Success (${nodes.length} items): $uri', pen: _penLazyLoad);
+      talker.logCustom(HierararchyLog('[_loadDirectory] Success (${nodes.length} items): $uri', pen: _penLazyLoad));
       return nodes;
     } catch (e, st) {
       talker.handle(e, st, '[_loadDirectory] Error: $uri');
@@ -199,7 +199,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   void _startFullBackgroundScan(Project project) {
     unawaited(Future(() async {
       final talker = ref.read(talkerProvider);
-      talker.log('[BackgroundScan] Starting full scan.', pen: _penBackground);
+      talker.logCustom(HierararchyLog('[BackgroundScan] Starting full scan.', pen: _penBackground));
       
       final queue = <String>[project.rootUri];
       final Set<String> processedUris = {project.rootUri};
@@ -207,7 +207,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
 
       while (queue.isNotEmpty) {
         if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
-          talker.log('[BackgroundScan] Project changed, abandoning scan.', pen: _penBackground);
+          talker.logCustom(HierararchyLog('[BackgroundScan] Project changed, abandoning scan.', pen: _penBackground));
           return;
         }
 
@@ -230,7 +230,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
         scannedCount++;
         await Future.delayed(Duration.zero);
       }
-      talker.log('[BackgroundScan] Full scan complete. Scanned $scannedCount directories.', pen: _penBackground);
+      talker.logCustom(HierararchyLog('[BackgroundScan] Full scan complete. Scanned $scannedCount directories.', pen: _penBackground));
     }));
   }
 }
