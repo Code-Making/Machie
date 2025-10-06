@@ -770,6 +770,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         : const [
             FontFeature.disable('liga'), // Standard Ligatures
             FontFeature.disable('clig'), // Contextual Ligatures
+            FontFeature.disable('calt'), // Contextual Ligatures
           ];
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
