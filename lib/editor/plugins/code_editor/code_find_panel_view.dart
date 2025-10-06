@@ -252,7 +252,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     required bool checked,
     required VoidCallback onPressed,
   }) {
-    const Color activeColor = Colors.green;
+    Color activeColor = Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onPressed,
       child: MouseRegion(
