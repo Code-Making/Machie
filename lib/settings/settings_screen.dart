@@ -79,6 +79,8 @@ class _GeneralSettingsCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildThemeSettings(context, notifier),
+              const Divider(height: 32),
+            _buildFileExplorerSettings(context, notifier), // <-- ADDED THIS SECTION
             const Divider(height: 32),
             _buildFullscreenSettings(context, notifier),
           ],
@@ -126,6 +128,26 @@ class _GeneralSettingsCard extends ConsumerWidget {
                   ),
                 );
               }).toList(),
+        ),
+      ],
+    );
+  }
+  
+    Widget _buildFileExplorerSettings(BuildContext context, SettingsNotifier notifier) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('File Explorer', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          title: const Text('Show Hidden Files'),
+          subtitle: const Text('Displays files and folders starting with a dot (e.g., .git)'),
+          value: settings.showHiddenFiles,
+          onChanged: (value) {
+            notifier.updatePluginSettings(
+              settings.copyWith(showHiddenFiles: value),
+            );
+          },
         ),
       ],
     );

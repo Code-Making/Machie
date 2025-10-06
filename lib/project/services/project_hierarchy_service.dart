@@ -39,9 +39,20 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       fireImmediately: true,
     );
 
-    // REMOVED: The ref.onDispose block for closing subscriptions is gone.
-    // Riverpod handles this automatically for listeners created in `build`.
-
+ref.listen<bool>(
+      settingsProvider.select((s) {
+        final generalSettings = s.pluginSettings[GeneralSettings] as GeneralSettings?;
+        return generalSettings?.showHiddenFiles ?? false;
+      }),
+      (previous, next) {
+        // If the setting changes while a project is open, trigger a full reload.
+        final project = ref.read(appNotifierProvider).value?.currentProject;
+        if (project != null && previous != next) {
+          ref.read(talkerProvider).info('Hidden file visibility changed. Reloading file hierarchy.');
+          _initializeHierarchy(project);
+        }
+      },
+    );
     return {};
   }
 
@@ -62,7 +73,12 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
     if (repo == null) return null;
     state = {...state, uri: const AsyncLoading()};
     try {
-      final items = await repo.listDirectory(uri);
+      final showHidden = ref.read(settingsProvider.select((s) {
+        final generalSettings = s.pluginSettings[GeneralSettings] as GeneralSettings?;
+        return generalSettings?.showHiddenFiles ?? false;
+      }));
+
+      final items = await repo.listDirectory(uri, includeHidden: showHidden);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
       state = {...state, uri: AsyncData(nodes)};
       return nodes;
