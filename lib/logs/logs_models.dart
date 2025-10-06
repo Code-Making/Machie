@@ -1,3 +1,5 @@
+import 'package:talker_flutter/talker_flutter.dart';
+
 /*class FileOperationEvent extends TalkerLog {
   final String operation;
   final String path;
@@ -8,3 +10,29 @@
   AnsiPen get pen => AnsiPen()..xterm(75); // Light blue color
 }
 */
+
+class FileOperationLog extends TalkerLog { 
+    FileOperationLog(String super.message); 
+
+    /// Log title 
+    static get getTitle => 'File Operation';
+
+    /// Log key 
+    static get getKey => 'file_operation';
+
+    /// Log color 
+    static get getPen => AnsiPen()..yellow(); 
+
+    /// The following overrides are required because the base class expects instance getters,
+    /// but we use static getters to allow for easy customization and reuse of colors, titles, and keys.
+    /// This approach works around limitations in the base class API, which does not support passing custom values
+    /// directly to the constructor or as parameters, so we override the instance getters to return the static values.
+    @override 
+    String get title => getTitle; 
+
+    @override 
+    String get key => getKey; 
+
+    @override 
+    AnsiPen get pen => getPen; 
+ } 
