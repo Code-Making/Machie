@@ -24,8 +24,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
     // By calling ref.listen here, Riverpod manages the subscription's lifecycle.
     // It will be automatically closed when this provider is disposed.
-    ref.listen<Project?>(
-      appNotifierProvider.select((s) => s.value?.currentProject),
+    ref.listen<String?>(appNotifierProvider.select((s) => s.value?.currentProject?.id)
       (previous, next) {
         // We still need to clean up the file op listener when the project changes.
         // But we don't need a member variable for it. We can just re-listen.
