@@ -262,7 +262,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           child: Text(
             text,
             style: TextStyle(
-              color: checked ? activeColor : iconColor,
+              color: checked ? iconSelectedColor : iconColor,
               fontSize: inputFontSize,
             ),
           ),

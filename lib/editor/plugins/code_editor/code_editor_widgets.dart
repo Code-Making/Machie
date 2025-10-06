@@ -781,7 +781,12 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         focusNode: _focusNode,
         findController: findController,
         findBuilder: (context, controller, readOnly) {
-          return CodeFindPanelView(controller: controller, readOnly: readOnly);
+          return CodeFindPanelView(
+            controller: controller,
+            iconSelectedColor: colorScheme.primary, // The main accent color
+            iconColor: colorScheme.onSurface.withOpacity(0.6), // A good default for inactive icons
+            readOnly: readOnly
+          );
         },
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
