@@ -26,7 +26,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   @override
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
     final talker = ref.read(talkerProvider);
-    talker.logCustom(HierararchyLog($1));
+    talker.logCustom(HierarchyLog('[HierarchyService] build() called.', pen: _penLifecycle));
 
     // --- THIS IS THE FULLY CORRECTED LISTENER SETUP ---
 
@@ -152,7 +152,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   // REMOVED _listenForFileChanges method as it's now inline in build()
 
   Future<void> _initializeHierarchy(Project project) async {
-    ref.read(talkerProvider).log('[HierarchyService] _initializeHierarchy starting.', pen: _penLifecycle);
+    ref.read(talkerProvider).logCustom(HierarchyLog('[HierarchyService] _initializeHierarchy starting.', pen: _penLifecycle));
     state = {};
     final rootNodes = await loadDirectory(project.rootUri);
     if (rootNodes != null) {
