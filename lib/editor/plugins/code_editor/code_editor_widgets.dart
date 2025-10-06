@@ -764,7 +764,13 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       ),
     );
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-
+    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
+    final List<FontFeature>? fontFeatures = enableLigatures
+        ? null // Use null (or const []) to enable default font features including ligatures
+        : const [
+            FontFeature.disable('liga'), // Standard Ligatures
+            FontFeature.disable('clig'), // Contextual Ligatures
+          ];
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
       onKeyEvent: _handleKeyEvent,
@@ -805,6 +811,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           fontHeight: codeEditorSettings?.fontHeight,
           fontSize: codeEditorSettings?.fontSize ?? 12.0,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+          fontFeatures: fontFeatures, // <-- APPLY THE NEW PROPERTY HERE
           codeTheme: CodeHighlightTheme(
             theme:
                 CodeThemes.availableCodeThemes[selectedThemeName] ??

@@ -36,14 +36,16 @@ class CodeEditorSettings extends PluginSettings {
   double fontSize;
   String fontFamily;
   String themeName;
-  double? fontHeight; // <-- ADDED
+  double? fontHeight;
+  bool fontLigatures; // <-- ADDED
 
   CodeEditorSettings({
     this.wordWrap = false,
     this.fontSize = 14,
     this.fontFamily = 'JetBrainsMono',
     this.themeName = 'Atom One Dark',
-    this.fontHeight, // <-- ADDED
+    this.fontHeight,
+    this.fontLigatures = true, // <-- ADDED (default to enabled)
   });
 
   @override
@@ -52,7 +54,8 @@ class CodeEditorSettings extends PluginSettings {
     'fontSize': fontSize,
     'fontFamily': fontFamily,
     'themeName': themeName,
-    'fontHeight': fontHeight, // <-- ADDED
+    'fontHeight': fontHeight,
+    'fontLigatures': fontLigatures, // <-- ADDED
   };
 
   @override
@@ -61,9 +64,8 @@ class CodeEditorSettings extends PluginSettings {
     fontSize = json['fontSize']?.toDouble() ?? 14;
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
     themeName = json['themeName'] ?? 'Atom One Dark';
-    fontHeight =
-        json['fontHeight']
-            ?.toDouble(); // <-- ADDED (will be null if not present)
+    fontHeight = json['fontHeight']?.toDouble();
+    fontLigatures = json['fontLigatures'] ?? true; // <-- ADDED
   }
 
   CodeEditorSettings copyWith({
@@ -71,20 +73,17 @@ class CodeEditorSettings extends PluginSettings {
     double? fontSize,
     String? fontFamily,
     String? themeName,
-    double? fontHeight, // <-- ADDED
-    bool setFontHeightToNull = false, // <-- ADDED special flag
+    double? fontHeight,
+    bool setFontHeightToNull = false,
+    bool? fontLigatures, // <-- ADDED
   }) {
     return CodeEditorSettings(
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,
       fontFamily: fontFamily ?? this.fontFamily,
       themeName: themeName ?? this.themeName,
-      // If the special flag is set, force fontHeight to be null.
-      // Otherwise, use the provided value or the existing one.
-      fontHeight:
-          setFontHeightToNull
-              ? null
-              : (fontHeight ?? this.fontHeight), // <-- ADDED
+      fontHeight: setFontHeightToNull ? null : (fontHeight ?? this.fontHeight),
+      fontLigatures: fontLigatures ?? this.fontLigatures, // <-- ADDED
     );
   }
 }
