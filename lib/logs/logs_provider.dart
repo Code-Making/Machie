@@ -10,6 +10,12 @@ export 'logs_models.dart';
 final talkerProvider = Provider<Talker>((ref) {
   return TalkerFlutter.init(
     logger: TalkerLogger(settings: TalkerLoggerSettings()),
-    settings: TalkerSettings(enabled: true, useConsoleLogs: true),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+      colors: {
+        FileOperationLog.getKey: FileOperationLog.getPen,
+      },
+    ),
   );
 });
