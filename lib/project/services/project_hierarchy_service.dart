@@ -1,7 +1,7 @@
 // lib/project/services/project_hierarchy_service.dart
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:talker/talker.dart'; // Import for AnsiPen
+import 'package:talker/talker.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -10,11 +10,11 @@ import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../settings/settings_notifier.dart';
 
-// --- Logging Categories ---
-final _penLifecycle = AnsiPen()..cyan(bold: true);    // For init, start, stop
-final _penLazyLoad = AnsiPen()..magenta();             // For on-demand loading
-final _penBackground = AnsiPen()..blue();              // For the full background scan
-final _penEvents = AnsiPen()..yellow();                // For file system events (create, delete, rename)
+// (Logging categories remain the same)
+final _penLifecycle = AnsiPen()..cyan(bold: true);
+final _penLazyLoad = AnsiPen()..magenta();
+final _penBackground = AnsiPen()..blue();
+final _penEvents = AnsiPen()..yellow();
 
 // (FileTreeNode class remains the same)
 class FileTreeNode {
@@ -28,6 +28,9 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
     final talker = ref.read(talkerProvider);
     talker.log('[HierarchyService] build() called.', pen: _penLifecycle);
 
+    // --- THIS IS THE FULLY CORRECTED LISTENER SETUP ---
+
+    // 1. Listen for project changes to initialize or clear the hierarchy.
     ref.listen<String?>(
       appNotifierProvider.select((s) => s.value?.currentProject?.id),
       (previousId, nextId) {
@@ -35,7 +38,6 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
           final project = ref.read(appNotifierProvider).value!.currentProject!;
           talker.log('[HierarchyService] Project changed to "${project.name}" ($nextId). Initializing.', pen: _penLifecycle);
           _initializeHierarchy(project);
-          _listenForFileChanges(project.id);
         } else {
           talker.log('[HierarchyService] Project closed. Clearing state.', pen: _penLifecycle);
           state = {};
@@ -44,6 +46,19 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       fireImmediately: true,
     );
 
+    // 2. Listen for file operation events. This listener is set up ONCE.
+    ref.listen<AsyncValue<FileOperationEvent>>(
+      fileOperationStreamProvider,
+      (previous, next) {
+        // Get the current project ID each time an event occurs.
+        final currentProjectId = ref.read(appNotifierProvider).value?.currentProject?.id;
+        if (currentProjectId == null) return; // Ignore events if no project is open
+
+        next.whenData((event) => _handleFileEvent(event));
+      },
+    );
+
+    // 3. Listen for hidden file setting changes.
     ref.listen<bool>(
       settingsProvider.select((s) {
         final generalSettings = s.pluginSettings[GeneralSettings] as GeneralSettings?;
@@ -63,6 +78,79 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
     return {};
   }
 
+  // --- The rest of the logic is now sound ---
+
+  void _handleFileEvent(FileOperationEvent event) {
+      final repo = ref.read(projectRepositoryProvider);
+      final talker = ref.read(talkerProvider);
+      if (repo == null) return;
+
+      switch (event) {
+        case FileCreateEvent(createdFile: final file):
+          final parentUri = repo.fileHandler.getParentUri(file.uri);
+          talker.log('[FileEvents] Create: "${file.name}" in "$parentUri"', pen: _penEvents);
+          final parentAsyncValue = state[parentUri];
+          if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
+            final parentContents = parentAsyncValue.value;
+            if (!parentContents.any((node) => node.file.uri == file.uri)) {
+                state = {...state, parentUri: AsyncData([...parentContents, FileTreeNode(file)])};
+            }
+          }
+          break;
+
+        case FileDeleteEvent(deletedFile: final file):
+          final parentUri = repo.fileHandler.getParentUri(file.uri);
+          talker.log('[FileEvents] Delete: "${file.name}" from "$parentUri"', pen: _penEvents);
+          final parentAsyncValue = state[parentUri];
+          if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
+            final parentContents = parentAsyncValue.value;
+            state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
+          }
+          if (file.isDirectory) {
+            if (state.containsKey(file.uri)) {
+              talker.log('[FileEvents] Removing deleted directory from cache: "${file.uri}"', pen: _penEvents);
+              final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state)..remove(file.uri);
+              state = newState;
+            }
+          }
+          break;
+        
+        case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
+          final sourceParentUri = repo.fileHandler.getParentUri(oldFile.uri);
+          final destParentUri = repo.fileHandler.getParentUri(newFile.uri);
+          talker.log('[FileEvents] Rename/Move: "${oldFile.name}" -> "${newFile.name}"', pen: _penEvents);
+          
+          final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state);
+          
+          final sourceParentAsyncValue = newState[sourceParentUri];
+          if (sourceParentAsyncValue is AsyncData<List<FileTreeNode>>) {
+            final sourceContents = sourceParentAsyncValue.value;
+            newState[sourceParentUri] = AsyncData(sourceContents.where((node) => node.file.uri != oldFile.uri).toList());
+          }
+
+          final destParentAsyncValue = newState[destParentUri];
+          if (destParentAsyncValue is AsyncData<List<FileTreeNode>>) {
+            final destContents = destParentAsyncValue.value;
+            if (!destContents.any((node) => node.file.uri == newFile.uri)) {
+                newState[destParentUri] = AsyncData([...destContents, FileTreeNode(newFile)]);
+            }
+          }
+
+          if (oldFile.isDirectory) {
+            talker.log('[FileEvents] Invalidating cache for renamed folder: ${oldFile.uri}', pen: _penEvents);
+            final keysToRemove = newState.keys.where((key) => key.startsWith(oldFile.uri)).toList();
+            for (final key in keysToRemove) {
+              newState.remove(key);
+            }
+          }
+          
+          state = newState;
+          break;
+      }
+  }
+
+  // REMOVED _listenForFileChanges method as it's now inline in build()
+
   Future<void> _initializeHierarchy(Project project) async {
     ref.read(talkerProvider).log('[HierarchyService] _initializeHierarchy starting.', pen: _penLifecycle);
     state = {};
@@ -72,6 +160,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
     }
   }
 
+  // (loadDirectory and _startFullBackgroundScan are unchanged from the last correct version)
   Future<List<FileTreeNode>?> loadDirectory(String uri) async {
     final talker = ref.read(talkerProvider);
     if (state[uri] is AsyncLoading) {
@@ -144,97 +233,10 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       talker.log('[BackgroundScan] Full scan complete. Scanned $scannedCount directories.', pen: _penBackground);
     }));
   }
-
-  void _listenForFileChanges(String projectId) {
-    final talker = ref.read(talkerProvider);
-    talker.log('[FileEvents] Attaching listener for project $projectId', pen: _penEvents);
-
-    ref.listen<AsyncValue<FileOperationEvent>>(
-      fileOperationStreamProvider,
-      (previous, next) {
-        if (ref.read(appNotifierProvider).value?.currentProject?.id != projectId) {
-          return;
-        }
-
-        next.whenData((event) {
-          final repo = ref.read(projectRepositoryProvider);
-          if (repo == null) return;
-
-          switch (event) {
-            case FileCreateEvent(createdFile: final file):
-              final parentUri = repo.fileHandler.getParentUri(file.uri);
-              talker.log('[FileEvents] Create: "${file.name}" in "$parentUri"', pen: _penEvents);
-              final parentAsyncValue = state[parentUri];
-              if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
-                final parentContents = parentAsyncValue.value;
-                if (!parentContents.any((node) => node.file.uri == file.uri)) {
-                   state = {...state, parentUri: AsyncData([...parentContents, FileTreeNode(file)])};
-                }
-              }
-              break;
-
-            case FileDeleteEvent(deletedFile: final file):
-              final parentUri = repo.fileHandler.getParentUri(file.uri);
-              talker.log('[FileEvents] Delete: "${file.name}" from "$parentUri"', pen: _penEvents);
-              final parentAsyncValue = state[parentUri];
-              if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
-                final parentContents = parentAsyncValue.value;
-                state = {...state, parentUri: AsyncData(parentContents.where((node) => node.file.uri != file.uri).toList())};
-              }
-              if (file.isDirectory) {
-                if (state.containsKey(file.uri)) {
-                  talker.log('[FileEvents] Removing deleted directory from cache: "${file.uri}"', pen: _penEvents);
-                  final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state)..remove(file.uri);
-                  state = newState;
-                }
-              }
-              break;
-            
-            case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
-              final sourceParentUri = repo.fileHandler.getParentUri(oldFile.uri);
-              final destParentUri = repo.fileHandler.getParentUri(newFile.uri);
-              talker.log('[FileEvents] Rename/Move: "${oldFile.name}" -> "${newFile.name}"', pen: _penEvents);
-              talker.log('  Source Parent: $sourceParentUri', pen: _penEvents);
-              talker.log('  Dest Parent:   $destParentUri', pen: _penEvents);
-
-              final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state);
-              
-              // 1. Remove from source
-              final sourceParentAsyncValue = newState[sourceParentUri];
-              if (sourceParentAsyncValue is AsyncData<List<FileTreeNode>>) {
-                final sourceContents = sourceParentAsyncValue.value;
-                newState[sourceParentUri] = AsyncData(sourceContents.where((node) => node.file.uri != oldFile.uri).toList());
-              }
-
-              // 2. Add to destination
-              final destParentAsyncValue = newState[destParentUri];
-              if (destParentAsyncValue is AsyncData<List<FileTreeNode>>) {
-                final destContents = destParentAsyncValue.value;
-                if (!destContents.any((node) => node.file.uri == newFile.uri)) {
-                   newState[destParentUri] = AsyncData([...destContents, FileTreeNode(newFile)]);
-                }
-              }
-
-              // 3. Invalidate old directory cache
-              if (oldFile.isDirectory) {
-                talker.log('[FileEvents] Invalidating cache for renamed folder: ${oldFile.uri}', pen: _penEvents);
-                final keysToRemove = newState.keys.where((key) => key.startsWith(oldFile.uri)).toList();
-                for (final key in keysToRemove) {
-                  newState.remove(key);
-                }
-              }
-              
-              state = newState;
-              break;
-          }
-        });
-      },
-    );
-  }
 }
 
 // --- Providers ---
-
+// (These remain unchanged)
 final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService, Map<String, AsyncValue<List<FileTreeNode>>>>(
   ProjectHierarchyService.new,
 );
