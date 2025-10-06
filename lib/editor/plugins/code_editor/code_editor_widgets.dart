@@ -763,6 +763,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
     final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
     final List<FontFeature>? fontFeatures = enableLigatures
