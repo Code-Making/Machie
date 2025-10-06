@@ -35,8 +35,7 @@ class NewProjectScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final projectTypes = ref.watch(projectTypesProvider);
 
-    return SafeArea(
-    child : Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: const Text('Create or Open Project'),
         automaticallyImplyLeading: false,
@@ -73,7 +72,6 @@ class NewProjectScreen extends ConsumerWidget {
           );
         },
       ),
-    ),
     );
   }
 }

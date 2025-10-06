@@ -171,6 +171,7 @@ class ProjectSwitcherDropdown extends ConsumerWidget {
             Navigator.pop(context); // Close drawer before opening modal
             showModalBottomSheet(
               context: context,
+              useSafeArea: true,
               builder: (ctx) => const ManageProjectsScreen(),
             );
           } else if (projectId != null && projectId != currentProject.id) {
@@ -223,6 +224,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
   void _showNewProjectScreen(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => const NewProjectScreen(),
     );
@@ -299,6 +301,7 @@ class ManageProjectsScreen extends ConsumerWidget {
   void _showNewProjectScreen(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => const NewProjectScreen(),
     );
