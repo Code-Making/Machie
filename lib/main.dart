@@ -12,8 +12,6 @@ import 'app/lifecycle.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
-import 'package:talker_logger/talker_logger.dart';
-
 import 'project/services/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
@@ -111,10 +109,6 @@ void main() {
       enabled: true,
       useConsoleLogs: true,
       colors: {
-        // Colors for default log types can be defined with AnsiPen
-        TalkerLogType.httpResponse.key: AnsiPen()..red(),
-        TalkerLogType.error.key: AnsiPen()..green(),
-        TalkerLogType.info.key: AnsiPen()..blue(),
         FileOperationLog.getKey: FileOperationLog.getPen,
       },
     ),
