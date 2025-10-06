@@ -26,6 +26,8 @@ class GeneralSettings extends MachineSettings {
   // NEW: Theme properties
   ThemeMode themeMode;
   int accentColorValue;
+  bool showHiddenFiles; // <-- ADDED
+
 
   GeneralSettings({
     this.hideAppBarInFullScreen = true,
@@ -34,6 +36,7 @@ class GeneralSettings extends MachineSettings {
     // NEW: Default values
     this.themeMode = ThemeMode.dark,
     this.accentColorValue = 0xFFF44336, // Default Red
+    this.showHiddenFiles = false, // <-- ADDED (default to false)
   });
 
   @override
@@ -48,6 +51,7 @@ class GeneralSettings extends MachineSettings {
       (e) => e.name == json['themeMode'],
       orElse: () => ThemeMode.dark, // Safe fallback
     );
+    showHiddenFiles = json['showHiddenFiles'] ?? false; // <-- ADDED
   }
 
   @override
@@ -58,6 +62,7 @@ class GeneralSettings extends MachineSettings {
     // NEW: Serialize theme properties
     'accentColorValue': accentColorValue,
     'themeMode': themeMode.name,
+    'showHiddenFiles': showHiddenFiles, // <-- ADDED
   };
 
   GeneralSettings copyWith({
@@ -67,6 +72,7 @@ class GeneralSettings extends MachineSettings {
     // NEW: Add to copyWith
     ThemeMode? themeMode,
     int? accentColorValue,
+    bool? showHiddenFiles, // <-- ADDED
   }) {
     return GeneralSettings(
       hideAppBarInFullScreen:
@@ -77,6 +83,7 @@ class GeneralSettings extends MachineSettings {
           hideBottomToolbarInFullScreen ?? this.hideBottomToolbarInFullScreen,
       themeMode: themeMode ?? this.themeMode,
       accentColorValue: accentColorValue ?? this.accentColorValue,
+      showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles, // <-- ADDED
     );
   }
 }
