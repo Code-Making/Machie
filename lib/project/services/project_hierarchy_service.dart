@@ -88,7 +88,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       switch (event) {
         case FileCreateEvent(createdFile: final file):
           final parentUri = repo.fileHandler.getParentUri(file.uri);
-          talker.log('[FileEvents] Create: "${file.name}" in "$parentUri"', pen: _penEvents);
+          talker.logCustom(FileOperationLog(' Create: "${file.name}" in "$parentUri"');
           final parentAsyncValue = state[parentUri];
           if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
             final parentContents = parentAsyncValue.value;
@@ -100,7 +100,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
 
         case FileDeleteEvent(deletedFile: final file):
           final parentUri = repo.fileHandler.getParentUri(file.uri);
-          talker.log('[FileEvents] Delete: "${file.name}" from "$parentUri"', pen: _penEvents);
+          talker.logCustom(FileOperationLog(' Delete: "${file.name}" from "$parentUri"');
           final parentAsyncValue = state[parentUri];
           if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
             final parentContents = parentAsyncValue.value;
@@ -108,7 +108,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
           }
           if (file.isDirectory) {
             if (state.containsKey(file.uri)) {
-              talker.log('[FileEvents] Removing deleted directory from cache: "${file.uri}"', pen: _penEvents);
+              talker.logCustom(FileOperationLog(' Removing deleted directory from cache: "${file.uri}"');
               final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state)..remove(file.uri);
               state = newState;
             }
@@ -118,7 +118,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
         case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
           final sourceParentUri = repo.fileHandler.getParentUri(oldFile.uri);
           final destParentUri = repo.fileHandler.getParentUri(newFile.uri);
-          talker.log('[FileEvents] Rename/Move: "${oldFile.name}" -> "${newFile.name}"', pen: _penEvents);
+          talker.logCustom(FileOperationLog(' Rename/Move: "${oldFile.name}" -> "${newFile.name}"');
           
           final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state);
           
@@ -137,7 +137,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
           }
 
           if (oldFile.isDirectory) {
-            talker.log('[FileEvents] Invalidating cache for renamed folder: ${oldFile.uri}', pen: _penEvents);
+            talker.logCustom(FileOperationLog(' Invalidating cache for renamed folder: ${oldFile.uri}');
             final keysToRemove = newState.keys.where((key) => key.startsWith(oldFile.uri)).toList();
             for (final key in keysToRemove) {
               newState.remove(key);
