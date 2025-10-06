@@ -24,16 +24,17 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
     // By calling ref.listen here, Riverpod manages the subscription's lifecycle.
     // It will be automatically closed when this provider is disposed.
-    ref.listen<String?>(appNotifierProvider.select((s) => s.value?.currentProject?.id)
-      (previous, next) {
-        // We still need to clean up the file op listener when the project changes.
-        // But we don't need a member variable for it. We can just re-listen.
-        if (next != null) {
+    ref.listen<String?>(
+      appNotifierProvider.select((s) => s.value?.currentProject?.id),
+      (previousId, nextId) {
+        if (nextId != null) {
+          // The project has changed. Get the full project object.
+          final project = ref.read(appNotifierProvider).value!.currentProject!;
           state = {};
-          _initializeHierarchy(next);
-          _listenForFileChanges();
+          _initializeHierarchy(project);
+          _listenForFileChanges(project.id); // Pass project ID for context
         } else {
-          state = {};
+          state = {}; // A project was closed
         }
       },
       fireImmediately: true,
@@ -120,12 +121,15 @@ ref.listen<bool>(
     }));
   }
 
-  void _listenForFileChanges() {
-    // This listener is now also automatically managed by Riverpod.
-    // We don't need to store its subscription.
+  void _listenForFileChanges(String projectId) {
     ref.listen<AsyncValue<FileOperationEvent>>(
       fileOperationStreamProvider,
       (previous, next) {
+        // Only process events if we are still in the same project context.
+        if (ref.read(appNotifierProvider).value?.currentProject?.id != projectId) {
+          return;
+        }
+
         next.whenData((event) {
           final repo = ref.read(projectRepositoryProvider);
           if (repo == null) return;
