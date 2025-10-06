@@ -1,5 +1,5 @@
 // lib/project/services/project_hierarchy_service.dart
-import 'dart:async';
+import 'dart.async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
@@ -7,7 +7,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
-import '../../settings/settings_notifier.dart'; // <-- ADDED IMPORT
+import '../../settings/settings_notifier.dart';
 
 // (FileTreeNode class remains the same)
 class FileTreeNode {
@@ -16,50 +16,43 @@ class FileTreeNode {
 }
 
 class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileTreeNode>>>> {
-  // REMOVED: These member variables are no longer needed.
-  // ProviderSubscription? _projectSubscription;
-  // ProviderSubscription? _fileOpSubscription;
-
   @override
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
-    // By calling ref.listen here, Riverpod manages the subscription's lifecycle.
-    // It will be automatically closed when this provider is disposed.
     ref.listen<String?>(
       appNotifierProvider.select((s) => s.value?.currentProject?.id),
       (previousId, nextId) {
         if (nextId != null) {
-          // The project has changed. Get the full project object.
           final project = ref.read(appNotifierProvider).value!.currentProject!;
-          state = {};
           _initializeHierarchy(project);
-          _listenForFileChanges(project.id); // Pass project ID for context
+          _listenForFileChanges(project.id);
         } else {
-          state = {}; // A project was closed
+          state = {};
         }
       },
       fireImmediately: true,
     );
 
-ref.listen<bool>(
+    ref.listen<bool>(
       settingsProvider.select((s) {
         final generalSettings = s.pluginSettings[GeneralSettings] as GeneralSettings?;
         return generalSettings?.showHiddenFiles ?? false;
       }),
       (previous, next) {
-        // If the setting changes while a project is open, trigger a full reload.
-        final project = ref.read(appNotifierProvider).value?.currentProject;
-        if (project != null && previous != next) {
-          ref.read(talkerProvider).info('Hidden file visibility changed. Reloading file hierarchy.');
-          _initializeHierarchy(project);
+        if (previous != null && previous != next) {
+          final project = ref.read(appNotifierProvider).value?.currentProject;
+          if (project != null) {
+            ref.read(talkerProvider).info('Hidden file visibility changed. Reloading file hierarchy.');
+            _initializeHierarchy(project);
+          }
         }
       },
     );
+
     return {};
   }
 
-  // (The rest of the class logic is identical, as it was already correct)
-
   Future<void> _initializeHierarchy(Project project) async {
+    state = {};
     final rootNodes = await loadDirectory(project.rootUri);
     if (rootNodes != null) {
       _startFullBackgroundScan(project);
@@ -72,13 +65,14 @@ ref.listen<bool>(
     }
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return null;
+    
     state = {...state, uri: const AsyncLoading()};
+
     try {
       final showHidden = ref.read(settingsProvider.select((s) {
         final generalSettings = s.pluginSettings[GeneralSettings] as GeneralSettings?;
         return generalSettings?.showHiddenFiles ?? false;
       }));
-
       final items = await repo.listDirectory(uri, includeHidden: showHidden);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
       state = {...state, uri: AsyncData(nodes)};
@@ -94,8 +88,10 @@ ref.listen<bool>(
     unawaited(Future(() async {
       final talker = ref.read(talkerProvider);
       talker.info('[ProjectHierarchyService] Starting full background scan...');
+      
       final queue = <String>[project.rootUri];
       final Set<String> processedUris = {project.rootUri};
+
       while (queue.isNotEmpty) {
         if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
           talker.info('[ProjectHierarchyService] Project changed, abandoning background scan.');
@@ -125,7 +121,6 @@ ref.listen<bool>(
     ref.listen<AsyncValue<FileOperationEvent>>(
       fileOperationStreamProvider,
       (previous, next) {
-        // Only process events if we are still in the same project context.
         if (ref.read(appNotifierProvider).value?.currentProject?.id != projectId) {
           return;
         }
@@ -133,6 +128,7 @@ ref.listen<bool>(
         next.whenData((event) {
           final repo = ref.read(projectRepositoryProvider);
           if (repo == null) return;
+
           switch (event) {
             case FileCreateEvent(createdFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
@@ -144,6 +140,7 @@ ref.listen<bool>(
                 }
               }
               break;
+
             case FileDeleteEvent(deletedFile: final file):
               final parentUri = repo.fileHandler.getParentUri(file.uri);
               final parentAsyncValue = state[parentUri];
@@ -158,10 +155,38 @@ ref.listen<bool>(
                 }
               }
               break;
-            case FileRenameEvent():
-              final project = ref.read(appNotifierProvider).value!.currentProject;
-              if (project != null) {
-                 _initializeHierarchy(project);
+            
+            // --- THIS IS THE NEW, EFFICIENT RENAME LOGIC ---
+            case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
+              final parentUri = repo.fileHandler.getParentUri(newFile.uri);
+              final parentAsyncValue = state[parentUri];
+
+              // 1. Update the parent's listing
+              if (parentAsyncValue is AsyncData<List<FileTreeNode>>) {
+                final parentContents = parentAsyncValue.value;
+                final newParentContents = parentContents.where((node) => node.file.uri != oldFile.uri).toList();
+                newParentContents.add(FileTreeNode(newFile));
+                state = {...state, parentUri: AsyncData(newParentContents)};
+              }
+
+              // 2. If a directory was renamed, invalidate its cache and all descendant caches.
+              if (oldFile.isDirectory) {
+                final talker = ref.read(talkerProvider);
+                talker.info("Invalidating cache for renamed folder: ${oldFile.uri}");
+                
+                // Create a mutable copy of the state map
+                final newState = Map<String, AsyncValue<List<FileTreeNode>>>.from(state);
+                
+                // Find all keys that represent the old directory or its children
+                final keysToRemove = newState.keys.where((key) => key.startsWith(oldFile.uri)).toList();
+                
+                // Remove them all
+                for (final key in keysToRemove) {
+                  newState.remove(key);
+                }
+                
+                // Update the state with the pruned map. The UI will now lazy-load the new paths.
+                state = newState;
               }
               break;
           }
@@ -172,7 +197,6 @@ ref.listen<bool>(
 }
 
 // --- Providers ---
-// (These remain unchanged)
 
 final projectHierarchyServiceProvider = NotifierProvider<ProjectHierarchyService, Map<String, AsyncValue<List<FileTreeNode>>>>(
   ProjectHierarchyService.new,
