@@ -26,7 +26,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   @override
   Map<String, AsyncValue<List<FileTreeNode>>> build() {
     final talker = ref.read(talkerProvider);
-    talker.logCustom(HierarchyLog('[HierarchyService] build() called.', pen: _penLifecycle));
+    talker.logCustom(HierarchyLog('[HierarchyService] build() called.'));
 
     // --- THIS IS THE FULLY CORRECTED LISTENER SETUP ---
 
@@ -36,10 +36,10 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       (previousId, nextId) {
         if (nextId != null) {
           final project = ref.read(appNotifierProvider).value!.currentProject!;
-          talker.logCustom(HierararchyLog('[HierarchyService] Project changed to "${project.name}" ($nextId). Initializing.', pen: _penLifecycle));
+          talker.logCustom(HierarchyLog('[HierarchyService] Project changed to "${project.name}" ($nextId). Initializing.'));
           _initializeHierarchy(project);
         } else {
-          talker.logCustom(HierararchyLog('[HierarchyService] Project closed. Clearing state.', pen: _penLifecycle));
+          talker.logCustom(HierarchyLog('[HierarchyService] Project closed. Clearing state.'));
           state = {};
         }
       },
@@ -68,7 +68,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
         if (previous != null && previous != next) {
           final project = ref.read(appNotifierProvider).value?.currentProject;
           if (project != null) {
-            talker.logCustom(HierararchyLog('[HierarchyService] Hidden file visibility changed to $next. Reloading hierarchy.', pen: _penLifecycle));
+            talker.logCustom(HierarchyLog('[HierarchyService] Hidden file visibility changed to $next. Reloading hierarchy.'));
             _initializeHierarchy(project);
           }
         }
@@ -152,7 +152,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   // REMOVED _listenForFileChanges method as it's now inline in build()
 
   Future<void> _initializeHierarchy(Project project) async {
-    ref.read(talkerProvider).logCustom(HierarchyLog('[HierarchyService] _initializeHierarchy starting.', pen: _penLifecycle));
+    ref.read(talkerProvider).logCustom(HierarchyLog('[HierarchyService] _initializeHierarchy starting.'));
     state = {};
     final rootNodes = await loadDirectory(project.rootUri);
     if (rootNodes != null) {
@@ -164,15 +164,15 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   Future<List<FileTreeNode>?> loadDirectory(String uri) async {
     final talker = ref.read(talkerProvider);
     if (state[uri] is AsyncLoading) {
-      talker.logCustom(HierararchyLog('[_loadDirectory] Already loading: $uri', pen: _penLazyLoad));
+      talker.logCustom(HierarchyLog('[_loadDirectory] Already loading: $uri'));
       return null;
     }
     if (state[uri] is AsyncData) {
-      talker.logCustom(HierararchyLog('[_loadDirectory] Already in cache: $uri', pen: _penLazyLoad));
+      talker.logCustom(HierarchyLog('[_loadDirectory] Already in cache: $uri'));
       return state[uri]?.value;
     }
 
-    talker.logCustom(HierararchyLog('[_loadDirectory] Fetching from disk: $uri', pen: _penLazyLoad));
+    talker.logCustom(HierarchyLog('[_loadDirectory] Fetching from disk: $uri'));
 
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return null;
@@ -187,7 +187,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
       final items = await repo.listDirectory(uri, includeHidden: showHidden);
       final nodes = items.map((file) => FileTreeNode(file)).toList();
       state = {...state, uri: AsyncData(nodes)};
-      talker.logCustom(HierararchyLog('[_loadDirectory] Success (${nodes.length} items): $uri', pen: _penLazyLoad));
+      talker.logCustom(HierarchyLog('[_loadDirectory] Success (${nodes.length} items): $uri'));
       return nodes;
     } catch (e, st) {
       talker.handle(e, st, '[_loadDirectory] Error: $uri');
@@ -199,7 +199,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
   void _startFullBackgroundScan(Project project) {
     unawaited(Future(() async {
       final talker = ref.read(talkerProvider);
-      talker.logCustom(HierararchyLog('[BackgroundScan] Starting full scan.', pen: _penBackground));
+      talker.logCustom(HierarchyLog('[BackgroundScan] Starting full scan.'));
       
       final queue = <String>[project.rootUri];
       final Set<String> processedUris = {project.rootUri};
@@ -207,7 +207,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
 
       while (queue.isNotEmpty) {
         if (ref.read(appNotifierProvider).value?.currentProject?.id != project.id) {
-          talker.logCustom(HierararchyLog('[BackgroundScan] Project changed, abandoning scan.', pen: _penBackground));
+          talker.logCustom(HierarchyLog('[BackgroundScan] Project changed, abandoning scan.'));
           return;
         }
 
@@ -230,7 +230,7 @@ class ProjectHierarchyService extends Notifier<Map<String, AsyncValue<List<FileT
         scannedCount++;
         await Future.delayed(Duration.zero);
       }
-      talker.logCustom(HierararchyLog('[BackgroundScan] Full scan complete. Scanned $scannedCount directories.', pen: _penBackground));
+      talker.logCustom(HierarchyLog('[BackgroundScan] Full scan complete. Scanned $scannedCount directories.'));
     }));
   }
 }
