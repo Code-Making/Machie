@@ -105,7 +105,17 @@ final themeConfigProvider = Provider((ref) {
 void main() {
   final talker = TalkerFlutter.init(
     logger: TalkerLogger(settings: TalkerLoggerSettings()),
-    settings: TalkerSettings(enabled: true, useConsoleLogs: true),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+      colors: {
+        // Colors for default log types can be defined with AnsiPen
+        TalkerLogType.httpResponse.key: AnsiPen()..red(),
+        TalkerLogType.error.key: AnsiPen()..green(),
+        TalkerLogType.info.key: AnsiPen()..blue(),
+        FileOperationLog.getKey: FileOperationLog.getPen,
+      },
+    ),
   );
 
   final riverpodObserver = TalkerRiverpodObserver(
