@@ -2,7 +2,8 @@
 // UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart
 // =========================================
 
-import 'dart:convert'; // ADDED: Required for base64Encode and base64Decode.
+import 'dart:convert';
+import 'dart:typed_data'; // ADDED
 import '../../../data/cache/type_adapters.dart';
 import 'glitch_editor_hot_state_dto.dart';
 
@@ -10,26 +11,25 @@ import 'glitch_editor_hot_state_dto.dart';
 class GlitchEditorHotStateAdapter
     implements TypeAdapter<GlitchEditorHotStateDto> {
   static const String _imageDataKey = 'imageData';
+  static const String _hashKey = 'baseContentHash'; // <-- ADDED
 
-  // REFACTORED: This method now correctly handles binary-to-text conversion.
   @override
   GlitchEditorHotStateDto fromJson(Map<String, dynamic> json) {
-    // 1. Get the Base64 string from the JSON map.
     final base64String = json[_imageDataKey] as String? ?? '';
-
-    // 2. Decode the Base64 string back into its original binary (Uint8List) form.
     final imageData = base64Decode(base64String);
 
-    return GlitchEditorHotStateDto(imageData: imageData);
+    return GlitchEditorHotStateDto(
+      imageData: imageData,
+      baseContentHash: json[_hashKey] as String?, // <-- ADDED
+    );
   }
 
-  // REFACTORED: This method now correctly handles text-to-binary conversion.
   @override
   Map<String, dynamic> toJson(GlitchEditorHotStateDto object) {
-    // 1. Convert the binary imageData (Uint8List) into a text-safe Base64 string.
     final base64String = base64Encode(object.imageData);
-
-    // 2. Store the Base64 string in the JSON map.
-    return {_imageDataKey: base64String};
+    return {
+      _imageDataKey: base64String,
+      _hashKey: object.baseContentHash, // <-- ADDED
+    };
   }
 }

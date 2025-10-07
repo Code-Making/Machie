@@ -31,6 +31,8 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 
 class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // --- STATE ---
+  String? _baseContentHash;
+
   ui.Image? _displayImage;
   ui.Image? _originalImage;
   ui.Image? _strokeSample;
@@ -59,6 +61,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   @override
   void initState() {
     super.initState();
+    _baseContentHash = widget.tab.initialBaseContentHash; // <-- INITIALIZE IT
     _transformationController.addListener(_updateImageDisplayParams);
     _loadImage();
   }
@@ -118,8 +121,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     final Uint8List bytes = byteData.buffer.asUint8List();
 
     return {
-      // The key 'imageData' will be used to identify this data during rehydration.
       'imageData': bytes,
+      'baseContentHash': _baseContentHash, // <-- INCLUDE HASH IN CACHE
     };
   }
 
@@ -134,14 +137,17 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     );
     if (byteData == null) return;
 
-    final editorService = ref.read(editorServiceProvider);
-    // The service now handles getting the file from metadata to save to.
-    final success = await editorService.saveCurrentTab(
-      project,
-      bytes: byteData.buffer.asUint8List(),
-    );
+    final bytes = byteData.buffer.asUint8List();
 
-    if (success && mounted) {
+    final newHash = await ref
+        .read(editorServiceProvider)
+        .saveCurrentTab(project, bytes: bytes);
+
+    if (newHash != null && mounted) {
+      // If save was successful, update our internal state.
+      setState(() {
+        _baseContentHash = newHash;
+      });
       updateOriginalImage();
     }
   }

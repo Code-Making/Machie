@@ -20,8 +20,14 @@ class EditorInitData {
   final String? stringData;
   final Uint8List? byteData;
   final TabHotStateDto? hotState;
+  final String? baseContentHash; // <-- ADDED
 
-  const EditorInitData({this.stringData, this.byteData, this.hotState});
+  const EditorInitData({
+    this.stringData,
+    this.byteData,
+    this.hotState,
+    this.baseContentHash, // <-- ADDED
+  });
 }
 
 abstract class EditorPlugin {

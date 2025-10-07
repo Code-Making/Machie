@@ -113,6 +113,8 @@ class ProjectService {
       });
     }
 
+    await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
+    
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
 
