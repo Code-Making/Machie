@@ -1,4 +1,6 @@
+import 'dart:convert'; // For utf8
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart'; // For md5
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
@@ -47,8 +49,9 @@ class EditorService {
 
     final List<EditorTab> rehydratedTabs = [];
     talker.info("Rehydrating tabs");
+
     for (final tabDto in dto.session.tabs) {
-      talker.info("Tab : ${tabDto.id}, ${tabDto.pluginType}");
+      // ... (setup logic for tabId, pluginId, etc.)
       final tabId = tabDto.id;
       final pluginId = tabDto.pluginType;
       final persistedMetadata = dto.session.tabMetadata[tabId];
@@ -58,50 +61,83 @@ class EditorService {
       final plugin = plugins.firstWhereOrNull((p) => p.id == pluginId);
       if (plugin == null) continue;
 
+
       try {
         final file = await _repo.fileHandler.getFileMetadata(
           persistedMetadata.fileUri,
         );
         if (file == null) continue;
 
-        talker.info("Trying to load cache");
-        final cachedDto = await hotStateCacheService.getTabState(
+        // --- REFACTORED CACHE AND HASHING LOGIC ---
+
+        // 1. Always read the current content from disk. This is needed for both
+        //    the hash comparison and as the base content for the editor.
+        String? fileContent;
+        Uint8List? fileBytes;
+        if (plugin.dataRequirement == PluginDataRequirement.bytes) {
+          fileBytes = await _repo.readFileAsBytes(file.uri);
+        } else {
+          fileContent = await _repo.readFile(file.uri);
+        }
+
+        // 2. Generate a hash of the current disk content.
+        final currentDiskHash = (plugin.dataRequirement ==
+                PluginDataRequirement.bytes)
+            ? md5.convert(fileBytes!).toString()
+            : md5.convert(utf8.encode(fileContent!)).toString();
+
+        // 3. Attempt to load the cached DTO.
+        TabHotStateDto? cachedDto = await hotStateCacheService.getTabState(
           projectMetadata.id,
           tabId,
         );
 
-        String? fileContent;
-        Uint8List? fileBytes;
-        bool wasLoadedFromCache = cachedDto != null;
+        // 4. If a cache exists, check for conflicts.
+        if (cachedDto?.baseContentHash != null &&
+            cachedDto!.baseContentHash != currentDiskHash) {
+          talker.warning(
+            'Cache conflict detected for ${file.name}. '
+            'Cached Hash: ${cachedDto.baseContentHash}, '
+            'Disk Hash: $currentDiskHash',
+          );
 
-        if (!wasLoadedFromCache) {
-          if (plugin.dataRequirement == PluginDataRequirement.bytes) {
-            fileBytes = await _repo.readFileAsBytes(file.uri);
-          } else {
-            fileContent = await _repo.readFile(file.uri);
+          final context = _ref.read(navigatorKeyProvider).currentContext;
+          if (context != null) {
+            final resolution = await showCacheConflictDialog(
+              context,
+              fileName: file.name,
+            );
+
+            // If the user chooses to discard, nullify the DTO and clear the cache.
+            if (resolution == CacheConflictResolution.loadDisk) {
+              talker.info('User chose to discard cache for ${file.name}.');
+              await hotStateCacheService.clearTabState(
+                projectMetadata.id,
+                tabId,
+              );
+              cachedDto = null;
+            }
           }
-        } else {
-          await hotStateCacheService.clearTabState(projectMetadata.id, tabId);
         }
 
+        // 5. Prepare the final init data for the plugin.
         final initData = EditorInitData(
           stringData: fileContent,
           byteData: fileBytes,
           hotState: cachedDto,
+          baseContentHash: currentDiskHash, // Always pass the latest disk hash.
         );
 
         final newTab = await plugin.createTab(file, initData, id: tabId);
 
         metadataNotifier.initTab(newTab.id, file);
-        if (wasLoadedFromCache || persistedMetadata.isDirty) {
+        if (cachedDto != null || persistedMetadata.isDirty) {
           metadataNotifier.markDirty(newTab.id);
         }
 
         rehydratedTabs.add(newTab);
       } catch (e, st) {
-        _ref
-            .read(talkerProvider)
-            .handle(
+        _ref.read(talkerProvider).handle(
               e,
               st,
               'Could not restore tab for ${persistedMetadata.fileUri}',
@@ -132,18 +168,22 @@ class EditorService {
     }
 
     try {
-      final String? fileContent =
-          (chosenPlugin.dataRequirement != PluginDataRequirement.bytes)
-              ? await _repo.readFile(file.uri)
-              : null;
-      final Uint8List? fileBytes =
-          (chosenPlugin.dataRequirement == PluginDataRequirement.bytes)
-              ? await _repo.readFileAsBytes(file.uri)
-              : null;
+      String? fileContent;
+      Uint8List? fileBytes;
+      String? baseContentHash; // <-- ADDED
+
+      if (chosenPlugin.dataRequirement != PluginDataRequirement.bytes) {
+        fileContent = await _repo.readFile(file.uri);
+        baseContentHash = md5.convert(utf8.encode(fileContent)).toString();
+      } else {
+        fileBytes = await _repo.readFileAsBytes(file.uri);
+        baseContentHash = md5.convert(fileBytes).toString();
+      }
 
       final initData = EditorInitData(
         stringData: fileContent,
         byteData: fileBytes,
+        baseContentHash: baseContentHash, // <-- PASS THE HASH
       );
 
       final newTab = await chosenPlugin.createTab(file, initData);
@@ -310,7 +350,7 @@ class EditorService {
     );
   }
 
-  Future<bool> saveCurrentTab(
+  Future<String?> saveCurrentTab(
     Project project, {
     String? content,
     Uint8List? bytes,
@@ -320,21 +360,30 @@ class EditorService {
         tabToSaveId != null
             ? _ref.read(tabMetadataProvider)[tabToSaveId]
             : null;
-    if (tabToSaveId == null || metadata == null) return false;
+    if (tabToSaveId == null || metadata == null) return null;
 
     try {
+      String newHash; // <-- Variable to hold the new hash
+
       if (content != null) {
         await _repo.writeFile(metadata.file, content);
+        newHash = md5.convert(utf8.encode(content)).toString(); // <-- Generate hash
       } else if (bytes != null) {
         await _repo.writeFileAsBytes(metadata.file, bytes);
+        newHash = md5.convert(bytes).toString(); // <-- Generate hash
       } else {
-        return false;
+        return null;
       }
+
       _ref.read(tabMetadataProvider.notifier).markClean(tabToSaveId);
-      return true;
+      await _ref
+          .read(hotStateCacheServiceProvider)
+          .clearTabState(project.id, tabToSaveId);
+
+      return newHash; // <-- Return the new hash
     } catch (e) {
       _ref.read(talkerProvider).error("Failed to save tab: $e");
-      return false;
+      return null;
     }
   }
 
@@ -375,6 +424,10 @@ class EditorService {
     );
 
     _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.id);
+
+    _ref
+        .read(hotStateCacheServiceProvider)
+        .clearTabState(project.id, closedTab.id);
 
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.plugin.disposeTab(closedTab);

@@ -70,17 +70,21 @@ class GlitchEditorPlugin implements EditorPlugin {
     String? id,
   }) async {
     Uint8List initialImageData;
+    String? initialBaseContentHash; // <-- ADDED
 
     if (initData.hotState is GlitchEditorHotStateDto) {
-      initialImageData =
-          (initData.hotState as GlitchEditorHotStateDto).imageData;
+      final hotState = initData.hotState as GlitchEditorHotStateDto;
+      initialImageData = hotState.imageData;
+      initialBaseContentHash = hotState.baseContentHash; // <-- GET FROM DTO
     } else {
       initialImageData = initData.byteData ?? Uint8List(0);
+      initialBaseContentHash = initData.baseContentHash; // <-- GET FROM INIT
     }
 
     return GlitchEditorTab(
       plugin: this,
       initialImageData: initialImageData,
+      initialBaseContentHash: initialBaseContentHash, // <-- PASS TO TAB
       id: id,
     );
   }

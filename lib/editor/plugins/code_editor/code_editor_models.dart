@@ -11,23 +11,25 @@ import '../../editor_tab_models.dart';
 @immutable
 class CodeEditorTab extends EditorTab {
   final String initialContent;
-  final String? initialLanguageKey; // <-- ADDED: To pass cached key on creation
+  final String? initialLanguageKey;
+  final String? initialBaseContentHash; // <-- ADDED
 
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,
-    this.initialLanguageKey, // <-- ADDED
-    super.id, // ADDED
+    this.initialLanguageKey,
+    this.initialBaseContentHash, // <-- ADDED
+    super.id,
   });
 
   @override
   void dispose() {}
 
   Map<String, dynamic> toJson() => {
-    'type': 'code',
-    'id': id, // Serialize the stable ID
-    'pluginType': plugin.runtimeType.toString(),
-  };
+        'type': 'code',
+        'id': id,
+        'pluginType': plugin.runtimeType.toString(),
+      };
 }
 
 // ... CodeEditorSettings is unchanged ...

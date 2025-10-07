@@ -56,6 +56,9 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   late String? _languageKey;
 
   bool _wasSelectionActive = false;
+  
+  late String? _baseContentHash; // <-- ADDED
+
 
   // --- PUBLIC PROPERTIES (for the command system) ---
   // isDirty is no longer needed here; the command gets it from the provider.
@@ -74,7 +77,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       // This should not happen in a normal flow. Handle gracefully.
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
-
+    _baseContentHash = widget.tab.initialBaseContentHash; // <-- ADDED
     _languageKey =
         widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
@@ -461,21 +464,27 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   Future<void> save() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
-    final success = await ref
+    final newHash = await ref
         .read(editorServiceProvider)
         .saveCurrentTab(project, content: controller.text);
 
-    // If the save was successful, we tell the controller that its
-    // current state is the new "clean" baseline.
-    if (success) {
-      controller.markCurrentStateAsClean(); // <-- USE NEW API
+    if (newHash != null) {
+      // If the save was successful, update the internal hash state.
+      setState(() {
+        _baseContentHash = newHash;
+      });
+      // And mark the controller's current state as the new clean baseline.
+      controller.markCurrentStateAsClean();
     }
   }
 
   /// Returns the current unsaved state of the editor for caching.
   Map<String, dynamic> getHotState() {
-    // THE FIX: Include the language key in the state map.
-    return {'content': controller.text, 'languageKey': _languageKey};
+    return {
+      'content': controller.text,
+      'languageKey': _languageKey,
+      'baseContentHash': _baseContentHash, // <-- ADDED
+    };
   }
 
   // NEW METHOD: Centralizes updating the state provider.

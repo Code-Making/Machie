@@ -95,10 +95,10 @@ class CodeEditorPlugin implements EditorPlugin {
     if (editorState == null) return null;
 
     final stateMap = editorState.getHotState();
-    // THE FIX: Construct the DTO with the language key.
     return CodeEditorHotStateDto(
       content: stateMap['content'],
       languageKey: stateMap['languageKey'],
+      baseContentHash: stateMap['baseContentHash'], // <-- GET HASH FROM WIDGET
     );
   }
 
@@ -140,22 +140,26 @@ class CodeEditorPlugin implements EditorPlugin {
   }) async {
     String initialContent;
     String? initialLanguageKey;
+    String? initialBaseContentHash; // <-- ADDED
 
     // Prioritize hot state if it exists
     if (initData.hotState is CodeEditorHotStateDto) {
       final hotState = initData.hotState as CodeEditorHotStateDto;
       initialContent = hotState.content;
       initialLanguageKey = hotState.languageKey;
+      initialBaseContentHash = hotState.baseContentHash; // <-- GET FROM DTO
     } else {
       // Fallback to initial data from the file
       initialContent = initData.stringData ?? '';
       initialLanguageKey = null;
+      initialBaseContentHash = initData.baseContentHash; // <-- GET FROM INIT
     }
 
     return CodeEditorTab(
       plugin: this,
       initialContent: initialContent,
       initialLanguageKey: initialLanguageKey,
+      initialBaseContentHash: initialBaseContentHash, // <-- PASS TO TAB
       id: id,
     );
   }
