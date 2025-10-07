@@ -12,11 +12,10 @@ import 'app/lifecycle.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
+import 'project/services/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 import 'project/services/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
-
-import 'package:flutter_foreground_task/flutter_foreground_task.dart'; // ADD THIS
 import 'project/services/hot_state_task_handler.dart'; // ADD THIS
 
 // --------------------
@@ -24,16 +23,23 @@ import 'project/services/hot_state_task_handler.dart'; // ADD THIS
 // --------------------
 
 final appStartupProvider = FutureProvider<void>((ref) async {
+  // This provider now ONLY contains ASYNCHRONOUS startup logic.
+  final talker = ref.read(talkerProvider);
+  talker.info('appStartupProvider: Starting async initialization...');
+  
+  // These are all async tasks that can run while the splash screen is visible.
   await ref.read(cacheRepositoryProvider).init();
-  // THE FIX: Start the cache service once on app startup (Android only).
   if (Platform.isAndroid) {
-    await _startCacheService();
+    await ref.read(cacheServiceManagerProvider).start();
   }
   await ref.read(sharedPreferencesProvider.future);
 
+  // Eagerly initialize providers that need to be ready on app start.
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
+  
+  talker.info('appStartupProvider: Async initialization complete.');
 });
 
 // --------------------
@@ -123,8 +129,7 @@ void main() {
   );
 
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-  FlutterForegroundTask.initCommunicationPort();
-  _initForegroundTask(); // ADD THIS CALL
+  initForegroundTask(); // ADD THIS CALL
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -184,52 +189,6 @@ void main() {
 // --------------------
 //    Lifecycle & Startup
 // --------------------
-
-Future<void> _startCacheService() async {
-  if (await FlutterForegroundTask.isRunningService) {
-    return;
-  }
-  FlutterForegroundTask.startService(
-    notificationTitle: 'Machine',
-    notificationText: 'File cache is running.',
-    notificationIcon: const NotificationIcon(
-      metaDataName: 'my_service_icon_metadata',
-    ),
-    notificationButtons: [
-      const NotificationButton(
-        id: 'STOP_SERVICE_ACTION',
-        text: 'Stop Cache Service',
-      ),
-    ],
-    callback: startCallback,
-  );
-}
-
-void _initForegroundTask() {
-  FlutterForegroundTask.init(
-    androidNotificationOptions: AndroidNotificationOptions(
-      channelId: 'machine_hot_state_service',
-      channelName: 'Machine Hot State Service',
-      channelDescription: 'This notification keeps the unsaved file cache alive.',
-      channelImportance: NotificationChannelImportance.LOW,
-      priority: NotificationPriority.LOW,
-      // The icon is NOT set here. It's set in startService.
-      onlyAlertOnce: true,
-    ),
-    iosNotificationOptions: const IOSNotificationOptions(
-      showNotification: true,
-      playSound: false,
-    ),
-    foregroundTaskOptions: ForegroundTaskOptions(
-      // CORRECTED: There is no `.manual()` action. To create an event-driven
-      // task that doesn't run on a timer, we use `.repeat()` with a very
-      // large interval. This effectively makes it wait for manual triggers.
-      eventAction: ForegroundTaskEventAction.repeat(99999999),
-      autoRunOnBoot: false,
-      allowWifiLock: true,
-    ),
-  );
-}
 
 class AppStartupWidget extends ConsumerWidget {
   final WidgetBuilder onLoaded;

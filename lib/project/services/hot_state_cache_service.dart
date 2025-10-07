@@ -3,12 +3,13 @@
 // =========================================
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
 import '../../data/cache/cache_repository.dart';
 import '../../data/cache/hive_cache_repository.dart';
 import '../../data/cache/type_adapter_registry.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 import '../../logs/logs_provider.dart';
+import 'cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 
 final cacheRepositoryProvider = Provider<CacheRepository>((ref) {
   final talker = ref.read(talkerProvider);
@@ -20,56 +21,45 @@ final hotStateCacheServiceProvider = Provider<HotStateCacheService>((ref) {
     ref.watch(cacheRepositoryProvider),
     ref.watch(typeAdapterRegistryProvider),
     ref.watch(talkerProvider),
+    ref.watch(cacheServiceManagerProvider), // <-- INJECT THE MANAGER
   );
 });
+
 
 class HotStateCacheService {
   final CacheRepository _cacheRepository;
   final TypeAdapterRegistry _adapterRegistry;
   final Talker _talker;
+  final CacheServiceManager _cacheServiceManager; // <-- STORE THE MANAGER
   Timer? _debounceTimer;
 
   HotStateCacheService(
-      this._cacheRepository, this._adapterRegistry, this._talker);
-
+    this._cacheRepository,
+    this._adapterRegistry,
+    this._talker,
+    this._cacheServiceManager, // <-- ADD TO CONSTRUCTOR
+  );
+  
   void updateTabState(String projectId, String tabId, TabHotStateDto dto) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
 
-    _debounceTimer = Timer(const Duration(milliseconds: 750), () {
-      FlutterForegroundTask.isRunningService.then((isRunning) {
-        if (!isRunning) {
-          _talker.warning("Cache service not running. Skipping hot state update.");
-          return;
-        }
+    _debounceTimer = Timer(const Duration(milliseconds: 750), () async {
+      final type = _adapterRegistry.getAdapterTypeForDto(dto);
+      if (type == null) return;
 
-        final type = _adapterRegistry.getAdapterTypeForDto(dto);
-        if (type == null) return;
+      final adapter = _adapterRegistry.getAdapter(type);
+      if (adapter == null) return;
 
-        final adapter = _adapterRegistry.getAdapter(type);
-        if (adapter == null) return;
+      final payload = adapter.toJson(dto);
+      payload['__type__'] = type;
 
-        final payload = adapter.toJson(dto);
-        payload['__type__'] = type;
-
-        final message = {
-          'command': 'update_hot_state',
-          'projectId': projectId,
-          'tabId': tabId,
-          'payload': payload,
-        };
-
-        FlutterForegroundTask.sendDataToTask(message);
-        _talker.info(
-            "[HotStateCacheService] Sent debounced hot state for tab $tabId.");
-      });
+      // Use the manager to send the data
+      await _cacheServiceManager.updateHotState(projectId, tabId, payload);
     });
   }
 
   Future<void> flush() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
-      _talker.info("[HotStateCacheService] Sent flush command.");
-    }
+    await _cacheServiceManager.flushHotState();
   }
 
   Future<TabHotStateDto?> getTabState(String projectId, String tabId) async {
