@@ -16,32 +16,31 @@ class CacheServiceManager {
   CacheServiceManager(this._talker);
 
   /// Initializes the foreground task plugin. Must be called once before runApp.
-  void init() {
-    FlutterForegroundTask.initCommunicationPort();
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'machine_hot_state_service',
-        channelName: 'Machine Hot State Service',
-        channelDescription:
-            'This notification keeps the unsaved file cache alive.',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
-        // The icon is NOT set here. It's set in startService.
-        onlyAlertOnce: true,
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        // CORRECTED: There is no `.manual()` action. To create an event-driven
-        // task that doesn't run on a timer, we use `.repeat()` with a very
-        // large interval. This effectively makes it wait for manual triggers.
-        eventAction: ForegroundTaskEventAction.repeat(99999999),
-        autoRunOnBoot: false,
-        allowWifiLock: true,
-      ),
-    );
+  static void Init() {
+  FlutterForegroundTask.initCommunicationPort();
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'machine_hot_state_service',
+      channelName: 'Machine Hot State Service',
+      channelDescription: 'This notification keeps the unsaved file cache alive.',
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
+      // The icon is NOT set here. It's set in startService.
+      onlyAlertOnce: true,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: true,
+      playSound: false,
+    ),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      // CORRECTED: There is no `.manual()` action. To create an event-driven
+      // task that doesn't run on a timer, we use `.repeat()` with a very
+      // large interval. This effectively makes it wait for manual triggers.
+      eventAction: ForegroundTaskEventAction.repeat(99999999),
+      autoRunOnBoot: false,
+      allowWifiLock: true,
+    ),
+  );
   }
 
   /// Starts the foreground service.
