@@ -70,18 +70,18 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _baseContentHash = widget.tab.initialBaseContentHash;
 
-    // REFACTORED: Get the file URI from the metadata provider using the tab's stable ID.
     final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
     if (fileUri == null) {
-      // This should not happen in a normal flow. Handle gracefully.
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
-    _baseContentHash = widget.tab.initialBaseContentHash; // <-- ADDED
+
     _languageKey =
         widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
+    // ALWAYS initialize the controller with the clean content from disk.
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
@@ -90,10 +90,18 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     findController = CodeFindController(controller);
 
     controller.addListener(_onControllerChange);
-    controller.dirty.addListener(_onDirtyStateChange); // <-- NEW LISTENER
-    // This listener is the key to the whole feature.
-    // It watches for a change in the 'hasSelection' state and does something
-    // (a "side effect") without causing this widget to rebuild.
+    controller.dirty.addListener(_onDirtyStateChange);
+
+    // *** THIS IS THE NEW LOGIC ***
+    // After the first frame has been built, apply the cached content.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.tab.cachedContent != null) {
+        // This programmatic change will be added to the undo stack.
+        // The user can now press "Undo" to get back to `widget.tab.initialContent`.
+        controller.text = widget.tab.cachedContent!;
+      }
+    });
+
     _updateStateProvider();
   }
 

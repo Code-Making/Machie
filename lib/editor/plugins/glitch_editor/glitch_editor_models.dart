@@ -11,12 +11,14 @@ import '../../editor_tab_models.dart';
 @immutable
 class GlitchEditorTab extends EditorTab {
   final Uint8List initialImageData;
-  final String? initialBaseContentHash; // <-- ADDED
+  final Uint8List? cachedImageData; // <-- ADDED
+  final String? initialBaseContentHash;
 
   GlitchEditorTab({
     required super.plugin,
     required this.initialImageData,
-    this.initialBaseContentHash, // <-- ADDED
+    this.cachedImageData, // <-- ADDED
+    this.initialBaseContentHash,
     super.id,
   });
 

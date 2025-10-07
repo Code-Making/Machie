@@ -69,22 +69,23 @@ class GlitchEditorPlugin implements EditorPlugin {
     EditorInitData initData, {
     String? id,
   }) async {
-    Uint8List initialImageData;
-    String? initialBaseContentHash; // <-- ADDED
+    // The initial image is ALWAYS the data from disk.
+    final initialImageData = initData.byteData ?? Uint8List(0);
+    final initialBaseContentHash = initData.baseContentHash;
+
+    Uint8List? cachedImageData;
 
     if (initData.hotState is GlitchEditorHotStateDto) {
       final hotState = initData.hotState as GlitchEditorHotStateDto;
-      initialImageData = hotState.imageData;
-      initialBaseContentHash = hotState.baseContentHash; // <-- GET FROM DTO
-    } else {
-      initialImageData = initData.byteData ?? Uint8List(0);
-      initialBaseContentHash = initData.baseContentHash; // <-- GET FROM INIT
+      // The cached image is stored separately.
+      cachedImageData = hotState.imageData;
     }
 
     return GlitchEditorTab(
       plugin: this,
       initialImageData: initialImageData,
-      initialBaseContentHash: initialBaseContentHash, // <-- PASS TO TAB
+      cachedImageData: cachedImageData, // <-- Pass cached image separately
+      initialBaseContentHash: initialBaseContentHash,
       id: id,
     );
   }
@@ -217,6 +218,24 @@ class GlitchEditorPlugin implements EditorPlugin {
         );
         return metadata?.isDirty ?? false;
       },
+    ),
+        BaseCommand(
+      id: 'undo',
+      label: 'Undo',
+      icon: const Icon(Icons.undo),
+      defaultPositions: [AppCommandPositions.pluginToolbar],
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.undo(),
+      canExecute: (ref) => _getActiveEditorState(ref)?.canUndo ?? false,
+    ),
+    BaseCommand(
+      id: 'redo',
+      label: 'Redo',
+      icon: const Icon(Icons.redo),
+      defaultPositions: [AppCommandPositions.pluginToolbar],
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.redo(),
+      canExecute: (ref) => _getActiveEditorState(ref)?.canRedo ?? false,
     ),
     BaseCommand(
       id: 'zoom_mode',
