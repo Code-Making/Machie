@@ -786,7 +786,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
         findBuilder: (context, controller, readOnly) {
           return CodeFindPanelView(
             controller: controller,
-            iconSelectedColor: theme.highlightColor, // The main accent color
+            iconSelectedColor: colorScheme.primary, // The main accent color
             iconColor: colorScheme.onSurface.withOpacity(0.6), // A good default for inactive icons
             readOnly: readOnly
           );
