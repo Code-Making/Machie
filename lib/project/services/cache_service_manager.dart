@@ -11,13 +11,16 @@ import 'hot_state_task_handler.dart';
 /// import or directly call flutter_foreground_task.
 class CacheServiceManager {
   final Talker _talker;
-  static const _iconName = 'ic_stat___'; // As defined in AndroidManifest.xml
+  static const _iconName = 'ic_stat___'; // As defined in AndroidManifest.xml and drawable folders
 
   CacheServiceManager(this._talker);
 
   /// Initializes the foreground task plugin. Must be called once before runApp.
   void init() {
+    // This communication port is essential for the UI and service to talk.
     FlutterForegroundTask.initCommunicationPort();
+    
+    // Configure the notification channel and task options.
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'machine_hot_state_service',
@@ -26,10 +29,10 @@ class CacheServiceManager {
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
         onlyAlertOnce: true,
-        // The icon is referenced by name.
-        iconData: const NotificationIconData(
-          resType: ResourceType.drawable,
+        // FIX: The correct property is `notificationIcon` which takes a `NotificationIcon` object.
+        notificationIcon: const NotificationIcon(
           name: _iconName,
+          type: 'drawable',
         ),
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -37,7 +40,8 @@ class CacheServiceManager {
         playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(const Duration(minutes: 999)),
+        // FIX: The `repeat` action requires an interval in milliseconds (int).
+        interval: const Duration(minutes: 999).inMilliseconds,
         autoRunOnBoot: false,
         allowWifiLock: true,
       ),
@@ -66,6 +70,7 @@ class CacheServiceManager {
   /// Stops the foreground service.
   Future<void> stop() async {
     _talker.info('[CacheServiceManager] Stopping foreground service...');
+    // FIX: Remove the unnecessary `if` condition. Just call the method.
     if (await FlutterForegroundTask.stopService()) {
       _talker.info('[CacheServiceManager] Service stopped successfully.');
     }
@@ -81,20 +86,22 @@ class CacheServiceManager {
   }
 
   // --- Communication Methods ---
+  // FIX: All methods that call `sendDataToTask` are async (to wait for ensureRunning)
+  // but they do NOT await the `sendDataToTask` call itself, as it is a void method.
 
   Future<void> sendHeartbeat() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
+    FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
   }
 
   Future<void> notifyUiPaused() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'ui_paused'});
+    FlutterForegroundTask.sendDataToTask({'command': 'ui_paused'});
   }
 
   Future<void> flushHotState() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
+    FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
     _talker.info("[CacheServiceManager] Sent flush command.");
   }
   
@@ -106,13 +113,13 @@ class CacheServiceManager {
       'tabId': tabId,
       'payload': payload,
     };
-    await FlutterForegroundTask.sendDataToTask(message);
+    FlutterForegroundTask.sendDataToTask(message);
     _talker.verbose("[CacheServiceManager] Sent debounced hot state for tab $tabId.");
   }
   
   Future<void> clearProjectCache(String projectId) async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({
+    FlutterForegroundTask.sendDataToTask({
       'command': 'clear_project',
       'projectId': projectId,
     });
