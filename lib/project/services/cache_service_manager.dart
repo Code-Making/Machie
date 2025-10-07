@@ -49,7 +49,7 @@ class CacheServiceManager {
       return;
     }
     _talker.info('[CacheServiceManager] Starting foreground service...');
-  FlutterForegroundTask.startService(
+  await FlutterForegroundTask.startService(
     notificationTitle: 'Machine',
     notificationText: 'File cache is running.',
     notificationIcon: const NotificationIcon(
@@ -68,7 +68,7 @@ class CacheServiceManager {
   /// Stops the foreground service.
   Future<void> stop() async {
     _talker.info('[CacheServiceManager] Stopping foreground service...');
-    if (await FlutterForegroundTask.stopService()) {
+    if (await FlutterForegroundTask.stopService() == ServiceRequestSuccess) {
       _talker.info('[CacheServiceManager] Service stopped successfully.');
     }
   }
@@ -86,17 +86,17 @@ class CacheServiceManager {
 
   Future<void> sendHeartbeat() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
+    FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
   }
 
   Future<void> notifyUiPaused() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'ui_paused'});
+    FlutterForegroundTask.sendDataToTask({'command': 'ui_paused'});
   }
 
   Future<void> flushHotState() async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
+    FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
     _talker.info("[CacheServiceManager] Sent flush command.");
   }
   
@@ -108,13 +108,13 @@ class CacheServiceManager {
       'tabId': tabId,
       'payload': payload,
     };
-    await FlutterForegroundTask.sendDataToTask(message);
+    FlutterForegroundTask.sendDataToTask(message);
     _talker.verbose("[CacheServiceManager] Sent debounced hot state for tab $tabId.");
   }
   
   Future<void> clearProjectCache(String projectId) async {
     await ensureRunning();
-    await FlutterForegroundTask.sendDataToTask({
+    FlutterForegroundTask.sendDataToTask({
       'command': 'clear_project',
       'projectId': projectId,
     });
