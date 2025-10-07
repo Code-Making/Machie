@@ -1,7 +1,7 @@
 // =========================================
 // FINAL CORRECTED FILE: lib/project/services/hot_state_task_handler.dart
 // =========================================
-
+import 'dart:async'; // Import for Timer
 import 'dart:isolate';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:machine/data/cache/hive_cache_repository.dart';
