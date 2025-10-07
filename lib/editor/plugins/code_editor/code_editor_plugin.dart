@@ -138,28 +138,26 @@ class CodeEditorPlugin implements EditorPlugin {
     EditorInitData initData, {
     String? id,
   }) async {
-    String initialContent;
-    String? initialLanguageKey;
-    String? initialBaseContentHash; // <-- ADDED
+    // The initial content is ALWAYS the data from disk.
+    final initialContent = initData.stringData ?? '';
+    final initialBaseContentHash = initData.baseContentHash;
 
-    // Prioritize hot state if it exists
+    String? cachedContent;
+    String? initialLanguageKey;
+
     if (initData.hotState is CodeEditorHotStateDto) {
       final hotState = initData.hotState as CodeEditorHotStateDto;
-      initialContent = hotState.content;
+      // The cached content is stored separately.
+      cachedContent = hotState.content;
       initialLanguageKey = hotState.languageKey;
-      initialBaseContentHash = hotState.baseContentHash; // <-- GET FROM DTO
-    } else {
-      // Fallback to initial data from the file
-      initialContent = initData.stringData ?? '';
-      initialLanguageKey = null;
-      initialBaseContentHash = initData.baseContentHash; // <-- GET FROM INIT
     }
 
     return CodeEditorTab(
       plugin: this,
       initialContent: initialContent,
+      cachedContent: cachedContent, // <-- Pass cached content separately
       initialLanguageKey: initialLanguageKey,
-      initialBaseContentHash: initialBaseContentHash, // <-- PASS TO TAB
+      initialBaseContentHash: initialBaseContentHash,
       id: id,
     );
   }

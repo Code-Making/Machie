@@ -11,14 +11,16 @@ import '../../editor_tab_models.dart';
 @immutable
 class CodeEditorTab extends EditorTab {
   final String initialContent;
+  final String? cachedContent; // <-- ADDED: The unsaved content from cache.
   final String? initialLanguageKey;
-  final String? initialBaseContentHash; // <-- ADDED
+  final String? initialBaseContentHash;
 
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,
+    this.cachedContent, // <-- ADDED
     this.initialLanguageKey,
-    this.initialBaseContentHash, // <-- ADDED
+    this.initialBaseContentHash,
     super.id,
   });
 

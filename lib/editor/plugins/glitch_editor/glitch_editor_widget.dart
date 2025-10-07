@@ -32,6 +32,10 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
 class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   // --- STATE ---
   String? _baseContentHash;
+  
+  final List<ui.Image> _undoStack = [];
+  final List<ui.Image> _redoStack = [];
+
 
   ui.Image? _displayImage;
   ui.Image? _originalImage;
@@ -53,6 +57,10 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   bool _isLoading = true;
 
   final Random _random = Random();
+  
+  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canRedo => _redoStack.isNotEmpty;
+
 
   // REFACTORED: The dirty flag is no longer managed here.
   // The command gets it directly from the metadata provider.
@@ -78,14 +86,32 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   Future<void> _loadImage() async {
+    // ALWAYS instantiate from the clean disk data first.
     final codec = await ui.instantiateImageCodec(widget.tab.initialImageData);
     final frame = await codec.getNextFrame();
     if (!mounted) return;
+
     setState(() {
       _displayImage = frame.image;
       _originalImage = frame.image.clone();
       _isLoading = false;
     });
+
+    // *** THIS IS THE NEW LOGIC ***
+    // If there's cached data, apply it after the initial image is loaded.
+    if (widget.tab.cachedImageData != null) {
+      final cachedCodec =
+          await ui.instantiateImageCodec(widget.tab.cachedImageData!);
+      final cachedFrame = await cachedCodec.getNextFrame();
+      if (mounted) {
+        // This is our "apply as redo step" logic.
+        _pushUndoState(); // Save the clean state to the undo stack.
+        setState(() {
+          _displayImage?.dispose();
+          _displayImage = cachedFrame.image;
+        });
+      }
+    }
   }
 
   void _updateImageDisplayParams() {
@@ -179,15 +205,69 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
       },
     );
   }
+  
+    // NEW: Helper to push the current state to the undo stack
+  void _pushUndoState() {
+    if (_displayImage != null) {
+      _undoStack.add(_displayImage!.clone());
+      // A new action clears the redo stack.
+      for (var img in _redoStack) {
+        img.dispose();
+      }
+      _redoStack.clear();
+      // Keep the undo stack from growing infinitely.
+      if (_undoStack.length > 20) {
+        _undoStack.removeAt(0).dispose();
+      }
+    }
+  }
+
+  // --- Public API for Commands ---
+  void undo() {
+    if (!canUndo) return;
+    final prevState = _undoStack.removeLast();
+    if (_displayImage != null) {
+      _redoStack.add(_displayImage!.clone());
+    }
+    setState(() {
+      _displayImage = prevState;
+    });
+    // Check if we've undone back to the original state.
+    _checkIfDirty();
+  }
+
+  void redo() {
+    if (!canRedo) return;
+    final nextState = _redoStack.removeLast();
+    if (_displayImage != null) {
+      _undoStack.add(_displayImage!.clone());
+    }
+    setState(() {
+      _displayImage = nextState;
+    });
+    ref.read(editorServiceProvider).markCurrentTabDirty();
+  }
+  
+  void _checkIfDirty() {
+    if (_originalImage == null || _displayImage == null) return;
+    // A simple heuristic: if the undo stack is empty, we are back at the
+    // original state (or the state from the first post-cache-load edit).
+    // A more robust check would compare image bytes, but that's expensive.
+    if (_undoStack.isEmpty) {
+        ref.read(editorServiceProvider).markCurrentTabClean();
+    } else {
+        ref.read(editorServiceProvider).markCurrentTabDirty();
+    }
+  }
 
   void resetImage() {
     if (_originalImage == null) return;
+    _pushUndoState(); // The current state is now undoable.
     setState(() {
       _displayImage?.dispose();
       _displayImage = _originalImage!.clone();
     });
-    // The service marks the tab as clean by its ID.
-    ref.read(editorServiceProvider).markCurrentTabClean();
+    _checkIfDirty();
   }
 
   // --- Interaction Handlers ---
@@ -229,6 +309,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     if (isZoomMode) return;
 
     if (_displayImage == null || _currentStrokePoints.isEmpty) return;
+    
+    _pushUndoState(); // *** THIS IS THE CHANGE *** Push state before modifying.
 
     final viewerScale = _transformationController.value.getMaxScaleOnAxis();
     final safeScale = viewerScale.isFinite ? viewerScale : 1.0;
