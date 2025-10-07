@@ -29,10 +29,7 @@ abstract class FileHandler {
   Future<Uint8List> readFileAsBytes(String uri);
 
   Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> writeFileAsBytes(
-    DocumentFile file,
-    Uint8List bytes,
-  );
+  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes);
 
   Future<DocumentFile> createDocumentFile(
     String parentUri,
@@ -58,13 +55,13 @@ abstract class FileHandler {
   Future<DocumentFile?> getFileMetadata(String uri);
 
   // THE FIX: Add new methods to encapsulate all path and URI manipulation.
-  
+
   /// Returns the parent URI of the given URI.
   String getParentUri(String uri);
-  
+
   /// Returns the final component (file or folder name) of the given URI.
   String getFileName(String uri);
-  
+
   /// Returns a user-friendly, decoded path string for display purposes.
   /// If `relativeTo` is provided, it returns a relative path.
   String getPathForDisplay(String uri, {String? relativeTo});

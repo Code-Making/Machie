@@ -127,11 +127,12 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
       case FileDeleteEvent(deletedFile: final deletedFile):
         final metadataMap = ref.read(tabMetadataProvider);
-        final tabIdToDelete = metadataMap.entries
-            .firstWhereOrNull(
-              (entry) => entry.value.file.uri == deletedFile.uri,
-            )
-            ?.key;
+        final tabIdToDelete =
+            metadataMap.entries
+                .firstWhereOrNull(
+                  (entry) => entry.value.file.uri == deletedFile.uri,
+                )
+                ?.key;
 
         if (tabIdToDelete != null) {
           final tabIndex = project.session.tabs.indexWhere(
@@ -202,9 +203,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       final appStateDto = await _appStateRepository.loadAppStateDto();
       final projectDto = await _projectService.openProjectDto(
         meta,
-        projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
-            ? appStateDto.currentSimpleProjectDto?.toJson()
-            : null,
+        projectStateJson:
+            (appStateDto.lastOpenedProjectId == projectId)
+                ? appStateDto.currentSimpleProjectDto?.toJson()
+                : null,
       );
 
       final liveSession = await _editorService.rehydrateTabSession(
@@ -360,8 +362,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   void clearClipboard() => ref.read(clipboardProvider.notifier).state = null;
 
-  Future<void> _updateState(
-      Future<AppState> Function(AppState) updater) async {
+  Future<void> _updateState(Future<AppState> Function(AppState) updater) async {
     final previousState = state.value;
     if (previousState == null) return;
     state = const AsyncValue.loading();

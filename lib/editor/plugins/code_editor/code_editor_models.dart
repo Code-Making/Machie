@@ -12,7 +12,7 @@ import '../../editor_tab_models.dart';
 class CodeEditorTab extends EditorTab {
   final String initialContent;
   final String? initialLanguageKey; // <-- ADDED: To pass cached key on creation
-  
+
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,

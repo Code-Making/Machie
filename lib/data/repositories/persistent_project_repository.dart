@@ -17,7 +17,7 @@ class PersistentProjectRepository implements ProjectRepository {
   final String _projectDataPath;
 
   PersistentProjectRepository(this.fileHandler, this._projectDataPath);
-  
+
   // ... (loadProjectDto and saveProjectDto are unchanged) ...
   @override
   Future<ProjectDto> loadProjectDto() async {
@@ -123,7 +123,7 @@ class PersistentProjectRepository implements ProjectRepository {
   ) async {
     return fileHandler.moveDocumentFile(source, destinationParentUri);
   }
-  
+
   // ... (Unchanged Delegations) ...
   @override
   Future<DocumentFile?> getFileMetadata(String uri) =>

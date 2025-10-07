@@ -34,22 +34,32 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
         SwitchListTile(
           title: const Text('Word Wrap'),
           value: _currentSettings.wordWrap,
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(wordWrap: value)),
+          onChanged:
+              (value) =>
+                  _updateSettings(_currentSettings.copyWith(wordWrap: value)),
         ),
         const Divider(),
 
         // Font Settings Section
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text("Font & Display", style: Theme.of(context).textTheme.titleSmall),
+          child: Text(
+            "Font & Display",
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
         ),
         SwitchListTile(
           title: const Text('Enable Font Ligatures'),
-          subtitle: const Text('Displays special characters like "=>" as a single symbol'),
+          subtitle: const Text(
+            'Displays special characters like "=>" as a single symbol',
+          ),
           value: _currentSettings.fontLigatures,
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontLigatures: value)),
+          onChanged:
+              (value) => _updateSettings(
+                _currentSettings.copyWith(fontLigatures: value),
+              ),
         ),
-        
+
         // Font Family
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -58,10 +68,16 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
             value: _currentSettings.fontFamily,
             items: const [
               DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
-              DropdownMenuItem(value: 'JetBrainsMono', child: Text('JetBrains Mono')),
+              DropdownMenuItem(
+                value: 'JetBrainsMono',
+                child: Text('JetBrains Mono'),
+              ),
               DropdownMenuItem(value: 'RobotoMono', child: Text('Roboto Mono')),
             ],
-            onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontFamily: value)),
+            onChanged:
+                (value) => _updateSettings(
+                  _currentSettings.copyWith(fontFamily: value),
+                ),
           ),
         ),
         const SizedBox(height: 16),
@@ -77,39 +93,52 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           max: 24,
           divisions: 16,
           label: _currentSettings.fontSize.round().toString(),
-          onChanged: (value) => _updateSettings(_currentSettings.copyWith(fontSize: value)),
+          onChanged:
+              (value) =>
+                  _updateSettings(_currentSettings.copyWith(fontSize: value)),
         ),
 
         // Line Height
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text('Line Height: ${currentFontHeightValue < 1.0 ? "Default" : currentFontHeightValue.toStringAsFixed(2)}'),
+          child: Text(
+            'Line Height: ${currentFontHeightValue < 1.0 ? "Default" : currentFontHeightValue.toStringAsFixed(2)}',
+          ),
         ),
         Slider(
           value: currentFontHeightValue,
           min: 0.9,
           max: 2.0,
           divisions: 11,
-          label: currentFontHeightValue < 1.0 ? "Default" : currentFontHeightValue.toStringAsFixed(2),
+          label:
+              currentFontHeightValue < 1.0
+                  ? "Default"
+                  : currentFontHeightValue.toStringAsFixed(2),
           onChanged: (value) {
             if (value < 1.0) {
-              _updateSettings(_currentSettings.copyWith(setFontHeightToNull: true));
+              _updateSettings(
+                _currentSettings.copyWith(setFontHeightToNull: true),
+              );
             } else {
               _updateSettings(_currentSettings.copyWith(fontHeight: value));
             }
           },
         ),
         const Divider(),
-        
+
         // Theme
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Editor Theme'),
             value: _currentSettings.themeName,
-            items: CodeThemes.availableCodeThemes.keys.map((themeName) {
-              return DropdownMenuItem(value: themeName, child: Text(themeName));
-            }).toList(),
+            items:
+                CodeThemes.availableCodeThemes.keys.map((themeName) {
+                  return DropdownMenuItem(
+                    value: themeName,
+                    child: Text(themeName),
+                  );
+                }).toList(),
             onChanged: (value) {
               if (value != null) {
                 _updateSettings(_currentSettings.copyWith(themeName: value));

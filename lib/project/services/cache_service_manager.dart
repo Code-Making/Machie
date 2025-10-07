@@ -18,51 +18,52 @@ class CacheServiceManager {
   /// Initializes the foreground task plugin. Must be called once before runApp.
   void init() {
     FlutterForegroundTask.initCommunicationPort();
-  FlutterForegroundTask.init(
-    androidNotificationOptions: AndroidNotificationOptions(
-      channelId: 'machine_hot_state_service',
-      channelName: 'Machine Hot State Service',
-      channelDescription: 'This notification keeps the unsaved file cache alive.',
-      channelImportance: NotificationChannelImportance.LOW,
-      priority: NotificationPriority.LOW,
-      // The icon is NOT set here. It's set in startService.
-      onlyAlertOnce: true,
-    ),
-    iosNotificationOptions: const IOSNotificationOptions(
-      showNotification: true,
-      playSound: false,
-    ),
-    foregroundTaskOptions: ForegroundTaskOptions(
-      // CORRECTED: There is no `.manual()` action. To create an event-driven
-      // task that doesn't run on a timer, we use `.repeat()` with a very
-      // large interval. This effectively makes it wait for manual triggers.
-      eventAction: ForegroundTaskEventAction.repeat(99999999),
-      autoRunOnBoot: false,
-      allowWifiLock: true,
-    ),
-  );
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'machine_hot_state_service',
+        channelName: 'Machine Hot State Service',
+        channelDescription:
+            'This notification keeps the unsaved file cache alive.',
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
+        // The icon is NOT set here. It's set in startService.
+        onlyAlertOnce: true,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: true,
+        playSound: false,
+      ),
+      foregroundTaskOptions: ForegroundTaskOptions(
+        // CORRECTED: There is no `.manual()` action. To create an event-driven
+        // task that doesn't run on a timer, we use `.repeat()` with a very
+        // large interval. This effectively makes it wait for manual triggers.
+        eventAction: ForegroundTaskEventAction.repeat(99999999),
+        autoRunOnBoot: false,
+        allowWifiLock: true,
+      ),
+    );
   }
-  
+
   /// Starts the foreground service.
   Future<void> start() async {
     if (await FlutterForegroundTask.isRunningService) {
       return;
     }
     _talker.info('[CacheServiceManager] Starting foreground service...');
-  await FlutterForegroundTask.startService(
-    notificationTitle: 'Machine',
-    notificationText: 'File cache is running.',
-    notificationIcon: const NotificationIcon(
-      metaDataName: 'my_service_icon_metadata',
-    ),
-    notificationButtons: [
-      const NotificationButton(
-        id: 'STOP_SERVICE_ACTION',
-        text: 'Stop Cache Service',
+    await FlutterForegroundTask.startService(
+      notificationTitle: 'Machine',
+      notificationText: 'File cache is running.',
+      notificationIcon: const NotificationIcon(
+        metaDataName: 'my_service_icon_metadata',
       ),
-    ],
-    callback: startCallback,
-  );
+      notificationButtons: [
+        const NotificationButton(
+          id: 'STOP_SERVICE_ACTION',
+          text: 'Stop Cache Service',
+        ),
+      ],
+      callback: startCallback,
+    );
   }
 
   /// Stops the foreground service.
@@ -78,7 +79,9 @@ class CacheServiceManager {
     if (await FlutterForegroundTask.isRunningService) {
       return;
     }
-    _talker.warning("[CacheServiceManager] Service was not running. Restarting...");
+    _talker.warning(
+      "[CacheServiceManager] Service was not running. Restarting...",
+    );
     await start();
   }
 
@@ -99,8 +102,12 @@ class CacheServiceManager {
     FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
     _talker.info("[CacheServiceManager] Sent flush command.");
   }
-  
-  Future<void> updateHotState(String projectId, String tabId, Map<String, dynamic> payload) async {
+
+  Future<void> updateHotState(
+    String projectId,
+    String tabId,
+    Map<String, dynamic> payload,
+  ) async {
     await ensureRunning();
     final message = {
       'command': 'update_hot_state',
@@ -109,9 +116,11 @@ class CacheServiceManager {
       'payload': payload,
     };
     FlutterForegroundTask.sendDataToTask(message);
-    _talker.verbose("[CacheServiceManager] Sent debounced hot state for tab $tabId.");
+    _talker.verbose(
+      "[CacheServiceManager] Sent debounced hot state for tab $tabId.",
+    );
   }
-  
+
   Future<void> clearProjectCache(String projectId) async {
     await ensureRunning();
     FlutterForegroundTask.sendDataToTask({

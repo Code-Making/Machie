@@ -11,11 +11,16 @@ import '../command/command_models.dart';
 import 'command_notifier.dart';
 
 // REFACTORED: A generic provider family to get commands for any position.
-final commandsForPositionProvider = Provider.family<List<dynamic>, String>((ref, positionId) {
+final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
+  ref,
+  positionId,
+) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
   final currentPluginId = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin.id),
+    appNotifierProvider.select(
+      (s) => s.value?.currentProject?.session.currentTab?.plugin.id,
+    ),
   );
 
   final visibleItems = <dynamic>[];
@@ -28,7 +33,9 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((ref,
       continue;
     }
     final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) => c.id == id && (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
+      (c) =>
+          c.id == id &&
+          (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
     );
     if (command != null) {
       visibleItems.add(command);
@@ -55,18 +62,21 @@ class CommandToolbar extends ConsumerWidget {
     // Watch the new provider family with our position's ID.
     final items = ref.watch(commandsForPositionProvider(position.id));
     final currentPlugin = ref.watch(
-      appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.plugin),
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin,
+      ),
     );
 
-    final List<Widget> children = items.map((item) {
-      if (item is Command) {
-        return CommandButton(command: item, showLabel: showLabels);
-      }
-      if (item is CommandGroup) {
-        return CommandGroupButton(commandGroup: item);
-      }
-      return const SizedBox.shrink();
-    }).toList();
+    final List<Widget> children =
+        items.map((item) {
+          if (item is Command) {
+            return CommandButton(command: item, showLabel: showLabels);
+          }
+          if (item is CommandGroup) {
+            return CommandGroupButton(commandGroup: item);
+          }
+          return const SizedBox.shrink();
+        }).toList();
 
     Widget toolbar;
     if (direction == Axis.horizontal) {
@@ -74,7 +84,7 @@ class CommandToolbar extends ConsumerWidget {
     } else {
       toolbar = Column(mainAxisSize: MainAxisSize.min, children: children);
     }
-    
+
     // Delegate wrapping to the plugin.
     if (currentPlugin != null) {
       return currentPlugin.wrapCommandToolbar(toolbar);
@@ -128,7 +138,6 @@ class BottomToolbar extends ConsumerWidget {
   }
 }
 
-
 // ... (CommandButton and CommandGroupButton are unchanged) ...
 class CommandButton extends ConsumerWidget {
   final Command command;
@@ -174,21 +183,23 @@ class CommandGroupButton extends ConsumerWidget {
       ),
     );
 
-    final commandsInGroup = commandGroup.commandIds
-        .map(
-          (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-            (c) =>
-                c.id == id &&
-                (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
-          ),
-        )
-        .whereType<Command>()
-        .toList();
+    final commandsInGroup =
+        commandGroup.commandIds
+            .map(
+              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
+                (c) =>
+                    c.id == id &&
+                    (c.sourcePlugin == currentPluginId ||
+                        c.sourcePlugin == 'App'),
+              ),
+            )
+            .whereType<Command>()
+            .toList();
 
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin,

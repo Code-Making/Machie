@@ -86,15 +86,18 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                   // THE FIX: Unwrap the SearchResult to get the file.
                   final searchResult = searchState.results[index];
                   final file = searchResult.file;
-                  
+
                   final relativePath = fileHandler.getPathForDisplay(
                     file.uri,
                     relativeTo: projectRootUri,
                   );
                   final pathSegments = relativePath.split('/');
-                  final subtitle = pathSegments.length > 1
-                      ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
-                      : '.';
+                  final subtitle =
+                      pathSegments.length > 1
+                          ? pathSegments
+                              .sublist(0, pathSegments.length - 1)
+                              .join('/')
+                          : '.';
 
                   return DirectoryItem(
                     item: file,

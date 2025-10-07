@@ -58,11 +58,8 @@ abstract class ProjectRepository {
     bool overwrite = false,
   });
   Future<void> deleteDocumentFile(DocumentFile file);
-  
-  Future<DocumentFile> renameDocumentFile(
-    DocumentFile file,
-    String newName,
-  );
+
+  Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName);
   Future<DocumentFile> copyDocumentFile(
     DocumentFile source,
     String destinationParentUri,

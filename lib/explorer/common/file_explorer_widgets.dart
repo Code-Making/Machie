@@ -13,7 +13,11 @@ import '../explorer_plugin_registry.dart';
 import '../services/explorer_service.dart';
 
 // (The _isDropAllowed function remains unchanged)
-bool _isDropAllowed(DocumentFile draggedFile, DocumentFile targetFolder, FileHandler fileHandler) {
+bool _isDropAllowed(
+  DocumentFile draggedFile,
+  DocumentFile targetFolder,
+  FileHandler fileHandler,
+) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
@@ -39,7 +43,12 @@ class DirectoryView extends ConsumerWidget {
     final directoryState = ref.watch(directoryContentsProvider(directory));
 
     if (directoryState == null) {
-      return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(8.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     return directoryState.when(
@@ -58,7 +67,12 @@ class DirectoryView extends ConsumerWidget {
           itemBuilder: (context, index) {
             final itemNode = sortedContents[index];
             final item = itemNode.file;
-            final depth = fileHandler.getPathForDisplay(item.uri, relativeTo: projectRootUri).split('/').where((s) => s.isNotEmpty).length;
+            final depth =
+                fileHandler
+                    .getPathForDisplay(item.uri, relativeTo: projectRootUri)
+                    .split('/')
+                    .where((s) => s.isNotEmpty)
+                    .length;
             return DirectoryItem(
               item: item,
               depth: depth,
@@ -67,25 +81,31 @@ class DirectoryView extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(8.0),
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (err, stack) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text('Error loading directory:\n$err', textAlign: TextAlign.center),
-        ),
-      ),
+      loading:
+          () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+      error:
+          (err, stack) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Error loading directory:\n$err',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
     );
   }
-  
+
   // (_applySorting remains unchanged)
   void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
     contents.sort((a, b) {
-      if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
+      if (a.file.isDirectory != b.file.isDirectory)
+        return a.file.isDirectory ? -1 : 1;
       switch (mode) {
         case FileExplorerViewMode.sortByNameDesc:
           return b.file.name.toLowerCase().compareTo(a.file.name.toLowerCase());
@@ -150,8 +170,12 @@ class RootDropZone extends ConsumerWidget {
           ),
         );
       },
-      onWillAcceptWithDetails: (details) =>
-          _isDropAllowed(details.data, RootPlaceholder(projectRootUri), fileHandler),
+      onWillAcceptWithDetails:
+          (details) => _isDropAllowed(
+            details.data,
+            RootPlaceholder(projectRootUri),
+            fileHandler,
+          ),
       onAcceptWithDetails: (details) {
         ref
             .read(explorerServiceProvider)
@@ -186,9 +210,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
 
   @override
   Widget build(BuildContext context) {
-    final itemContent = widget.item.isDirectory
-        ? _buildDirectoryTile()
-        : _buildFileTile();
+    final itemContent =
+        widget.item.isDirectory ? _buildDirectoryTile() : _buildFileTile();
 
     return LongPressDraggable<DocumentFile>(
       data: widget.item,
@@ -228,22 +251,24 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: _kFontSize),
       ),
-      subtitle: widget.subtitle != null
-          ? Text(
-              widget.subtitle!,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: _kFontSize - 2),
-            )
-          : null,
+      subtitle:
+          widget.subtitle != null
+              ? Text(
+                widget.subtitle!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: _kFontSize - 2),
+              )
+              : null,
     );
   }
 
   Widget _buildDirectoryTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
     Widget tileContent = Container(
-      color: _isHoveredByDraggable
-          ? Theme.of(context).colorScheme.primary.withAlpha(70)
-          : null,
+      color:
+          _isHoveredByDraggable
+              ? Theme.of(context).colorScheme.primary.withAlpha(70)
+              : null,
       child: ListTile(
         dense: true,
         contentPadding: EdgeInsets.only(
@@ -260,12 +285,13 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
           widget.item.name,
           style: const TextStyle(fontSize: _kFontSize),
         ),
-        subtitle: widget.subtitle != null
-            ? Text(
-                widget.subtitle!,
-                style: const TextStyle(fontSize: _kFontSize - 2),
-              )
-            : null,
+        subtitle:
+            widget.subtitle != null
+                ? Text(
+                  widget.subtitle!,
+                  style: const TextStyle(fontSize: _kFontSize - 2),
+                )
+                : null,
         trailing: const SizedBox(width: 24, height: 24),
       ),
     );
@@ -279,10 +305,16 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       onWillAcceptWithDetails: (details) {
         final draggedFile = details.data;
         final isSelfDrop = draggedFile.uri == widget.item.uri;
-        final isAllowedMove = _isDropAllowed(draggedFile, widget.item, fileHandler);
+        final isAllowedMove = _isDropAllowed(
+          draggedFile,
+          widget.item,
+          fileHandler,
+        );
 
         if (isAllowedMove) {
-          setState(() { _isHoveredByDraggable = true; });
+          setState(() {
+            _isHoveredByDraggable = true;
+          });
         }
 
         return isAllowedMove || isSelfDrop;
@@ -294,10 +326,14 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         } else {
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         }
-        setState(() { _isHoveredByDraggable = false; });
+        setState(() {
+          _isHoveredByDraggable = false;
+        });
       },
       onLeave: (details) {
-        setState(() { _isHoveredByDraggable = false; });
+        setState(() {
+          _isHoveredByDraggable = false;
+        });
       },
     );
 
@@ -311,7 +347,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
         if (expanded) {
-          ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(widget.item.uri);
+          ref
+              .read(projectHierarchyServiceProvider.notifier)
+              .loadDirectory(widget.item.uri);
         }
         ref.read(activeExplorerNotifierProvider).updateSettings((settings) {
           final currentSettings = settings as FileExplorerSettings;

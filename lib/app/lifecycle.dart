@@ -22,14 +22,13 @@ class LifecycleHandler extends ConsumerStatefulWidget {
 
 class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
     with WidgetsBindingObserver {
-    
   Timer? _heartbeatTimer;
-    
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
       _startHeartbeat();
     }
@@ -41,7 +40,7 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
     _stopHeartbeat();
     super.dispose();
   }
-  
+
   void _startHeartbeat() {
     _stopHeartbeat();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
@@ -57,30 +56,36 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     ref.read(talkerProvider).info('[Lifecycle] Heartbeat stopped.');
-  } 
-  
-@override
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
-    
+
     final cacheServiceManager = ref.read(cacheServiceManagerProvider);
-    
+
     if (state == AppLifecycleState.resumed) {
       _startHeartbeat();
     } else {
       _stopHeartbeat();
     }
-    
+
     if (state == AppLifecycleState.paused) {
-      ref.read(talkerProvider).info('[Lifecycle] App paused. Flushing state and notifying service.');
+      ref
+          .read(talkerProvider)
+          .info(
+            '[Lifecycle] App paused. Flushing state and notifying service.',
+          );
       await ref.read(hotStateCacheServiceProvider).flush();
       await ref.read(appNotifierProvider.notifier).saveNonHotState();
       // Use the manager
       await cacheServiceManager.notifyUiPaused();
     }
-    
+
     if (state == AppLifecycleState.detached) {
-      ref.read(talkerProvider).info('[Lifecycle] App detached. Stopping service immediately.');
+      ref
+          .read(talkerProvider)
+          .info('[Lifecycle] App detached. Stopping service immediately.');
       await ref.read(hotStateCacheServiceProvider).flush();
       await ref.read(appNotifierProvider.notifier).saveNonHotState();
       // Use the manager

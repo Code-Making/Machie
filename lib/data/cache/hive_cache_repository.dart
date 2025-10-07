@@ -18,7 +18,9 @@ class HiveCacheRepository implements CacheRepository {
   Future<void> init() async {
     final appDocumentDir = await getApplicationDocumentsDirectory();
     IsolatedHive.init(appDocumentDir.path);
-    _talker.info('IsolatedHiveCacheRepository initialized at: ${appDocumentDir.path}');
+    _talker.info(
+      'IsolatedHiveCacheRepository initialized at: ${appDocumentDir.path}',
+    );
   }
 
   // REFACTORED: We will always open boxes as containing `dynamic` data
@@ -35,10 +37,10 @@ class HiveCacheRepository implements CacheRepository {
   @override
   Future<T?> get<T>(String boxName, String key) async {
     final box = await _openBox(boxName);
-    
+
     // CORRECTED: Added 'await' here. This is the fix.
     final dynamic value = await box.get(key);
-    
+
     if (value == null) {
       return null;
     }

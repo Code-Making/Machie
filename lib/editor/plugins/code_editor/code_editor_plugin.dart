@@ -16,7 +16,6 @@ import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 import 'code_editor_hot_state_adapter.dart'; // ADDED
 import 'code_editor_hot_state_dto.dart'; // ADDED
 
-
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
@@ -29,7 +28,6 @@ import '../../../data/dto/tab_hot_state_dto.dart'; // ADDED
 import '../../../data/cache/type_adapters.dart'; // ADDED
 import '../../../project/services/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
-
 
 class CodeEditorPlugin implements EditorPlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -61,7 +59,7 @@ class CodeEditorPlugin implements EditorPlugin {
     // This plugin needs to wrap toolbars to handle editor focus correctly.
     return CodeEditorTapRegion(child: toolbar);
   }
-  
+
   @override
   Future<void> dispose() async {}
   @override
@@ -95,7 +93,7 @@ class CodeEditorPlugin implements EditorPlugin {
   Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
     final editorState = _getEditorState(tab);
     if (editorState == null) return null;
-    
+
     final stateMap = editorState.getHotState();
     // THE FIX: Construct the DTO with the language key.
     return CodeEditorHotStateDto(
@@ -133,9 +131,13 @@ class CodeEditorPlugin implements EditorPlugin {
     // This part remains correct: always clean up when the tab is no longer active.
     ref.read(appNotifierProvider.notifier).clearAppBarOverride();
   }
-  
+
   @override
-  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id}) async {
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    EditorInitData initData, {
+    String? id,
+  }) async {
     String initialContent;
     String? initialLanguageKey;
 
@@ -298,7 +300,8 @@ class CodeEditorPlugin implements EditorPlugin {
           Icons.horizontal_rule, // A fitting icon for selecting a line segment
       defaultPositions: [AppCommandPositions.pluginToolbar],
       execute:
-          (ref, editor) => editor?.selectOrExpandLines(), // Method to be created
+          (ref, editor) =>
+              editor?.selectOrExpandLines(), // Method to be created
     ),
     _createCommand(
       id: 'select_chunk',

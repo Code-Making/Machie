@@ -39,7 +39,11 @@ abstract class EditorPlugin {
 
   bool supportsFile(DocumentFile file);
 
-  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id});
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    EditorInitData initData, {
+    String? id,
+  });
   Widget buildEditor(EditorTab tab, WidgetRef ref);
 
   String? get hotStateDtoType;

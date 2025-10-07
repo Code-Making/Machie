@@ -50,6 +50,8 @@ class CodeEditorStateNotifier extends StateNotifier<CodeEditorState> {
 
 /// A provider family to create a unique state notifier for each open tab.
 /// The tab's stable ID is used as the family parameter.
-final codeEditorStateProvider = StateNotifierProvider.family<CodeEditorStateNotifier, CodeEditorState, String>(
-      (ref, tabId) => CodeEditorStateNotifier(),
-    );
+final codeEditorStateProvider = StateNotifierProvider.family<
+  CodeEditorStateNotifier,
+  CodeEditorState,
+  String
+>((ref, tabId) => CodeEditorStateNotifier());

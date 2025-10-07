@@ -75,7 +75,7 @@ class AppCommandPositions {
     label: 'Hidden',
     icon: Icons.visibility_off_outlined,
   );
-  
+
   static List<CommandPosition> get all => [appBar, pluginToolbar];
 }
 
@@ -214,9 +214,9 @@ class CommandState {
   final List<String> hiddenOrder;
   final Map<String, Set<String>> commandSources;
   final Map<String, CommandGroup> commandGroups;
-  
+
   final List<CommandPosition> availablePositions;
-  
+
   const CommandState({
     this.orderedCommandsByPosition = const {},
     this.hiddenOrder = const [],
@@ -233,7 +233,8 @@ class CommandState {
     List<CommandPosition>? availablePositions,
   }) {
     return CommandState(
-      orderedCommandsByPosition: orderedCommandsByPosition ?? this.orderedCommandsByPosition,
+      orderedCommandsByPosition:
+          orderedCommandsByPosition ?? this.orderedCommandsByPosition,
       hiddenOrder: hiddenOrder ?? this.hiddenOrder,
       commandSources: commandSources ?? this.commandSources,
       commandGroups: commandGroups ?? this.commandGroups,
