@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
-import '../project/services/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-import '../project/services/hot_state_cache_service.dart';
+import '../data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
+import '../data/cache/hot_state_cache_service.dart';
 
 // Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {

@@ -14,7 +14,7 @@ import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart';
-import '../../project/services/hot_state_cache_service.dart';
+import '../../data/cache/hot_state_cache_service.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);

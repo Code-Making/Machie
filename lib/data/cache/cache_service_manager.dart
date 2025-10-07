@@ -1,4 +1,4 @@
-// lib/project/services/cache_service_manager.dart
+// lib/data/cache/cache_service_manager.dart
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker_flutter/talker_flutter.dart';

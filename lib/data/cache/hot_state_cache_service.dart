@@ -1,5 +1,5 @@
 // =========================================
-// FINAL CORRECTED FILE: lib/project/services/hot_state_cache_service.dart
+// FINAL CORRECTED FILE: lib/data/cache/hot_state_cache_service.dart
 // =========================================
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -26,7 +26,7 @@ import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/dto/tab_hot_state_dto.dart'; // ADDED
 import '../../../data/cache/type_adapters.dart'; // ADDED
-import '../../../project/services/hot_state_cache_service.dart';
+import '../../../data/cache/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
 
 class CodeEditorPlugin implements EditorPlugin {
