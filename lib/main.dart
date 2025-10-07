@@ -12,11 +12,11 @@ import 'app/lifecycle.dart';
 import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
-import 'project/services/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-import 'project/services/hot_state_cache_service.dart'; // ADDED
+import 'data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
+import 'data/cache/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
-import 'project/services/hot_state_task_handler.dart'; // ADD THIS
+import 'data/cache/hot_state_task_handler.dart'; // ADD THIS
 
 // --------------------
 //   Global Providers
