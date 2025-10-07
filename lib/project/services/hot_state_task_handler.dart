@@ -33,7 +33,7 @@ class HotStateTaskHandler extends TaskHandler {
     // Instantiate the repository. It's safe to use a simple Talker instance
     // here as we don't have access to the full Flutter UI logging.
     _hiveRepo = HiveCacheRepository(Talker());
-    
+
     // Initialize the connection to the shared Hive database isolate.
     await _hiveRepo.init();
     print('[Background Service] IsolatedHive Initialized.');
@@ -61,10 +61,14 @@ class HotStateTaskHandler extends TaskHandler {
 
       case 'ui_paused':
         // The UI has gone into the background. Start the shutdown timer.
-        print('[Background Service] UI is paused. Starting 5-minute shutdown timer.');
+        print(
+          '[Background Service] UI is paused. Starting 5-minute shutdown timer.',
+        );
         _shutdownTimer?.cancel(); // Cancel any existing timer
         _shutdownTimer = Timer(const Duration(minutes: 5), () {
-          print('[Background Service] Inactivity timeout reached. Stopping service.');
+          print(
+            '[Background Service] Inactivity timeout reached. Stopping service.',
+          );
           FlutterForegroundTask.stopService();
         });
         break;
@@ -88,7 +92,9 @@ class HotStateTaskHandler extends TaskHandler {
         final String? projectId = data['projectId'];
         if (projectId != null) {
           _inMemoryHotState.remove(projectId);
-          print('[Background Service] Cleared in-memory hot state for project $projectId');
+          print(
+            '[Background Service] Cleared in-memory hot state for project $projectId',
+          );
         }
         break;
     }
@@ -102,9 +108,11 @@ class HotStateTaskHandler extends TaskHandler {
       print('[Background Service] In-memory state is empty. Nothing to flush.');
       return;
     }
-    
+
     // Create a copy of the in-memory state to prevent modification during iteration.
-    final stateToFlush = Map<String, Map<String, dynamic>>.from(_inMemoryHotState);
+    final stateToFlush = Map<String, Map<String, dynamic>>.from(
+      _inMemoryHotState,
+    );
     _inMemoryHotState.clear();
 
     for (final projectEntry in stateToFlush.entries) {
@@ -124,7 +132,7 @@ class HotStateTaskHandler extends TaskHandler {
         }
       }
     }
-    
+
     print('[Background Service] Flush complete.');
   }
 
@@ -132,7 +140,9 @@ class HotStateTaskHandler extends TaskHandler {
   /// opportunity to save any pending data.
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    print('[Background Service] Service is being destroyed. Final flush attempt...');
+    print(
+      '[Background Service] Service is being destroyed. Final flush attempt...',
+    );
     await _flushInMemoryState();
     await _hiveRepo.close();
     _shutdownTimer?.cancel(); // Clean up the timer

@@ -59,7 +59,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     if (currentRouteName != '/') {
       return false;
     }
-    if (canPop == true){
+    if (canPop == true) {
       return false;
     }
     // 2. The drawer is part of the Scaffold's state, not a separate route,
@@ -71,7 +71,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     // === INTERCEPTION LOGIC ===
     // If we've gotten this far, we are on the home screen with no overlays open.
 
-    final isFullScreen = ref.read(appNotifierProvider).value?.isFullScreen ?? false;
+    final isFullScreen =
+        ref.read(appNotifierProvider).value?.isFullScreen ?? false;
     if (isFullScreen) {
       ref.read(appNotifierProvider.notifier).toggleFullScreen();
       return true; // We handled it. Stop further processing.
@@ -83,7 +84,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
 
     try {
       _isExitDialogShowing = true;
-      
+
       final shouldExit = await showConfirmDialog(
         context,
         title: 'Exit App?',
@@ -96,7 +97,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     } finally {
       _isExitDialogShowing = false;
     }
-    
+
     return true;
   }
 
@@ -123,7 +124,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         GeneralSettings();
 
     final appBarOverride = appState?.appBarOverride;
-    final double toolbarHeight = Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
+    final double toolbarHeight =
+        Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -131,31 +133,29 @@ class _AppScreenState extends ConsumerState<AppScreen> {
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
               ? (appBarOverride != null
                   ? PreferredSize(
-                      preferredSize: Size.fromHeight(toolbarHeight),
-                      child: appBarOverride,
-                    )
+                    preferredSize: Size.fromHeight(toolbarHeight),
+                    child: appBarOverride,
+                  )
                   : AppBar(
-                      leading: IconButton(
-                        icon: const Icon(Icons.menu),
-                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                      ),
-                      actions: [
-                        if (currentPlugin != null)
-                          currentPlugin.wrapCommandToolbar(const AppBarCommands())
-                        else
-                          const AppBarCommands(),
-                      ],
-                      title: Text(appBarTitle),
-                    ))
+                    leading: IconButton(
+                      icon: const Icon(Icons.menu),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                    actions: [
+                      if (currentPlugin != null)
+                        currentPlugin.wrapCommandToolbar(const AppBarCommands())
+                      else
+                        const AppBarCommands(),
+                    ],
+                    title: Text(appBarTitle),
+                  ))
               : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
             const TabBarWidget(),
-          const Expanded(
-            child: FocusScope(child: EditorView()),
-          ),
+          const Expanded(child: FocusScope(child: EditorView())),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),

@@ -25,7 +25,6 @@ final hotStateCacheServiceProvider = Provider<HotStateCacheService>((ref) {
   );
 });
 
-
 class HotStateCacheService {
   final CacheRepository _cacheRepository;
   final TypeAdapterRegistry _adapterRegistry;
@@ -39,7 +38,7 @@ class HotStateCacheService {
     this._talker,
     this._cacheServiceManager, // <-- ADD TO CONSTRUCTOR
   );
-  
+
   void updateTabState(String projectId, String tabId, TabHotStateDto dto) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
 
@@ -64,9 +63,12 @@ class HotStateCacheService {
 
   Future<TabHotStateDto?> getTabState(String projectId, String tabId) async {
     _talker.info(
-        '--> getTabState: Getting state for tab "$tabId" in project "$projectId".');
-    final json =
-        await _cacheRepository.get<Map<String, dynamic>>(projectId, tabId);
+      '--> getTabState: Getting state for tab "$tabId" in project "$projectId".',
+    );
+    final json = await _cacheRepository.get<Map<String, dynamic>>(
+      projectId,
+      tabId,
+    );
 
     if (json == null) {
       return null;
@@ -89,7 +91,9 @@ class HotStateCacheService {
   }
 
   Future<void> clearProjectCache(String projectId) async {
-    _talker.info('HotStateCacheService: Clearing all cache for project "$projectId".');
+    _talker.info(
+      'HotStateCacheService: Clearing all cache for project "$projectId".',
+    );
     await _cacheRepository.clearBox(projectId);
   }
 }

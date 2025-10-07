@@ -10,8 +10,7 @@ import 'settings_notifier.dart';
 
 // ... (kAccentColors and SettingsScreen are unchanged) ...
 const Map<String, Color> kAccentColors = {
-  'Orange':
-      Colors.orange,
+  'Orange': Colors.orange,
   'Red': Colors.red,
   'Blue': Colors.blue,
   'Green': Colors.green,
@@ -61,7 +60,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-
 // ... (_GeneralSettingsCard and _PluginSettingsCard are unchanged) ...
 class _GeneralSettingsCard extends ConsumerWidget {
   final GeneralSettings settings;
@@ -79,8 +77,11 @@ class _GeneralSettingsCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildThemeSettings(context, notifier),
-              const Divider(height: 32),
-            _buildFileExplorerSettings(context, notifier), // <-- ADDED THIS SECTION
+            const Divider(height: 32),
+            _buildFileExplorerSettings(
+              context,
+              notifier,
+            ), // <-- ADDED THIS SECTION
             const Divider(height: 32),
             _buildFullscreenSettings(context, notifier),
           ],
@@ -103,8 +104,7 @@ class _GeneralSettingsCard extends ConsumerWidget {
           children:
               kAccentColors.entries.map((entry) {
                 final color = entry.value;
-                final isSelected =
-                    settings.accentColorValue == color.value;
+                final isSelected = settings.accentColorValue == color.value;
                 return GestureDetector(
                   onTap: () {
                     notifier.updatePluginSettings(
@@ -132,8 +132,11 @@ class _GeneralSettingsCard extends ConsumerWidget {
       ],
     );
   }
-  
-    Widget _buildFileExplorerSettings(BuildContext context, SettingsNotifier notifier) {
+
+  Widget _buildFileExplorerSettings(
+    BuildContext context,
+    SettingsNotifier notifier,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -141,7 +144,9 @@ class _GeneralSettingsCard extends ConsumerWidget {
         const SizedBox(height: 16),
         SwitchListTile(
           title: const Text('Show Hidden Files'),
-          subtitle: const Text('Displays files and folders starting with a dot (e.g., .git)'),
+          subtitle: const Text(
+            'Displays files and folders starting with a dot (e.g., .git)',
+          ),
           value: settings.showHiddenFiles,
           onChanged: (value) {
             notifier.updatePluginSettings(
@@ -241,26 +246,44 @@ class CommandSettingsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
-        onPressed: () => showDialog(context: context, builder: (_) => GroupEditorDialog(ref: ref)),
+        onPressed:
+            () => showDialog(
+              context: context,
+              builder: (_) => GroupEditorDialog(ref: ref),
+            ),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 80),
         children: [
           // Dynamically build a section for each available position
           ...state.availablePositions.map((position) {
-            return _buildSection(context, ref, position, state.orderedCommandsByPosition[position.id] ?? []);
+            return _buildSection(
+              context,
+              ref,
+              position,
+              state.orderedCommandsByPosition[position.id] ?? [],
+            );
           }),
           ...state.commandGroups.values.map(
             (group) => _buildGroupSection(context, ref, group),
           ),
           // Hidden commands section
-          _buildSection(context, ref, AppCommandPositions.hidden, state.hiddenOrder),
+          _buildSection(
+            context,
+            ref,
+            AppCommandPositions.hidden,
+            state.hiddenOrder,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildGroupSection(BuildContext context, WidgetRef ref, CommandGroup group) {
+  Widget _buildGroupSection(
+    BuildContext context,
+    WidgetRef ref,
+    CommandGroup group,
+  ) {
     // ... (This widget is mostly unchanged, but its reorderable list now uses positionId) ...
     return ExpansionTile(
       leading: group.icon,
@@ -271,30 +294,52 @@ class CommandSettingsScreen extends ConsumerWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () => showDialog(context: context, builder: (_) => GroupEditorDialog(ref: ref, group: group)),
+            onPressed:
+                () => showDialog(
+                  context: context,
+                  builder: (_) => GroupEditorDialog(ref: ref, group: group),
+                ),
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () => ref.read(commandProvider.notifier).deleteGroup(group.id),
+            onPressed:
+                () => ref.read(commandProvider.notifier).deleteGroup(group.id),
           ),
         ],
       ),
       children: [
-        _buildReorderableList(context, ref, group.commandIds, positionId: group.id),
+        _buildReorderableList(
+          context,
+          ref,
+          group.commandIds,
+          positionId: group.id,
+        ),
       ],
     );
   }
 
-  Widget _buildSection(BuildContext context, WidgetRef ref, CommandPosition position, List<String> itemIds) {
+  Widget _buildSection(
+    BuildContext context,
+    WidgetRef ref,
+    CommandPosition position,
+    List<String> itemIds,
+  ) {
     return ExpansionTile(
       leading: Icon(position.icon),
       title: Text(position.label),
       initiallyExpanded: true,
-      children: [_buildReorderableList(context, ref, itemIds, positionId: position.id)],
+      children: [
+        _buildReorderableList(context, ref, itemIds, positionId: position.id),
+      ],
     );
   }
 
-  Widget _buildReorderableList(BuildContext context, WidgetRef ref, List<String> itemIds, { required String positionId }) {
+  Widget _buildReorderableList(
+    BuildContext context,
+    WidgetRef ref,
+    List<String> itemIds, {
+    required String positionId,
+  }) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
 
@@ -313,38 +358,91 @@ class CommandSettingsScreen extends ConsumerWidget {
               itemWidget = ListTile(
                 key: ValueKey(group.id),
                 leading: const Icon(Icons.drag_handle),
-                title: Row(children: [group.icon, const SizedBox(width: 12), Text(group.label, style: const TextStyle(fontWeight: FontWeight.bold),),]),
-                trailing: positionId == AppCommandPositions.hidden.id ? null : IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
-                  tooltip: 'Remove from this list',
-                  onPressed: () => notifier.removeItemFromList(itemId: itemId, fromPositionId: positionId,),
+                title: Row(
+                  children: [
+                    group.icon,
+                    const SizedBox(width: 12),
+                    Text(
+                      group.label,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
+                trailing:
+                    positionId == AppCommandPositions.hidden.id
+                        ? null
+                        : IconButton(
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.redAccent,
+                          ),
+                          tooltip: 'Remove from this list',
+                          onPressed:
+                              () => notifier.removeItemFromList(
+                                itemId: itemId,
+                                fromPositionId: positionId,
+                              ),
+                        ),
               );
             } else {
               final sources = state.commandSources[itemId];
               if (sources == null || sources.isEmpty) {
-                return ListTile(key: ValueKey(itemId), title: Text('Error: Stale command ID "$itemId"'),);
+                return ListTile(
+                  key: ValueKey(itemId),
+                  title: Text('Error: Stale command ID "$itemId"'),
+                );
               }
               final command = notifier.getCommand(itemId, sources.first);
               if (command == null) {
-                return ListTile(key: ValueKey(itemId), title: Text('Error: Command "$itemId" not found'),);
+                return ListTile(
+                  key: ValueKey(itemId),
+                  title: Text('Error: Command "$itemId" not found'),
+                );
               }
               itemWidget = ListTile(
                 key: ValueKey(command.id + positionId),
                 leading: const Icon(Icons.drag_handle),
-                title: Row(children: [command.icon, const SizedBox(width: 12), Expanded(child: Text(command.label, overflow: TextOverflow.ellipsis,),),],),
-                subtitle: sources.length > 1 ? Text('From: ${sources.join(', ')}') : null,
-                trailing: positionId == AppCommandPositions.hidden.id ? null : IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent,),
-                  tooltip: 'Remove from this list',
-                  onPressed: () => notifier.removeItemFromList(itemId: command.id, fromPositionId: positionId,),
+                title: Row(
+                  children: [
+                    command.icon,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        command.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
+                subtitle:
+                    sources.length > 1
+                        ? Text('From: ${sources.join(', ')}')
+                        : null,
+                trailing:
+                    positionId == AppCommandPositions.hidden.id
+                        ? null
+                        : IconButton(
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.redAccent,
+                          ),
+                          tooltip: 'Remove from this list',
+                          onPressed:
+                              () => notifier.removeItemFromList(
+                                itemId: command.id,
+                                fromPositionId: positionId,
+                              ),
+                        ),
               );
             }
             return itemWidget;
           },
           onReorder: (oldIndex, newIndex) {
-            notifier.reorderItemInList(positionId: positionId, oldIndex: oldIndex, newIndex: newIndex,);
+            notifier.reorderItemInList(
+              positionId: positionId,
+              oldIndex: oldIndex,
+              newIndex: newIndex,
+            );
           },
         ),
         if (positionId != AppCommandPositions.hidden.id)
@@ -355,7 +453,13 @@ class CommandSettingsScreen extends ConsumerWidget {
               child: IconButton(
                 icon: const Icon(Icons.add_circle_outline),
                 tooltip: 'Add item to this section',
-                onPressed: () => showDialog(context: context, builder: (_) => AddItemDialog(ref: ref, toPositionId: positionId),),
+                onPressed:
+                    () => showDialog(
+                      context: context,
+                      builder:
+                          (_) =>
+                              AddItemDialog(ref: ref, toPositionId: positionId),
+                    ),
               ),
             ),
           ),
@@ -368,7 +472,11 @@ class CommandSettingsScreen extends ConsumerWidget {
 class AddItemDialog extends ConsumerStatefulWidget {
   final WidgetRef ref;
   final String toPositionId;
-  const AddItemDialog({super.key, required this.ref, required this.toPositionId});
+  const AddItemDialog({
+    super.key,
+    required this.ref,
+    required this.toPositionId,
+  });
 
   @override
   ConsumerState<AddItemDialog> createState() => _AddItemDialogState();
@@ -398,11 +506,20 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
     final notifier = widget.ref.read(commandProvider.notifier);
     final state = widget.ref.watch(commandProvider);
     final bool isAddingToGroup = widget.toPositionId.startsWith('group_');
-    final allCommands = {for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd}.values.toList();
+    final allCommands =
+        {
+          for (var cmd in notifier.allRegisteredCommands) cmd.id: cmd,
+        }.values.toList();
     final allGroups = state.commandGroups.values.toList();
     final query = _query;
-    final filteredCommands = allCommands.where((cmd) => cmd.label.toLowerCase().contains(query)).toList();
-    final filteredGroups = allGroups.where((group) => group.label.toLowerCase().contains(query)).toList();
+    final filteredCommands =
+        allCommands
+            .where((cmd) => cmd.label.toLowerCase().contains(query))
+            .toList();
+    final filteredGroups =
+        allGroups
+            .where((group) => group.label.toLowerCase().contains(query))
+            .toList();
 
     return AlertDialog(
       title: const Text('Add Item'),
@@ -422,18 +539,43 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
                 shrinkWrap: true,
                 children: [
                   if (!isAddingToGroup && filteredGroups.isNotEmpty) ...[
-                    const Text('Groups', style: TextStyle(fontWeight: FontWeight.bold),),
-                    ...filteredGroups.map( (group) => ListTile( leading: group.icon, title: Text(group.label), onTap: () {
-                      notifier.addItemToList(itemId: group.id, toPositionId: widget.toPositionId,);
-                      Navigator.of(context).pop();
-                    },),),
+                    const Text(
+                      'Groups',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    ...filteredGroups.map(
+                      (group) => ListTile(
+                        leading: group.icon,
+                        title: Text(group.label),
+                        onTap: () {
+                          notifier.addItemToList(
+                            itemId: group.id,
+                            toPositionId: widget.toPositionId,
+                          );
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
                     const Divider(),
                   ],
-                  const Text('Commands', style: TextStyle(fontWeight: FontWeight.bold),),
-                  ...filteredCommands.map( (command) => ListTile( leading: command.icon, title: Text(command.label), subtitle: Text(command.sourcePlugin), onTap: () {
-                    notifier.addItemToList(itemId: command.id, toPositionId: widget.toPositionId,);
-                    Navigator.of(context).pop();
-                  },),),
+                  const Text(
+                    'Commands',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  ...filteredCommands.map(
+                    (command) => ListTile(
+                      leading: command.icon,
+                      title: Text(command.label),
+                      subtitle: Text(command.sourcePlugin),
+                      onTap: () {
+                        notifier.addItemToList(
+                          itemId: command.id,
+                          toPositionId: widget.toPositionId,
+                        );
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -443,6 +585,7 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
     );
   }
 }
+
 // ... (GroupEditorDialog and IconPickerDialog are unchanged) ...
 class GroupEditorDialog extends StatefulWidget {
   final WidgetRef ref;

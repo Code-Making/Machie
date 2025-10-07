@@ -32,7 +32,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     // Trigger the initial load for the root directory after the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _currentPathUri.isNotEmpty) {
-        ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(_currentPathUri);
+        ref
+            .read(projectHierarchyServiceProvider.notifier)
+            .loadDirectory(_currentPathUri);
       }
     });
   }
@@ -53,7 +55,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
     }
 
     // Watch the provider for the current path.
-    final directoryState = ref.watch(directoryContentsProvider(_currentPathUri));
+    final directoryState = ref.watch(
+      directoryContentsProvider(_currentPathUri),
+    );
 
     return AlertDialog(
       title: const Text('Save As...'),
@@ -68,13 +72,18 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
               // --- THIS IS THE FIX ---
               // First, check if the state itself is null. This happens before the
               // directory has been requested for the first time.
-              child: directoryState == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : directoryState.when(
-                      data: (nodes) => _buildDirectoryList(nodes),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (err, stack) => Center(child: Text('Error: $err')),
-                    ),
+              child:
+                  directoryState == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : directoryState.when(
+                        data: (nodes) => _buildDirectoryList(nodes),
+                        loading:
+                            () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                        error:
+                            (err, stack) => Center(child: Text('Error: $err')),
+                      ),
             ),
             const Divider(),
             TextField(
@@ -119,7 +128,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
           title: Text(dir.name),
           onTap: () {
             // Trigger a lazy-load for the new directory
-            ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(dir.uri);
+            ref
+                .read(projectHierarchyServiceProvider.notifier)
+                .loadDirectory(dir.uri);
             setState(() {
               _currentPathUri = dir.uri;
             });
@@ -145,7 +156,9 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
                   : () {
                     final newPath = fileHandler.getParentUri(_currentPathUri);
                     // Trigger a lazy-load for the parent directory
-                    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
+                    ref
+                        .read(projectHierarchyServiceProvider.notifier)
+                        .loadDirectory(newPath);
                     setState(() {
                       _currentPathUri = newPath;
                     });
@@ -153,9 +166,17 @@ class _SaveAsDialogState extends ConsumerState<SaveAsDialog> {
         ),
         Expanded(
           child: Text(
-            fileHandler.getPathForDisplay(_currentPathUri, relativeTo: projectRootUri).isEmpty
-              ? '/' 
-              : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: projectRootUri),
+            fileHandler
+                    .getPathForDisplay(
+                      _currentPathUri,
+                      relativeTo: projectRootUri,
+                    )
+                    .isEmpty
+                ? '/'
+                : fileHandler.getPathForDisplay(
+                  _currentPathUri,
+                  relativeTo: projectRootUri,
+                ),
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),

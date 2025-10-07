@@ -28,7 +28,6 @@ class GeneralSettings extends MachineSettings {
   int accentColorValue;
   bool showHiddenFiles; // <-- ADDED
 
-
   GeneralSettings({
     this.hideAppBarInFullScreen = true,
     this.hideTabBarInFullScreen = true,

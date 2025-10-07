@@ -38,7 +38,7 @@ class SimpleProjectRepository implements ProjectRepository {
   Future<void> saveProjectDto(ProjectDto projectDto) async {
     return;
   }
-  
+
   // ... (createDocumentFile and deleteDocumentFile are unchanged) ...
   @override
   Future<DocumentFile> createDocumentFile(
@@ -88,7 +88,7 @@ class SimpleProjectRepository implements ProjectRepository {
   ) async {
     return fileHandler.moveDocumentFile(source, destinationParentUri);
   }
-  
+
   // ... (Unchanged Delegations) ...
   @override
   Future<DocumentFile?> getFileMetadata(String uri) =>

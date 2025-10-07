@@ -26,7 +26,7 @@ final appStartupProvider = FutureProvider<void>((ref) async {
   // This provider now ONLY contains ASYNCHRONOUS startup logic.
   final talker = ref.read(talkerProvider);
   talker.info('appStartupProvider: Starting async initialization...');
-  
+
   // These are all async tasks that can run while the splash screen is visible.
   await ref.read(cacheRepositoryProvider).init();
   if (Platform.isAndroid) {
@@ -38,7 +38,7 @@ final appStartupProvider = FutureProvider<void>((ref) async {
   ref.read(settingsProvider);
   ref.read(commandProvider);
   await ref.read(appNotifierProvider.future);
-  
+
   talker.info('appStartupProvider: Async initialization complete.');
 });
 
@@ -114,9 +114,7 @@ void main() {
     settings: TalkerSettings(
       enabled: true,
       useConsoleLogs: true,
-      colors: {
-        FileOperationLog.getKey: FileOperationLog.getPen,
-      },
+      colors: {FileOperationLog.getKey: FileOperationLog.getPen},
     ),
   );
 

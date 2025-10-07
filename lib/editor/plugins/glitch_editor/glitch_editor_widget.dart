@@ -86,7 +86,7 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
   }
 
   void _updateImageDisplayParams() {
-    if (_displayImage == null || !context.mounted || context.size == null){
+    if (_displayImage == null || !context.mounted || context.size == null) {
       return;
     }
     final imageSize = Size(
@@ -264,7 +264,9 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     // 2. Trigger the debounced caching mechanism in the background service.
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project != null) {
-      ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+      ref
+          .read(editorServiceProvider)
+          .updateAndCacheDirtyTab(project, widget.tab);
     }
   }
 
@@ -511,8 +513,11 @@ class _BrushPreview extends StatelessWidget {
             settings.shape == GlitchBrushShape.circle
                 ? BoxShape.circle
                 : BoxShape.rectangle,
-        color: Colors.white.withValues(alpha:0.3),
-        border: Border.all(color: Colors.white.withValues(alpha:0.7), width: 2),
+        color: Colors.white.withValues(alpha: 0.3),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.7),
+          width: 2,
+        ),
       ),
     );
   }

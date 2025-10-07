@@ -50,8 +50,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
 
-  BracketHighlightState _bracketHighlightState =
-      const BracketHighlightState();
+  BracketHighlightState _bracketHighlightState = const BracketHighlightState();
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
@@ -76,7 +75,8 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
+    _languageKey =
+        widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
     controller = CodeLineEditingController(
@@ -168,7 +168,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
   void selectOrExpandLines() {
     final CodeLineSelection currentSelection = controller.selection;
-    
+
     // THIS IS THE FIX: Convert the CodeLines iterable to a List.
     final List<CodeLine> lines = controller.codeLines.toList();
 
@@ -198,7 +198,10 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
       // The new selection ends at the beginning of the line AFTER the last selected line.
       // We use clamp to prevent going past the end of the document.
-      final newEndIndex = (currentSelection.end.index + 1).clamp(0, lines.length);
+      final newEndIndex = (currentSelection.end.index + 1).clamp(
+        0,
+        lines.length,
+      );
 
       controller.selection = CodeLineSelection(
         baseIndex: newStartIndex,
@@ -211,7 +214,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     // This is crucial to update the UI (like the selection app bar).
     _onControllerChange();
   }
-
 
   /// Expands the selection to the nearest code chunk (e.g., a foldable block).
   void selectCurrentChunk() {
@@ -436,16 +438,20 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     if (controller.dirty.value) {
       final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
-        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+        ref
+            .read(editorServiceProvider)
+            .updateAndCacheDirtyTab(project, widget.tab);
       }
     }
   }
-  
+
   void syncStateToProvider() {
     // If the widget is no longer in the tree, do nothing.
     if (!mounted) return;
-    
-    ref.read(codeEditorStateProvider(widget.tab.id).notifier).update(
+
+    ref
+        .read(codeEditorStateProvider(widget.tab.id).notifier)
+        .update(
           canUndo: controller.canUndo,
           canRedo: controller.canRedo,
           hasMark: _markPosition != null,
@@ -469,10 +475,7 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
   /// Returns the current unsaved state of the editor for caching.
   Map<String, dynamic> getHotState() {
     // THE FIX: Include the language key in the state map.
-    return {
-      'content': controller.text,
-      'languageKey': _languageKey,
-    };
+    return {'content': controller.text, 'languageKey': _languageKey};
   }
 
   // NEW METHOD: Centralizes updating the state provider.
@@ -742,7 +745,6 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
     return KeyEventResult.ignored;
   }
 
-
   @override
   Widget build(BuildContext context) {
     // ... (ref.listen and settings logic at the top of build is unchanged) ...
@@ -768,13 +770,14 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
 
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
     final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures = enableLigatures
-        ? null // Use null (or const []) to enable default font features including ligatures
-        : const [
-            FontFeature.disable('liga'), // Standard Ligatures
-            FontFeature.disable('clig'), // Contextual Ligatures
-            FontFeature.disable('calt'), // Contextual Ligatures
-          ];
+    final List<FontFeature>? fontFeatures =
+        enableLigatures
+            ? null // Use null (or const []) to enable default font features including ligatures
+            : const [
+              FontFeature.disable('liga'), // Standard Ligatures
+              FontFeature.disable('clig'), // Contextual Ligatures
+              FontFeature.disable('calt'), // Contextual Ligatures
+            ];
     // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
       onKeyEvent: _handleKeyEvent,
@@ -787,22 +790,24 @@ class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
           return CodeFindPanelView(
             controller: controller,
             iconSelectedColor: colorScheme.primary, // The main accent color
-            iconColor: colorScheme.onSurface.withOpacity(0.6), // A good default for inactive icons
-            readOnly: readOnly
+            iconColor: colorScheme.onSurface.withOpacity(
+              0.6,
+            ), // A good default for inactive icons
+            readOnly: readOnly,
           );
         },
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
         scrollbarBuilder: (context, child, details) {
-    // We use a StatefulWidget here to manage the visibility state.
-    // A simple StatefulWidget is cleaner than a StatefulBuilder for this.
-    return _GrabbableScrollbar(
-      details: details,
-      thickness: 16.0, // Your desired thickness
-      child: child,
-    );
-  },
-  indicatorBuilder: (
+          // We use a StatefulWidget here to manage the visibility state.
+          // A simple StatefulWidget is cleaner than a StatefulBuilder for this.
+          return _GrabbableScrollbar(
+            details: details,
+            thickness: 16.0, // Your desired thickness
+            child: child,
+          );
+        },
+        indicatorBuilder: (
           context,
           editingController,
           chunkController,
@@ -926,7 +931,7 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
       position: CodeEditorPlugin.selectionToolbar,
       direction: Axis.horizontal,
     );
-    
+
     return Material(
       elevation: 4.0,
       color: Theme.of(context).appBarTheme.backgroundColor,
@@ -993,16 +998,16 @@ class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
       },
       child: RawScrollbar(
         controller: widget.details.controller,
-        
+
         // --- The Key Change ---
         // The visibility is now controlled by our state variable.
         thumbVisibility: _isScrolling,
+
         // ----------------------
-        
         thickness: widget.thickness,
         interactive: true,
         radius: Radius.circular(widget.thickness / 2),
-        
+
         // Let the editor's scroll behavior handle the physics.
         // We are only concerned with the UI here.
         child: widget.child,

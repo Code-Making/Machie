@@ -51,7 +51,7 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
     return Container(
       color: Theme.of(
         context,
-      ).tabBarTheme.unselectedLabelColor?.withValues(alpha:0.1),
+      ).tabBarTheme.unselectedLabelColor?.withValues(alpha: 0.1),
       height: 32,
       child: CodeEditorTapRegion(
         child: ReorderableListView(
@@ -115,7 +115,7 @@ class TabWidget extends ConsumerWidget {
           decoration: BoxDecoration(
             border: Border(
               right: BorderSide(
-                color: theme.dividerColor.withValues(alpha:0.2),
+                color: theme.dividerColor.withValues(alpha: 0.2),
                 width: 1,
               ),
               bottom:

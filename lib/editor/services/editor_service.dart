@@ -155,7 +155,7 @@ class EditorService {
       return null;
     }
   }
-  
+
   Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     final metadata = _ref.read(tabMetadataProvider)[tab.id];
@@ -172,21 +172,21 @@ class EditorService {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     await hotStateCacheService.flush();
   }
-  
+
   void markCurrentTabDirty() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
       _ref.read(tabMetadataProvider.notifier).markDirty(tabId);
     }
   }
-  
+
   void markCurrentTabClean() {
     final tabId = _currentTab?.id;
     if (tabId != null) {
       _ref.read(tabMetadataProvider.notifier).markClean(tabId);
     }
   }
-  
+
   void updateCurrentTabModel(EditorTab newTabModel) {
     final project = _currentProject;
     if (project == null) return;
@@ -197,15 +197,15 @@ class EditorService {
     );
     _ref.read(appNotifierProvider.notifier).updateCurrentProject(newProject);
   }
-  
+
   void setBottomToolbarOverride(Widget? widget) {
     _ref.read(appNotifierProvider.notifier).setBottomToolbarOverride(widget);
   }
-  
+
   void clearBottomToolbarOverride() {
     _ref.read(appNotifierProvider.notifier).clearBottomToolbarOverride();
   }
-  
+
   Future<void> saveCurrentTabAs({
     Future<Uint8List?> Function()? byteDataProvider,
     Future<String?> Function()? stringDataProvider,
@@ -217,15 +217,15 @@ class EditorService {
         currentTabId != null
             ? _ref.read(tabMetadataProvider)[currentTabId]
             : null;
-  
+
     if (repo == null || context == null || currentMetadata == null) return;
-  
+
     final result = await showDialog<SaveAsDialogResult>(
       context: context,
       builder: (_) => SaveAsDialog(initialFileName: currentMetadata.file.name),
     );
     if (result == null) return;
-  
+
     final DocumentFile newFile;
     if (byteDataProvider != null) {
       final bytes = await byteDataProvider();
@@ -256,12 +256,12 @@ class EditorService {
         .add(FileCreateEvent(createdFile: newFile));
     MachineToast.info("Saved as ${newFile.name}");
   }
-  
+
   void _handlePluginLifecycle(EditorTab? oldTab, EditorTab? newTab) {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
-  
+
   Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
@@ -272,7 +272,7 @@ class EditorService {
         metadataMap.entries
             .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
             ?.key;
-  
+
     if (existingTabId != null) {
       final existingIndex = project.session.tabs.indexWhere(
         (t) => t.id == existingTabId,
@@ -284,7 +284,7 @@ class EditorService {
         );
       }
     }
-  
+
     final result = await _createTabForFile(
       file,
       explicitPlugin: explicitPlugin,
@@ -292,24 +292,24 @@ class EditorService {
     if (result == null) {
       return OpenFileError("No plugin available to open '${file.name}'.");
     }
-  
+
     final newTab = result.tab;
     _ref.read(tabMetadataProvider.notifier).initTab(newTab.id, file);
-  
+
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(
       tabs: [...project.session.tabs, newTab],
       currentTabIndex: project.session.tabs.length,
     );
-  
+
     _handlePluginLifecycle(oldTab, newTab);
-  
+
     return OpenFileSuccess(
       project: project.copyWith(session: newSession),
       wasAlreadyOpen: false,
     );
   }
-  
+
   Future<bool> saveCurrentTab(
     Project project, {
     String? content,
@@ -321,7 +321,7 @@ class EditorService {
             ? _ref.read(tabMetadataProvider)[tabToSaveId]
             : null;
     if (tabToSaveId == null || metadata == null) return false;
-  
+
     try {
       if (content != null) {
         await _repo.writeFile(metadata.file, content);
@@ -337,22 +337,22 @@ class EditorService {
       return false;
     }
   }
-  
+
   Project switchTab(Project project, int index) {
     final oldTab = project.session.currentTab;
     final newSession = project.session.copyWith(currentTabIndex: index);
     final newProject = project.copyWith(session: newSession);
     final newTab = newProject.session.currentTab;
-  
+
     _handlePluginLifecycle(oldTab, newTab);
     return newProject;
   }
-  
+
   Project closeTab(Project project, int index) {
     final closedTab = project.session.tabs[index];
     final oldTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs)..removeAt(index);
-  
+
     int newCurrentIndex;
     if (newTabs.isEmpty) {
       newCurrentIndex = 0;
@@ -366,27 +366,27 @@ class EditorService {
         newCurrentIndex = oldIndex;
       }
     }
-  
+
     final newProject = project.copyWith(
       session: project.session.copyWith(
         tabs: newTabs,
         currentTabIndex: newCurrentIndex,
       ),
     );
-  
+
     _ref.read(tabMetadataProvider.notifier).removeTab(closedTab.id);
-  
+
     closedTab.plugin.deactivateTab(closedTab, _ref);
     closedTab.plugin.disposeTab(closedTab);
     closedTab.dispose();
-  
+
     final newTab = newProject.session.currentTab;
     if (oldTab != newTab) {
       newTab?.plugin.activateTab(newTab, _ref);
     }
     return newProject;
   }
-  
+
   Project reorderTabs(Project project, int oldIndex, int newIndex) {
     final currentOpenTab = project.session.currentTab;
     final newTabs = List<EditorTab>.from(project.session.tabs);
@@ -402,7 +402,7 @@ class EditorService {
       ),
     );
   }
-  
+
   void updateTabForRenamedFile(String oldUri, DocumentFile newFile) {
     final metadataMap = _ref.read(tabMetadataProvider);
     final tabId =

@@ -64,11 +64,16 @@ class GlitchEditorPlugin implements EditorPlugin {
   List<CommandPosition> getCommandPositions() => [];
 
   @override
-  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id}) async {
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    EditorInitData initData, {
+    String? id,
+  }) async {
     Uint8List initialImageData;
 
     if (initData.hotState is GlitchEditorHotStateDto) {
-      initialImageData = (initData.hotState as GlitchEditorHotStateDto).imageData;
+      initialImageData =
+          (initData.hotState as GlitchEditorHotStateDto).imageData;
     } else {
       initialImageData = initData.byteData ?? Uint8List(0);
     }
@@ -115,13 +120,13 @@ class GlitchEditorPlugin implements EditorPlugin {
   @override
   TypeAdapter<TabHotStateDto> get hotStateAdapter =>
       GlitchEditorHotStateAdapter();
-  
+
   @override
   Widget wrapCommandToolbar(Widget toolbar) {
     // This plugin doesn't need any special wrapping, so just return the toolbar.
     return toolbar;
   }
-  
+
   /// Helper to get the active editor's state object.
   GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
     if (tab.editorKey.currentState is GlitchEditorWidgetState) {

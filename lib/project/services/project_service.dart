@@ -146,7 +146,8 @@ class ProjectService {
     final machineDir = files.firstWhereOrNull(
       (f) => f.name == '.machine' && f.isDirectory,
     );
-    final dir = machineDir ??
+    final dir =
+        machineDir ??
         await handler.createDocumentFile(
           projectRootUri,
           '.machine',

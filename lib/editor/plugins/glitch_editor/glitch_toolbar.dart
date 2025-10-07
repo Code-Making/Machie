@@ -18,7 +18,7 @@ class GlitchToolbar extends ConsumerWidget {
 
     return Material(
       // We can make it slightly transparent to hint at the content behind it.
-      color: Theme.of(context).bottomAppBarTheme.color?.withValues(alpha:0.95),
+      color: Theme.of(context).bottomAppBarTheme.color?.withValues(alpha: 0.95),
       elevation: 4.0, // Add a slight shadow to lift it off the content.
       child: Container(
         height: 220,

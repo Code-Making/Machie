@@ -19,7 +19,7 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
   SettingsNotifier({required Set<EditorPlugin> plugins})
-      : super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
+    : super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
     loadSettings();
   }
 

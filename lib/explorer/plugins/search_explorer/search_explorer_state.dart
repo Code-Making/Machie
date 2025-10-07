@@ -21,15 +21,9 @@ class SearchState {
   // THE FIX: The results are now a list of SearchResult.
   final List<SearchResult> results;
 
-  SearchState({
-    this.query = '',
-    this.results = const [],
-  });
+  SearchState({this.query = '', this.results = const []});
 
-  SearchState copyWith({
-    String? query,
-    List<SearchResult>? results,
-  }) {
+  SearchState copyWith({String? query, List<SearchResult>? results}) {
     return SearchState(
       query: query ?? this.query,
       results: results ?? this.results,
@@ -39,8 +33,8 @@ class SearchState {
 
 final searchStateProvider =
     StateNotifierProvider.autoDispose<SearchStateNotifier, SearchState>(
-  (ref) => SearchStateNotifier(ref),
-);
+      (ref) => SearchStateNotifier(ref),
+    );
 
 class SearchStateNotifier extends StateNotifier<SearchState> {
   final Ref _ref;
@@ -66,7 +60,10 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       final List<SearchResult> scoredResults = [];
 
       for (final file in allFiles) {
-        final score = _calculateFuzzyScore(file.name.toLowerCase(), lowerCaseQuery);
+        final score = _calculateFuzzyScore(
+          file.name.toLowerCase(),
+          lowerCaseQuery,
+        );
         // Only include results that are actual matches (score > 0).
         if (score > 0) {
           scoredResults.add(SearchResult(file: file, score: score));
@@ -107,11 +104,12 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
           if (prevChar == '_' || prevChar == '-' || prevChar == ' ') {
             score += 15;
           }
-          if (prevChar.toLowerCase() == prevChar && target[targetIndex].toUpperCase() == target[targetIndex]) {
-             score += 15; // CamelCase bonus
+          if (prevChar.toLowerCase() == prevChar &&
+              target[targetIndex].toUpperCase() == target[targetIndex]) {
+            score += 15; // CamelCase bonus
           }
         }
-        
+
         // First letter bonus
         if (targetIndex == 0) {
           score += 15;

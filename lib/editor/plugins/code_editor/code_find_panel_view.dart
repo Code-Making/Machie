@@ -96,8 +96,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
               child: Column(
                 children: [
                   _buildFindInputView(context, value),
-                  if (value.replaceMode)
-                    _buildReplaceInputView(context, value),
+                  if (value.replaceMode) _buildReplaceInputView(context, value),
                 ],
               ),
             ),
@@ -160,7 +159,10 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
               result,
-              style: TextStyle(color: resultFontColor, fontSize: resultFontSize),
+              style: TextStyle(
+                color: resultFontColor,
+                fontSize: resultFontSize,
+              ),
             ),
           ),
           Row(
@@ -188,7 +190,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
-  
+
   // THE FIX: The layout of this Row is now flexible using Expanded.
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
     return SizedBox(
@@ -207,14 +209,17 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           ),
           _buildIconButton(
             onPressed:
-                value.result == null || readOnly ? null : controller.replaceMatch,
+                value.result == null || readOnly
+                    ? null
+                    : controller.replaceMatch,
             icon: Icons.done,
             tooltip: 'Replace',
           ),
           _buildIconButton(
-            onPressed: value.result == null || readOnly
-                ? null
-                : controller.replaceAllMatches,
+            onPressed:
+                value.result == null || readOnly
+                    ? null
+                    : controller.replaceAllMatches,
             icon: Icons.done_all,
             tooltip: 'Replace All',
           ),

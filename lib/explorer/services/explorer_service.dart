@@ -26,7 +26,7 @@ class ExplorerService {
     }
     return repo;
   }
-  
+
   ExplorerWorkspaceState rehydrateWorkspace(ExplorerWorkspaceStateDto dto) {
     return ExplorerWorkspaceState(
       activeExplorerPluginId: dto.activeExplorerPluginId,
@@ -42,7 +42,7 @@ class ExplorerService {
     final newProject = project.copyWith(workspace: newWorkspace);
     return newProject;
   }
-  
+
   Future<void> createFile(String parentUri, String name) async {
     final newFile = await _repo.createDocumentFile(
       parentUri,
@@ -79,11 +79,15 @@ class ExplorerService {
     try {
       final renamedFile = await _repo.renameDocumentFile(item, newName);
       // REMOVED: No longer need to manually update cache
-      _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: item, newFile: renamedFile));
+      _ref
+          .read(fileOperationControllerProvider)
+          .add(FileRenameEvent(oldFile: item, newFile: renamedFile));
       _talker.info('Renamed "${item.name}" to "${renamedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to rename item: ${item.name}');
-      MachineToast.error("Failed to rename '${item.name}'. The name might be invalid or already exist.");
+      MachineToast.error(
+        "Failed to rename '${item.name}'. The name might be invalid or already exist.",
+      );
     }
   }
 
@@ -103,13 +107,21 @@ class ExplorerService {
           destinationFolder.uri,
         );
         // REMOVED: No longer need to manually update cache
-        _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: copiedFile));
-        _talker.info('Pasted (copy) "${copiedFile.name}" into "${destinationFolder.name}"');
+        _ref
+            .read(fileOperationControllerProvider)
+            .add(FileCreateEvent(createdFile: copiedFile));
+        _talker.info(
+          'Pasted (copy) "${copiedFile.name}" into "${destinationFolder.name}"',
+        );
       } else {
         await moveItem(sourceFile, destinationFolder);
       }
     } catch (e, st) {
-      _talker.handle(e, st, 'Failed to paste item into ${destinationFolder.name}');
+      _talker.handle(
+        e,
+        st,
+        'Failed to paste item into ${destinationFolder.name}',
+      );
       MachineToast.error("Paste operation failed. Please try again.");
     }
   }
@@ -128,14 +140,22 @@ class ExplorerService {
         destinationFolder.uri,
       );
       // REMOVED: No longer need to manually update cache
-      _ref.read(fileOperationControllerProvider).add(FileRenameEvent(oldFile: source, newFile: movedFile));
+      _ref
+          .read(fileOperationControllerProvider)
+          .add(FileRenameEvent(oldFile: source, newFile: movedFile));
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
-      _talker.handle(e, st, 'Failed to move "${source.name}" into "${destinationFolder.name}"');
-      MachineToast.error("Failed to move '${source.name}'. Your device may not support this operation.");
+      _talker.handle(
+        e,
+        st,
+        'Failed to move "${source.name}" into "${destinationFolder.name}"',
+      );
+      MachineToast.error(
+        "Failed to move '${source.name}'. Your device may not support this operation.",
+      );
     }
   }
-  
+
   Future<void> importFile(
     DocumentFile pickedFile,
     String projectRootUri,
@@ -146,7 +166,9 @@ class ExplorerService {
         projectRootUri,
       );
       // REMOVED: No longer need to manually update cache
-      _ref.read(fileOperationControllerProvider).add(FileCreateEvent(createdFile: importedFile));
+      _ref
+          .read(fileOperationControllerProvider)
+          .add(FileCreateEvent(createdFile: importedFile));
       _talker.info('Imported file: "${importedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to import file: ${pickedFile.name}');

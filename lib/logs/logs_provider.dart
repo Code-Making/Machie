@@ -13,9 +13,7 @@ final talkerProvider = Provider<Talker>((ref) {
     settings: TalkerSettings(
       enabled: true,
       useConsoleLogs: true,
-      colors: {
-        FileOperationLog.getKey: FileOperationLog.getPen,
-      },
+      colors: {FileOperationLog.getKey: FileOperationLog.getPen},
     ),
   );
 });

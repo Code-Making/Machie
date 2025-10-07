@@ -107,7 +107,10 @@ class FileContextCommands {
           sourcePlugin: 'FileExplorer',
           canExecuteFor: (ref, item) => item.isDirectory,
           executeFor: (ref, item) async {
-            final newName = await showTextInputDialog(ref.context, title: 'New File');
+            final newName = await showTextInputDialog(
+              ref.context,
+              title: 'New File',
+            );
             if (newName != null && newName.isNotEmpty) {
               // Use the item's URI as the parent URI for the new file.
               await explorerService.createFile(item.uri, newName);
@@ -121,7 +124,10 @@ class FileContextCommands {
           sourcePlugin: 'FileExplorer',
           canExecuteFor: (ref, item) => item.isDirectory,
           executeFor: (ref, item) async {
-            final newName = await showTextInputDialog(ref.context, title: 'New Folder');
+            final newName = await showTextInputDialog(
+              ref.context,
+              title: 'New Folder',
+            );
             if (newName != null && newName.isNotEmpty) {
               // Use the item's URI as the parent URI for the new folder.
               await explorerService.createFolder(item.uri, newName);

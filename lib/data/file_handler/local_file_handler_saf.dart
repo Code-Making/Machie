@@ -150,15 +150,23 @@ class SafFileHandler implements LocalFileHandler {
   ) async {
     try {
       // 1. Attempt the efficient, native rename first.
-      final renamed = await _safUtil.rename(file.uri, file.isDirectory, newName);
+      final renamed = await _safUtil.rename(
+        file.uri,
+        file.isDirectory,
+        newName,
+      );
       return CustomSAFDocumentFile(renamed);
     } on PlatformException catch (e) {
       // 2. If it fails, log it and fall back to a manual copy-delete.
-      debugPrint('Native rename failed: ${e.message}. Falling back to manual rename.');
+      debugPrint(
+        'Native rename failed: ${e.message}. Falling back to manual rename.',
+      );
 
       // Fallback for directories is not supported as it requires recursion.
       if (file.isDirectory) {
-        throw Exception('Renaming this folder is not supported on your device.');
+        throw Exception(
+          'Renaming this folder is not supported on your device.',
+        );
       }
 
       // Fallback logic for files:
@@ -200,7 +208,10 @@ class SafFileHandler implements LocalFileHandler {
   ) async {
     try {
       // 1. Attempt the efficient, native move first.
-      final sourceParentUri = source.uri.substring(0, source.uri.lastIndexOf('%2F'));
+      final sourceParentUri = source.uri.substring(
+        0,
+        source.uri.lastIndexOf('%2F'),
+      );
       final movedFile = await _safUtil.moveTo(
         source.uri,
         source.isDirectory,
@@ -210,13 +221,15 @@ class SafFileHandler implements LocalFileHandler {
       return CustomSAFDocumentFile(movedFile);
     } on PlatformException catch (e) {
       // 2. If it fails, log it and fall back to a manual copy-delete.
-      debugPrint('Native move failed: ${e.message}. Falling back to manual move.');
-      
+      debugPrint(
+        'Native move failed: ${e.message}. Falling back to manual move.',
+      );
+
       // Fallback for directories is not supported as it requires recursion.
       if (source.isDirectory) {
         throw Exception('Moving this folder is not supported on your device.');
       }
-      
+
       // Fallback logic for files:
       final copiedFile = await copyDocumentFile(source, destinationParentUri);
       await deleteDocumentFile(source);
@@ -226,10 +239,7 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.stat(
-      uri,
-      false,
-    );
+    final file = await _safUtil.stat(uri, false);
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
@@ -244,6 +254,7 @@ class SafFileHandler implements LocalFileHandler {
     final files = await _safUtil.pickFiles();
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
   }
+
   @override
   String getParentUri(String uri) {
     final lastIndex = uri.lastIndexOf(_separator);
