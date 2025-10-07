@@ -129,7 +129,6 @@ void main() {
   );
 
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
-  initForegroundTask(); // ADD THIS CALL
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
