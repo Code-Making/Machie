@@ -24,6 +24,7 @@ class HotStateTaskHandler extends TaskHandler {
   // Because it uses `IsolatedHive`, it will safely communicate with the
   // single database isolate managed by the `hive_ce` package.
   late HiveCacheRepository _hiveRepo;
+  Timer? _shutdownTimer; // <-- ADDED: The inactivity timer
 
   /// Called when the foreground service is started.
   /// This is where we initialize resources needed for the background task.
@@ -48,15 +49,34 @@ class HotStateTaskHandler extends TaskHandler {
 
     final command = data['command'] as String?;
     switch (command) {
+      // --- NEW HEARTBEAT/LIFECYCLE COMMANDS ---
+      case 'heartbeat':
+        // If we receive a heartbeat, it means the UI is active.
+        // We must cancel any pending shutdown timer.
+        if (_shutdownTimer?.isActive ?? false) {
+          print('[Background Service] Heartbeat received. Shutdown cancelled.');
+          _shutdownTimer!.cancel();
+        }
+        break;
+
+      case 'ui_paused':
+        // The UI has gone into the background. Start the shutdown timer.
+        print('[Background Service] UI is paused. Starting 5-minute shutdown timer.');
+        _shutdownTimer?.cancel(); // Cancel any existing timer
+        _shutdownTimer = Timer(const Duration(minutes: 5), () {
+          print('[Background Service] Inactivity timeout reached. Stopping service.');
+          FlutterForegroundTask.stopService();
+        });
+        break;
+      // --- END OF NEW COMMANDS ---
+
       case 'update_hot_state':
         final String? projectId = data['projectId'];
         final String? tabId = data['tabId'];
         final Map<String, dynamic>? payload = data['payload'];
-
         if (projectId != null && tabId != null && payload != null) {
-          // Store the received payload in our in-memory map.
           (_inMemoryHotState[projectId] ??= {})[tabId] = payload;
-          print('[Background Service] Updated in-memory hot state for $projectId/$tabId');
+          // print('[Background Service] Updated in-memory hot state for $projectId/$tabId');
         }
         break;
 
@@ -113,8 +133,9 @@ class HotStateTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     print('[Background Service] Service is being destroyed. Final flush attempt...');
-    await _flushInMemoryState(); // Final safety net to prevent data loss.
-    await _hiveRepo.close(); // Cleanly close the Hive connection.
+    await _flushInMemoryState();
+    await _hiveRepo.close();
+    _shutdownTimer?.cancel(); // Clean up the timer
     print('[Background Service] Service destroyed.');
   }
 
