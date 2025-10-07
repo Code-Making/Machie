@@ -123,9 +123,8 @@ void main() {
     settings: TalkerRiverpodLoggerSettings(
       enabled: true,
       printStateFullData: false, // Truncate long state objects
-    ),
   );
-
+  CacheServiceManager.Init();
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
