@@ -1,6 +1,7 @@
 import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
 import '../project/services/hot_state_cache_service.dart';
@@ -80,7 +81,6 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
       // Flush one last time just in case, then stop the service.
       await ref.read(hotStateCacheServiceProvider).flush();
       await ref.read(appNotifierProvider.notifier).saveNonHotState();
-      await FlutterForegroundTask.stopService();
     }
   }
 
