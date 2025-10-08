@@ -29,8 +29,9 @@ import '../../../data/cache/type_adapters.dart'; // ADDED
 import '../../../data/cache/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
 import '../../../command/command_context.dart'; // <-- IMPORT NEW CONTEXT
+import '../../../editor/services/editor_service.dart';
 
-class CodeEditorPlugin implements EditorPlugin {
+class CodeEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.code_editor';
   static const String hotStateId = 'com.machine.code_editor_state';
   static const CommandPosition selectionToolbar = CommandPosition(
