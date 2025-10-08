@@ -118,7 +118,7 @@ class GlitchEditorPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
-    final stateKey = tab.editorKey as GlobalKey<GlitchEditorState>;
+    final stateKey = tab.editorKey as GlobalKey<GlitchEditorWidgetState>;
     final glitchTab = tab as GlitchEditorTab;
     return GlitchEditorWidget(
       key: stateKey,
