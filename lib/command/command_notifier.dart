@@ -42,12 +42,12 @@ class CommandNotifier extends StateNotifier<CommandState> {
     return null;
   }
 
-  CommandNotifier({required this.ref, required Set<EditorPlugin> plugins})
+  CommandNotifier({required this.ref, required List<EditorPlugin> plugins})
     : super(const CommandState()) {
     _initializeCommands(plugins);
   }
 
-  void _initializeCommands(Set<EditorPlugin> plugins) async {
+  void _initializeCommands(List<EditorPlugin> plugins) async {
     _allRegisteredCommands.clear();
     final commandSources = <String, Set<String>>{};
     final allAppCommands = AppCommands.getCommands();
