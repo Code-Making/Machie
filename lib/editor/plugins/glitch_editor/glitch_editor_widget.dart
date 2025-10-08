@@ -70,6 +70,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
+  final ValueNotifier<bool> _dirtyStateNotifier = ValueNotifier(false);
 
   // REFACTORED: The dirty flag is no longer managed here.
   // The command gets it directly from the metadata provider.
