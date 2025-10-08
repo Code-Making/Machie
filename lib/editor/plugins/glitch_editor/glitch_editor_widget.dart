@@ -58,6 +58,8 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   final Random _random = Random();
   
+  static const int _maxUndoStackSize = 2;
+  
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
@@ -82,7 +84,25 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
     _originalImage?.dispose();
     _strokeSample?.dispose();
     _repeaterSample?.dispose();
+    // NEW: Ensure all history images are disposed.
+    _clearHistory(updateState: false);
     super.dispose();
+  }
+  
+  void _clearHistory({bool updateState = true}) {
+    for (final img in _undoStack) {
+      img.dispose();
+    }
+    _undoStack.clear();
+
+    for (final img in _redoStack) {
+      img.dispose();
+    }
+    _redoStack.clear();
+
+    if (updateState && mounted) {
+      setState(() {}); // Update UI to disable undo/redo buttons if visible.
+    }
   }
 
   Future<void> _loadImage() async {
@@ -215,8 +235,10 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
         img.dispose();
       }
       _redoStack.clear();
-      // Keep the undo stack from growing infinitely.
-      if (_undoStack.length > 20) {
+
+      // MODIFIED: Enforce the size limit.
+      if (_undoStack.length > _maxUndoStackSize) {
+        // Remove the oldest entry and dispose its image to free memory.
         _undoStack.removeAt(0).dispose();
       }
     }
@@ -262,12 +284,17 @@ class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
 
   void resetImage() {
     if (_originalImage == null) return;
-    _pushUndoState(); // The current state is now undoable.
+    // 1. Clear all previous undo/redo history. This is the new baseline.
+    _clearHistory();
+
+    // 2. Set the display image back to the original.
     setState(() {
       _displayImage?.dispose();
       _displayImage = _originalImage!.clone();
     });
-    _checkIfDirty();
+
+    // 3. Mark the tab as clean.
+    ref.read(editorServiceProvider).markCurrentTabClean();
   }
 
   // --- Interaction Handlers ---
