@@ -434,35 +434,36 @@ class CodeEditorPlugin implements EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       execute: (ref, editor) => editor?.controller.moveSelectionLinesDown(),
     ),
-    _createCommand(
+    BaseCommand(
       id: 'undo',
       label: 'Undo',
-      icon: Icons.undo,
+      icon: const Icon(Icons.undo),
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.undo(),
-      // REFACTORED: The canUndo/canRedo state is local to the widget,
-      // so we need to watch a provider that changes when they do.
-      // Watching the tabMetadataProvider works because it's updated on every keystroke.
-      canExecute: (ref, editor) {
-        if (editor == null) return false;
-        final editorState = ref.watch(
-          codeEditorStateProvider(editor.widget.tab.id),
-        );
-        return editorState.canUndo;
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.undo(),
+      canExecute: (ref) {
+        // 1. Watch the active context provider.
+        final context = ref.watch(activeCommandContextProvider);
+        // 2. Check if it's the right type and get the state.
+        if (context is CodeEditorCommandContext) {
+          return context.canUndo;
+        }
+        return false;
       },
     ),
-    _createCommand(
+    BaseCommand(
       id: 'redo',
       label: 'Redo',
-      icon: Icons.redo,
+      icon: const Icon(Icons.redo),
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.redo(),
-      canExecute: (ref, editor) {
-        if (editor == null) return false;
-        final editorState = ref.watch(
-          codeEditorStateProvider(editor.widget.tab.id),
-        );
-        return editorState.canRedo;
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.redo(),
+      canExecute: (ref) {
+        final context = ref.watch(activeCommandContextProvider);
+        if (context is CodeEditorCommandContext) {
+          return context.canRedo;
+        }
+        return false;
       },
     ),
     _createCommand(

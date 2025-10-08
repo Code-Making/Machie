@@ -1,57 +1,21 @@
+// =========================================
+// UPDATED: lib/editor/plugins/code_editor/code_editor_state.dart
+// =========================================
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/command/command_context.dart'; // Import the base class
 
 @immutable
-class CodeEditorState {
+class CodeEditorCommandContext extends CommandContext {
   final bool canUndo;
   final bool canRedo;
   final bool hasMark;
-  final bool hasSelection; // <-- ADD THIS
+  final bool hasSelection;
 
-  const CodeEditorState({
+  const CodeEditorCommandContext({
     this.canUndo = false,
     this.canRedo = false,
     this.hasMark = false,
-    this.hasSelection = false, // <-- ADD THIS
+    this.hasSelection = false,
   });
-
-  CodeEditorState copyWith({
-    bool? canUndo,
-    bool? canRedo,
-    bool? hasMark,
-    bool? hasSelection, // <-- ADD THIS
-  }) {
-    return CodeEditorState(
-      canUndo: canUndo ?? this.canUndo,
-      canRedo: canRedo ?? this.canRedo,
-      hasMark: hasMark ?? this.hasMark,
-      hasSelection: hasSelection ?? this.hasSelection, // <-- ADD THIS
-    );
-  }
 }
-
-class CodeEditorStateNotifier extends StateNotifier<CodeEditorState> {
-  CodeEditorStateNotifier() : super(const CodeEditorState());
-
-  void update({
-    bool? canUndo,
-    bool? canRedo,
-    bool? hasMark,
-    bool? hasSelection, // <-- ADD THIS
-  }) {
-    state = state.copyWith(
-      canUndo: canUndo,
-      canRedo: canRedo,
-      hasMark: hasMark,
-      hasSelection: hasSelection, // <-- ADD THIS
-    );
-  }
-}
-
-/// A provider family to create a unique state notifier for each open tab.
-/// The tab's stable ID is used as the family parameter.
-final codeEditorStateProvider = StateNotifierProvider.family<
-  CodeEditorStateNotifier,
-  CodeEditorState,
-  String
->((ref, tabId) => CodeEditorStateNotifier());

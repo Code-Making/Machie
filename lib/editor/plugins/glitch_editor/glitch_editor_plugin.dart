@@ -114,7 +114,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   // }
 
   @override
-  Widget buildEditor(EditorTab tab, WidgetRef ref) {
+  EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
     final glitchTab = tab as GlitchEditorTab;
     return GlitchEditorWidget(
       key: glitchTab.editorKey,
