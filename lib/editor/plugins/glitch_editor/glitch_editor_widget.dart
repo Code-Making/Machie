@@ -3,29 +3,32 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
-import 'dart:typed_data'; // Import for Uint8List
+import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
+import 'package:machine/command/command_context.dart'; // <-- ADD CONTEXT IMPORT
 import 'package:machine/editor/services/editor_service.dart';
-import '../../editor_tab_models.dart';
-
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
-// ADDED MISSING IMPORT
+import 'glitch_editor_state.dart'; // <-- ADD STATE IMPORT
+import '../../editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
 
 class GlitchEditorWidget extends EditorWidget {
+  @override
   final GlitchEditorTab tab;
   final GlitchEditorPlugin plugin;
 
   const GlitchEditorWidget({
-    super.key,
+    // MODIFIED: The key must be passed up to the super constructor.
+    required GlobalKey<GlitchEditorWidgetState> key,
     required this.tab,
     required this.plugin,
-  });
+  }) : super(key: key, tab: tab);
 
   @override
   GlitchEditorWidgetState createState() => GlitchEditorWidgetState();
@@ -175,30 +178,77 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   }
 
   // --- Public API for Commands ---
+@override
+  ValueListenable<bool> get dirtyState => _dirtyStateNotifier;
 
-  Future<void> save() async {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (project == null || _displayImage == null) return;
-
-    final byteData = await _displayImage!.toByteData(
-      format: ui.ImageByteFormat.png,
+  @override
+  void syncCommandContext() {
+    if (!mounted) return;
+    final newContext = GlitchEditorCommandContext(
+      canUndo: _undoStack.isNotEmpty,
+      canRedo: _redoStack.isNotEmpty,
+      isDirty: _dirtyStateNotifier.value,
     );
-    if (byteData == null) return;
-
-    final bytes = byteData.buffer.asUint8List();
-
-    final newHash = await ref
-        .read(editorServiceProvider)
-        .saveCurrentTab(project, bytes: bytes);
-
-    if (newHash != null && mounted) {
-      // If save was successful, update our internal state.
-      setState(() {
-        _baseContentHash = newHash;
-      });
-      updateOriginalImage();
-    }
+    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
+
+  @override
+  Future<EditorContent> getContent() async {
+    if (_displayImage == null) return EditorContentBytes(Uint8List(0));
+    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    return EditorContentBytes(byteData!.buffer.asUint8List());
+  }
+  
+  @override
+  void onSaveSuccess(String newHash) {
+    if (!mounted) return;
+    setState(() {
+      _baseContentHash = newHash;
+      _originalImage?.dispose();
+      _originalImage = _displayImage?.clone();
+    });
+    _clearHistory();
+    _updateDirtyState(false);
+  }
+  
+  @override
+  Future<TabHotStateDto?> serializeHotState() async {
+    if (_displayImage == null) return null;
+    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    return GlitchEditorHotStateDto(
+      imageData: byteData!.buffer.asUint8List(),
+      baseContentHash: _baseContentHash,
+    );
+  }
+
+  @override
+  void undo() {
+    if (_undoStack.isEmpty) return;
+    setState(() {
+      final prevState = _undoStack.removeLast();
+      if (_displayImage != null) {
+        _redoStack.add(_displayImage!.clone());
+      }
+      _displayImage = prevState;
+    });
+    _updateDirtyState(_undoStack.isNotEmpty);
+    syncCommandContext();
+  }
+
+  @override
+  void redo() {
+    if (_redoStack.isEmpty) return;
+    setState(() {
+      final nextState = _redoStack.removeLast();
+      if (_displayImage != null) {
+        _undoStack.add(_displayImage!.clone());
+      }
+      _displayImage = nextState;
+    });
+    _updateDirtyState(true);
+    syncCommandContext();
+  }
+
 
   void toggleToolbar() {
     setState(() {
@@ -214,19 +264,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     });
   }
 
-  Future<void> saveAs() async {
-    final editorService = ref.read(editorServiceProvider);
-    // The service handles the entire "Save As" flow.
-    await editorService.saveCurrentTabAs(
-      byteDataProvider: () async {
-        if (_displayImage == null) return null;
-        final byteData = await _displayImage!.toByteData(
-          format: ui.ImageByteFormat.png,
-        );
-        return byteData?.buffer.asUint8List();
-      },
-    );
-  }
+
   
     // NEW: Helper to push the current state to the undo stack
   void _pushUndoState() {
