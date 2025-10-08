@@ -203,7 +203,9 @@ class EditorService {
     final metadata = _ref.read(tabMetadataProvider)[tab.id];
 
     if (metadata != null && metadata.isDirty) {
-      final hotStateDto = await tab.plugin.serializeHotState(tab);
+      // MODIFIED: Call the method on the state object via the key.
+      final hotStateDto = await tab.editorKey.currentState?.serializeHotState();
+      
       if (hotStateDto != null) {
         hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
       }
@@ -400,40 +402,48 @@ class EditorService {
     }
   }
 
-  Future<String?> saveCurrentTab(
-    Project project, {
-    String? content,
-    Uint8List? bytes,
-  }) async {
-    final tabToSaveId = project.session.currentTab?.id;
+    Future<void> saveCurrentTab() async {
+    final project = _currentProject;
+    final tabToSave = _currentTab;
+    final editorState = tabToSave?.editorKey.currentState;
     final metadata =
-        tabToSaveId != null
-            ? _ref.read(tabMetadataProvider)[tabToSaveId]
-            : null;
-    if (tabToSaveId == null || metadata == null) return null;
+        tabToSave != null ? _ref.read(tabMetadataProvider)[tabToSave.id] : null;
+
+    if (project == null || tabToSave == null || editorState == null || metadata == null) {
+      return;
+    }
 
     try {
-      String newHash; // <-- Variable to hold the new hash
+      // 1. Get the content from the widget.
+      final editorContent = await editorState.getContent();
 
-      if (content != null) {
-        await _repo.writeFile(metadata.file, content);
-        newHash = md5.convert(utf8.encode(content)).toString(); // <-- Generate hash
-      } else if (bytes != null) {
-        await _repo.writeFileAsBytes(metadata.file, bytes);
-        newHash = md5.convert(bytes).toString(); // <-- Generate hash
+      String newHash;
+      
+      // 2. Write the content to disk and generate the new hash.
+      if (editorContent is EditorContentString) {
+        await _repo.writeFile(metadata.file, editorContent.content);
+        newHash = md5.convert(utf8.encode(editorContent.content)).toString();
+      } else if (editorContent is EditorContentBytes) {
+        await _repo.writeFileAsBytes(metadata.file, editorContent.bytes);
+        newHash = md5.convert(editorContent.bytes).toString();
       } else {
-        return null;
+        throw Exception("Unknown EditorContent type");
       }
 
-      _ref.read(tabMetadataProvider.notifier).markClean(tabToSaveId);
+      // 3. Mark the tab as clean in the global state.
+      _ref.read(tabMetadataProvider.notifier).markClean(tabToSave.id);
+
+      // 4. Clear the hot state cache for this tab.
       await _ref
           .read(hotStateCacheServiceProvider)
-          .clearTabState(project.id, tabToSaveId);
+          .clearTabState(project.id, tabToSave.id);
 
-      return newHash; // <-- Return the new hash
-    } catch (e) {
-      _ref.read(talkerProvider).error("Failed to save tab: $e");
-      return null;
+      // 5. Notify the widget state of the successful save and provide the new hash.
+      editorState.onSaveSuccess(newHash);
+
+    } catch (e, st) {
+      _ref.read(talkerProvider).handle(e, st, "Failed to save tab: ${metadata.file.name}");
+      MachineToast.error("Failed to save ${metadata.file.name}");
     }
   }
 

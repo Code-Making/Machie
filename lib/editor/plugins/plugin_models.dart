@@ -34,64 +34,90 @@ abstract class EditorPlugin {
   String get id;
   String get name;
   Widget get icon;
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
-
-  /// Defines the order in which plugins are checked. A higher number
-  /// indicates a higher priority. This is crucial for specialized editors
-  /// (like a Git Diff viewer) to be checked before generic ones.
   int get priority;
 
+  // --- Default Implementations for Optional Methods ---
 
-  // ADDED: Allows plugins to declare their own command "slots".
+  /// The data requirement for the plugin. Defaults to string-based.
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
+
+  /// A quick, metadata-based check. Defaults to false.
+  bool supportsFile(DocumentFile file) => false;
+
+  /// A content-based check. Defaults to `false` for binary plugins,
+  /// otherwise `true`. Plugins should override for specific content sniffing.
+  bool canOpenFileContent(String content, DocumentFile file) {
+    return dataRequirement == PluginDataRequirement.string;
+  }
+
+  /// Optional command "slots" for the UI. Defaults to an empty list.
   List<CommandPosition> getCommandPositions() => [];
 
-  List<Command> getCommands();
+  /// Plugin-specific commands. Defaults to an empty list.
+  List<Command> getCommands() => [];
+
+  /// App-wide commands provided by the plugin. Defaults to an empty list.
   List<Command> getAppCommands() => [];
-  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
-  /// A quick, initial filter based on file metadata (usually the extension).
-  /// This is checked before any file content is read.
-  bool supportsFile(DocumentFile file);
+  /// Context menu commands for files. Defaults to an empty list.
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
-  /// A more thorough check based on the actual file content. This is only
-  /// called for text-based plugins (`PluginDataRequirement.string`) after
-  /// the file has been read once.
-  ///
-  /// The plugin can inspect the content to see if it matches an expected
-  /// format (e.g., starts with "diff --git").
-  ///
-  /// Returns `true` if the plugin can definitively handle this content,
-  /// `false` otherwise.
-  bool canOpenFileContent(String content, DocumentFile file);
+  /// Optional plugin-specific settings. Defaults to null.
+  PluginSettings? get settings => null;
 
-
-  Future<EditorTab> createTab(
-    DocumentFile file,
-    EditorInitData initData, {
-    String? id,
-  });
-  Widget buildEditor(EditorTab tab, WidgetRef ref);
-
-  String? get hotStateDtoType;
-  Type? get hotStateDtoRuntimeType;
-  TypeAdapter<TabHotStateDto>? get hotStateAdapter;
-  Future<TabHotStateDto?> serializeHotState(EditorTab tab);
-
-  void activateTab(EditorTab tab, Ref ref);
-  void deactivateTab(EditorTab tab, Ref ref);
-  void disposeTab(EditorTab tab) {}
-  PluginSettings? get settings;
-  Widget buildSettingsUI(PluginSettings settings);
-
+  /// UI for editing plugin-specific settings. Defaults to an empty widget.
+  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
+  
+  /// A way for plugins to wrap toolbars (e.g., to handle focus).
+  /// Defaults to returning the toolbar unmodified.
   Widget wrapCommandToolbar(Widget toolbar) => toolbar;
-
+  
+  /// A way for plugins to provide their own bottom toolbar.
+  /// Defaults to an empty widget.
   Widget buildToolbar(WidgetRef ref) => const SizedBox.shrink();
 
-  Future<EditorTab> createTabFromSerialization(
-    Map<String, dynamic> tabJson,
-    FileHandler fileHandler,
-  );
+  /// Lifecycle hook for when a tab becomes active. Defaults to no-op.
+  void activateTab(EditorTab tab, Ref ref) {}
+  
+  /// Lifecycle hook for when a tab becomes inactive. Defaults to no-op.
+  void deactivateTab(EditorTab tab, Ref ref) {}
+  
+  /// Lifecycle hook for when a tab is permanently closed. Defaults to no-op.
+  void disposeTab(EditorTab tab) {}
+  
+  /// Lifecycle hook for when the plugin is unloaded. Defaults to no-op.
   Future<void> dispose() async {}
+
+  // --- Explicit Serialization Contract ---
+  
+  /// A unique string identifying the type of the hot state DTO for this plugin.
+  /// Must be implemented if the plugin supports caching.
+  String? get hotStateDtoType;
+  
+  /// The runtime `Type` of the hot state DTO.
+  /// Must be implemented if the plugin supports caching.
+  Type? get hotStateDtoRuntimeType;
+  
+  /// The adapter for serializing/deserializing the DTO.
+  /// Must be implemented if the plugin supports caching.
+  TypeAdapter<TabHotStateDto>? get hotStateAdapter;
+
+  // --- Abstract Methods (Must be Implemented) ---
+  
+  /// Creates a new tab instance. The implementation of this method is
+  /// responsible for passing the necessary parts of `initData` (like
+  /// initial content, cached content, and hash) to its concrete Tab
+  /// class constructor. The `EditorTab` itself will not store `initData`.
+  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id});
+
+  /// Creates the main editor UI widget for a given tab.
+  /// The returned widget MUST extend `EditorWidget`.
+  EditorWidget buildEditor(EditorTab tab, WidgetRef ref);
+  
+  /// Recreates a tab from a persisted JSON representation.
+  Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler);
+  
+  // REMOVED: `serializeHotState` is no longer on the plugin. It's on the widget state.
 }
 
 abstract class PluginSettings extends MachineSettings {}

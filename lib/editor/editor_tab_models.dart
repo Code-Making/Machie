@@ -11,7 +11,6 @@ import 'tab_state_manager.dart';
 
 @immutable
 class TabSessionState {
-  // ... (rest of the class is unchanged) ...
   final List<EditorTab> tabs;
   final int currentTabIndex;
   final Map<String, TabMetadata> tabMetadata;
@@ -48,6 +47,46 @@ class TabSessionState {
   }
 }
 
+sealed class EditorContent {}
+class EditorContentString extends EditorContent {
+  final String content;
+  EditorContentString(this.content);
+}
+class EditorContentBytes extends EditorContent {
+  final Uint8List bytes;
+  EditorContentBytes(this.bytes);
+}
+
+
+// ### NEW: The contract for any widget that serves as an editor UI.
+abstract class EditorWidget extends ConsumerStatefulWidget {
+  final EditorTab tab;
+
+  const EditorWidget({required this.tab, required super.key});
+}
+
+// ### NEW: The explicit, stateful contract for an EditorWidget.
+// This is what plugins MUST implement in their State objects.
+abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {
+  ValueListenable<bool> get dirtyState;
+  bool get canUndo;
+  bool get canRedo;
+
+  void undo();
+  void redo();
+
+  /// Called by the framework when saving. The widget state's only
+  /// responsibility is to return its current content in the correct format.
+  /// The service will handle the rest (writing, hashing, etc.).
+  Future<EditorContent> getContent();
+
+  /// Called by the framework to update the widget's internal baseline hash
+  /// after a successful save operation.
+  void onSaveSuccess(String newHash);
+  
+  Future<TabHotStateDto?> serializeHotState();
+}
+
 @immutable
 abstract class WorkspaceTab {
   final String id;
@@ -61,15 +100,17 @@ abstract class WorkspaceTab {
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
-  final GlobalKey<State<StatefulWidget>> editorKey;
-
-  EditorTab({required super.plugin, super.id})
-    : editorKey = GlobalKey<State<StatefulWidget>>();
+  // MODIFIED: The key is now strongly typed to our new state contract.
+  final GlobalKey<EditorWidgetState> editorKey;
+  
+  EditorTab({
+    required super.plugin,
+    super.id,
+  }) : editorKey = GlobalKey<EditorWidgetState>();
 
   @override
   void dispose();
 
-  // REFACTORED: Persists the stable plugin ID.
   EditorTabDto toDto() {
     return EditorTabDto(id: id, pluginType: plugin.id);
   }
