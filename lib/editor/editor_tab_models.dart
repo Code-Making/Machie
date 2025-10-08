@@ -105,7 +105,6 @@ abstract class WorkspaceTab {
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
-  // MODIFIED: The key is now strongly typed to our new state contract.
   final GlobalKey<EditorWidgetState> editorKey;
   
   EditorTab({
