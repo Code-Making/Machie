@@ -12,6 +12,7 @@ import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
+import '../../services/editor_service.dart';
 import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
@@ -117,9 +118,10 @@ class GlitchEditorPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
+    final stateKey = tab.editorKey as GlobalKey<GlitchEditorState>;
     final glitchTab = tab as GlitchEditorTab;
     return GlitchEditorWidget(
-      key: glitchTab.editorKey,
+      key: stateKey,
       tab: glitchTab,
       plugin: this,
     );
