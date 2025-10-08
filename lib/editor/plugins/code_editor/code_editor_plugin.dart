@@ -15,6 +15,7 @@ import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 import 'code_editor_hot_state_adapter.dart'; // ADDED
 import 'code_editor_hot_state_dto.dart'; // ADDED
+import 'package:machine/command/command_context.dart';
 
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
