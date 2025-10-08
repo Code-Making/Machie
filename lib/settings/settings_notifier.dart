@@ -18,13 +18,13 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
 });
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
-  SettingsNotifier({required Set<EditorPlugin> plugins})
+  SettingsNotifier({required List<EditorPlugin> plugins})
     : super(AppSettings(pluginSettings: _getDefaultSettings(plugins))) {
     loadSettings();
   }
 
   static Map<Type, MachineSettings> _getDefaultSettings(
-    Set<EditorPlugin> plugins,
+    List<EditorPlugin> plugins,
   ) {
     // REFACTOR: Use the new base class for the map type.
     final Map<Type, MachineSettings> defaultSettings = {
