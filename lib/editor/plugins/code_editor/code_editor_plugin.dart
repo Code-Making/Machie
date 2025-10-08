@@ -188,7 +188,7 @@ class CodeEditorPlugin implements EditorPlugin {
   // }
 
   @override
-  Widget buildEditor(EditorTab tab, WidgetRef ref) {
+  EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
     final codeTab = tab as CodeEditorTab;
     return CodeEditorMachine(key: codeTab.editorKey, tab: codeTab);
   }
