@@ -20,6 +20,7 @@ import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
 
 import '../../../app/app_notifier.dart';
+import '../../../data/dto/tab_hot_state_dto';
 import '../../../command/command_models.dart'; // ADDED: For Command class
 import '../../../command/command_context.dart'; // ADDED: For CommandButton
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
@@ -27,6 +28,7 @@ import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 
 import 'code_editor_hot_state_dto.dart'; // For serializeHotState
+
 
 // ... (BracketHighlightState is unchanged) ...
 class BracketHighlightState {
@@ -484,36 +486,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
             .read(editorServiceProvider)
             .updateAndCacheDirtyTab(project, widget.tab);
       }
-    }
-  }
-
-  void syncStateToProvider() {
-    // If the widget is no longer in the tree, do nothing.
-    if (!mounted) return;
-
-    ref
-        .read(codeEditorStateProvider(widget.tab.id).notifier)
-        .update(
-          canUndo: controller.canUndo,
-          canRedo: controller.canRedo,
-          hasMark: _markPosition != null,
-          hasSelection: !controller.selection.isCollapsed,
-        );
-  }
-
-  Future<void> save() async {
-    final project = ref.read(appNotifierProvider).value!.currentProject!;
-    final newHash = await ref
-        .read(editorServiceProvider)
-        .saveCurrentTab(project, content: controller.text);
-
-    if (newHash != null) {
-      // If the save was successful, update the internal hash state.
-      setState(() {
-        _baseContentHash = newHash;
-      });
-      // And mark the controller's current state as the new clean baseline.
-      controller.markCurrentStateAsClean();
     }
   }
 
