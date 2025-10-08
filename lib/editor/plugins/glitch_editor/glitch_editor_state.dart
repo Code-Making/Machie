@@ -3,7 +3,7 @@
 // =========================================
 
 import 'package:flutter/foundation.dart';
-import 'package:machine/command/command_context.dart';
+import 'package:machine/editor/plugins/editor_command_context.dart';
 
 @immutable
 class GlitchEditorCommandContext extends CommandContext {

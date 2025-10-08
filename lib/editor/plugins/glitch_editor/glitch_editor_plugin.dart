@@ -21,7 +21,7 @@ import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/cache/type_adapters.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
-import 'package:machine/command/command_context.dart';
+import 'package:machine/editor/plugins/editor_command_context.dart';
 import 'glitch_editor_state.dart';
 
 class GlitchEditorPlugin extends EditorPlugin {
