@@ -66,9 +66,22 @@ class CodeEditorPlugin implements EditorPlugin {
   void disposeTab(EditorTab tab) {}
 
   @override
+  int get priority => 0;
+
+  @override
   bool supportsFile(DocumentFile file) {
+    // It can potentially support any file that isn't claimed by a higher-
+    // priority binary plugin. For text files, this is a good first pass.
     final ext = file.name.split('.').last.toLowerCase();
-    return CodeThemes.languageExtToNameMap.containsKey(ext);
+    // A broad check. The real decision is in `canOpenFileContent`.
+    return !['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
+  }
+
+  /// As the fallback editor for text files, this should always return true.
+  /// If no specialized plugin claims the content, this one will.
+  @override
+  bool canOpenFileContent(String content, DocumentFile file) {
+    return true;
   }
 
   @override
