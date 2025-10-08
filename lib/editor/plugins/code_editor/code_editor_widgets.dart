@@ -2,7 +2,7 @@
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
 
-// lib/plugins/code_editor/code_editor_widgets.dart
+import 'package:flutter/foundation.dart'; // <-- FIX: ADD THIS IMPORT for ValueListenable
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +25,8 @@ import '../../../command/command_context.dart'; // ADDED: For CommandButton
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
+
+import 'code_editor_hot_state_dto.dart'; // For serializeHotState
 
 // ... (BracketHighlightState is unchanged) ...
 class BracketHighlightState {
@@ -82,6 +84,29 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   @override
   void redo() {
     if (controller.canRedo) controller.redo();
+  }
+  
+    @override
+  Future<EditorContent> getContent() async {
+    return EditorContentString(controller.text);
+  }
+
+  @override
+  void onSaveSuccess(String newHash) {
+    if (!mounted) return;
+    setState(() {
+      _baseContentHash = newHash;
+    });
+    controller.markCurrentStateAsClean();
+  }
+
+  @override
+  Future<TabHotStateDto?> serializeHotState() async {
+    return CodeEditorHotStateDto(
+      content: controller.text,
+      languageKey: _languageKey,
+      baseContentHash: _baseContentHash,
+    );
   }
   
   @override
