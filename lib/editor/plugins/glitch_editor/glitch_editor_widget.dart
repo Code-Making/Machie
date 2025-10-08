@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import '../../editor_tab_models.dart';
+
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
