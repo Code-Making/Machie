@@ -99,19 +99,19 @@ class GlitchEditorPlugin implements EditorPlugin {
     );
   }
 
-  @override
-  Future<EditorTab> createTabFromSerialization(
-    Map<String, dynamic> tabJson,
-    FileHandler fileHandler,
-  ) async {
-    final fileUri = tabJson['fileUri'];
-    if (fileUri == null) throw Exception('File URI not found in serialization');
-    final file = await fileHandler.getFileMetadata(fileUri);
-    if (file == null) throw Exception('File not found: $fileUri');
-    final fileBytes = await fileHandler.readFileAsBytes(file.uri);
-    final initData = EditorInitData(byteData: fileBytes);
-    return createTab(file, initData);
-  }
+  // @override
+  // Future<EditorTab> createTabFromSerialization(
+  //   Map<String, dynamic> tabJson,
+  //   FileHandler fileHandler,
+  // ) async {
+  //   final fileUri = tabJson['fileUri'];
+  //   if (fileUri == null) throw Exception('File URI not found in serialization');
+  //   final file = await fileHandler.getFileMetadata(fileUri);
+  //   if (file == null) throw Exception('File not found: $fileUri');
+  //   final fileBytes = await fileHandler.readFileAsBytes(file.uri);
+  //   final initData = EditorInitData(byteData: fileBytes);
+  //   return createTab(file, initData);
+  // }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {
@@ -149,18 +149,18 @@ class GlitchEditorPlugin implements EditorPlugin {
     return null;
   }
 
-  @override
-  Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
-    final editorState = _getEditorState(tab);
-    if (editorState == null) return null;
+  // @override
+  // Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
+  //   final editorState = _getEditorState(tab);
+  //   if (editorState == null) return null;
 
-    final stateMap = await editorState.getHotState();
-    if (stateMap == null || stateMap['imageData'] == null) return null;
+  //   final stateMap = await editorState.getHotState();
+  //   if (stateMap == null || stateMap['imageData'] == null) return null;
 
-    return GlitchEditorHotStateDto(
-      imageData: stateMap['imageData'] as Uint8List,
-    );
-  }
+  //   return GlitchEditorHotStateDto(
+  //     imageData: stateMap['imageData'] as Uint8List,
+  //   );
+  // }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(

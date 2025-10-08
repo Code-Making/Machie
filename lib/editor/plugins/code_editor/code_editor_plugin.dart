@@ -102,18 +102,18 @@ class CodeEditorPlugin implements EditorPlugin {
     return null;
   }
 
-  @override
-  Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
-    final editorState = _getEditorState(tab);
-    if (editorState == null) return null;
+  // @override
+  // Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
+  //   final editorState = _getEditorState(tab);
+  //   if (editorState == null) return null;
 
-    final stateMap = editorState.getHotState();
-    return CodeEditorHotStateDto(
-      content: stateMap['content'],
-      languageKey: stateMap['languageKey'],
-      baseContentHash: stateMap['baseContentHash'], // <-- GET HASH FROM WIDGET
-    );
-  }
+  //   final stateMap = editorState.getHotState();
+  //   return CodeEditorHotStateDto(
+  //     content: stateMap['content'],
+  //     languageKey: stateMap['languageKey'],
+  //     baseContentHash: stateMap['baseContentHash'], // <-- GET HASH FROM WIDGET
+  //   );
+  // }
 
   @override
   List<CommandPosition> getCommandPositions() {
@@ -151,16 +151,13 @@ class CodeEditorPlugin implements EditorPlugin {
     EditorInitData initData, {
     String? id,
   }) async {
-    // The initial content is ALWAYS the data from disk.
     final initialContent = initData.stringData ?? '';
     final initialBaseContentHash = initData.baseContentHash;
-
     String? cachedContent;
     String? initialLanguageKey;
 
     if (initData.hotState is CodeEditorHotStateDto) {
       final hotState = initData.hotState as CodeEditorHotStateDto;
-      // The cached content is stored separately.
       cachedContent = hotState.content;
       initialLanguageKey = hotState.languageKey;
     }
@@ -168,27 +165,27 @@ class CodeEditorPlugin implements EditorPlugin {
     return CodeEditorTab(
       plugin: this,
       initialContent: initialContent,
-      cachedContent: cachedContent, // <-- Pass cached content separately
+      cachedContent: cachedContent,
       initialLanguageKey: initialLanguageKey,
       initialBaseContentHash: initialBaseContentHash,
       id: id,
     );
   }
 
-  @override
-  Future<EditorTab> createTabFromSerialization(
-    Map<String, dynamic> tabJson,
-    FileHandler fileHandler,
-  ) async {
-    final fileUri = tabJson['fileUri'] as String;
-    final file = await fileHandler.getFileMetadata(fileUri);
-    if (file == null) {
-      throw Exception('File not found for tab URI: $fileUri');
-    }
-    final content = await fileHandler.readFile(fileUri);
-    final initData = EditorInitData(stringData: content);
-    return createTab(file, initData);
-  }
+  // @override
+  // Future<EditorTab> createTabFromSerialization(
+  //   Map<String, dynamic> tabJson,
+  //   FileHandler fileHandler,
+  // ) async {
+  //   final fileUri = tabJson['fileUri'] as String;
+  //   final file = await fileHandler.getFileMetadata(fileUri);
+  //   if (file == null) {
+  //     throw Exception('File not found for tab URI: $fileUri');
+  //   }
+  //   final content = await fileHandler.readFile(fileUri);
+  //   final initData = EditorInitData(stringData: content);
+  //   return createTab(file, initData);
+  // }
 
   @override
   Widget buildEditor(EditorTab tab, WidgetRef ref) {

@@ -113,11 +113,7 @@ abstract class EditorPlugin {
   /// Creates the main editor UI widget for a given tab.
   /// The returned widget MUST extend `EditorWidget`.
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref);
-  
-  /// Recreates a tab from a persisted JSON representation.
-  Future<EditorTab> createTabFromSerialization(Map<String, dynamic> tabJson, FileHandler fileHandler);
-  
-  // REMOVED: `serializeHotState` is no longer on the plugin. It's on the widget state.
+    
 }
 
 abstract class PluginSettings extends MachineSettings {}

@@ -16,7 +16,9 @@ import 'code_editor_plugin.dart'; // ADDED: For type cast
 import 'code_find_panel_view.dart';
 import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
 
+import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
+
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart'; // ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
@@ -33,7 +35,7 @@ class BracketHighlightState {
   });
 }
 
-class CodeEditorMachine extends ConsumerStatefulWidget {
+class CodeEditorMachine extends EditorWidget {
   final CodeEditorTab tab;
 
   const CodeEditorMachine({super.key, required this.tab});
@@ -42,7 +44,7 @@ class CodeEditorMachine extends ConsumerStatefulWidget {
   CodeEditorMachineState createState() => CodeEditorMachineState();
 }
 
-class CodeEditorMachineState extends ConsumerState<CodeEditorMachine> {
+class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;

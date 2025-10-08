@@ -15,7 +15,7 @@ import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
 // ADDED MISSING IMPORT
 
-class GlitchEditorWidget extends ConsumerStatefulWidget {
+class GlitchEditorWidget extends EditorWidget {
   final GlitchEditorTab tab;
   final GlitchEditorPlugin plugin;
 
@@ -29,7 +29,7 @@ class GlitchEditorWidget extends ConsumerStatefulWidget {
   GlitchEditorWidgetState createState() => GlitchEditorWidgetState();
 }
 
-class GlitchEditorWidgetState extends ConsumerState<GlitchEditorWidget> {
+class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   // --- STATE ---
   String? _baseContentHash;
   
