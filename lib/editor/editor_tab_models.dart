@@ -3,12 +3,14 @@
 // =========================================
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:uuid/uuid.dart';
-import 'package:machine/data/dto/project_dto.dart';
+import '../data/dto/project_dto.dart';
+import '../data/dto/tab_hot_state_dto.dart';
 
 import 'plugins/plugin_models.dart';
 import 'tab_state_manager.dart';
