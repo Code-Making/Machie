@@ -250,6 +250,17 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     _updateDirtyState(true);
     syncCommandContext();
   }
+  
+  void _updateDirtyState(bool isDirty) {
+    if (_dirtyStateNotifier.value == isDirty) return;
+    _dirtyStateNotifier.value = isDirty;
+    if (isDirty) {
+      ref.read(editorServiceProvider).markCurrentTabDirty();
+    } else {
+      ref.read(editorServiceProvider).markCurrentTabClean();
+    }
+    syncCommandContext();
+  }
 
 
   void toggleToolbar() {
@@ -287,30 +298,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   }
 
   // --- Public API for Commands ---
-  void undo() {
-    if (!canUndo) return;
-    final prevState = _undoStack.removeLast();
-    if (_displayImage != null) {
-      _redoStack.add(_displayImage!.clone());
-    }
-    setState(() {
-      _displayImage = prevState;
-    });
-    // Check if we've undone back to the original state.
-    _checkIfDirty();
-  }
 
-  void redo() {
-    if (!canRedo) return;
-    final nextState = _redoStack.removeLast();
-    if (_displayImage != null) {
-      _undoStack.add(_displayImage!.clone());
-    }
-    setState(() {
-      _displayImage = nextState;
-    });
-    ref.read(editorServiceProvider).markCurrentTabDirty();
-  }
   
   void _checkIfDirty() {
     if (_originalImage == null || _displayImage == null) return;
