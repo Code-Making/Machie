@@ -15,7 +15,6 @@ import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
 import 'code_editor_hot_state_adapter.dart'; // ADDED
 import 'code_editor_hot_state_dto.dart'; // ADDED
-import 'package:machine/command/command_context.dart';
 
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
@@ -132,13 +131,13 @@ class CodeEditorPlugin implements EditorPlugin {
     editorWidgetState?.syncStateToProvider();
 
     // 3. Now that the provider is fresh, read from it to update global UI.
-  //   final currentEditorState = ref.read(codeEditorStateProvider(tab.id));
-  //   if (currentEditorState.hasSelection) {
-  //     ref
-  //         .read(appNotifierProvider.notifier)
-  //         .setAppBarOverride(const CodeEditorSelectionAppBar());
-  //   }
-  // }
+    final currentEditorState = ref.read(codeEditorStateProvider(tab.id));
+    if (currentEditorState.hasSelection) {
+      ref
+          .read(appNotifierProvider.notifier)
+          .setAppBarOverride(const CodeEditorSelectionAppBar());
+    }
+  }
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
@@ -281,18 +280,19 @@ class CodeEditorPlugin implements EditorPlugin {
   // logic correctly watches the tabMetadataProvider for changes in dirty status.
   @override
   List<Command> getCommands() => [
-    BaseCommand(
+    _createCommand(
       id: 'save',
       label: 'Save',
-      icon: const Icon(Icons.save),
+      icon: Icons.save,
       defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: id,
-      execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
-      canExecute: (ref) {
-        // --- FIX: Use the TabMetadata provider for dirty state, not the command context ---
-        final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
-        if (currentTabId == null) return false;
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
+      execute: (ref, editor) => editor?.save(),
+      // REFACTORED: The 'isDirty' flag is now on the metadata.
+      canExecute: (ref, editor) {
+        if (editor == null) return false;
+        // Watch the metadata for the current tab to react to dirty state changes.
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[editor.widget.tab.id]),
+        );
         return metadata?.isDirty ?? false;
       },
     ),
@@ -434,36 +434,35 @@ class CodeEditorPlugin implements EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       execute: (ref, editor) => editor?.controller.moveSelectionLinesDown(),
     ),
-    BaseCommand(
+    _createCommand(
       id: 'undo',
       label: 'Undo',
-      icon: const Icon(Icons.undo),
+      icon: Icons.undo,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.undo(),
-      canExecute: (ref) {
-        // 1. Watch the active context provider.
-        final context = ref.watch(activeCommandContextProvider);
-        // 2. Check if it's the right type and get the state.
-        if (context is CodeEditorCommandContext) {
-          return context.canUndo;
-        }
-        return false;
+      execute: (ref, editor) => editor?.controller.undo(),
+      // REFACTORED: The canUndo/canRedo state is local to the widget,
+      // so we need to watch a provider that changes when they do.
+      // Watching the tabMetadataProvider works because it's updated on every keystroke.
+      canExecute: (ref, editor) {
+        if (editor == null) return false;
+        final editorState = ref.watch(
+          codeEditorStateProvider(editor.widget.tab.id),
+        );
+        return editorState.canUndo;
       },
     ),
-    BaseCommand(
+    _createCommand(
       id: 'redo',
       label: 'Redo',
-      icon: const Icon(Icons.redo),
+      icon: Icons.redo,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.redo(),
-      canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        if (context is CodeEditorCommandContext) {
-          return context.canRedo;
-        }
-        return false;
+      execute: (ref, editor) => editor?.controller.redo(),
+      canExecute: (ref, editor) {
+        if (editor == null) return false;
+        final editorState = ref.watch(
+          codeEditorStateProvider(editor.widget.tab.id),
+        );
+        return editorState.canRedo;
       },
     ),
     _createCommand(
