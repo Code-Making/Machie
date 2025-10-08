@@ -37,9 +37,14 @@ class BracketHighlightState {
 }
 
 class CodeEditorMachine extends EditorWidget {
+  @override
   final CodeEditorTab tab;
 
-  const CodeEditorMachine({super.key, required this.tab});
+  // --- FIX: Add the required super constructor call ---
+  const CodeEditorMachine({
+    required GlobalKey<CodeEditorMachineState> key,
+    required this.tab,
+  }) : super(key: key, tab: tab);
 
   @override
   CodeEditorMachineState createState() => CodeEditorMachineState();
@@ -90,32 +95,26 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    _languageKey =
-        widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
+    _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
-    // ALWAYS initialize the controller with the clean content from disk.
-    controller = CodeLineEditingController(
-      codeLines: CodeLines.fromText(widget.tab.initialContent),
-      spanBuilder: _buildHighlightingSpan,
-    );
-
+    controller = CodeLineEditingController.fromText(widget.tab.initialContent);
     findController = CodeFindController(controller);
-
-    controller.addListener(_onControllerChange);
+    
+    // Listeners
+    controller.addListener(syncCommandContext);
     controller.dirty.addListener(_onDirtyStateChange);
 
-    // *** THIS IS THE NEW LOGIC ***
-    // After the first frame has been built, apply the cached content.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.tab.cachedContent != null) {
-        // This programmatic change will be added to the undo stack.
-        // The user can now press "Undo" to get back to `widget.tab.initialContent`.
-        controller.text = widget.tab.cachedContent!;
+      if (mounted) {
+        syncCommandContext(); // Initial sync
+        if (widget.tab.cachedContent != null) {
+          controller.text = widget.tab.cachedContent!;
+          // After applying cache, re-sync context to update undo/redo state
+          syncCommandContext();
+        }
       }
     });
-
-    syncCommandContext();
   }
 
   @override
@@ -143,16 +142,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   @override
   void dispose() {
-    // Check if an override is active and clear it. This is good practice.
-    if (_wasSelectionActive) {
-      ref.read(appNotifierProvider.notifier).clearAppBarOverride();
-    }
-    findController.dispose();
+    controller.removeListener(syncCommandContext);
     controller.dirty.removeListener(_onDirtyStateChange);
-    controller.removeListener(_onControllerChange);
     controller.dispose();
     _focusNode.dispose();
-    ref.invalidate(codeEditorStateProvider(widget.tab.id));
+    findController.dispose();
     super.dispose();
   }
 
@@ -425,7 +419,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
     if (!mounted) return;
-
     final editorService = ref.read(editorServiceProvider);
     if (controller.dirty.value) {
       editorService.markCurrentTabDirty();
