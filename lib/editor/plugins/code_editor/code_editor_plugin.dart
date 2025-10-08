@@ -132,13 +132,13 @@ class CodeEditorPlugin implements EditorPlugin {
     editorWidgetState?.syncStateToProvider();
 
     // 3. Now that the provider is fresh, read from it to update global UI.
-    final currentEditorState = ref.read(codeEditorStateProvider(tab.id));
-    if (currentEditorState.hasSelection) {
-      ref
-          .read(appNotifierProvider.notifier)
-          .setAppBarOverride(const CodeEditorSelectionAppBar());
-    }
-  }
+  //   final currentEditorState = ref.read(codeEditorStateProvider(tab.id));
+  //   if (currentEditorState.hasSelection) {
+  //     ref
+  //         .read(appNotifierProvider.notifier)
+  //         .setAppBarOverride(const CodeEditorSelectionAppBar());
+  //   }
+  // }
 
   @override
   void deactivateTab(EditorTab tab, Ref ref) {
@@ -281,19 +281,18 @@ class CodeEditorPlugin implements EditorPlugin {
   // logic correctly watches the tabMetadataProvider for changes in dirty status.
   @override
   List<Command> getCommands() => [
-    _createCommand(
+    BaseCommand(
       id: 'save',
       label: 'Save',
-      icon: Icons.save,
+      icon: const Icon(Icons.save),
       defaultPositions: [AppCommandPositions.appBar],
-      execute: (ref, editor) => editor?.save(),
-      // REFACTORED: The 'isDirty' flag is now on the metadata.
-      canExecute: (ref, editor) {
-        if (editor == null) return false;
-        // Watch the metadata for the current tab to react to dirty state changes.
-        final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[editor.widget.tab.id]),
-        );
+      sourcePlugin: id,
+      execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+      canExecute: (ref) {
+        // --- FIX: Use the TabMetadata provider for dirty state, not the command context ---
+        final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        if (currentTabId == null) return false;
+        final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
         return metadata?.isDirty ?? false;
       },
     ),
