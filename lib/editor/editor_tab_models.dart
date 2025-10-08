@@ -75,21 +75,20 @@ abstract class EditorWidget extends ConsumerStatefulWidget {
 // This is what plugins MUST implement in their State objects.
 abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {
   ValueListenable<bool> get dirtyState;
-  bool get canUndo;
-  bool get canRedo;
+  
+  /// Synchronizes the editor's internal, command-relevant state with the
+  /// global `commandContextProvider`. This method is the core of the
+  /// reactive command system. It should be called whenever state like
+  /// `canUndo`, `canRedo`, or selection changes.
+  void syncCommandContext();
+
+  // REMOVED: canUndo, canRedo are no longer part of the public contract.
+  // They will be exposed via the CommandContext.
 
   void undo();
   void redo();
-
-  /// Called by the framework when saving. The widget state's only
-  /// responsibility is to return its current content in the correct format.
-  /// The service will handle the rest (writing, hashing, etc.).
   Future<EditorContent> getContent();
-
-  /// Called by the framework to update the widget's internal baseline hash
-  /// after a successful save operation.
   void onSaveSuccess(String newHash);
-  
   Future<TabHotStateDto?> serializeHotState();
 }
 

@@ -21,6 +21,7 @@ import '../../tab_state_manager.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart'; // ADDED: For Command class
+import '../../../command/command_context.dart'; // ADDED: For CommandButton
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
@@ -63,11 +64,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
 
   // --- PUBLIC PROPERTIES (for the command system) ---
-  // isDirty is no longer needed here; the command gets it from the provider.
-  //bool get canUndo => controller.canUndo;
-  //bool get canRedo => controller.canRedo;
-  //bool get hasMark => _markPosition != null;
+  @override
+  ValueListenable<bool> get dirtyState => controller.dirty;
 
+  // The public getters for canUndo/canRedo are now gone.
+  // The private methods remain.
+  @override
+  void undo() {
+    if (controller.canUndo) controller.undo();
+  }
+
+  @override
+  void redo() {
+    if (controller.canRedo) controller.redo();
+  }
+  
   @override
   void initState() {
     super.initState();
@@ -104,7 +115,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
       }
     });
 
-    _updateStateProvider();
+    syncCommandContext();
   }
 
   @override
@@ -432,7 +443,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     });
 
     // 2. Then, update the reactive state provider for commands.
-    _updateStateProvider();
+    syncCommandContext();
 
     // 3. Now, handle the AppBar override side-effect.
     final isSelectionActive = !controller.selection.isCollapsed;
@@ -498,15 +509,18 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }
 
   // NEW METHOD: Centralizes updating the state provider.
-  void _updateStateProvider() {
-    ref
-        .read(codeEditorStateProvider(widget.tab.id).notifier)
-        .update(
-          canUndo: controller.canUndo,
-          canRedo: controller.canRedo,
-          hasMark: _markPosition != null,
-          hasSelection: !controller.selection.isCollapsed, // <-- THE TRIGGER
-        );
+  void syncCommandContext() {
+    if (!mounted) return;
+
+    final newContext = CodeEditorCommandContext(
+      canUndo: controller.canUndo,
+      canRedo: controller.canRedo,
+      hasSelection: !controller.selection.isCollapsed,
+      hasMark: _markPosition != null,
+    );
+    
+    // Get the Notifier for THIS tab's context and update its state.
+    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
 
   // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
@@ -514,7 +528,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     setState(() {
       _markPosition = controller.selection.base;
     });
-    _updateStateProvider();
+    syncCommandContext();
   }
 
   void selectToMark() {
