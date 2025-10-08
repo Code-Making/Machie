@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/command/command_context.dart'; // <-- ADD CONTEXT IMPORT
+import 'package:machine/editor/plugins/editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
 import 'package:machine/editor/services/editor_service.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';

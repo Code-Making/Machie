@@ -28,7 +28,7 @@ import '../../../data/dto/tab_hot_state_dto.dart'; // ADDED
 import '../../../data/cache/type_adapters.dart'; // ADDED
 import '../../../data/cache/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
-import '../../../command/command_context.dart'; // <-- IMPORT NEW CONTEXT
+import '../../../editor/plugins/editor_command_context.dart'; // <-- IMPORT NEW CONTEXT
 import '../../../editor/services/editor_service.dart';
 
 class CodeEditorPlugin extends EditorPlugin {

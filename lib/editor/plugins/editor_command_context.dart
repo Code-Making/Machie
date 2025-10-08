@@ -1,5 +1,5 @@
 // =========================================
-// NEW FILE: lib/command/command_context.dart
+// NEW FILE: lib/editor/plugins/editor_command_context.dart
 // =========================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

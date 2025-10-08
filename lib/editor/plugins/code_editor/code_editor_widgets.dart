@@ -22,7 +22,7 @@ import '../../tab_state_manager.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../command/command_models.dart'; // ADDED: For Command class
-import '../../../command/command_context.dart'; // ADDED: For CommandButton
+import '../../../editor/plugins/editor_command_context.dart'; // ADDED: For CommandButton
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
