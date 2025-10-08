@@ -45,11 +45,20 @@ class GlitchEditorPlugin implements EditorPlugin {
   Type? get hotStateDtoRuntimeType => GlitchEditorHotStateDto;
 
   @override
+  int get priority => 1;
+
+  @override
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').last.toLowerCase();
     return ['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
   }
 
+  /// This plugin handles binary data, so it does not participate in the
+  /// string-based content check.
+  @override
+  bool canOpenFileContent(String content, DocumentFile file) {
+    return false;
+  }
   @override
   Future<void> dispose() async {}
   @override

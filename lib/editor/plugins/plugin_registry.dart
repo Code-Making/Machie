@@ -1,26 +1,43 @@
-// lib/plugins/plugin_registry.dart
+// =========================================
+// UPDATED: lib/editor/plugins/plugin_registry.dart
+// =========================================
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
-import 'glitch_editor/glitch_editor_plugin.dart'; // NEW IMPORT
+import 'glitch_editor/glitch_editor_plugin.dart';
 
 export 'plugin_models.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
     CodeEditorPlugin(),
-    GlitchEditorPlugin(), // NEW: Register the GlitchEditorPlugin
+    GlitchEditorPlugin(),
   },
 );
 
+// MODIFIED: This provider now returns a sorted list, not a set.
 final activePluginsProvider =
-    StateNotifierProvider<PluginManager, Set<EditorPlugin>>((ref) {
-      return PluginManager(ref.read(pluginRegistryProvider));
-    });
+    StateNotifierProvider<PluginManager, List<EditorPlugin>>((ref) {
+  final initialPlugins = ref.read(pluginRegistryProvider);
+  return PluginManager(initialPlugins);
+});
 
-class PluginManager extends StateNotifier<Set<EditorPlugin>> {
-  PluginManager(super.plugins);
-  void registerPlugin(EditorPlugin plugin) => state = {...state, plugin};
-  void unregisterPlugin(EditorPlugin plugin) =>
-      state = state.where((p) => p != plugin).toSet();
+class PluginManager extends StateNotifier<List<EditorPlugin>> {
+  PluginManager(Set<EditorPlugin> plugins)
+      : super(_sortPlugins(plugins.toList()));
+
+  static List<EditorPlugin> _sortPlugins(List<EditorPlugin> plugins) {
+    // Sorts plugins in descending order of priority.
+    plugins.sort((a, b) => b.priority.compareTo(a.priority));
+    return plugins;
+  }
+
+  void registerPlugin(EditorPlugin plugin) {
+    state = _sortPlugins([...state, plugin]);
+  }
+
+  void unregisterPlugin(EditorPlugin plugin) {
+    state = _sortPlugins(state.where((p) => p != plugin).toList());
+  }
 }

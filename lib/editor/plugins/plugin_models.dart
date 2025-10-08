@@ -36,6 +36,12 @@ abstract class EditorPlugin {
   Widget get icon;
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
+  /// Defines the order in which plugins are checked. A higher number
+  /// indicates a higher priority. This is crucial for specialized editors
+  /// (like a Git Diff viewer) to be checked before generic ones.
+  int get priority;
+
+
   // ADDED: Allows plugins to declare their own command "slots".
   List<CommandPosition> getCommandPositions() => [];
 
@@ -43,7 +49,21 @@ abstract class EditorPlugin {
   List<Command> getAppCommands() => [];
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item);
 
+  /// A quick, initial filter based on file metadata (usually the extension).
+  /// This is checked before any file content is read.
   bool supportsFile(DocumentFile file);
+
+  /// A more thorough check based on the actual file content. This is only
+  /// called for text-based plugins (`PluginDataRequirement.string`) after
+  /// the file has been read once.
+  ///
+  /// The plugin can inspect the content to see if it matches an expected
+  /// format (e.g., starts with "diff --git").
+  ///
+  /// Returns `true` if the plugin can definitively handle this content,
+  /// `false` otherwise.
+  bool canOpenFileContent(String content, DocumentFile file);
+
 
   Future<EditorTab> createTab(
     DocumentFile file,
