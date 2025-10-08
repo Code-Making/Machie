@@ -16,7 +16,9 @@ import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
 import 'glitch_editor_state.dart'; // <-- ADD STATE IMPORT
+import 'glitch_editor_hot_state_dto.dart'; // <-- ADD STATE IMPORT
 import '../../editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
+import '../../../data/dto/tab_hot_state_dto.dart';
 
 class GlitchEditorWidget extends EditorWidget {
   @override
