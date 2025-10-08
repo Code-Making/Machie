@@ -21,7 +21,7 @@ import '../../../data/cache/type_adapters.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
 
-class GlitchEditorPlugin implements EditorPlugin {
+class GlitchEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.glitch_editor';
   static const String hotStateId = 'com.machine.glitch_editor_state';
 
@@ -163,11 +163,7 @@ class GlitchEditorPlugin implements EditorPlugin {
   // }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
-    final tab = ref.watch(
-      appNotifierProvider.select(
-        (s) => s.value?.currentProject?.session.currentTab,
-      ),
-    );
+    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
     if (tab is! GlitchEditorTab) return null;
     return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
@@ -183,29 +179,11 @@ class GlitchEditorPlugin implements EditorPlugin {
       icon: const Icon(Icons.save),
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: id,
-      execute: (ref) async => await _getActiveEditorState(ref)?.save(),
-      // REFACTORED: Check the dirty status from the metadata provider.
+      execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
       canExecute: (ref) {
-        final activeTabId = ref.watch(
-          appNotifierProvider.select(
-            (s) => s.value?.currentProject?.session.currentTab?.id,
-          ),
-        );
-        if (activeTabId == null) return false;
-        final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[activeTabId]),
-        );
-        return metadata?.isDirty ?? false;
+        final context = ref.watch(activeCommandContextProvider);
+        return (context is GlitchEditorCommandContext) && context.isDirty;
       },
-    ),
-    BaseCommand(
-      id: 'save_as',
-      label: 'Save As...',
-      icon: const Icon(Icons.save_as),
-      defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: id,
-      execute: (ref) async => await _getActiveEditorState(ref)?.saveAs(),
-      canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
     BaseCommand(
       id: 'reset',
@@ -214,28 +192,22 @@ class GlitchEditorPlugin implements EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
-      // REFACTORED: Also check the dirty status from the metadata provider.
       canExecute: (ref) {
-        final activeTabId = ref.watch(
-          appNotifierProvider.select(
-            (s) => s.value?.currentProject?.session.currentTab?.id,
-          ),
-        );
-        if (activeTabId == null) return false;
-        final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[activeTabId]),
-        );
-        return metadata?.isDirty ?? false;
+        final context = ref.watch(activeCommandContextProvider);
+        return (context is GlitchEditorCommandContext) && context.isDirty;
       },
     ),
-        BaseCommand(
+    BaseCommand(
       id: 'undo',
       label: 'Undo',
       icon: const Icon(Icons.undo),
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.undo(),
-      canExecute: (ref) => _getActiveEditorState(ref)?.canUndo ?? false,
+      canExecute: (ref) {
+        final context = ref.watch(activeCommandContextProvider);
+        return (context is GlitchEditorCommandContext) && context.canUndo;
+      },
     ),
     BaseCommand(
       id: 'redo',
@@ -244,7 +216,10 @@ class GlitchEditorPlugin implements EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.redo(),
-      canExecute: (ref) => _getActiveEditorState(ref)?.canRedo ?? false,
+      canExecute: (ref) {
+        final context = ref.watch(activeCommandContextProvider);
+        return (context is GlitchEditorCommandContext) && context.canRedo;
+      },
     ),
     BaseCommand(
       id: 'zoom_mode',
