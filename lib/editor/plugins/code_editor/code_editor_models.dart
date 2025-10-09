@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
 // import '../../../data/file_handler/file_handler.dart'; // REMOVED
-
+import '../../editor_tab_models.dart';
+import 'code_editor_widgets.dart';
 @immutable
 class CodeEditorTab extends EditorTab {
   // ADDED: The key is now created and stored here with the correct concrete state type.
