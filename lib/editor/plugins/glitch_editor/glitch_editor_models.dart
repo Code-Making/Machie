@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 // import '../../../data/file_handler/file_handler.dart'; // REMOVED
 import '../../editor_tab_models.dart';
 import '../../editor_tab_models.dart';
-import 'glitch_editor_widgets.dart';
+import 'glitch_editor_widget.dart';
 @immutable
 class GlitchEditorTab extends EditorTab {
   // ADDED: The key is now created and stored here with the correct concrete state type.
