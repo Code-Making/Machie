@@ -186,9 +186,16 @@ class GlitchEditorPlugin extends EditorPlugin {
       defaultPositions: [AppCommandPositions.appBar],
       sourcePlugin: id,
       execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+      // MODIFIED: 'save' now watches the global TabMetadata provider.
       canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        return (context is GlitchEditorCommandContext) && context.isDirty;
+        final currentTabId = ref.watch(appNotifierProvider.select(
+          (s) => s.value?.currentProject?.session.currentTab?.id
+        ));
+        if (currentTabId == null) return false;
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[currentTabId])
+        );
+        return metadata?.isDirty ?? false;
       },
     ),
     BaseCommand(
@@ -198,9 +205,16 @@ class GlitchEditorPlugin extends EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
+      // MODIFIED: 'reset' also watches the global TabMetadata provider.
       canExecute: (ref) {
-        final context = ref.watch(activeCommandContextProvider);
-        return (context is GlitchEditorCommandContext) && context.isDirty;
+        final currentTabId = ref.watch(appNotifierProvider.select(
+          (s) => s.value?.currentProject?.session.currentTab?.id
+        ));
+        if (currentTabId == null) return false;
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[currentTabId])
+        );
+        return metadata?.isDirty ?? false;
       },
     ),
     BaseCommand(
@@ -210,6 +224,7 @@ class GlitchEditorPlugin extends EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.undo(),
+      // MODIFIED: 'undo' now correctly watches the command context.
       canExecute: (ref) {
         final context = ref.watch(activeCommandContextProvider);
         return (context is GlitchEditorCommandContext) && context.canUndo;
@@ -222,6 +237,7 @@ class GlitchEditorPlugin extends EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.redo(),
+      // MODIFIED: 'redo' now correctly watches the command context.
       canExecute: (ref) {
         final context = ref.watch(activeCommandContextProvider);
         return (context is GlitchEditorCommandContext) && context.canRedo;
