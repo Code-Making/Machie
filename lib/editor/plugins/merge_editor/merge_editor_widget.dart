@@ -26,7 +26,7 @@ class MergeEditorWidgetState extends EditorWidgetState<MergeEditorWidget> {
   void initState() {
     super.initState();
     _codeController = CodeLineEditingController(
-      text: widget.tab.initialContent,
+      codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildSpans,
     );
     _mergeController = MergeConflictController(_codeController);
@@ -102,8 +102,8 @@ class MergeEditorWidgetState extends EditorWidgetState<MergeEditorWidget> {
   void redo() => _codeController.redo();
 
   @override
-  Future<void> serializeHotState() async {
-    // Not implemented for this transient editor.
+  Future<TabHotStateDto?> serializeHotState() async {
+    return null;
   }
 
   @override
