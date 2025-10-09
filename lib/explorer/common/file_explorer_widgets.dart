@@ -264,6 +264,8 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
 
   Widget _buildDirectoryTile() {
     final double currentIndent = widget.depth * _kBaseIndent;
+
+    // This is the ListTile that will go INSIDE the ExpansionTile's title.
     Widget tileContent = Container(
       color:
           _isHoveredByDraggable
@@ -271,12 +273,9 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
               : null,
       child: ListTile(
         dense: true,
-        contentPadding: EdgeInsets.only(
-          left: currentIndent,
-          right: 8.0,
-          top: _kVerticalPadding,
-          bottom: _kVerticalPadding,
-        ),
+        // FIX 1: Remove all horizontal padding from the inner ListTile.
+        // It should only have vertical padding so it fills the ExpansionTile header.
+        contentPadding: const EdgeInsets.symmetric(vertical: _kVerticalPadding),
         leading: Icon(
           widget.isExpanded ? Icons.folder_open : Icons.folder,
           color: Colors.yellow.shade700,
@@ -295,6 +294,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         trailing: const SizedBox(width: 24, height: 24),
       ),
     );
+
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
 
@@ -302,45 +302,33 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
       builder: (context, candidateData, rejectedData) {
         return tileContent;
       },
-      onWillAcceptWithDetails: (details) {
+      onWillAcceptWithDetails: (details) { /* ... unchanged ... */
         final draggedFile = details.data;
         final isSelfDrop = draggedFile.uri == widget.item.uri;
-        final isAllowedMove = _isDropAllowed(
-          draggedFile,
-          widget.item,
-          fileHandler,
-        );
-
-        if (isAllowedMove) {
-          setState(() {
-            _isHoveredByDraggable = true;
-          });
-        }
-
+        final isAllowedMove = _isDropAllowed( draggedFile, widget.item, fileHandler, );
+        if (isAllowedMove) { setState(() { _isHoveredByDraggable = true; }); }
         return isAllowedMove || isSelfDrop;
       },
-      onAcceptWithDetails: (details) {
+      onAcceptWithDetails: (details) { /* ... unchanged ... */
         final draggedFile = details.data;
         if (draggedFile.uri == widget.item.uri) {
           showFileContextMenu(context, ref, widget.item);
         } else {
           ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
         }
-        setState(() {
-          _isHoveredByDraggable = false;
-        });
+        setState(() { _isHoveredByDraggable = false; });
       },
-      onLeave: (details) {
-        setState(() {
-          _isHoveredByDraggable = false;
-        });
+      onLeave: (details) { /* ... unchanged ... */
+        setState(() { _isHoveredByDraggable = false; });
       },
     );
 
     return ExpansionTile(
       key: PageStorageKey<String>(widget.item.uri),
       title: tileWithDropTarget,
-      tilePadding: EdgeInsets.zero,
+      // FIX 2: Move the calculated indentation to the ExpansionTile itself.
+      // This will indent the entire header, including the icon and text, as one block.
+      tilePadding: EdgeInsets.only(left: currentIndent + _kBaseIndent),
       trailing: const Icon(Icons.chevron_right, color: Colors.transparent),
       leading: const SizedBox.shrink(),
       childrenPadding: EdgeInsets.zero,
