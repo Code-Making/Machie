@@ -6,14 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart';
-import 'git_diff/git_diff_plugin.dart';
+import 'mmerge_editor/merge_editor_plugin.dart';
 export 'plugin_models.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
-    GitDiffPlugin(),
     CodeEditorPlugin(),
     GlitchEditorPlugin(),
+    MergeEditorPlugin(),
   },
 );
 
