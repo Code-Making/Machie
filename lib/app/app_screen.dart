@@ -8,12 +8,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_notifier.dart';
-import '../editor/editor_widgets.dart';
-import '../explorer/explorer_host_drawer.dart';
 import '../command/command_widgets.dart';
-import '../explorer/common/file_explorer_dialogs.dart';
-import '../settings/settings_notifier.dart';
+import '../editor/editor_widgets.dart';
+import '../editor/plugins/editor_command_context.dart'; // ADDED
 import '../editor/tab_state_manager.dart';
+import '../explorer/common/file_explorer_dialogs.dart';
+import '../explorer/explorer_host_drawer.dart';
+import '../settings/settings_notifier.dart';
 
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
