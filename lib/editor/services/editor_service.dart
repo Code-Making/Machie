@@ -53,7 +53,7 @@ class EditorService {
     talker.info("Rehydrating tabs");
 
     for (final tabDto in dto.session.tabs) {
-      // ... (setup logic for tabId, pluginId, etc.)
+      // ... setup logic for tabId, plugin, file, etc. ...
       final tabId = tabDto.id;
       final pluginId = tabDto.pluginType;
       final persistedMetadata = dto.session.tabMetadata[tabId];
@@ -63,17 +63,13 @@ class EditorService {
       final plugin = plugins.firstWhereOrNull((p) => p.id == pluginId);
       if (plugin == null) continue;
 
-
       try {
         final file = await _repo.fileHandler.getFileMetadata(
           persistedMetadata.fileUri,
         );
         if (file == null) continue;
 
-        // --- REFACTORED CACHE AND HASHING LOGIC ---
-
-        // 1. Always read the current content from disk. This is needed for both
-        //    the hash comparison and as the base content for the editor.
+        // ... logic for reading file content and checking for cache conflicts is unchanged ...
         String? fileContent;
         Uint8List? fileBytes;
         if (plugin.dataRequirement == PluginDataRequirement.bytes) {
@@ -81,61 +77,39 @@ class EditorService {
         } else {
           fileContent = await _repo.readFile(file.uri);
         }
-
-        // 2. Generate a hash of the current disk content.
-        final currentDiskHash = (plugin.dataRequirement ==
-                PluginDataRequirement.bytes)
-            ? md5.convert(fileBytes!).toString()
-            : md5.convert(utf8.encode(fileContent!)).toString();
-
-        // 3. Attempt to load the cached DTO.
-        TabHotStateDto? cachedDto = await hotStateCacheService.getTabState(
-          projectMetadata.id,
-          tabId,
-        );
-
-        // 4. If a cache exists, check for conflicts.
-        if (cachedDto?.baseContentHash != null &&
-            cachedDto!.baseContentHash != currentDiskHash) {
-          talker.warning(
-            'Cache conflict detected for ${file.name}. '
-            'Cached Hash: ${cachedDto.baseContentHash}, '
-            'Disk Hash: $currentDiskHash',
-          );
-
+        final currentDiskHash = (plugin.dataRequirement == PluginDataRequirement.bytes) ? md5.convert(fileBytes!).toString() : md5.convert(utf8.encode(fileContent!)).toString();
+        TabHotStateDto? cachedDto = await hotStateCacheService.getTabState( projectMetadata.id, tabId, );
+        if (cachedDto?.baseContentHash != null && cachedDto!.baseContentHash != currentDiskHash) {
+          talker.warning( 'Cache conflict detected for ${file.name}. ' 'Cached Hash: ${cachedDto.baseContentHash}, ' 'Disk Hash: $currentDiskHash', );
           final context = _ref.read(navigatorKeyProvider).currentContext;
           if (context != null) {
-            final resolution = await showCacheConflictDialog(
-              context,
-              fileName: file.name,
-            );
-
-            // If the user chooses to discard, nullify the DTO and clear the cache.
+            final resolution = await showCacheConflictDialog( context, fileName: file.name, );
             if (resolution == CacheConflictResolution.loadDisk) {
               talker.info('User chose to discard cache for ${file.name}.');
-              await hotStateCacheService.clearTabState(
-                projectMetadata.id,
-                tabId,
-              );
+              await hotStateCacheService.clearTabState( projectMetadata.id, tabId, );
               cachedDto = null;
             }
           }
         }
-
-        // 5. Prepare the final init data for the plugin.
+        
         final initData = EditorInitData(
           stringData: fileContent,
           byteData: fileBytes,
           hotState: cachedDto,
-          baseContentHash: currentDiskHash, // Always pass the latest disk hash.
+          baseContentHash: currentDiskHash,
         );
 
         final newTab = await plugin.createTab(file, initData, id: tabId);
-
+        
+        // --- THIS IS THE FIX ---
+        // 1. Initialize the metadata. The widget state will report if it's dirty later.
         metadataNotifier.initTab(newTab.id, file);
-        if (cachedDto != null || persistedMetadata.isDirty) {
-          metadataNotifier.markDirty(newTab.id);
-        }
+
+        // 2. REMOVED: Do NOT manually mark as dirty here.
+        // if (cachedDto != null || persistedMetadata.isDirty) {
+        //   metadataNotifier.markDirty(newTab.id);
+        // }
+        // -------------------------
 
         rehydratedTabs.add(newTab);
       } catch (e, st) {

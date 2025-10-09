@@ -121,27 +121,34 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
+    // ALWAYS initialize with the clean content from disk first.
+    // This correctly sets the controller's internal "clean" baseline.
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
-    );
-    findController = CodeFindController(controller);
+    );    findController = CodeFindController(controller);
     
-    // Listeners
-    controller.addListener(syncCommandContext);
+    // Add listeners
+    controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
 
+    // --- THIS IS THE FIX ---
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // One initial sync covers everything.
+        // Sync context for initial canUndo/canRedo state
         syncCommandContext();
+
+        // If there is cached content, apply it now.
         if (widget.tab.cachedContent != null) {
+          // This programmatically changes the text, which will make controller.dirty true.
           controller.text = widget.tab.cachedContent!;
-          syncCommandContext();
+          
+          // The dirty.addListener will automatically fire and call _onDirtyStateChange,
+          // which correctly notifies the EditorService that this tab is now dirty.
         }
-        _onDirtyStateChange();
       }
     });
+    // -------------------------
   }
 
   @override
