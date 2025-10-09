@@ -74,9 +74,13 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   @override
   void initState() {
     super.initState();
-    _baseContentHash = widget.tab.initialBaseContentHash; // <-- INITIALIZE IT
+    _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController.addListener(_updateImageDisplayParams);
-    _loadImage();
+    _loadImage(); // This method now contains the rehydration logic.
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if(mounted) syncCommandContext();
+    });
   }
 
   @override
@@ -109,31 +113,45 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   }
 
   Future<void> _loadImage() async {
-    // ALWAYS instantiate from the clean disk data first.
+    // 1. Load the clean image from disk.
     final codec = await ui.instantiateImageCodec(widget.tab.initialImageData);
     final frame = await codec.getNextFrame();
     if (!mounted) return;
 
-    setState(() {
-      _displayImage = frame.image;
-      _originalImage = frame.image.clone();
-      _isLoading = false;
-    });
+    // 2. Set this clean image as the baseline for EVERYTHING.
+    final cleanImage = frame.image;
+    _originalImage = cleanImage.clone();
+    _displayImage = cleanImage; // Start with the clean image as the display.
 
-    // *** THIS IS THE NEW LOGIC ***
-    // If there's cached data, apply it after the initial image is loaded.
+    // 3. If cached data exists, treat loading it as an "action".
     if (widget.tab.cachedImageData != null) {
-      final cachedCodec =
-          await ui.instantiateImageCodec(widget.tab.cachedImageData!);
+      // 3a. Push the current state (the clean image) to the undo stack.
+      _pushUndoState();
+
+      // 3b. Load the cached image.
+      final cachedCodec = await ui.instantiateImageCodec(widget.tab.cachedImageData!);
       final cachedFrame = await cachedCodec.getNextFrame();
-      if (mounted) {
-        // This is our "apply as redo step" logic.
-        _pushUndoState(); // Save the clean state to the undo stack.
-        setState(() {
-          _displayImage?.dispose();
-          _displayImage = cachedFrame.image;
-        });
+      if (!mounted) {
+        // Cleanup if widget is disposed during async gap
+        _displayImage?.dispose();
+        _originalImage?.dispose();
+        cachedFrame.image.dispose();
+        return;
       }
+
+      // 3c. Replace the display image with the cached version.
+      _displayImage?.dispose(); // Dispose the old clean image instance.
+      _displayImage = cachedFrame.image;
+      
+      // 3d. Since we loaded from cache, this state is now dirty.
+      _updateDirtyState(true);
+    }
+
+    // 4. Finalize loading and trigger a rebuild with the correct image.
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
