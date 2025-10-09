@@ -72,10 +72,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   late String? _baseContentHash; // <-- ADDED
 
 
-  // --- PUBLIC PROPERTIES (for the command system) ---
-  @override
-  ValueListenable<bool> get dirtyState => controller.dirty;
-
   // The public getters for canUndo/canRedo are now gone.
   // The private methods remain.
   @override

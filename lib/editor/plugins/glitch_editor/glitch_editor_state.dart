@@ -9,11 +9,9 @@ import 'package:machine/editor/plugins/editor_command_context.dart';
 class GlitchEditorCommandContext extends CommandContext {
   final bool canUndo;
   final bool canRedo;
-  final bool isDirty;
 
   const GlitchEditorCommandContext({
     this.canUndo = false,
     this.canRedo = false,
-    this.isDirty = false,
   });
 }
