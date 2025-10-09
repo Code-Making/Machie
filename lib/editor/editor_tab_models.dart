@@ -105,12 +105,13 @@ abstract class WorkspaceTab {
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
-  final GlobalKey<EditorWidgetState> editorKey;
+  // MODIFIED: The key is no longer created here. It's now an abstract getter.
+  GlobalKey<EditorWidgetState> get editorKey;
   
   EditorTab({
     required super.plugin,
     super.id,
-  }) : editorKey = GlobalKey<EditorWidgetState>();
+  });
 
   @override
   void dispose();

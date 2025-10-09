@@ -166,11 +166,14 @@ class CodeEditorPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
-    // The key is now correctly cast to the specific State type.
-    final stateKey = tab.editorKey as GlobalKey<CodeEditorMachineState>;
+    // We must ensure the tab is the correct concrete type.
+    final codeTab = tab as CodeEditorTab;
+    
+    // The key is now accessed directly from the correctly-typed tab model.
+    // No casting is needed, and the type is correct.
     return CodeEditorMachine(
-      key: stateKey,
-      tab: tab as CodeEditorTab,
+      key: codeTab.editorKey,
+      tab: codeTab,
     );
   }
 

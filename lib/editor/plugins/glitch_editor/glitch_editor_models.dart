@@ -10,31 +10,31 @@ import '../../editor_tab_models.dart';
 
 @immutable
 class GlitchEditorTab extends EditorTab {
+  // ADDED: The key is now created and stored here with the correct concrete state type.
+  @override
+  final GlobalKey<GlitchEditorWidgetState> editorKey;
+
   final Uint8List initialImageData;
-  final Uint8List? cachedImageData; // <-- ADDED
+  final Uint8List? cachedImageData;
   final String? initialBaseContentHash;
 
   GlitchEditorTab({
     required super.plugin,
     required this.initialImageData,
-    this.cachedImageData, // <-- ADDED
+    this.cachedImageData,
     this.initialBaseContentHash,
     super.id,
-  });
+  // ADDED: Initialize the key in the constructor.
+  }) : editorKey = GlobalKey<GlitchEditorWidgetState>();
 
   @override
   void dispose() {}
 
   Map<String, dynamic> toJson() => {
     'type': 'glitch',
-    'id': id, // Serialize the stable ID
+    'id': id,
     'pluginType': plugin.runtimeType.toString(),
-    // We need to persist the file URI to reopen the tab.
-    // This will be read by the EditorService during rehydration.
-    // It's a bit of a workaround since the file is in metadata,
-    // but essential for persistence. A better way might be to persist
-    // the entire metadata map.
-    'fileUri': '', // This would be populated from metadata on save.
+    'fileUri': '',
   };
 }
 

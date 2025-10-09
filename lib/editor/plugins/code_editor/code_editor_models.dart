@@ -10,19 +10,24 @@ import '../../editor_tab_models.dart';
 
 @immutable
 class CodeEditorTab extends EditorTab {
+  // ADDED: The key is now created and stored here with the correct concrete state type.
+  @override
+  final GlobalKey<CodeEditorMachineState> editorKey;
+  
   final String initialContent;
-  final String? cachedContent; // <-- ADDED: The unsaved content from cache.
+  final String? cachedContent;
   final String? initialLanguageKey;
   final String? initialBaseContentHash;
 
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,
-    this.cachedContent, // <-- ADDED
+    this.cachedContent,
     this.initialLanguageKey,
     this.initialBaseContentHash,
     super.id,
-  });
+  // ADDED: Initialize the key in the constructor.
+  }) : editorKey = GlobalKey<CodeEditorMachineState>();
 
   @override
   void dispose() {}
