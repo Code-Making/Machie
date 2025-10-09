@@ -70,12 +70,6 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
-  final ValueNotifier<bool> _dirtyStateNotifier = ValueNotifier(false);
-
-  // REFACTORED: The dirty flag is no longer managed here.
-  // The command gets it directly from the metadata provider.
-  // bool get isDirty => ...
-
   @override
   void initState() {
     super.initState();
@@ -181,16 +175,14 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   }
 
   // --- Public API for Commands ---
-@override
-  ValueListenable<bool> get dirtyState => _dirtyStateNotifier;
 
   @override
   void syncCommandContext() {
     if (!mounted) return;
+    // MODIFIED: Create the context without the isDirty flag.
     final newContext = GlitchEditorCommandContext(
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
-      isDirty: _dirtyStateNotifier.value,
     );
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
@@ -253,14 +245,15 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   }
   
   void _updateDirtyState(bool isDirty) {
-    if (_dirtyStateNotifier.value == isDirty) return;
-    _dirtyStateNotifier.value = isDirty;
+    // We only need to report if the state is changing.
+    final currentDirtyState = ref.read(tabMetadataProvider)[widget.tab.id]?.isDirty ?? false;
+    if (currentDirtyState == isDirty) return;
+
     if (isDirty) {
       ref.read(editorServiceProvider).markCurrentTabDirty();
     } else {
       ref.read(editorServiceProvider).markCurrentTabClean();
     }
-    syncCommandContext();
   }
 
 
@@ -368,7 +361,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
 
     if (_displayImage == null || _currentStrokePoints.isEmpty) return;
     
-    _pushUndoState(); // *** THIS IS THE CHANGE *** Push state before modifying.
+    _pushUndoState();
 
     final viewerScale = _transformationController.value.getMaxScaleOnAxis();
     final safeScale = viewerScale.isFinite ? viewerScale : 1.0;
@@ -404,10 +397,11 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
       _liveBrushSettings = null;
     });
 
-    // The service marks the current tab as dirty by its ID.
-    ref.read(editorServiceProvider).markCurrentTabDirty();
+    // Report changes
+    _updateDirtyState(true);
+    syncCommandContext();
 
-    // 2. Trigger the debounced caching mechanism in the background service.
+    // Trigger caching (this part is still correct)
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project != null) {
       ref
