@@ -99,13 +99,6 @@ class AppBarCommands extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final override = ref.watch(
-      appNotifierProvider.select((s) => s.value?.appBarOverride),
-    );
-    if (override != null) {
-      return override;
-    }
-
     // Simply use the new generic toolbar.
     return const CommandToolbar(position: AppCommandPositions.appBar);
   }

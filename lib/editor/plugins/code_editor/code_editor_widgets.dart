@@ -485,28 +485,28 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     };
   }
 
-  // NEW METHOD: Centralizes updating the state provider.
-  void _onControllerChange() {
+
+  
+  @override
+  void syncCommandContext() {
     if (!mounted) return;
 
-    // UI-specific updates that require setState
-    setState(() {
-      _bracketHighlightState = _calculateBracketHighlights();
-    });
+    final hasSelection = !controller.selection.isCollapsed;
 
-    // Central state synchronization
-    syncCommandContext();
-
-    // Caching side-effect
-    if (controller.dirty.value) {
-      final project = ref.read(appNotifierProvider).value?.currentProject;
-      if (project != null) {
-        ref
-            .read(editorServiceProvider)
-            .updateAndCacheDirtyTab(project, widget.tab);
-      }
-    }
+    final newContext = CodeEditorCommandContext(
+      canUndo: controller.canUndo,
+      canRedo: controller.canRedo,
+      hasSelection: hasSelection,
+      hasMark: _markPosition != null,
+      // THIS IS THE FIX: The context itself now holds the override widget.
+      // If there's a selection, provide the app bar. Otherwise, provide null.
+      appBarOverride: hasSelection ? _buildSelectionAppBar() : null,
+    );
+    
+    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
+  
+  
 
   // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
   void setMark() {
