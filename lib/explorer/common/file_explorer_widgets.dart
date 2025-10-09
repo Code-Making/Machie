@@ -71,7 +71,7 @@ class DirectoryView extends ConsumerWidget {
                     .getPathForDisplay(item.uri, relativeTo: projectRootUri)
                     .split('/')
                     .where((s) => s.isNotEmpty)
-                    .length - 1; // <-- FIX IS HERE
+                    .length; // <-- FIX IS HERE
             return DirectoryItem(
               item: item,
               depth: depth,
@@ -203,7 +203,7 @@ class DirectoryItem extends ConsumerStatefulWidget {
 class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   bool _isHoveredByDraggable = false;
 
-  static const double _kBaseIndent = 16.0;
+  static const double _kIndentPerLevel = 16.0;
   static const double _kFontSize = 14.0;
   static const double _kVerticalPadding = 2.0;
 
@@ -227,7 +227,10 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 
   Widget _buildFileTile() {
-    final double currentIndent = widget.depth * _kBaseIndent;
+    // The indent is based on how many levels deep we are.
+    // Root items (depth=1) get 1 level of indent. Nested items get more.
+    final double currentIndent = widget.depth * _kIndentPerLevel;
+
     return ListTile(
       onTap: () async {
         final navigator = Navigator.of(context);
@@ -239,10 +242,12 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         }
       },
       dense: true,
+      // The contentPadding's left value IS the indent.
       contentPadding: EdgeInsets.only(
-        left: currentIndent + _kBaseIndent,
+        left: currentIndent,
         top: _kVerticalPadding,
         bottom: _kVerticalPadding,
+        right: 8.0,
       ),
       leading: FileTypeIcon(file: widget.item),
       title: Text(
@@ -262,74 +267,36 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 
   Widget _buildDirectoryTile() {
-    final double currentIndent = widget.depth * _kBaseIndent;
-
-    // This is the ListTile that will go INSIDE the ExpansionTile's title.
-    Widget tileContent = Container(
-      color:
-          _isHoveredByDraggable
-              ? Theme.of(context).colorScheme.primary.withAlpha(70)
-              : null,
-      child: ListTile(
-        dense: true,
-        // FIX 1: Remove all horizontal padding from the inner ListTile.
-        // It should only have vertical padding so it fills the ExpansionTile header.
-        contentPadding: const EdgeInsets.symmetric(vertical: _kVerticalPadding),
-        leading: Icon(
-          widget.isExpanded ? Icons.folder_open : Icons.folder,
-          color: Colors.yellow.shade700,
-        ),
-        title: Text(
-          widget.item.name,
-          style: const TextStyle(fontSize: _kFontSize),
-        ),
-        subtitle:
-            widget.subtitle != null
-                ? Text(
-                  widget.subtitle!,
-                  style: const TextStyle(fontSize: _kFontSize - 2),
-                )
-                : null,
-        trailing: const SizedBox(width: 24, height: 24),
-      ),
-    );
-
+    // The indent calculation is now identical to the file tile.
+    final double currentIndent = widget.depth * _kIndentPerLevel;
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
 
-    final tileWithDropTarget = DragTarget<DocumentFile>(
-      builder: (context, candidateData, rejectedData) {
-        return tileContent;
-      },
-      onWillAcceptWithDetails: (details) { /* ... unchanged ... */
-        final draggedFile = details.data;
-        final isSelfDrop = draggedFile.uri == widget.item.uri;
-        final isAllowedMove = _isDropAllowed( draggedFile, widget.item, fileHandler, );
-        if (isAllowedMove) { setState(() { _isHoveredByDraggable = true; }); }
-        return isAllowedMove || isSelfDrop;
-      },
-      onAcceptWithDetails: (details) { /* ... unchanged ... */
-        final draggedFile = details.data;
-        if (draggedFile.uri == widget.item.uri) {
-          showFileContextMenu(context, ref, widget.item);
-        } else {
-          ref.read(explorerServiceProvider).moveItem(draggedFile, widget.item);
-        }
-        setState(() { _isHoveredByDraggable = false; });
-      },
-      onLeave: (details) { /* ... unchanged ... */
-        setState(() { _isHoveredByDraggable = false; });
-      },
-    );
-
-    return ExpansionTile(
+    // We build the ExpansionTile directly, without a nested ListTile.
+    final expansionTile = ExpansionTile(
       key: PageStorageKey<String>(widget.item.uri),
-      title: tileWithDropTarget,
-      // FIX 2: Move the calculated indentation to the ExpansionTile itself.
-      // This will indent the entire header, including the icon and text, as one block.
-      tilePadding: EdgeInsets.only(left: currentIndent + _kBaseIndent),
-      trailing: const Icon(Icons.chevron_right, color: Colors.transparent),
-      leading: const SizedBox.shrink(),
+      
+      // The tilePadding is set to match the file's contentPadding exactly.
+      tilePadding: EdgeInsets.only(
+        left: currentIndent,
+        top: _kVerticalPadding,
+        bottom: _kVerticalPadding,
+        right: 8.0,
+      ),
+      
+      // The icon is placed in the 'leading' slot.
+      leading: Icon(
+        widget.isExpanded ? Icons.folder_open : Icons.folder,
+        color: Colors.yellow.shade700,
+      ),
+
+      // The title is now just the Text widget.
+      title: Text(
+        widget.item.name,
+        style: const TextStyle(fontSize: _kFontSize),
+      ),
+      
+      // Let the ExpansionTile handle its own animated trailing arrow.
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: widget.isExpanded,
       onExpansionChanged: (expanded) {
@@ -367,6 +334,32 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
             },
           ),
       ],
+    );
+
+    // The DragTarget now wraps the entire ExpansionTile.
+    return DragTarget<DocumentFile>(
+      builder: (context, candidateData, rejectedData) {
+        return Container(
+          color: _isHoveredByDraggable
+              ? Theme.of(context).colorScheme.primary.withAlpha(70)
+              : null,
+          child: expansionTile,
+        );
+      },
+      onWillAcceptWithDetails: (details) {
+        final isAllowed = _isDropAllowed(details.data, widget.item, fileHandler);
+        if (isAllowed) {
+          setState(() { _isHoveredByDraggable = true; });
+        }
+        return isAllowed;
+      },
+      onAcceptWithDetails: (details) {
+        ref.read(explorerServiceProvider).moveItem(details.data, widget.item);
+        setState(() { _isHoveredByDraggable = false; });
+      },
+      onLeave: (details) {
+        setState(() { _isHoveredByDraggable = false; });
+      },
     );
   }
 
