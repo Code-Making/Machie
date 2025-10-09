@@ -29,7 +29,7 @@ final activeCommandContextProvider = Provider<CommandContext>((ref) {
     appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id),
   );
   if (activeTabId == null) {
-    return const EmptyCommand_context();
+    return const EmptyCommandContext();
   }
   return ref.watch(commandContextProvider(activeTabId));
 });
