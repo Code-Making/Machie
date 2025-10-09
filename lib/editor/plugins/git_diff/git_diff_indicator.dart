@@ -3,6 +3,7 @@
 // =========================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; // <<< FIX: ADD THIS IMPORT
 import 'package:re_editor/re_editor.dart';
 
 class GitDiffIndicator extends LeafRenderObjectWidget {

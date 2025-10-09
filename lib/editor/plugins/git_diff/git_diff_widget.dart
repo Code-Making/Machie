@@ -1,16 +1,16 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/git_diff/git_diff_widget.dart
+// UPDATED: lib/editor/plugins/git_diff/git_diff_widget.dart
 // =========================================
 
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/diff.dart';
-import 'package:re_highlight/styles/github.dart'; // A nice, clean theme for diffs
+import 'package:re_highlight/styles/github.dart'; 
 
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../editor_tab_models.dart';
 import 'git_diff_models.dart';
-import 'git_diff_indicator.dart'; // We will create this next
+import 'git_diff_indicator.dart'; 
 
 class GitDiffEditorWidget extends EditorWidget {
   @override
@@ -28,7 +28,6 @@ class GitDiffEditorWidget extends EditorWidget {
 class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
   late final CodeLineEditingController _controller;
 
-  // Define colors for the view
   final Color colorAddition = const Color(0xFFDDFFDD);
   final Color colorDeletion = const Color(0xFFFFDDDD);
   final Color colorHunk = const Color(0xFFF1F8FF);
@@ -36,9 +35,9 @@ class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
   @override
   void initState() {
     super.initState();
-    _controller = CodeLineEditingController(
-      text: widget.tab.diffContent,
-      // The spanBuilder is the key to line-based background colors.
+    // <<< FIX: Use the '.fromText()' factory constructor.
+    _controller = CodeLineEditingController.fromText(
+      widget.tab.diffContent,
       spanBuilder: _buildDiffTextSpan,
     );
   }
@@ -52,49 +51,34 @@ class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
   // --- EditorWidgetState Contract (Read-Only Implementation) ---
 
   @override
-  void syncCommandContext() {
-    // No context to sync for a read-only viewer
-  }
-
+  void syncCommandContext() {}
   @override
   Future<EditorContent> getContent() async => EditorContentString(widget.tab.diffContent);
-
   @override
-  void onSaveSuccess(String newHash) {
-    // No-op
-  }
-
+  void onSaveSuccess(String newHash) {}
   @override
-  void redo() {
-    // No-op
-  }
-
+  void redo() {}
   @override
-  void undo() {
-    // No-op
-  }
-
+  void undo() {}
   @override
   Future<TabHotStateDto?> serializeHotState() async => null;
 
-
   // --- WIDGET BUILD ---
+  
+  // ... The rest of the file is unchanged ...
   @override
   Widget build(BuildContext context) {
     return CodeEditor(
       controller: _controller,
-      readOnly: true, // This is a viewer, not an editor.
+      readOnly: true,
       style: CodeEditorStyle(
-        // Use the 'diff' language for syntax highlighting.
         codeTheme: CodeHighlightTheme(
           languages: {'diff': CodeHighlightThemeMode(mode: langDiff)},
           theme: githubTheme,
         ),
-        // A neutral background works best.
         backgroundColor: Theme.of(context).colorScheme.surface,
         fontSize: 13,
       ),
-      // Use our custom indicator for the gutter.
       indicatorBuilder: (context, editingController, chunkController, notifier) {
         return GitDiffIndicator(
           controller: editingController,
@@ -106,13 +90,10 @@ class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
           ),
         );
       },
-      // Use a custom chunk analyzer for folding hunks.
       chunkAnalyzer: const GitDiffChunkAnalyzer(),
     );
   }
 
-  /// This builder intercepts the rendering of each line's TextSpan.
-  /// We wrap it in a new span that provides the appropriate background color.
   TextSpan _buildDiffTextSpan({
     required BuildContext context,
     required int index,
@@ -131,12 +112,10 @@ class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
       backgroundColor = colorHunk;
     }
 
-    // If it's a normal context line, return the original span.
     if (backgroundColor == null) {
       return textSpan;
     }
 
-    // Otherwise, wrap the original span to apply the background.
     return TextSpan(
       style: style.copyWith(
         backgroundColor: backgroundColor,
@@ -148,7 +127,6 @@ class GitDiffEditorWidgetState extends EditorWidgetState<GitDiffEditorWidget> {
   }
 }
 
-/// A custom chunk analyzer that identifies foldable regions based on diff hunks.
 class GitDiffChunkAnalyzer implements CodeChunkAnalyzer {
   const GitDiffChunkAnalyzer();
 
@@ -159,19 +137,15 @@ class GitDiffChunkAnalyzer implements CodeChunkAnalyzer {
 
     for (int i = 0; i < codeLines.length; i++) {
       if (codeLines[i].text.startsWith('@@')) {
-        // The start of a new hunk marks the end of the previous one.
         if (hunkStartIndex != null) {
-          // Only create a chunk if it has content to fold.
           if (i > hunkStartIndex + 1) {
             chunks.add(CodeChunk(hunkStartIndex, i));
           }
         }
-        // Start tracking the new hunk.
         hunkStartIndex = i;
       }
     }
 
-    // Add the final hunk if it exists.
     if (hunkStartIndex != null && codeLines.length > hunkStartIndex + 1) {
       chunks.add(CodeChunk(hunkStartIndex, codeLines.length));
     }
