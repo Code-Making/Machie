@@ -133,12 +133,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        syncCommandContext(); // Initial sync
+        // One initial sync covers everything.
+        syncCommandContext();
         if (widget.tab.cachedContent != null) {
           controller.text = widget.tab.cachedContent!;
-          // After applying cache, re-sync context to update undo/redo state
           syncCommandContext();
         }
+        _onDirtyStateChange();
       }
     });
   }
@@ -456,28 +457,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   void _onControllerChange() {
     if (!mounted) return;
 
-    // 1. First, handle UI-specific updates that need setState.
+    // UI-specific updates that require setState
     setState(() {
       _bracketHighlightState = _calculateBracketHighlights();
     });
 
-    // 2. Then, update the reactive state provider for commands.
+    // Central state synchronization
     syncCommandContext();
 
-    // 3. Now, handle the AppBar override side-effect.
-    final isSelectionActive = !controller.selection.isCollapsed;
-
-    // Only trigger the side-effect if the selection state has *changed*.
-    if (isSelectionActive != _wasSelectionActive) {
-      final appNotifier = ref.read(appNotifierProvider.notifier);
-      if (isSelectionActive) {
-        appNotifier.setAppBarOverride(_buildSelectionAppBar());
-      } else {
-        appNotifier.clearAppBarOverride();
-      }
-      // Update our local tracker to the new state.
-      _wasSelectionActive = isSelectionActive;
-    }
+    // Caching side-effect
     if (controller.dirty.value) {
       final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
@@ -498,18 +486,26 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }
 
   // NEW METHOD: Centralizes updating the state provider.
-  void syncCommandContext() {
+  void _onControllerChange() {
     if (!mounted) return;
 
-    final newContext = CodeEditorCommandContext(
-      canUndo: controller.canUndo,
-      canRedo: controller.canRedo,
-      hasSelection: !controller.selection.isCollapsed,
-      hasMark: _markPosition != null,
-    );
-    
-    // Get the Notifier for THIS tab's context and update its state.
-    ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
+    // UI-specific updates that require setState
+    setState(() {
+      _bracketHighlightState = _calculateBracketHighlights();
+    });
+
+    // Central state synchronization
+    syncCommandContext();
+
+    // Caching side-effect
+    if (controller.dirty.value) {
+      final project = ref.read(appNotifierProvider).value?.currentProject;
+      if (project != null) {
+        ref
+            .read(editorServiceProvider)
+            .updateAndCacheDirtyTab(project, widget.tab);
+      }
+    }
   }
 
   // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...

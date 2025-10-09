@@ -1,5 +1,5 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/glitch_editor/glitch_editor_state.dart
+// UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_state.dart
 // =========================================
 
 import 'package:flutter/foundation.dart';
@@ -13,5 +13,6 @@ class GlitchEditorCommandContext extends CommandContext {
   const GlitchEditorCommandContext({
     this.canUndo = false,
     this.canRedo = false,
-  });
+    // ADDED: Pass the (always null) override to the super constructor.
+  }) : super(appBarOverride: null);
 }

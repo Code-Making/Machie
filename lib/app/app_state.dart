@@ -16,7 +16,6 @@ class AppState {
   final Project? currentProject;
 
   // These are ephemeral and not part of the core data state.
-  final Widget? appBarOverride;
   final Widget? bottomToolbarOverride;
   final bool isFullScreen;
 
@@ -26,7 +25,6 @@ class AppState {
     this.knownProjects = const [],
     this.lastOpenedProjectId,
     this.currentProject,
-    this.appBarOverride,
     this.bottomToolbarOverride,
     this.isFullScreen = false,
   });
@@ -55,9 +53,7 @@ class AppState {
     String? lastOpenedProjectId,
     Project? currentProject,
     bool clearCurrentProject = false,
-    Widget? appBarOverride,
     Widget? bottomToolbarOverride,
-    bool clearAppBarOverride = false,
     bool clearBottomToolbarOverride = false,
     bool? isFullScreen,
   }) {
@@ -66,8 +62,6 @@ class AppState {
       lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
       currentProject:
           clearCurrentProject ? null : (currentProject ?? this.currentProject),
-      appBarOverride:
-          clearAppBarOverride ? null : appBarOverride ?? this.appBarOverride,
       bottomToolbarOverride:
           clearBottomToolbarOverride
               ? null
@@ -86,7 +80,6 @@ class AppState {
         listEquals(other.knownProjects, knownProjects) &&
         other.lastOpenedProjectId == lastOpenedProjectId &&
         other.currentProject == currentProject &&
-        other.appBarOverride == appBarOverride &&
         other.bottomToolbarOverride == bottomToolbarOverride &&
         other.isFullScreen == isFullScreen;
   }
@@ -96,7 +89,6 @@ class AppState {
     const DeepCollectionEquality().hash(knownProjects),
     lastOpenedProjectId,
     currentProject,
-    appBarOverride,
     bottomToolbarOverride,
     isFullScreen,
   );

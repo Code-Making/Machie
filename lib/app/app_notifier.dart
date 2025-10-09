@@ -348,12 +348,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
-  void setAppBarOverride(Widget? widget) =>
-      _updateStateSync((s) => s.copyWith(appBarOverride: widget));
-
-  void clearAppBarOverride() =>
-      _updateStateSync((s) => s.copyWith(clearAppBarOverride: true));
-
   void setBottomToolbarOverride(Widget? widget) =>
       _updateStateSync((s) => s.copyWith(bottomToolbarOverride: widget));
 

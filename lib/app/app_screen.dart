@@ -123,7 +123,10 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         ) ??
         GeneralSettings();
 
-    final appBarOverride = appState?.appBarOverride;
+    final appBarOverride = ref.watch(
+      activeCommandContextProvider.select((context) => context.appBarOverride)
+    );
+    
     final double toolbarHeight =
         Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
 

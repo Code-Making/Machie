@@ -3,7 +3,8 @@
 // =========================================
 
 import 'package:flutter/foundation.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart'; // Import the base class
+import 'package:flutter/material.dart'; // ADDED: For Widget
+import 'package:machine/editor/plugins/editor_command_context.dart';
 
 @immutable
 class CodeEditorCommandContext extends CommandContext {
@@ -17,5 +18,7 @@ class CodeEditorCommandContext extends CommandContext {
     this.canRedo = false,
     this.hasMark = false,
     this.hasSelection = false,
+    // ADDED: Pass the override up to the super constructor.
+    super.appBarOverride,
   });
 }
