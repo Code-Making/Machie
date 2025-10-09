@@ -67,12 +67,11 @@ class DirectoryView extends ConsumerWidget {
           itemBuilder: (context, index) {
             final itemNode = sortedContents[index];
             final item = itemNode.file;
-            final depth =
-                fileHandler
+            final depth = fileHandler
                     .getPathForDisplay(item.uri, relativeTo: projectRootUri)
                     .split('/')
                     .where((s) => s.isNotEmpty)
-                    .length;
+                    .length - 1; // <-- FIX IS HERE
             return DirectoryItem(
               item: item,
               depth: depth,
