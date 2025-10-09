@@ -73,9 +73,7 @@ abstract class EditorWidget extends ConsumerStatefulWidget {
 
 // ### NEW: The explicit, stateful contract for an EditorWidget.
 // This is what plugins MUST implement in their State objects.
-abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {
-  ValueListenable<bool> get dirtyState;
-  
+abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {  
   /// Synchronizes the editor's internal, command-relevant state with the
   /// global `commandContextProvider`. This method is the core of the
   /// reactive command system. It should be called whenever state like
