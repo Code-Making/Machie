@@ -121,7 +121,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
-    controller = CodeLineEditingController.fromText(widget.tab.initialContent);
+    controller = CodeLineEditingController(
+      codeLines: CodeLines.fromText(widget.tab.initialContent),
+      spanBuilder: _buildHighlightingSpan,
+    );
     findController = CodeFindController(controller);
     
     // Listeners
