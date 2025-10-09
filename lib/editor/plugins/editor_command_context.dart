@@ -1,38 +1,35 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/editor_command_context.dart
+// UPDATED: lib/editor/plugins/editor_command_context.dart
 // =========================================
 
+import 'package:flutter/material.dart'; // ADDED: For Widget
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:machine/app/app_notifier.dart';
 
-/// An abstract, immutable base class for representing the state of an editor
-/// that is relevant to the command system.
 @immutable
 abstract class CommandContext {
-  const CommandContext();
+  // ADDED: The new property for UI overrides.
+  final Widget? appBarOverride;
+
+  const CommandContext({this.appBarOverride});
 }
 
-/// A default context for when no editor is active.
+// MODIFIED: The default context now passes null for the override.
 class EmptyCommandContext extends CommandContext {
-  const EmptyCommandContext();
+  const EmptyCommandContext() : super(appBarOverride: null);
 }
 
-/// A provider family that holds the live CommandContext for each editor tab.
-/// This is the reactive bridge between an editor's internal state and the UI.
+// ... commandContextProvider and activeCommandContextProvider are unchanged ...
 final commandContextProvider =
     StateProvider.family<CommandContext, String>(
   (ref, tabId) => const EmptyCommandContext(),
 );
-
-/// A convenience provider that watches the currently active tab and returns
-/// its corresponding CommandContext. Command UI widgets will watch this.
 final activeCommandContextProvider = Provider<CommandContext>((ref) {
   final activeTabId = ref.watch(
     appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id),
   );
   if (activeTabId == null) {
-    return const EmptyCommandContext();
+    return const EmptyCommand_context();
   }
   return ref.watch(commandContextProvider(activeTabId));
 });
