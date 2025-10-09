@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added for WidgetRef
+import 'package:machine/data/dto/tab_hot_state_dto.dart'; // Added for TabHotStateDto
 import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/merge_editor/merge_conflict_controller.dart';
 import 'package:machine/editor/plugins/merge_editor/merge_editor_models.dart';
