@@ -451,6 +451,84 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   void showReplacePanel() {
     findController.replaceMode();
   }
+  
+  // PATTERN RECOGNIZERS
+  List<PatternRecognizer> _buildPatternRecognizers() {
+    final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
+    if (fileUri == null) return [];
+
+    // Only apply this recognizer to Dart files.
+    if (_languageKey == 'dart') {
+      return [
+        // Recognizer for relative imports/parts in Dart.
+        PatternRecognizer(
+          // Regex captures the content inside single or double quotes
+          // in lines starting with 'import', 'export', or 'part'.
+          pattern: RegExp(r"^(?:import|export|part)\s+['""]([^'""]+)['""]"),
+          // Make the link style subtle but clear.
+          style: TextStyle(
+            color: Colors.cyan[300],
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+          ),
+          // Use a mouse cursor to indicate it's clickable on desktop/web.
+          mouseCursor: SystemMouseCursors.click,
+          // This recognizer is only interested in the first capturing group.
+          group: 1,
+          onTap: (path) => _onImportTap(path),
+        ),
+      ];
+    }
+    
+    // Return an empty list for non-Dart files.
+    return [];
+  }
+
+  // NEW: The handler for when a recognized import path is tapped.
+  void _onImportTap(String relativePath) async {
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
+    final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
+
+    if (fileHandler == null || currentFileMetadata == null) return;
+    
+    try {
+      // 1. Get the URI of the directory containing the current file.
+      final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
+      
+      // 2. Normalize the path (handle '.' and '..') and join.
+      // This is a simplified normalization. A robust solution might need a
+      // proper path manipulation package if paths get very complex.
+      final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
+      final resolvedSegments = <String>[];
+
+      for (final segment in pathSegments) {
+        if (segment == '..') {
+          if (resolvedSegments.isNotEmpty) {
+            resolvedSegments.removeLast();
+          }
+        } else if (segment != '.') {
+          resolvedSegments.add(segment);
+        }
+      }
+      
+      // 3. Reconstruct the final URI.
+      final resolvedUri = resolvedSegments.join('%2F');
+      
+      // 4. Get the file metadata for the resolved URI.
+      final targetFile = await fileHandler.getFileMetadata(resolvedUri);
+      
+      // 5. If the file exists, open it.
+      if (targetFile != null) {
+        await appNotifier.openFileInEditor(targetFile);
+      } else {
+        MachineToast.error('File not found: $relativePath');
+      }
+
+    } catch (e) {
+      MachineToast.error('Could not open file: $e');
+    }
+  }
 
   // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
@@ -861,6 +939,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
           fontSize: codeEditorSettings?.fontSize ?? 12.0,
           fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
           fontFeatures: fontFeatures, // <-- APPLY THE NEW PROPERTY HERE
+          patternRecognizers: _buildPatternRecognizers(),
           codeTheme: CodeHighlightTheme(
             theme:
                 CodeThemes.availableCodeThemes[selectedThemeName] ??
