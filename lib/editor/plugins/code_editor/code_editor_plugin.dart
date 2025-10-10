@@ -72,11 +72,11 @@ class CodeEditorPlugin extends EditorPlugin {
 
   @override
   bool supportsFile(DocumentFile file) {
-    // It can potentially support any file that isn't claimed by a higher-
-    // priority binary plugin. For text files, this is a good first pass.
-    final ext = file.name.split('.').last.toLowerCase();
-    // A broad check. The real decision is in `canOpenFileContent`.
-    return !['png', 'jpg', 'jpeg', 'bmp', 'webp'].contains(ext);
+    final ext = file.name.split('.').lastOrNull?.toLowerCase();
+    if (ext == null) return false;
+    
+    // Check against the map of known language extensions.
+    return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
 
   /// As the fallback editor for text files, this should always return true.

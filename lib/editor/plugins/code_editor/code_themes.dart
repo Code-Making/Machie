@@ -208,6 +208,7 @@ class CodeThemes {
     'json': 'json',
     'htm': 'xml',
     'html': 'xml',
+    'xml': 'xml',
     'yaml': 'yaml',
     'yml': 'yaml',
     'md': 'markdown',

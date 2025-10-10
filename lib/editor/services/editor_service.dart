@@ -279,22 +279,61 @@ class EditorService {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
+  
+  Future<OpenFileResult> _openFileWithExplicitPlugin(
+    DocumentFile file,
+    EditorPlugin plugin,
+  ) async {
+    try {
+      // 1. Read content based on the chosen plugin's requirement.
+      String? fileContent;
+      Uint8List? fileBytes;
+      String baseContentHash;
+      bool canOpen = true; // Assume binary plugins can open if supportsFile was true.
 
+      if (plugin.dataRequirement == PluginDataRequirement.string) {
+        fileContent = await _repo.readFile(file.uri);
+        baseContentHash = md5.convert(utf8.encode(fileContent)).toString();
+        // 2. For text plugins, we MUST run the content check.
+        canOpen = plugin.canOpenFileContent(fileContent, file);
+      } else {
+        fileBytes = await _repo.readFileAsBytes(file.uri);
+        baseContentHash = md5.convert(fileBytes).toString();
+      }
+
+      // 3. If the plugin rejects the content, return a specific error.
+      if (!canOpen) {
+        return OpenFileError(
+          "'${plugin.name}' cannot open the content of '${file.name}'.",
+        );
+      }
+
+      // 4. If content is valid, create the tab.
+      final initData = EditorInitData(
+        stringData: fileContent,
+        byteData: fileBytes,
+        baseContentHash: baseContentHash,
+      );
+      final newTab = await plugin.createTab(file, initData);
+      return OpenFileSuccess(tab: newTab, file: file);
+
+    } catch (e, st) {
+      _ref.read(talkerProvider).handle(e, st, "Could not create tab for: ${file.uri} with ${plugin.name}");
+      return OpenFileError("Error opening file '${file.name}'.");
+    }
+  }
+
+  // ### REWRITTEN AND REFACTORED openFile method ###
   Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
-    // Check if tab is already open (logic remains the same)
+    // 1. Check if tab is already open (no change in this logic).
     final metadataMap = _ref.read(tabMetadataProvider);
-    final existingTabId =
-        metadataMap.entries
-            .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
-            ?.key;
+    final existingTabId = metadataMap.entries.firstWhereOrNull((entry) => entry.value.file.uri == file.uri)?.key;
     if (existingTabId != null) {
-      final existingIndex = project.session.tabs.indexWhere(
-        (t) => t.id == existingTabId,
-      );
+      final existingIndex = project.session.tabs.indexWhere((t) => t.id == existingTabId);
       if (existingIndex != -1) {
         return OpenFileSuccess(
           project: switchTab(project, existingIndex),
@@ -303,73 +342,93 @@ class EditorService {
       }
     }
 
-    // --- NEW PLUGIN SELECTION LOGIC ---
+    // --- NEW LOGIC ---
+    // 2. Handle the explicit "Open With..." case.
+    if (explicitPlugin != null) {
+      final result = await _openFileWithExplicitPlugin(file, explicitPlugin);
 
-    EditorPlugin? chosenPlugin;
-    EditorInitData? initData;
+      // If the explicit open succeeded, add the tab to the project state.
+      if (result is OpenFileSuccess) {
+        _ref.read(tabMetadataProvider.notifier).initTab(result.tab.id, result.file);
+        final oldTab = project.session.currentTab;
+        final newSession = project.session.copyWith(
+          tabs: [...project.session.tabs, result.tab],
+          currentTabIndex: project.session.tabs.length,
+        );
+        _handlePluginLifecycle(oldTab, result.tab);
+        return OpenFileSuccess(
+          project: project.copyWith(session: newSession),
+          wasAlreadyOpen: false,
+        );
+      }
+      
+      // If it failed (e.g., content check failed), return the error directly.
+      return result;
+    }
 
-    // Get the sorted list of all active plugins.
+    // --- AUTOMATIC PLUGIN SELECTION LOGIC ---
+    
+    // 3. Filter plugins based on metadata (fast check).
     final allPlugins = _ref.read(activePluginsProvider);
-
-    // 1. Filter plugins based on metadata (e.g., file extension).
     final compatiblePlugins = allPlugins.where((p) => p.supportsFile(file)).toList();
 
     if (compatiblePlugins.isEmpty) {
       return OpenFileError("No plugin available to open '${file.name}'.");
     }
 
-    // 2. Handle binary vs. text files differently.
-    final highestPriorityPlugin = compatiblePlugins.first;
-    if (highestPriorityPlugin.dataRequirement == PluginDataRequirement.bytes) {
-      // For binary files, we trust the highest priority plugin and don't read content.
-      chosenPlugin = highestPriorityPlugin;
-      final fileBytes = await _repo.readFileAsBytes(file.uri);
-      initData = EditorInitData(
-        byteData: fileBytes,
-        baseContentHash: md5.convert(fileBytes).toString(),
-      );
-    } else {
-      // For text files, read the content ONCE.
-      final fileContent = await _repo.readFile(file.uri);
-      
-      // 3. Iterate through compatible plugins and perform the content check.
+    // 4. Determine the best plugin based on priority and content.
+    EditorPlugin? chosenPlugin;
+    String? fileContent;
+    Uint8List? fileBytes;
+    String? baseContentHash;
+
+    try {
+      // Iterate through compatible plugins IN PRIORITY ORDER.
       for (final plugin in compatiblePlugins) {
-        if (plugin.dataRequirement == PluginDataRequirement.string &&
-            plugin.canOpenFileContent(fileContent, file)) {
-          // We found our winner!
+        if (plugin.dataRequirement == PluginDataRequirement.bytes) {
+          // For binary plugins, a successful `supportsFile` is enough.
           chosenPlugin = plugin;
-          break;
+          fileBytes = await _repo.readFileAsBytes(file.uri);
+          baseContentHash = md5.convert(fileBytes).toString();
+          break; // We found our highest-priority winner.
+        } else {
+          // For text plugins, we need to check content.
+          // Read content only ONCE, on demand.
+          fileContent ??= await _repo.readFile(file.uri);
+          
+          if (plugin.canOpenFileContent(fileContent, file)) {
+            chosenPlugin = plugin;
+            baseContentHash = md5.convert(utf8.encode(fileContent)).toString();
+            break; // We found our highest-priority winner.
+          }
         }
       }
 
-      // This should ideally never be null because of the CodeEditor fallback.
       if (chosenPlugin == null) {
-          return OpenFileError("Could not determine editor for '${file.name}'.");
+        return OpenFileError("Could not determine an editor for '${file.name}'. The content may be unsupported.");
       }
-      
-      initData = EditorInitData(
+
+      // 5. Create and add the tab using the automatically chosen plugin.
+      final initData = EditorInitData(
         stringData: fileContent,
-        baseContentHash: md5.convert(utf8.encode(fileContent)).toString(),
+        byteData: fileBytes,
+        baseContentHash: baseContentHash,
       );
-    }
-
-    // --- Tab Creation Logic (now uses the chosen plugin and initData) ---
-    try {
       final newTab = await chosenPlugin.createTab(file, initData);
+      
       _ref.read(tabMetadataProvider.notifier).initTab(newTab.id, file);
-
       final oldTab = project.session.currentTab;
       final newSession = project.session.copyWith(
         tabs: [...project.session.tabs, newTab],
         currentTabIndex: project.session.tabs.length,
       );
-
       _handlePluginLifecycle(oldTab, newTab);
 
       return OpenFileSuccess(
         project: project.copyWith(session: newSession),
         wasAlreadyOpen: false,
       );
+
     } catch (e, st) {
        _ref.read(talkerProvider).handle(e, st, "Could not create tab for: ${file.uri}");
       return OpenFileError("Error opening file '${file.name}'.");
@@ -502,13 +561,24 @@ class EditorService {
   }
 }
 
+// ### MODIFIED OpenFileResult sealed classes ###
 @immutable
 sealed class OpenFileResult {}
 
 class OpenFileSuccess extends OpenFileResult {
-  final Project project;
+  // Can be a full Project or just the tab/file to be added.
+  // For simplicity, we'll keep the full project for now.
+  final Project? project; 
+  final EditorTab? tab; // Used by _openFileWithExplicitPlugin
+  final DocumentFile? file; // Used by _openFileWithExplicitPlugin
+
   final bool wasAlreadyOpen;
-  OpenFileSuccess({required this.project, required this.wasAlreadyOpen});
+  OpenFileSuccess({
+    this.project, 
+    this.tab,
+    this.file,
+    required this.wasAlreadyOpen,
+  });
 }
 
 class OpenFileShowChooser extends OpenFileResult {
