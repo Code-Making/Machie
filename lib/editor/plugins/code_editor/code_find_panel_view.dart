@@ -154,11 +154,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         if (value == null) {
           return const SizedBox.shrink();
         }
-
-        final String result = (value.result == null || value.result!.matches.isEmpty)
-            ? 'No results'
-            : '${value.result!.index + 1}/${value.result!.matches.length}';
-
         return Container(
           margin: margin,
           alignment: Alignment.topRight,
@@ -168,10 +163,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
               maxWidth: _kDefaultFindPanelWidth,
             ),
             // 1. The main container is now a Stack.
-            child: Stack(
-              children: [
-                // 2. The main content (input fields) is the first child.
-                Material(
+            child: Material(
                   elevation: 4,
                   child: Column(
                     children: [
@@ -180,10 +172,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                     ],
                   ),
                 ),
-                // 3. The badge is the second child, positioned on top.
-                _buildResultBadge(context, result),
-              ],
-            ),
           ),
         );
       },
@@ -214,8 +202,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _buildResultBadge(context, result),
-                      const SizedBox(width: 8),
                       _buildCheckText(
                         context: context,
                         text: 'Aa',
@@ -249,14 +235,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                 controller: controller.findInputController,
               ),
             ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildIconButton(onPressed: value.result == null ? null : controller.previousMatch, icon: Icons.arrow_upward, tooltip: 'Previous'),
-              _buildIconButton(onPressed: value.result == null ? null : controller.nextMatch, icon: Icons.arrow_downward, tooltip: 'Next'),
-              _buildIconButton(onPressed: controller.close, icon: Icons.close, tooltip: 'Close'),
-            ],
           ),
         ],
       ),
