@@ -460,10 +460,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
     if (fileUri == null) return [];
 
-    if (_languageKey == 'dart') {
       // 1. THIS IS THE NEW REGEX. It matches the whole line and has a 
       //    capturing group for the path.
-      final importRegex = RegExp(r"^(?:import|export|part)\s+(['""])([^'""]+)\1;");
+      final importRegex = RegExp(r"(?:import|export|part)\s+(['""])([^'""]+)\1;");
 
       return [
         PatternRecognizer(
@@ -486,7 +485,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
           },
         ),
       ];
-    }
+    
     
     return [];
   }
