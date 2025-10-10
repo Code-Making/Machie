@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
+// --- Constants are unchanged ---
 const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
 const double _kDefaultFindPanelWidth = 360;
 const double _kDefaultFindPanelHeight = 36;
@@ -85,8 +86,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           margin: margin,
           alignment: Alignment.topRight,
           height: preferredSize.height,
-          // THE FIX: Wrap in a ConstrainedBox to allow shrinking, and remove
-          // the SingleChildScrollView which allowed it to overflow.
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: _kDefaultFindPanelWidth,
@@ -106,7 +105,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // THE FIX: The layout of this Row is now flexible using Expanded.
+  // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
     final String result;
     if (value.result == null || value.result!.matches.isEmpty) {
@@ -118,6 +117,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
+          // 1. The text field and its options are in an Expanded widget to be flexible.
           Expanded(
             child: SizedBox(
               height: _kDefaultFindPanelHeight,
@@ -128,7 +128,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                     context: context,
                     controller: controller.findInputController,
                     focusNode: controller.findInputFocusNode,
-                    iconsWidth: _kDefaultFindIconWidth * 1.5,
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -137,24 +136,52 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                         context: context,
                         text: 'Aa',
                         checked: value.option.caseSensitive,
-                        onPressed: () {
-                          controller.toggleCaseSensitive();
-                        },
+                        onPressed: controller.toggleCaseSensitive,
                       ),
                       _buildCheckText(
                         context: context,
                         text: '.*',
                         checked: value.option.regex,
+                        // 2. Add logic to reset flags when regex is toggled off.
                         onPressed: () {
+                          if (value.option.regex) {
+                            if (value.option.multiLine) {
+                              controller.toggleMultiLine();
+                            }
+                            if (value.option.dotAll) {
+                              controller.toggleDotAll();
+                            }
+                          }
                           controller.toggleRegex();
                         },
                       ),
+                      // 3. Conditionally render the new flags in their own row.
+                      if (value.option.regex)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(width: 4), // Visual separator
+                            _buildCheckText(
+                              context: context,
+                              text: 'm', // Multiline flag
+                              checked: value.option.multiLine,
+                              onPressed: controller.toggleMultiLine,
+                            ),
+                            _buildCheckText(
+                              context: context,
+                              text: 's', // DotAll flag
+                              checked: value.option.dotAll,
+                              onPressed: controller.toggleDotAll,
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
+          // Result count is outside the Expanded, so it has a fixed size.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
@@ -165,8 +192,9 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
+          // Action buttons are also outside, taking up only the space they need.
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildIconButton(
                 onPressed:
@@ -191,7 +219,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // THE FIX: The layout of this Row is now flexible using Expanded.
+  // ... _buildReplaceInputView is unchanged ...
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
     return SizedBox(
       height: _kDefaultFindPanelHeight,
@@ -228,12 +256,11 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // ... (_buildTextField, _buildCheckText, _buildIconButton methods are unchanged) ...
+  // MODIFIED: Removed the `iconsWidth` parameter and used a fixed, generous padding.
   Widget _buildTextField({
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
-    double iconsWidth = 0,
   }) {
     return Padding(
       padding: padding,
@@ -242,33 +269,38 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         focusNode: focusNode,
         style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
         decoration: decoration.copyWith(
+          // Apply a fixed, generous padding on the right to make space for
+          // all possible icons without the layout jumping.
           contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
-            EdgeInsets.only(right: iconsWidth),
+            const EdgeInsets.only(right: 110), // Space for Aa, .*, m, s
           ),
         ),
         controller: controller,
       ),
     );
   }
-
+  
+  // ... _buildCheckText and _buildIconButton are unchanged ...
   Widget _buildCheckText({
     required BuildContext context,
     required String text,
     required bool checked,
     required VoidCallback onPressed,
   }) {
-    Color activeColor = Theme.of(context).highlightColor;
     return GestureDetector(
       onTap: onPressed,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: SizedBox(
           width: _kDefaultFindIconWidth * 0.75,
-          child: Text(
-            text,
-            style: TextStyle(
-              color: checked ? iconSelectedColor : iconColor,
-              fontSize: inputFontSize,
+          child: Tooltip( // Added Tooltip for clarity
+            message: text == 'm' ? 'Multiline' : (text == 's' ? 'Dot All' : ''),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: checked ? iconSelectedColor : iconColor,
+                fontSize: inputFontSize,
+              ),
             ),
           ),
         ),
