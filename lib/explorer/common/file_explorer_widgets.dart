@@ -122,12 +122,12 @@ class DirectoryView extends ConsumerWidget {
 
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
-  final bool isDragActive; // ADDED: This controls the animation.
+  final bool isDragActive;
 
   const RootDropZone({
     super.key,
     required this.projectRootUri,
-    required this.isDragActive, // ADDED
+    required this.isDragActive,
   });
 
   static const _kActiveHeight = 60.0;
@@ -138,13 +138,15 @@ class RootDropZone extends ConsumerWidget {
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
 
-    // The inner DragTarget's builder now has two pieces of information:
-    // 1. `isDragActive`: Is any file being dragged over the explorer? (from parent)
-    // 2. `candidateData`: Is a valid file being dragged specifically over THIS zone? (from self)
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        // 'canAccept' is now for highlighting, not for visibility.
-        final canAccept = candidateData.isNotEmpty &&
+        // ### THIS IS THE FIX ###
+        // The zone should be expanded if the parent says a drag is active
+        // OR if a drag is happening directly over this zone. This prevents
+        // the flicker when moving from the parent to the child target.
+        final bool shouldBeExpanded = isDragActive || candidateData.isNotEmpty;
+
+        final bool canAccept = candidateData.isNotEmpty &&
             _isDropAllowed(
               candidateData.first!,
               RootPlaceholder(projectRootUri),
@@ -169,10 +171,9 @@ class RootDropZone extends ConsumerWidget {
 
         return AnimatedContainer(
           duration: _kAnimationDuration,
-          // The height is now controlled by the parent's `isDragActive` flag.
-          height: isDragActive ? _kActiveHeight : 0.0,
+          // The height is now controlled by our robust `shouldBeExpanded` flag.
+          height: shouldBeExpanded ? _kActiveHeight : 0.0,
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          // The decoration (highlight) is controlled by this widget's own `canAccept` flag.
           decoration: canAccept ? highlightDecoration : normalDecoration,
           child: ClipRect(
             child: Padding(
