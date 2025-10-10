@@ -41,7 +41,6 @@ class CodeFindAppBar extends StatelessWidget {
                     tooltip: 'Close Find',
                     onPressed: controller.close,
                   ),
-                  // The result badge is next.
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -264,23 +263,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceMatch, icon: Icons.done, tooltip: 'Replace'),
           _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceAllMatches, icon: Icons.done_all, tooltip: 'Replace All'),
         ],
-      ),
-    );
-  }
-  
-  Widget _buildResultBadge(BuildContext context, String result) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        result,
-        style: TextStyle(
-          color: resultFontColor,
-          fontSize: resultFontSize,
-        ),
       ),
     );
   }
