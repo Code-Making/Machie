@@ -27,6 +27,9 @@ import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 
+import '../../../data/repositories/project_repository.dart';
+import '../../../utils/toast.dart';
+
 import 'code_editor_hot_state_dto.dart'; // For serializeHotState
 
 
@@ -457,30 +460,34 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
     if (fileUri == null) return [];
 
-    // Only apply this recognizer to Dart files.
     if (_languageKey == 'dart') {
+      // 1. THIS IS THE NEW REGEX. It matches the whole line and has a 
+      //    capturing group for the path.
+      final importRegex = RegExp(r"^(?:import|export|part)\s+(['""])([^'""]+)\1;");
+
       return [
-        // Recognizer for relative imports/parts in Dart.
         PatternRecognizer(
-          // Regex captures the content inside single or double quotes
-          // in lines starting with 'import', 'export', or 'part'.
-          pattern: RegExp(r"^(?:import|export|part)\s+['""]([^'""]+)['""]"),
-          // Make the link style subtle but clear.
+          pattern: importRegex,
           style: TextStyle(
             color: Colors.cyan[300],
             decoration: TextDecoration.underline,
             decorationColor: Colors.cyan[300]?.withOpacity(0.5),
           ),
-          // Use a mouse cursor to indicate it's clickable on desktop/web.
           mouseCursor: SystemMouseCursors.click,
-          // This recognizer is only interested in the first capturing group.
-          group: 1,
-          onTap: (path) => _onImportTap(path),
+          onTap: (fullMatch) {
+            // 2. RE-APPLY the regex to the full match string to extract the group.
+            final match = importRegex.firstMatch(fullMatch);
+            // Group 2 contains our path because group 1 is the quote character.
+            final relativePath = match?.group(2);
+
+            if (relativePath != null) {
+              _onImportTap(relativePath);
+            }
+          },
         ),
       ];
     }
     
-    // Return an empty list for non-Dart files.
     return [];
   }
 
@@ -493,12 +500,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     if (fileHandler == null || currentFileMetadata == null) return;
     
     try {
-      // 1. Get the URI of the directory containing the current file.
       final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
-      
-      // 2. Normalize the path (handle '.' and '..') and join.
-      // This is a simplified normalization. A robust solution might need a
-      // proper path manipulation package if paths get very complex.
       final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
       final resolvedSegments = <String>[];
 
@@ -507,18 +509,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
           if (resolvedSegments.isNotEmpty) {
             resolvedSegments.removeLast();
           }
-        } else if (segment != '.') {
+        } else if (segment != '.' && segment.isNotEmpty) {
           resolvedSegments.add(segment);
         }
       }
       
-      // 3. Reconstruct the final URI.
       final resolvedUri = resolvedSegments.join('%2F');
-      
-      // 4. Get the file metadata for the resolved URI.
       final targetFile = await fileHandler.getFileMetadata(resolvedUri);
       
-      // 5. If the file exists, open it.
       if (targetFile != null) {
         await appNotifier.openFileInEditor(targetFile);
       } else {
