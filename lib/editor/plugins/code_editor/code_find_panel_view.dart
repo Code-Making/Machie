@@ -230,29 +230,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
-    double rightPadding = 0,
-  }) {
-    return Padding(
-      padding: padding,
-      child: TextField(
-        maxLines: 1,
-        focusNode: focusNode,
-        style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
-        decoration: decoration.copyWith(
-          contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
-            // The padding now accounts for both the result badge and the toggle buttons
-            EdgeInsets.only(right: 110 + rightPadding),
-          ),
-        ),
-        controller: controller,
-      ),
-    );
-  }
-  
-  Widget _buildTextField({
-    required BuildContext context,
-    required TextEditingController controller,
-    required FocusNode focusNode,
   }) {
     return Padding(
       padding: padding,
@@ -267,6 +244,34 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
         controller: controller,
+      ),
+    );
+  }
+  
+  // ... _buildCheckText and _buildIconButton are unchanged ...
+  Widget _buildCheckText({
+    required BuildContext context,
+    required String text,
+    required bool checked,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: SizedBox(
+          width: _kDefaultFindIconWidth * 0.75,
+          child: Tooltip( // Added Tooltip for clarity
+            message: text == 'm' ? 'Multiline' : (text == 's' ? 'Dot All' : ''),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: checked ? iconSelectedColor : iconColor,
+                fontSize: inputFontSize,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
