@@ -120,55 +120,64 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
+    final String result = (value.result == null || value.result!.matches.isEmpty)
+        ? 'No results'
+        : '${value.result!.index + 1}/${value.result!.matches.length}';
+
     return SizedBox(
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _buildTextField(
-                  context: context,
-                  controller: controller.findInputController,
-                  focusNode: controller.findInputFocusNode,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _buildCheckText(
-                      context: context,
-                      text: 'Aa',
-                      checked: value.option.caseSensitive,
-                      onPressed: controller.toggleCaseSensitive,
-                    ),
-                    _buildCheckText(
-                      context: context,
-                      text: '.*',
-                      checked: value.option.regex,
-                      onPressed: () {
-                        if (value.option.regex) {
-                          if (value.option.multiLine) controller.toggleMultiLine();
-                          if (value.option.dotAll) controller.toggleDotAll();
-                        }
-                        controller.toggleRegex();
-                      },
-                    ),
-                    if (value.option.regex)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 4),
-                          _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
-                          _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
-                        ],
+            child: Padding(
+              padding: padding,
+              child: TextField(
+                maxLines: 1,
+                focusNode: controller.findInputFocusNode,
+                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                decoration: decoration.copyWith(
+                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                  // The suffixIcon contains all our controls
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildResultBadge(context, result),
+                      const SizedBox(width: 8),
+                      _buildCheckText(
+                        context: context,
+                        text: 'Aa',
+                        checked: value.option.caseSensitive,
+                        onPressed: controller.toggleCaseSensitive,
                       ),
-                  ],
+                      _buildCheckText(
+                        context: context,
+                        text: '.*',
+                        checked: value.option.regex,
+                        onPressed: () {
+                          if (value.option.regex) {
+                            if (value.option.multiLine) controller.toggleMultiLine();
+                            if (value.option.dotAll) controller.toggleDotAll();
+                          }
+                          controller.toggleRegex();
+                        },
+                      ),
+                      if (value.option.regex)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(width: 4),
+                            _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
+                            _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-              ],
+                controller: controller.findInputController,
+              ),
             ),
           ),
-          // REMOVED: The result count Text widget is gone from here.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -189,10 +198,17 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           Expanded(
-            child: _buildTextField(
-              context: context,
-              controller: controller.replaceInputController,
-              focusNode: controller.replaceInputFocusNode,
+             child: Padding(
+              padding: padding,
+              child: TextField(
+                maxLines: 1,
+                focusNode: controller.replaceInputFocusNode,
+                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                decoration: decoration.copyWith(
+                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                ),
+                controller: controller.replaceInputController,
+              ),
             ),
           ),
           _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceMatch, icon: Icons.done, tooltip: 'Replace'),
@@ -203,24 +219,17 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   }
   
   Widget _buildResultBadge(BuildContext context, String result) {
-    return Positioned(
-      bottom: 4,
-      right: 95, // Positioned to the left of the action buttons
-      child: IgnorePointer(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: Theme.of(context).inputDecorationTheme.fillColor?.withOpacity(0.9) ?? Theme.of(context).scaffoldBackgroundColor.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Theme.of(context).dividerColor, width: 0.5)
-          ),
-          child: Text(
-            result,
-            style: TextStyle(
-              color: resultFontColor,
-              fontSize: resultFontSize,
-            ),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        result,
+        style: TextStyle(
+          color: resultFontColor,
+          fontSize: resultFontSize,
         ),
       ),
     );
