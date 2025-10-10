@@ -117,88 +117,72 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
-          // 1. The text field and its options are in an Expanded widget to be flexible.
+          // The main input area is flexible
           Expanded(
-            child: SizedBox(
-              height: _kDefaultFindPanelHeight,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  _buildTextField(
-                    context: context,
-                    controller: controller.findInputController,
-                    focusNode: controller.findInputFocusNode,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _buildCheckText(
-                        context: context,
-                        text: 'Aa',
-                        checked: value.option.caseSensitive,
-                        onPressed: controller.toggleCaseSensitive,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _buildTextField(
+                  context: context,
+                  controller: controller.findInputController,
+                  focusNode: controller.findInputFocusNode,
+                  // Reserve space on the right for the result badge
+                  rightPadding: 70, 
+                ),
+                // This row contains the toggle buttons (Aa, .*, etc.)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildCheckText(
+                      context: context,
+                      text: 'Aa',
+                      checked: value.option.caseSensitive,
+                      onPressed: controller.toggleCaseSensitive,
+                    ),
+                    _buildCheckText(
+                      context: context,
+                      text: '.*',
+                      checked: value.option.regex,
+                      onPressed: () {
+                        if (value.option.regex) {
+                          if (value.option.multiLine) controller.toggleMultiLine();
+                          if (value.option.dotAll) controller.toggleDotAll();
+                        }
+                        controller.toggleRegex();
+                      },
+                    ),
+                    if (value.option.regex)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: 4),
+                          _buildCheckText(
+                            context: context,
+                            text: 'm',
+                            checked: value.option.multiLine,
+                            onPressed: controller.toggleMultiLine,
+                          ),
+                          _buildCheckText(
+                            context: context,
+                            text: 's',
+                            checked: value.option.dotAll,
+                            onPressed: controller.toggleDotAll,
+                          ),
+                        ],
                       ),
-                      _buildCheckText(
-                        context: context,
-                        text: '.*',
-                        checked: value.option.regex,
-                        // 2. Add logic to reset flags when regex is toggled off.
-                        onPressed: () {
-                          if (value.option.regex) {
-                            if (value.option.multiLine) {
-                              controller.toggleMultiLine();
-                            }
-                            if (value.option.dotAll) {
-                              controller.toggleDotAll();
-                            }
-                          }
-                          controller.toggleRegex();
-                        },
-                      ),
-                      // 3. Conditionally render the new flags in their own row.
-                      if (value.option.regex)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(width: 4), // Visual separator
-                            _buildCheckText(
-                              context: context,
-                              text: 'm', // Multiline flag
-                              checked: value.option.multiLine,
-                              onPressed: controller.toggleMultiLine,
-                            ),
-                            _buildCheckText(
-                              context: context,
-                              text: 's', // DotAll flag
-                              checked: value.option.dotAll,
-                              onPressed: controller.toggleDotAll,
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                // The result count is now a positioned badge
+                _buildResultBadge(context, result),
+              ],
             ),
           ),
-          // Result count is outside the Expanded, so it has a fixed size.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: Text(
-              result,
-              style: TextStyle(
-                color: resultFontColor,
-                fontSize: resultFontSize,
-              ),
-            ),
-          ),
-          // Action buttons are also outside, taking up only the space they need.
+          // The action buttons (arrows, close) are fixed size
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildIconButton(
-                onPressed:
-                    value.result == null ? null : controller.previousMatch,
+                onPressed: value.result == null ? null : controller.previousMatch,
                 icon: Icons.arrow_upward,
                 tooltip: 'Previous',
               ),
@@ -226,28 +210,21 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: _kDefaultFindPanelHeight,
-              child: _buildTextField(
-                context: context,
-                controller: controller.replaceInputController,
-                focusNode: controller.replaceInputFocusNode,
-              ),
+            // The replace field doesn't need a result count, so its Stack is simpler.
+            child: _buildTextField(
+              context: context,
+              controller: controller.replaceInputController,
+              focusNode: controller.replaceInputFocusNode,
+              rightPadding: 10, // Just a little padding
             ),
           ),
           _buildIconButton(
-            onPressed:
-                value.result == null || readOnly
-                    ? null
-                    : controller.replaceMatch,
+            onPressed: value.result == null || readOnly ? null : controller.replaceMatch,
             icon: Icons.done,
             tooltip: 'Replace',
           ),
           _buildIconButton(
-            onPressed:
-                value.result == null || readOnly
-                    ? null
-                    : controller.replaceAllMatches,
+            onPressed: value.result == null || readOnly ? null : controller.replaceAllMatches,
             icon: Icons.done_all,
             tooltip: 'Replace All',
           ),
@@ -255,12 +232,35 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
+  
+  Widget _buildResultBadge(BuildContext context, String result) {
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: IgnorePointer( // The badge should not intercept clicks
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            result,
+            style: TextStyle(
+              color: resultFontColor,
+              fontSize: resultFontSize,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-  // MODIFIED: Removed the `iconsWidth` parameter and used a fixed, generous padding.
   Widget _buildTextField({
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
+    double rightPadding = 0,
   }) {
     return Padding(
       padding: padding,
@@ -269,10 +269,9 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         focusNode: focusNode,
         style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
         decoration: decoration.copyWith(
-          // Apply a fixed, generous padding on the right to make space for
-          // all possible icons without the layout jumping.
           contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
-            const EdgeInsets.only(right: 110), // Space for Aa, .*, m, s
+            // The padding now accounts for both the result badge and the toggle buttons
+            EdgeInsets.only(right: 110 + rightPadding),
           ),
         ),
         controller: controller,
