@@ -122,59 +122,83 @@ class DirectoryView extends ConsumerWidget {
 
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
-  const RootDropZone({super.key, required this.projectRootUri});
+  final bool isDragActive; // ADDED: This controls the animation.
+
+  const RootDropZone({
+    super.key,
+    required this.projectRootUri,
+    required this.isDragActive, // ADDED
+  });
+
+  static const _kActiveHeight = 60.0;
+  static const _kAnimationDuration = Duration(milliseconds: 200);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
 
+    // The inner DragTarget's builder now has two pieces of information:
+    // 1. `isDragActive`: Is any file being dragged over the explorer? (from parent)
+    // 2. `candidateData`: Is a valid file being dragged specifically over THIS zone? (from self)
     return DragTarget<DocumentFile>(
       builder: (context, candidateData, rejectedData) {
-        final canAccept =
-            candidateData.isNotEmpty &&
+        // 'canAccept' is now for highlighting, not for visibility.
+        final canAccept = candidateData.isNotEmpty &&
             _isDropAllowed(
               candidateData.first!,
               RootPlaceholder(projectRootUri),
               fileHandler,
             );
 
-        return AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
-          opacity: canAccept ? 1.0 : 0.0,
-          child: IgnorePointer(
-            ignoring: !canAccept,
-            child: Container(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 4.0,
-              ),
+        final highlightDecoration = BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withAlpha(70),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2.0,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        );
+
+        final normalDecoration = BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceVariant.withAlpha(150),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.onSurface.withAlpha(100)),
+          borderRadius: BorderRadius.circular(8),
+        );
+
+        return AnimatedContainer(
+          duration: _kAnimationDuration,
+          // The height is now controlled by the parent's `isDragActive` flag.
+          height: isDragActive ? _kActiveHeight : 0.0,
+          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          // The decoration (highlight) is controlled by this widget's own `canAccept` flag.
+          decoration: canAccept ? highlightDecoration : normalDecoration,
+          child: ClipRect(
+            child: Padding(
               padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withAlpha(50),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.move_up),
-                  SizedBox(width: 8),
-                  Text('Move to Project Root'),
+                  Icon(Icons.move_up,
+                      color: Theme.of(context).colorScheme.onSurface),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Move to Project Root',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface),
+                  ),
                 ],
               ),
             ),
           ),
         );
       },
-      onWillAcceptWithDetails:
-          (details) => _isDropAllowed(
-            details.data,
-            RootPlaceholder(projectRootUri),
-            fileHandler,
-          ),
+      onWillAcceptWithDetails: (details) => _isDropAllowed(
+        details.data,
+        RootPlaceholder(projectRootUri),
+        fileHandler,
+      ),
       onAcceptWithDetails: (details) {
         ref
             .read(explorerServiceProvider)

@@ -7,34 +7,73 @@ import '../../common/file_operations_footer.dart';
 import 'file_explorer_state.dart';
 import '../../explorer_plugin_registry.dart'; // REFACTOR: Import generic provider
 
-class FileExplorerView extends ConsumerWidget {
+// MODIFIED: Converted to a ConsumerStatefulWidget
+class FileExplorerView extends ConsumerStatefulWidget {
   final Project project;
   const FileExplorerView({super.key, required this.project});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // REFACTOR: Now uses the generic settings provider.
+  ConsumerState<FileExplorerView> createState() => _FileExplorerViewState();
+}
+
+class _FileExplorerViewState extends ConsumerState<FileExplorerView> {
+  // ADDED: Local state to track if a drag is happening anywhere over the view.
+  bool _isDragInProgress = false;
+
+  @override
+  Widget build(BuildContext context) {
     final fileExplorerState =
         ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
 
-    // Handle the case where state might not be ready.
     if (fileExplorerState == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: DirectoryView(
-            directory: project.rootUri,
-            projectRootUri: project.rootUri,
-            // Pass the state down to the truly common widget.
-            state: fileExplorerState,
-          ),
-        ),
-        RootDropZone(projectRootUri: project.rootUri),
-        FileOperationsFooter(projectRootUri: project.rootUri),
-      ],
+    // ADDED: A parent DragTarget to detect when a drag enters or leaves the explorer area.
+    return DragTarget<DocumentFile>(
+      // This builder renders the actual UI.
+      builder: (context, candidateData, rejectedData) {
+        return Column(
+          children: [
+            Expanded(
+              child: DirectoryView(
+                directory: widget.project.rootUri,
+                projectRootUri: widget.project.rootUri,
+                state: fileExplorerState,
+              ),
+            ),
+            // Pass the drag-in-progress state down to the drop zone.
+            RootDropZone(
+              projectRootUri: widget.project.rootUri,
+              isDragActive: _isDragInProgress,
+            ),
+            FileOperationsFooter(projectRootUri: widget.project.rootUri),
+          ],
+        );
+      },
+      // When a draggable enters this large area, we update the state.
+      onWillAcceptWithDetails: (details) {
+        if (!_isDragInProgress) {
+          setState(() {
+            _isDragInProgress = true;
+          });
+        }
+        // We return false because this parent target's job is only DETECTION.
+        // We want the actual acceptance to be handled by the child targets (folders, RootDropZone).
+        return false;
+      },
+      // When the draggable leaves this area, we reset the state.
+      onLeave: (data) {
+        setState(() {
+          _isDragInProgress = false;
+        });
+      },
+      // Also reset on drop, just in case `onLeave` doesn't fire (e.g., app switch).
+      onAcceptWithDetails: (details) {
+        setState(() {
+          _isDragInProgress = false;
+        });
+      },
     );
   }
 }
