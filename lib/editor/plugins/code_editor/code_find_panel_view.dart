@@ -82,7 +82,6 @@ const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
 const double _kDefaultFindPanelWidth = 360;
 const double _kDefaultFindPanelHeight = 36;
 const double _kDefaultReplacePanelHeight = _kDefaultFindPanelHeight * 2;
-const double _kDefaultBadgeRowHeight = 24; 
 const double _kDefaultFindIconSize = 16;
 const double _kDefaultFindIconWidth = 30;
 const double _kDefaultFindIconHeight = 30;
@@ -137,24 +136,15 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize {
-    final value = controller.value;
-    if (value == null) {
-      return Size.zero;
-    }
-
-    // Calculate the height dynamically based on visible components.
-    double height = _kDefaultFindPanelHeight;
-    if (value.replaceMode) {
-      height += _kDefaultReplacePanelHeight;
-    }
-    // Show the badge row if the user has typed anything.
-    if (value.findText.isNotEmpty) {
-      height += _kDefaultBadgeRowHeight;
-    }
-    
-    return Size(double.infinity, height + margin.vertical);
-  }
+  Size get preferredSize => Size(
+    double.infinity,
+    controller.value == null
+        ? 0
+        : ((controller.value!.replaceMode
+                ? _kDefaultReplacePanelHeight
+                : _kDefaultFindPanelHeight) +
+            margin.vertical),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -177,18 +167,22 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
             constraints: const BoxConstraints(
               maxWidth: _kDefaultFindPanelWidth,
             ),
-            // The layout is now a simple Column, which directly maps to the visual structure.
-            child: Material(
-              elevation: 4,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildFindInputView(context, value),
-                  if (value.replaceMode) _buildReplaceInputView(context, value),
-                  // The badge is now a conditional row at the bottom of the column.
-                  if (value.findText.isNotEmpty) _buildResultBadge(context, result),
-                ],
-              ),
+            // 1. The main container is now a Stack.
+            child: Stack(
+              children: [
+                // 2. The main content (input fields) is the first child.
+                Material(
+                  elevation: 4,
+                  child: Column(
+                    children: [
+                      _buildFindInputView(context, value),
+                      if (value.replaceMode) _buildReplaceInputView(context, value),
+                    ],
+                  ),
+                ),
+                // 3. The badge is the second child, positioned on top.
+                _buildResultBadge(context, result),
+              ],
             ),
           ),
         );
@@ -198,37 +192,62 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
+    final String result = (value.result == null || value.result!.matches.isEmpty)
+        ? 'No results'
+        : '${value.result!.index + 1}/${value.result!.matches.length}';
+
     return SizedBox(
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _buildTextField(
-                  context: context,
-                  controller: controller.findInputController,
-                  focusNode: controller.findInputFocusNode,
-                  isFindField: true,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _buildCheckText(context: context, text: 'Aa', checked: value.option.caseSensitive, onPressed: controller.toggleCaseSensitive),
-                    _buildCheckText(context: context, text: '.*', checked: value.option.regex, onPressed: () { if (value.option.regex) { if (value.option.multiLine) controller.toggleMultiLine(); if (value.option.dotAll) controller.toggleDotAll(); } controller.toggleRegex(); }),
-                    if (value.option.regex)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 4),
-                          _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
-                          _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
-                        ],
+            child: Padding(
+              padding: padding,
+              child: TextField(
+                maxLines: 1,
+                focusNode: controller.findInputFocusNode,
+                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                decoration: decoration.copyWith(
+                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                  // The suffixIcon contains all our controls
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildResultBadge(context, result),
+                      const SizedBox(width: 8),
+                      _buildCheckText(
+                        context: context,
+                        text: 'Aa',
+                        checked: value.option.caseSensitive,
+                        onPressed: controller.toggleCaseSensitive,
                       ),
-                  ],
+                      _buildCheckText(
+                        context: context,
+                        text: '.*',
+                        checked: value.option.regex,
+                        onPressed: () {
+                          if (value.option.regex) {
+                            if (value.option.multiLine) controller.toggleMultiLine();
+                            if (value.option.dotAll) controller.toggleDotAll();
+                          }
+                          controller.toggleRegex();
+                        },
+                      ),
+                      if (value.option.regex)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(width: 4),
+                            _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
+                            _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-              ],
+                controller: controller.findInputController,
+              ),
             ),
           ),
           Row(
@@ -247,15 +266,21 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   // ... _buildReplaceInputView is unchanged ...
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
     return SizedBox(
-      height: _kDefaultReplacePanelHeight,
+      height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
           Expanded(
-            child: _buildTextField(
-              context: context,
-              controller: controller.replaceInputController,
-              focusNode: controller.replaceInputFocusNode,
-              isFindField: false,
+             child: Padding(
+              padding: padding,
+              child: TextField(
+                maxLines: 1,
+                focusNode: controller.replaceInputFocusNode,
+                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                decoration: decoration.copyWith(
+                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                ),
+                controller: controller.replaceInputController,
+              ),
             ),
           ),
           _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceMatch, icon: Icons.done, tooltip: 'Replace'),
@@ -267,13 +292,15 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   
   Widget _buildResultBadge(BuildContext context, String result) {
     return Container(
-      height: _kDefaultBadgeRowHeight,
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 100), // Align with buttons above
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Text(
         result,
         style: TextStyle(
-          color: resultFontColor ?? Theme.of(context).textTheme.bodySmall?.color,
+          color: resultFontColor,
           fontSize: resultFontSize,
         ),
       ),
@@ -284,7 +311,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     required BuildContext context,
     required TextEditingController controller,
     required FocusNode focusNode,
-    required bool isFindField,
   }) {
     return Padding(
       padding: padding,
@@ -294,7 +320,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
         decoration: decoration.copyWith(
           contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
-            EdgeInsets.only(right: isFindField ? 110 : 0),
+            // Padding is only needed for the toggle buttons (Aa, .*, m, s)
+            const EdgeInsets.only(right: 110),
           ),
         ),
         controller: controller,
