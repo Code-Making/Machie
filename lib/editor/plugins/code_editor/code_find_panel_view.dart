@@ -82,6 +82,11 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         if (value == null) {
           return const SizedBox.shrink();
         }
+
+        final String result = (value.result == null || value.result!.matches.isEmpty)
+            ? 'No results'
+            : '${value.result!.index + 1}/${value.result!.matches.length}';
+
         return Container(
           margin: margin,
           alignment: Alignment.topRight,
@@ -90,14 +95,22 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
             constraints: const BoxConstraints(
               maxWidth: _kDefaultFindPanelWidth,
             ),
-            child: Material(
-              elevation: 4,
-              child: Column(
-                children: [
-                  _buildFindInputView(context, value),
-                  if (value.replaceMode) _buildReplaceInputView(context, value),
-                ],
-              ),
+            // 1. The main container is now a Stack.
+            child: Stack(
+              children: [
+                // 2. The main content (input fields) is the first child.
+                Material(
+                  elevation: 4,
+                  child: Column(
+                    children: [
+                      _buildFindInputView(context, value),
+                      if (value.replaceMode) _buildReplaceInputView(context, value),
+                    ],
+                  ),
+                ),
+                // 3. The badge is the second child, positioned on top.
+                _buildResultBadge(context, result),
+              ],
             ),
           ),
         );
@@ -107,17 +120,10 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
-    final String result;
-    if (value.result == null || value.result!.matches.isEmpty) {
-      result = 'No results';
-    } else {
-      result = '${value.result!.index + 1}/${value.result!.matches.length}';
-    }
     return SizedBox(
       height: _kDefaultFindPanelHeight,
       child: Row(
         children: [
-          // The main input area is flexible
           Expanded(
             child: Stack(
               alignment: Alignment.center,
@@ -126,10 +132,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                   context: context,
                   controller: controller.findInputController,
                   focusNode: controller.findInputFocusNode,
-                  // Reserve space on the right for the result badge
-                  rightPadding: 70, 
                 ),
-                // This row contains the toggle buttons (Aa, .*, etc.)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -156,46 +159,22 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(width: 4),
-                          _buildCheckText(
-                            context: context,
-                            text: 'm',
-                            checked: value.option.multiLine,
-                            onPressed: controller.toggleMultiLine,
-                          ),
-                          _buildCheckText(
-                            context: context,
-                            text: 's',
-                            checked: value.option.dotAll,
-                            onPressed: controller.toggleDotAll,
-                          ),
+                          _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
+                          _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
                         ],
                       ),
                   ],
                 ),
-                // The result count is now a positioned badge
-                _buildResultBadge(context, result),
               ],
             ),
           ),
-          // The action buttons (arrows, close) are fixed size
+          // REMOVED: The result count Text widget is gone from here.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildIconButton(
-                onPressed: value.result == null ? null : controller.previousMatch,
-                icon: Icons.arrow_upward,
-                tooltip: 'Previous',
-              ),
-              _buildIconButton(
-                onPressed: value.result == null ? null : controller.nextMatch,
-                icon: Icons.arrow_downward,
-                tooltip: 'Next',
-              ),
-              _buildIconButton(
-                onPressed: controller.close,
-                icon: Icons.close,
-                tooltip: 'Close',
-              ),
+              _buildIconButton(onPressed: value.result == null ? null : controller.previousMatch, icon: Icons.arrow_upward, tooltip: 'Previous'),
+              _buildIconButton(onPressed: value.result == null ? null : controller.nextMatch, icon: Icons.arrow_downward, tooltip: 'Next'),
+              _buildIconButton(onPressed: controller.close, icon: Icons.close, tooltip: 'Close'),
             ],
           ),
         ],
@@ -210,24 +189,14 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           Expanded(
-            // The replace field doesn't need a result count, so its Stack is simpler.
             child: _buildTextField(
               context: context,
               controller: controller.replaceInputController,
               focusNode: controller.replaceInputFocusNode,
-              rightPadding: 10, // Just a little padding
             ),
           ),
-          _buildIconButton(
-            onPressed: value.result == null || readOnly ? null : controller.replaceMatch,
-            icon: Icons.done,
-            tooltip: 'Replace',
-          ),
-          _buildIconButton(
-            onPressed: value.result == null || readOnly ? null : controller.replaceAllMatches,
-            icon: Icons.done_all,
-            tooltip: 'Replace All',
-          ),
+          _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceMatch, icon: Icons.done, tooltip: 'Replace'),
+          _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceAllMatches, icon: Icons.done_all, tooltip: 'Replace All'),
         ],
       ),
     );
@@ -236,13 +205,14 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
   Widget _buildResultBadge(BuildContext context, String result) {
     return Positioned(
       bottom: 4,
-      right: 4,
-      child: IgnorePointer( // The badge should not intercept clicks
+      right: 95, // Positioned to the left of the action buttons
+      child: IgnorePointer(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+            color: Theme.of(context).inputDecorationTheme.fillColor?.withOpacity(0.9) ?? Theme.of(context).scaffoldBackgroundColor.withOpacity(0.9),
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Theme.of(context).dividerColor, width: 0.5)
           ),
           child: Text(
             result,
@@ -279,30 +249,24 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
   
-  // ... _buildCheckText and _buildIconButton are unchanged ...
-  Widget _buildCheckText({
+  Widget _buildTextField({
     required BuildContext context,
-    required String text,
-    required bool checked,
-    required VoidCallback onPressed,
+    required TextEditingController controller,
+    required FocusNode focusNode,
   }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: SizedBox(
-          width: _kDefaultFindIconWidth * 0.75,
-          child: Tooltip( // Added Tooltip for clarity
-            message: text == 'm' ? 'Multiline' : (text == 's' ? 'Dot All' : ''),
-            child: Text(
-              text,
-              style: TextStyle(
-                color: checked ? iconSelectedColor : iconColor,
-                fontSize: inputFontSize,
-              ),
-            ),
+    return Padding(
+      padding: padding,
+      child: TextField(
+        maxLines: 1,
+        focusNode: focusNode,
+        style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+        decoration: decoration.copyWith(
+          contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
+            // Padding is only needed for the toggle buttons (Aa, .*, m, s)
+            const EdgeInsets.only(right: 110),
           ),
         ),
+        controller: controller,
       ),
     );
   }
