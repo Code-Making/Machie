@@ -129,6 +129,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     );    findController = CodeFindController(controller);
     
     // Add listeners
+    findController.addListener(syncCommandContext);
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
 
@@ -176,6 +177,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   @override
   void dispose() {
+    findController.removeListener(syncCommandContext);
     controller.removeListener(syncCommandContext);
     controller.dirty.removeListener(_onDirtyStateChange);
     controller.dispose();
@@ -499,15 +501,23 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     if (!mounted) return;
 
     final hasSelection = !controller.selection.isCollapsed;
+    Widget? appBarOverride;
 
+    // Priority 1: If the find panel is active, its app bar takes precedence.
+    if (findController.value != null) {
+      appBarOverride = CodeFindAppBar(controller: findController);
+    } 
+    // Priority 2: If no find panel, but there is a selection, show the selection bar.
+    else if (hasSelection) {
+      appBarOverride = _buildSelectionAppBar();
+    }
+    
     final newContext = CodeEditorCommandContext(
       canUndo: controller.canUndo,
       canRedo: controller.canRedo,
       hasSelection: hasSelection,
       hasMark: _markPosition != null,
-      // THIS IS THE FIX: The context itself now holds the override widget.
-      // If there's a selection, provide the app bar. Otherwise, provide null.
-      appBarOverride: hasSelection ? _buildSelectionAppBar() : null,
+      appBarOverride: appBarOverride,
     );
     
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
