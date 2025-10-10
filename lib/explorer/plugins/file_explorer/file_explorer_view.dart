@@ -6,6 +6,7 @@ import '../../common/file_explorer_widgets.dart';
 import '../../common/file_operations_footer.dart';
 import 'file_explorer_state.dart';
 import '../../explorer_plugin_registry.dart'; // REFACTOR: Import generic provider
+import '../../../data/file_handler/file_handler.dart';
 
 // MODIFIED: Converted to a ConsumerStatefulWidget
 class FileExplorerView extends ConsumerStatefulWidget {
