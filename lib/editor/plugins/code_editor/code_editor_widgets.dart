@@ -128,7 +128,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     // This correctly sets the controller's internal "clean" baseline.
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
-      spanBuilder: _buildHighlightingSpan,
+      //spanBuilder: _buildHighlightingSpan,
     );    findController = CodeFindController(controller);
     
     // Add listeners
