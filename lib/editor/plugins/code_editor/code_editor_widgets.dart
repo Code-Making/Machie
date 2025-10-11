@@ -460,64 +460,42 @@ List<PatternRecognizer> _buildPatternRecognizers() {
   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
   if (fileUri == null) return [];
 
-  // if (_languageKey == 'dart') {
-    final importRegex = RegExp(r"\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
+  final importRegex = RegExp(r"^\s*(?:import|export|part)\s+['""]([^'"]+)['"];");
 
-    return [
-      PatternRecognizer(
-        pattern: importRegex,
-        builder: (match, spans) {
-          final fullMatchText = match.group(0);
-          final path = match.group(2);
+  return [
+    PatternRecognizer(
+      pattern: importRegex,
+      builder: (match, spans) {
+        // --- START OF DEBUGGING LOGIC ---
+        // This builder will take the entire text that was matched by the regex
+        // and return a single TextSpan that applies a yellow background.
+        // It merges the original syntax highlighting styles from the `spans` list.
 
-          // Safeguard in case the regex doesn't capture the groups as expected.
-          if (fullMatchText == null || path == null) {
-            return TextSpan(text: fullMatchText ?? '', style: spans.firstOrNull?.style);
-          }
+        // Combine all the underlying syntax-highlighted spans into one.
+        // This preserves the original keyword/string colors.
+        final combinedSpan = TextSpan(
+          children: spans,
+        );
 
-          // **THE FIX**: Find the start index of the path substring within the full match.
-          // This correctly replaces the erroneous match.start(2) calls.
-          final pathStartIndexInMatch = fullMatchText.indexOf(path);
+        // Create a new style that adds a yellow background.
+        final debugStyle = const TextStyle(
+          backgroundColor: Color.fromARGB(70, 255, 235, 59), // Translucent Yellow
+        );
 
-          // This should not happen with a valid regex, but it's a good check.
-          if (pathStartIndexInMatch == -1) {
-             return TextSpan(text: fullMatchText, style: spans.firstOrNull?.style);
-          }
-          
-          final pathEndIndexInMatch = pathStartIndexInMatch + path.length;
-
-          // Now, correctly create the substrings based on the found index.
-          final keywordPart = fullMatchText.substring(0, pathStartIndexInMatch);
-          final endingPart = fullMatchText.substring(pathEndIndexInMatch);
-
-          // Get a base style from the underlying syntax-highlighted spans.
-          final baseStyle = spans.firstOrNull?.style;
-
-          return TextSpan(
-            style: baseStyle,
-            children: [
-              // Part 1: The part before the path (e.g., "import '") - not tappable
-              TextSpan(text: keywordPart),
-              // Part 2: The path itself - styled and tappable
-              TextSpan(
-                text: path,
-                style: TextStyle(
-                  color: Colors.cyan[300],
-                  decoration: TextDecoration.underline,
-                  decorationColor: Colors.cyan[300]?.withOpacity(0.5),
-                ),
-                recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(path),
-              ),
-              // Part 3: The part after the path (e.g., "';") - not tappable
-              TextSpan(text: endingPart),
-            ],
-          );
-        },
-      ),
-    ];
-  // }
-  
-  return [];
+        // Apply the debug style to the combined span.
+        return TextSpan(
+          children: [
+            TextSpan(
+              text: combinedSpan.toPlainText(),
+              style: (combinedSpan.style ?? const TextStyle()).merge(debugStyle),
+              children: combinedSpan.children,
+            )
+          ],
+        );
+        // --- END OF DEBUGGING LOGIC ---
+      },
+    ),
+  ];
 }
 
   // NEW: The handler for when a recognized import path is tapped.
