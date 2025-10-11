@@ -467,27 +467,38 @@ List<PatternRecognizer> _buildPatternRecognizers() {
       PatternRecognizer(
         pattern: importRegex,
         builder: (match, spans) {
-          // **FIX 1: Use match.start(groupIndex) and match.end(groupIndex)**
-          // These methods get the character index within the *original full line string*.
-          final keywordEndIndex = match.start(2);
-          final pathStartIndex = match.start(2);
-          final pathEndIndex = match.end(2);
+          final fullMatchText = match.group(0);
+          final path = match.group(2);
 
-          // Get the text parts based on the correct indices from the full match.
-          final fullMatchText = match.group(0)!;
-          final keyword = fullMatchText.substring(0, pathStartIndex - match.start);
-          final path = match.group(2)!; // This is correct, gets the string for the path
-          final endQuote = fullMatchText.substring(pathEndIndex - match.start);
+          // Safeguard in case the regex doesn't capture the groups as expected.
+          if (fullMatchText == null || path == null) {
+            return TextSpan(text: fullMatchText ?? '', style: spans.firstOrNull?.style);
+          }
 
-          // Get the base style from the underlying syntax spans
-          final baseStyle = spans.first.style;
+          // **THE FIX**: Find the start index of the path substring within the full match.
+          // This correctly replaces the erroneous match.start(2) calls.
+          final pathStartIndexInMatch = fullMatchText.indexOf(path);
+
+          // This should not happen with a valid regex, but it's a good check.
+          if (pathStartIndexInMatch == -1) {
+             return TextSpan(text: fullMatchText, style: spans.firstOrNull?.style);
+          }
+          
+          final pathEndIndexInMatch = pathStartIndexInMatch + path.length;
+
+          // Now, correctly create the substrings based on the found index.
+          final keywordPart = fullMatchText.substring(0, pathStartIndexInMatch);
+          final endingPart = fullMatchText.substring(pathEndIndexInMatch);
+
+          // Get a base style from the underlying syntax-highlighted spans.
+          final baseStyle = spans.firstOrNull?.style;
 
           return TextSpan(
             style: baseStyle,
             children: [
-              // Part 1: "import '" - not tappable
-              TextSpan(text: keyword),
-              // Part 2: The path - styled and tappable
+              // Part 1: The part before the path (e.g., "import '") - not tappable
+              TextSpan(text: keywordPart),
+              // Part 2: The path itself - styled and tappable
               TextSpan(
                 text: path,
                 style: TextStyle(
@@ -495,18 +506,17 @@ List<PatternRecognizer> _buildPatternRecognizers() {
                   decoration: TextDecoration.underline,
                   decorationColor: Colors.cyan[300]?.withOpacity(0.5),
                 ),
-                // **FIX 2: TapGestureRecognizer will now be found due to the import**
                 recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(path),
               ),
-              // Part 3: "';" - not tappable
-              TextSpan(text: endQuote),
+              // Part 3: The part after the path (e.g., "';") - not tappable
+              TextSpan(text: endingPart),
             ],
           );
         },
       ),
     ];
   // }
-
+  
   return [];
 }
 
