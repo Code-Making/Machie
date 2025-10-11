@@ -461,7 +461,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
   if (fileUri == null) return [];
 
   // if (_languageKey == 'dart') {
-    final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
+    final importRegex = RegExp(r"\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
 
     return [
       PatternRecognizer(
