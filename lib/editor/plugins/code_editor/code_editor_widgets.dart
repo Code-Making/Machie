@@ -726,6 +726,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
       setState(() {
         _languageKey = selectedLanguageKey;
       });
+      _updateStyleAndRecognizers();
       // THE FIX: Mark the tab as dirty so the cache system will save this change.
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
