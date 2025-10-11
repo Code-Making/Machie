@@ -69,6 +69,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
+  
+  late CodeEditorStyle _style;
+  late List<PatternRecognizer> _patternRecognizers;
+
 
   bool _wasSelectionActive = false;
   
@@ -124,58 +128,47 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
-    // ALWAYS initialize with the clean content from disk first.
-    // This correctly sets the controller's internal "clean" baseline.
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       //spanBuilder: _buildHighlightingSpan,
     );    findController = CodeFindController(controller);
     
-    // Add listeners
     findController.addListener(syncCommandContext);
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
 
-    // --- THIS IS THE FIX ---
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // Sync context for initial canUndo/canRedo state
         syncCommandContext();
-
-        // If there is cached content, apply it now.
         if (widget.tab.cachedContent != null) {
-          // This programmatically changes the text, which will make controller.dirty true.
           controller.text = widget.tab.cachedContent!;
-          
-          // The dirty.addListener will automatically fire and call _onDirtyStateChange,
-          // which correctly notifies the EditorService that this tab is now dirty.
         }
       }
     });
-    // -------------------------
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyleAndRecognizers();
   }
 
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // This is now the correct way to react to a file rename.
-    // The widget itself is reused, but we listen for changes in the metadata provider.
-    final oldFileUri =
-        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
-      // A rename has occurred. Update internal state that depends on the URI.
       setState(() {
-        _languageKey = CodeThemes.inferLanguageKey(newFileUri);
+        final newLanguageKey = CodeThemes.inferLanguageKey(newFileUri);
+        if (newLanguageKey != _languageKey) {
+          _languageKey = newLanguageKey;
+          _updateStyleAndRecognizers(); // Rebuild style for new language
+        }
         _commentFormatter = CodeEditorLogic.getCommentFormatter(newFileUri);
       });
     }
-  }
-
-  // NEW METHOD: A helper to build the contextual AppBar.
-  Widget _buildSelectionAppBar() {
-    return const CodeEditorSelectionAppBar();
   }
 
   @override
@@ -187,6 +180,45 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     _focusNode.dispose();
     findController.dispose();
     super.dispose();
+  }
+  
+    void _updateStyleAndRecognizers() {
+    final codeEditorSettings = ref.read(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
+
+    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
+    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
+    final List<FontFeature>? fontFeatures =
+        enableLigatures
+            ? null
+            : const [
+              FontFeature.disable('liga'),
+              FontFeature.disable('clig'),
+              FontFeature.disable('calt'),
+            ];
+
+    _patternRecognizers = _buildPatternRecognizers();
+
+    _style = CodeEditorStyle(
+      fontHeight: codeEditorSettings?.fontHeight,
+      fontSize: codeEditorSettings?.fontSize ?? 12.0,
+      fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+      fontFeatures: fontFeatures,
+      patternRecognizers: _patternRecognizers,
+      codeTheme: CodeHighlightTheme(
+        theme:
+            CodeThemes.availableCodeThemes[selectedThemeName] ??
+            CodeThemes.availableCodeThemes['Atom One Dark']!,
+        languages: CodeThemes.getHighlightThemeMode(_languageKey),
+      ),
+    );
+  }
+
+  Widget _buildSelectionAppBar() {
+    return const CodeEditorSelectionAppBar();
   }
 
   // --- LOGIC AND METHODS ---
@@ -888,38 +920,25 @@ List<PatternRecognizer> _buildPatternRecognizers() {
 
   @override
   Widget build(BuildContext context) {
-    // ... (ref.listen and settings logic at the top of build is unchanged) ...
+    // The ref.listen is a side-effect, it's fine to keep it here.
     ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
       previous,
       next,
     ) {
       if (previous != next && next != null) {
         setState(() {
-          _languageKey = CodeThemes.inferLanguageKey(next);
+          final newLanguageKey = CodeThemes.inferLanguageKey(next);
+          if (newLanguageKey != _languageKey) {
+            _languageKey = newLanguageKey;
+            _updateStyleAndRecognizers(); // Rebuild style for new language
+          }
           _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
         });
       }
     });
+    
+    final colorScheme = Theme.of(context).colorScheme;
 
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures =
-        enableLigatures
-            ? null // Use null (or const []) to enable default font features including ligatures
-            : const [
-              FontFeature.disable('liga'), // Standard Ligatures
-              FontFeature.disable('clig'), // Contextual Ligatures
-              FontFeature.disable('calt'), // Contextual Ligatures
-            ];
-    // --- THIS IS THE MODIFIED SECTION ---
     return Focus(
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
@@ -927,33 +946,25 @@ List<PatternRecognizer> _buildPatternRecognizers() {
         controller: controller,
         focusNode: _focusNode,
         findController: findController,
+        // The builders are lightweight functions, they are fine here.
         findBuilder: (context, controller, readOnly) {
           return CodeFindPanelView(
             controller: controller,
-            iconSelectedColor: colorScheme.primary, // The main accent color
-            iconColor: colorScheme.onSurface.withOpacity(
-              0.6,
-            ), // A good default for inactive icons
+            iconSelectedColor: colorScheme.primary,
+            iconColor: colorScheme.onSurface.withOpacity(0.6),
             readOnly: readOnly,
           );
         },
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
         scrollbarBuilder: (context, child, details) {
-          // We use a StatefulWidget here to manage the visibility state.
-          // A simple StatefulWidget is cleaner than a StatefulBuilder for this.
           return _GrabbableScrollbar(
             details: details,
-            thickness: 16.0, // Your desired thickness
+            thickness: 16.0,
             child: child,
           );
         },
-        indicatorBuilder: (
-          context,
-          editingController,
-          chunkController,
-          notifier,
-        ) {
+        indicatorBuilder: (context, editingController, chunkController, notifier) {
           _chunkController = chunkController;
           return CustomEditorIndicator(
             controller: editingController,
@@ -962,23 +973,15 @@ List<PatternRecognizer> _buildPatternRecognizers() {
             bracketHighlightState: _bracketHighlightState,
           );
         },
-        style: CodeEditorStyle(
-          fontHeight: codeEditorSettings?.fontHeight,
-          fontSize: codeEditorSettings?.fontSize ?? 12.0,
-          fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-          fontFeatures: fontFeatures, // <-- APPLY THE NEW PROPERTY HERE
-          patternRecognizers: _buildPatternRecognizers(),
-          codeTheme: CodeHighlightTheme(
-            theme:
-                CodeThemes.availableCodeThemes[selectedThemeName] ??
-                CodeThemes.availableCodeThemes['Atom One Dark']!,
-            languages: CodeThemes.getHighlightThemeMode(_languageKey),
+        // All expensive objects are now simple variable lookups.
+        style: _style,
+        wordWrap: ref.watch(
+          settingsProvider.select(
+            (s) => (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)?.wordWrap ?? false,
           ),
         ),
-        wordWrap: codeEditorSettings?.wordWrap ?? false,
       ),
     );
-    // --- END OF MODIFIED SECTION ---
   }
 }
 
