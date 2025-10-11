@@ -460,23 +460,61 @@ List<PatternRecognizer> _buildPatternRecognizers() {
   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
   if (fileUri == null) return [];
 
-  // Use your original, more precise regex. With the patched library, it will work.
-  final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
+  // Using the RegExp you confirmed works.
+  final importRegex = RegExp(r"import\s+?(.*?);");
 
   return [
     PatternRecognizer(
       pattern: importRegex,
       builder: (match, spans) {
-        // --- CORRECTED DEBUGGING BUILDER ---
+        final fullMatchText = match.group(0); // e.g., "import './path.dart';"
+        final pathWithQuotes = match.group(1); // e.g., "'./path.dart'"
 
-        // The correct way to apply a style to a list of existing spans
-        // is to wrap them as children of a new TextSpan that only contains
-        // the new style and the children, but NO `text` property.
+        // Safeguards
+        if (fullMatchText == null || pathWithQuotes == null || pathWithQuotes.length < 2) {
+          return TextSpan(children: spans);
+        }
+
+        // Extract the raw path by removing the quotes
+        final rawPath = pathWithQuotes.substring(1, pathWithQuotes.length - 1);
+
+        // Find the start index of the raw path within the full matched string.
+        // This is safer than assuming positions.
+        final rawPathStartIndex = fullMatchText.indexOf(rawPath);
+
+        if (rawPathStartIndex == -1) {
+           return TextSpan(children: spans);
+        }
+        
+        final rawPathEndIndex = rawPathStartIndex + rawPath.length;
+
+        // Split the full match into three parts around the raw path
+        final partBeforePath = fullMatchText.substring(0, rawPathStartIndex);
+        final partAfterPath = fullMatchText.substring(rawPathEndIndex);
+
+        // Get a base style from the underlying syntax-highlighted spans.
+        final baseStyle = spans.firstOrNull?.style;
+
         return TextSpan(
-          style: const TextStyle(
-            backgroundColor: Color.fromARGB(70, 255, 235, 59), // Translucent Yellow
-          ),
-          children: spans,
+          style: baseStyle,
+          children: [
+            // Part 1: The part before the path (e.g., "import '") - not tappable
+            TextSpan(text: partBeforePath),
+            
+            // Part 2: The path itself - styled and tappable
+            TextSpan(
+              text: rawPath,
+              style: TextStyle(
+                color: Colors.cyan[300],
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+              ),
+              recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
+            ),
+            
+            // Part 3: The part after the path (e.g., "';") - not tappable
+            TextSpan(text: partAfterPath),
+          ],
         );
       },
     ),
