@@ -456,36 +456,49 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }
   
   // PATTERN RECOGNIZERS
-  List<PatternRecognizer> _buildPatternRecognizers() {
+List<PatternRecognizer> _buildPatternRecognizers() {
     final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
     if (fileUri == null) return [];
 
-      // 1. THIS IS THE NEW REGEX. It matches the whole line and has a 
-      //    capturing group for the path.
-      final importRegex = RegExp(r"(?:import|export|part)\s+(['""])([^'""]+)\1;");
+    //if (_languageKey == 'dart') {
+      // Use a regex robust against leading whitespace
+      final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
 
       return [
         PatternRecognizer(
           pattern: importRegex,
-          style: TextStyle(
-            color: Colors.cyan[300],
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.cyan[300]?.withOpacity(0.5),
-          ),
-          mouseCursor: SystemMouseCursors.click,
-          onTap: (fullMatch) {
-            // 2. RE-APPLY the regex to the full match string to extract the group.
-            final match = importRegex.firstMatch(fullMatch);
-            // Group 2 contains our path because group 1 is the quote character.
-            final relativePath = match?.group(2);
+          // The new builder gives you access to the match and underlying spans
+          builder: (match, spans) {
+            final keyword = match.group(0)!.substring(0, match.group(2)!.start - match.start); // e.g., "import '"
+            final path = match.group(2)!; // The actual path
+            final endQuote = match.group(0)!.substring(match.group(2)!.end - match.start); // e.g., "';"
 
-            if (relativePath != null) {
-              _onImportTap(relativePath);
-            }
+            // Get the base style from the underlying syntax spans
+            final baseStyle = spans.first.style;
+
+            return TextSpan(
+              style: baseStyle,
+              children: [
+                // Part 1: "import '" - not tappable
+                TextSpan(text: keyword),
+                // Part 2: The path - styled and tappable
+                TextSpan(
+                  text: path,
+                  style: TextStyle(
+                    color: Colors.cyan[300],
+                    decoration: TextDecoration.underline,
+                    decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(path),
+                ),
+                // Part 3: "';" - not tappable
+                TextSpan(text: endQuote),
+              ],
+            );
           },
         ),
       ];
-    
+    //}
     
     return [];
   }
