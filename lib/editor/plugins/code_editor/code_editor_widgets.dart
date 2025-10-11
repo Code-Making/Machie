@@ -1,7 +1,7 @@
 // =========================================
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
-
+import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart'; // <-- FIX: ADD THIS IMPORT for ValueListenable
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -457,51 +457,58 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   
   // PATTERN RECOGNIZERS
 List<PatternRecognizer> _buildPatternRecognizers() {
-    final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
-    if (fileUri == null) return [];
+  final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
+  if (fileUri == null) return [];
 
-    //if (_languageKey == 'dart') {
-      // Use a regex robust against leading whitespace
-      final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
+  // if (_languageKey == 'dart') {
+    final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
 
-      return [
-        PatternRecognizer(
-          pattern: importRegex,
-          // The new builder gives you access to the match and underlying spans
-          builder: (match, spans) {
-            final keyword = match.group(0)!.substring(0, match.group(2)!.start - match.start); // e.g., "import '"
-            final path = match.group(2)!; // The actual path
-            final endQuote = match.group(0)!.substring(match.group(2)!.end - match.start); // e.g., "';"
+    return [
+      PatternRecognizer(
+        pattern: importRegex,
+        builder: (match, spans) {
+          // **FIX 1: Use match.start(groupIndex) and match.end(groupIndex)**
+          // These methods get the character index within the *original full line string*.
+          final keywordEndIndex = match.start(2);
+          final pathStartIndex = match.start(2);
+          final pathEndIndex = match.end(2);
 
-            // Get the base style from the underlying syntax spans
-            final baseStyle = spans.first.style;
+          // Get the text parts based on the correct indices from the full match.
+          final fullMatchText = match.group(0)!;
+          final keyword = fullMatchText.substring(0, pathStartIndex - match.start);
+          final path = match.group(2)!; // This is correct, gets the string for the path
+          final endQuote = fullMatchText.substring(pathEndIndex - match.start);
 
-            return TextSpan(
-              style: baseStyle,
-              children: [
-                // Part 1: "import '" - not tappable
-                TextSpan(text: keyword),
-                // Part 2: The path - styled and tappable
-                TextSpan(
-                  text: path,
-                  style: TextStyle(
-                    color: Colors.cyan[300],
-                    decoration: TextDecoration.underline,
-                    decorationColor: Colors.cyan[300]?.withOpacity(0.5),
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(path),
+          // Get the base style from the underlying syntax spans
+          final baseStyle = spans.first.style;
+
+          return TextSpan(
+            style: baseStyle,
+            children: [
+              // Part 1: "import '" - not tappable
+              TextSpan(text: keyword),
+              // Part 2: The path - styled and tappable
+              TextSpan(
+                text: path,
+                style: TextStyle(
+                  color: Colors.cyan[300],
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.cyan[300]?.withOpacity(0.5),
                 ),
-                // Part 3: "';" - not tappable
-                TextSpan(text: endQuote),
-              ],
-            );
-          },
-        ),
-      ];
-    //}
-    
-    return [];
-  }
+                // **FIX 2: TapGestureRecognizer will now be found due to the import**
+                recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(path),
+              ),
+              // Part 3: "';" - not tappable
+              TextSpan(text: endQuote),
+            ],
+          );
+        },
+      ),
+    ];
+  // }
+
+  return [];
+}
 
   // NEW: The handler for when a recognized import path is tapped.
   void _onImportTap(String relativePath) async {
