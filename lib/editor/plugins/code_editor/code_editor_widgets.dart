@@ -460,39 +460,24 @@ List<PatternRecognizer> _buildPatternRecognizers() {
   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
   if (fileUri == null) return [];
 
-  final importRegex = RegExp(r"import\s+?(.*?);");
+  // Use your original, more precise regex. With the patched library, it will work.
+  final importRegex = RegExp(r"^\s*(?:import|export|part)\s+(['""])([^'""]+)\1;");
 
   return [
     PatternRecognizer(
       pattern: importRegex,
       builder: (match, spans) {
-        // --- START OF DEBUGGING LOGIC ---
-        // This builder will take the entire text that was matched by the regex
-        // and return a single TextSpan that applies a yellow background.
-        // It merges the original syntax highlighting styles from the `spans` list.
+        // --- CORRECTED DEBUGGING BUILDER ---
 
-        // Combine all the underlying syntax-highlighted spans into one.
-        // This preserves the original keyword/string colors.
-        final combinedSpan = TextSpan(
+        // The correct way to apply a style to a list of existing spans
+        // is to wrap them as children of a new TextSpan that only contains
+        // the new style and the children, but NO `text` property.
+        return TextSpan(
+          style: const TextStyle(
+            backgroundColor: Color.fromARGB(70, 255, 235, 59), // Translucent Yellow
+          ),
           children: spans,
         );
-
-        // Create a new style that adds a yellow background.
-        final debugStyle = const TextStyle(
-          backgroundColor: Color.fromARGB(70, 255, 235, 59), // Translucent Yellow
-        );
-
-        // Apply the debug style to the combined span.
-        return TextSpan(
-          children: [
-            TextSpan(
-              text: combinedSpan.toPlainText(),
-              style: (combinedSpan.style ?? const TextStyle()).merge(debugStyle),
-              children: combinedSpan.children,
-            )
-          ],
-        );
-        // --- END OF DEBUGGING LOGIC ---
       },
     ),
   ];
