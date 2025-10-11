@@ -161,13 +161,116 @@ class CommandButton extends ConsumerWidget {
   }
 }
 
-class CommandGroupButton extends ConsumerWidget {
+class CommandGroupButton extends ConsumerStatefulWidget {
   final CommandGroup commandGroup;
 
   const CommandGroupButton({super.key, required this.commandGroup});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CommandGroupButton> createState() => _CommandGroupButtonState();
+}
+
+class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void dispose() {
+    _hideMenu(); // Ensure the overlay is removed when the widget is disposed
+    super.dispose();
+  }
+
+  /// Toggles the visibility of the custom menu overlay.
+  void _toggleMenu() {
+    if (_overlayEntry != null) {
+      _hideMenu();
+    } else {
+      _showMenu();
+    }
+  }
+
+  /// Removes the menu overlay from the screen.
+  void _hideMenu() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  /// Creates and displays the custom menu overlay.
+  void _showMenu() {
+    // Get the overlay state from the nearest Overlay ancestor.
+    final overlay = Overlay.of(context);
+    // Get the render box of the button to determine its position and size.
+    final renderBox = context.findRenderObject()! as RenderBox;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        final commandsInGroup = _getCommandsInGroup(ref);
+
+        // If for some reason there are no commands, don't show the menu.
+        if (commandsInGroup.isEmpty) {
+          // A post-frame callback is needed because this can be called during a build phase.
+          WidgetsBinding.instance.addPostFrameCallback((_) => _hideMenu());
+          return const SizedBox.shrink();
+        }
+
+        return Stack(
+          children: [
+            // This full-screen GestureDetector handles taps outside the menu to dismiss it.
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _hideMenu,
+                behavior: HitTestBehavior.opaque,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            // This positions the menu relative to the button that opened it.
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(0, size.height + 4), // Position below the button
+              child: Material(
+                elevation: 4.0,
+                borderRadius: BorderRadius.circular(4.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 180, maxWidth: 250),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: commandsInGroup.map((command) {
+                      final isEnabled = command.canExecute(ref);
+                      return ListTile(
+                        dense: true,
+                        enabled: isEnabled,
+                        leading: command.icon,
+                        title: Text(command.label),
+                        onTap: () {
+                          // The magic happens here:
+                          // 1. Hide the menu immediately.
+                          _hideMenu();
+                          // 2. Execute the command. The editor STILL has focus, so
+                          //    commands like "Copy" or "Cut" will work correctly.
+                          if (isEnabled) {
+                            command.execute(ref);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Insert the overlay into the widget tree.
+    overlay.insert(_overlayEntry!);
+  }
+
+  /// Helper to get the list of valid commands for the current context.
+  List<Command> _getCommandsInGroup(WidgetRef ref) {
     final notifier = ref.read(commandProvider.notifier);
     final currentPluginId = ref.watch(
       appNotifierProvider.select(
@@ -175,57 +278,46 @@ class CommandGroupButton extends ConsumerWidget {
       ),
     );
 
-    final commandsInGroup =
-        commandGroup.commandIds
-            .map(
-              (id) => notifier.allRegisteredCommands.firstWhereOrNull(
-                (c) =>
-                    c.id == id &&
-                    (c.sourcePlugin == currentPluginId ||
-                        c.sourcePlugin == 'App'),
-              ),
-            )
-            .whereType<Command>()
-            .toList();
+    return widget.commandGroup.commandIds
+        .map(
+          (id) => notifier.allRegisteredCommands.firstWhereOrNull(
+            (c) =>
+                c.id == id &&
+                (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
+          ),
+        )
+        .whereType<Command>()
+        .toList();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    // Check if there are any executable commands in the group for the current context.
+    final commandsInGroup = _getCommandsInGroup(ref);
     if (commandsInGroup.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    // This widget links the button's position to the LayerLink.
+    final button = CompositedTransformTarget(
+      link: _layerLink,
+      child: IconButton(
+        icon: widget.commandGroup.icon,
+        tooltip: widget.commandGroup.label,
+        onPressed: _toggleMenu,
+      ),
+    );
+
+    // This is the same wrapping logic from the original implementation.
     final currentPlugin = ref.watch(
       appNotifierProvider.select(
         (s) => s.value?.currentProject?.session.currentTab?.plugin,
       ),
     );
 
-    final key = GlobalKey();
-
-    final dropdown = PopupMenuButton<Command>(
-      key: key,
-      icon: commandGroup.icon,
-      tooltip: commandGroup.label,
-      onSelected: (command) => command.execute(ref),
-      itemBuilder: (BuildContext context) {
-        return commandsInGroup.map((command) {
-          final isEnabled = command.canExecute(ref);
-          return PopupMenuItem<Command>(
-            value: command,
-            enabled: isEnabled,
-            child: Row(
-              children: [
-                command.icon,
-                const SizedBox(width: 12),
-                Text(command.label),
-              ],
-            ),
-          );
-        }).toList();
-      },
-    );
-
     if (currentPlugin != null) {
-      return currentPlugin.wrapCommandToolbar(dropdown);
+      return currentPlugin.wrapCommandToolbar(button);
     }
-    return dropdown;
+    return button;
   }
 }
