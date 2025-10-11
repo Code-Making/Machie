@@ -130,7 +130,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
-      //spanBuilder: _buildHighlightingSpan,
+      spanBuilder: _buildHighlightingSpan,
     );    findController = CodeFindController(controller);
     
     findController.addListener(syncCommandContext);
