@@ -460,7 +460,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
   if (fileUri == null) return [];
 
-  final importRegex = RegExp(r"^\s*(?:import|export|part)\s+['""]([^'"]+)['"];");
+  final importRegex = RegExp(r"import");
 
   return [
     PatternRecognizer(
