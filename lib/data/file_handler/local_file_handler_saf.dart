@@ -16,6 +16,14 @@ class SafFileHandler implements LocalFileHandler {
   final SafStream _safStream = SafStream();
   // THE FIX: Implement the new interface methods with SAF-specific logic.
   static const String _separator = '%2F';
+  
+  @override
+  Future<bool> hasPermission(String uri) async {
+    // getPersistedUriPermissions returns a list of all URIs the app
+    // currently has permission to access.
+    final permissions = await _safUtil.hasPersistedPermission(uri, checkRead: true, checkWrite: true);
+    return permissions;
+  }
 
   @override
   Future<bool> reRequestPermission(String uri) async {
