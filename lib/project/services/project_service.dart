@@ -141,8 +141,18 @@ class ProjectService {
     // FIX: Removed the call to _stopCacheService(). It is now handled globally.
   }
 
-  // FIX: The _startCacheService and _stopCacheService methods have been removed entirely.
+  Future<bool> reGrantPermissionForProject(ProjectMetadata metadata) async {
+    // This service knows that "local" projects use a LocalFileHandler.
+    // Future project types (e.g., 'git_project') could have different logic here.
+    if (metadata.projectTypeId == 'local_persistent' || metadata.projectTypeId == 'simple_local') {
+      final handler = LocalFileHandlerFactory.create();
+      return await handler.reRequestPermission(metadata.rootUri);
+    }
 
+    // For unknown or unsupported project types, we cannot re-grant.
+    return false;
+  }
+  
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,
