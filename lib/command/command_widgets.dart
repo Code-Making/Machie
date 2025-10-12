@@ -197,27 +197,44 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
 
   /// Creates and displays the custom menu overlay.
   void _showMenu() {
-    // Get the overlay state from the nearest Overlay ancestor.
     final overlay = Overlay.of(context);
-    // Get the render box of the button to determine its position and size.
     final renderBox = context.findRenderObject()! as RenderBox;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
+    
+    // ================== NEW LOGIC ==================
+    final screenSize = MediaQuery.of(context).size;
+
+    // Determine if the button is on the right half of the screen
+    final alignRight = (offset.dx + size.width / 2) > screenSize.width / 2;
+    // Determine if the button is on the bottom half of the screen
+    final openUpwards = (offset.dy + size.height / 2) > screenSize.height / 2;
+
+    // Set the anchor points based on the button's position
+    final Alignment followerAnchor;
+    final Alignment targetAnchor;
+    
+    if (openUpwards) {
+        // Menu opens above the button
+        followerAnchor = alignRight ? Alignment.bottomRight : Alignment.bottomLeft;
+        targetAnchor = alignRight ? Alignment.topRight : Alignment.topLeft;
+    } else {
+        // Menu opens below the button
+        followerAnchor = alignRight ? Alignment.topRight : Alignment.topLeft;
+        targetAnchor = alignRight ? Alignment.bottomRight : Alignment.bottomLeft;
+    }
+    // ===============================================
 
     _overlayEntry = OverlayEntry(
       builder: (context) {
         final commandsInGroup = _getCommandsInGroup(ref);
-
-        // If for some reason there are no commands, don't show the menu.
         if (commandsInGroup.isEmpty) {
-          // A post-frame callback is needed because this can be called during a build phase.
           WidgetsBinding.instance.addPostFrameCallback((_) => _hideMenu());
           return const SizedBox.shrink();
         }
 
         return Stack(
           children: [
-            // This full-screen GestureDetector handles taps outside the menu to dismiss it.
             Positioned.fill(
               child: GestureDetector(
                 onTap: _hideMenu,
@@ -225,37 +242,40 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
                 child: Container(color: Colors.transparent),
               ),
             ),
-            // This positions the menu relative to the button that opened it.
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              offset: Offset(0, size.height + 4), // Position below the button
+              // ================== UPDATED PROPERTIES ==================
+              followerAnchor: followerAnchor,
+              targetAnchor: targetAnchor,
+              // Add a small gap between the button and the menu
+              offset: Offset(0, openUpwards ? -4.0 : 4.0),
+              // ========================================================
               child: Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(4.0),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(minWidth: 180, maxWidth: 250),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: commandsInGroup.map((command) {
-                      final isEnabled = command.canExecute(ref);
-                      return ListTile(
-                        dense: true,
-                        enabled: isEnabled,
-                        leading: command.icon,
-                        title: Text(command.label),
-                        onTap: () {
-                          // The magic happens here:
-                          // 1. Hide the menu immediately.
-                          _hideMenu();
-                          // 2. Execute the command. The editor STILL has focus, so
-                          //    commands like "Copy" or "Cut" will work correctly.
-                          if (isEnabled) {
-                            command.execute(ref);
-                          }
-                        },
-                      );
-                    }).toList(),
+                  child: Padding( // Add padding to avoid hitting screen edges
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: commandsInGroup.map((command) {
+                        final isEnabled = command.canExecute(ref);
+                        return ListTile(
+                          dense: true,
+                          enabled: isEnabled,
+                          leading: command.icon,
+                          title: Text(command.label),
+                          onTap: () {
+                            _hideMenu();
+                            if (isEnabled) {
+                              command.execute(ref);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
               ),
@@ -265,7 +285,6 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
       },
     );
 
-    // Insert the overlay into the widget tree.
     overlay.insert(_overlayEntry!);
   }
 

@@ -182,7 +182,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     super.dispose();
   }
   
-    void _updateStyleAndRecognizers() {
+  void _updateStyleAndRecognizers() {
     final codeEditorSettings = ref.read(
       settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -537,9 +537,9 @@ List<PatternRecognizer> _buildPatternRecognizers() {
             TextSpan(
               text: rawPath,
               style: TextStyle(
-                color: Colors.cyan[300],
+                // color: Colors.cyan[300],
                 decoration: TextDecoration.underline,
-                decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+                // decorationColor: Colors.cyan[300]?.withOpacity(0.5),
               ),
               recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
             ),
