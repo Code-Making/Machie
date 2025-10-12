@@ -342,19 +342,3 @@ final directoryContentsProvider = Provider.family
     });
 
 
-void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
-  contents.sort((a, b) {
-    if (a.file.isDirectory != b.file.isDirectory) {
-      return a.file.isDirectory ? -1 : 1;
-    }
-    switch (mode) {
-      case FileExplorerViewMode.sortByNameDesc:
-        return b.file.name.toLowerCase().compareTo(a.file.name.toLowerCase());
-      case FileExplorerViewMode.sortByDateModified:
-        return b.file.modifiedDate.compareTo(a.file.modifiedDate);
-      default: // sortByNameAsc
-        return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
-    }
-  });
-}
-
