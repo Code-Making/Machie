@@ -229,6 +229,48 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
           WidgetsBinding.instance.addPostFrameCallback((_) => _hideMenu());
           return const SizedBox.shrink();
         }
+        
+        // ================== THE FINAL REFINEMENT ==================
+        Widget menuBody;
+
+        if (widget.commandGroup.showLabels) {
+          // CASE 1: Labels are shown. We need IntrinsicWidth to measure the
+          // widest ListTile and ensure all tiles have the same width and
+          // a full-width tappable area.
+          menuBody = IntrinsicWidth(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: commandsInGroup.map((command) {
+                final isEnabled = command.canExecute(ref);
+                return ListTile(
+                  dense: true,
+                  enabled: isEnabled,
+                  leading: command.icon,
+                  title: Text(command.label),
+                  onTap: () => _handleCommandExecution(command),
+                );
+              }).toList(),
+            ),
+          );
+        } else {
+          // CASE 2: Icon-only. IntrinsicWidth is unnecessary here. A simple
+          // Column of IconButtons will naturally have the correct, compact width.
+          menuBody = Column(
+            mainAxisSize: MainAxisSize.min,
+            children: commandsInGroup.map((command) {
+              final isEnabled = command.canExecute(ref);
+              return IconButton(
+                icon: command.icon,
+                tooltip: command.label,
+                onPressed: isEnabled
+                    ? () => _handleCommandExecution(command)
+                    : null,
+              );
+            }).toList(),
+          );
+        }
+        // ==========================================================
 
         return Stack(
           children: [
@@ -249,51 +291,14 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(4.0),
                 child: ConstrainedBox(
-                  // REMOVED minWidth to allow the menu to shrink-wrap horizontally.
                   constraints: const BoxConstraints(maxWidth: 250),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      // Set CrossAxisAlignment to make the Column as narrow as its children.
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: commandsInGroup.map((command) {
-                        final isEnabled = command.canExecute(ref);
-
-                        if (widget.commandGroup.showLabels) {
-                          // ================== REPLACEMENT FOR ListTile ==================
-                          // Use a custom InkWell + Row to achieve shrink-wrapping.
-                          return InkWell(
-                            onTap: isEnabled ? () => _handleCommandExecution(command) : null,
-                            child: Opacity(
-                              opacity: isEnabled ? 1.0 : 0.5,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min, // This is the key!
-                                  children: [
-                                    command.icon,
-                                    const SizedBox(width: 16.0),
-                                    // Wrap text in Flexible to prevent overflow if it's too long
-                                    Flexible(child: Text(command.label)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                          // =============================================================
-                        } else {
-                          // Icon-only button remains the same, it already shrink-wraps.
-                          return IconButton(
-                            icon: command.icon,
-                            tooltip: command.label,
-                            onPressed: isEnabled
-                                ? () => _handleCommandExecution(command)
-                                : null,
-                          );
-                        }
-                      }).toList(),
+                    // Add a bit more padding for the icon-only version
+                    padding: EdgeInsets.symmetric(
+                      vertical: 4.0,
+                      horizontal: widget.commandGroup.showLabels ? 0.0 : 4.0,
                     ),
+                    child: menuBody, // Use the conditionally built menu body
                   ),
                 ),
               ),
