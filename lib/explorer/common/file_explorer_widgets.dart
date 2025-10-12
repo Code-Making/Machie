@@ -40,38 +40,36 @@ class DirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final directoryState = ref.watch(directoryContentsProvider(directory));
+    // === CHANGED ===
+    // Watch the NEW provider that returns the pre-sorted data.
+    final sortedDirectoryState = ref.watch(sortedDirectoryContentsProvider(directory));
 
-    if (directoryState == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(8.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    return directoryState.when(
-      data: (nodes) {
-        final sortedContents = List<FileTreeNode>.from(nodes);
-        _applySorting(sortedContents, state.viewMode);
+    // The widget now reacts to the new provider's state.
+    return sortedDirectoryState.when(
+      data: (sortedNodes) { // The 'sortedNodes' list is already sorted!
         final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
         if (fileHandler == null) return const SizedBox.shrink();
 
+        // The ListView.builder implementation remains the same, but it's
+        // now more efficient because it doesn't trigger a sort.
         return ListView.builder(
           key: PageStorageKey(directory),
           padding: const EdgeInsets.only(top: 8.0),
           shrinkWrap: true,
           physics: const ClampingScrollPhysics(),
-          itemCount: sortedContents.length,
+          itemCount: sortedNodes.length,
           itemBuilder: (context, index) {
-            final itemNode = sortedContents[index];
+            final itemNode = sortedNodes[index];
             final item = itemNode.file;
-            final depth = fileHandler
-                    .getPathForDisplay(item.uri, relativeTo: projectRootUri)
-                    .split('/')
-                    .where((s) => s.isNotEmpty)
-                    .length; // <-- FIX IS HERE
+            final pathSegments = fileHandler
+                .getPathForDisplay(item.uri, relativeTo: projectRootUri)
+                .split('/');
+            
+            // Handle root level items correctly (depth should be 1, not 0)
+            final depth = pathSegments.length > 1 || pathSegments.first.isNotEmpty
+                ? pathSegments.length
+                : 1;
+
             return DirectoryItem(
               item: item,
               depth: depth,
@@ -80,40 +78,22 @@ class DirectoryView extends ConsumerWidget {
           },
         );
       },
-      loading:
-          () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
-            ),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(8.0),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'Error loading directory:\n$err',
+            textAlign: TextAlign.center,
           ),
-      error:
-          (err, stack) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                'Error loading directory:\n$err',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
+        ),
+      ),
     );
-  }
-
-  // (_applySorting remains unchanged)
-  void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
-    contents.sort((a, b) {
-      if (a.file.isDirectory != b.file.isDirectory)
-        return a.file.isDirectory ? -1 : 1;
-      switch (mode) {
-        case FileExplorerViewMode.sortByNameDesc:
-          return b.file.name.toLowerCase().compareTo(a.file.name.toLowerCase());
-        case FileExplorerViewMode.sortByDateModified:
-          return b.file.modifiedDate.compareTo(a.file.modifiedDate);
-        default:
-          return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
-      }
-    });
   }
 }
 
