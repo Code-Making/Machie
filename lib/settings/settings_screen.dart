@@ -599,13 +599,14 @@ class GroupEditorDialog extends StatefulWidget {
 class _GroupEditorDialogState extends State<GroupEditorDialog> {
   late final TextEditingController _nameController;
   late String _selectedIconName;
+  late bool _showLabels; // <-- ADDED
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.group?.label ?? '');
-    _selectedIconName =
-        widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
+    _selectedIconName = widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
+    _showLabels = widget.group?.showLabels ?? true; // <-- ADDED
   }
 
   @override
@@ -620,12 +621,17 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     if (name.isEmpty) return;
 
     if (widget.group == null) {
-      notifier.createGroup(name: name, iconName: _selectedIconName);
+      notifier.createGroup(
+        name: name,
+        iconName: _selectedIconName,
+        showLabels: _showLabels, // <-- ADDED
+      );
     } else {
       notifier.updateGroup(
         widget.group!.id,
         newName: name,
         newIconName: _selectedIconName,
+        newShowLabels: _showLabels, // <-- ADDED
       );
     }
     Navigator.of(context).pop();
@@ -659,6 +665,18 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               }
             },
           ),
+          // --- ADDED WIDGET ---
+          SwitchListTile(
+            title: const Text('Show Command Labels'),
+            value: _showLabels,
+            onChanged: (value) {
+              setState(() {
+                _showLabels = value;
+              });
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+          // --------------------
         ],
       ),
       actions: [
