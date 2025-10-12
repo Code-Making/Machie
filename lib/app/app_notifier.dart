@@ -111,30 +111,23 @@ class AppNotifier extends AsyncNotifier<AppState> {
     Map<String, dynamic>? projectStateJson,
   }) async {
     try {
-      // First attempt to open the project.
+      // First attempt (unchanged)
       final projectDto = await _projectService.openProjectDto(
         meta,
         projectStateJson: projectStateJson,
       );
-
+      // ... (rest of the success path is unchanged)
       final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
       final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
-
-      return Project(
-        metadata: meta,
-        session: liveSession,
-        workspace: liveWorkspace,
-      );
+      return Project(metadata: meta, session: liveSession, workspace: liveWorkspace);
 
     } on ProjectPermissionDeniedException catch (e) {
-      // The service has failed with a recoverable error. The AppNotifier now
-      // takes control of the UI flow.
+      // UI orchestration logic (unchanged)
       final context = ref.read(navigatorKeyProvider).currentContext;
       if (context == null || !context.mounted) {
         _talker.error("Permission denied, but no UI context to ask for it again.");
-        return null; // Can't recover without UI.
+        return null;
       }
-
       final bool? wantsToGrant = await showConfirmDialog(
         context,
         title: 'Permission Required',
@@ -142,18 +135,18 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
 
       if (wantsToGrant == true) {
-        // Create a temporary handler just for this one-off operation.
-        final handler = LocalFileHandlerFactory.create();
-        final bool permissionGranted = await handler.reRequestPermission(e.deniedUri);
+        // === THIS IS THE FIX ===
+        // Delegate the permission request to the ProjectService.
+        // The AppNotifier no longer knows HOW this is done.
+        final bool permissionGranted = await _projectService.reGrantPermissionForProject(e.metadata);
+        // =======================
 
         if (permissionGranted) {
-          // If permission was granted, recursively call this function to retry.
           _talker.info("Permission re-granted. Retrying project open...");
           return await _openProjectWithRecovery(meta, projectStateJson: projectStateJson);
         }
       }
 
-      // If user cancelled, or permission was not granted, fail gracefully.
       _talker.warning("User cancelled permission recovery for project ${e.metadata.name}.");
       MachineToast.error("Could not open project: Permission not granted.");
       return null;
