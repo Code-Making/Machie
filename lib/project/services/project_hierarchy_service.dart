@@ -358,26 +358,3 @@ void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
   });
 }
 
-/// A memoized provider that returns a sorted list of nodes for a given directory.
-///
-/// This provider performs the sorting operation, preventing the UI from re-sorting
-/// on every rebuild. It will only re-compute its state if either the raw
-/// directory contents change or the sort mode in the settings changes.
-final sortedDirectoryContentsProvider = Provider.autoDispose
-    .family<AsyncValue<List<FileTreeNode>>, String>((ref, directoryUri) {
-  final directoryState = ref.watch(directoryContentsProvider(directoryUri));
-
-  final settings = ref.watch(activeExplorerSettingsProvider);
-  final sortMode = (settings is FileExplorerSettings)
-      ? settings.viewMode
-      : FileExplorerViewMode.sortByNameAsc; // Provide a safe default.
-
-  // 3. When the async data is available, perform the sort.
-  //    Riverpod automatically caches the result.
-  return directoryState?.whenData((nodes) {
-    // Create a mutable copy of the list to sort.
-    final sortedNodes = List<FileTreeNode>.from(nodes);
-    _applySorting(sortedNodes, sortMode);
-    return sortedNodes;
-  }) ?? const AsyncValue.loading(); // Handle the initial null state.
-});
