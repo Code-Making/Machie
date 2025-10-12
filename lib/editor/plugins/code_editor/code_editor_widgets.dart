@@ -538,6 +538,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
               text: rawPath,
               style: TextStyle(
                 // color: Colors.cyan[300],
+                color: baseStyle.color,
                 decoration: TextDecoration.underline,
                 // decorationColor: Colors.cyan[300]?.withOpacity(0.5),
               ),

@@ -194,6 +194,14 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
+  
+  void _handleCommandExecution(Command command) {
+    _hideMenu();
+    // Check if enabled before executing
+    if (command.canExecute(ref)) {
+      command.execute(ref);
+    }
+  }
 
   /// Creates and displays the custom menu overlay.
   void _showMenu() {
@@ -201,30 +209,19 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     final renderBox = context.findRenderObject()! as RenderBox;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
-    
-    // ================== NEW LOGIC ==================
     final screenSize = MediaQuery.of(context).size;
 
-    // Determine if the button is on the right half of the screen
     final alignRight = (offset.dx + size.width / 2) > screenSize.width / 2;
-    // Determine if the button is on the bottom half of the screen
     final openUpwards = (offset.dy + size.height / 2) > screenSize.height / 2;
 
-    // Set the anchor points based on the button's position
-    final Alignment followerAnchor;
-    final Alignment targetAnchor;
-    
-    if (openUpwards) {
-        // Menu opens above the button
-        followerAnchor = alignRight ? Alignment.bottomRight : Alignment.bottomLeft;
-        targetAnchor = alignRight ? Alignment.topRight : Alignment.topLeft;
-    } else {
-        // Menu opens below the button
-        followerAnchor = alignRight ? Alignment.topRight : Alignment.topLeft;
-        targetAnchor = alignRight ? Alignment.bottomRight : Alignment.bottomLeft;
-    }
-    // ===============================================
-
+    final Alignment followerAnchor = openUpwards
+        ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+        : (alignRight ? Alignment.topRight : Alignment.topLeft);
+        
+    final Alignment targetAnchor = openUpwards
+        ? (alignRight ? Alignment.topRight : Alignment.topLeft)
+        : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft);
+        
     _overlayEntry = OverlayEntry(
       builder: (context) {
         final commandsInGroup = _getCommandsInGroup(ref);
@@ -245,39 +242,56 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              // ================== UPDATED PROPERTIES ==================
               followerAnchor: followerAnchor,
               targetAnchor: targetAnchor,
-              // Add a small gap between the button and the menu
               offset: Offset(0, openUpwards ? -4.0 : 4.0),
-              // ========================================================
               child: Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(4.0),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 180, maxWidth: 250),
-                  child: Padding( // Add padding to avoid hitting screen edges
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  // REMOVED minWidth to allow the menu to shrink-wrap horizontally.
+                  constraints: const BoxConstraints(maxWidth: 250),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      // Set CrossAxisAlignment to make the Column as narrow as its children.
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: commandsInGroup.map((command) {
                         final isEnabled = command.canExecute(ref);
-                        return ListTile(
-                          dense: true,
-                          enabled: isEnabled,
-                          leading: command.icon,
-                          // --- THIS IS THE KEY CHANGE ---
-                          title: widget.commandGroup.showLabels
-                              ? Text(command.label)
-                              : null,
-                          // -------------------------------
-                          onTap: () {
-                            _hideMenu();
-                            if (isEnabled) {
-                              command.execute(ref);
-                            }
-                          },
-                        );
+
+                        if (widget.commandGroup.showLabels) {
+                          // ================== REPLACEMENT FOR ListTile ==================
+                          // Use a custom InkWell + Row to achieve shrink-wrapping.
+                          return InkWell(
+                            onTap: isEnabled ? () => _handleCommandExecution(command) : null,
+                            child: Opacity(
+                              opacity: isEnabled ? 1.0 : 0.5,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min, // This is the key!
+                                  children: [
+                                    command.icon,
+                                    const SizedBox(width: 16.0),
+                                    // Wrap text in Flexible to prevent overflow if it's too long
+                                    Flexible(child: Text(command.label)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                          // =============================================================
+                        } else {
+                          // Icon-only button remains the same, it already shrink-wraps.
+                          return IconButton(
+                            icon: command.icon,
+                            tooltip: command.label,
+                            onPressed: isEnabled
+                                ? () => _handleCommandExecution(command)
+                                : null,
+                          );
+                        }
                       }).toList(),
                     ),
                   ),
