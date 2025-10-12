@@ -77,6 +77,16 @@ class ProjectService {
   }) async {
     final fileHandler = LocalFileHandlerFactory.create();
     final ProjectRepository repo;
+    
+    if (!await fileHandler.hasPermission(metadata.rootUri)) {
+      // If we don't have permission, we immediately throw our custom exception.
+      // This bypasses the silent failure of `listDirectory` and triggers
+      // the recovery flow in the AppNotifier.
+      throw ProjectPermissionDeniedException(
+        metadata: metadata,
+        deniedUri: metadata.rootUri,
+      );
+    }
 
     if (metadata.projectTypeId == 'local_persistent') {
       // We still need to handle a potential permission error here,

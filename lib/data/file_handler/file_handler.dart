@@ -27,6 +27,9 @@ abstract class DocumentFile {
 }
 
 abstract class FileHandler {
+  /// Checks if the application currently holds a valid, persisted permission
+  /// for the given URI.
+  Future<bool> hasPermission(String uri);
   Future<bool> reRequestPermission(String uri);
   Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(
