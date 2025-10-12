@@ -52,7 +52,7 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
           padding: const EdgeInsets.all(8.0),
           child: TextField(
             controller: _textController,
-            autofocus: true,
+            autofocus: false,
             decoration: InputDecoration(
               hintText: 'Search file names...',
               prefixIcon: const Icon(Icons.search),
