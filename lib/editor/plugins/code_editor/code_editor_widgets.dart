@@ -540,7 +540,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
                 // color: Colors.cyan[300],
                 color: baseStyle?.color ?? Colors.cyan[300],
                 decoration: TextDecoration.underline,
-                // decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+                decorationColor: baseStyle?.color.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
               ),
               recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
             ),

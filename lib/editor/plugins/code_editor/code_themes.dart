@@ -87,6 +87,7 @@ import 'package:re_highlight/languages/kotlin.dart';
 import 'package:re_highlight/languages/latex.dart';
 import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/plaintext.dart';
+import 'package:re_highlight/languages/properties.dart';
 import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/xml.dart';
@@ -188,6 +189,7 @@ class CodeThemes {
     'bash': langBash,
     'xml': langXml,
     'plaintext': langPlaintext,
+    'properties': langProperties,
   };
 
   // Map of file extensions to their corresponding language names (as before)
@@ -205,6 +207,7 @@ class CodeThemes {
     'h': 'cpp',
     'css': 'css',
     'kt': 'kotlin',
+    'kts': 'kotlin',
     'json': 'json',
     'htm': 'xml',
     'html': 'xml',
@@ -216,6 +219,7 @@ class CodeThemes {
     'tex': 'latex',
     'gitignore': 'plaintext',
     'txt': 'plaintext',
+    'properties' : 'properties',
   };
 
   static String inferLanguageKey(String uri) {
