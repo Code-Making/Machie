@@ -526,6 +526,8 @@ List<PatternRecognizer> _buildPatternRecognizers() {
 
         // Get a base style from the underlying syntax-highlighted spans.
         final baseStyle = spans.firstOrNull?.style;
+// final secondStyle = spans.length > 1 ? spans[1].style : null;
+final secondStyle = spans.elementAtOrNull(1)?.style;
 
         return TextSpan(
           style: baseStyle,
@@ -538,9 +540,9 @@ List<PatternRecognizer> _buildPatternRecognizers() {
               text: rawPath,
               style: TextStyle(
                 // color: Colors.cyan[300],
-                color: baseStyle?.color ?? Colors.cyan[300],
+                color: secondStyle?.color ?? Colors.cyan[300],
                 decoration: TextDecoration.underline,
-                decorationColor: baseStyle?.color?.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
+                decorationColor: secondStyle?.color?.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
               ),
               recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
             ),
