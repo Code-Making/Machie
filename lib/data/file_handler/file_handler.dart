@@ -27,6 +27,7 @@ abstract class DocumentFile {
 }
 
 abstract class FileHandler {
+  Future<bool> reRequestPermission(String uri);
   Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(
     String uri, {
