@@ -524,10 +524,15 @@ List<PatternRecognizer> _buildPatternRecognizers() {
         final partBeforePath = fullMatchText.substring(0, rawPathStartIndex);
         final partAfterPath = fullMatchText.substring(rawPathEndIndex);
 
+final firstSpan = spans.firstOrNull;
+final secondChild = firstSpan?.children?.elementAtOrNull(1);
+
+// Or with style access
+final secondStyle = firstSpan?.children?.elementAtOrNull(1)?.style;
         // Get a base style from the underlying syntax-highlighted spans.
-        final baseStyle = spans.firstOrNull?.style;
+        final baseStyle = firstSpan?.style;
 // final secondStyle = spans.length > 1 ? spans[1].style : null;
-final secondStyle = spans.firstOrNull?.elementAtOrNull(1)?.style;
+//final secondStyle = spans.firstOrNull?.elementAtOrNull(1)?.style;
 
         return TextSpan(
           style: baseStyle,
