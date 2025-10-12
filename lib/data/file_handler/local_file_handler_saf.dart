@@ -17,7 +17,24 @@ class SafFileHandler implements LocalFileHandler {
   // THE FIX: Implement the new interface methods with SAF-specific logic.
   static const String _separator = '%2F';
 
-  // ... (pickDirectory, listDirectory, readFile, readFileAsBytes, writeFile, writeFileAsBytes, _inferMimeType, createDocumentFile, deleteDocumentFile are all unchanged) ...
+  @override
+  Future<bool> reRequestPermission(String uri) async {
+    // Re-trigger the directory picker. The user must manually navigate to and
+    // select the same folder again.
+    final dir = await _safUtil.pickDirectory(
+      persistablePermission: true,
+      writePermission: true,
+    );
+
+    // Check if the user selected a directory and if it matches the one we need.
+    if (dir != null && dir.uri == uri) {
+      // Permission was successfully granted for the correct directory.
+      return true;
+    }
+    // The user cancelled or selected the wrong directory.
+    return false;
+  }
+  
   @override
   Future<DocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory(
@@ -43,7 +60,10 @@ class SafFileHandler implements LocalFileHandler {
       }
       return files.map((f) => CustomSAFDocumentFile(f)).toList();
     } on PlatformException catch (e) {
-      if (e.code == 'PERMISSION_DENIED') return [];
+      if (e.code == 'PERMISSION_DENIED') {
+        // Translate to our custom exception
+        throw PermissionDeniedException(uri: uri);
+      }
       rethrow;
     }
   }
@@ -239,8 +259,15 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
-    final file = await _safUtil.stat(uri, false);
-    return file != null ? CustomSAFDocumentFile(file) : null;
+     try {
+        final file = await _safUtil.stat(uri, false);
+        return file != null ? CustomSAFDocumentFile(file) : null;
+     } on PlatformException catch (e) {
+      if (e.code == 'PERMISSION_DENIED') {
+        throw PermissionDeniedException(uri: uri);
+      }
+      rethrow;
+    }
   }
 
   @override

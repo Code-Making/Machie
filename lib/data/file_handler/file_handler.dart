@@ -5,8 +5,19 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
+class PermissionDeniedException implements Exception {
+  /// The URI for which permission was denied.
+  final String uri;
+  final String message;
+
+  PermissionDeniedException({required this.uri, String? message})
+      : message = message ?? 'Permission denied for URI: $uri';
+
+  @override
+  String toString() => message;
+}
+
 abstract class DocumentFile {
-  // ... (properties unchanged) ...
   String get uri;
   String get name;
   bool get isDirectory;
@@ -16,7 +27,6 @@ abstract class DocumentFile {
 }
 
 abstract class FileHandler {
-  // ... (most methods unchanged) ...
   Future<DocumentFile?> pickDirectory();
   Future<List<DocumentFile>> listDirectory(
     String uri, {
@@ -53,8 +63,6 @@ abstract class FileHandler {
   );
 
   Future<DocumentFile?> getFileMetadata(String uri);
-
-  // THE FIX: Add new methods to encapsulate all path and URI manipulation.
 
   /// Returns the parent URI of the given URI.
   String getParentUri(String uri);

@@ -34,6 +34,16 @@ class OpenProjectResult {
   });
 }
 
+class ProjectPermissionDeniedException implements Exception {
+  final ProjectMetadata metadata;
+  final String deniedUri;
+
+  ProjectPermissionDeniedException({required this.metadata, required this.deniedUri});
+
+  @override
+  String toString() => 'Permission was denied for project "${metadata.name}" at URI: $deniedUri';
+}
+
 class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
@@ -69,23 +79,32 @@ class ProjectService {
     final ProjectRepository repo;
 
     if (metadata.projectTypeId == 'local_persistent') {
-      final projectDataPath = await _ensureProjectDataFolder(
-        fileHandler,
-        metadata.rootUri,
-      );
-      repo = PersistentProjectRepository(fileHandler, projectDataPath);
-    } else if (metadata.projectTypeId == 'simple_local') {
+      // We still need to handle a potential permission error here,
+      // as creating the .machine folder is a file operation.
+      try {
+        final projectDataPath = await _ensureProjectDataFolder(
+          fileHandler,
+          metadata.rootUri,
+        );
+        repo = PersistentProjectRepository(fileHandler, projectDataPath);
+      } on PermissionDeniedException catch (e) {
+        // Re-throw with more context if this specific operation fails.
+        throw ProjectPermissionDeniedException(metadata: metadata, deniedUri: e.uri);
+      }
+    } else { // 'simple_local'
       repo = SimpleProjectRepository(fileHandler, projectStateJson);
-    } else {
-      throw UnimplementedError(
-        'No repository for project type ${metadata.projectTypeId}',
-      );
     }
 
-    // FIX: Removed the call to _startCacheService(). It is now handled globally.
-
     _ref.read(projectRepositoryProvider.notifier).state = repo;
-    return await repo.loadProjectDto();
+
+    try {
+      // Attempt to load the project state.
+      return await repo.loadProjectDto();
+    } on PermissionDeniedException catch (e) {
+      // If loading fails due to permissions, catch the low-level exception
+      // and re-throw our new, high-level exception with all the context.
+      throw ProjectPermissionDeniedException(metadata: metadata, deniedUri: e.uri);
+    }
   }
 
   Future<void> saveProject(Project project) async {
