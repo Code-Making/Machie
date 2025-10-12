@@ -88,6 +88,7 @@ class HotStateCacheService {
       'HotStateCacheService: Clearing state for tab "$tabId" in project "$projectId".',
     );
     await _cacheRepository.delete(projectId, tabId);
+    await _cacheServiceManager.clearTabState(projectId, tabId);
   }
 
   Future<void> clearProjectCache(String projectId) async {
