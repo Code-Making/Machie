@@ -22,7 +22,31 @@ class SafFileHandler implements LocalFileHandler {
     // getPersistedUriPermissions returns a list of all URIs the app
     // currently has permission to access.
     final permissions = await _safUtil.hasPersistedPermission(uri, checkRead: true, checkWrite: true);
-    return permissions;
+    if (permissions == false) {
+      return false;
+    } 
+    
+    try {
+      // We don't care about the result, only that it doesn't throw.
+      final stat = await _safUtil.stat(uri, true); // `true` because we are checking a directory.
+      if (stat !=null){
+        return true
+      } else {
+        return false;
+      }
+    } on PlatformException catch (e) {
+      if (e.code == 'PERMISSION_DENIED') {
+        // The permission is stale or not honored by the provider.
+        return false;
+      }
+      // Another error occurred (e.g., URI not found), but it's not a
+      // permission issue from our perspective. For the purpose of this check,
+      // we can consider it as if we don't have effective permission.
+      return false;
+    } catch (_) {
+      // Catch any other unexpected errors.
+      return false;
+    }
   }
 
   @override
