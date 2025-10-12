@@ -527,7 +527,7 @@ List<PatternRecognizer> _buildPatternRecognizers() {
         // Get a base style from the underlying syntax-highlighted spans.
         final baseStyle = spans.firstOrNull?.style;
 // final secondStyle = spans.length > 1 ? spans[1].style : null;
-final secondStyle = spans.elementAtOrNull(1)?.style;
+final secondStyle = spans.firstOrNull?.elementAtOrNull(1)?.style;
 
         return TextSpan(
           style: baseStyle,
