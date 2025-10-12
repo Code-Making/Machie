@@ -30,7 +30,7 @@ class SafFileHandler implements LocalFileHandler {
       // We don't care about the result, only that it doesn't throw.
       final stat = await _safUtil.stat(uri, true); // `true` because we are checking a directory.
       if (stat !=null){
-        return true
+        return true;
       } else {
         return false;
       }
