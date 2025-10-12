@@ -120,6 +120,19 @@ class CacheServiceManager {
     );
   }
 
+  Future<void> clearTabState(String projectId, String tabId) async {
+    await ensureRunning();
+    FlutterForegroundTask.sendDataToTask({
+      'command': 'clear_tab_state',
+      'projectId': projectId,
+      'tabId': tabId,
+    });
+    _talker.info(
+      "[CacheServiceManager] Sent clear command for tab $tabId.",
+    );
+  }
+  // ----------------------------
+
   Future<void> clearProjectCache(String projectId) async {
     await ensureRunning();
     FlutterForegroundTask.sendDataToTask({

@@ -72,8 +72,18 @@ class HotStateTaskHandler extends TaskHandler {
           FlutterForegroundTask.stopService();
         });
         break;
-      // --- END OF NEW COMMANDS ---
-
+        
+      case 'clear_tab_state':
+        final String? projectId = data['projectId'];
+        final String? tabId = data['tabId'];
+        if (projectId != null && tabId != null) {
+          _inMemoryHotState[projectId]?.remove(tabId);
+          print(
+            '[Background Service] Cleared in-memory hot state for tab $projectId/$tabId',
+          );
+        }
+        break;
+        
       case 'update_hot_state':
         final String? projectId = data['projectId'];
         final String? tabId = data['tabId'];
