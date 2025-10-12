@@ -67,40 +67,33 @@ class AppNotifier extends AsyncNotifier<AppState> {
     _talker.info("Checking last opened project");
     // 2. Attempt to re-open the last project based on the DTO.
     if (appStateDto.lastOpenedProjectId != null) {
+      _talker.info("Checking last opened project");
       final meta = appStateDto.knownProjects.firstWhereOrNull(
         (p) => p.id == appStateDto.lastOpenedProjectId,
       );
       if (meta != null) {
-        _talker.info("Found Project to load");
         try {
-          final projectDto = await _projectService.openProjectDto(
+          // --- REFACTORED LOGIC ---
+          // The call to open the project is now wrapped in the recovery handler.
+          final project = await _openProjectWithRecovery(
             meta,
             projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
+          
+          if (project != null) {
+             _talker.info("Project should be loaded");
+            return AppState(
+              knownProjects: appStateDto.knownProjects,
+              lastOpenedProjectId: appStateDto.lastOpenedProjectId,
+              currentProject: project,
+            );
+          }
+          // If project is null, it means recovery failed or was cancelled.
+          // Fall through to the default state.
 
-          final liveSession = await _editorService.rehydrateTabSession(
-            projectDto,
-            meta,
-          );
-          final liveWorkspace = _explorerService.rehydrateWorkspace(
-            projectDto.workspace,
-          );
-
-          final finalProject = Project(
-            metadata: meta,
-            session: liveSession,
-            workspace: liveWorkspace,
-          );
-          _talker.info("Project should be loaded");
-          return AppState(
-            knownProjects: appStateDto.knownProjects,
-            lastOpenedProjectId: appStateDto.lastOpenedProjectId,
-            currentProject: finalProject,
-          );
         } catch (e, st) {
-          ref
-              .read(talkerProvider)
-              .handle(e, st, 'Failed to auto-open last project');
+          // Catch any non-permission final errors.
+          ref.read(talkerProvider).handle(e, st, 'Failed to auto-open last project');
         }
       }
     }
@@ -110,6 +103,61 @@ class AppNotifier extends AsyncNotifier<AppState> {
       knownProjects: appStateDto.knownProjects,
       lastOpenedProjectId: appStateDto.lastOpenedProjectId,
     );
+  }
+  
+    // --- NEW PRIVATE HELPER METHOD for recovery logic ---
+  Future<Project?> _openProjectWithRecovery(
+    ProjectMetadata meta, {
+    Map<String, dynamic>? projectStateJson,
+  }) async {
+    try {
+      // First attempt to open the project.
+      final projectDto = await _projectService.openProjectDto(
+        meta,
+        projectStateJson: projectStateJson,
+      );
+
+      final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
+      final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
+
+      return Project(
+        metadata: meta,
+        session: liveSession,
+        workspace: liveWorkspace,
+      );
+
+    } on ProjectPermissionDeniedException catch (e) {
+      // The service has failed with a recoverable error. The AppNotifier now
+      // takes control of the UI flow.
+      final context = ref.read(navigatorKeyProvider).currentContext;
+      if (context == null || !context.mounted) {
+        _talker.error("Permission denied, but no UI context to ask for it again.");
+        return null; // Can't recover without UI.
+      }
+
+      final bool? wantsToGrant = await showConfirmDialog(
+        context,
+        title: 'Permission Required',
+        content: 'Access to the project folder "${e.metadata.name}" has been lost. Please re-select the folder to grant access again.',
+      );
+
+      if (wantsToGrant == true) {
+        // Create a temporary handler just for this one-off operation.
+        final handler = LocalFileHandlerFactory.create();
+        final bool permissionGranted = await handler.reRequestPermission(e.deniedUri);
+
+        if (permissionGranted) {
+          // If permission was granted, recursively call this function to retry.
+          _talker.info("Permission re-granted. Retrying project open...");
+          return await _openProjectWithRecovery(meta, projectStateJson: projectStateJson);
+        }
+      }
+
+      // If user cancelled, or permission was not granted, fail gracefully.
+      _talker.warning("User cancelled permission recovery for project ${e.metadata.name}.");
+      MachineToast.error("Could not open project: Permission not granted.");
+      return null;
+    }
   }
 
   /// Handles events published by the ProjectRepository to keep the UI in sync.
@@ -195,39 +243,32 @@ class AppNotifier extends AsyncNotifier<AppState> {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
         await closeProject();
-        // After closing, the state may have updated, so we need to get the latest version.
-        s = state.value!;
+        s = state.value!; // Refresh state after closing
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
 
+      // We don't need the DTO here anymore, the recovery handler does.
       final appStateDto = await _appStateRepository.loadAppStateDto();
-      final projectDto = await _projectService.openProjectDto(
+
+      // --- REFACTORED LOGIC ---
+      final finalProject = await _openProjectWithRecovery(
         meta,
-        projectStateJson:
-            (appStateDto.lastOpenedProjectId == projectId)
-                ? appStateDto.currentSimpleProjectDto?.toJson()
-                : null,
+        projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
+            ? appStateDto.currentSimpleProjectDto?.toJson()
+            : null,
       );
 
-      final liveSession = await _editorService.rehydrateTabSession(
-        projectDto,
-        meta,
-      );
-      final liveWorkspace = _explorerService.rehydrateWorkspace(
-        projectDto.workspace,
-      );
-
-      final finalProject = Project(
-        metadata: meta,
-        session: liveSession,
-        workspace: liveWorkspace,
-      );
-
-      return s.copyWith(
-        currentProject: finalProject,
-        lastOpenedProjectId: finalProject.id,
-      );
+      if (finalProject != null) {
+        return s.copyWith(
+          currentProject: finalProject,
+          lastOpenedProjectId: finalProject.id,
+        );
+      } else {
+        // If recovery fails, return the original state (no project open).
+        return s.copyWith(clearCurrentProject: true);
+      }
     });
+    // This save is still correct, it persists the outcome.
     await saveAppState();
   }
 
