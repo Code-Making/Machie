@@ -123,19 +123,20 @@ class BaseCommand extends Command {
   bool canExecute(WidgetRef ref) => _canExecute(ref);
 }
 
-// ... (CommandGroup, FileContextCommand, BaseFileContextCommand, and CommandState are unchanged) ...
 @immutable
 class CommandGroup {
   final String id;
   final String label;
   final String iconName;
   final List<String> commandIds;
+  final bool showLabels; // <-- ADDED
 
   const CommandGroup({
     required this.id,
     required this.label,
     required this.iconName,
     this.commandIds = const [],
+    this.showLabels = true, // <-- ADDED (default to true for backward compatibility)
   });
 
   Widget get icon => CommandIcon.getIcon(iconName);
@@ -144,12 +145,14 @@ class CommandGroup {
     String? label,
     String? iconName,
     List<String>? commandIds,
+    bool? showLabels, // <-- ADDED
   }) {
     return CommandGroup(
       id: id,
       label: label ?? this.label,
       iconName: iconName ?? this.iconName,
       commandIds: commandIds ?? this.commandIds,
+      showLabels: showLabels ?? this.showLabels, // <-- ADDED
     );
   }
 
@@ -158,6 +161,7 @@ class CommandGroup {
     'label': label,
     'iconName': iconName,
     'commandIds': commandIds,
+    'showLabels': showLabels, // <-- ADDED
   };
 
   factory CommandGroup.fromJson(Map<String, dynamic> json) => CommandGroup(
@@ -165,6 +169,8 @@ class CommandGroup {
     label: json['label'],
     iconName: json['iconName'],
     commandIds: List<String>.from(json['commandIds']),
+    // Use a null-aware default for old data that won't have this field.
+    showLabels: json['showLabels'] ?? true, // <-- ADDED
   );
 }
 

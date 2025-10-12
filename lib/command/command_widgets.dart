@@ -266,7 +266,11 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
                           dense: true,
                           enabled: isEnabled,
                           leading: command.icon,
-                          title: Text(command.label),
+                          // --- THIS IS THE KEY CHANGE ---
+                          title: widget.commandGroup.showLabels
+                              ? Text(command.label)
+                              : null,
+                          // -------------------------------
                           onTap: () {
                             _hideMenu();
                             if (isEnabled) {

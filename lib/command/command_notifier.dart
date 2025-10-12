@@ -27,7 +27,6 @@ class CommandNotifier extends StateNotifier<CommandState> {
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
 
-  // ... (getCommand is unchanged) ...
   Command? getCommand(String id, String sourcePlugin) {
     for (final command in _allRegisteredCommands) {
       if (command.id == id && command.sourcePlugin == sourcePlugin) {
@@ -75,12 +74,16 @@ class CommandNotifier extends StateNotifier<CommandState> {
     await _loadFromPrefs();
   }
 
-  // ... (Group CRUD and generic Command Positioning methods are unchanged) ...
-  void createGroup({required String name, required String iconName}) {
+  void createGroup({
+    required String name,
+    required String iconName,
+    required bool showLabels,
+  }) {
     final newGroup = CommandGroup(
       id: 'group_${const Uuid().v4()}',
       label: name,
       iconName: iconName,
+      showLabels: showLabels,
     );
     final newGroups = {...state.commandGroups, newGroup.id: newGroup};
     final newPositions = Map.of(state.orderedCommandsByPosition);
@@ -94,10 +97,19 @@ class CommandNotifier extends StateNotifier<CommandState> {
     _saveToPrefs();
   }
 
-  void updateGroup(String groupId, {String? newName, String? newIconName}) {
+  void updateGroup(
+    String groupId, {
+    String? newName,
+    String? newIconName,
+    bool? newShowLabels,
+  }) {
     final oldGroup = state.commandGroups[groupId];
     if (oldGroup == null) return;
-    final newGroup = oldGroup.copyWith(label: newName, iconName: newIconName);
+    final newGroup = oldGroup.copyWith(
+      label: newName,
+      iconName: newIconName,
+      showLabels: newShowLabels, // <-- ADDED
+    );
     final newGroups = {...state.commandGroups, groupId: newGroup};
     state = state.copyWith(commandGroups: newGroups);
     _saveToPrefs();
