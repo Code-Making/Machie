@@ -77,7 +77,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   bool _wasSelectionActive = false;
   
   late String? _baseContentHash; // <-- ADDED
-
+  
+  static const List<Color> _rainbowBracketColors = [
+    Color(0xFFE06C75), // Red
+    Color(0xFF98C379), // Green
+    Color(0xFF61AFEF), // Blue
+    Color(0xFFC678DD), // Purple
+    Color(0xFFE5C07B), // Yellow
+    Color(0xFF56B6C2), // Cyan
+  ];
 
   // The public getters for canUndo/canRedo are now gone.
   // The private methods remain.
@@ -769,9 +777,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }) {
     // Pipeline Step 1: Add tappable links to import paths.
     final linkedSpan = _linkifyImportPaths(codeLine, textSpan, style);
-    
-    // Pipeline Step 2: Add background highlights for matching brackets.
-    final finalSpan = _highlightBrackets(index, linkedSpan, style);
+    final rainbowSpan = _addRainbowBrackets(codeLine, linkedSpan, style);
+    final finalSpan = _highlightBrackets(index, rainbowSpan, style);
     
     return finalSpan;
   }
@@ -857,6 +864,97 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     }
 
     return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
+  }
+  
+    TextSpan _addRainbowBrackets(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
+    final text = codeLine.text;
+    // Fast path: if there are no brackets, return immediately.
+    if (!text.contains('(') && !text.contains(')') &&
+        !text.contains('[') && !text.contains(']') &&
+        !text.contains('{') && !text.contains('}')) {
+      return textSpan;
+    }
+
+    // Step A: Analysis pass to build a map of bracket positions to their styles.
+    final bracketStyles = <int, TextStyle>{};
+    final openBracketStack = <_BracketInfo>[];
+    
+    const openBrackets = "([{";
+    const closeBrackets = ")]}";
+
+    for (int i = 0; i < text.length; i++) {
+      final char = text[i];
+      final openIndex = openBrackets.indexOf(char);
+      if (openIndex != -1) {
+        // This is an opening bracket
+        final level = openBracketStack.length;
+        final color = _rainbowBracketColors[level % _rainbowBracketColors.length];
+        bracketStyles[i] = TextStyle(color: color);
+        openBracketStack.add(_BracketInfo(char: char, level: level));
+        continue;
+      }
+      
+      final closeIndex = closeBrackets.indexOf(char);
+      if (closeIndex != -1) {
+        // This is a closing bracket
+        if (openBracketStack.isNotEmpty && openBrackets[closeIndex] == openBracketStack.last.char) {
+          final info = openBracketStack.removeLast();
+          final color = _rainbowBracketColors[info.level % _rainbowBracketColors.length];
+          bracketStyles[i] = TextStyle(color: color);
+        }
+        // (We could add an 'error' color for mismatched brackets here if desired)
+      }
+    }
+
+    // If no brackets were successfully paired, no need to transform the span tree.
+    if (bracketStyles.isEmpty) {
+      return textSpan;
+    }
+
+    // Step B: Transformation pass. Same pattern as the other pipeline steps.
+    final builtSpans = <TextSpan>[];
+    int currentPosition = 0;
+
+    void processSpan(TextSpan span) {
+      final text = span.text ?? '';
+      final spanStyle = span.style ?? style;
+      int lastSplit = 0;
+
+      for (int i = 0; i < text.length; i++) {
+        final absolutePosition = currentPosition + i;
+        final bracketStyle = bracketStyles[absolutePosition];
+
+        if (bracketStyle != null) {
+          // Found a bracket to color. Split the span.
+          if (i > lastSplit) {
+            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+          }
+          builtSpans.add(
+            TextSpan(
+              text: text[i],
+              // Merge the bracket color with the existing style from syntax highlighting.
+              style: spanStyle.merge(bracketStyle),
+            ),
+          );
+          lastSplit = i + 1;
+        }
+      }
+      if (lastSplit < text.length) {
+        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+      }
+      currentPosition += text.length;
+
+      if (span.children != null) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child);
+          }
+        }
+      }
+    }
+
+    processSpan(textSpan);
+    return TextSpan(children: builtSpans, style: style);
   }
 
   /// PIPELINE STEP 2: Adds a background color to matching brackets.
@@ -1187,4 +1285,10 @@ class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
       ),
     );
   }
+}
+
+class _BracketInfo {
+  final String char;
+  final int level;
+  _BracketInfo({required this.char, required this.level});
 }
