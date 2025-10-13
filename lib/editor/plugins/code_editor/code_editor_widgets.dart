@@ -1,3 +1,4 @@
+import 'dart:math';
 // =========================================
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
@@ -107,7 +108,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   void undo() {
     if (controller.canUndo) controller.undo();
   }
-
   @override
   void redo() {
     if (controller.canRedo) controller.redo();
