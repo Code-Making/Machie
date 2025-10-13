@@ -78,6 +78,17 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   
   late String? _baseContentHash; // <-- ADDED
   
+  typedef _ColorMatch = ({int start, int end, Color color});
+
+  // Regex for Color(0xAARRGGBB) or Color(0xRRGGBB)
+  static const _hexColorRegex = r'Color\(\s*(0x[0-9a-fA-F]{6,8})\s*\)';
+  // Regex for #RRGGBB or #AARRGGBB
+  static const _cssHexRegex = r'(#([0-9a-fA-F]{6,8}))\b';
+  // Regex for fromARGB(a, r, g, b) with int or hex values
+  static const _fromArgbRegex = r'Color\.fromARGB\(([^)]+)\)';
+  // Regex for fromRGBO(r, g, b, o) with int and double values
+  static const _fromRGBORegex = r'Color\.fromRGBO\(([^)]+)\)';
+
   static const List<Color> _rainbowBracketColors = [
     Color(0xFFE06C75), // Red
     Color(0xFF98C379), // Green
