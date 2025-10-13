@@ -77,7 +77,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   bool _wasSelectionActive = false;
   
   late String? _baseContentHash; // <-- ADDED
-  
+    Map<int, _LineBracketAnalysis> _rainbowBracketAnalysis = {};
+  Timer? _bracketAnalysisDebounce;
+
   static const List<Color> _rainbowBracketColors = [
     Color(0xFFE06C75), // Red
     Color(0xFF98C379), // Green
@@ -181,6 +183,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   @override
   void dispose() {
+    _bracketAnalysisDebounce?.cancel(); // Cancel the timer on dispose
     findController.removeListener(syncCommandContext);
     controller.removeListener(syncCommandContext);
     controller.dirty.removeListener(_onDirtyStateChange);
@@ -546,6 +549,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   void _onControllerChange() {
     if (!mounted) return;
+    _bracketAnalysisDebounce?.cancel();
+    _bracketAnalysisDebounce = Timer(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _analyzeBracketsForRainbow();
+      }
+    });
 
     // UI-specific updates that require setState
     setState(() {
@@ -714,6 +723,54 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
       highlightedLines: newHighlightedLines,
     );
   }
+  
+    void _analyzeBracketsForRainbow() {
+    final codeLines = controller.codeLines;
+    final analysis = <int, _LineBracketAnalysis>{};
+    final stack = <String>[]; // A simple stack of open bracket characters: '(', '[', '{'
+
+    const openBrackets = "([{";
+    const closeBrackets = ")]}";
+
+    for (int i = 0; i < codeLines.length; i++) {
+      final text = codeLines[i].text;
+      final bracketDepths = <int, int>{};
+
+      for (int j = 0; j < text.length; j++) {
+        final char = text[j];
+        final openIndex = openBrackets.indexOf(char);
+        if (openIndex != -1) {
+          // It's an opening bracket, record its depth and push to stack.
+          bracketDepths[j] = stack.length;
+          stack.add(char);
+          continue;
+        }
+
+        final closeIndex = closeBrackets.indexOf(char);
+        if (closeIndex != -1) {
+          // It's a closing bracket.
+          if (stack.isNotEmpty && openBrackets[closeIndex] == stack.last) {
+            // It's a matching bracket, pop and record its depth.
+            stack.removeLast();
+            bracketDepths[j] = stack.length;
+          } else {
+            // It's a mismatched bracket, mark with an invalid depth.
+            bracketDepths[j] = -1; // Or some other indicator for 'error'
+          }
+        }
+      }
+      
+      if (bracketDepths.isNotEmpty) {
+        analysis[i] = _LineBracketAnalysis(bracketDepths: bracketDepths);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _rainbowBracketAnalysis = analysis;
+      });
+    }
+  }
 
   CodeLinePosition? _findMatchingBracket(
     CodeLines codeLines,
@@ -866,52 +923,16 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
   }
   
-    TextSpan _addRainbowBrackets(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
-    final text = codeLine.text;
-    // Fast path: if there are no brackets, return immediately.
-    if (!text.contains('(') && !text.contains(')') &&
-        !text.contains('[') && !text.contains(']') &&
-        !text.contains('{') && !text.contains('}')) {
-      return textSpan;
-    }
-
-    // Step A: Analysis pass to build a map of bracket positions to their styles.
-    final bracketStyles = <int, TextStyle>{};
-    final openBracketStack = <_BracketInfo>[];
+  TextSpan _addRainbowBrackets(int lineIndex, TextSpan textSpan, TextStyle style) {
+    // Get the pre-computed analysis for this line.
+    final lineAnalysis = _rainbowBracketAnalysis[lineIndex];
     
-    const openBrackets = "([{";
-    const closeBrackets = ")]}";
-
-    for (int i = 0; i < text.length; i++) {
-      final char = text[i];
-      final openIndex = openBrackets.indexOf(char);
-      if (openIndex != -1) {
-        // This is an opening bracket
-        final level = openBracketStack.length;
-        final color = _rainbowBracketColors[level % _rainbowBracketColors.length];
-        bracketStyles[i] = TextStyle(color: color);
-        openBracketStack.add(_BracketInfo(char: char, level: level));
-        continue;
-      }
-      
-      final closeIndex = closeBrackets.indexOf(char);
-      if (closeIndex != -1) {
-        // This is a closing bracket
-        if (openBracketStack.isNotEmpty && openBrackets[closeIndex] == openBracketStack.last.char) {
-          final info = openBracketStack.removeLast();
-          final color = _rainbowBracketColors[info.level % _rainbowBracketColors.length];
-          bracketStyles[i] = TextStyle(color: color);
-        }
-        // (We could add an 'error' color for mismatched brackets here if desired)
-      }
-    }
-
-    // If no brackets were successfully paired, no need to transform the span tree.
-    if (bracketStyles.isEmpty) {
+    // Fast path: if no analysis exists for this line, return immediately.
+    if (lineAnalysis == null || lineAnalysis.bracketDepths.isEmpty) {
       return textSpan;
     }
 
-    // Step B: Transformation pass. Same pattern as the other pipeline steps.
+    // Transformation pass, same robust pattern as before.
     final builtSpans = <TextSpan>[];
     int currentPosition = 0;
 
@@ -922,18 +943,17 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
       for (int i = 0; i < text.length; i++) {
         final absolutePosition = currentPosition + i;
-        final bracketStyle = bracketStyles[absolutePosition];
+        final depth = lineAnalysis.bracketDepths[absolutePosition];
 
-        if (bracketStyle != null) {
-          // Found a bracket to color. Split the span.
+        if (depth != null && depth >= 0) { // Check for valid depth
           if (i > lastSplit) {
             builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
           }
+          final color = _rainbowBracketColors[depth % _rainbowBracketColors.length];
           builtSpans.add(
             TextSpan(
               text: text[i],
-              // Merge the bracket color with the existing style from syntax highlighting.
-              style: spanStyle.merge(bracketStyle),
+              style: spanStyle.merge(TextStyle(color: color)),
             ),
           );
           lastSplit = i + 1;
@@ -1285,6 +1305,14 @@ class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
       ),
     );
   }
+}
+
+@immutable
+class _LineBracketAnalysis {
+  /// A map of character index on the line to its calculated nesting depth.
+  final Map<int, int> bracketDepths;
+
+  const _LineBracketAnalysis({required this.bracketDepths});
 }
 
 class _BracketInfo {
