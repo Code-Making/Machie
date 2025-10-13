@@ -753,32 +753,39 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
               (k) => brackets[k] == char,
               orElse: () => '',
             );
-    if (target == null || target.isEmpty) return null;
+    if (target.isEmpty) return null;
+
     int stack = 1;
     int index = position.index;
     int offset = position.offset;
     final direction = isOpen ? 1 : -1;
+
     while (true) {
       offset += direction;
-      if (direction > 0) {
-        if (offset >= codeLines[index].text.length) {
+
+      // This inner loop robustly finds the next valid character position,
+      // correctly skipping over line breaks and empty lines.
+      while (offset < 0 || offset >= codeLines[index].text.length) {
+        if (direction > 0) { // Searching forward
           index++;
-          if (index >= codeLines.length) return null;
+          if (index >= codeLines.length) return null; // Reached end of document
           offset = 0;
-        }
-      } else {
-        if (offset < 0) {
+        } else { // Searching backward
           index--;
-          if (index < 0) return null;
+          if (index < 0) return null; // Reached start of document
           offset = codeLines[index].text.length - 1;
         }
       }
+
+      // At this point, `index` and `offset` are guaranteed to be valid for the access below.
       final currentChar = codeLines[index].text[offset];
+
       if (currentChar == char) {
         stack++;
       } else if (currentChar == target) {
         stack--;
       }
+
       if (stack == 0) {
         return CodeLinePosition(index: index, offset: offset);
       }
