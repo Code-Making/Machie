@@ -562,41 +562,41 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 // }
 
   // NEW: The handler for when a recognized import path is tapped.
-  // void _onImportTap(String relativePath) async {
-  //   final appNotifier = ref.read(appNotifierProvider.notifier);
-  //   final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
-  //   final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
+  void _onImportTap(String relativePath) async {
+    final appNotifier = ref.read(appNotifierProvider.notifier);
+    final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
+    final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
-  //   if (fileHandler == null || currentFileMetadata == null) return;
-  //   
-  //   try {
-  //     final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
-  //     final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
-  //     final resolvedSegments = <String>[];
+    if (fileHandler == null || currentFileMetadata == null) return;
+    
+    try {
+      final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
+      final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
+      final resolvedSegments = <String>[];
 
-  //     for (final segment in pathSegments) {
-  //       if (segment == '..') {
-  //         if (resolvedSegments.isNotEmpty) {
-  //           resolvedSegments.removeLast();
-  //         }
-  //       } else if (segment != '.' && segment.isNotEmpty) {
-  //         resolvedSegments.add(segment);
-  //       }
-  //     }
-  //     
-  //     final resolvedUri = resolvedSegments.join('%2F');
-  //     final targetFile = await fileHandler.getFileMetadata(resolvedUri);
-  //     
-  //     if (targetFile != null) {
-  //       await appNotifier.openFileInEditor(targetFile);
-  //     } else {
-  //       MachineToast.error('File not found: $relativePath');
-  //     }
+      for (final segment in pathSegments) {
+        if (segment == '..') {
+          if (resolvedSegments.isNotEmpty) {
+            resolvedSegments.removeLast();
+          }
+        } else if (segment != '.' && segment.isNotEmpty) {
+          resolvedSegments.add(segment);
+        }
+      }
+      
+      final resolvedUri = resolvedSegments.join('%2F');
+      final targetFile = await fileHandler.getFileMetadata(resolvedUri);
+      
+      if (targetFile != null) {
+        await appNotifier.openFileInEditor(targetFile);
+      } else {
+        MachineToast.error('File not found: $relativePath');
+      }
 
-  //   } catch (e) {
-  //     MachineToast.error('Could not open file: $e');
-  //   }
-  // }
+    } catch (e) {
+      MachineToast.error('Could not open file: $e');
+    }
+  }
 
   // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
@@ -840,13 +840,112 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    final highlightState = _bracketHighlightState;
-    final highlightPositions =
-        highlightState.bracketPositions
-            .where((pos) => pos.index == index)
-            .map((pos) => pos.offset)
-            .toSet();
+    // Pipeline Step 1: Add tappable links to import paths.
+    final linkedSpan = _linkifyImportPaths(codeLine, textSpan, style);
+    
+    // Pipeline Step 2: Add background highlights for matching brackets.
+    final finalSpan = _highlightBrackets(index, linkedSpan, style);
+    
+    return finalSpan;
+  }
 
+  /// PIPELINE STEP 1: Finds import paths using fast string manipulation and makes them tappable.
+  TextSpan _linkifyImportPaths(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
+    final text = codeLine.text;
+
+    // Fast path: check for 'import' keyword first.
+    if (!text.contains('import')) {
+      return textSpan;
+    }
+
+    // Use trimLeft to handle leading whitespace, then check for the keyword.
+    final trimmedText = text.trimLeft();
+    if (!trimmedText.startsWith('import ')) {
+      return textSpan;
+    }
+
+    // Find the first quote.
+    int quote1Index = trimmedText.indexOf("'");
+    String quoteChar = "'";
+    if (quote1Index == -1) {
+      quote1Index = trimmedText.indexOf('"');
+      quoteChar = '"';
+    }
+    if (quote1Index == -1) return textSpan; // No quotes found
+
+    // Find the matching closing quote.
+    final quote2Index = trimmedText.indexOf(quoteChar, quote1Index + 1);
+    if (quote2Index == -1) return textSpan; // No closing quote found
+
+    // Convert indices from `trimmedText` back to original `text` coordinates.
+    final leadingWhitespaceLength = text.length - trimmedText.length;
+    final pathStartIndex = leadingWhitespaceLength + quote1Index + 1;
+    final pathEndIndex = leadingWhitespaceLength + quote2Index;
+    
+    // If path is empty, do nothing.
+    if (pathStartIndex >= pathEndIndex) return textSpan;
+
+    // This recursive helper walks the TextSpan tree, rebuilding it and replacing
+    // only the part that matches our path indices.
+    List<TextSpan> _walkAndReplace(TextSpan span, int currentPos) {
+      // ... (This helper logic is the same as the previous correct version)
+      final List<TextSpan> newChildren = [];
+      final spanStart = currentPos;
+      final spanText = span.text ?? '';
+      final spanEnd = spanStart + spanText.length;
+
+      if (span.children?.isNotEmpty ?? false) {
+        int childPos = currentPos;
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            newChildren.addAll(_walkAndReplace(child, childPos));
+            childPos += child.toPlainText().length;
+          }
+        }
+        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+      }
+
+      if (spanEnd <= pathStartIndex || spanStart >= pathEndIndex) {
+        return [span];
+      }
+      
+      final beforeText = spanText.substring(0, (pathStartIndex - spanStart).clamp(0, spanText.length));
+      final linkText = spanText.substring(
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+        (pathEndIndex - spanStart).clamp(0, spanText.length)
+      );
+      final afterText = spanText.substring((pathEndIndex - spanStart).clamp(0, spanText.length));
+
+      if (beforeText.isNotEmpty) newChildren.add(TextSpan(text: beforeText, style: span.style));
+      if (linkText.isNotEmpty) {
+        newChildren.add(TextSpan(
+          text: linkText,
+          style: (span.style ?? style).copyWith(
+            color: Colors.cyan[300],
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+          ),
+          recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
+        ));
+      }
+      if (afterText.isNotEmpty) newChildren.add(TextSpan(text: afterText, style: span.style));
+
+      return newChildren;
+    }
+
+    return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
+  }
+
+  /// PIPELINE STEP 2: Adds a background color to matching brackets.
+  TextSpan _highlightBrackets(int index, TextSpan textSpan, TextStyle style) {
+    // This logic is extracted from the old _buildHighlightingSpan method.
+    final highlightState = _bracketHighlightState;
+    final highlightPositions = highlightState.bracketPositions
+        .where((pos) => pos.index == index)
+        .map((pos) => pos.offset)
+        .toSet();
+
+    // Fast path: if no brackets to highlight on this line, return the span as is.
     if (highlightPositions.isEmpty) {
       return textSpan;
     }
@@ -854,6 +953,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     final builtSpans = <TextSpan>[];
     int currentPosition = 0;
 
+    // Recursive helper to process the span tree.
     void processSpan(TextSpan span) {
       final text = span.text ?? '';
       final spanStyle = span.style ?? style;
@@ -863,15 +963,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         final absolutePosition = currentPosition + i;
         if (highlightPositions.contains(absolutePosition)) {
           if (i > lastSplit) {
-            builtSpans.add(
-              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
-            );
+            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
           }
           builtSpans.add(
             TextSpan(
               text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
+                backgroundColor: Colors.yellow.withOpacity(0.3),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -880,9 +978,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         }
       }
       if (lastSplit < text.length) {
-        builtSpans.add(
-          TextSpan(text: text.substring(lastSplit), style: spanStyle),
-        );
+        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
       }
       currentPosition += text.length;
 
