@@ -71,7 +71,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   late String? _languageKey;
   
   late CodeEditorStyle _style;
-  late List<PatternRecognizer> _patternRecognizers;
+  // late List<PatternRecognizer> _patternRecognizers;
 
 
   bool _wasSelectionActive = false;
@@ -488,115 +488,115 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }
   
   // PATTERN RECOGNIZERS
-List<PatternRecognizer> _buildPatternRecognizers() {
-  final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
-  if (fileUri == null) return [];
+// List<PatternRecognizer> _buildPatternRecognizers() {
+//   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
+//   if (fileUri == null) return [];
 
-  // Using the RegExp you confirmed works.
-  final importRegex = RegExp(r"import\s+?(.*?);");
+//   // Using the RegExp you confirmed works.
+//   final importRegex = RegExp(r"import\s+?(.*?);");
 
-  return [
-    PatternRecognizer(
-      pattern: importRegex,
-      builder: (match, spans) {
-        final fullMatchText = match.group(0); // e.g., "import './path.dart';"
-        final pathWithQuotes = match.group(1); // e.g., "'./path.dart'"
+//   return [
+//     PatternRecognizer(
+//       pattern: importRegex,
+//       builder: (match, spans) {
+//         final fullMatchText = match.group(0); // e.g., "import './path.dart';"
+//         final pathWithQuotes = match.group(1); // e.g., "'./path.dart'"
 
-        // Safeguards
-        if (fullMatchText == null || pathWithQuotes == null || pathWithQuotes.length < 2) {
-          return TextSpan(children: spans);
-        }
+//         // Safeguards
+//         if (fullMatchText == null || pathWithQuotes == null || pathWithQuotes.length < 2) {
+//           return TextSpan(children: spans);
+//         }
 
-        // Extract the raw path by removing the quotes
-        final rawPath = pathWithQuotes.substring(1, pathWithQuotes.length - 1);
+//         // Extract the raw path by removing the quotes
+//         final rawPath = pathWithQuotes.substring(1, pathWithQuotes.length - 1);
 
-        // Find the start index of the raw path within the full matched string.
-        // This is safer than assuming positions.
-        final rawPathStartIndex = fullMatchText.indexOf(rawPath);
+//         // Find the start index of the raw path within the full matched string.
+//         // This is safer than assuming positions.
+//         final rawPathStartIndex = fullMatchText.indexOf(rawPath);
 
-        if (rawPathStartIndex == -1) {
-           return TextSpan(children: spans);
-        }
-        
-        final rawPathEndIndex = rawPathStartIndex + rawPath.length;
+//         if (rawPathStartIndex == -1) {
+//            return TextSpan(children: spans);
+//         }
+//         
+//         final rawPathEndIndex = rawPathStartIndex + rawPath.length;
 
-        // Split the full match into three parts around the raw path
-        final partBeforePath = fullMatchText.substring(0, rawPathStartIndex);
-        final partAfterPath = fullMatchText.substring(rawPathEndIndex);
+//         // Split the full match into three parts around the raw path
+//         final partBeforePath = fullMatchText.substring(0, rawPathStartIndex);
+//         final partAfterPath = fullMatchText.substring(rawPathEndIndex);
 
-final firstSpan = spans.firstOrNull;
-//final secondChild = firstSpan?.children?.elementAtOrNull(1);
+// final firstSpan = spans.firstOrNull;
+// //final secondChild = firstSpan?.children?.elementAtOrNull(1);
 
-// Or with style access
-//final secondStyle = firstSpan?.children?.elementAtOrNull(1)?.style;
-        // Get a base style from the underlying syntax-highlighted spans.
-        final baseStyle = firstSpan?.style;
-// final secondStyle = spans.length > 1 ? spans[1].style : null;
-final secondStyle = spans.elementAtOrNull(2)?.style;
+// // Or with style access
+// //final secondStyle = firstSpan?.children?.elementAtOrNull(1)?.style;
+//         // Get a base style from the underlying syntax-highlighted spans.
+//         final baseStyle = firstSpan?.style;
+// // final secondStyle = spans.length > 1 ? spans[1].style : null;
+// final secondStyle = spans.elementAtOrNull(2)?.style;
 
-        return TextSpan(
-          style: baseStyle,
-          children: [
-            // Part 1: The part before the path (e.g., "import '") - not tappable
-            TextSpan(text: partBeforePath),
-            
-            // Part 2: The path itself - styled and tappable
-            TextSpan(
-              text: rawPath,
-              style: TextStyle(
-                // color: Colors.cyan[300],
-                color: secondStyle?.color ?? Colors.cyan[300],
-                decoration: TextDecoration.underline,
-                decorationColor: secondStyle?.color?.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
-              ),
-              recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
-            ),
-            
-            // Part 3: The part after the path (e.g., "';") - not tappable
-            TextSpan(text: partAfterPath),
-          ],
-        );
-      },
-    ),
-  ];
-}
+//         return TextSpan(
+//           style: baseStyle,
+//           children: [
+//             // Part 1: The part before the path (e.g., "import '") - not tappable
+//             TextSpan(text: partBeforePath),
+//             
+//             // Part 2: The path itself - styled and tappable
+//             TextSpan(
+//               text: rawPath,
+//               style: TextStyle(
+//                 // color: Colors.cyan[300],
+//                 color: secondStyle?.color ?? Colors.cyan[300],
+//                 decoration: TextDecoration.underline,
+//                 decorationColor: secondStyle?.color?.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
+//               ),
+//               recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
+//             ),
+//             
+//             // Part 3: The part after the path (e.g., "';") - not tappable
+//             TextSpan(text: partAfterPath),
+//           ],
+//         );
+//       },
+//     ),
+//   ];
+// }
 
   // NEW: The handler for when a recognized import path is tapped.
-  void _onImportTap(String relativePath) async {
-    final appNotifier = ref.read(appNotifierProvider.notifier);
-    final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
-    final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
+  // void _onImportTap(String relativePath) async {
+  //   final appNotifier = ref.read(appNotifierProvider.notifier);
+  //   final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
+  //   final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
-    if (fileHandler == null || currentFileMetadata == null) return;
-    
-    try {
-      final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
-      final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
-      final resolvedSegments = <String>[];
+  //   if (fileHandler == null || currentFileMetadata == null) return;
+  //   
+  //   try {
+  //     final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
+  //     final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
+  //     final resolvedSegments = <String>[];
 
-      for (final segment in pathSegments) {
-        if (segment == '..') {
-          if (resolvedSegments.isNotEmpty) {
-            resolvedSegments.removeLast();
-          }
-        } else if (segment != '.' && segment.isNotEmpty) {
-          resolvedSegments.add(segment);
-        }
-      }
-      
-      final resolvedUri = resolvedSegments.join('%2F');
-      final targetFile = await fileHandler.getFileMetadata(resolvedUri);
-      
-      if (targetFile != null) {
-        await appNotifier.openFileInEditor(targetFile);
-      } else {
-        MachineToast.error('File not found: $relativePath');
-      }
+  //     for (final segment in pathSegments) {
+  //       if (segment == '..') {
+  //         if (resolvedSegments.isNotEmpty) {
+  //           resolvedSegments.removeLast();
+  //         }
+  //       } else if (segment != '.' && segment.isNotEmpty) {
+  //         resolvedSegments.add(segment);
+  //       }
+  //     }
+  //     
+  //     final resolvedUri = resolvedSegments.join('%2F');
+  //     final targetFile = await fileHandler.getFileMetadata(resolvedUri);
+  //     
+  //     if (targetFile != null) {
+  //       await appNotifier.openFileInEditor(targetFile);
+  //     } else {
+  //       MachineToast.error('File not found: $relativePath');
+  //     }
 
-    } catch (e) {
-      MachineToast.error('Could not open file: $e');
-    }
-  }
+  //   } catch (e) {
+  //     MachineToast.error('Could not open file: $e');
+  //   }
+  // }
 
   // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
