@@ -77,9 +77,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   bool _wasSelectionActive = false;
   
   late String? _baseContentHash; // <-- ADDED
-    Map<int, _LineBracketAnalysis> _rainbowBracketAnalysis = {};
-  Timer? _bracketAnalysisDebounce;
-
+  
   static const List<Color> _rainbowBracketColors = [
     Color(0xFFE06C75), // Red
     Color(0xFF98C379), // Green
@@ -183,7 +181,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   @override
   void dispose() {
-    _bracketAnalysisDebounce?.cancel(); // Cancel the timer on dispose
     findController.removeListener(syncCommandContext);
     controller.removeListener(syncCommandContext);
     controller.dirty.removeListener(_onDirtyStateChange);
@@ -549,12 +546,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
 
   void _onControllerChange() {
     if (!mounted) return;
-    _bracketAnalysisDebounce?.cancel();
-    _bracketAnalysisDebounce = Timer(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        _analyzeBracketsForRainbow();
-      }
-    });
 
     // UI-specific updates that require setState
     setState(() {
@@ -723,54 +714,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
       highlightedLines: newHighlightedLines,
     );
   }
-  
-    void _analyzeBracketsForRainbow() {
-    final codeLines = controller.codeLines;
-    final analysis = <int, _LineBracketAnalysis>{};
-    final stack = <String>[]; // A simple stack of open bracket characters: '(', '[', '{'
-
-    const openBrackets = "([{";
-    const closeBrackets = ")]}";
-
-    for (int i = 0; i < codeLines.length; i++) {
-      final text = codeLines[i].text;
-      final bracketDepths = <int, int>{};
-
-      for (int j = 0; j < text.length; j++) {
-        final char = text[j];
-        final openIndex = openBrackets.indexOf(char);
-        if (openIndex != -1) {
-          // It's an opening bracket, record its depth and push to stack.
-          bracketDepths[j] = stack.length;
-          stack.add(char);
-          continue;
-        }
-
-        final closeIndex = closeBrackets.indexOf(char);
-        if (closeIndex != -1) {
-          // It's a closing bracket.
-          if (stack.isNotEmpty && openBrackets[closeIndex] == stack.last) {
-            // It's a matching bracket, pop and record its depth.
-            stack.removeLast();
-            bracketDepths[j] = stack.length;
-          } else {
-            // It's a mismatched bracket, mark with an invalid depth.
-            bracketDepths[j] = -1; // Or some other indicator for 'error'
-          }
-        }
-      }
-      
-      if (bracketDepths.isNotEmpty) {
-        analysis[i] = _LineBracketAnalysis(bracketDepths: bracketDepths);
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _rainbowBracketAnalysis = analysis;
-      });
-    }
-  }
 
   CodeLinePosition? _findMatchingBracket(
     CodeLines codeLines,
@@ -834,8 +777,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   }) {
     // Pipeline Step 1: Add tappable links to import paths.
     final linkedSpan = _linkifyImportPaths(codeLine, textSpan, style);
-    final rainbowSpan = _addRainbowBrackets(codeLine, linkedSpan, style);
-    final finalSpan = _highlightBrackets(index, rainbowSpan, style);
+  final coloredSpan = _highlightColorLiterals(codeLine, linkedSpan, style);
+    final finalSpan = _highlightBrackets(index, coloredSpan, style);
     
     return finalSpan;
   }
@@ -923,59 +866,170 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
   }
   
-  TextSpan _addRainbowBrackets(int lineIndex, TextSpan textSpan, TextStyle style) {
-    // Get the pre-computed analysis for this line.
-    final lineAnalysis = _rainbowBracketAnalysis[lineIndex];
-    
-    // Fast path: if no analysis exists for this line, return immediately.
-    if (lineAnalysis == null || lineAnalysis.bracketDepths.isEmpty) {
-      return textSpan;
-    }
+/// PIPELINE STEP 2: Finds various color formats and replaces them with a colored box.
+TextSpan _highlightColorLiterals(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
+  final text = codeLine.text;
+  final List<_ColorMatch> allMatches = [];
 
-    // Transformation pass, same robust pattern as before.
-    final builtSpans = <TextSpan>[];
-    int currentPosition = 0;
+  // Find all matches from all our regexes
+  _findMatches(allMatches, text, RegExp(_hexColorRegex), _parseHexColor);
+  _findMatches(allMatches, text, RegExp(_cssHexRegex), _parseCssHexColor);
+  _findMatches(allMatches, text, RegExp(_fromArgbRegex), _parseArgbOrRgba);
+  _findMatches(allMatches, text, RegExp(_fromRGBORegex), _parseArgbOrRgba);
 
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final spanStyle = span.style ?? style;
-      int lastSplit = 0;
-
-      for (int i = 0; i < text.length; i++) {
-        final absolutePosition = currentPosition + i;
-        final depth = lineAnalysis.bracketDepths[absolutePosition];
-
-        if (depth != null && depth >= 0) { // Check for valid depth
-          if (i > lastSplit) {
-            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
-          }
-          final color = _rainbowBracketColors[depth % _rainbowBracketColors.length];
-          builtSpans.add(
-            TextSpan(
-              text: text[i],
-              style: spanStyle.merge(TextStyle(color: color)),
-            ),
-          );
-          lastSplit = i + 1;
-        }
-      }
-      if (lastSplit < text.length) {
-        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
-      }
-      currentPosition += text.length;
-
-      if (span.children != null) {
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child);
-          }
-        }
-      }
-    }
-
-    processSpan(textSpan);
-    return TextSpan(children: builtSpans, style: style);
+  // Fast path: If no matches, return the original span.
+  if (allMatches.isEmpty) {
+    return textSpan;
   }
+
+  // Sort matches by start index to process them in order.
+  allMatches.sort((a, b) => a.start.compareTo(b.start));
+
+  // Recursive helper to walk the span tree and inject WidgetSpans.
+  List<InlineSpan> _walkAndReplace(InlineSpan span, int currentPos, List<_ColorMatch> remainingMatches) {
+    if (remainingMatches.isEmpty) {
+      return [span];
+    }
+    
+    if (span is! TextSpan) {
+      return [span];
+    }
+    
+    final List<InlineSpan> newChildren = [];
+    final spanStart = currentPos;
+    final spanText = span.text ?? '';
+    final spanEnd = spanStart + spanText.length;
+    int lastSplit = 0;
+
+    final originalChildren = span.children;
+
+    if (originalChildren?.isNotEmpty ?? false) {
+      int childPos = currentPos;
+      for (final child in originalChildren!) {
+        final processedChildren = _walkAndReplace(child, childPos, remainingMatches);
+        newChildren.addAll(processedChildren);
+        if (child is TextSpan) {
+          childPos += child.toPlainText().length;
+        }
+      }
+      return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+    }
+    
+    for (int i = 0; i < remainingMatches.length; i++) {
+      final match = remainingMatches[i];
+      if (match.end <= spanStart || match.start >= spanEnd) {
+        continue; // Match is outside this span.
+      }
+      
+      final matchStartInSpan = match.start - spanStart;
+      
+      // Add the text before the match.
+      if (matchStartInSpan > lastSplit) {
+        newChildren.add(TextSpan(text: spanText.substring(lastSplit, matchStartInSpan), style: span.style));
+      }
+      
+      // Add the color swatch widget.
+      newChildren.add(_buildColorSwatchSpan(match.color, style));
+
+      lastSplit = match.end - spanStart;
+    }
+
+    // Add any remaining text after the last match in this span.
+    if (lastSplit < spanText.length) {
+      newChildren.add(TextSpan(text: spanText.substring(lastSplit), style: span.style));
+    }
+    
+    return newChildren;
+  }
+
+  return TextSpan(children: _walkAndReplace(textSpan, 0, allMatches), style: style);
+}
+
+// --- COLOR HIGHLIGHTING HELPERS ---
+
+/// Generic function to run a regex and add all valid parsed matches to a list.
+void _findMatches(List<_ColorMatch> allMatches, String text, RegExp regex, Color? Function(Match) parser) {
+  for (final match in regex.allMatches(text)) {
+    final color = parser(match);
+    if (color != null) {
+      allMatches.add((start: match.start, end: match.end, color: color));
+    }
+  }
+}
+
+/// Creates the WidgetSpan with the colored box.
+WidgetSpan _buildColorSwatchSpan(Color color, TextStyle style) {
+  final borderColor = color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54;
+  final size = style.fontSize ?? 14.0;
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.middle,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(color: borderColor, width: 1.0),
+          borderRadius: BorderRadius.circular(2.0),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Parses color from `Color(0xAARRGGBB)` format.
+Color? _parseHexColor(Match match) {
+  try {
+    String hex = match.group(1)!.substring(2); // Remove "0x"
+    if (hex.length == 6) {
+      hex = 'FF$hex'; // Add full alpha if missing
+    }
+    return Color(int.parse(hex, radix: 16));
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Parses color from `#RRGGBB` or `#AARRGGBB` format.
+Color? _parseCssHexColor(Match match) {
+  try {
+    String hex = match.group(2)!; // Group 2 is just the hex chars
+    if (hex.length == 6) {
+      hex = 'FF$hex';
+    }
+    return Color(int.parse(hex, radix: 16));
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Parses color from `fromARGB(a,r,g,b)` and `fromRGBO(r,g,b,o)` formats.
+Color? _parseArgbOrRgba(Match match) {
+  try {
+    final isRgba = match.input.substring(match.start).contains('fromRGBO');
+    final args = match.group(1)!.split(',').map((e) => e.trim()).toList();
+    if (args.length != 4) return null;
+
+    if (isRgba) {
+      // Color.fromRGBO(r, g, b, o)
+      final r = int.parse(args[0].replaceFirst('0x', ''), radix: args[0].startsWith('0x') ? 16 : 10);
+      final g = int.parse(args[1].replaceFirst('0x', ''), radix: args[1].startsWith('0x') ? 16 : 10);
+      final b = int.parse(args[2].replaceFirst('0x', ''), radix: args[2].startsWith('0x') ? 16 : 10);
+      final o = double.parse(args[3]);
+      return Color.fromRGBO(r, g, b, o);
+    } else {
+      // Color.fromARGB(a, r, g, b)
+      final a = int.parse(args[0].replaceFirst('0x', ''), radix: args[0].startsWith('0x') ? 16 : 10);
+      final r = int.parse(args[1].replaceFirst('0x', ''), radix: args[1].startsWith('0x') ? 16 : 10);
+      final g = int.parse(args[2].replaceFirst('0x', ''), radix: args[2].startsWith('0x') ? 16 : 10);
+      final b = int.parse(args[3].replaceFirst('0x', ''), radix: args[3].startsWith('0x') ? 16 : 10);
+      return Color.fromARGB(a, r, g, b);
+    }
+  } catch (_) {
+    return null;
+  }
+}
 
   /// PIPELINE STEP 2: Adds a background color to matching brackets.
   TextSpan _highlightBrackets(int index, TextSpan textSpan, TextStyle style) {
@@ -1305,18 +1359,4 @@ class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
       ),
     );
   }
-}
-
-@immutable
-class _LineBracketAnalysis {
-  /// A map of character index on the line to its calculated nesting depth.
-  final Map<int, int> bracketDepths;
-
-  const _LineBracketAnalysis({required this.bracketDepths});
-}
-
-class _BracketInfo {
-  final String char;
-  final int level;
-  _BracketInfo({required this.char, required this.level});
 }
