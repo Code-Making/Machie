@@ -893,7 +893,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     final text = codeLine.text;
     final List<_ColorMatch> matches = [];
 
-    // Find all matches from all regexes and parse them
+    // --- Parsing Logic (from your provided code, unchanged) ---
     _hexColorRegex.allMatches(text).forEach((m) {
       final hex = m.group(1);
       if (hex != null) {
@@ -904,18 +904,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         }
       }
     });
-
     _shortHexColorRegex.allMatches(text).forEach((m) {
       String hex = m.group(1)!;
-      if (hex.length == 3) hex = hex.split('').map((e) => e + e).join(); // #rgb -> #rrggbb
-      if (hex.length == 4) hex = hex.split('').map((e) => e + e).join(); // #rgba -> #rrggbbaa
+      hex = hex.length == 3 ? hex.split('').map((e) => e + e).join() : hex[0] + hex[0] + hex.substring(1).split('').map((e) => e + e).join();
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
         final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
         matches.add(_ColorMatch(start: m.start, end: m.end, color: color));
       }
     });
-    
     _colorConstructorRegex.allMatches(text).forEach((m) {
       final hex = m.group(1);
       if (hex != null) {
@@ -923,7 +920,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         if (val != null) matches.add(_ColorMatch(start: m.start, end: m.end, color: Color(val)));
       }
     });
-
     _fromARGBRegex.allMatches(text).forEach((m) {
       final a = _parseColorComponent(m.group(1));
       final r = _parseColorComponent(m.group(2));
@@ -933,7 +929,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         matches.add(_ColorMatch(start: m.start, end: m.end, color: Color.fromARGB(a, r, g, b)));
       }
     });
-    
     _fromRGBORegex.allMatches(text).forEach((m) {
       final r = int.tryParse(m.group(1) ?? '');
       final g = int.tryParse(m.group(2) ?? '');
@@ -943,13 +938,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         matches.add(_ColorMatch(start: m.start, end: m.end, color: Color.fromRGBO(r, g, b, o)));
       }
     });
-
+    
     // Fast path: no colors found on this line.
     if (matches.isEmpty) {
       return textSpan;
     }
     
-    // Sort and filter out overlapping matches (preferring the first found)
+    // Sort and filter out overlapping matches
     matches.sort((a, b) => a.start.compareTo(b.start));
     final uniqueMatches = <_ColorMatch>[];
     int lastEnd = -1;
@@ -959,54 +954,68 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
             lastEnd = match.end;
         }
     }
+    if (uniqueMatches.isEmpty) return textSpan;
+    
+    // --- New Tree-Walking Logic ---
+    List<TextSpan> _walkAndColor(TextSpan span, int currentPos) {
+      final newChildren = <TextSpan>[];
+      final spanStart = currentPos;
+      final spanText = span.text ?? '';
+      final spanEnd = spanStart + spanText.length;
 
-    if (uniqueMatches.isEmpty) {
-      return textSpan;
-    }
-
-    // This map makes lookups inside the recursive helper O(1)
-    final matchMap = { for (var m in uniqueMatches) m.start : m };
-
-    final builtSpans = <InlineSpan>[];
-    int currentPosition = 0;
-
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final spanStyle = span.style ?? style;
-      int lastSplit = 0;
-
-      for (int i = 0; i < text.length; i++) {
-        final absolutePosition = currentPosition + i;
-        if (matchMap.containsKey(absolutePosition)) {
-          if (i > lastSplit) {
-            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
-          }
-          // Prepend the color swatch
-          builtSpans.add(WidgetSpan(
-            alignment: ui.PlaceholderAlignment.middle,
-            child: _ColorSwatch(color: matchMap[absolutePosition]!.color, size: style.fontSize ?? 14),
-          ));
-          lastSplit = i;
-        }
-      }
-
-      // Add the remainder of the span, which now includes the color code text itself.
-      if (lastSplit < text.length) {
-        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
-      }
-      currentPosition += text.length;
-
-      if (span.children != null) {
+      if (span.children?.isNotEmpty ?? false) {
+        int childPos = currentPos;
         for (final child in span.children!) {
           if (child is TextSpan) {
-            processSpan(child);
+            newChildren.addAll(_walkAndColor(child, childPos));
+            childPos += child.toPlainText().length;
           }
         }
+        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
       }
+
+      int lastSplitEnd = 0;
+      for (final match in uniqueMatches) {
+        // Find intersection of the current span and the match
+        final int effectiveStart = max(spanStart, match.start);
+        final int effectiveEnd = min(spanEnd, match.end);
+
+        if (effectiveStart < effectiveEnd) {
+          // Part before the match (within this span)
+          if (effectiveStart > spanStart + lastSplitEnd) {
+            final beforeText = spanText.substring(lastSplitEnd, effectiveStart - spanStart);
+            newChildren.add(TextSpan(text: beforeText, style: span.style));
+          }
+
+          // The matched part
+          final matchText = spanText.substring(effectiveStart - spanStart, effectiveEnd - spanStart);
+          
+          // --- CONTRAST LOGIC ---
+          final isDark = match.color.computeLuminance() < 0.5;
+          final textColor = isDark ? Colors.white : Colors.black;
+          // ----------------------
+          
+          newChildren.add(TextSpan(
+            text: matchText,
+            style: (span.style ?? style).copyWith(
+              backgroundColor: match.color,
+              color: textColor,
+            ),
+          ));
+          lastSplitEnd = effectiveEnd - spanStart;
+        }
+      }
+
+      // Remainder of the span after the last match
+      if (lastSplitEnd < spanText.length) {
+        final remainingText = spanText.substring(lastSplitEnd);
+        newChildren.add(TextSpan(text: remainingText, style: span.style));
+      }
+      
+      return newChildren;
     }
 
-    processSpan(textSpan);
-    return TextSpan(children: builtSpans, style: style);
+    return TextSpan(children: _walkAndColor(textSpan, 0), style: style);
   }
 
   /// PIPELINE STEP 2: Adds a background color to matching brackets.
