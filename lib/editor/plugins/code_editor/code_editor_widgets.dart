@@ -200,14 +200,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
               FontFeature.disable('calt'),
             ];
 
-    _patternRecognizers = _buildPatternRecognizers();
+    //_patternRecognizers = _buildPatternRecognizers();
 
     _style = CodeEditorStyle(
       fontHeight: codeEditorSettings?.fontHeight,
       fontSize: codeEditorSettings?.fontSize ?? 12.0,
       fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
       fontFeatures: fontFeatures,
-      patternRecognizers: _patternRecognizers,
+      //patternRecognizers: _patternRecognizers,
       codeTheme: CodeHighlightTheme(
         theme:
             CodeThemes.availableCodeThemes[selectedThemeName] ??
