@@ -487,79 +487,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     findController.replaceMode();
   }
   
-  // PATTERN RECOGNIZERS
-// List<PatternRecognizer> _buildPatternRecognizers() {
-//   final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
-//   if (fileUri == null) return [];
-
-//   // Using the RegExp you confirmed works.
-//   final importRegex = RegExp(r"import\s+?(.*?);");
-
-//   return [
-//     PatternRecognizer(
-//       pattern: importRegex,
-//       builder: (match, spans) {
-//         final fullMatchText = match.group(0); // e.g., "import './path.dart';"
-//         final pathWithQuotes = match.group(1); // e.g., "'./path.dart'"
-
-//         // Safeguards
-//         if (fullMatchText == null || pathWithQuotes == null || pathWithQuotes.length < 2) {
-//           return TextSpan(children: spans);
-//         }
-
-//         // Extract the raw path by removing the quotes
-//         final rawPath = pathWithQuotes.substring(1, pathWithQuotes.length - 1);
-
-//         // Find the start index of the raw path within the full matched string.
-//         // This is safer than assuming positions.
-//         final rawPathStartIndex = fullMatchText.indexOf(rawPath);
-
-//         if (rawPathStartIndex == -1) {
-//            return TextSpan(children: spans);
-//         }
-//         
-//         final rawPathEndIndex = rawPathStartIndex + rawPath.length;
-
-//         // Split the full match into three parts around the raw path
-//         final partBeforePath = fullMatchText.substring(0, rawPathStartIndex);
-//         final partAfterPath = fullMatchText.substring(rawPathEndIndex);
-
-// final firstSpan = spans.firstOrNull;
-// //final secondChild = firstSpan?.children?.elementAtOrNull(1);
-
-// // Or with style access
-// //final secondStyle = firstSpan?.children?.elementAtOrNull(1)?.style;
-//         // Get a base style from the underlying syntax-highlighted spans.
-//         final baseStyle = firstSpan?.style;
-// // final secondStyle = spans.length > 1 ? spans[1].style : null;
-// final secondStyle = spans.elementAtOrNull(2)?.style;
-
-//         return TextSpan(
-//           style: baseStyle,
-//           children: [
-//             // Part 1: The part before the path (e.g., "import '") - not tappable
-//             TextSpan(text: partBeforePath),
-//             
-//             // Part 2: The path itself - styled and tappable
-//             TextSpan(
-//               text: rawPath,
-//               style: TextStyle(
-//                 // color: Colors.cyan[300],
-//                 color: secondStyle?.color ?? Colors.cyan[300],
-//                 decoration: TextDecoration.underline,
-//                 decorationColor: secondStyle?.color?.withOpacity(0.6) ?? Colors.cyan[300]?.withOpacity(0.5),
-//               ),
-//               recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(rawPath),
-//             ),
-//             
-//             // Part 3: The part after the path (e.g., "';") - not tappable
-//             TextSpan(text: partAfterPath),
-//           ],
-//         );
-//       },
-//     ),
-//   ];
-// }
 
   // NEW: The handler for when a recognized import path is tapped.
   void _onImportTap(String relativePath) async {
@@ -854,33 +781,29 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     final text = codeLine.text;
 
     // Fast path: check for 'import' keyword first.
-    if (!text.contains('import')) {
+    if (!(text.startsWith('import') || text.startsWith('export') || text.startsWith('part'))) {
       return textSpan;
     }
-
-    // Use trimLeft to handle leading whitespace, then check for the keyword.
-    final trimmedText = text.trimLeft();
-    if (!trimmedText.startsWith('import ')) {
+    if (text.contains('package:'){
       return textSpan;
     }
 
     // Find the first quote.
-    int quote1Index = trimmedText.indexOf("'");
+    int quote1Index = text.indexOf("'");
     String quoteChar = "'";
     if (quote1Index == -1) {
-      quote1Index = trimmedText.indexOf('"');
+      quote1Index = text.indexOf('"');
       quoteChar = '"';
     }
     if (quote1Index == -1) return textSpan; // No quotes found
 
     // Find the matching closing quote.
-    final quote2Index = trimmedText.indexOf(quoteChar, quote1Index + 1);
+    final quote2Index = text.indexOf(quoteChar, quote1Index + 1);
     if (quote2Index == -1) return textSpan; // No closing quote found
 
     // Convert indices from `trimmedText` back to original `text` coordinates.
-    final leadingWhitespaceLength = text.length - trimmedText.length;
-    final pathStartIndex = leadingWhitespaceLength + quote1Index + 1;
-    final pathEndIndex = leadingWhitespaceLength + quote2Index;
+    final pathStartIndex = quote1Index + 1;
+    final pathEndIndex = quote2Index;
     
     // If path is empty, do nothing.
     if (pathStartIndex >= pathEndIndex) return textSpan;
@@ -921,9 +844,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
         newChildren.add(TextSpan(
           text: linkText,
           style: (span.style ?? style).copyWith(
-            color: Colors.cyan[300],
+            //color: Colors.cyan[300],
             decoration: TextDecoration.underline,
-            decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+            //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
           ),
           recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
         ));
