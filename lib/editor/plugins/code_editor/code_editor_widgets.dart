@@ -1,6 +1,8 @@
 // =========================================
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
+import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart'; // <-- FIX: ADD THIS IMPORT for ValueListenable
 import 'package:flutter/material.dart';
@@ -725,6 +727,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
       bracketPositions: newPositions,
       highlightedLines: newHighlightedLines,
     );
+  }
+  
+    int? _parseColorComponent(String? s) {
+    if (s == null) return null;
+    s = s.trim();
+    if (s.startsWith('0x')) {
+      return int.tryParse(s.substring(2), radix: 16);
+    }
+    return int.tryParse(s);
   }
 
   CodeLinePosition? _findMatchingBracket(
