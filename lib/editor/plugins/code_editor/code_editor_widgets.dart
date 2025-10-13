@@ -753,7 +753,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
               (k) => brackets[k] == char,
               orElse: () => '',
             );
-    if (target.isEmpty) return null;
+    if (target?.isEmpty ?? true) return null;
 
     int stack = 1;
     int index = position.index;
