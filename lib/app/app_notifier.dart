@@ -187,6 +187,40 @@ class AppNotifier extends AsyncNotifier<AppState> {
         break;
     }
   }
+  
+    // NEW: The gatekeeper function.
+  /// Checks a list of tabs for unsaved changes and prompts the user if necessary.
+  /// Returns the user's chosen action, or `UnsavedChangesAction.discard` if no prompt was needed.
+  Future<UnsavedChangesAction> _handleUnsavedChanges(
+    List<EditorTab> tabsToCheck,
+  ) async {
+    final metadataMap = ref.read(tabMetadataProvider);
+    final dirtyTabsMetadata = tabsToCheck
+        .map((tab) => metadataMap[tab.id])
+        .whereNotNull()
+        .where((metadata) => metadata.isDirty)
+        .toList();
+
+    if (dirtyTabsMetadata.isEmpty) {
+      // No dirty tabs, so we can proceed without saving.
+      return UnsavedChangesAction.discard;
+    }
+
+    final context = ref.read(navigatorKeyProvider).currentContext;
+    if (context == null || !context.mounted) {
+      // If there's no UI, we can't ask the user. Cancel the action to be safe.
+      _talker.warning(
+        'Cannot prompt to save dirty tabs: No valid BuildContext.',
+      );
+      return UnsavedChangesAction.cancel;
+    }
+
+    // Show the dialog and return the user's choice.
+    // If the user dismisses the dialog somehow (which barrierDismissible=false should prevent),
+    // we default to cancelling the action.
+    return await showUnsavedChangesDialog(context, dirtyFiles: dirtyTabsMetadata) ??
+        UnsavedChangesAction.cancel;
+  }
 
   /// Opens a project from a folder chosen by the user.
   Future<void> openProjectFromFolder({
@@ -270,8 +304,22 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final projectToClose = state.value?.currentProject;
     if (projectToClose == null) return;
 
-    // REMOVED: The call to clear projectHierarchyProvider is no longer needed.
-    // The new ProjectHierarchyService listens for project changes and clears itself.
+    // --- GATEKEEPER INTEGRATION ---
+    final allTabs = projectToClose.session.tabs;
+    final action = await _handleUnsavedChanges(allTabs);
+
+    switch (action) {
+      case UnsavedChangesAction.save:
+        await _editorService.saveTabs(projectToClose, allTabs);
+        break;
+      case UnsavedChangesAction.discard:
+        // Proceed without saving.
+        break;
+      case UnsavedChangesAction.cancel:
+        // Abort the entire operation.
+        return;
+    }
+    // --- END INTEGRATION ---
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
@@ -341,11 +389,38 @@ class AppNotifier extends AsyncNotifier<AppState> {
     updateCurrentProject(newProject);
   }
 
-  void closeTab(int index) {
+  void closeTab(int index) async {
     final project = state.value?.currentProject;
     if (project == null) return;
-    final newProject = _editorService.closeTab(project, index);
-    updateCurrentProject(newProject);
+
+    // --- GATEKEEPER INTEGRATION ---
+    final tabToClose = project.session.tabs[index];
+    final action = await _handleUnsavedChanges([tabToClose]);
+
+    switch (action) {
+      case UnsavedChangesAction.save:
+        await _editorService.saveTab(project, tabToClose);
+        // After saving, fall through to the close logic.
+        break;
+      case UnsavedChangesAction.discard:
+        // Proceed without saving.
+        break;
+      case UnsavedChangesAction.cancel:
+        // Abort the close operation.
+        return;
+    }
+    // --- END INTEGRATION ---
+
+    // The state might have changed during the await, so we need to get the latest version.
+    final currentProject = state.value?.currentProject;
+    if (currentProject == null) return;
+
+    // Find the index again in case other tabs were closed.
+    final newIndex = currentProject.session.tabs.indexOf(tabToClose);
+    if (newIndex != -1) {
+      final newProject = _editorService.closeTab(currentProject, newIndex);
+      updateCurrentProject(newProject);
+    }
   }
 
   void toggleFullScreen() {
