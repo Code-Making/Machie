@@ -23,6 +23,7 @@ import '../project/project_models.dart';
 import '../project/services/project_service.dart';
 import '../utils/clipboard.dart';
 import '../utils/toast.dart';
+import '../editor/editor_tab_models.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
