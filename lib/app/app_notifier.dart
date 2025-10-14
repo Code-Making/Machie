@@ -230,7 +230,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }) async {
     await _updateState((s) async {
       if (s.currentProject != null) {
-        await closeProject();
+        // MODIFIED: Check the return value of closeProject.
+        final bool didClose = await closeProject();
+        if (!didClose) return s; // Abort if user cancelled.
+        s = state.value!; // Refresh state
       }
 
       final result = await _projectService.openFromFolder(
@@ -265,12 +268,14 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await saveAppState();
   }
 
-  /// Opens a project from the list of previously known projects.
+  // Opens a project from the list of previously known projects.
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
-        await closeProject();
+        // MODIFIED: Check the return value of closeProject.
+        final bool didClose = await closeProject();
+        if (!didClose) return s; // Abort if user cancelled.
         s = state.value!; // Refresh state after closing
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
@@ -301,9 +306,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   /// Closes the currently active project.
-  Future<void> closeProject() async {
+  Future<bool> closeProject() async {
     final projectToClose = state.value?.currentProject;
-    if (projectToClose == null) return;
+    if (projectToClose == null) return true; // Already closed.
 
     // --- GATEKEEPER INTEGRATION ---
     final allTabs = projectToClose.session.tabs;
@@ -317,20 +322,25 @@ class AppNotifier extends AsyncNotifier<AppState> {
         // Proceed without saving.
         break;
       case UnsavedChangesAction.cancel:
-        // Abort the entire operation.
-        return;
+        // MODIFIED: Abort and signal cancellation.
+        return false;
     }
     // --- END INTEGRATION ---
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
+
+    // ADDED: Signal success.
+    return true;
   }
 
   /// Removes a project from the "known projects" list.
   Future<void> removeKnownProject(String projectId) async {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) {
-        await closeProject();
+        // MODIFIED: Check the return value of closeProject.
+        final bool didClose = await closeProject();
+        if (!didClose) return s; // Abort if user cancelled.
         s = state.value!; // Refresh state after closing
       }
       return s.copyWith(
