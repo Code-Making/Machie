@@ -376,24 +376,19 @@ class EditorService {
     }
   }
 
-    Future<void> saveCurrentTab() async {
-    final project = _currentProject;
-    final tabToSave = _currentTab;
-    final editorState = tabToSave?.editorKey.currentState;
-    final metadata =
-        tabToSave != null ? _ref.read(tabMetadataProvider)[tabToSave.id] : null;
+  // NEW: A reusable method to save a specific tab.
+  Future<void> saveTab(Project project, EditorTab tabToSave) async {
+    final editorState = tabToSave.editorKey.currentState;
+    final metadata = _ref.read(tabMetadataProvider)[tabToSave.id];
 
-    if (project == null || tabToSave == null || editorState == null || metadata == null) {
+    if (editorState == null || metadata == null) {
       return;
     }
 
     try {
-      // 1. Get the content from the widget.
       final editorContent = await editorState.getContent();
-
       String newHash;
-      
-      // 2. Write the content to disk and generate the new hash.
+
       if (editorContent is EditorContentString) {
         await _repo.writeFile(metadata.file, editorContent.content);
         newHash = md5.convert(utf8.encode(editorContent.content)).toString();
@@ -404,20 +399,33 @@ class EditorService {
         throw Exception("Unknown EditorContent type");
       }
 
-      // 3. Mark the tab as clean in the global state.
       _ref.read(tabMetadataProvider.notifier).markClean(tabToSave.id);
-
-      // 4. Clear the hot state cache for this tab.
       await _ref
           .read(hotStateCacheServiceProvider)
           .clearTabState(project.id, tabToSave.id);
-
-      // 5. Notify the widget state of the successful save and provide the new hash.
       editorState.onSaveSuccess(newHash);
-
     } catch (e, st) {
-      _ref.read(talkerProvider).handle(e, st, "Failed to save tab: ${metadata.file.name}");
+      _ref.read(talkerProvider).handle(
+            e,
+            st,
+            "Failed to save tab: ${metadata.file.name}",
+          );
       MachineToast.error("Failed to save ${metadata.file.name}");
+    }
+  }
+
+  // NEW: A helper to save multiple tabs, used by the gatekeeper.
+  Future<void> saveTabs(Project project, List<EditorTab> tabsToSave) async {
+    final futures = tabsToSave.map((tab) => saveTab(project, tab));
+    await Future.wait(futures);
+  }
+
+  // REFACTORED: saveCurrentTab now uses the new generic saveTab method.
+  Future<void> saveCurrentTab() async {
+    final project = _currentProject;
+    final tab = _currentTab;
+    if (project != null && tab != null) {
+      await saveTab(project, tab);
     }
   }
 

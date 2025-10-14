@@ -821,7 +821,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     if (!(text.startsWith('import') || text.startsWith('export') || text.startsWith('part'))) {
       return textSpan;
     }
-    if (text.contains('package:')){
+    if (text.contains(':')){
       return textSpan;
     }
 

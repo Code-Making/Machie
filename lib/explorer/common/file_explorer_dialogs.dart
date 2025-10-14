@@ -1,6 +1,7 @@
 // lib/explorer/common/file_explorer_dialogs.dart
 import 'package:flutter/material.dart';
 import '../../editor/plugins/plugin_models.dart';
+import '../../editor/tab_state_manager.dart'; // <-- ADD THIS IMPORT
 
 //TODO : check dependency
 
@@ -118,6 +119,66 @@ Future<CacheConflictResolution?> showCacheConflictDialog(
           onPressed: () =>
               Navigator.pop(ctx, CacheConflictResolution.loadCache),
           child: const Text('Load Unsaved Changes'),
+        ),
+      ],
+    ),
+  );
+}
+
+
+// NEW: An enum to represent the user's choice in the unsaved changes dialog.
+enum UnsavedChangesAction {
+  save,
+  discard,
+  cancel,
+}
+
+// NEW: A dialog for handling unsaved changes.
+Future<UnsavedChangesAction?> showUnsavedChangesDialog(
+  BuildContext context, {
+  required List<TabMetadata> dirtyFiles,
+}) async {
+  final fileNames = dirtyFiles.map((e) => e.file.name).join('\n');
+
+  return await showDialog<UnsavedChangesAction>(
+    context: context,
+    barrierDismissible: false, // User must make an explicit choice.
+    builder: (ctx) => AlertDialog(
+      title: const Text('Unsaved Changes'),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: <Widget>[
+            Text(
+              'Do you want to save the changes you made to the following ${dirtyFiles.length} file(s)?',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(4.0),
+              ),
+              constraints: const BoxConstraints(maxHeight: 150),
+              child: SingleChildScrollView(child: Text(fileNames)),
+            ),
+            const SizedBox(height: 8),
+            const Text("Your changes will be lost if you don't save them."),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.of(ctx).pop(UnsavedChangesAction.cancel),
+        ),
+        TextButton(
+          child: const Text('Discard'),
+          onPressed: () =>
+              Navigator.of(ctx).pop(UnsavedChangesAction.discard),
+        ),
+        FilledButton(
+          child: const Text('Save All'),
+          onPressed: () => Navigator.of(ctx).pop(UnsavedChangesAction.save),
         ),
       ],
     ),
