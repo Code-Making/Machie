@@ -274,8 +274,12 @@ class CodeEditorPlugin extends EditorPlugin {
       canExecute: (ref) {
         final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
         if (currentTabId == null) return false;
+        
         final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
-        return metadata?.isDirty ?? false;
+        if (metadata == null) return false;
+
+        // THE FIX: The command can only execute if the tab is dirty AND it's not a virtual file.
+        return metadata.isDirty && metadata.file is! VirtualDocumentFile;
       },
     ),
     _createCommand(
