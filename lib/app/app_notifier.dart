@@ -196,29 +196,27 @@ class AppNotifier extends AsyncNotifier<AppState> {
     List<EditorTab> tabsToCheck,
   ) async {
     final metadataMap = ref.read(tabMetadataProvider);
+
+    // THE FIX: Filter out any tabs that are associated with a VirtualDocumentFile.
     final dirtyTabsMetadata = tabsToCheck
         .map((tab) => metadataMap[tab.id])
         .whereNotNull()
-        .where((metadata) => metadata.isDirty)
+        .where((metadata) => metadata.isDirty && metadata.file is! VirtualDocumentFile)
         .toList();
 
     if (dirtyTabsMetadata.isEmpty) {
-      // No dirty tabs, so we can proceed without saving.
+      // No dirty (and non-virtual) tabs, so we can proceed without saving.
       return UnsavedChangesAction.discard;
     }
 
     final context = ref.read(navigatorKeyProvider).currentContext;
     if (context == null || !context.mounted) {
-      // If there's no UI, we can't ask the user. Cancel the action to be safe.
       _talker.warning(
         'Cannot prompt to save dirty tabs: No valid BuildContext.',
       );
       return UnsavedChangesAction.cancel;
     }
 
-    // Show the dialog and return the user's choice.
-    // If the user dismisses the dialog somehow (which barrierDismissible=false should prevent),
-    // we default to cancelling the action.
     return await showUnsavedChangesDialog(context, dirtyFiles: dirtyTabsMetadata) ??
         UnsavedChangesAction.cancel;
   }

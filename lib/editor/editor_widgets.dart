@@ -10,6 +10,7 @@ import 'package:re_editor/re_editor.dart';
 import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_manager.dart';
+import '../project/project_models.dart'; // <-- ADD THIS IMPORT
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
@@ -104,6 +105,18 @@ class TabWidget extends ConsumerWidget {
 
     final isDirty = metadata.isDirty;
     final title = metadata.title;
+    final isVirtual = metadata.file is VirtualDocumentFile;
+    final Color textColor;
+    if (isVirtual) {
+      // Virtual files get a special color (e.g., cyan) regardless of dirty state.
+      textColor = Colors.cyan.shade300;
+    } else if (isDirty) {
+      // Dirty real files are orange.
+      textColor = Colors.orange.shade300;
+    } else {
+      // Clean real files are the default color.
+      textColor = Colors.white70;
+    }
 
     return Material(
       color: Colors.transparent,
@@ -152,7 +165,7 @@ class TabWidget extends ConsumerWidget {
                   softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isDirty ? Colors.orange.shade300 : Colors.white70,
+                    color: textColor,
                   ),
                 ),
               ),
