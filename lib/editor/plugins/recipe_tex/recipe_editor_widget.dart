@@ -349,20 +349,20 @@ RecipeData _buildDataFromControllers() {
 Widget _buildHeaderSection() {
     return Column(
       children: [
-        TextFormField(controller: _title.$1, focusNode: _title.$2, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
+        TextFormField(controller: _titleController, focusNode: _titleFocusNode, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _acidRefluxScore.$1, focusNode: _acidRefluxScore.$2, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _acidRefluxScoreController, focusNode: _acidRefluxScoreFocusNode, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _acidRefluxReason.$1, focusNode: _acidRefluxReason.$2, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _acidRefluxReasonController, focusNode: _acidRefluxReasonFocusNode, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _prepTime.$1, focusNode: _prepTime.$2, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _prepTimeController, focusNode: _prepTimeFocusNode, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _cookTime.$1, focusNode: _cookTime.$2, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _cookTimeController, focusNode: _cookTimeFocusNode, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _portions.$1, focusNode: _portions.$2, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _portionsController, focusNode: _portionsFocusNode, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
         ]),
       ],
     );
@@ -387,11 +387,11 @@ Widget _buildHeaderSection() {
     return Row(key: ValueKey('ingredient_$index'), children: [
       const Icon(Icons.drag_handle, color: Colors.grey),
       const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: fields[0].$1, focusNode: fields[0].$2, decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 50, child: TextFormField(controller: fields[0]Controller, focusNode: fields[0]FocusNode, decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: fields[1].$1, focusNode: fields[1].$2, decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 70, child: TextFormField(controller: fields[1]Controller, focusNode: fields[1]FocusNode, decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: fields[2].$1, focusNode: fields[2].$2, decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
+      Expanded(child: TextFormField(controller: fields[2]Controller, focusNode: fields[2]FocusNode, decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
     ]);
   }
@@ -407,12 +407,12 @@ Widget _buildHeaderSection() {
   Widget _buildInstructionItem(int index) {
     final fields = _instructionFields[index];
     return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-      TextFormField(controller: fields[0].$1, focusNode: fields[0].$2, decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
-      TextFormField(controller: fields[1].$1, focusNode: fields[1].$2, decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: fields[0]Controller, focusNode: fields[0]FocusNode, decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: fields[1]Controller, focusNode: fields[1]FocusNode, decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
       const Divider(),
     ]);
   }
 
-  Widget _buildNotesSection() => TextFormField(controller: _notes.$1, focusNode: _notes.$2, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
+  Widget _buildNotesSection() => TextFormField(controller: _notesController, focusNode: _notesFocusNode, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
 }
