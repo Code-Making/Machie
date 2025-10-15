@@ -15,6 +15,8 @@ import '../data/dto/tab_hot_state_dto.dart';
 import 'plugins/plugin_models.dart';
 import 'tab_state_manager.dart';
 
+export '../data/dto/tab_hot_state_dto.dart';
+
 @immutable
 class TabSessionState {
   final List<EditorTab> tabs;
