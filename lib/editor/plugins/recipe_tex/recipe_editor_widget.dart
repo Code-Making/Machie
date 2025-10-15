@@ -61,6 +61,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   // --- TRANSACTION & DEBOUNCING STATE ---
   RecipeData? _dataOnFocus;
   Timer? _cacheDebounceTimer;
+  Timer? _typingUndoDebounce;
+
 
   @override
   void initState() {
@@ -89,6 +91,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   @override
   void dispose() {
     _cacheDebounceTimer?.cancel();
+    _typingUndoDebounce?.cancel(); // Dispose the new timer
     _disposeControllersAndFocusNodes();
     super.dispose();
   }
@@ -284,6 +287,7 @@ RecipeData _buildDataFromControllers() {
   }
 
   void _commitPendingUndo() {
+    _typingUndoDebounce?.cancel();
     if (_dataOnFocus != null) {
       final dataOnBlur = _buildDataFromControllers();
       if (!const DeepCollectionEquality().equals(_dataOnFocus, dataOnBlur)) {
@@ -307,8 +311,12 @@ RecipeData _buildDataFromControllers() {
   }
 
   void _onFieldChanged() {
-    // Keystrokes ONLY trigger caching. Undo is handled by focus changes.
     _checkIfDirtyAndCache();
+
+    _typingUndoDebounce?.cancel();
+    _typingUndoDebounce = Timer(const Duration(milliseconds: 1500), () {
+      _commitPendingUndo();
+    });
   }
 
   // --- STRUCTURAL CHANGE METHODS ---
