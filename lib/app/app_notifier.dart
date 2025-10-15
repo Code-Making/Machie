@@ -410,7 +410,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     switch (action) {
       case UnsavedChangesAction.save:
         await _editorService.saveTab(project, tabToClose);
-        WidgetsBinding.instance.scheduleFrame();
         // After saving, fall through to the close logic.
         break;
       case UnsavedChangesAction.discard:
@@ -431,6 +430,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (newIndex != -1) {
       final newProject = _editorService.closeTab(currentProject, newIndex);
       updateCurrentProject(newProject);
+      WidgetsBinding.instance.scheduleFrame();
     }
   }
 
