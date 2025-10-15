@@ -58,18 +58,15 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
     
-    // 1. The "original" data is always what's parsed from disk.
     _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
 
-    // 2. If hot state (cached data) exists, handle it correctly.
     if (hotStateData != null) {
-      // a. Push the clean, on-disk version to the undo stack.
-      //    This allows the user to "undo" back to the saved state.
+      // Correctly handle cache hydration:
+      // 1. Push the on-disk state as the first undo step.
       _undoStack.add(_initialData);
-      // b. The form should be initialized with the cached data.
+      // 2. Initialize the form with the cached data.
       _initializeControllers(hotStateData);
     } else {
-      // No cache, just initialize the form with the clean data.
       _initializeControllers(_initialData);
     }
     
@@ -225,6 +222,35 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     }
   }
   
+    /// This is called on every keystroke in a text field.
+  void _onFieldChanged() {
+    // If this is the first keystroke of a new "session", push the state BEFORE this change.
+    if (!_isTypingSessionActive) {
+      _pushUndoState();
+      _isTypingSessionActive = true;
+    }
+    
+    // Reset the timer that will end the typing session.
+    _typingSessionTimer?.cancel();
+    _typingSessionTimer = Timer(const Duration(milliseconds: 1500), () {
+      _isTypingSessionActive = false;
+    });
+
+    // Always trigger the debounced dirty check and cache update.
+    _checkIfDirtyAndCache();
+  }
+
+  /// Ends an active typing session and pushes an undo state if necessary.
+  /// Called before any structural change to ensure text edits are saved.
+  void _endTypingSessionAndPushUndo() {
+    _typingSessionTimer?.cancel();
+    if (_isTypingSessionActive) {
+      // The session was active, but we don't need to push again,
+      // as the initial push already happened. Just reset the flag.
+      _isTypingSessionActive = false;
+    }
+  }
+
   void _checkIfDirtyAndCache() {
     _cacheDebounceTimer?.cancel();
     _cacheDebounceTimer = Timer(const Duration(milliseconds: 750), () {
@@ -236,11 +262,6 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
         ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
       }
     });
-  }
-
-  void _onFieldChanged() {
-    // This is called on every keystroke. It just triggers the debounced cache.
-    _checkIfDirtyAndCache();
   }
 
   // --- STRUCTURAL CHANGE METHODS ---

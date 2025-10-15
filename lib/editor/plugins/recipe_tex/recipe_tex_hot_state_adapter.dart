@@ -1,5 +1,5 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/recipe_tex/recipe_tex_hot_state_adapter.dart
+// UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_hot_state_adapter.dart
 // =========================================
 import '../../../data/cache/type_adapters.dart';
 import 'recipe_tex_hot_state.dart';
@@ -12,8 +12,14 @@ class RecipeTexHotStateAdapter implements TypeAdapter<RecipeTexHotStateDto> {
 
   @override
   RecipeTexHotStateDto fromJson(Map<String, dynamic> json) {
+    // THE FIX:
+    // The value of json[_dataKey] is a Map<dynamic, dynamic> from Hive.
+    // We must explicitly create a new Map<String, dynamic> from it before
+    // passing it to RecipeData.fromJson.
+    final dataMap = Map<String, dynamic>.from(json[_dataKey]);
+
     return RecipeTexHotStateDto(
-      data: RecipeData.fromJson(json[_dataKey] as Map<String, dynamic>),
+      data: RecipeData.fromJson(dataMap),
       baseContentHash: json[_hashKey] as String?,
     );
   }
