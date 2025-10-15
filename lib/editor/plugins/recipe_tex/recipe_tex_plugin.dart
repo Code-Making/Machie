@@ -168,7 +168,7 @@ class RecipeTexPlugin extends EditorPlugin {
     ),
   ];
 
-  static String _generateTexContent(RecipeData data) {
+  static String generateTexContent(RecipeData data) {
     final buffer = StringBuffer();
     buffer.writeln('\\recipe[${data.image}]{');
     buffer.writeln('\\recipetitle{${data.title}}');
@@ -194,7 +194,7 @@ class RecipeTexPlugin extends EditorPlugin {
     return buffer.toString();
   }
   
-  static RecipeData _parseRecipeContent(String content) {
+  static RecipeData parseRecipeContent(String content) {
     final recipeData = RecipeData();
     final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n', dotAll: true).firstMatch(content);
     if (recipeMatch != null) {
