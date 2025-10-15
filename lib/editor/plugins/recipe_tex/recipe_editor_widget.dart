@@ -56,6 +56,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   List<List<FocusNode>> _ingredientFocusNodes = [];
   List<List<FocusNode>> _instructionFocusNodes = [];
 
+  bool _isInitialized = false;
+
   // --- TRANSACTION & DEBOUNCING STATE ---
   RecipeData? _dataOnFocus;
   Timer? _cacheDebounceTimer;
@@ -155,6 +157,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       nodes[1].addListener(() => _handleFocusChange(nodes[1].hasFocus));
       _instructionFocusNodes.add(nodes);
     }
+    _isInitialized = true;
   }
   
 RecipeData _buildDataFromControllers() {
