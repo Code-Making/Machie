@@ -885,8 +885,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
             decoration: TextDecoration.underline,
             //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
           ),
-          recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
-        ));
+          recognizer: TapGestureRecognizer()..onTap = () {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _onImportTap(linkText);
+              }
+            });
+          },
+                  ));
       }
       if (afterText.isNotEmpty) newChildren.add(TextSpan(text: afterText, style: span.style));
 
