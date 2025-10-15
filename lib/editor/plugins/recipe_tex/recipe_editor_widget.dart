@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../editor_tab_models.dart';
+import '../editor_command_context.dart''
 import '../../services/editor_service.dart';
 import 'recipe_tex_command_context.dart';
 import 'recipe_tex_hot_state.dart';
