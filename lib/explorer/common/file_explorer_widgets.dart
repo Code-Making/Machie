@@ -61,9 +61,14 @@ bool _isDropAllowed(
 ) {
   if (!targetFolder.isDirectory) return false;
   if (draggedFile.uri == targetFolder.uri) return false;
+  // This check prevents dropping a folder into one of its own descendants.
   if (targetFolder.uri.startsWith(draggedFile.uri)) return false;
-  final parentUri = fileHandler.getParentUri(draggedFile.uri);
-  if (parentUri == targetFolder.uri) return false;
+
+  // THE FIX: The check to prevent dropping into the same parent is REMOVED.
+  // We will now allow this drop and handle it in the `onAccept` callback.
+  // final parentUri = fileHandler.getParentUri(draggedFile.uri);
+  // if (parentUri == targetFolder.uri) return false;
+
   return true;
 }
 
@@ -222,9 +227,18 @@ class RootDropZone extends ConsumerWidget {
         fileHandler,
       ),
       onAcceptWithDetails: (details) {
-        ref
-            .read(explorerServiceProvider)
-            .moveItem(details.data, RootPlaceholder(projectRootUri));
+        final draggedFile = details.data;
+        final targetFolder = RootPlaceholder(projectRootUri);
+        final parentUri = fileHandler.getParentUri(draggedFile.uri);
+
+        // Check if the file is already in the target folder.
+        if (parentUri == targetFolder.uri) {
+          // This is a no-op drop, so show the context menu.
+          showFileContextMenu(context, ref, draggedFile);
+        } else {
+          // This is a real move, so execute it.
+          ref.read(explorerServiceProvider).moveItem(draggedFile, targetFolder);
+        }
       },
     );
   }
@@ -400,7 +414,18 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
         return isAllowed;
       },
       onAcceptWithDetails: (details) {
-        ref.read(explorerServiceProvider).moveItem(details.data, widget.item);
+        final draggedFile = details.data;
+        final targetFolder = widget.item;
+        final parentUri = fileHandler.getParentUri(draggedFile.uri);
+
+        // Check if the file is already in the target folder.
+        if (parentUri == targetFolder.uri) {
+          // This is a no-op drop, so show the context menu.
+          showFileContextMenu(context, ref, draggedFile);
+        } else {
+          // This is a real move, so execute it.
+          ref.read(explorerServiceProvider).moveItem(draggedFile, targetFolder);
+        }
         setState(() { _isHoveredByDraggable = false; });
       },
       onLeave: (details) {

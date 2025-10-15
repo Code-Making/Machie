@@ -365,6 +365,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     switch (result) {
       case OpenFileSuccess(project: final newProject):
         updateCurrentProject(newProject);
+        WidgetsBinding.instance.scheduleFrame();
         return true;
 
       case OpenFileShowChooser(plugins: final plugins):
@@ -409,6 +410,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     switch (action) {
       case UnsavedChangesAction.save:
         await _editorService.saveTab(project, tabToClose);
+        WidgetsBinding.instance.scheduleFrame();
         // After saving, fall through to the close logic.
         break;
       case UnsavedChangesAction.discard:
