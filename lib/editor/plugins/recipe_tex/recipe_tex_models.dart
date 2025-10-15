@@ -112,21 +112,22 @@ class RecipeData {
 
   factory RecipeData.fromJson(Map<String, dynamic> json) {
     return RecipeData(
-      title: json['title'] as String,
-      acidRefluxScore: json['acidRefluxScore'] as int,
-      acidRefluxReason: json['acidRefluxReason'] as String,
-      prepTime: json['prepTime'] as String,
-      cookTime: json['cookTime'] as String,
-      portions: json['portions'] as String,
-      image: json['image'] as String,
-      ingredients: (json['ingredients'] as List)
-          .map((i) => Ingredient.fromJson(i as Map<String, dynamic>))
+      title: json['title'] as String? ?? '',
+      acidRefluxScore: json['acidRefluxScore'] as int? ?? 1,
+      acidRefluxReason: json['acidRefluxReason'] as String? ?? '',
+      prepTime: json['prepTime'] as String? ?? '',
+      cookTime: json['cookTime'] as String? ?? '',
+      portions: json['portions'] as String? ?? '',
+      image: json['image'] as String? ?? '',
+      ingredients: (json['ingredients'] as List? ?? [])
+          .map((i) => Ingredient.fromJson(Map<String, dynamic>.from(i)))
           .toList(),
-      instructions: (json['instructions'] as List)
-          .map((i) => InstructionStep.fromJson(i as Map<String, dynamic>))
+      instructions: (json['instructions'] as List? ?? [])
+          .map((i) => InstructionStep.fromJson(Map<String, dynamic>.from(i)))
           .toList(),
-      notes: json['notes'] as String,
-      rawImagesSection: json['rawImagesSection'] as String,
+      
+      notes: json['notes'] as String? ?? '',
+      rawImagesSection: json['rawImagesSection'] as String? ?? '',
     );
   }
 
