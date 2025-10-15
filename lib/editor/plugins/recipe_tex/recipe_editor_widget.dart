@@ -1,5 +1,5 @@
-// = "=======================================
-// UPDATED: lib/editor/plugins/recipe_tex/recipe_editor_widget.dart
+// =========================================
+// FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_editor_widget.dart
 // =========================================
 import 'dart:async';
 import 'package:collection/collection.dart';
@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_notifier.dart'; // Needed for project access
 import '../../editor_tab_models.dart';
 import '../editor_command_context.dart';
 import '../../services/editor_service.dart';
@@ -27,11 +28,13 @@ class RecipeEditorWidget extends EditorWidget {
 
 class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   // --- STATE ---
+  // The "clean" state loaded from disk. This is our baseline for checking dirtiness.
   late RecipeData _initialData;
   String? _baseContentHash;
   List<RecipeData> _undoStack = [];
   List<RecipeData> _redoStack = [];
 
+  // Controllers are the single source of truth for the UI state.
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _acidRefluxScoreController;
@@ -42,7 +45,10 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   late TextEditingController _notesController;
   List<List<TextEditingController>> _ingredientControllers = [];
   List<List<TextEditingController>> _instructionControllers = [];
-  Timer? _debounceTimer;
+  
+  // Timers for debouncing expensive operations.
+  Timer? _cacheDebounceTimer;
+  Timer? _undoDebounceTimer;
 
   @override
   void initState() {
@@ -51,11 +57,22 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
 
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
-
+    
+    // 1. The "original" data is always what's parsed from disk.
     _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
-    final dataForForm = hotStateData ?? _initialData;
-    _initializeControllers(dataForForm);
 
+    // 2. If hot state (cached data) exists, handle it correctly.
+    if (hotStateData != null) {
+      // a. Push the clean, on-disk version to the undo stack.
+      //    This allows the user to "undo" back to the saved state.
+      _undoStack.add(_initialData);
+      // b. The form should be initialized with the cached data.
+      _initializeControllers(hotStateData);
+    } else {
+      // No cache, just initialize the form with the clean data.
+      _initializeControllers(_initialData);
+    }
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _checkIfDirty();
@@ -66,7 +83,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
+    _cacheDebounceTimer?.cancel();
+    _undoDebounceTimer?.cancel();
     _disposeControllers();
     super.dispose();
   }
@@ -84,8 +102,6 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   }
 
   void _initializeControllers(RecipeData data) {
-    // No need to call _disposeControllers here, as undo/redo will
-    // create new state and trigger a full rebuild anyway.
     _titleController = TextEditingController(text: data.title);
     _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
     _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
@@ -106,7 +122,6 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   }
   
   RecipeData _buildDataFromControllers() {
-    // This is unchanged and correct.
     return RecipeData(
       title: _titleController.text,
       acidRefluxScore: (int.tryParse(_acidRefluxScoreController.text) ?? 1).clamp(0, 5),
@@ -135,7 +150,10 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   void _pushUndoState() {
     _undoStack.add(_buildDataFromControllers());
     if (_undoStack.length > 50) _undoStack.removeAt(0);
+    // Any new action clears the redo stack.
     _redoStack.clear();
+    // After pushing, sync the command context to enable/disable UI buttons.
+    syncCommandContext();
   }
 
   @override
@@ -144,12 +162,11 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _redoStack.add(_buildDataFromControllers());
     
     final previousState = _undoStack.removeLast();
-    // This setState will cause a rebuild, and build() will use the new controllers.
     setState(() {
       _initializeControllers(previousState);
     });
     
-    _checkIfDirty();
+    _checkIfDirtyAndCache();
     syncCommandContext();
   }
 
@@ -163,7 +180,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       _initializeControllers(nextState);
     });
 
-    _checkIfDirty();
+    _checkIfDirtyAndCache();
     syncCommandContext();
   }
 
@@ -208,16 +225,26 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     }
   }
   
-  void _onFieldChanged() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+  void _checkIfDirtyAndCache() {
+    _cacheDebounceTimer?.cancel();
+    _cacheDebounceTimer = Timer(const Duration(milliseconds: 750), () {
       if (!mounted) return;
       _checkIfDirty();
-      // No need to call syncCommandContext here, as text changes don't affect undo/redo.
+      
+      final project = ref.read(appNotifierProvider).value?.currentProject;
+      if (project != null) {
+        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+      }
     });
   }
 
+  void _onFieldChanged() {
+    // This is called on every keystroke. It just triggers the debounced cache.
+    _checkIfDirtyAndCache();
+  }
+
   // --- STRUCTURAL CHANGE METHODS ---
+  // These now correctly push the "before" state to the undo stack.
 
   void addIngredient() {
     _pushUndoState();
@@ -226,8 +253,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
         TextEditingController(), TextEditingController(), TextEditingController()
       ]);
     });
-    _checkIfDirty();
-    syncCommandContext();
+    _checkIfDirtyAndCache();
   }
 
   void removeIngredient(int index) {
@@ -236,8 +262,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       final removed = _ingredientControllers.removeAt(index);
       removed.forEach((c) => c.dispose());
     });
-    _checkIfDirty();
-    syncCommandContext();
+    _checkIfDirtyAndCache();
   }
   
   void reorderIngredient(int oldIndex, int newIndex) {
@@ -247,8 +272,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       final item = _ingredientControllers.removeAt(oldIndex);
       _ingredientControllers.insert(newIndex, item);
     });
-    _checkIfDirty();
-    syncCommandContext();
+    _checkIfDirtyAndCache();
   }
 
   void addInstruction() {
@@ -256,8 +280,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     setState(() {
        _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
     });
-    _checkIfDirty();
-    syncCommandContext();
+    _checkIfDirtyAndCache();
   }
 
   void removeInstruction(int index) {
@@ -266,11 +289,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       final removed = _instructionControllers.removeAt(index);
       removed.forEach((c) => c.dispose());
     });
-    _checkIfDirty();
-    syncCommandContext();
+    _checkIfDirtyAndCache();
   }
-
-  // --- UI BUILDER METHODS ---
 
   @override
   Widget build(BuildContext context) {
