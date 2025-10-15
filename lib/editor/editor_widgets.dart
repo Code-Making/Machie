@@ -109,7 +109,7 @@ class TabWidget extends ConsumerWidget {
     final Color textColor;
     if (isVirtual) {
       // Virtual files get a special color (e.g., cyan) regardless of dirty state.
-      textColor = Colors.lime.shade300;
+      textColor = Colors.cyan.shade300;
     } else if (isDirty) {
       // Dirty real files are orange.
       textColor = Colors.orange.shade300;
@@ -142,9 +142,14 @@ class TabWidget extends ConsumerWidget {
             children: [
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap:
-                    () =>
-                        ref.read(appNotifierProvider.notifier).closeTab(index),
+                onTap: () {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    // Ensure the widget is still in the tree when the callback runs.
+                    if (context.mounted) {
+                      ref.read(appNotifierProvider.notifier).closeTab(index);
+                    }
+                  });
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8.0,
