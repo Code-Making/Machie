@@ -284,9 +284,9 @@ Widget _buildHeaderSection() {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: data.ingredients.length,
         itemBuilder: (context, index) => _buildIngredientRow(index),
-        onReorder: (oldI, newI) => widget.plugin.reorderIngredient(widget.tab, oldI, newI, ref),
+        onReorder: (oldI, newI) => reorderIngredient(widget.tab, oldI, newI, ref),
       ),
-      ElevatedButton(onPressed: () => widget.plugin.addIngredient(widget.tab, ref), child: const Text('Add Ingredient')),
+      ElevatedButton(onPressed: () => addIngredient(widget.tab, ref), child: const Text('Add Ingredient')),
     ]);
   }
 
@@ -300,7 +300,7 @@ Widget _buildHeaderSection() {
       SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (v) => _updateData((d) => d..ingredients[index].unit = v))),
       const SizedBox(width: 8),
       Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (v) => _updateData((d) => d..ingredients[index].name = v))),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => widget.plugin.removeIngredient(widget.tab, index, ref)),
+      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(widget.tab, index, ref)),
     ]);
   }
 
@@ -308,7 +308,7 @@ Widget _buildHeaderSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
       ...data.instructions.asMap().entries.map((entry) => _buildInstructionItem(entry.key)),
-      ElevatedButton(onPressed: () => widget.plugin.addInstruction(widget.tab, ref), child: const Text('Add Instruction')),
+      ElevatedButton(onPressed: () => addInstruction(widget.tab, ref), child: const Text('Add Instruction')),
     ]);
   }
 
@@ -317,7 +317,7 @@ Widget _buildHeaderSection() {
     return Column(key: ValueKey('instruction_$index'), children: [
       TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (v) => _updateData((d) => d..instructions[index].title = v)),
       TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (v) => _updateData((d) => d..instructions[index].content = v)),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => widget.plugin.removeInstruction(widget.tab, index, ref)),
+      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(widget.tab, index, ref)),
       const Divider(),
     ]);
   }
