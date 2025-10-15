@@ -42,6 +42,14 @@ class InstructionStep {
       InstructionStep(json['title'] as String, json['content'] as String);
 
   Map<String, dynamic> toJson() => {'title': title, 'content': content};
+
+  // ADDED: copyWith method for immutable updates.
+  InstructionStep copyWith({String? title, String? content}) {
+    return InstructionStep(
+      title ?? this.title,
+      content ?? this.content,
+    );
+  }
 }
 
 @immutable
@@ -63,6 +71,15 @@ class Ingredient {
         'unit': unit,
         'name': name,
       };
+
+  // ADDED: copyWith method for immutable updates.
+  Ingredient copyWith({String? quantity, String? unit, String? name}) {
+    return Ingredient(
+      quantity ?? this.quantity,
+      unit ?? this.unit,
+      name ?? this.name,
+    );
+  }
 }
 
 @immutable
