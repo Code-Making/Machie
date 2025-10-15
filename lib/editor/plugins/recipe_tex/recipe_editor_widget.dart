@@ -92,6 +92,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   }
 
   void _disposeControllersAndFocusNodes() {
+    if (!_isInitialized) return;
+
     _titleController.dispose(); _titleFocusNode.dispose();
     _acidRefluxScoreController.dispose(); _acidRefluxScoreFocusNode.dispose();
     _acidRefluxReasonController.dispose(); _acidRefluxReasonFocusNode.dispose();
@@ -106,7 +108,9 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   }
 
   void _initializeControllersAndFocusNodes(RecipeData data) {
-    _disposeControllersAndFocusNodes();
+    if (_isInitialized) {
+      _disposeControllersAndFocusNodes();
+    }
 
     _titleController = TextEditingController(text: data.title);
     _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode.hasFocus));
