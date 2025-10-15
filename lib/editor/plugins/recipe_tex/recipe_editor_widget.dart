@@ -246,15 +246,9 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     );
   }
 
-  // Helper build methods are unchanged, except for how they call mutation methods.
-  // Example for add ingredient button:
-  // ElevatedButton(onPressed: addIngredient, child: const Text('Add Ingredient')),
-  // Example for reorder:
-  // onReorder: reorderIngredient,
-  // Example for text field:
-  // onChanged: (value) => _updateData((d) => d.copyWith(title: value))
-  // ... (The rest of the widget build logic is identical but calls local methods) ...
-Widget _buildHeaderSection() {
+  // --- UI BUILDER METHODS ---
+
+  Widget _buildHeaderSection() {
     return Column(
       children: [
         TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (value) => _updateData((d) => d.copyWith(title: value))),
@@ -276,17 +270,17 @@ Widget _buildHeaderSection() {
     );
   }
 
-  Widget _buildIngredientsSection(RecipeData data) {
+  Widget _buildIngredientsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
       ReorderableListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: data.ingredients.length,
+        itemCount: _data.ingredients.length,
         itemBuilder: (context, index) => _buildIngredientRow(index),
-        onReorder: (oldI, newI) => reorderIngredient(widget.tab, oldI, newI, ref),
+        onReorder: reorderIngredient,
       ),
-      ElevatedButton(onPressed: () => addIngredient(widget.tab, ref), child: const Text('Add Ingredient')),
+      ElevatedButton(onPressed: addIngredient, child: const Text('Add Ingredient')),
     ]);
   }
 
@@ -295,29 +289,49 @@ Widget _buildHeaderSection() {
     return Row(key: ValueKey('ingredient_$index'), children: [
       const Icon(Icons.drag_handle, color: Colors.grey),
       const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: controllers[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (v) => _updateData((d) => d..ingredients[index].quantity = v))),
+      SizedBox(width: 50, child: TextFormField(controller: controllers[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (v) => _updateData((d) {
+        final newItems = List<Ingredient>.from(d.ingredients);
+        newItems[index] = newItems[index].copyWith(quantity: v);
+        return d.copyWith(ingredients: newItems);
+      }))),
       const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (v) => _updateData((d) => d..ingredients[index].unit = v))),
+      SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (v) => _updateData((d) {
+        final newItems = List<Ingredient>.from(d.ingredients);
+        newItems[index] = newItems[index].copyWith(unit: v);
+        return d.copyWith(ingredients: newItems);
+      }))),
       const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (v) => _updateData((d) => d..ingredients[index].name = v))),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(widget.tab, index, ref)),
+      Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (v) => _updateData((d) {
+        final newItems = List<Ingredient>.from(d.ingredients);
+        newItems[index] = newItems[index].copyWith(name: v);
+        return d.copyWith(ingredients: newItems);
+      }))),
+      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
     ]);
   }
 
-  Widget _buildInstructionsSection(RecipeData data) {
+  Widget _buildInstructionsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
-      ...data.instructions.asMap().entries.map((entry) => _buildInstructionItem(entry.key)),
-      ElevatedButton(onPressed: () => addInstruction(widget.tab, ref), child: const Text('Add Instruction')),
+      ..._data.instructions.asMap().entries.map((entry) => _buildInstructionItem(entry.key)),
+      ElevatedButton(onPressed: addInstruction, child: const Text('Add Instruction')),
     ]);
   }
 
   Widget _buildInstructionItem(int index) {
     final controllers = _instructionControllers[index];
-    return Column(key: ValueKey('instruction_$index'), children: [
-      TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (v) => _updateData((d) => d..instructions[index].title = v)),
-      TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (v) => _updateData((d) => d..instructions[index].content = v)),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(widget.tab, index, ref)),
+    return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
+      TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (v) => _updateData((d) {
+        final newItems = List<InstructionStep>.from(d.instructions);
+        newItems[index] = newItems[index].copyWith(title: v);
+        return d.copyWith(instructions: newItems);
+      })),
+      TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (v) => _updateData((d) {
+        final newItems = List<InstructionStep>.from(d.instructions);
+        newItems[index] = newItems[index].copyWith(content: v);
+        return d.copyWith(instructions: newItems);
+      })),
+      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
       const Divider(),
     ]);
   }
