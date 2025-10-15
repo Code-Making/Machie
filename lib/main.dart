@@ -140,6 +140,14 @@ void main() {
 
   runZonedGuarded(
     () {
+      FlutterError.onError = (details) {
+        talker.handle(
+          details.exception,
+          details.stack,
+          'Flutter framework error',
+        );
+      };    
+    
       runApp(
         ProviderScope(
           overrides: [talkerProvider.overrideWithValue(talker)],
