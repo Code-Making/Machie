@@ -143,12 +143,8 @@ class TabWidget extends ConsumerWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    // Ensure the widget is still in the tree when the callback runs.
                     if (context.mounted) {
                       ref.read(appNotifierProvider.notifier).closeTab(index);
-                    }
-                  });
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(

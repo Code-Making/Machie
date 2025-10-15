@@ -353,6 +353,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
   }) async {
+    await Future.delayed(Duration.zero);
     final project = state.value?.currentProject;
     if (project == null) return false;
 
@@ -399,6 +400,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   }
 
   void closeTab(int index) async {
+    await Future.delayed(Duration.zero);
     final project = state.value?.currentProject;
     if (project == null) return;
 
