@@ -159,12 +159,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         syncCommandContext();
         if (widget.tab.cachedContent != null) {
           controller.text = widget.tab.cachedContent!;
         }
       }
+    });
   }
   
   @override
@@ -884,13 +886,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
             //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
           ),
           recognizer: TapGestureRecognizer()..onTap = () {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
                 _onImportTap(linkText);
-              }
-            });
           },
-                  ));
+          ));
       }
       if (afterText.isNotEmpty) newChildren.add(TextSpan(text: afterText, style: span.style));
 
