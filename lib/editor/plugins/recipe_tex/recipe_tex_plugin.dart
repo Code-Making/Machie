@@ -168,7 +168,9 @@ class RecipeTexPlugin extends EditorPlugin {
     ),
   ];
 
+  // These parsing/generation functions are now static as they don't depend on instance state.
   static String generateTexContent(RecipeData data) {
+     // ... (generation logic is unchanged, just moved)
     final buffer = StringBuffer();
     buffer.writeln('\\recipe[${data.image}]{');
     buffer.writeln('\\recipetitle{${data.title}}');
@@ -194,42 +196,105 @@ class RecipeTexPlugin extends EditorPlugin {
     return buffer.toString();
   }
   
-  static RecipeData parseRecipeContent(String content) {
+static RecipeData parseRecipeContent(String content) {
     final recipeData = RecipeData();
-    final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n', dotAll: true).firstMatch(content);
+
+    // 1. Main Regex: Captures the 6 major sections of the \recipe command.
+    final recipeMatch = RegExp(
+      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}', 
+      dotAll: true // Allows '.' to match newlines
+    ).firstMatch(content);
+
     if (recipeMatch != null) {
+      // Extract data from the captured groups
       recipeData.image = recipeMatch.group(1) ?? '';
-      recipeData.portions = _extractCommandContent(recipeMatch.group(3)!, r'portion') ?? '';
-      final headerContent = recipeMatch.group(2)!;
+      
+      final headerContent = recipeMatch.group(2) ?? '';
+      final portionsContent = recipeMatch.group(3) ?? '';
+      final ingredientsContent = recipeMatch.group(4) ?? '';
+      final instructionsContent = recipeMatch.group(5) ?? '';
+      final notesContent = recipeMatch.group(6) ?? '';
+      
+      // 2. Use helper functions to parse the content of each section
       recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
-      final acidRefluxContent = _extractReflux(headerContent);
-      recipeData.acidRefluxScore = int.tryParse(acidRefluxContent[0]) ?? 0;
-      recipeData.acidRefluxReason = acidRefluxContent[1] ?? '';
+      final acidRefluxParts = _extractReflux(headerContent);
+      recipeData.acidRefluxScore = int.tryParse(acidRefluxParts[0]) ?? 1;
+      recipeData.acidRefluxReason = acidRefluxParts[1];
       recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
       recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
-      recipeData.ingredients = _extractListItems(recipeMatch.group(4)!);
-      recipeData.instructions = _extractInstructionItems(recipeMatch.group(5)!);
-      recipeData.notes = _extractCommandContent(recipeMatch.group(6)!, r'info') ?? '';
+      
+      recipeData.portions = _extractCommandContent(portionsContent, r'portion') ?? '';
+      
+      recipeData.ingredients = _extractListItems(ingredientsContent);
+      recipeData.instructions = _extractInstructionItems(instructionsContent);
+      
+      recipeData.notes = _extractCommandContent(notesContent, r'info') ?? '';
     }
+
+    // 3. Optional Regex: Captures the separate, raw images section if it exists.
     final imagesMatch = RegExp(r'(% Images[\s\S]*)').firstMatch(content);
-    if (imagesMatch != null) recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
+    if (imagesMatch != null) {
+      recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
+    }
+
     return recipeData;
   }
-  List<String> _extractReflux(String latexContent) {
-    final regex = RegExp(r'\\acidreflux{([^}]+)}\s*%\s*\n\s*{([^}]*)}', multiLine: true);
+
+  // --- Helper Parsing Functions ---
+
+  /// Extracts the score and reason from the special `\acidreflux{score}%\n{reason}` format.
+  static List<String> _extractReflux(String latexContent) {
+    final regex = RegExp(r'\\acidreflux{([^}]+)}\s*%\s*\\n\s*{([^}]*)}', multiLine: true);
     final match = regex.firstMatch(latexContent);
-    if (match == null || match.groupCount < 2) return ['0', ''];
-    return [match.group(1)?.trim() ?? '0', match.group(2)?.trim() ?? ''];
+    if (match == null || match.groupCount < 2) return ['1', ''];
+    return [match.group(1)?.trim() ?? '1', match.group(2)?.trim() ?? ''];
   }
-  String? _extractCommandContent(String content, String command) => RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content)?.group(1);
-  List<Ingredient> _extractListItems(String content) => RegExp(r'\\item\s+(.*?)\s*$', multiLine: true).allMatches(content).map((m) => _parseIngredient(m.group(1)!)).toList();
-  Ingredient _parseIngredient(String line) {
+
+  /// A generic helper to extract content from a simple `\command{content}` format.
+  static String? _extractCommandContent(String content, String command) {
+    return RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content)?.group(1);
+  }
+
+  /// Finds all `\item ...` lines in the ingredients block and parses them individually.
+  static List<Ingredient> _extractListItems(String content) {
+    return RegExp(r'\\item\s+(.*?)\s*$', multiLine: true)
+        .allMatches(content)
+        .map((m) => _parseIngredient(m.group(1)!))
+        .toList();
+  }
+
+  /// Parses a single ingredient line, e.g., `\unit[1]{cup} Flour`.
+  static Ingredient _parseIngredient(String line) {
+    // This regex handles an optional quantity in square brackets.
     final match = RegExp(r'\\unit(?:\[(.*?)\])?\{(.*?)\}\s*(.*)').firstMatch(line);
-    return match != null ? Ingredient(match.group(1) ?? '', match.group(2) ?? '', match.group(3) ?? '') : Ingredient('', '', line);
+    if (match != null) {
+      // Group 1: Optional quantity
+      // Group 2: Unit
+      // Group 3: Name
+      return Ingredient(match.group(1) ?? '', match.group(2) ?? '', match.group(3)?.trim() ?? '');
+    }
+    // Fallback if the format is unexpected
+    return Ingredient('', '', line.trim());
   }
-  List<InstructionStep> _extractInstructionItems(String content) => RegExp(r'\\instruction\{(.*)\}\s*$', multiLine: true).allMatches(content).map((m) => _parseInstruction(m.group(1)!)).toList();
-  InstructionStep _parseInstruction(String instruction) {
-    final titleMatch = RegExp(r'\\textbf\{\\large\s*(.*?)\}\s*(.*)').firstMatch(instruction);
-    return titleMatch != null ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim()) : InstructionStep('', instruction);
+
+  /// Finds all `\instruction{...}` lines and parses them individually.
+  static List<InstructionStep> _extractInstructionItems(String content) {
+    return RegExp(r'\\instruction\{(.*)\}\s*$', multiLine: true)
+        .allMatches(content)
+        .map((m) => _parseInstruction(m.group(1)!))
+        .toList();
+  }
+
+  /// Parses a single instruction, checking for an optional bolded title.
+  static InstructionStep _parseInstruction(String instruction) {
+    // This regex looks for `\textbf{\large TITLE} DETAILS`
+    final titleMatch = RegExp(r'\\textbf\{\\large\s*(.*?)\}\s*(.*)', dotAll: true).firstMatch(instruction);
+    if (titleMatch != null) {
+      // Group 1: Title
+      // Group 2: Details
+      return InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim());
+    }
+    // If no title, the whole string is the content.
+    return InstructionStep('', instruction.trim());
   }
 }
