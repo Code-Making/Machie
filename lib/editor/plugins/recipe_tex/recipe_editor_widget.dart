@@ -1,4 +1,4 @@
-// =========================================
+// = "=======================================
 // UPDATED: lib/editor/plugins/recipe_tex/recipe_editor_widget.dart
 // =========================================
 import 'dart:async';
@@ -27,7 +27,6 @@ class RecipeEditorWidget extends EditorWidget {
 
 class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   // --- STATE ---
-  // NO MORE `late RecipeData _data`. Controllers are the source of truth.
   late RecipeData _initialData;
   String? _baseContentHash;
   List<RecipeData> _undoStack = [];
@@ -52,14 +51,11 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
 
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
-    
-    // The "original" data is always what's parsed from disk.
-    _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
 
-    // If hot state exists, use it to populate the form, otherwise use the initial data.
+    _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
     final dataForForm = hotStateData ?? _initialData;
     _initializeControllers(dataForForm);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _checkIfDirty();
@@ -88,29 +84,29 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   }
 
   void _initializeControllers(RecipeData data) {
-    _disposeControllers(); // Dispose old ones before creating new ones.
-
-    _titleController = TextEditingController(text: data.title)..addListener(_onFieldChanged);
-    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString())..addListener(_onFieldChanged);
-    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason)..addListener(_onFieldChanged);
-    _prepTimeController = TextEditingController(text: data.prepTime)..addListener(_onFieldChanged);
-    _cookTimeController = TextEditingController(text: data.cookTime)..addListener(_onFieldChanged);
-    _portionsController = TextEditingController(text: data.portions)..addListener(_onFieldChanged);
-    _notesController = TextEditingController(text: data.notes)..addListener(_onFieldChanged);
+    // No need to call _disposeControllers here, as undo/redo will
+    // create new state and trigger a full rebuild anyway.
+    _titleController = TextEditingController(text: data.title);
+    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
+    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
+    _prepTimeController = TextEditingController(text: data.prepTime);
+    _cookTimeController = TextEditingController(text: data.cookTime);
+    _portionsController = TextEditingController(text: data.portions);
+    _notesController = TextEditingController(text: data.notes);
 
     _ingredientControllers = data.ingredients.map((ing) => [
-      TextEditingController(text: ing.quantity)..addListener(_onFieldChanged),
-      TextEditingController(text: ing.unit)..addListener(_onFieldChanged),
-      TextEditingController(text: ing.name)..addListener(_onFieldChanged),
+      TextEditingController(text: ing.quantity),
+      TextEditingController(text: ing.unit),
+      TextEditingController(text: ing.name),
     ]).toList();
     _instructionControllers = data.instructions.map((inst) => [
-      TextEditingController(text: inst.title)..addListener(_onFieldChanged),
-      TextEditingController(text: inst.content)..addListener(_onFieldChanged),
+      TextEditingController(text: inst.title),
+      TextEditingController(text: inst.content),
     ]).toList();
   }
   
-  // NEW: The single source of truth for the current state as a RecipeData object.
   RecipeData _buildDataFromControllers() {
+    // This is unchanged and correct.
     return RecipeData(
       title: _titleController.text,
       acidRefluxScore: (int.tryParse(_acidRefluxScoreController.text) ?? 1).clamp(0, 5),
@@ -118,7 +114,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       prepTime: _prepTimeController.text,
       cookTime: _cookTimeController.text,
       portions: _portionsController.text,
-      image: _initialData.image, // These are not editable in the form
+      image: _initialData.image,
       rawImagesSection: _initialData.rawImagesSection,
       ingredients: _ingredientControllers.map((ctrls) => Ingredient(ctrls[0].text, ctrls[1].text, ctrls[2].text)).toList(),
       instructions: _instructionControllers.map((ctrls) => InstructionStep(ctrls[0].text, ctrls[1].text)).toList(),
@@ -135,7 +131,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     );
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
-    
+  
   void _pushUndoState() {
     _undoStack.add(_buildDataFromControllers());
     if (_undoStack.length > 50) _undoStack.removeAt(0);
@@ -145,10 +141,10 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   @override
   void undo() {
     if (_undoStack.isEmpty) return;
-    final currentState = _buildDataFromControllers();
-    _redoStack.add(currentState);
+    _redoStack.add(_buildDataFromControllers());
     
     final previousState = _undoStack.removeLast();
+    // This setState will cause a rebuild, and build() will use the new controllers.
     setState(() {
       _initializeControllers(previousState);
     });
@@ -160,8 +156,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   @override
   void redo() {
     if (_redoStack.isEmpty) return;
-    final currentState = _buildDataFromControllers();
-    _undoStack.add(currentState);
+    _undoStack.add(_buildDataFromControllers());
     
     final nextState = _redoStack.removeLast();
     setState(() {
@@ -174,13 +169,11 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
 
   @override
   Future<EditorContent> getContent() async {
-    final currentData = _buildDataFromControllers();
-    return EditorContentString(RecipeTexPlugin.generateTexContent(currentData));
+    return EditorContentString(RecipeTexPlugin.generateTexContent(_buildDataFromControllers()));
   }
   
   Future<String> getTexContent() async {
-    final currentData = _buildDataFromControllers();
-    return RecipeTexPlugin.generateTexContent(currentData);
+    return RecipeTexPlugin.generateTexContent(_buildDataFromControllers());
   }
 
   @override
@@ -220,7 +213,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       _checkIfDirty();
-      syncCommandContext();
+      // No need to call syncCommandContext here, as text changes don't affect undo/redo.
     });
   }
 
@@ -230,9 +223,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _pushUndoState();
     setState(() {
       _ingredientControllers.add([
-        TextEditingController(text: '')..addListener(_onFieldChanged),
-        TextEditingController(text: '')..addListener(_onFieldChanged),
-        TextEditingController(text: '')..addListener(_onFieldChanged),
+        TextEditingController(), TextEditingController(), TextEditingController()
       ]);
     });
     _checkIfDirty();
@@ -263,10 +254,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   void addInstruction() {
     _pushUndoState();
     setState(() {
-       _instructionControllers.add([
-        TextEditingController(text: '')..addListener(_onFieldChanged),
-        TextEditingController(text: '')..addListener(_onFieldChanged),
-      ]);
+       _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
     });
     _checkIfDirty();
     syncCommandContext();
@@ -281,6 +269,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _checkIfDirty();
     syncCommandContext();
   }
+
+  // --- UI BUILDER METHODS ---
 
   @override
   Widget build(BuildContext context) {
@@ -307,20 +297,20 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   Widget _buildHeaderSection() {
     return Column(
       children: [
-        TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Recipe Title')),
+        TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _acidRefluxScoreController, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+          Expanded(child: TextFormField(controller: _acidRefluxScoreController, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _acidRefluxReasonController, decoration: const InputDecoration(labelText: 'Reason for Score'))),
+          Expanded(child: TextFormField(controller: _acidRefluxReasonController, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _prepTimeController, decoration: const InputDecoration(labelText: 'Prep Time'))),
+          Expanded(child: TextFormField(controller: _prepTimeController, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _cookTimeController, decoration: const InputDecoration(labelText: 'Cook Time'))),
+          Expanded(child: TextFormField(controller: _cookTimeController, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _portionsController, decoration: const InputDecoration(labelText: 'Portions'))),
+          Expanded(child: TextFormField(controller: _portionsController, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
         ]),
       ],
     );
@@ -332,7 +322,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       ReorderableListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: _ingredientControllers.length, // Use controller list length
+        itemCount: _ingredientControllers.length,
         itemBuilder: (context, index) => _buildIngredientRow(index),
         onReorder: reorderIngredient,
       ),
@@ -345,11 +335,11 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     return Row(key: ValueKey('ingredient_$index'), children: [
       const Icon(Icons.drag_handle, color: Colors.grey),
       const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: controllers[0], decoration: const InputDecoration(labelText: 'Qty'))),
+      SizedBox(width: 50, child: TextFormField(controller: controllers[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'))),
+      SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'))),
+      Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
     ]);
   }
@@ -365,12 +355,12 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   Widget _buildInstructionItem(int index) {
     final controllers = _instructionControllers[index];
     return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-      TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"')),
-      TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2),
+      TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
       const Divider(),
     ]);
   }
 
-  Widget _buildNotesSection() => TextFormField(controller: _notesController, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3);
+  Widget _buildNotesSection() => TextFormField(controller: _notesController, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
 }
