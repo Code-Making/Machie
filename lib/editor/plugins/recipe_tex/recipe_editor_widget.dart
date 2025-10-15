@@ -109,19 +109,19 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _disposeControllersAndFocusNodes();
 
     _titleController = TextEditingController(text: data.title);
-    _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode));
+    _titleFocusNode = FocusNode()..addListener(() _handleFocusChange(_titleFocusNode.hasFocus));
     _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
-    _acidRefluxScoreFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxScoreFocusNode));
+    _acidRefluxScoreFocusNode = FocusNode()..addListener(() _handleFocusChange(_acidRefluxScoreFocusNode.hasFocus));
     _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
-    _acidRefluxReasonFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxReasonFocusNode));
+    _acidRefluxReasonFocusNode = FocusNode()..addListener(() _handleFocusChange(_acidRefluxReasonFocusNode.hasFocus));
     _prepTimeController = TextEditingController(text: data.prepTime);
-    _prepTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_prepTimeFocusNode));
+    _prepTimeFocusNode = FocusNode()..addListener(() _handleFocusChange(_prepTimeFocusNode.hasFocus));
     _cookTimeController = TextEditingController(text: data.cookTime);
-    _cookTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_cookTimeFocusNode));
+    _cookTimeFocusNode = FocusNode()..addListener(() _handleFocusChange(_cookTimeFocusNode.hasFocus));
     _portionsController = TextEditingController(text: data.portions);
-    _portionsFocusNode = FocusNode()..addListener(() => _handleFocusChange(_portionsFocusNode));
+    _portionsFocusNode = FocusNode()..addListener(() _handleFocusChange(_portionsFocusNode.hasFocus));
     _notesController = TextEditingController(text: data.notes);
-    _notesFocusNode = FocusNode()..addListener(() => _handleFocusChange(_notesFocusNode));
+    _notesFocusNode = FocusNode()..addListener(() _handleFocusChange(_notesFocusNode.hasFocus));
 
     // Use loops to safely create and assign listeners.
     _ingredientControllers = [];
@@ -133,9 +133,9 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
         TextEditingController(text: ing.name),
       ]);
       final nodes = [FocusNode(), FocusNode(), FocusNode()];
-      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
-      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
-      nodes[2].addListener(() => _handleFocusChange(nodes[2]));
+      nodes[0].addListener(() _handleFocusChange(nodes[0].hasFocus));
+      nodes[1].addListener(() _handleFocusChange(nodes[1].hasFocus));
+      nodes[2].addListener(() _handleFocusChange(nodes[2].hasFocus));
       _ingredientFocusNodes.add(nodes);
     }
     
@@ -147,8 +147,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
         TextEditingController(text: inst.content),
       ]);
       final nodes = [FocusNode(), FocusNode()];
-      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
-      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+      nodes[0].addListener(() _handleFocusChange(nodes[0].hasFocus));
+      nodes[1].addListener(() _handleFocusChange(nodes[1].hasFocus));
       _instructionFocusNodes.add(nodes);
     }
   }
@@ -299,9 +299,9 @@ RecipeData _buildDataFromControllers() {
     setState(() {
       _ingredientControllers.add([ TextEditingController(), TextEditingController(), TextEditingController() ]);
       final nodes = [FocusNode(), FocusNode(), FocusNode()];
-      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
-      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
-      nodes[2].addListener(() => _handleFocusChange(nodes[2]));
+      nodes[0].addListener(() _handleFocusChange(nodes[0].hasFocus));
+      nodes[1].addListener(() _handleFocusChange(nodes[1].hasFocus));
+      nodes[2].addListener(() _handleFocusChange(nodes[2].hasFocus));
       _ingredientFocusNodes.add(nodes);
     });
     _checkIfDirtyAndCache();
@@ -334,8 +334,8 @@ RecipeData _buildDataFromControllers() {
     setState(() {
        _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
        final nodes = [FocusNode(), FocusNode()];
-       nodes[0].addListener(() => _handleFocusChange(nodes[0]));
-       nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+       nodes[0].addListener(() _handleFocusChange(nodes[0].hasFocus));
+       nodes[1].addListener(() _handleFocusChange(nodes[1].hasFocus));
        _instructionFocusNodes.add(nodes);
     });
     _checkIfDirtyAndCache();
