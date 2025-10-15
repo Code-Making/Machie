@@ -143,7 +143,6 @@ class TabWidget extends ConsumerWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                    if (context.mounted) {
                       ref.read(appNotifierProvider.notifier).closeTab(index);
                 },
                 child: Padding(
