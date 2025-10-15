@@ -48,7 +48,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   
   // Timers for debouncing expensive operations.
   Timer? _cacheDebounceTimer;
-  Timer? _undoDebounceTimer;
+  Timer? _typingSessionTimer;
+  bool _isTypingSessionActive = false;
 
   @override
   void initState() {
@@ -81,7 +82,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   @override
   void dispose() {
     _cacheDebounceTimer?.cancel();
-    _undoDebounceTimer?.cancel();
+    _typingSessionTimer?.cancel();
     _disposeControllers();
     super.dispose();
   }
