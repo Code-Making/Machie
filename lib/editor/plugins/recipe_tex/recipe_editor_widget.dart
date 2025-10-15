@@ -374,7 +374,7 @@ Widget _buildHeaderSection() {
       ReorderableListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: _ingredientFields.length,
+        itemCount: _ingredientControllers.length,
         itemBuilder: (context, index) => _buildIngredientRow(index),
         onReorder: reorderIngredient,
       ),
@@ -383,15 +383,16 @@ Widget _buildHeaderSection() {
   }
 
   Widget _buildIngredientRow(int index) {
-    final fields = _ingredientFields[index];
+    final controllers = _ingredientControllers[index];
+    final focusNodes = _ingredientFocusNodes[index];
     return Row(key: ValueKey('ingredient_$index'), children: [
       const Icon(Icons.drag_handle, color: Colors.grey),
       const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: fields[0]Controller, focusNode: fields[0]FocusNode, decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 50, child: TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: fields[1]Controller, focusNode: fields[1]FocusNode, decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 70, child: TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: fields[2]Controller, focusNode: fields[2]FocusNode, decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
+      Expanded(child: TextFormField(controller: controllers[2], focusNode: focusNodes[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
     ]);
   }
@@ -399,16 +400,17 @@ Widget _buildHeaderSection() {
   Widget _buildInstructionsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
-      ..._instructionFields.mapIndexed((index, e) => _buildInstructionItem(index)),
+      ..._instructionControllers.mapIndexed((index, e) => _buildInstructionItem(index)),
       ElevatedButton(onPressed: addInstruction, child: const Text('Add Instruction')),
     ]);
   }
 
   Widget _buildInstructionItem(int index) {
-    final fields = _instructionFields[index];
+    final controllers = _instructionControllers[index];
+    final focusNodes = _instructionFocusNodes[index];
     return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-      TextFormField(controller: fields[0]Controller, focusNode: fields[0]FocusNode, decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
-      TextFormField(controller: fields[1]Controller, focusNode: fields[1]FocusNode, decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
       const Divider(),
     ]);
