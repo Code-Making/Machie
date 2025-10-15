@@ -1,22 +1,20 @@
 // =========================================
-// UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
+// FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
 // =========================================
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../editor_tab_models.dart';
-import 'recipe_editor_widget.dart'; // We will create this next
+import 'recipe_editor_widget.dart';
 
+// RecipeTexTab is unchanged and correct.
 @immutable
 class RecipeTexTab extends EditorTab {
-  // This tab model now just holds the key to its stateful widget.
   @override
   final GlobalKey<RecipeEditorWidgetState> editorKey;
-
   final String initialContent;
   final String? initialBaseContentHash;
-  // Hot state is now passed directly during creation.
   final RecipeData? hotStateData;
 
   RecipeTexTab({
@@ -43,13 +41,26 @@ class InstructionStep {
 
   Map<String, dynamic> toJson() => {'title': title, 'content': content};
 
-  // ADDED: copyWith method for immutable updates.
   InstructionStep copyWith({String? title, String? content}) {
     return InstructionStep(
       title ?? this.title,
       content ?? this.content,
     );
   }
+
+  // ===================================
+  //           THE FIX IS HERE
+  // ===================================
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstructionStep &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          content == other.content;
+
+  @override
+  int get hashCode => title.hashCode ^ content.hashCode;
 }
 
 @immutable
@@ -72,7 +83,6 @@ class Ingredient {
         'name': name,
       };
 
-  // ADDED: copyWith method for immutable updates.
   Ingredient copyWith({String? quantity, String? unit, String? name}) {
     return Ingredient(
       quantity ?? this.quantity,
@@ -80,8 +90,24 @@ class Ingredient {
       name ?? this.name,
     );
   }
+
+  // ===================================
+  //           THE FIX IS HERE
+  // ===================================
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Ingredient &&
+          runtimeType == other.runtimeType &&
+          quantity == other.quantity &&
+          unit == other.unit &&
+          name == other.name;
+
+  @override
+  int get hashCode => quantity.hashCode ^ unit.hashCode ^ name.hashCode;
 }
 
+// RecipeData is now also fully value-equatable because its children are.
 @immutable
 class RecipeData {
   final String title;
@@ -111,6 +137,12 @@ class RecipeData {
   });
 
   factory RecipeData.fromJson(Map<String, dynamic> json) {
+    final ingredientsList = (json['ingredients'] as List<dynamic>? ?? [])
+        .map((item) => Ingredient.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+    final instructionsList = (json['instructions'] as List<dynamic>? ?? [])
+        .map((item) => InstructionStep.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
     return RecipeData(
       title: json['title'] as String? ?? '',
       acidRefluxScore: json['acidRefluxScore'] as int? ?? 1,
@@ -119,13 +151,8 @@ class RecipeData {
       cookTime: json['cookTime'] as String? ?? '',
       portions: json['portions'] as String? ?? '',
       image: json['image'] as String? ?? '',
-      ingredients: (json['ingredients'] as List? ?? [])
-          .map((i) => Ingredient.fromJson(Map<String, dynamic>.from(i)))
-          .toList(),
-      instructions: (json['instructions'] as List? ?? [])
-          .map((i) => InstructionStep.fromJson(Map<String, dynamic>.from(i)))
-          .toList(),
-      
+      ingredients: ingredientsList,
+      instructions: instructionsList,
       notes: json['notes'] as String? ?? '',
       rawImagesSection: json['rawImagesSection'] as String? ?? '',
     );
