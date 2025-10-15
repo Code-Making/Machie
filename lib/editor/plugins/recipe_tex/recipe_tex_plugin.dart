@@ -13,6 +13,7 @@ import '../../../data/cache/type_adapters.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
+import '../../tab_state_manager.dart';
 import '../../plugins/editor_command_context.dart';
 import '../../services/editor_service.dart';
 import '../plugin_models.dart';
@@ -196,18 +197,28 @@ class RecipeTexPlugin extends EditorPlugin {
     return buffer.toString();
   }
   
-static RecipeData parseRecipeContent(String content) {
-    final recipeData = RecipeData();
+  static RecipeData parseRecipeContent(String content) {
+    // 1. Initialize local variables with default values.
+    String title = '';
+    int acidRefluxScore = 1;
+    String acidRefluxReason = '';
+    String prepTime = '';
+    String cookTime = '';
+    String portions = '';
+    String image = '';
+    List<Ingredient> ingredients = [];
+    List<InstructionStep> instructions = [];
+    String notes = '';
+    String rawImagesSection = '';
 
-    // 1. Main Regex: Captures the 6 major sections of the \recipe command.
     final recipeMatch = RegExp(
-      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}', 
-      dotAll: true // Allows '.' to match newlines
+      r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}',
+      dotAll: true,
     ).firstMatch(content);
 
     if (recipeMatch != null) {
-      // Extract data from the captured groups
-      recipeData.image = recipeMatch.group(1) ?? '';
+      // 2. Assign parsed values to the local variables, not the object.
+      image = recipeMatch.group(1) ?? '';
       
       final headerContent = recipeMatch.group(2) ?? '';
       final portionsContent = recipeMatch.group(3) ?? '';
@@ -215,29 +226,40 @@ static RecipeData parseRecipeContent(String content) {
       final instructionsContent = recipeMatch.group(5) ?? '';
       final notesContent = recipeMatch.group(6) ?? '';
       
-      // 2. Use helper functions to parse the content of each section
-      recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
+      title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
       final acidRefluxParts = _extractReflux(headerContent);
-      recipeData.acidRefluxScore = int.tryParse(acidRefluxParts[0]) ?? 1;
-      recipeData.acidRefluxReason = acidRefluxParts[1];
-      recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
-      recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
+      acidRefluxScore = int.tryParse(acidRefluxParts[0]) ?? 1;
+      acidRefluxReason = acidRefluxParts[1];
+      prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
+      cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
       
-      recipeData.portions = _extractCommandContent(portionsContent, r'portion') ?? '';
+      portions = _extractCommandContent(portionsContent, r'portion') ?? '';
       
-      recipeData.ingredients = _extractListItems(ingredientsContent);
-      recipeData.instructions = _extractInstructionItems(instructionsContent);
+      ingredients = _extractListItems(ingredientsContent);
+      instructions = _extractInstructionItems(instructionsContent);
       
-      recipeData.notes = _extractCommandContent(notesContent, r'info') ?? '';
+      notes = _extractCommandContent(notesContent, r'info') ?? '';
     }
 
-    // 3. Optional Regex: Captures the separate, raw images section if it exists.
     final imagesMatch = RegExp(r'(% Images[\s\S]*)').firstMatch(content);
     if (imagesMatch != null) {
-      recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
+      rawImagesSection = imagesMatch.group(1) ?? '';
     }
 
-    return recipeData;
+    // 3. Construct the immutable RecipeData object at the end.
+    return RecipeData(
+      title: title,
+      acidRefluxScore: acidRefluxScore,
+      acidRefluxReason: acidRefluxReason,
+      prepTime: prepTime,
+      cookTime: cookTime,
+      portions: portions,
+      image: image,
+      ingredients: ingredients,
+      instructions: instructions,
+      notes: notes,
+      rawImagesSection: rawImagesSection,
+    );
   }
 
   // --- Helper Parsing Functions ---
