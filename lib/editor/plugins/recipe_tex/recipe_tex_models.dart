@@ -199,4 +199,48 @@ class RecipeData {
       rawImagesSection: rawImagesSection ?? this.rawImagesSection,
     );
   }
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    // Use a specific ListEquality checker for the lists.
+    const listEquals = ListEquality();
+
+    return other is RecipeData &&
+        other.runtimeType == runtimeType &&
+        other.title == title &&
+        other.acidRefluxScore == acidRefluxScore &&
+        other.acidRefluxReason == acidRefluxReason &&
+        other.prepTime == prepTime &&
+        other.cookTime == cookTime &&
+        other.portions == portions &&
+        other.image == image &&
+        // Use the list equality checker here.
+        listEquals.equals(other.ingredients, ingredients) &&
+        listEquals.equals(other.instructions, instructions) &&
+        other.notes == notes &&
+        other.rawImagesSection == rawImagesSection;
+  }
+
+  @override
+  int get hashCode {
+    // Use a specific ListEquality checker for hashing the lists' contents.
+    const listEquals = ListEquality();
+
+    return Object.hash(
+      runtimeType,
+      title,
+      acidRefluxScore,
+      acidRefluxReason,
+      prepTime,
+      cookTime,
+      portions,
+      image,
+      // Use the list equality checker for consistent hashing.
+      listEquals.hash(ingredients),
+      listEquals.hash(instructions),
+      notes,
+      rawImagesSection,
+    );
+  }
 }
