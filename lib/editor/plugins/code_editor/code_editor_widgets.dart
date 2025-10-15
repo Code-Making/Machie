@@ -159,14 +159,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         syncCommandContext();
         if (widget.tab.cachedContent != null) {
           controller.text = widget.tab.cachedContent!;
         }
       }
-    });
   }
   
   @override
