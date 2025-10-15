@@ -28,14 +28,14 @@ class RecipeEditorWidget extends EditorWidget {
 
 class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   // --- STATE ---
-  // The "clean" state loaded from disk. This is our baseline for checking dirtiness.
   late RecipeData _initialData;
   String? _baseContentHash;
   List<RecipeData> _undoStack = [];
   List<RecipeData> _redoStack = [];
 
-  // Controllers are the single source of truth for the UI state.
+  // --- CONTROLLERS & FOCUS NODES ---
   final _formKey = GlobalKey<FormState>();
+  // Controllers
   late TextEditingController _titleController;
   late TextEditingController _acidRefluxScoreController;
   late TextEditingController _acidRefluxReasonController;
@@ -45,30 +45,35 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   late TextEditingController _notesController;
   List<List<TextEditingController>> _ingredientControllers = [];
   List<List<TextEditingController>> _instructionControllers = [];
-  
-  // Timers for debouncing expensive operations.
+  // Focus Nodes
+  late FocusNode _titleFocusNode;
+  late FocusNode _acidRefluxScoreFocusNode;
+  late FocusNode _acidRefluxReasonFocusNode;
+  late FocusNode _prepTimeFocusNode;
+  late FocusNode _cookTimeFocusNode;
+  late FocusNode _portionsFocusNode;
+  late FocusNode _notesFocusNode;
+  List<List<FocusNode>> _ingredientFocusNodes = [];
+  List<List<FocusNode>> _instructionFocusNodes = [];
+
+  // --- TRANSACTION & DEBOUNCING STATE ---
+  RecipeData? _dataOnFocus;
   Timer? _cacheDebounceTimer;
-  Timer? _typingSessionTimer;
-  bool _isTypingSessionActive = false;
 
   @override
   void initState() {
     super.initState();
     _baseContentHash = (widget.tab as RecipeTexTab).initialBaseContentHash;
-
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
     
     _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
 
     if (hotStateData != null) {
-      // Correctly handle cache hydration:
-      // 1. Push the on-disk state as the first undo step.
       _undoStack.add(_initialData);
-      // 2. Initialize the form with the cached data.
-      _initializeControllers(hotStateData);
+      _initializeControllersAndFocusNodes(hotStateData);
     } else {
-      _initializeControllers(_initialData);
+      _initializeControllersAndFocusNodes(_initialData);
     }
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,44 +87,51 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   @override
   void dispose() {
     _cacheDebounceTimer?.cancel();
-    _typingSessionTimer?.cancel();
-    _disposeControllers();
+    _disposeControllersAndFocusNodes();
     super.dispose();
   }
 
-  void _disposeControllers() {
-    _titleController.dispose();
-    _acidRefluxScoreController.dispose();
-    _acidRefluxReasonController.dispose();
-    _prepTimeController.dispose();
-    _cookTimeController.dispose();
-    _portionsController.dispose();
-    _notesController.dispose();
+  void _disposeControllersAndFocusNodes() {
+    _titleController.dispose(); _titleFocusNode.dispose();
+    _acidRefluxScoreController.dispose(); _acidRefluxScoreFocusNode.dispose();
+    _acidRefluxReasonController.dispose(); _acidRefluxReasonFocusNode.dispose();
+    _prepTimeController.dispose(); _prepTimeFocusNode.dispose();
+    _cookTimeController.dispose(); _cookTimeFocusNode.dispose();
+    _portionsController.dispose(); _portionsFocusNode.dispose();
+    _notesController.dispose(); _notesFocusNode.dispose();
     _ingredientControllers.forEach((list) => list.forEach((c) => c.dispose()));
     _instructionControllers.forEach((list) => list.forEach((c) => c.dispose()));
+    _ingredientFocusNodes.forEach((list) => list.forEach((c) => c.dispose()));
+    _instructionFocusNodes.forEach((list) => list.forEach((c) => c.dispose()));
   }
 
-  void _initializeControllers(RecipeData data) {
-    _titleController = TextEditingController(text: data.title);
-    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
-    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
-    _prepTimeController = TextEditingController(text: data.prepTime);
-    _cookTimeController = TextEditingController(text: data.cookTime);
-    _portionsController = TextEditingController(text: data.portions);
-    _notesController = TextEditingController(text: data.notes);
+  void _initializeControllersAndFocusNodes(RecipeData data) {
+    _disposeControllersAndFocusNodes();
 
-    _ingredientControllers = data.ingredients.map((ing) => [
-      TextEditingController(text: ing.quantity),
-      TextEditingController(text: ing.unit),
-      TextEditingController(text: ing.name),
-    ]).toList();
-    _instructionControllers = data.instructions.map((inst) => [
-      TextEditingController(text: inst.title),
-      TextEditingController(text: inst.content),
-    ]).toList();
+    _titleController = TextEditingController(text: data.title);
+    _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode.hasFocus));
+    // ... Repeat for all header fields ...
+    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
+    _acidRefluxScoreFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxScoreFocusNode.hasFocus));
+    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
+    _acidRefluxReasonFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxReasonFocusNode.hasFocus));
+    _prepTimeController = TextEditingController(text: data.prepTime);
+    _prepTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_prepTimeFocusNode.hasFocus));
+    _cookTimeController = TextEditingController(text: data.cookTime);
+    _cookTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_cookTimeFocusNode.hasFocus));
+    _portionsController = TextEditingController(text: data.portions);
+    _portionsFocusNode = FocusNode()..addListener(() => _handleFocusChange(_portionsFocusNode.hasFocus));
+    _notesController = TextEditingController(text: data.notes);
+    _notesFocusNode = FocusNode()..addListener(() => _handleFocusChange(_notesFocusNode.hasFocus));
+
+    _ingredientControllers = data.ingredients.map((ing) => [ TextEditingController(text: ing.quantity), TextEditingController(text: ing.unit), TextEditingController(text: ing.name) ]).toList();
+    _ingredientFocusNodes = data.ingredients.map((_) => [ FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[1].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[2].hasFocus)) ]).toList();
+    
+    _instructionControllers = data.instructions.map((inst) => [ TextEditingController(text: inst.title), TextEditingController(text: inst.content) ]).toList();
+    _instructionFocusNodes = data.instructions.map((_) => [ FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[1].hasFocus)) ]).toList();
   }
   
-  RecipeData _buildDataFromControllers() {
+RecipeData _buildDataFromControllers() {
     return RecipeData(
       title: _titleController.text,
       acidRefluxScore: (int.tryParse(_acidRefluxScoreController.text) ?? 1).clamp(0, 5),
@@ -144,25 +156,22 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     );
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
-  
-  void _pushUndoState() {
-    _undoStack.add(_buildDataFromControllers());
+    
+  void _pushUndoState(RecipeData dataToPush) {
+    _undoStack.add(dataToPush);
     if (_undoStack.length > 50) _undoStack.removeAt(0);
-    // Any new action clears the redo stack.
     _redoStack.clear();
-    // After pushing, sync the command context to enable/disable UI buttons.
     syncCommandContext();
   }
 
   @override
   void undo() {
     if (_undoStack.isEmpty) return;
+    _commitPendingUndo(); // Commit any active text field before undoing.
     _redoStack.add(_buildDataFromControllers());
     
     final previousState = _undoStack.removeLast();
-    setState(() {
-      _initializeControllers(previousState);
-    });
+    setState(() { _initializeControllersAndFocusNodes(previousState); });
     
     _checkIfDirtyAndCache();
     syncCommandContext();
@@ -174,9 +183,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _undoStack.add(_buildDataFromControllers());
     
     final nextState = _redoStack.removeLast();
-    setState(() {
-      _initializeControllers(nextState);
-    });
+    setState(() { _initializeControllersAndFocusNodes(nextState); });
 
     _checkIfDirtyAndCache();
     syncCommandContext();
@@ -222,33 +229,25 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       editorService.markCurrentTabClean();
     }
   }
-  
-    /// This is called on every keystroke in a text field.
-  void _onFieldChanged() {
-    // If this is the first keystroke of a new "session", push the state BEFORE this change.
-    if (!_isTypingSessionActive) {
-      _pushUndoState();
-      _isTypingSessionActive = true;
-    }
-    
-    // Reset the timer that will end the typing session.
-    _typingSessionTimer?.cancel();
-    _typingSessionTimer = Timer(const Duration(milliseconds: 1500), () {
-      _isTypingSessionActive = false;
-    });
+  // --- CONSOLIDATED STATE CHANGE HANDLING ---
 
-    // Always trigger the debounced dirty check and cache update.
-    _checkIfDirtyAndCache();
+  void _handleFocusChange(bool hasFocus) {
+    if (hasFocus) {
+      // Gained focus: capture the "before" state.
+      _dataOnFocus = _buildDataFromControllers();
+    } else {
+      // Lost focus: compare and push to undo if changed.
+      _commitPendingUndo();
+    }
   }
 
-  /// Ends an active typing session and pushes an undo state if necessary.
-  /// Called before any structural change to ensure text edits are saved.
-  void _endTypingSessionAndPushUndo() {
-    _typingSessionTimer?.cancel();
-    if (_isTypingSessionActive) {
-      // The session was active, but we don't need to push again,
-      // as the initial push already happened. Just reset the flag.
-      _isTypingSessionActive = false;
+  void _commitPendingUndo() {
+    if (_dataOnFocus != null) {
+      final dataOnBlur = _buildDataFromControllers();
+      if (!const DeepCollectionEquality().equals(_dataOnFocus, dataOnBlur)) {
+        _pushUndoState(_dataOnFocus!);
+      }
+      _dataOnFocus = null; // Transaction is complete.
     }
   }
 
@@ -265,54 +264,65 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     });
   }
 
+  void _onFieldChanged() {
+    // Keystrokes ONLY trigger caching. Undo is handled by focus changes.
+    _checkIfDirtyAndCache();
+  }
+
   // --- STRUCTURAL CHANGE METHODS ---
-  // These now correctly push the "before" state to the undo stack.
 
   void addIngredient() {
-    _pushUndoState();
+    _commitPendingUndo();
+    _pushUndoState(_buildDataFromControllers());
     setState(() {
-      _ingredientControllers.add([
-        TextEditingController(), TextEditingController(), TextEditingController()
-      ]);
+      _ingredientControllers.add([ TextEditingController(), TextEditingController(), TextEditingController() ]);
+      _ingredientFocusNodes.add([ FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[1].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[2].hasFocus)) ]);
     });
     _checkIfDirtyAndCache();
   }
 
   void removeIngredient(int index) {
-    _pushUndoState();
+    _commitPendingUndo();
+    _pushUndoState(_buildDataFromControllers());
     setState(() {
-      final removed = _ingredientControllers.removeAt(index);
-      removed.forEach((c) => c.dispose());
+      _ingredientControllers.removeAt(index).forEach((c) => c.dispose());
+      _ingredientFocusNodes.removeAt(index).forEach((c) => c.dispose());
     });
     _checkIfDirtyAndCache();
   }
   
   void reorderIngredient(int oldIndex, int newIndex) {
-    _pushUndoState();
+    _commitPendingUndo();
+    _pushUndoState(_buildDataFromControllers());
     setState(() {
       if (oldIndex < newIndex) newIndex--;
-      final item = _ingredientControllers.removeAt(oldIndex);
-      _ingredientControllers.insert(newIndex, item);
+      _ingredientControllers.insert(newIndex, _ingredientControllers.removeAt(oldIndex));
+      _ingredientFocusNodes.insert(newIndex, _ingredientFocusNodes.removeAt(oldIndex));
     });
     _checkIfDirtyAndCache();
   }
 
   void addInstruction() {
-    _pushUndoState();
+    _commitPendingUndo();
+    _pushUndoState(_buildDataFromControllers());
     setState(() {
        _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
+       _instructionFocusNodes.add([ FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[1].hasFocus)) ]);
     });
     _checkIfDirtyAndCache();
   }
 
   void removeInstruction(int index) {
-    _pushUndoState();
+    _commitPendingUndo();
+    _pushUndoState(_buildDataFromControllers());
     setState(() {
-      final removed = _instructionControllers.removeAt(index);
-      removed.forEach((c) => c.dispose());
+      _instructionControllers.removeAt(index).forEach((c) => c.dispose());
+      _instructionFocusNodes.removeAt(index).forEach((c) => c.dispose());
     });
     _checkIfDirtyAndCache();
   }
+
+  // --- UI BUILDER METHODS ---
 
   @override
   Widget build(BuildContext context) {
@@ -339,20 +349,21 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   Widget _buildHeaderSection() {
     return Column(
       children: [
-        TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
+        TextFormField(controller: _titleController, focusNode: _titleFocusNode, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
+        // ... Assign focusNode to all other TextFormFields ...
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _acidRefluxScoreController, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _acidRefluxScoreController, focusNode: _acidRefluxScoreFocusNode, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _acidRefluxReasonController, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _acidRefluxReasonController, focusNode: _acidRefluxReasonFocusNode, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: TextFormField(controller: _prepTimeController, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _prepTimeController, focusNode: _prepTimeFocusNode, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _cookTimeController, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _cookTimeController, focusNode: _cookTimeFocusNode, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
           const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _portionsController, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
+          Expanded(child: TextFormField(controller: _portionsController, focusNode: _portionsFocusNode, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
         ]),
       ],
     );
@@ -371,17 +382,18 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       ElevatedButton(onPressed: addIngredient, child: const Text('Add Ingredient')),
     ]);
   }
-
+  
   Widget _buildIngredientRow(int index) {
     final controllers = _ingredientControllers[index];
+    final focusNodes = _ingredientFocusNodes[index];
     return Row(key: ValueKey('ingredient_$index'), children: [
       const Icon(Icons.drag_handle, color: Colors.grey),
       const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: controllers[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 50, child: TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: controllers[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
+      SizedBox(width: 70, child: TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
       const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: controllers[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
+      Expanded(child: TextFormField(controller: controllers[2], focusNode: focusNodes[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
     ]);
   }
@@ -393,16 +405,16 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       ElevatedButton(onPressed: addInstruction, child: const Text('Add Instruction')),
     ]);
   }
-
   Widget _buildInstructionItem(int index) {
     final controllers = _instructionControllers[index];
+    final focusNodes = _instructionFocusNodes[index];
     return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-      TextFormField(controller: controllers[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
-      TextFormField(controller: controllers[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
+      TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
       IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
       const Divider(),
     ]);
   }
 
-  Widget _buildNotesSection() => TextFormField(controller: _notesController, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
+  Widget _buildNotesSection() => TextFormField(controller: _notesController, focusNode: _notesFocusNode, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
 }
