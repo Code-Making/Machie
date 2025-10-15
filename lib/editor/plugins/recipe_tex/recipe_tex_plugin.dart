@@ -168,9 +168,7 @@ class RecipeTexPlugin extends EditorPlugin {
     ),
   ];
 
-  // These parsing/generation functions are now static as they don't depend on instance state.
-  static String generateTexContent(RecipeData data) {
-     // ... (generation logic is unchanged, just moved)
+  static String _generateTexContent(RecipeData data) {
     final buffer = StringBuffer();
     buffer.writeln('\\recipe[${data.image}]{');
     buffer.writeln('\\recipetitle{${data.title}}');
@@ -196,10 +194,42 @@ class RecipeTexPlugin extends EditorPlugin {
     return buffer.toString();
   }
   
-  static RecipeData parseRecipeContent(String content) {
-    // ... (parsing logic is unchanged, just moved)
+  static RecipeData _parseRecipeContent(String content) {
     final recipeData = RecipeData();
-    // ... logic ...
+    final recipeMatch = RegExp(r'\\recipe\[(.*?)\]{(.*?)}{(.*?)}{(.*?)}{(.*?)}{(.*?)}\n\n', dotAll: true).firstMatch(content);
+    if (recipeMatch != null) {
+      recipeData.image = recipeMatch.group(1) ?? '';
+      recipeData.portions = _extractCommandContent(recipeMatch.group(3)!, r'portion') ?? '';
+      final headerContent = recipeMatch.group(2)!;
+      recipeData.title = _extractCommandContent(headerContent, r'recipetitle') ?? '';
+      final acidRefluxContent = _extractReflux(headerContent);
+      recipeData.acidRefluxScore = int.tryParse(acidRefluxContent[0]) ?? 0;
+      recipeData.acidRefluxReason = acidRefluxContent[1] ?? '';
+      recipeData.prepTime = _extractCommandContent(headerContent, r'preptime') ?? '';
+      recipeData.cookTime = _extractCommandContent(headerContent, r'cooktime') ?? '';
+      recipeData.ingredients = _extractListItems(recipeMatch.group(4)!);
+      recipeData.instructions = _extractInstructionItems(recipeMatch.group(5)!);
+      recipeData.notes = _extractCommandContent(recipeMatch.group(6)!, r'info') ?? '';
+    }
+    final imagesMatch = RegExp(r'(% Images[\s\S]*)').firstMatch(content);
+    if (imagesMatch != null) recipeData.rawImagesSection = imagesMatch.group(1) ?? '';
     return recipeData;
+  }
+  List<String> _extractReflux(String latexContent) {
+    final regex = RegExp(r'\\acidreflux{([^}]+)}\s*%\s*\n\s*{([^}]*)}', multiLine: true);
+    final match = regex.firstMatch(latexContent);
+    if (match == null || match.groupCount < 2) return ['0', ''];
+    return [match.group(1)?.trim() ?? '0', match.group(2)?.trim() ?? ''];
+  }
+  String? _extractCommandContent(String content, String command) => RegExp('\\\\$command{(.*?)}', dotAll: true).firstMatch(content)?.group(1);
+  List<Ingredient> _extractListItems(String content) => RegExp(r'\\item\s+(.*?)\s*$', multiLine: true).allMatches(content).map((m) => _parseIngredient(m.group(1)!)).toList();
+  Ingredient _parseIngredient(String line) {
+    final match = RegExp(r'\\unit(?:\[(.*?)\])?\{(.*?)\}\s*(.*)').firstMatch(line);
+    return match != null ? Ingredient(match.group(1) ?? '', match.group(2) ?? '', match.group(3) ?? '') : Ingredient('', '', line);
+  }
+  List<InstructionStep> _extractInstructionItems(String content) => RegExp(r'\\instruction\{(.*)\}\s*$', multiLine: true).allMatches(content).map((m) => _parseInstruction(m.group(1)!)).toList();
+  InstructionStep _parseInstruction(String instruction) {
+    final titleMatch = RegExp(r'\\textbf\{\\large\s*(.*?)\}\s*(.*)').firstMatch(instruction);
+    return titleMatch != null ? InstructionStep(titleMatch.group(1)!, titleMatch.group(2)!.trim()) : InstructionStep('', instruction);
   }
 }
