@@ -109,26 +109,48 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _disposeControllersAndFocusNodes();
 
     _titleController = TextEditingController(text: data.title);
-    _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode.hasFocus));
-    // ... Repeat for all header fields ...
+    _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode));
     _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
-    _acidRefluxScoreFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxScoreFocusNode.hasFocus));
+    _acidRefluxScoreFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxScoreFocusNode));
     _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
-    _acidRefluxReasonFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxReasonFocusNode.hasFocus));
+    _acidRefluxReasonFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxReasonFocusNode));
     _prepTimeController = TextEditingController(text: data.prepTime);
-    _prepTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_prepTimeFocusNode.hasFocus));
+    _prepTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_prepTimeFocusNode));
     _cookTimeController = TextEditingController(text: data.cookTime);
-    _cookTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_cookTimeFocusNode.hasFocus));
+    _cookTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_cookTimeFocusNode));
     _portionsController = TextEditingController(text: data.portions);
-    _portionsFocusNode = FocusNode()..addListener(() => _handleFocusChange(_portionsFocusNode.hasFocus));
+    _portionsFocusNode = FocusNode()..addListener(() => _handleFocusChange(_portionsFocusNode));
     _notesController = TextEditingController(text: data.notes);
-    _notesFocusNode = FocusNode()..addListener(() => _handleFocusChange(_notesFocusNode.hasFocus));
+    _notesFocusNode = FocusNode()..addListener(() => _handleFocusChange(_notesFocusNode));
 
-    _ingredientControllers = data.ingredients.map((ing) => [ TextEditingController(text: ing.quantity), TextEditingController(text: ing.unit), TextEditingController(text: ing.name) ]).toList();
-    _ingredientFocusNodes = data.ingredients.map((_) => [ FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[1].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[2].hasFocus)) ]).toList();
+    // Use loops to safely create and assign listeners.
+    _ingredientControllers = [];
+    _ingredientFocusNodes = [];
+    for (final ing in data.ingredients) {
+      _ingredientControllers.add([
+        TextEditingController(text: ing.quantity),
+        TextEditingController(text: ing.unit),
+        TextEditingController(text: ing.name),
+      ]);
+      final nodes = [FocusNode(), FocusNode(), FocusNode()];
+      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
+      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+      nodes[2].addListener(() => _handleFocusChange(nodes[2]));
+      _ingredientFocusNodes.add(nodes);
+    }
     
-    _instructionControllers = data.instructions.map((inst) => [ TextEditingController(text: inst.title), TextEditingController(text: inst.content) ]).toList();
-    _instructionFocusNodes = data.instructions.map((_) => [ FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[1].hasFocus)) ]).toList();
+    _instructionControllers = [];
+    _instructionFocusNodes = [];
+    for (final inst in data.instructions) {
+      _instructionControllers.add([
+        TextEditingController(text: inst.title),
+        TextEditingController(text: inst.content),
+      ]);
+      final nodes = [FocusNode(), FocusNode()];
+      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
+      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+      _instructionFocusNodes.add(nodes);
+    }
   }
   
 RecipeData _buildDataFromControllers() {
@@ -276,7 +298,11 @@ RecipeData _buildDataFromControllers() {
     _pushUndoState(_buildDataFromControllers());
     setState(() {
       _ingredientControllers.add([ TextEditingController(), TextEditingController(), TextEditingController() ]);
-      _ingredientFocusNodes.add([ FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[1].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_ingredientFocusNodes.last[2].hasFocus)) ]);
+      final nodes = [FocusNode(), FocusNode(), FocusNode()];
+      nodes[0].addListener(() => _handleFocusChange(nodes[0]));
+      nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+      nodes[2].addListener(() => _handleFocusChange(nodes[2]));
+      _ingredientFocusNodes.add(nodes);
     });
     _checkIfDirtyAndCache();
   }
@@ -307,7 +333,10 @@ RecipeData _buildDataFromControllers() {
     _pushUndoState(_buildDataFromControllers());
     setState(() {
        _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
-       _instructionFocusNodes.add([ FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[0].hasFocus)), FocusNode()..addListener(() => _handleFocusChange(_instructionFocusNodes.last[1].hasFocus)) ]);
+       final nodes = [FocusNode(), FocusNode()];
+       nodes[0].addListener(() => _handleFocusChange(nodes[0]));
+       nodes[1].addListener(() => _handleFocusChange(nodes[1]));
+       _instructionFocusNodes.add(nodes);
     });
     _checkIfDirtyAndCache();
   }
