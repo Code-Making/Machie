@@ -187,19 +187,26 @@ RecipeData _buildDataFromControllers() {
   }
     
   void _pushUndoState(RecipeData dataToPush) {
+    // FIX #1: Prevent pushing consecutive duplicate states.
+    if (_undoStack.isNotEmpty &&
+        const DeepCollectionEquality().equals(_undoStack.last, dataToPush)) {
+      return;
+    }
+    
     _undoStack.add(dataToPush);
-    if (_undoStack.length > 50) _undoStack.removeAt(0);
+    if (_undoStack.length > 30) _undoStack.removeAt(0);
     _redoStack.clear();
     syncCommandContext();
   }
 
   @override
   void undo() {
+    _commitPendingUndo(); // Finalize any "in-flight" text edits first.
     if (_undoStack.isEmpty) return;
-    _commitPendingUndo(); // Commit any active text field before undoing.
-    _redoStack.add(_buildDataFromControllers());
     
+    _redoStack.add(_buildDataFromControllers());
     final previousState = _undoStack.removeLast();
+    
     setState(() { _initializeControllersAndFocusNodes(previousState); });
     
     _checkIfDirtyAndCache();
@@ -208,10 +215,12 @@ RecipeData _buildDataFromControllers() {
 
   @override
   void redo() {
+    _commitPendingUndo(); // Finalize any "in-flight" text edits first.
     if (_redoStack.isEmpty) return;
-    _undoStack.add(_buildDataFromControllers());
     
+    _undoStack.add(_buildDataFromControllers());
     final nextState = _redoStack.removeLast();
+
     setState(() { _initializeControllersAndFocusNodes(nextState); });
 
     _checkIfDirtyAndCache();
@@ -220,15 +229,18 @@ RecipeData _buildDataFromControllers() {
 
   @override
   Future<EditorContent> getContent() async {
+    _commitPendingUndo();
     return EditorContentString(RecipeTexPlugin.generateTexContent(_buildDataFromControllers()));
   }
   
   Future<String> getTexContent() async {
+    _commitPendingUndo();
     return RecipeTexPlugin.generateTexContent(_buildDataFromControllers());
   }
 
   @override
   void onSaveSuccess(String newHash) {
+    _commitPendingUndo(); // Ensure state is consistent before marking as clean.
     if (!mounted) return;
     setState(() {
       _baseContentHash = newHash;
@@ -242,6 +254,7 @@ RecipeData _buildDataFromControllers() {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
+    _commitPendingUndo();
     return RecipeTexHotStateDto(
       data: _buildDataFromControllers(),
       baseContentHash: _baseContentHash,
