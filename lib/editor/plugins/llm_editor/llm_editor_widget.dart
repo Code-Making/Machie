@@ -642,6 +642,10 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    Color? themeBackgroundColor = _style.codeTheme?.theme['root']?.backgroundColor;
+
+    // 2. If it's null, provide a sensible default fallback color.
+    final Color backgroundColor = themeBackgroundColor ?? Colors.black.withOpacity(0.25);
 
     // 1. Watch the settings provider to get the CodeEditor settings.
     final codeEditorSettings = ref.watch(
@@ -657,7 +661,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: _style.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
+        color: themeBackgroundColor,
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
@@ -666,7 +670,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
           // The header is unchanged
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            color: Colors.black.withOpacity(0.2),
+            color: backgroundColor,
             child: Row(
               children: [
                 Text(
