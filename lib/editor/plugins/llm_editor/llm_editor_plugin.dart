@@ -132,7 +132,7 @@ class LlmEditorPlugin extends EditorPlugin {
       icon: const Icon(Icons.keyboard_arrow_down),
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.jumpToNextCodeBlock(),
+      execute: (ref) async => _getActiveEditorState(ref)?.jumpToNextTarget(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
     BaseCommand(
@@ -141,7 +141,7 @@ class LlmEditorPlugin extends EditorPlugin {
       icon: const Icon(Icons.keyboard_arrow_up),
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.jumpToPreviousCodeBlock(),
+      execute: (ref) async => _getActiveEditorState(ref)?.jumpToPreviousTarget(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
   ];
