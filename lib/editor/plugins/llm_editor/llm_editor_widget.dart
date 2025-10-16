@@ -403,24 +403,35 @@ class ChatBubble extends StatelessWidget {
 }
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
+  // REMOVED: No longer need stateful properties here.
+
+  // THE FIX: Override `visitElementAfterWithContext` which provides a BuildContext.
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
     final String text = element.textContent;
     if (text.isEmpty) return null;
 
-    // THE FIX: Check if the parent is the root of the document.
-    // Block-level elements are direct children of the Document node.
-    // The Document node itself doesn't have a parent.
-    final bool isFullBlock = element.parent == null;
+    // THE FIX: Use a simple heuristic: block code contains newlines.
+    final isBlock = text.contains('\n');
 
-    if (isFullBlock) {
+    if (isBlock) {
+      // It's a full code block, render our custom wrapper.
       return _CodeBlockWrapper(code: text);
     } else {
-      // For inline code, use the default styling provided by flutter_markdown.
+      // It's inline code. Render it with a simple, themed background.
+      final theme = Theme.of(context);
       return RichText(
         text: TextSpan(
           text: text,
-          style: preferredStyle?.copyWith(fontFamily: 'RobotoMono'),
+          style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
+            fontFamily: 'RobotoMono',
+            backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+          ),
         ),
       );
     }
