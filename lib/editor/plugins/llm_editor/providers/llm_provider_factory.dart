@@ -10,8 +10,7 @@ import 'package:machine/settings/settings_notifier.dart';
 // A simple list of all available provider instances.
 final allLlmProviders = [
   DummyProvider(),
-  OpenAiProvider(''),
-  GeminiProvider(''), // NEW: Add Gemini provider
+  GeminiProvider(''),
 ];
 
 // The main service provider that the UI will use.
