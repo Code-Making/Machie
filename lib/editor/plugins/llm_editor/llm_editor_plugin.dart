@@ -5,6 +5,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/command/command_models.dart';
 import 'package:machine/data/cache/type_adapters.dart';
 import 'package:machine/data/dto/tab_hot_state_dto.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
@@ -14,6 +16,9 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_settings_widget.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_widget.dart';
+import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/editor/tab_state_manager.dart';
+import 'package:machine/project/project_models.dart';
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
