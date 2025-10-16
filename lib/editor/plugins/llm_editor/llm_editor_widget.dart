@@ -650,6 +650,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       ),
     );
 
+    final editorHeight = _controller.codeLines.length * _style.fontSize * _style.fontHeight + 16.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -660,6 +661,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The header is unchanged
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             color: Colors.black.withOpacity(0.2),
@@ -674,7 +676,6 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
                   icon: const Icon(Icons.copy, size: 16),
                   tooltip: 'Copy Code',
                   onPressed: () {
-                    // 3. Copy text from the controller.
                     Clipboard.setData(ClipboardData(text: _controller.text));
                     MachineToast.info('Copied to clipboard');
                   },
@@ -689,24 +690,25 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
               ],
             ),
           ),
-          AnimatedSize(
+          // THE FIX: Replace AnimatedSize with an AnimatedContainer that animates its height.
+          AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child: _isFolded
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8.0),
-                    // 4. Replace SelectableText with the CodeEditor.
-                    child: CodeEditor(
-                      controller: _controller,
-                      style: _style,
-                      readOnly: true, // This is crucial
-                      indicatorBuilder: null, // No line numbers needed
-                      findBuilder: null, // No find panel needed
-                      wordWrap: false, // Code blocks shouldn't wrap
-                    ),
-                  ),
+            // If folded, height is 0. If not, it's the calculated editor height.
+            height: _isFolded ? 0 : editorHeight,
+            width: double.infinity,
+            // Clip the content to prevent overflow during animation.
+            clipBehavior: Clip.hardEdge,
+            child: CodeEditor(
+              controller: _controller,
+              style: _style,
+              readOnly: true,
+              indicatorBuilder: null,
+              findBuilder: null,
+              wordWrap: false,
+              // Add some padding inside the editor itself.
+              padding: const EdgeInsets.all(8.0),
+            ),
           ),
         ],
       ),
