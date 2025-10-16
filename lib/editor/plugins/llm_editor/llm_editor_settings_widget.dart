@@ -1,7 +1,8 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/llm_editor/llm_editor_settings_widget.dart
+// UPDATED: lib/editor/plugins/llm_editor/llm_editor_settings_widget.dart
 // =========================================
 
+import 'package:collection/collection.dart'; // Import for firstWhereOrNull
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
@@ -43,6 +44,18 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the provider instance for the currently selected ID.
+    final selectedProvider = allLlmProviders.firstWhereOrNull(
+      (p) => p.id == _currentSettings.selectedProviderId,
+    );
+    final availableModels = selectedProvider?.availableModels ?? [];
+
+    // Ensure the currently selected model is valid, or default to the first available.
+    String? currentModel = _currentSettings.selectedModelIds[_currentSettings.selectedProviderId];
+    if (currentModel == null || !availableModels.contains(currentModel)) {
+      currentModel = availableModels.firstOrNull;
+    }
+
     return Column(
       children: [
         DropdownButtonFormField<String>(
@@ -55,13 +68,41 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
               .toList(),
           onChanged: (value) {
             if (value != null) {
-              final newSettings = _currentSettings.copyWith(selectedProviderId: value);
+              // When provider changes, we need to select a default model for it if one isn't set.
+              final newProvider = allLlmProviders.firstWhere((p) => p.id == value);
+              final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
+              if (!newModelIds.containsKey(value)) {
+                newModelIds[value] = newProvider.availableModels.first;
+              }
+
+              final newSettings = _currentSettings.copyWith(
+                selectedProviderId: value,
+                selectedModelIds: newModelIds,
+              );
               _updateSettings(newSettings);
-              // Update the API key field to show the key for the new provider
               _apiKeyController.text = newSettings.apiKeys[value] ?? '';
             }
           },
         ),
+        const SizedBox(height: 16),
+
+        // NEW: Model Selection Dropdown
+        if (availableModels.isNotEmpty)
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(labelText: 'Model'),
+            value: currentModel,
+            items: availableModels
+                .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
+                newModelIds[_currentSettings.selectedProviderId] = value;
+                _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds));
+              }
+            },
+          ),
+        
         const SizedBox(height: 16),
         if (_currentSettings.selectedProviderId != 'dummy')
           TextFormField(

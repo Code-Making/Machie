@@ -50,6 +50,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   Future<void> _sendMessage() async {
     final prompt = _textController.text.trim();
     if (prompt.isEmpty || _isLoading) return;
+    
+    // THE FIX: Get the currently selected model from settings.
+    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    final providerId = settings?.selectedProviderId ?? 'dummy';
+    final modelId = settings?.selectedModelIds[providerId] ??
+        allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
 
     _textController.clear();
     setState(() {
@@ -62,9 +68,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     try {
       final provider = ref.read(llmServiceProvider);
+      // THE FIX: Pass the modelId to the generateResponse method.
       final response = await provider.generateResponse(
         history: _messages,
         prompt: prompt,
+        modelId: modelId,
       );
       setState(() {
         _messages.add(ChatMessage(role: 'assistant', content: response));
