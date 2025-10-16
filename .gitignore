@@ -282,3 +282,4 @@ google-services.json
 download.txt
 build_errors.txt
 push-release.sh
+sandbox/

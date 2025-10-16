@@ -7,6 +7,7 @@ import 'plugin_models.dart';
 import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart';
 import 'recipe_tex/recipe_tex_plugin.dart';
+import 'llm_editor/llm_editor_plugin.dart';
 export 'plugin_models.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
@@ -14,6 +15,7 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     CodeEditorPlugin(),
     GlitchEditorPlugin(),
     RecipeTexPlugin(),
+    LlmEditorPlugin(),
   },
 );
 

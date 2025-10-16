@@ -1,0 +1,92 @@
+// =========================================
+// NEW FILE: lib/editor/plugins/llm_editor/llm_editor_plugin.dart
+// =========================================
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/data/cache/type_adapters.dart';
+import 'package:machine/data/dto/tab_hot_state_dto.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/editor/editor_tab_models.dart';
+import 'package:machine/editor/plugins/plugin_models.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_settings_widget.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_widget.dart';
+
+class LlmEditorPlugin extends EditorPlugin {
+  @override
+  String get id => 'com.machine.llm_editor';
+  @override
+  String get name => 'LLM Chat';
+  @override
+  Widget get icon => const Icon(Icons.chat_bubble_outline);
+  @override
+  int get priority => 2; // High priority for its specific file type.
+
+  @override
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
+
+  @override
+  bool supportsFile(DocumentFile file) {
+    return file.name.endsWith('.llm');
+  }
+
+  @override
+  PluginSettings? get settings => LlmEditorSettings();
+  
+  @override
+  Widget buildSettingsUI(PluginSettings settings) {
+    return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
+  }
+
+  @override
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    EditorInitData initData, {
+    String? id,
+  }) async {
+    List<ChatMessage> initialMessages = [];
+    final content = initData.stringData;
+
+    if (content != null && content.isNotEmpty) {
+      try {
+        final List<dynamic> jsonList = jsonDecode(content);
+        initialMessages =
+            jsonList.map((item) => ChatMessage.fromJson(item)).toList();
+      } catch (e) {
+        // Handle corrupted or invalid file by starting with an error message.
+        initialMessages.add(
+          ChatMessage(
+            role: 'assistant',
+            content: 'Error: Could not parse .llm file. Starting a new chat. \n\nDetails: $e',
+          ),
+        );
+      }
+    }
+    
+    // Note: We don't need to handle hot-state here. The EditorWidget's initState
+    // will be responsible for applying any cached content on top of this initial state.
+    
+    return LlmEditorTab(
+      plugin: this,
+      initialMessages: initialMessages,
+      id: id,
+    );
+  }
+
+  @override
+  EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
+    final llmTab = tab as LlmEditorTab;
+    return LlmEditorWidget(key: llmTab.editorKey, tab: llmTab);
+  }
+
+  // --- Hot State Caching ---
+  @override
+  String? get hotStateDtoType => 'com.machine.llm_editor_state';
+  @override
+  Type? get hotStateDtoRuntimeType => LlmEditorHotStateDto;
+  @override
+  TypeAdapter<TabHotStateDto>? get hotStateAdapter => LlmEditorHotStateAdapter();
+}
