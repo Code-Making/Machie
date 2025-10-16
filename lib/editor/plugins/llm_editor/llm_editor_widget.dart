@@ -42,11 +42,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   // REVISED: Map keys to the entire ChatBubble, not just the code block.
   final Map<String, GlobalKey> _codeBlockKeys = {};
   List<String> _sortedCodeBlockIds = [];
-  String? _lastJumpedId;
+  final GlobalKey _listViewKey = GlobalKey(); // Key for the ListView itself
   
-  // NEW: A list of message indices that contain code blocks.
-  List<int> _codeBlockMessageIndices = [];
-
   @override
   void initState() {
     super.initState();
@@ -134,61 +131,68 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   // --- NEW: Code Block Navigation Methods ---
   void _registerCodeBlock(String id, GlobalKey key) {
+    // This is called during the build phase.
     if (!_codeBlockKeys.containsKey(id)) {
       _codeBlockKeys[id] = key;
-      // The list is naturally sorted because widgets are built in order.
       _sortedCodeBlockIds.add(id);
     }
   }
   
   void jumpToNextCodeBlock() {
-    _jumpToCodeBlock(1);
+    _findAndScrollToCodeBlock(1);
   }
 
   void jumpToPreviousCodeBlock() {
-    _jumpToCodeBlock(-1);
+    _findAndScrollToCodeBlock(-1);
   }
 
-  void _jumpToCodeBlock(int direction) {
+  void _findAndScrollToCodeBlock(int direction) {
     if (_sortedCodeBlockIds.isEmpty) return;
 
-    String? targetId;
-    if (_lastJumpedId == null) {
-      targetId = direction == 1 ? _sortedCodeBlockIds.first : _sortedCodeBlockIds.last;
-    } else {
-      final currentIndex = _sortedCodeBlockIds.indexOf(_lastJumpedId!);
-      if (currentIndex == -1) { // Fallback if ID is somehow not in the list
-          _lastJumpedId = null;
-          jumpToNextCodeBlock();
-          return;
+    final scrollContext = _listViewKey.currentContext;
+    if (scrollContext == null) return;
+    final scrollRenderBox = scrollContext.findRenderObject() as RenderBox?;
+    if (scrollRenderBox == null) return;
+
+    final currentScrollOffset = _scrollController.offset;
+
+    // 1. Get the vertical position of every code block header within the scrollable area.
+    final List<double> positions = _sortedCodeBlockIds.map((id) {
+      final key = _codeBlockKeys[id];
+      final context = key?.currentContext;
+      if (context != null) {
+        final renderBox = context.findRenderObject() as RenderBox;
+        // Calculate the position of the header's top-left corner relative to the ListView's top-left corner.
+        // This gives us the exact scroll offset needed to bring it to the top.
+        return renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
       }
-      
-      final nextIndex = (currentIndex + direction) % _sortedCodeBlockIds.length;
-      targetId = _sortedCodeBlockIds[nextIndex];
+      return -1.0; // Should not happen
+    }).where((pos) => pos >= 0).toList();
+
+    double? targetOffset;
+    const double epsilon = 1.0; // A small buffer to avoid getting stuck on the current block
+
+    if (direction > 0) { // "Next"
+      targetOffset = positions.firstWhereOrNull((p) => p > currentScrollOffset + epsilon);
+      // If none are found after the current position, wrap around to the first one.
+      targetOffset ??= positions.firstOrNull;
+    } else { // "Previous"
+      targetOffset = positions.lastWhereOrNull((p) => p < currentScrollOffset - epsilon);
+      // If none are found before, wrap around to the last one.
+      targetOffset ??= positions.lastOrNull;
     }
 
-    final key = _codeBlockKeys[targetId];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
+    if (targetOffset != null) {
+      _scrollController.animateTo(
+        targetOffset,
         duration: const Duration(milliseconds: 300),
-        alignment: 0.1, // Align near the top of the viewport
+        curve: Curves.easeInOut,
       );
-      setState(() {
-        _lastJumpedId = targetId;
-      });
     }
   }
 
   // --- Build and UI Methods ---
-  void _updateCodeBlockIndices() {
-    _codeBlockMessageIndices.clear();
-    for (int i = 0; i < _messages.length; i++) {
-      if (_messages[i].content.contains('```')) {
-        _codeBlockMessageIndices.add(i);
-      }
-    }
-  }
+
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -204,7 +208,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // REVISED: Clear and re-register keys on every build to ensure they are fresh.
     _codeBlockKeys.clear();
     _sortedCodeBlockIds.clear();
 
@@ -212,13 +215,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       children: [
         Expanded(
           child: ListView.builder(
+            key: _listViewKey, // Assign the key here
             controller: _scrollController,
             padding: const EdgeInsets.all(8.0),
             itemCount: _messages.length,
             itemBuilder: (context, index) {
               return ChatBubble(
                 message: _messages[index],
-                // Pass the registration callback and message index down
                 codeBlockBuilder: _CodeBlockBuilder(
                   messageIndex: index,
                   registerCodeBlock: _registerCodeBlock,
@@ -432,20 +435,27 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     if (isBlock) {
       final String language = _parseLanguage(element);
       final id = '$messageIndex-$_codeBlockCounter';
-      final key = GlobalKey();
       
-      // Register the block with the parent widget's state
-      registerCodeBlock(id, key);
-      
-      _codeBlockCounter++;
-
+      // THE FIX: A GlobalKey is created here, but it's the wrapper's responsibility to call the registration callback.
+      // This ensures the key is attached to a widget in the tree before we try to use it.
       return _CodeBlockWrapper(
-        key: key, // This is the key we will scroll to!
+        stableId: id,
         code: text.trim(),
         language: language,
+        registerKeyCallback: registerCodeBlock,
       );
     } else {
-      // ... (inline code rendering is unchanged)
+      // It's inline code. Render it with a simple, themed background.
+      final theme = Theme.of(context);
+      return RichText(
+        text: TextSpan(
+          text: text,
+          style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
+            fontFamily: 'RobotoMono',
+            backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+          ),
+        ),
+      );
     }
   }
   
@@ -458,16 +468,36 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 }
 
 class _CodeBlockWrapper extends StatefulWidget {
+  final String stableId; // NEW: A stable ID for registration
   final String code;
   final String language;
-  const _CodeBlockWrapper({super.key, required this.code, required this.language});
+  final void Function(String id, GlobalKey key) registerKeyCallback; // NEW
+
+  const _CodeBlockWrapper({
+    // key is now optional, as we manage our own.
+    super.key,
+    required this.stableId,
+    required this.code,
+    required this.language,
+    required this.registerKeyCallback,
+  });
 
   @override
   State<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
 }
 
 class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
-  bool _isFolded = false; // NEW: State for folding
+  bool _isFolded = false;
+  final GlobalKey _headerKey = GlobalKey(); // The key for this specific instance
+
+  @override
+  void initState() {
+    super.initState();
+    // Register this instance's key with the parent state right after it's built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.registerKeyCallback(widget.stableId, _headerKey);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -481,8 +511,8 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // THE FIX: The new header
           Container(
+            key: _headerKey, // THE FIX: The key is attached to the header. This is our scroll anchor.
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             color: Colors.black.withOpacity(0.2),
             child: Row(
@@ -510,7 +540,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
               ],
             ),
           ),
-          // THE FIX: Animated container for folding
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
