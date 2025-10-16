@@ -65,41 +65,59 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final modelId = settings?.selectedModelIds[providerId] ??
         allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
     
+    // 1. Add user message and an empty assistant message
     setState(() {
       _messages.add(ChatMessage(role: 'user', content: prompt));
+      _messages.add(const ChatMessage(role: 'assistant', content: '')); // Placeholder
       _isLoading = true;
     });
 
     _scrollToBottom();
     ref.read(editorServiceProvider).markCurrentTabDirty();
 
+    final provider = ref.read(llmServiceProvider);
+    final responseStream = provider.generateResponse(
+      // Pass the history *before* the current prompt
+      history: _messages.sublist(0, _messages.length - 2),
+      prompt: prompt,
+      modelId: modelId,
+    );
+
+    // 2. Listen to the stream and update the last message
     try {
-      final provider = ref.read(llmServiceProvider);
-      final response = await provider.generateResponse(
-        history: _messages,
-        prompt: prompt,
-        modelId: modelId,
-      );
-      setState(() {
-        _messages.add(ChatMessage(role: 'assistant', content: response));
-      });
+      await for (final chunk in responseStream) {
+        if (!mounted) return;
+        setState(() {
+          final lastMessage = _messages.last;
+          _messages[_messages.length - 1] = lastMessage.copyWith(
+            content: lastMessage.content + chunk,
+          );
+        });
+        _scrollToBottom();
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _messages.add(ChatMessage(role: 'assistant', content: 'Error: $e'));
+        final lastMessage = _messages.last;
+        _messages[_messages.length - 1] = lastMessage.copyWith(
+          content: '${lastMessage.content}\n\n--- Error ---\n$e',
+        );
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
-      _scrollToBottom();
-      ref.read(editorServiceProvider).markCurrentTabDirty();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ref.read(editorServiceProvider).markCurrentTabDirty();
+      }
     }
   }
 
   Future<void> _sendMessage() async {
     final prompt = _textController.text.trim();
+    if (prompt.isEmpty) return;
     _textController.clear();
-    await _submitPrompt(prompt);
+    await _submitPrompt(prompt); // The prompt is now passed here
   }
 
   // --- NEW: Chat Action Methods ---
@@ -107,11 +125,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void _rerun(int messageIndex) async {
     final messageToRerun = _messages[messageIndex];
     if (messageToRerun.role != 'user') return;
-
-    // THE FIX: Delete this message and all subsequent messages to clear the chat history from this point.
+    
+    // Clear history from this point forward
     _deleteAfter(messageIndex);
 
-    // Resubmit the original prompt.
+    // Resubmit the prompt
     await _submitPrompt(messageToRerun.content);
   }
 
