@@ -651,8 +651,8 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if(!_style){
-      return;
+    if(_style ==null){
+      return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
     Color? themeBackgroundColor = _style?.codeTheme?.theme['root']?.backgroundColor;
