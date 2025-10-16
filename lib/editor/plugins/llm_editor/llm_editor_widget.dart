@@ -161,7 +161,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       final key = _codeBlockKeys[id];
       final context = key?.currentContext;
       if (context != null) {
-        final renderBox = context.findRenderObject() as RenderBox;
+        final renderBox = context!.findRenderObject() as RenderBox;
         // Calculate the position of the header's top-left corner relative to the ListView's top-left corner.
         // This gives us the exact scroll offset needed to bring it to the top.
         return renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
