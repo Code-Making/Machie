@@ -163,7 +163,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final key = _messageKeys[targetIndex];
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
-        key.!currentContext!,
+        key!.currentContext!,
         duration: const Duration(milliseconds: 300),
         alignment: 0.1,
       );
