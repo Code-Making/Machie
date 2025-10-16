@@ -13,6 +13,7 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
+import '../../tab_state_manager.dart';
 
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
@@ -606,6 +607,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code) {
       _controller.text = widget.code;
+      _updateStyleAndRecognizers(); // Rebuild style for new language
     }
   }
   
@@ -649,6 +651,17 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
+      previous,
+      next,
+    ) {
+      if (previous != next && next != null) {
+        setState(() {
+          _updateStyleAndRecognizers(); // Rebuild style for new language
+        });
+      }
+    });
+
     final theme = Theme.of(context);
     Color? themeBackgroundColor = _style?.codeTheme?.theme['root']?.backgroundColor;
 
