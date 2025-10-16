@@ -34,13 +34,13 @@ class DisplayMessage {
       codeBlockKeys: List.generate(codeBlockCount, (_) => GlobalKey(), growable: false),
     );
   }
+}
 
 int _countCodeBlocks(String markdownText) {
   // A simple but effective way to count fenced code blocks in markdown
   final RegExp codeBlockRegex = RegExp(r'```[\s\S]*?```');
   return codeBlockRegex.allMatches(markdownText).length;
 }
-
 
 class LlmEditorWidget extends EditorWidget {
   @override
