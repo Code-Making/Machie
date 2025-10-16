@@ -170,7 +170,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final key = _codeBlockKeys[targetId];
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
-        key.currentContext!,
+        key!.currentContext!,
         duration: const Duration(milliseconds: 300),
         alignment: 0.1, // Align near the top of the viewport
       );
