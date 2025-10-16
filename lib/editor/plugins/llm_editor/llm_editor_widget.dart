@@ -590,8 +590,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   @override
   void initState() {
     super.initState();
-    // Initialize the controller with the code content.
-    
+    _controller = CodeLineEditingController.fromText(widget.code);    
     }
 
   @override
@@ -617,7 +616,6 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   }
   
     void _updateStyleAndRecognizers() {
-_controller = CodeLineEditingController.fromText(widget.code);
     final codeEditorSettings = ref.read(
       settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -670,17 +668,12 @@ _controller = CodeLineEditingController.fromText(widget.code);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(4.0),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // The header is unchanged
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            color: Colors.black.withOpacity(0.2), 
             child: Row(
               children: [
                 Text(
