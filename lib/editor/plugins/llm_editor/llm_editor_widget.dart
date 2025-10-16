@@ -650,7 +650,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Color? themeBackgroundColor = _style.codeTheme?.theme['root']?.backgroundColor;
+    Color? themeBackgroundColor = _style?.codeTheme?.theme['root']?.backgroundColor;
 
     // 2. If it's null, provide a sensible default fallback color.
     final Color backgroundColor = themeBackgroundColor ?? Colors.black.withOpacity(0.25);
@@ -662,8 +662,8 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       ),
     );
 
-    final fontHeight = _style.fontHeight ?? 1;
-    final fontSize = _style.fontSize ?? 12.0;
+    final fontHeight = _style?.fontHeight ?? 1;
+    final fontSize = _style?.fontSize ?? 12.0;
     final editorHeight = _controller.codeLines.length * fontSize * fontHeight + 16.0;
 
     return Container(
