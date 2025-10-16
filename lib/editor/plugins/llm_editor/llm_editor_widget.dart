@@ -16,6 +16,7 @@ import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
+import 'package:markdown/markdown.dart' as md; // Import for md.Element
 
 class LlmEditorWidget extends EditorWidget {
   @override
@@ -162,7 +163,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final key = _messageKeys[targetIndex];
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
-        key.currentContext!,
+        key.!currentContext!,
         duration: const Duration(milliseconds: 300),
         alignment: 0.1,
       );
@@ -173,6 +174,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   // --- Build and UI Methods ---
+  void _updateCodeBlockIndices() {
+    _codeBlockMessageIndices.clear();
+    for (int i = 0; i < _messages.length; i++) {
+      if (_messages[i].content.contains('```')) {
+        _codeBlockMessageIndices.add(i);
+      }
+    }
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
