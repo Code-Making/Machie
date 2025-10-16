@@ -651,6 +651,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     );
 
     final fontHeight = _style.fontHeight ?? 1;
+    final fontSize = _style.fontSize ?? 12.0;
     final editorHeight = _controller.codeLines.length * _style.fontSize * fontHeight + 16.0;
 
     return Container(
