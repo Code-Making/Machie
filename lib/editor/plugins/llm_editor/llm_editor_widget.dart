@@ -38,9 +38,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   
-  // NEW: State for code block navigation
-  final Map<int, GlobalKey> _codeBlockKeys = {};
+  // REVISED: Map keys to the entire ChatBubble, not just the code block.
+  final Map<int, GlobalKey> _messageKeys = {};
   int? _lastJumpedIndex;
+  
+  // NEW: A list of message indices that contain code blocks.
+  List<int> _codeBlockMessageIndices = [];
 
   @override
   void initState() {
@@ -102,18 +105,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   // --- NEW: Chat Action Methods ---
 
-  void _rerun(int assistantMessageIndex) async {
-    // Find the last user message before this assistant message.
-    final promptMessage = _messages.lastWhereOrNull(
-        (m) => m.role == 'user' && _messages.indexOf(m) < assistantMessageIndex);
+  void _rerun(int messageIndex) async {
+    final messageToRerun = _messages[messageIndex];
+    if (messageToRerun.role != 'user') return;
 
-    if (promptMessage == null) return;
-
-    // Delete this assistant message and all subsequent messages.
-    _deleteAfter(assistantMessageIndex);
+    // THE FIX: Delete this message and all subsequent messages to clear the chat history from this point.
+    _deleteAfter(messageIndex);
 
     // Resubmit the original prompt.
-    await _submitPrompt(promptMessage.content);
+    await _submitPrompt(messageToRerun.content);
   }
 
   void _delete(int index) {
@@ -141,29 +141,30 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _jumpToCodeBlock(int direction) {
-    if (_codeBlockKeys.isEmpty) return;
+    _updateCodeBlockIndices(); // Ensure our list is up-to-date
+    if (_codeBlockMessageIndices.isEmpty) return;
 
-    final sortedKeys = _codeBlockKeys.keys.toList()..sort();
-    
     int? targetIndex;
     if (_lastJumpedIndex == null) {
-      targetIndex = direction == 1 ? sortedKeys.first : sortedKeys.last;
+      targetIndex = direction == 1 
+          ? _codeBlockMessageIndices.first 
+          : _codeBlockMessageIndices.last;
     } else {
       if (direction == 1) {
-        targetIndex = sortedKeys.firstWhereOrNull((k) => k > _lastJumpedIndex!);
-        targetIndex ??= sortedKeys.first; // Wrap around
+        targetIndex = _codeBlockMessageIndices.firstWhereOrNull((i) => i > _lastJumpedIndex!);
+        targetIndex ??= _codeBlockMessageIndices.first; // Wrap around
       } else {
-        targetIndex = sortedKeys.lastWhereOrNull((k) => k < _lastJumpedIndex!);
-        targetIndex ??= sortedKeys.last; // Wrap around
+        targetIndex = _codeBlockMessageIndices.lastWhereOrNull((i) => i < _lastJumpedIndex!);
+        targetIndex ??= _codeBlockMessageIndices.last; // Wrap around
       }
     }
 
-    final key = _codeBlockKeys[targetIndex];
+    final key = _messageKeys[targetIndex];
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
-        key!.currentContext!,
+        key.currentContext!,
         duration: const Duration(milliseconds: 300),
-        alignment: 0.1, // Align near top of viewport
+        alignment: 0.1,
       );
       setState(() {
         _lastJumpedIndex = targetIndex;
@@ -187,8 +188,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Clear keys on each build to ensure they are fresh.
-    _codeBlockKeys.clear();
+    // Clear keys on each build to ensure they are fresh and mapped to the correct message indices.
+    _messageKeys.clear();
     return Column(
       children: [
         Expanded(
@@ -197,12 +198,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             padding: const EdgeInsets.all(8.0),
             itemCount: _messages.length,
             itemBuilder: (context, index) {
+              // Create and register a key for EACH message bubble.
+              final key = GlobalKey();
+              _messageKeys[index] = key;
+              
               return ChatBubble(
+                key: key, // Assign the key here
                 message: _messages[index],
-                codeBlockBuilder: _CodeBlockBuilder(
-                  index: index,
-                  codeBlockKeys: _codeBlockKeys,
-                ),
+                codeBlockBuilder: _CodeBlockBuilder(),
                 onRerun: () => _rerun(index),
                 onDelete: () => _delete(index),
                 onDeleteAfter: () => _deleteAfter(index),
@@ -280,15 +283,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
-  final _CodeBlockBuilder codeBlockBuilder; // UPDATED
+  final _CodeBlockBuilder codeBlockBuilder;
   final VoidCallback onRerun;
   final VoidCallback onDelete;
   final VoidCallback onDeleteAfter;
 
   const ChatBubble({
-    super.key,
+    super.key, // Pass the key from the builder
     required this.message,
-    required this.codeBlockBuilder, // UPDATED
+    required this.codeBlockBuilder,
     required this.onRerun,
     required this.onDelete,
     required this.onDeleteAfter,
@@ -298,78 +301,119 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
     final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(12.0),
+
+    if (isUser) {
+      // User bubble remains a Row for right-alignment.
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                child: SelectableText(message.content),
               ),
-              child: isUser
-                  ? SelectableText(message.content)
-                  // UPDATED: Pass the custom builder
-                  : MarkdownBody(
-                      data: message.content,
-                      builders: {'code': codeBlockBuilder},
-                    ),
             ),
-          ),
-          if (!isUser) // Show menu only for assistant messages
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'rerun') onRerun();
-                if (value == 'delete') onDelete();
-                if (value == 'delete_after') onDeleteAfter();
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'rerun',
-                  child: ListTile(leading: Icon(Icons.refresh), title: Text('Rerun')),
+            _buildPopupMenu(context, isUser: true),
+          ],
+        ),
+      );
+    } else {
+      // THE FIX: Assistant bubble is now a Column for full-width content.
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 4.0),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with menu button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Assistant",
+                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete')),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'delete_after',
-                  child: ListTile(leading: Icon(Icons.delete_sweep_outlined), title: Text('Delete After')),
-                ),
+                _buildPopupMenu(context, isUser: false),
               ],
             ),
-        ],
-      ),
+            const SizedBox(height: 8),
+            // Full-width markdown content
+            MarkdownBody(
+              data: message.content,
+              builders: {'code': codeBlockBuilder},
+              styleSheet: MarkdownStyleSheet(
+                codeblockDecoration: BoxDecoration(
+                  color: Colors.transparent, // We handle the color in our wrapper
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // NEW: Extracted PopupMenuButton builder for reuse.
+  Widget _buildPopupMenu(BuildContext context, {required bool isUser}) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, size: 18),
+      onSelected: (value) {
+        if (value == 'rerun') onRerun();
+        if (value == 'delete') onDelete();
+        if (value == 'delete_after') onDeleteAfter();
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        // THE FIX: Conditionally show the 'Rerun' option.
+        if (isUser)
+          const PopupMenuItem<String>(
+            value: 'rerun',
+            child: ListTile(leading: Icon(Icons.refresh), title: Text('Rerun from here')),
+          ),
+        const PopupMenuItem<String>(
+          value: 'delete',
+          child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete')),
+        ),
+        const PopupMenuItem<String>(
+          value: 'delete_after',
+          child: ListTile(leading: Icon(Icons.delete_sweep_outlined), title: Text('Delete After')),
+        ),
+      ],
     );
   }
 }
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
-  final int index;
-  final Map<int, GlobalKey> codeBlockKeys;
-
-  _CodeBlockBuilder({required this.index, required this.codeBlockKeys});
-
   @override
-  Widget? visitElementAfter(element, TextStyle? preferredStyle) {
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final String text = element.textContent;
     if (text.isEmpty) return null;
 
-    // Create a key and register it. Use a composite key to be unique.
-    final key = GlobalKey();
-    codeBlockKeys[index] = key;
+    // THE FIX: Check if the parent is the root document. This distinguishes
+    // ` ```code``` ` (full block) from ` `<p>`<code>code</code>`</p>` (inline).
+    final isFullBlock = element.parentElement == null || element.parentElement!.type == 'root';
 
-    return _CodeBlockWrapper(
-      key: key, // Assign the key to the widget
-      code: text,
-    );
+    if (isFullBlock) {
+      return _CodeBlockWrapper(code: text);
+    } else {
+      // For inline code, use the default styling provided by flutter_markdown.
+      return RichText(
+        text: TextSpan(
+          text: text,
+          style: preferredStyle?.copyWith(fontFamily: 'RobotoMono'),
+        ),
+      );
+    }
   }
 }
 
@@ -389,31 +433,39 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12.0),
-            color: Colors.black.withOpacity(0.25),
-            child: SelectableText(
-              widget.code,
-              style: const TextStyle(fontFamily: 'RobotoMono'),
-            ),
-          ),
-          if (_isHovered)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                icon: const Icon(Icons.copy, size: 16),
-                tooltip: 'Copy Code',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: widget.code));
-                  MachineToast.info('Copied to clipboard');
-                },
+      child: Container(
+        // THE FIX: The margin provides spacing, and decoration provides the background color and border.
+        margin: const EdgeInsets.symmetric(vertical: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(4.0),
+        ),
+        child: Stack(
+          children: [
+            // The padding is now inside the container.
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: SelectableText(
+                widget.code.trim(), // Trim to remove newlines from markdown parser
+                style: const TextStyle(fontFamily: 'RobotoMono'),
               ),
             ),
-        ],
+            // The button remains positioned relative to the Stack.
+            if (_isHovered)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: 'Copy Code',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: widget.code));
+                    MachineToast.info('Copied to clipboard');
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
