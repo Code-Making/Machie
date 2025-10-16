@@ -81,6 +81,59 @@ class LlmEditorPlugin extends EditorPlugin {
     final llmTab = tab as LlmEditorTab;
     return LlmEditorWidget(key: llmTab.editorKey, tab: llmTab);
   }
+  
+    List<Command> getCommands() => [
+    BaseCommand(
+      id: 'save',
+      label: 'Save Chat',
+      icon: const Icon(Icons.save),
+      defaultPositions: [AppCommandPositions.appBar],
+      sourcePlugin: id,
+      execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+      canExecute: (ref) {
+        final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        if (currentTabId == null) return false;
+        final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
+        return (metadata?.isDirty ?? false) && metadata?.file is! VirtualDocumentFile;
+      },
+    ),
+    BaseCommand(
+      id: 'save_as',
+      label: 'Save Chat As...',
+      icon: const Icon(Icons.save_as),
+      defaultPositions: [AppCommandPositions.appBar],
+      sourcePlugin: id,
+      execute: (ref) async {
+        final editorState = _getActiveEditorState(ref);
+        if (editorState == null) return;
+        await ref.read(editorServiceProvider).saveCurrentTabAs(
+          stringDataProvider: () async {
+            final content = await editorState.getContent();
+            return (content is EditorContentString) ? content.content : null;
+          },
+        );
+      },
+      canExecute: (ref) => _getActiveEditorState(ref) != null,
+    ),
+    BaseCommand(
+      id: 'jump_to_next_code',
+      label: 'Next Code Block',
+      icon: const Icon(Icons.keyboard_arrow_down),
+      defaultPositions: [AppCommandPositions.pluginToolbar],
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.jumpToNextCodeBlock(),
+      canExecute: (ref) => _getActiveEditorState(ref) != null,
+    ),
+    BaseCommand(
+      id: 'jump_to_prev_code',
+      label: 'Previous Code Block',
+      icon: const Icon(Icons.keyboard_arrow_up),
+      defaultPositions: [AppCommandPositions.pluginToolbar],
+      sourcePlugin: id,
+      execute: (ref) async => _getActiveEditorState(ref)?.jumpToPreviousCodeBlock(),
+      canExecute: (ref) => _getActiveEditorState(ref) != null,
+    ),
+  ];
 
   // --- Hot State Caching ---
   @override
