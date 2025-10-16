@@ -12,6 +12,7 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/settings/settings_notifier.dart';
 
 class LlmEditorWidget extends EditorWidget {
   @override
