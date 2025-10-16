@@ -49,31 +49,37 @@ class LlmEditorTab extends EditorTab {
 class LlmEditorSettings extends PluginSettings {
   String selectedProviderId;
   Map<String, String> apiKeys; // Maps provider ID to API key
+  Map<String, String> selectedModelIds; // NEW: Maps provider ID to a model ID
 
   LlmEditorSettings({
     this.selectedProviderId = 'dummy',
     this.apiKeys = const {},
+    this.selectedModelIds = const {}, // NEW
   });
 
   @override
   void fromJson(Map<String, dynamic> json) {
     selectedProviderId = json['selectedProviderId'] ?? 'dummy';
     apiKeys = Map<String, String>.from(json['apiKeys'] ?? {});
+    selectedModelIds = Map<String, String>.from(json['selectedModelIds'] ?? {}); // NEW
   }
 
   @override
   Map<String, dynamic> toJson() => {
         'selectedProviderId': selectedProviderId,
         'apiKeys': apiKeys,
+        'selectedModelIds': selectedModelIds, // NEW
       };
 
   LlmEditorSettings copyWith({
     String? selectedProviderId,
     Map<String, String>? apiKeys,
+    Map<String, String>? selectedModelIds, // NEW
   }) {
     return LlmEditorSettings(
       selectedProviderId: selectedProviderId ?? this.selectedProviderId,
       apiKeys: apiKeys ?? this.apiKeys,
+      selectedModelIds: selectedModelIds ?? this.selectedModelIds, // NEW
     );
   }
 }
