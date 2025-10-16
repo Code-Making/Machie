@@ -25,8 +25,6 @@ final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
   final apiKey = settings?.apiKeys[selectedId] ?? '';
 
   switch (selectedId) {
-    case 'openai':
-      return OpenAiProvider(apiKey);
     case 'gemini': // NEW: Handle Gemini case
       return GeminiProvider(apiKey);
     case 'dummy':
