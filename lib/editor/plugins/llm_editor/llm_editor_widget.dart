@@ -591,7 +591,33 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   void initState() {
     super.initState();
     // Initialize the controller with the code content.
-    _controller = CodeLineEditingController.fromText(widget.code);
+    
+    }
+
+  @override
+  void dispose() {
+    // It's crucial to dispose of the controller to prevent memory leaks.
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  // NEW: Add a listener to update the controller if the code from the stream changes.
+  @override
+  void didUpdateWidget(covariant _CodeBlockWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.code != oldWidget.code) {
+      _controller.text = widget.code;
+    }
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateStyleAndRecognizers();
+  }
+  
+    void _updateStyleAndRecognizers() {
+_controller = CodeLineEditingController.fromText(widget.code);
     final codeEditorSettings = ref.read(
       settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -621,23 +647,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
         languages: CodeThemes.getHighlightThemeMode(widget.language),
       ),
     );
-    }
-
-  @override
-  void dispose() {
-    // It's crucial to dispose of the controller to prevent memory leaks.
-    _controller.dispose();
-    super.dispose();
-  }
-  
-  // NEW: Add a listener to update the controller if the code from the stream changes.
-  @override
-  void didUpdateWidget(covariant _CodeBlockWrapper oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.code != oldWidget.code) {
-      _controller.text = widget.code;
-    }
-  }
+      }
 
   @override
   Widget build(BuildContext context) {
