@@ -80,6 +80,12 @@ class LlmEditorPlugin extends EditorPlugin {
       id: id,
     );
   }
+  
+    LlmEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
+    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    if (tab is! LlmEditorTab) return null;
+    return tab.editorKey.currentState as LlmEditorWidgetState?;
+  }
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
