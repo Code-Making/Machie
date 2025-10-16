@@ -408,9 +408,10 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final String text = element.textContent;
     if (text.isEmpty) return null;
 
-    // THE FIX: Check if the parent is the root document. This distinguishes
-    // ` ```code``` ` (full block) from ` `<p>`<code>code</code>`</p>` (inline).
-    final isFullBlock = element.parentElement == null || element.parentElement!.type == 'root';
+    // THE FIX: Check if the parent is the root of the document.
+    // Block-level elements are direct children of the Document node.
+    // The Document node itself doesn't have a parent.
+    final bool isFullBlock = element.parent == null;
 
     if (isFullBlock) {
       return _CodeBlockWrapper(code: text);
