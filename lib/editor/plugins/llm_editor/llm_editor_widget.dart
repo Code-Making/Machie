@@ -585,13 +585,33 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   bool _isFolded = false;
   // NEW: Each code block now has its own dedicated controller.
   late final CodeLineEditingController _controller;
+  late CodeEditorStyle _style;
+  late String? _languageKey;
 
   @override
   void initState() {
     super.initState();
     // Initialize the controller with the code content.
     _controller = CodeLineEditingController.fromText(widget.code);
-  }
+    final codeEditorSettings = ref.read(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    );
+    _style = CodeEditorStyle(
+      fontHeight: codeEditorSettings?.fontHeight,
+      fontSize: codeEditorSettings?.fontSize ?? 12.0,
+      fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
+      fontFeatures: fontFeatures,
+      //patternRecognizers: _patternRecognizers,
+      codeTheme: CodeHighlightTheme(
+        theme:
+            CodeThemes.availableCodeThemes[selectedThemeName] ??
+            CodeThemes.availableCodeThemes['Atom One Dark']!,
+        languages: CodeThemes.getHighlightThemeMode(_languageKey),
+      ),
+    );
+    }
 
   @override
   void dispose() {
@@ -620,21 +640,6 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       ),
     );
 
-    // 2. Build the CodeEditorStyle based on the shared settings.
-    // Provide sensible defaults in case settings are not found.
-    final themeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-    final enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final fontFeatures = enableLigatures ? null : const [FontFeature.disable('liga')];
-    final editorStyle = CodeEditorStyle(
-      fontHeight: codeEditorSettings?.fontHeight,
-      fontSize: codeEditorSettings?.fontSize ?? 14.0,
-      fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-      fontFeatures: fontFeatures,
-      codeTheme: CodeHighlightTheme(
-        theme: CodeThemes.availableCodeThemes[themeName] ?? atomOneDarkTheme,
-        languages: CodeThemes.getHighlightThemeMode(widget.language),
-      ),
-    );
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -685,7 +690,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
                     // 4. Replace SelectableText with the CodeEditor.
                     child: CodeEditor(
                       controller: _controller,
-                      style: editorStyle,
+                      style: _style,
                       readOnly: true, // This is crucial
                       indicatorBuilder: null, // No line numbers needed
                       findBuilder: null, // No find panel needed
