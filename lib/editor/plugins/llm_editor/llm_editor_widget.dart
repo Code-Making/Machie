@@ -40,8 +40,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   final _scrollController = ScrollController();
   
   // REVISED: Map keys to the entire ChatBubble, not just the code block.
-  final Map<int, GlobalKey> _messageKeys = {};
-  int? _lastJumpedIndex;
+  final Map<String, GlobalKey> _codeBlockKeys = {};
+  List<String> _sortedCodeBlockIds = [];
+  String? _lastJumpedId;
   
   // NEW: A list of message indices that contain code blocks.
   List<int> _codeBlockMessageIndices = [];
@@ -132,7 +133,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   // --- NEW: Code Block Navigation Methods ---
-
+  void _registerCodeBlock(String id, GlobalKey key) {
+    if (!_codeBlockKeys.containsKey(id)) {
+      _codeBlockKeys[id] = key;
+      // The list is naturally sorted because widgets are built in order.
+      _sortedCodeBlockIds.add(id);
+    }
+  }
+  
   void jumpToNextCodeBlock() {
     _jumpToCodeBlock(1);
   }
@@ -142,33 +150,32 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _jumpToCodeBlock(int direction) {
-    _updateCodeBlockIndices(); // Ensure our list is up-to-date
-    if (_codeBlockMessageIndices.isEmpty) return;
+    if (_sortedCodeBlockIds.isEmpty) return;
 
-    int? targetIndex;
-    if (_lastJumpedIndex == null) {
-      targetIndex = direction == 1 
-          ? _codeBlockMessageIndices.first 
-          : _codeBlockMessageIndices.last;
+    String? targetId;
+    if (_lastJumpedId == null) {
+      targetId = direction == 1 ? _sortedCodeBlockIds.first : _sortedCodeBlockIds.last;
     } else {
-      if (direction == 1) {
-        targetIndex = _codeBlockMessageIndices.firstWhereOrNull((i) => i > _lastJumpedIndex!);
-        targetIndex ??= _codeBlockMessageIndices.first; // Wrap around
-      } else {
-        targetIndex = _codeBlockMessageIndices.lastWhereOrNull((i) => i < _lastJumpedIndex!);
-        targetIndex ??= _codeBlockMessageIndices.last; // Wrap around
+      final currentIndex = _sortedCodeBlockIds.indexOf(_lastJumpedId!);
+      if (currentIndex == -1) { // Fallback if ID is somehow not in the list
+          _lastJumpedId = null;
+          jumpToNextCodeBlock();
+          return;
       }
+      
+      final nextIndex = (currentIndex + direction) % _sortedCodeBlockIds.length;
+      targetId = _sortedCodeBlockIds[nextIndex];
     }
 
-    final key = _messageKeys[targetIndex];
+    final key = _codeBlockKeys[targetId];
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
-        key!.currentContext!,
+        key.currentContext!,
         duration: const Duration(milliseconds: 300),
-        alignment: 0.1,
+        alignment: 0.1, // Align near the top of the viewport
       );
       setState(() {
-        _lastJumpedIndex = targetIndex;
+        _lastJumpedId = targetId;
       });
     }
   }
@@ -197,8 +204,10 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Clear keys on each build to ensure they are fresh and mapped to the correct message indices.
-    _messageKeys.clear();
+    // REVISED: Clear and re-register keys on every build to ensure they are fresh.
+    _codeBlockKeys.clear();
+    _sortedCodeBlockIds.clear();
+
     return Column(
       children: [
         Expanded(
@@ -207,14 +216,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             padding: const EdgeInsets.all(8.0),
             itemCount: _messages.length,
             itemBuilder: (context, index) {
-              // Create and register a key for EACH message bubble.
-              final key = GlobalKey();
-              _messageKeys[index] = key;
-              
               return ChatBubble(
-                key: key, // Assign the key here
                 message: _messages[index],
-                codeBlockBuilder: _CodeBlockBuilder(),
+                // Pass the registration callback and message index down
+                codeBlockBuilder: _CodeBlockBuilder(
+                  messageIndex: index,
+                  registerCodeBlock: _registerCodeBlock,
+                ),
                 onRerun: () => _rerun(index),
                 onDelete: () => _delete(index),
                 onDeleteAfter: () => _deleteAfter(index),
@@ -420,8 +428,20 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final isBlock = text.contains('\n');
 
     if (isBlock) {
-      // It's a full code block, render our custom wrapper.
-      return _CodeBlockWrapper(code: text);
+      final String language = _parseLanguage(element);
+      final id = '$messageIndex-$_codeBlockCounter';
+      final key = GlobalKey();
+      
+      // Register the block with the parent widget's state
+      registerCodeBlock(id, key);
+      
+      _codeBlockCounter++;
+
+      return _CodeBlockWrapper(
+        key: key, // This is the key we will scroll to!
+        code: text.trim(),
+        language: language,
+      );
     } else {
       // It's inline code. Render it with a simple, themed background.
       final theme = Theme.of(context);
@@ -436,47 +456,51 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       );
     }
   }
+  
+  String _parseLanguage(md.Element element) {
+    if (element.attributes['class']?.startsWith('language-') ?? false) {
+      return element.attributes['class']!.substring('language-'.length);
+    }
+    return 'text';
+  }
 }
 
 class _CodeBlockWrapper extends StatefulWidget {
   final String code;
-  const _CodeBlockWrapper({super.key, required this.code});
+  final String language;
+  const _CodeBlockWrapper({super.key, required this.code, required this.language});
 
   @override
   State<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
 }
 
 class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
-  bool _isHovered = false;
+  bool _isFolded = false; // NEW: State for folding
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        // THE FIX: The margin provides spacing, and decoration provides the background color and border.
-        margin: const EdgeInsets.symmetric(vertical: 8.0),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.25),
-          borderRadius: BorderRadius.circular(4.0),
-        ),
-        child: Stack(
-          children: [
-            // The padding is now inside the container.
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: SelectableText(
-                widget.code.trim(), // Trim to remove newlines from markdown parser
-                style: const TextStyle(fontFamily: 'RobotoMono'),
-              ),
-            ),
-            // The button remains positioned relative to the Stack.
-            if (_isHovered)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: IconButton(
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(4.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // THE FIX: The new header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            color: Colors.black.withOpacity(0.2),
+            child: Row(
+              children: [
+                Text(
+                  widget.language,
+                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const Spacer(),
+                IconButton(
                   icon: const Icon(Icons.copy, size: 16),
                   tooltip: 'Copy Code',
                   onPressed: () {
@@ -484,9 +508,32 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
                     MachineToast.info('Copied to clipboard');
                   },
                 ),
-              ),
-          ],
-        ),
+                IconButton(
+                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                  tooltip: _isFolded ? 'Unfold Code' : 'Fold Code',
+                  onPressed: () {
+                    setState(() => _isFolded = !_isFolded);
+                  },
+                ),
+              ],
+            ),
+          ),
+          // THE FIX: Animated container for folding
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isFolded
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12.0),
+                    child: SelectableText(
+                      widget.code,
+                      style: const TextStyle(fontFamily: 'RobotoMono'),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
