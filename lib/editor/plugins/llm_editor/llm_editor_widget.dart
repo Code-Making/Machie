@@ -70,9 +70,24 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   @override
   void initState() {
     super.initState();
-    _displayMessages = widget.tab.initialMessages
-        .map((msg) => DisplayMessage.fromChatMessage(msg))
-        .toList();
+
+    // The 'widget.tab' would have the restored hot state.
+    final restoredHotState = widget.tab.hotState as LlmEditorHotStateDto?;
+
+    if (restoredHotState != null) {
+      // --- THE RESTORATION HAPPENS HERE ---
+      // We take the pure data and re-hydrate it into our UI view model.
+      // The fromChatMessage factory correctly regenerates the keys for this new session.
+      _displayMessages = restoredHotState.messages
+          .map((msg) => DisplayMessage.fromChatMessage(msg))
+          .toList();
+      _baseContentHash = restoredHotState.baseContentHash;
+    } else {
+      // If there's no hot state, initialize from the initial messages.
+      _displayMessages = widget.tab.initialMessages
+          .map((msg) => DisplayMessage.fromChatMessage(msg))
+          .toList();
+    }
   }
 
   @override
@@ -340,10 +355,20 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    return LlmEditorHotStateDto(
-      messages: _messages,
+    // 1. Extract the pure data (ChatMessage) from the UI view model (_displayMessages).
+    final List<ChatMessage> messagesToSave = _displayMessages
+        .map((displayMessage) => displayMessage.message)
+        .toList();
+
+    // 2. Create the Data Transfer Object (DTO) with the serializable data.
+    //    The GlobalKeys are intentionally discarded here.
+    final hotStateDto = LlmEditorHotStateDto(
+      messages: messagesToSave,
       baseContentHash: _baseContentHash,
     );
+
+    // 3. Return the DTO, wrapped in a Future.
+    return Future.value(hotStateDto);
   }
 
   @override
@@ -378,36 +403,84 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble> {
+  // The only state this widget manages is its own fold status.
   bool _isFolded = false;
+
+  // No initState is needed as all key management is handled by the parent.
 
   @override
   Widget build(BuildContext context) {
     final isUser = widget.message.role == 'user';
     final theme = Theme.of(context);
-    // ...
+    final roleText = isUser ? "User" : "Assistant";
+    final backgroundColor = isUser
+        ? theme.colorScheme.primaryContainer.withOpacity(0.5)
+        : theme.colorScheme.surface;
+
     return Container(
-      // ...
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The header that serves as a scroll target.
           Container(
-            key: widget.headerKey, // Assign the passed-in key
-            // ...
+            // CRITICAL: The pre-generated key is assigned here.
+            key: widget.headerKey,
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.05),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8.0),
+                topRight: Radius.circular(8.0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  roleText,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                      _isFolded ? Icons.unfold_more : Icons.unfold_less,
+                      size: 18),
+                  tooltip: _isFolded ? 'Unfold Message' : 'Fold Message',
+                  onPressed: () => setState(() => _isFolded = !_isFolded),
+                ),
+                _buildPopupMenu(context, isUser: isUser),
+              ],
+            ),
           ),
+          // The foldable content area.
           AnimatedSize(
-            // ...
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
             child: _isFolded
                 ? const SizedBox(width: double.infinity)
                 : Container(
-                    // ...
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     child: isUser
                         ? SelectableText(widget.message.content)
                         : MarkdownBody(
                             data: widget.message.content,
                             builders: {
+                              // CRITICAL: The code block keys are passed down.
                               'code': _CodeBlockBuilder(keys: widget.codeBlockKeys)
                             },
-                            // ...
+                            styleSheet: MarkdownStyleSheet(
+                              codeblockDecoration: const BoxDecoration(
+                                color: Colors.transparent,
+                              ),
+                            ),
                           ),
                   ),
           ),
@@ -415,6 +488,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       ),
     );
   }
+
   Widget _buildPopupMenu(BuildContext context, {required bool isUser}) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, size: 18),
@@ -427,15 +501,19 @@ class _ChatBubbleState extends State<ChatBubble> {
         if (isUser)
           const PopupMenuItem<String>(
             value: 'rerun',
-            child: ListTile(leading: Icon(Icons.refresh), title: Text('Rerun from here')),
+            child: ListTile(
+                leading: Icon(Icons.refresh), title: Text('Rerun from here')),
           ),
         const PopupMenuItem<String>(
           value: 'delete',
-          child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete')),
+          child: ListTile(
+              leading: Icon(Icons.delete_outline), title: Text('Delete')),
         ),
         const PopupMenuItem<String>(
           value: 'delete_after',
-          child: ListTile(leading: Icon(Icons.delete_sweep_outlined), title: Text('Delete After')),
+          child: ListTile(
+              leading: Icon(Icons.delete_sweep_outlined),
+              title: Text('Delete After')),
         ),
       ],
     );
