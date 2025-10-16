@@ -19,7 +19,7 @@ abstract class LlmProvider {
   });
 }
 
-// A dummy provider for testing without an API key.
+// ... (DummyProvider and OpenAiProvider are unchanged) ...
 class DummyProvider implements LlmProvider {
   @override
   String get id => 'dummy';
@@ -44,7 +44,6 @@ class DummyProvider implements LlmProvider {
   }
 }
 
-// A concrete implementation for OpenAI's API.
 class OpenAiProvider implements LlmProvider {
   @override
   String get id => 'openai';
@@ -100,19 +99,18 @@ class OpenAiProvider implements LlmProvider {
   }
 }
 
-// NEW: A concrete implementation for Google's Gemini API.
+// A concrete implementation for Google's Gemini API.
 class GeminiProvider implements LlmProvider {
   @override
   String get id => 'gemini';
   @override
   String get name => 'Google Gemini';
   @override
+  // UPDATED: Use the newer model names from the documentation.
   List<String> get availableModels => [
         'gemini-2.5-pro',
-        'gemini-1.5-flash-latest',
-        'gemini-2.5-flash-latest',
-        'gemini-1.5-pro-latest',
-        'gemini-1.0-pro',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
       ];
 
   final String _apiKey;
@@ -128,10 +126,9 @@ class GeminiProvider implements LlmProvider {
       return 'Error: Google Gemini API key is not set in the plugin settings.';
     }
 
-    // Gemini has a different API structure. It needs alternating 'user' and 'model' roles.
+    // The request body structure is still correct.
     final List<Map<String, dynamic>> contents = [];
     for (final message in history) {
-      // Ensure roles are 'user' or 'model'
       contents.add({
         'role': message.role == 'assistant' ? 'model' : 'user',
         'parts': [
@@ -139,7 +136,6 @@ class GeminiProvider implements LlmProvider {
         ]
       });
     }
-    // Add the current prompt as the last user message.
     contents.add({
       'role': 'user',
       'parts': [
@@ -147,17 +143,23 @@ class GeminiProvider implements LlmProvider {
       ]
     });
 
+    // THE FIX: Update the URI and headers to match the new API spec.
     final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent?key=$_apiKey');
-    final headers = {'Content-Type': 'application/json'};
+        'https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent');
+    
+    final headers = {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': _apiKey, // Use the header for the API key
+    };
+
     final body = jsonEncode({'contents': contents});
 
     try {
+      // The http call itself remains the same, just with the updated uri and headers.
       final response = await http.post(uri, headers: headers, body: body);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // The response structure is different from OpenAI's.
         return data['candidates'][0]['content']['parts'][0]['text'] as String;
       } else {
         final errorData = jsonDecode(response.body);
