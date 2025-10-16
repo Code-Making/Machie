@@ -52,31 +52,37 @@ class LlmEditorPlugin extends EditorPlugin {
     EditorInitData initData, {
     String? id,
   }) async {
-    List<ChatMessage> initialMessages = [];
-    final content = initData.stringData;
+    List<ChatMessage> messagesToShow;
+    final hotState = initData.hotState as LlmEditorHotStateDto?;
 
-    if (content != null && content.isNotEmpty) {
-      try {
-        final List<dynamic> jsonList = jsonDecode(content);
-        initialMessages =
-            jsonList.map((item) => ChatMessage.fromJson(item)).toList();
-      } catch (e) {
-        // Handle corrupted or invalid file by starting with an error message.
-        initialMessages.add(
-          ChatMessage(
-            role: 'assistant',
-            content: 'Error: Could not parse .llm file. Starting a new chat. \n\nDetails: $e',
-          ),
-        );
+    // THE FIX: Decide which message list to use right here.
+    if (hotState != null && hotState.messages.isNotEmpty) {
+      // If cached state exists, it takes priority.
+      messagesToShow = hotState.messages;
+    } else {
+      // Otherwise, parse from the file content.
+      List<ChatMessage> messagesFromFile = [];
+      final content = initData.stringData;
+      if (content != null && content.isNotEmpty) {
+        try {
+          final List<dynamic> jsonList = jsonDecode(content);
+          messagesFromFile = jsonList.map((item) => ChatMessage.fromJson(item)).toList();
+        } catch (e) {
+          messagesFromFile.add(
+            ChatMessage(
+              role: 'assistant',
+              content: 'Error: Could not parse .llm file. Starting a new chat. \n\nDetails: $e',
+            ),
+          );
+        }
       }
+      messagesToShow = messagesFromFile;
     }
-    
-    // Note: We don't need to handle hot-state here. The EditorWidget's initState
-    // will be responsible for applying any cached content on top of this initial state.
-    
+
+    // Pass the resolved list of messages to the tab.
     return LlmEditorTab(
       plugin: this,
-      initialMessages: initialMessages,
+      initialMessages: messagesToShow,
       id: id,
     );
   }

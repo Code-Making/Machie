@@ -70,24 +70,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   @override
   void initState() {
     super.initState();
-
-    // The 'widget.tab' would have the restored hot state.
-    final restoredHotState = widget.tab.hotState as LlmEditorHotStateDto?;
-
-    if (restoredHotState != null) {
-      // --- THE RESTORATION HAPPENS HERE ---
-      // We take the pure data and re-hydrate it into our UI view model.
-      // The fromChatMessage factory correctly regenerates the keys for this new session.
-      _displayMessages = restoredHotState.messages
-          .map((msg) => DisplayMessage.fromChatMessage(msg))
-          .toList();
-      _baseContentHash = restoredHotState.baseContentHash;
-    } else {
-      // If there's no hot state, initialize from the initial messages.
-      _displayMessages = widget.tab.initialMessages
-          .map((msg) => DisplayMessage.fromChatMessage(msg))
-          .toList();
-    }
+    // THE FIX: The widget state now only cares about `initialMessages`,
+    // which has already been resolved from either cache or file by the plugin.
+    _displayMessages = widget.tab.initialMessages
+        .map((msg) => DisplayMessage.fromChatMessage(msg))
+        .toList();
   }
 
   @override
@@ -132,7 +119,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           // Replace the last message, keeping the same keys but updating content
           _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
         });
-        _scrollToBottom();
+        // _scrollToBottom();
       }
     } catch (e) {
       if (!mounted) return;
