@@ -651,17 +651,9 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
-      previous,
-      next,
-    ) {
-      if (previous != next && next != null) {
-        setState(() {
-          _updateStyleAndRecognizers(); // Rebuild style for new language
-        });
-      }
-    });
-
+    if(!_style){
+      return;
+    }
     final theme = Theme.of(context);
     Color? themeBackgroundColor = _style?.codeTheme?.theme['root']?.backgroundColor;
 
