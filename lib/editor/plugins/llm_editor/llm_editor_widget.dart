@@ -586,7 +586,6 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   // NEW: Each code block now has its own dedicated controller.
   late final CodeLineEditingController _controller;
   late CodeEditorStyle _style;
-  late String? _languageKey;
 
   @override
   void initState() {
@@ -598,6 +597,17 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
+
+    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
+    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
+    final List<FontFeature>? fontFeatures =
+        enableLigatures
+            ? null
+            : const [
+              FontFeature.disable('liga'),
+              FontFeature.disable('clig'),
+              FontFeature.disable('calt'),
+            ];
     _style = CodeEditorStyle(
       fontHeight: codeEditorSettings?.fontHeight,
       fontSize: codeEditorSettings?.fontSize ?? 12.0,
@@ -608,7 +618,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
         theme:
             CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
-        languages: CodeThemes.getHighlightThemeMode(_languageKey),
+        languages: CodeThemes.getHighlightThemeMode(widget.language),
       ),
     );
     }
