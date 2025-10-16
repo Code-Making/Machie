@@ -654,7 +654,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: editorStyle.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
+        color: _style.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
