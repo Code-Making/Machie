@@ -661,7 +661,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: themeBackgroundColor,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
@@ -670,7 +670,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
           // The header is unchanged
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            color: backgroundColor,
+            color: Colors.black.withOpacity(0.2), 
             child: Row(
               children: [
                 Text(
