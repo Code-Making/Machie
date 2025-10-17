@@ -1209,11 +1209,11 @@ class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> 
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 2);
 
     final languageKey = CodeThemes.inferLanguageKey(widget.item.source);
-    final languageMode = CodeThemes.languageNameToModeMap[languageKey] ?? langPlaintext;
+    // final languageMode = CodeThemes.languageNameToModeMap[languageKey] ?? langPlaintext;
     
     final result = _CodeBlockWrapperState._highlight.highlight(
       code: widget.item.content,
-      language: languageMode,
+      language: languageKey,
     );
     final renderer = TextSpanRenderer(textStyle, theme);
     result.render(renderer);
