@@ -101,10 +101,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         .map((msg) => DisplayMessage.fromChatMessage(msg))
         .toList();
     
-    // NEW: Add listener for composing token count
-    _textController.addListener(_updateComposingTokenCount);
+    // NEW: Restore composing state from tab model
+    if (widget.tab.initialComposingPrompt != null) {
+      _textController.text = widget.tab.initialComposingPrompt!;
+    }
+    if (widget.tab.initialComposingContext != null) {
+      _contextItems.addAll(widget.tab.initialComposingContext!);
+    }
 
-    // NEW: Initial calculation
+    _textController.addListener(_onStateChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateComposingTokenCount();
       _updateTotalTokenCount();
@@ -119,6 +125,18 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _scrollController.dispose();
     _scrollEndTimer?.cancel();
     super.dispose();
+  }
+  
+  void _onStateChanged() {
+    _updateComposingTokenCount();
+    
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project != null) {
+      // Mark as dirty so the service knows something changed
+      ref.read(editorServiceProvider).markCurrentTabDirty();
+      // Trigger the debounced cache update
+      ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+    }
   }
   
   // NEW: Token counting methods
@@ -147,7 +165,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.clear();
     });
-    _updateComposingTokenCount();
+    _onStateChanged();
   }
 
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
@@ -237,6 +255,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     });
 
     await _submitPrompt(userPrompt, context: contextToSend);
+    _onStateChanged(); // Signal state change after sending
   }
   
   void _stopGeneration() {
@@ -245,7 +264,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _isLoading = false;
       _llmSubscription = null;
     });
-    ref.read(editorServiceProvider).markCurrentTabDirty();
+    _onStateChanged(); // Signal state change after stopping
   }
 
   void _rerun(int messageIndex) async {
@@ -258,17 +277,17 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void _delete(int index) {
     setState(() {
       _displayMessages.removeAt(index);
-      _updateTotalTokenCount();
     });
-    ref.read(editorServiceProvider).markCurrentTabDirty();
+    _updateTotalTokenCount();
+    _onStateChanged();
   }
 
   void _deleteAfter(int index) {
     setState(() {
       _displayMessages.removeRange(index, _displayMessages.length);
-      _updateTotalTokenCount();
     });
-    ref.read(editorServiceProvider).markCurrentTabDirty();
+    _updateTotalTokenCount();
+    _onStateChanged();
   }
   
   Future<void> _showAddContextDialog() async {
@@ -303,7 +322,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.add(ContextItem(source: relativePath, content: content));
     });
-    _updateComposingTokenCount();
+    _onStateChanged();
   }
   
   Future<void> _gatherRecursiveImports(DocumentFile initialFile, String projectRootUri) async {
@@ -345,7 +364,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.addAll(gatheredContext);
     });
-    _updateComposingTokenCount();
+    _onStateChanged();
     MachineToast.info('Added ${gatheredContext.length} files to context.');
   }
   
@@ -614,9 +633,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final List<ChatMessage> messagesToSave = _displayMessages
         .map((displayMessage) => displayMessage.message)
         .toList();
+    
     final hotStateDto = LlmEditorHotStateDto(
       messages: messagesToSave,
       baseContentHash: _baseContentHash,
+      composingPrompt: _textController.text, // NEW
+      composingContext: _contextItems,      // NEW
     );
     return Future.value(hotStateDto);
   }

@@ -1,6 +1,4 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/llm_editor/llm_editor_hot_state.dart
-// =========================================
+// FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_hot_state.dart
 
 import 'package:machine/data/cache/type_adapters.dart';
 import 'package:machine/data/dto/tab_hot_state_dto.dart';
@@ -10,9 +8,13 @@ import 'llm_editor_models.dart';
 @immutable
 class LlmEditorHotStateDto extends TabHotStateDto {
   final List<ChatMessage> messages;
+  final String? composingPrompt;
+  final List<ContextItem>? composingContext;
 
   const LlmEditorHotStateDto({
     required this.messages,
+    this.composingPrompt,
+    this.composingContext,
     super.baseContentHash,
   });
 }
@@ -20,14 +22,20 @@ class LlmEditorHotStateDto extends TabHotStateDto {
 class LlmEditorHotStateAdapter implements TypeAdapter<LlmEditorHotStateDto> {
   static const String _messagesKey = 'messages';
   static const String _hashKey = 'baseContentHash';
+  static const String _promptKey = 'composingPrompt';
+  static const String _contextKey = 'composingContext';
 
   @override
   LlmEditorHotStateDto fromJson(Map<String, dynamic> json) {
     final messagesJson = json[_messagesKey] as List<dynamic>? ?? [];
+    final contextJson = json[_contextKey] as List<dynamic>? ?? [];
     return LlmEditorHotStateDto(
-      messages:
-          messagesJson.map((m) => ChatMessage.fromJson(m)).toList(),
+      messages: messagesJson.map((m) => ChatMessage.fromJson(m)).toList(),
       baseContentHash: json[_hashKey] as String?,
+      composingPrompt: json[_promptKey] as String?,
+      composingContext: contextJson
+          .map((item) => ContextItem(source: item['source'], content: item['content']))
+          .toList(),
     );
   }
 
@@ -36,6 +44,9 @@ class LlmEditorHotStateAdapter implements TypeAdapter<LlmEditorHotStateDto> {
     return {
       _messagesKey: object.messages.map((m) => m.toJson()).toList(),
       _hashKey: object.baseContentHash,
+      _promptKey: object.composingPrompt,
+      if (object.composingContext != null && object.composingContext!.isNotEmpty)
+        _contextKey: object.composingContext!.map((item) => {'source': item.source, 'content': item.content}).toList(),
     };
   }
 }

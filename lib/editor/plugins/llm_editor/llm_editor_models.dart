@@ -55,12 +55,15 @@ class LlmEditorTab extends EditorTab {
   @override
   final GlobalKey<LlmEditorWidgetState> editorKey;
 
-  // The initial list of messages loaded from the .llm file.
   final List<ChatMessage> initialMessages;
+  final String? initialComposingPrompt; // NEW
+  final List<ContextItem>? initialComposingContext; // NEW
 
   LlmEditorTab({
     required super.plugin,
     required this.initialMessages,
+    this.initialComposingPrompt, // NEW
+    this.initialComposingContext, // NEW
     super.id,
   }) : editorKey = GlobalKey<LlmEditorWidgetState>();
 
