@@ -632,7 +632,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     final enableLigatures = codeEditorSettings?.fontLigatures ?? true;
     final fontSize = codeEditorSettings?.fontSize ?? 12.0;
     final fontFamily = codeEditorSettings?.fontFamily ?? 'JetBrainsMono';
-    final fontHeight = codeEditorSettings?.fontHeight,
+    final fontHeight = codeEditorSettings?.fontHeight ?? 1.2;
 
     // Only recreate if dependencies changed
     if (_cachedStyle == null ||
@@ -666,7 +666,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       _cachedLigatures = enableLigatures;
       _cachedFontSize = fontSize;
       _cachedFontFamily = fontFamily;
-      _cachedFontHeight = fontHeight
+      _cachedFontHeight = fontHeight;
     }
 
     return _cachedStyle!;
@@ -689,7 +689,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       ),
     );
 
-    final fontHeight = style?.fontHeight ?? 1;
+    final fontHeight = style?.fontHeight ?? 1.2;
     final fontSize = style?.fontSize ?? 12.0;
     final codeLength = _controller?.codeLines.length ?? 10;
     final editorHeight = codeLength * fontSize * fontHeight + 16.0;
