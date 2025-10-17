@@ -623,10 +623,10 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
   }
 
   void _highlightCode() {
-    final languageMode = CodeThemes.languageNameToModeMap[widget.language] ?? langPlaintext;
+
     final HighlightResult result = _highlight.highlight(
       code: widget.code,
-      language: languageMode,
+      language: widget.language,
     );
     final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
     result.render(renderer);
