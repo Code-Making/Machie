@@ -512,13 +512,24 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
   
-    Widget _buildTopBar() {
+  Widget _buildTopBar() {
+    final settings = ref.watch(settingsProvider.select(
+      (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
+    )) ?? LlmEditorSettings();
+
+    final modelId = settings.selectedModelIds[settings.selectedProviderId] ?? '';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       color: Theme.of(context).appBarTheme.backgroundColor?.withOpacity(0.5),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          Text(
+            modelId,
+            style: Theme.of(context).textTheme.bodySmall,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
           Text(
             'Total Tokens: ~$_totalTokenCount',
             style: Theme.of(context).textTheme.bodySmall,
@@ -1014,12 +1025,16 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
                 : Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12.0),
-                    child: _highlightedCode == null
-                        ? SelectableText(widget.code, style: widget.textStyle)
-                        : SelectableText.rich(
-                            _highlightedCode!,
-                            style: widget.textStyle,
-                          ),
+                    // UPDATED: Wrap with SingleChildScrollView for horizontal scrolling
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: _highlightedCode == null
+                          ? SelectableText(widget.code, style: widget.textStyle)
+                          : SelectableText.rich(
+                              _highlightedCode!,
+                              style: widget.textStyle,
+                            ),
+                    ),
                   ),
           ),
         ],
@@ -1256,9 +1271,14 @@ class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> 
         padding: const EdgeInsets.all(8),
         color: _highlightedCode?.style?.backgroundColor ?? Theme.of(context).colorScheme.surface,
         child: SingleChildScrollView(
+          // This is the vertical scroll view for the whole dialog content
           child: _highlightedCode == null
               ? SelectableText(widget.item.content)
-              : SelectableText.rich(_highlightedCode!),
+              // UPDATED: Wrap with another SingleChildScrollView for horizontal scrolling
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SelectableText.rich(_highlightedCode!),
+                ),
         ),
       ),
     );
