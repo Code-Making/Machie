@@ -2,13 +2,16 @@
 
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/app/app_notifier.dart';
 import 'package:machine/data/dto/tab_hot_state_dto.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/data/repositories/project_repository.dart';
 import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
@@ -16,6 +19,8 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/explorer/common/file_explorer_dialogs.dart';
+import 'package:machine/project/services/project_hierarchy_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -80,6 +85,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
+
+  final List<ContextItem> _contextItems = [];
 
   @override
   void initState() {
@@ -151,10 +158,29 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   Future<void> _sendMessage() async {
-    final prompt = _textController.text.trim();
-    if (prompt.isEmpty) return;
+    final userPrompt = _textController.text.trim();
+    if (userPrompt.isEmpty && _contextItems.isEmpty) return;
+
+    // Combine context and user prompt
+    final fullPrompt = StringBuffer();
+    if (_contextItems.isNotEmpty) {
+      fullPrompt.writeln("Use the following files as context for my request:\n");
+      for (final item in _contextItems) {
+        fullPrompt.writeln('--- CONTEXT FILE: ${item.source} ---\n');
+        fullPrompt.writeln('```');
+        fullPrompt.writeln(item.content);
+        fullPrompt.writeln('```\n');
+      }
+      fullPrompt.writeln("--- END OF CONTEXT ---\n");
+    }
+    fullPrompt.write(userPrompt);
+    
     _textController.clear();
-    await _submitPrompt(prompt);
+    setState(() {
+      _contextItems.clear();
+    });
+
+    await _submitPrompt(fullPrompt.toString());
   }
 
   void _rerun(int messageIndex) async {
@@ -176,6 +202,97 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _displayMessages.removeRange(index, _displayMessages.length);
     });
     ref.read(editorServiceProvider).markCurrentTabDirty();
+  }
+  
+    Future<void> _showAddContextDialog() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final repo = ref.read(projectRepositoryProvider);
+    if (project == null || repo == null) return;
+
+    final file = await showDialog<DocumentFile>(
+      context: context,
+      builder: (context) => _FilePickerLiteDialog(projectRootUri: project.rootUri),
+    );
+
+    if (file == null) return;
+    
+    final content = await repo.readFile(file.uri);
+    final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+
+    // Check if we should ask about recursion
+    if (file.name.endsWith('.dart')) {
+      final confirm = await showConfirmDialog(
+        context,
+        title: 'Gather Imports?',
+        content: 'Do you want to recursively gather all local imports from "${file.name}"?',
+      );
+      if (confirm) {
+        await _gatherRecursiveImports(file, project.rootUri);
+        return;
+      }
+    }
+    
+    // Default case: just add the single file
+    setState(() {
+      _contextItems.add(ContextItem(source: relativePath, content: content));
+    });
+  }
+  
+  Future<void> _gatherRecursiveImports(DocumentFile initialFile, String projectRootUri) async {
+    final repo = ref.read(projectRepositoryProvider);
+    if (repo == null) return;
+
+    final filesToProcess = <DocumentFile>[initialFile];
+    final processedUris = <String>{};
+    final gatheredContext = <ContextItem>[];
+    
+    final importRegex = RegExp(r"^\s*import\s+'(?!package:|dart:)(.+?)';", multiLine: true);
+
+    while (filesToProcess.isNotEmpty) {
+      final currentFile = filesToProcess.removeAt(0);
+      if (processedUris.contains(currentFile.uri)) continue;
+
+      processedUris.add(currentFile.uri);
+      final content = await repo.readFile(currentFile.uri);
+      final relativePath = repo.fileHandler.getPathForDisplay(currentFile.uri, relativeTo: projectRootUri);
+      gatheredContext.add(ContextItem(source: relativePath, content: content));
+
+      final matches = importRegex.allMatches(content);
+      for (final match in matches) {
+        final relativeImportPath = match.group(1);
+        if (relativeImportPath != null) {
+          try {
+            final resolvedUri = await _resolveRelativePath(currentFile.uri, relativeImportPath, repo.fileHandler);
+            final nextFile = await repo.getFileMetadata(resolvedUri);
+            if (nextFile != null && !processedUris.contains(nextFile.uri)) {
+              filesToProcess.add(nextFile);
+            }
+          } catch(e) {
+            // Silently fail if a path can't be resolved
+          }
+        }
+      }
+    }
+
+    setState(() {
+      _contextItems.addAll(gatheredContext);
+    });
+    MachineToast.info('Added ${gatheredContext.length} files to context.');
+  }
+  
+  Future<String> _resolveRelativePath(String currentFileUri, String relativePath, FileHandler fileHandler) async {
+    final parentUri = fileHandler.getParentUri(currentFileUri);
+    final parentSegments = parentUri.split('%2F');
+    final pathSegments = relativePath.split('/');
+
+    for (final segment in pathSegments) {
+      if (segment == '..') {
+        if (parentSegments.isNotEmpty) parentSegments.removeLast();
+      } else if (segment != '.') {
+        parentSegments.add(segment);
+      }
+    }
+    return parentSegments.join('%2F');
   }
 
   List<_ScrollTarget> _getVisibleTargetsWithOffsets() {
@@ -312,26 +429,59 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _textController,
-                enabled: !_isLoading,
-                keyboardType: TextInputType.multiline,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  hintText: 'Type your message...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+            // NEW: Context items display
+            if (_contextItems.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: _contextItems.map((item) => _ContextItemCard(
+                        item: item,
+                        onRemove: () => setState(() => _contextItems.remove(item)),
+                      )).toList(),
+                    ),
+                  ),
                 ),
-                onSubmitted: (_) => _sendMessage(),
               ),
-            ),
-            const SizedBox(width: 8.0),
-            IconButton(
-              icon: const Icon(Icons.send),
-              onPressed: _isLoading ? null : _sendMessage,
+
+            // Existing input row, with a new button
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // NEW: Add Context Button
+                IconButton(
+                  icon: const Icon(Icons.attachment),
+                  tooltip: 'Add File Context',
+                  onPressed: _isLoading ? null : _showAddContextDialog,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    enabled: !_isLoading,
+                    keyboardType: TextInputType.multiline,
+                    maxLines: 5,
+                    minLines: 1,
+                    decoration: const InputDecoration(
+                      hintText: 'Type your message...',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _isLoading ? null : _sendMessage,
+                ),
+              ],
             ),
           ],
         ),
@@ -457,37 +607,35 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
               ],
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            child: _isFolded
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    child: isUser
-                        ? SelectableText(widget.message.content)
-                        : MarkdownBody(
-                            data: widget.message.content,
-                            builders: {
-                              'code': _CodeBlockBuilder(
-                                keys: widget.codeBlockKeys,
-                                theme: highlightTheme,
-                                textStyle: TextStyle(
-                                  fontFamily: codeEditorSettings.fontFamily,
-                                  fontSize: codeEditorSettings.fontSize - 1,
-                                ),
-                              )
-                            },
-                            styleSheet: MarkdownStyleSheet(
-                              codeblockDecoration: const BoxDecoration(
-                                color: Colors.transparent,
-                              ),
-                            ),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: _isFolded
+          ? const SizedBox(width: double.infinity)
+          : Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 10),
+              child: MarkdownBody( // USED FOR BOTH USER AND ASSISTANT
+                      data: widget.message.content,
+                      builders: {
+                        'code': _CodeBlockBuilder(
+                          keys: widget.codeBlockKeys,
+                          theme: highlightTheme,
+                          textStyle: TextStyle(
+                            fontFamily: codeEditorSettings.fontFamily,
+                            fontSize: codeEditorSettings.fontSize - 1,
                           ),
-                  ),
-          ),
+                        )
+                      },
+                      styleSheet: MarkdownStyleSheet(
+                        codeblockDecoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                      ),
+                    ),
+            ),
+    );
         ],
       ),
     );
@@ -697,6 +845,144 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// NEW: Widget to display a context item in the input area
+class _ContextItemCard extends StatelessWidget {
+  final ContextItem item;
+  final VoidCallback onRemove;
+
+  const _ContextItemCard({required this.item, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(item.source),
+      onDeleted: onRemove,
+      deleteIcon: const Icon(Icons.close, size: 16),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(item.source),
+            content: SingleChildScrollView(child: SelectableText(item.content)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.copy),
+                tooltip: 'Copy Content',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: item.content));
+                  MachineToast.info('Context content copied.');
+                },
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// NEW: A simple file picker dialog that uses the project hierarchy
+class _FilePickerLiteDialog extends ConsumerStatefulWidget {
+  final String projectRootUri;
+  const _FilePickerLiteDialog({required this.projectRootUri});
+
+  @override
+  ConsumerState<_FilePickerLiteDialog> createState() => _FilePickerLiteDialogState();
+}
+
+class _FilePickerLiteDialogState extends ConsumerState<_FilePickerLiteDialog> {
+  late String _currentPathUri;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPathUri = widget.projectRootUri;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(_currentPathUri);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final directoryState = ref.watch(directoryContentsProvider(_currentPathUri));
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+
+    return AlertDialog(
+      title: const Text('Select a File for Context'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            if (fileHandler != null)
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_upward),
+                    onPressed: _currentPathUri == widget.projectRootUri ? null : () {
+                      final newPath = fileHandler.getParentUri(_currentPathUri);
+                      ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
+                      setState(() => _currentPathUri = newPath);
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri),
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            const Divider(),
+            Expanded(
+              child: directoryState == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : directoryState.when(
+                      data: (nodes) {
+                        final sortedNodes = List.of(nodes)..sort((a,b) {
+                          if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
+                          return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
+                        });
+                        return ListView.builder(
+                          itemCount: sortedNodes.length,
+                          itemBuilder: (context, index) {
+                            final node = sortedNodes[index];
+                            return ListTile(
+                              leading: Icon(node.file.isDirectory ? Icons.folder_outlined : Icons.article_outlined),
+                              title: Text(node.file.name),
+                              onTap: () {
+                                if (node.file.isDirectory) {
+                                  ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(node.file.uri);
+                                  setState(() => _currentPathUri = node.file.uri);
+                                } else {
+                                  Navigator.of(context).pop(node.file);
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, stack) => Center(child: Text('Error: $err')),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+      ],
     );
   }
 }

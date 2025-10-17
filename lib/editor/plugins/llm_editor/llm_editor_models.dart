@@ -90,3 +90,11 @@ class LlmEditorSettings extends PluginSettings {
     );
   }
 }
+
+@immutable
+class ContextItem {
+  final String source; // e.g., "lib/app/app_notifier.dart"
+  final String content;
+
+  const ContextItem({required this.source, required this.content});
+}
