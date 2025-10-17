@@ -1,3 +1,5 @@
+// FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
+
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,8 @@ import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 
+typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
+
 class DisplayMessage {
   final ChatMessage message;
   final GlobalKey headerKey;
@@ -25,7 +29,6 @@ class DisplayMessage {
     required this.codeBlockKeys,
   });
 
-  // Helper factory to create a DisplayMessage and its keys from a ChatMessage
   factory DisplayMessage.fromChatMessage(ChatMessage message) {
     final codeBlockCount = _countCodeBlocks(message.content);
     return DisplayMessage(
@@ -37,7 +40,6 @@ class DisplayMessage {
 }
 
 int _countCodeBlocks(String markdownText) {
-  // A simple but effective way to count fenced code blocks in markdown
   final RegExp codeBlockRegex = RegExp(r'```[\s\S]*?```');
   return codeBlockRegex.allMatches(markdownText).length;
 }
@@ -63,15 +65,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   final _scrollController = ScrollController();
   final GlobalKey _listViewKey = GlobalKey();
 
-  // The list of scroll targets is now derived in the build method, not stored in state
   final Map<String, GlobalKey> _scrollTargetKeys = {};
   List<String> _sortedScrollTargetIds = [];
+
+  bool _isScrolling = false;
+  Timer? _scrollEndTimer;
 
   @override
   void initState() {
     super.initState();
-    // THE FIX: The widget state now only cares about `initialMessages`,
-    // which has already been resolved from either cache or file by the plugin.
     _displayMessages = widget.tab.initialMessages
         .map((msg) => DisplayMessage.fromChatMessage(msg))
         .toList();
@@ -81,6 +83,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+    _scrollEndTimer?.cancel();
     super.dispose();
   }
 
@@ -92,7 +95,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
 
     setState(() {
-      // --- STEP 3 (cont.): Update state modification logic ---
       _displayMessages.add(DisplayMessage.fromChatMessage(ChatMessage(role: 'user', content: prompt)));
       _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
       _isLoading = true;
@@ -116,10 +118,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           final updatedMessage = lastDisplayMessage.message.copyWith(
             content: lastDisplayMessage.message.content + chunk,
           );
-          // Replace the last message, keeping the same keys but updating content
           _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
         });
-        // _scrollToBottom();
       }
     } catch (e) {
       if (!mounted) return;
@@ -168,59 +168,48 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
-  // --- MODIFIED: Unified registration for scroll targets ---
-  void _registerScrollTarget(String id, GlobalKey key) {
-    if (!_scrollTargetKeys.containsKey(id)) {
-      _scrollTargetKeys[id] = key;
-      _sortedScrollTargetIds.add(id);
-    }
-  }
-
-  // --- MODIFIED: Renamed to reflect new unified functionality ---
-  void jumpToNextTarget() {
-    _findAndScrollToTarget(1);
-  }
-
-  void jumpToPreviousTarget() {
-    _findAndScrollToTarget(-1);
-  }
-
-  // --- MODIFIED: Renamed and now uses unified target lists ---
-  void _findAndScrollToTarget(int direction) {
-    if (_sortedScrollTargetIds.isEmpty) return;
-    
-    // --- STEP 4: Fix the Scroll Calculation ---
+  List<_ScrollTarget> _getVisibleTargetsWithOffsets() {
     final scrollContext = _listViewKey.currentContext;
-    if (scrollContext == null) return;
+    if (scrollContext == null) return [];
     final scrollRenderBox = scrollContext.findRenderObject() as RenderBox?;
-    if (scrollRenderBox == null) return;
+    if (scrollRenderBox == null) return [];
 
-    final currentScrollOffset = _scrollController.offset;
-    final List<double> positions = _sortedScrollTargetIds.map((id) {
+    final visibleTargets = <_ScrollTarget>[];
+    for (final id in _sortedScrollTargetIds) {
       final key = _scrollTargetKeys[id];
       final context = key?.currentContext;
       if (context != null) {
         final renderBox = context.findRenderObject() as RenderBox;
-        // CORRECT: Calculate offset relative to the scrollable ancestor
-        return renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
+        final positionInViewport = renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
+        final absoluteOffset = _scrollController.offset + positionInViewport;
+        visibleTargets.add((id: id, key: key!, offset: absoluteOffset));
       }
-      return -1.0;
-    }).where((pos) => pos >= 0).toList();
+    }
+    return visibleTargets;
+  }
 
-    double? targetOffset;
-    const double epsilon = 1.0;
+  void jumpToNextTarget() => _jumpToTarget(1);
+  void jumpToPreviousTarget() => _jumpToTarget(-1);
+
+  void _jumpToTarget(int direction) {
+    final targets = _getVisibleTargetsWithOffsets();
+    if (targets.isEmpty) return;
+
+    final currentOffset = _scrollController.offset;
+    const double deadZone = 1.0;
+    _ScrollTarget? target;
 
     if (direction > 0) {
-      targetOffset = positions.firstWhereOrNull((p) => p > currentScrollOffset + epsilon);
-      targetOffset ??= positions.firstOrNull;
+      target = targets.firstWhereOrNull((t) => t.offset > currentOffset + deadZone);
+      target ??= targets.first;
     } else {
-      targetOffset = positions.lastWhereOrNull((p) => p < currentScrollOffset - epsilon);
-      targetOffset ??= positions.lastOrNull;
+      target = targets.lastWhereOrNull((t) => t.offset < currentOffset - deadZone);
+      target ??= targets.last;
     }
 
-    if (targetOffset != null) {
+    if (target != null) {
       _scrollController.animateTo(
-        targetOffset,
+        target.offset,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
@@ -241,7 +230,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Re-derive the list of scroll targets on every build. This is cheap.
     _scrollTargetKeys.clear();
     _sortedScrollTargetIds.clear();
     for (int i = 0; i < _displayMessages.length; i++) {
@@ -256,32 +244,49 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       }
     }
 
-
     return Column(
       children: [
         Expanded(
-          child: Scrollbar(
-            thumbVisibility: true,
-            interactive: true,
-            controller: _scrollController,
-            child: ListView.builder(
-              key: _listViewKey,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification) {
+                _scrollEndTimer?.cancel();
+                if (mounted && !_isScrolling) {
+                  setState(() => _isScrolling = true);
+                }
+              } else if (notification is ScrollEndNotification) {
+                _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
+                  if (mounted && _isScrolling) {
+                    setState(() => _isScrolling = false);
+                  }
+                });
+              }
+              return false;
+            },
+            child: RawScrollbar(
               controller: _scrollController,
-              padding: const EdgeInsets.all(8.0),
-              itemCount: _displayMessages.length,
-              itemBuilder: (context, index) {
-                final displayMessage = _displayMessages[index];
-                return ChatBubble(
-                  // --- STEP 5: Pass keys down ---
-                  key: displayMessage.headerKey, // Use key for widget identity
-                  message: displayMessage.message,
-                  headerKey: displayMessage.headerKey,
-                  codeBlockKeys: displayMessage.codeBlockKeys,
-                  onRerun: () => _rerun(index),
-                  onDelete: () => _delete(index),
-                  onDeleteAfter: () => _deleteAfter(index),
-                );
-              },
+              thumbVisibility: _isScrolling,
+              thickness: 16.0,
+              interactive: true,
+              radius: const Radius.circular(8.0),
+              child: ListView.builder(
+                key: _listViewKey,
+                controller: _scrollController,
+                padding: const EdgeInsets.all(8.0),
+                itemCount: _displayMessages.length,
+                itemBuilder: (context, index) {
+                  final displayMessage = _displayMessages[index];
+                  return ChatBubble(
+                    key: ValueKey('chat_bubble_${displayMessage.message.hashCode}_$index'),
+                    message: displayMessage.message,
+                    headerKey: displayMessage.headerKey,
+                    codeBlockKeys: displayMessage.codeBlockKeys,
+                    onRerun: () => _rerun(index),
+                    onDelete: () => _delete(index),
+                    onDeleteAfter: () => _deleteAfter(index),
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -303,8 +308,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
               child: TextField(
                 controller: _textController,
                 enabled: !_isLoading,
-                keyboardType: TextInputType.multiline, // Crucial for mobile keyboards
-                maxLines: null, // Allows it to expand to accommodate content
+                keyboardType: TextInputType.multiline,
+                maxLines: null,
                 decoration: const InputDecoration(
                   hintText: 'Type your message...',
                   border: OutlineInputBorder(),
@@ -344,19 +349,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    // 1. Extract the pure data (ChatMessage) from the UI view model (_displayMessages).
     final List<ChatMessage> messagesToSave = _displayMessages
         .map((displayMessage) => displayMessage.message)
         .toList();
-
-    // 2. Create the Data Transfer Object (DTO) with the serializable data.
-    //    The GlobalKeys are intentionally discarded here.
     final hotStateDto = LlmEditorHotStateDto(
       messages: messagesToSave,
       baseContentHash: _baseContentHash,
     );
-
-    // 3. Return the DTO, wrapped in a Future.
     return Future.value(hotStateDto);
   }
 
@@ -367,10 +366,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void redo() {}
 }
 
-// --- NEW: Converted to StatefulWidget for foldable state management ---
 class ChatBubble extends StatefulWidget {
   final ChatMessage message;
-  // --- STEP 5 (cont.): Receive keys ---
   final GlobalKey headerKey;
   final List<GlobalKey> codeBlockKeys;
   final VoidCallback onRerun;
@@ -392,10 +389,7 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble> {
-  // The only state this widget manages is its own fold status.
   bool _isFolded = false;
-
-  // No initState is needed as all key management is handled by the parent.
 
   @override
   Widget build(BuildContext context) {
@@ -416,9 +410,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The header that serves as a scroll target.
           Container(
-            // CRITICAL: The pre-generated key is assigned here.
             key: widget.headerKey,
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             decoration: BoxDecoration(
@@ -447,7 +439,6 @@ class _ChatBubbleState extends State<ChatBubble> {
               ],
             ),
           ),
-          // The foldable content area.
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
@@ -462,7 +453,6 @@ class _ChatBubbleState extends State<ChatBubble> {
                         : MarkdownBody(
                             data: widget.message.content,
                             builders: {
-                              // CRITICAL: The code block keys are passed down.
                               'code': _CodeBlockBuilder(keys: widget.codeBlockKeys)
                             },
                             styleSheet: MarkdownStyleSheet(
@@ -510,7 +500,6 @@ class _ChatBubbleState extends State<ChatBubble> {
 }
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
-  // --- STEP 5 (cont.): Receive the list of keys ---
   final List<GlobalKey> keys;
   int _codeBlockCounter = 0;
 
@@ -523,19 +512,16 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    // ... (logic for inline vs block is the same)
     final String text = element.textContent;
     if (text.isEmpty) return null;
     final isBlock = text.contains('\n');
 
     if (isBlock) {
       final String language = _parseLanguage(element);
-      // Get the next key from the pre-generated list
       final key = (_codeBlockCounter < keys.length) ? keys[_codeBlockCounter] : GlobalKey();
       _codeBlockCounter++;
-      
       return _CodeBlockWrapper(
-        key: key, // Use the key for the widget
+        key: key,
         code: text.trim(),
         language: language,
       );
@@ -552,7 +538,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       );
     }
   }
-  
+
   String _parseLanguage(md.Element element) {
     if (element.attributes['class']?.startsWith('language-') ?? false) {
       return element.attributes['class']!.substring('language-'.length);
@@ -561,14 +547,11 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   }
 }
 
-
 class _CodeBlockWrapper extends StatefulWidget {
   final String code;
   final String language;
 
   const _CodeBlockWrapper({
-    // The GlobalKey is now passed directly to the widget's key property
-    // by the _CodeBlockBuilder.
     super.key,
     required this.code,
     required this.language,
@@ -579,18 +562,11 @@ class _CodeBlockWrapper extends StatefulWidget {
 }
 
 class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
-  // The only state this widget is responsible for is whether it's folded.
   bool _isFolded = false;
-
-  // No initState is needed because this widget no longer handles key registration.
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // The GlobalKey from the constructor is automatically associated with
-    // this root Container widget. When the parent looks for this key's
-    // position, it will find the top-left corner of this box.
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
@@ -600,7 +576,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // This is the header that the scroll-to logic will target.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             color: Colors.black.withOpacity(0.2),
@@ -631,7 +606,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
               ],
             ),
           ),
-          // The foldable content area.
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
