@@ -270,7 +270,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final messageToRerun = _displayMessages[messageIndex].message;
     if (messageToRerun.role != 'user') return;
     // The core logic is now just deleting subsequent messages and submitting
-    _deleteAfter(messageIndex + 1);
+    _deleteAfter(messageIndex);
     await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
   }
 
