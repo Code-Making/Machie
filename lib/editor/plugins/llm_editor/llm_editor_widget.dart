@@ -607,7 +607,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
               ],
             ),
           ),
-    return AnimatedSize(
+    AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       child: _isFolded
@@ -635,7 +635,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                       ),
                     ),
             ),
-    );
+    ),
         ],
       ),
     );
