@@ -1,8 +1,6 @@
 // FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
 import 'dart:convert';
-import 'dart:async';
-
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +8,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/dto/tab_hot_state_dto.dart';
 import 'package:machine/editor/editor_tab_models.dart';
+import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
+import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
@@ -17,6 +17,8 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:re_highlight/re_highlight.dart';
+import 'package:re_highlight/styles/default.dart';
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
@@ -368,7 +370,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void redo() {}
 }
 
-class ChatBubble extends StatefulWidget {
+class ChatBubble extends ConsumerStatefulWidget {
   final ChatMessage message;
   final GlobalKey headerKey;
   final List<GlobalKey> codeBlockKeys;
@@ -387,10 +389,10 @@ class ChatBubble extends StatefulWidget {
   });
 
   @override
-  State<ChatBubble> createState() => _ChatBubbleState();
+  ConsumerState<ChatBubble> createState() => _ChatBubbleState();
 }
 
-class _ChatBubbleState extends State<ChatBubble> {
+class _ChatBubbleState extends ConsumerState<ChatBubble> {
   bool _isFolded = false;
 
   @override
@@ -401,6 +403,14 @@ class _ChatBubbleState extends State<ChatBubble> {
     final backgroundColor = isUser
         ? theme.colorScheme.primaryContainer.withOpacity(0.5)
         : theme.colorScheme.surface;
+    
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    ) ?? CodeEditorSettings();
+    
+    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -455,7 +465,14 @@ class _ChatBubbleState extends State<ChatBubble> {
                         : MarkdownBody(
                             data: widget.message.content,
                             builders: {
-                              'code': _CodeBlockBuilder(keys: widget.codeBlockKeys)
+                              'code': _CodeBlockBuilder(
+                                keys: widget.codeBlockKeys,
+                                theme: highlightTheme,
+                                textStyle: TextStyle(
+                                  fontFamily: codeEditorSettings.fontFamily,
+                                  fontSize: codeEditorSettings.fontSize - 1,
+                                ),
+                              )
                             },
                             styleSheet: MarkdownStyleSheet(
                               codeblockDecoration: const BoxDecoration(
@@ -503,9 +520,11 @@ class _ChatBubbleState extends State<ChatBubble> {
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;
+  final Map<String, TextStyle> theme;
+  final TextStyle textStyle;
   int _codeBlockCounter = 0;
 
-  _CodeBlockBuilder({required this.keys});
+  _CodeBlockBuilder({required this.keys, required this.theme, required this.textStyle});
 
   @override
   Widget? visitElementAfterWithContext(
@@ -526,6 +545,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
         key: key,
         code: text.trim(),
         language: language,
+        theme: theme,
+        textStyle: textStyle,
       );
     } else {
       final theme = Theme.of(context);
@@ -533,7 +554,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
         text: TextSpan(
           text: text,
           style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
-            fontFamily: 'RobotoMono',
+            fontFamily: textStyle.fontFamily,
             backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
           ),
         ),
@@ -545,18 +566,22 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     if (element.attributes['class']?.startsWith('language-') ?? false) {
       return element.attributes['class']!.substring('language-'.length);
     }
-    return 'text';
+    return 'plaintext';
   }
 }
 
 class _CodeBlockWrapper extends StatefulWidget {
   final String code;
   final String language;
+  final Map<String, TextStyle> theme;
+  final TextStyle textStyle;
 
   const _CodeBlockWrapper({
     super.key,
     required this.code,
     required this.language,
+    required this.theme,
+    required this.textStyle,
   });
 
   @override
@@ -565,14 +590,54 @@ class _CodeBlockWrapper extends StatefulWidget {
 
 class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
   bool _isFolded = false;
+  TextSpan? _highlightedCode;
+
+  static final _highlight = Highlight();
+  static bool _languagesRegistered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_languagesRegistered) {
+      _highlight.registerLanguages(builtinAllLanguages);
+      _languagesRegistered = true;
+    }
+    _highlightCode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CodeBlockWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.code != oldWidget.code ||
+        widget.language != oldWidget.language ||
+        !mapEquals(widget.theme, oldWidget.theme) ||
+        widget.textStyle != oldWidget.textStyle) {
+      _highlightCode();
+    }
+  }
+
+  void _highlightCode() {
+    final languageMode = CodeThemes.languageNameToModeMap[widget.language] ?? langPlaintext;
+    final HighlightResult result = _highlight.highlight(
+      widget.code,
+      language: languageMode,
+    );
+    final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
+    result.render(renderer);
+    setState(() {
+      _highlightedCode = renderer.span;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final codeBgColor = widget.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.25),
+        color: codeBgColor,
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
@@ -616,10 +681,12 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
                 : Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12.0),
-                    child: SelectableText(
-                      widget.code,
-                      style: const TextStyle(fontFamily: 'RobotoMono'),
-                    ),
+                    child: _highlightedCode == null
+                        ? SelectableText(widget.code, style: widget.textStyle)
+                        : SelectableText.rich(
+                            _highlightedCode!,
+                            style: widget.textStyle,
+                          ),
                   ),
           ),
         ],
