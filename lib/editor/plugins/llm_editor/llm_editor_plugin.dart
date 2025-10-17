@@ -83,6 +83,9 @@ class LlmEditorPlugin extends EditorPlugin {
     return LlmEditorTab(
       plugin: this,
       initialMessages: messagesToShow,
+      // NEW: Pass restored composing state
+      initialComposingPrompt: hotState?.composingPrompt,
+      initialComposingContext: hotState?.composingContext,
       id: id,
     );
   }
