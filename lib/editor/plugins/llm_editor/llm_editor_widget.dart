@@ -651,7 +651,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if(_style ==null || !moubted || _controller==null ){
+    if(_style ==null || !mounted || _controller==null ){
       return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
@@ -675,7 +675,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: _style.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
