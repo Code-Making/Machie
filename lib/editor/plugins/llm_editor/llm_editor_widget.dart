@@ -142,6 +142,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _totalTokenCount = (totalChars / _charsPerToken).ceil();
     });
   }
+  
+  void _clearContext() {
+    setState(() {
+      _contextItems.clear();
+    });
+    _updateComposingTokenCount();
+  }
 
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
     final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
@@ -435,7 +442,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     return Column(
       children: [
-        _buildTopBar(), // NEW
+        _buildTopBar(),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
@@ -535,10 +542,21 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.attachment),
-                  tooltip: 'Add File Context',
-                  onPressed: _isLoading ? null : _showAddContextDialog,
+                // UPDATED: Add clear context button
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.attachment),
+                      tooltip: 'Add File Context',
+                      onPressed: _isLoading ? null : _showAddContextDialog,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.clear_all),
+                      tooltip: 'Clear Context',
+                      onPressed: _contextItems.isEmpty ? null : _clearContext,
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: TextField(
@@ -551,7 +569,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                       hintText: 'Type your message...',
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                      // NEW: Show composing token count
                       suffix: Padding(
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Text('~$_composingTokenCount tok', style: Theme.of(context).textTheme.bodySmall),
@@ -560,7 +577,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                   ),
                 ),
                 const SizedBox(width: 8.0),
-                // UPDATED: Dynamic send/stop button
                 IconButton(
                   icon: Icon(_isLoading ? Icons.stop_circle_outlined : Icons.send),
                   tooltip: _isLoading ? 'Stop Generation' : 'Send',
@@ -636,6 +652,7 @@ class ChatBubble extends ConsumerStatefulWidget {
 
 class _ChatBubbleState extends ConsumerState<ChatBubble> {
   bool _isFolded = false;
+  bool _isContextFolded = false; // NEW state for context folding
 
   @override
   Widget build(BuildContext context) {
@@ -719,20 +736,37 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (hasContext) ...[
-          Text('Context Files:', style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: widget.message.context!.map((item) => _ContextItemViewChip(item: item)).toList(),
+          // NEW: Collapsible context header
+          Row(
+            children: [
+              Text('Context Files:', style: Theme.of(context).textTheme.labelSmall),
+              const Spacer(),
+              IconButton(
+                icon: Icon(_isContextFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                tooltip: _isContextFolded ? 'Show Context' : 'Hide Context',
+                onPressed: () => setState(() => _isContextFolded = !_isContextFolded),
+              ),
+            ],
+          ),
+          // NEW: AnimatedSize for context list
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isContextFolded
+              ? const SizedBox(width: double.infinity)
+              : Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: widget.message.context!.map((item) => _ContextItemViewChip(item: item)).toList(),
+              ),
           ),
           const Divider(height: 16),
         ],
-        MarkdownBody( // User prompt is now also rendered as Markdown
+        MarkdownBody(
           data: widget.message.content,
           builders: {
             'code': _CodeBlockBuilder(
-              keys: const [], // User message doesn't need jump keys
+              keys: const [],
               theme: theme,
               textStyle: TextStyle(
                 fontFamily: settings.fontFamily,
@@ -972,47 +1006,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
   }
 }
 
-// NEW: Widget to display a context item in the input area
-class _ContextItemCard extends StatelessWidget {
-  final ContextItem item;
-  final VoidCallback onRemove;
-
-  const _ContextItemCard({required this.item, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return InputChip(
-      label: Text(item.source),
-      onDeleted: onRemove,
-      deleteIcon: const Icon(Icons.close, size: 16),
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(item.source),
-            content: SingleChildScrollView(child: SelectableText(item.content)),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.copy),
-                tooltip: 'Copy Content',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: item.content));
-                  MachineToast.info('Context content copied.');
-                },
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// NEW: A simple file picker dialog that uses the project hierarchy
 class _FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
   const _FilePickerLiteDialog({required this.projectRootUri});
@@ -1077,10 +1070,18 @@ class _FilePickerLiteDialogState extends ConsumerState<_FilePickerLiteDialog> {
                           if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
                           return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
                         });
+
+                        // NEW: Filter logic
+                        final filteredNodes = sortedNodes.where((node) {
+                          if (node.file.isDirectory) return true;
+                          final extension = node.file.name.split('.').lastOrNull?.toLowerCase();
+                          return extension != null && CodeThemes.languageExtToNameMap.containsKey(extension);
+                        }).toList();
+
                         return ListView.builder(
-                          itemCount: sortedNodes.length,
+                          itemCount: filteredNodes.length,
                           itemBuilder: (context, index) {
-                            final node = sortedNodes[index];
+                            final node = filteredNodes[index];
                             return ListTile(
                               leading: Icon(node.file.isDirectory ? Icons.folder_outlined : Icons.article_outlined),
                               title: Text(node.file.name),
@@ -1124,7 +1125,8 @@ class _ContextItemViewChip extends StatelessWidget {
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(item.source),
-            content: SingleChildScrollView(child: SelectableText(item.content)),
+            // Use the new preview widget
+            content: _ContextPreviewContent(item: item),
             actions: [
               IconButton(
                 icon: const Icon(Icons.copy),
@@ -1139,6 +1141,104 @@ class _ContextItemViewChip extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ContextItemCard extends StatelessWidget {
+  final ContextItem item;
+  final VoidCallback onRemove;
+
+  const _ContextItemCard({required this.item, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(item.source),
+      onDeleted: onRemove,
+      deleteIcon: const Icon(Icons.close, size: 16),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(item.source),
+            // Use the new preview widget
+            content: _ContextPreviewContent(item: item),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.copy),
+                tooltip: 'Copy Content',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: item.content));
+                  MachineToast.info('Context content copied.');
+                },
+              ),
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// NEW: A stateful widget to handle memoized highlighting for context previews
+class _ContextPreviewContent extends ConsumerStatefulWidget {
+  final ContextItem item;
+  const _ContextPreviewContent({required this.item});
+
+  @override
+  ConsumerState<_ContextPreviewContent> createState() => _ContextPreviewContentState();
+}
+
+class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> {
+  TextSpan? _highlightedCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlightCode();
+  }
+
+  void _highlightCode() {
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+
+    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 2);
+
+    final languageKey = CodeThemes.inferLanguageKey(widget.item.source);
+    final languageMode = CodeThemes.languageNameToModeMap[languageKey] ?? langPlaintext;
+    
+    final result = _CodeBlockWrapperState._highlight.highlight(
+      code: widget.item.content,
+      language: languageMode,
+    );
+    final renderer = TextSpanRenderer(textStyle, theme);
+    result.render(renderer);
+    
+    if (mounted) {
+      setState(() {
+        _highlightedCode = renderer.span;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.maxFinite,
+      height: 400,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        color: _highlightedCode?.style?.backgroundColor ?? Theme.of(context).colorScheme.surface,
+        child: SingleChildScrollView(
+          child: _highlightedCode == null
+              ? SelectableText(widget.item.content)
+              : SelectableText.rich(_highlightedCode!),
+        ),
+      ),
     );
   }
 }
