@@ -1,6 +1,8 @@
 // FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
 import 'dart:convert';
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
