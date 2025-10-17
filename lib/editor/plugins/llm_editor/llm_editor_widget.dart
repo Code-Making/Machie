@@ -19,6 +19,8 @@ import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:re_editor/re_editor.dart';
 
+import 'package:re_highlight/styles/atom-one-dark.dart';
+
 
 class DisplayMessage {
   final ChatMessage message;
@@ -586,7 +588,13 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   bool _isFolded = false;
   // NEW: Each code block now has its own dedicated controller.
   late final CodeLineEditingController _controller;
-  late CodeEditorStyle _style;
+  CodeEditorStyle? _cachedStyle;
+  String? _cachedThemeName;
+  double? _cachedFontSize;
+  double? _cachedFontHeight;
+  bool? _cachedLigatures;
+  String? _cachedFontFamily;
+
 
   @override
   void initState() {
@@ -607,55 +615,69 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code) {
       _controller.text = widget.code;
-      _updateStyleAndRecognizers(); // Rebuild style for new language
     }
   }
   
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _updateStyleAndRecognizers();
   }
   
-    void _updateStyleAndRecognizers() {
-    final codeEditorSettings = ref.read(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
+  CodeEditorStyle _getStyle() {
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
     );
 
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-    final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures =
-        enableLigatures
-            ? null
-            : const [
+    final enableLigatures = codeEditorSettings?.fontLigatures ?? true;
+    final fontSize = codeEditorSettings?.fontSize ?? 12.0;
+    final fontFamily = codeEditorSettings?.fontFamily ?? 'JetBrainsMono';
+    final fontHeight = codeEditorSettings?.fontHeight,
+
+    // Only recreate if dependencies changed
+    if (_cachedStyle == null ||
+        _cachedThemeName != selectedThemeName ||
+        _cachedLigatures != enableLigatures ||
+        _cachedFontSize != fontSize ||
+        _cachedFontFamily != fontFamily ||
+        _cachedFontHeight != fontHeight) {
+      
+      final fontFeatures = enableLigatures
+          ? null
+          : const [
               FontFeature.disable('liga'),
               FontFeature.disable('clig'),
               FontFeature.disable('calt'),
             ];
-    _style = CodeEditorStyle(
-      fontHeight: codeEditorSettings?.fontHeight,
-      fontSize: codeEditorSettings?.fontSize ?? 12.0,
-      fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
-      fontFeatures: fontFeatures,
-      //patternRecognizers: _patternRecognizers,
-      codeTheme: CodeHighlightTheme(
-        theme:
-            CodeThemes.availableCodeThemes[selectedThemeName] ??
-            CodeThemes.availableCodeThemes['Atom One Dark']!,
-        languages: CodeThemes.getHighlightThemeMode(widget.language),
-      ),
-    );
-      }
+
+      _cachedStyle = CodeEditorStyle(
+        fontHeight: fontHeight,
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        fontFeatures: fontFeatures,
+        codeTheme: CodeHighlightTheme(
+          theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? atomOneDarkTheme,
+          languages: CodeThemes.getHighlightThemeMode(widget.language),
+        ),
+      );
+
+      // Update cache keys
+      _cachedThemeName = selectedThemeName;
+      _cachedLigatures = enableLigatures;
+      _cachedFontSize = fontSize;
+      _cachedFontFamily = fontFamily;
+      _cachedFontHeight = fontHeight
+    }
+
+    return _cachedStyle!;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if(_style ==null || !mounted || _controller==null ){
-      return const SizedBox.shrink();
-    }
+    final style = _getStyle();
+
     final theme = Theme.of(context);
-    Color? themeBackgroundColor = _style?.codeTheme?.theme['root']?.backgroundColor;
+    Color? themeBackgroundColor = style?.codeTheme?.theme['root']?.backgroundColor;
 
     // 2. If it's null, provide a sensible default fallback color.
     final Color backgroundColor = themeBackgroundColor ?? Colors.black.withOpacity(0.25);
@@ -667,8 +689,8 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
       ),
     );
 
-    final fontHeight = _style?.fontHeight ?? 1;
-    final fontSize = _style?.fontSize ?? 12.0;
+    final fontHeight = style?.fontHeight ?? 1;
+    final fontSize = style?.fontSize ?? 12.0;
     final codeLength = _controller?.codeLines.length ?? 10;
     final editorHeight = codeLength * fontSize * fontHeight + 16.0;
 
@@ -720,7 +742,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
             clipBehavior: Clip.hardEdge,
             child: CodeEditor(
               controller: _controller,
-              style: _style,
+              style: style,
               readOnly: true,
               wordWrap: false,
               // Add some padding inside the editor itself.
