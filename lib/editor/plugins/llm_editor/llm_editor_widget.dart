@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +23,7 @@ import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/styles/all.dart';
+import 'package:re_highlight/languages/plaintext.dart';
 
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
@@ -624,7 +625,7 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
   void _highlightCode() {
     final languageMode = CodeThemes.languageNameToModeMap[widget.language] ?? langPlaintext;
     final HighlightResult result = _highlight.highlight(
-      widget.code,
+      code: widget.code,
       language: languageMode,
     );
     final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
