@@ -13,14 +13,6 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
-import '../../tab_state_manager.dart';
-
-import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
-import 'package:re_editor/re_editor.dart';
-
-import 'package:re_highlight/styles/atom-one-dark.dart';
-
 
 class DisplayMessage {
   final ChatMessage message;
@@ -310,9 +302,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             Expanded(
               child: TextField(
                 controller: _textController,
+                enabled: !_isLoading,
                 keyboardType: TextInputType.multiline, // Crucial for mobile keyboards
                 maxLines: null, // Allows it to expand to accommodate content
-                enabled: !_isLoading,
                 decoration: const InputDecoration(
                   hintText: 'Type your message...',
                   border: OutlineInputBorder(),
@@ -570,139 +562,45 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 }
 
 
-class _CodeBlockWrapper extends ConsumerStatefulWidget {
+class _CodeBlockWrapper extends StatefulWidget {
   final String code;
   final String language;
 
   const _CodeBlockWrapper({
+    // The GlobalKey is now passed directly to the widget's key property
+    // by the _CodeBlockBuilder.
     super.key,
     required this.code,
     required this.language,
   });
 
   @override
-  ConsumerState<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
+  State<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
 }
 
-class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
+class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
+  // The only state this widget is responsible for is whether it's folded.
   bool _isFolded = false;
-  // NEW: Each code block now has its own dedicated controller.
-  late final CodeLineEditingController _controller;
-  CodeEditorStyle? _cachedStyle;
-  String? _cachedThemeName;
-  double? _cachedFontSize;
-  double? _cachedFontHeight;
-  bool? _cachedLigatures;
-  String? _cachedFontFamily;
 
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = CodeLineEditingController.fromText(widget.code);    
-    }
-
-  @override
-  void dispose() {
-    // It's crucial to dispose of the controller to prevent memory leaks.
-    _controller.dispose();
-    super.dispose();
-  }
-  
-  // NEW: Add a listener to update the controller if the code from the stream changes.
-  @override
-  void didUpdateWidget(covariant _CodeBlockWrapper oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.code != oldWidget.code) {
-      _controller.text = widget.code;
-    }
-  }
-  
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-  }
-  
-  CodeEditorStyle _getStyle() {
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select((s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
-    );
-
-    final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
-    final enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final fontSize = codeEditorSettings?.fontSize ?? 12.0;
-    final fontFamily = codeEditorSettings?.fontFamily ?? 'JetBrainsMono';
-    final fontHeight = codeEditorSettings?.fontHeight ?? 1.2;
-
-    // Only recreate if dependencies changed
-    if (_cachedStyle == null ||
-        _cachedThemeName != selectedThemeName ||
-        _cachedLigatures != enableLigatures ||
-        _cachedFontSize != fontSize ||
-        _cachedFontFamily != fontFamily ||
-        _cachedFontHeight != fontHeight) {
-      
-      final fontFeatures = enableLigatures
-          ? null
-          : const [
-              FontFeature.disable('liga'),
-              FontFeature.disable('clig'),
-              FontFeature.disable('calt'),
-            ];
-
-      _cachedStyle = CodeEditorStyle(
-        fontHeight: fontHeight,
-        fontSize: fontSize,
-        fontFamily: fontFamily,
-        fontFeatures: fontFeatures,
-        codeTheme: CodeHighlightTheme(
-          theme: CodeThemes.availableCodeThemes[selectedThemeName] ?? atomOneDarkTheme,
-          languages: CodeThemes.getHighlightThemeMode(widget.language),
-        ),
-      );
-
-      // Update cache keys
-      _cachedThemeName = selectedThemeName;
-      _cachedLigatures = enableLigatures;
-      _cachedFontSize = fontSize;
-      _cachedFontFamily = fontFamily;
-      _cachedFontHeight = fontHeight;
-    }
-
-    return _cachedStyle!;
-  }
+  // No initState is needed because this widget no longer handles key registration.
 
   @override
   Widget build(BuildContext context) {
-    final style = _getStyle();
-
     final theme = Theme.of(context);
-    Color? themeBackgroundColor = style?.codeTheme?.theme['root']?.backgroundColor;
 
-    // 2. If it's null, provide a sensible default fallback color.
-    final Color backgroundColor = themeBackgroundColor ?? Colors.black.withOpacity(0.25);
-
-    // 1. Watch the settings provider to get the CodeEditor settings.
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    );
-
-    final fontHeight = style?.fontHeight ?? 1.2;
-    final fontSize = style?.fontSize ?? 12.0;
-    final codeLength = _controller?.codeLines?.length ?? 10;
-    final editorHeight = codeLength * fontSize * fontHeight + 16.0;
-
+    // The GlobalKey from the constructor is automatically associated with
+    // this root Container widget. When the parent looks for this key's
+    // position, it will find the top-left corner of this box.
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Colors.black.withOpacity(0.25),
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // This is the header that the scroll-to logic will target.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             color: Colors.black.withOpacity(0.2),
@@ -710,20 +608,21 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
               children: [
                 Text(
                   widget.language,
-                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.copy, size: 16),
                   tooltip: 'Copy Code',
                   onPressed: () {
-                    // 3. Copy text from the controller.
-                    Clipboard.setData(ClipboardData(text: _controller.text));
+                    Clipboard.setData(ClipboardData(text: widget.code));
                     MachineToast.info('Copied to clipboard');
                   },
                 ),
                 IconButton(
-                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less,
+                      size: 16),
                   tooltip: _isFolded ? 'Unfold Code' : 'Fold Code',
                   onPressed: () {
                     setState(() => _isFolded = !_isFolded);
@@ -732,20 +631,18 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
               ],
             ),
           ),
+          // The foldable content area.
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             child: _isFolded
-                ? SizedBox(width: double.infinity, height: editorHeight)
+                ? const SizedBox(width: double.infinity)
                 : Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(8.0),
-                    // 4. Replace SelectableText with the CodeEditor.
-                    child: CodeEditor(
-                      controller: _controller,
-                      style: style,
-                      readOnly: true, // This is crucial
-                      wordWrap: false, // Code blocks shouldn't wrap
+                    padding: const EdgeInsets.all(12.0),
+                    child: SelectableText(
+                      widget.code,
+                      style: const TextStyle(fontFamily: 'RobotoMono'),
                     ),
                   ),
           ),
