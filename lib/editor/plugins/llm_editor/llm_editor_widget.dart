@@ -101,13 +101,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         .map((msg) => DisplayMessage.fromChatMessage(msg))
         .toList();
     
-    // NEW: Restore composing state from tab model
-    if (widget.tab.initialComposingPrompt != null) {
-      _textController.text = widget.tab.initialComposingPrompt!;
-    }
-    if (widget.tab.initialComposingContext != null) {
-      _contextItems.addAll(widget.tab.initialComposingContext!);
-    }
+    // REMOVED: Restoration of composing state
+    // _textController.text = widget.tab.initialComposingPrompt ?? '';
+    // _contextItems.addAll(widget.tab.initialComposingContext ?? []);
 
     _textController.addListener(_onStateChanged);
 
@@ -129,12 +125,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   
   void _onStateChanged() {
     _updateComposingTokenCount();
-    
+  }
+  
+  // NEW: A dedicated method for signaling cache for history changes.
+  void _signalHistoryChanged() {
+    _updateTotalTokenCount();
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project != null) {
-      // Mark as dirty so the service knows something changed
       ref.read(editorServiceProvider).markCurrentTabDirty();
-      // Trigger the debounced cache update
       ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
     }
   }
@@ -165,7 +163,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.clear();
     });
-    _onStateChanged();
+    _updateComposingTokenCount(); // No need to signal cache, as only composing state changed
   }
 
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
@@ -236,6 +234,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             _llmSubscription = null;
           });
           ref.read(editorServiceProvider).markCurrentTabDirty();
+          _signalHistoryChanged();
         }
       },
       cancelOnError: true,
@@ -264,7 +263,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _isLoading = false;
       _llmSubscription = null;
     });
-    _onStateChanged(); // Signal state change after stopping
+    _signalHistoryChanged(); // A partial message was added, so history changed.
   }
 
   void _rerun(int messageIndex) async {
@@ -279,7 +278,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _displayMessages.removeAt(index);
     });
     _updateTotalTokenCount();
-    _onStateChanged();
+    _signalHistoryChanged();
   }
 
   void _deleteAfter(int index) {
@@ -287,7 +286,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       _displayMessages.removeRange(index, _displayMessages.length);
     });
     _updateTotalTokenCount();
-    _onStateChanged();
+    _signalHistoryChanged();
   }
   
   Future<void> _showAddContextDialog() async {
@@ -322,7 +321,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.add(ContextItem(source: relativePath, content: content));
     });
-    _onStateChanged();
+    _updateComposingTokenCount();
   }
   
   Future<void> _gatherRecursiveImports(DocumentFile initialFile, String projectRootUri) async {
@@ -364,7 +363,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.addAll(gatheredContext);
     });
-    _onStateChanged();
+    _updateComposingTokenCount();
     MachineToast.info('Added ${gatheredContext.length} files to context.');
   }
   
@@ -648,8 +647,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final hotStateDto = LlmEditorHotStateDto(
       messages: messagesToSave,
       baseContentHash: _baseContentHash,
-      composingPrompt: _textController.text, // NEW
-      composingContext: _contextItems,      // NEW
+      // REMOVED composingPrompt
+      // REMOVED composingContext
     );
     return Future.value(hotStateDto);
   }
