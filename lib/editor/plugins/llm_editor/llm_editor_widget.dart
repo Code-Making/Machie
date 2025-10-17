@@ -691,19 +691,18 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
 
     final fontHeight = style?.fontHeight ?? 1.2;
     final fontSize = style?.fontSize ?? 12.0;
-    final codeLength = _controller?.codeLines.length ?? 10;
+    final codeLength = _controller?.codeLines?.length ?? 10;
     final editorHeight = codeLength * fontSize * fontHeight + 16.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: editorStyle.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The header is unchanged
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             color: Colors.black.withOpacity(0.2),
@@ -718,6 +717,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
                   icon: const Icon(Icons.copy, size: 16),
                   tooltip: 'Copy Code',
                   onPressed: () {
+                    // 3. Copy text from the controller.
                     Clipboard.setData(ClipboardData(text: _controller.text));
                     MachineToast.info('Copied to clipboard');
                   },
@@ -732,22 +732,22 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
               ],
             ),
           ),
-          // THE FIX: Replace AnimatedSize with an AnimatedContainer that animates its height.
-          AnimatedContainer(
+          AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            // If folded, height is 0. If not, it's the calculated editor height.
-            height: _isFolded ? 0 : editorHeight,
-            // Clip the content to prevent overflow during animation.
-            clipBehavior: Clip.hardEdge,
-            child: CodeEditor(
-              controller: _controller,
-              style: style,
-              readOnly: true,
-              wordWrap: false,
-              // Add some padding inside the editor itself.
-              padding: const EdgeInsets.all(8.0),
-            ),
+            child: _isFolded
+                ? const SizedBox(width: double.infinity, height: editorHeight)
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8.0),
+                    // 4. Replace SelectableText with the CodeEditor.
+                    child: CodeEditor(
+                      controller: _controller,
+                      style: style,
+                      readOnly: true, // This is crucial
+                      wordWrap: false, // Code blocks shouldn't wrap
+                    ),
+                  ),
           ),
         ],
       ),
