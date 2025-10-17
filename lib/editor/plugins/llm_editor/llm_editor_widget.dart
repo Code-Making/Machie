@@ -269,7 +269,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void _rerun(int messageIndex) async {
     final messageToRerun = _displayMessages[messageIndex].message;
     if (messageToRerun.role != 'user') return;
-    _deleteAfter(messageIndex);
+    // The core logic is now just deleting subsequent messages and submitting
+    _deleteAfter(messageIndex + 1);
     await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
   }
 
@@ -287,6 +288,36 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     });
     _updateTotalTokenCount();
     _signalHistoryChanged();
+  }
+  
+  Future<void> _showEditMessageDialog(int index) async {
+    final originalMessage = _displayMessages[index].message;
+
+    final newMessage = await showDialog<ChatMessage>(
+      context: context,
+      builder: (context) => _EditMessageDialog(initialMessage: originalMessage),
+    );
+
+    if (newMessage != null) {
+      // Check if anything actually changed to avoid unnecessary re-runs
+      final bool contentChanged = originalMessage.content != newMessage.content;
+      final bool contextChanged = !const DeepCollectionEquality().equals(
+        originalMessage.context?.map((e) => e.source).toSet(), 
+        newMessage.context?.map((e) => e.source).toSet()
+      );
+
+      if (contentChanged || contextChanged) {
+        _updateAndRerunMessage(index, newMessage);
+      }
+    }
+  }
+  
+  void _updateAndRerunMessage(int index, ChatMessage newMessage) {
+    setState(() {
+      _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
+    });
+    // Re-use the rerun logic! It correctly deletes subsequent messages and resubmits.
+    _rerun(index);
   }
   
   Future<void> _showAddContextDialog() async {
@@ -498,7 +529,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     codeBlockKeys: displayMessage.codeBlockKeys,
                     onRerun: () => _rerun(index),
                     onDelete: () => _delete(index),
-                    onDeleteAfter: () => _deleteAfter(index),
+                    onDeleteAfter: () => _deleteAfter(index+1),
+                    onEdit: () => _showEditMessageDialog(index), // UPDATED
                   );
                 },
               ),
@@ -667,6 +699,7 @@ class ChatBubble extends ConsumerStatefulWidget {
   final VoidCallback onRerun;
   final VoidCallback onDelete;
   final VoidCallback onDeleteAfter;
+  final VoidCallback onEdit; // NEW
 
   const ChatBubble({
     super.key,
@@ -676,6 +709,7 @@ class ChatBubble extends ConsumerStatefulWidget {
     required this.onRerun,
     required this.onDelete,
     required this.onDeleteAfter,
+    required this.onEdit, // NEW
   });
 
   @override
@@ -837,14 +871,21 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         if (value == 'rerun') widget.onRerun();
         if (value == 'delete') widget.onDelete();
         if (value == 'delete_after') widget.onDeleteAfter();
+        if (value == 'edit') widget.onEdit(); // NEW
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        if (isUser)
+        if (isUser) ...[ // NEW: Group user-specific actions
+          const PopupMenuItem<String>(
+            value: 'edit',
+            child: ListTile(
+                leading: Icon(Icons.edit), title: Text('Edit & Rerun')),
+          ),
           const PopupMenuItem<String>(
             value: 'rerun',
             child: ListTile(
                 leading: Icon(Icons.refresh), title: Text('Rerun from here')),
           ),
+        ],
         const PopupMenuItem<String>(
           value: 'delete',
           child: ListTile(
@@ -1038,6 +1079,136 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EditMessageDialog extends ConsumerStatefulWidget {
+  final ChatMessage initialMessage;
+  const _EditMessageDialog({required this.initialMessage});
+
+  @override
+  ConsumerState<_EditMessageDialog> createState() => _EditMessageDialogState();
+}
+
+class _EditMessageDialogState extends ConsumerState<_EditMessageDialog> {
+  late final TextEditingController _textController;
+  late final List<ContextItem> _contextItems;
+  bool _canSave = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.initialMessage.content);
+    _contextItems = List<ContextItem>.from(widget.initialMessage.context ?? []);
+    _textController.addListener(_validate);
+    _validate();
+  }
+
+  @override
+  void dispose() {
+    _textController.removeListener(_validate);
+    _textController.dispose();
+    super.dispose();
+  }
+  
+  void _validate() {
+    final canSave = _textController.text.trim().isNotEmpty || _contextItems.isNotEmpty;
+    if (canSave != _canSave) {
+      setState(() {
+        _canSave = canSave;
+      });
+    }
+  }
+
+  Future<void> _addContext() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project == null) return;
+
+    final file = await showDialog<DocumentFile>(
+      context: context,
+      builder: (context) => _FilePickerLiteDialog(projectRootUri: project.rootUri),
+    );
+
+    if (file != null) {
+      final repo = ref.read(projectRepositoryProvider)!;
+      final content = await repo.readFile(file.uri);
+      final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+      setState(() {
+        _contextItems.add(ContextItem(source: relativePath, content: content));
+        _validate();
+      });
+    }
+  }
+
+  void _onSave() {
+    final newMessage = ChatMessage(
+      role: 'user',
+      content: _textController.text.trim(),
+      context: _contextItems,
+    );
+    Navigator.of(context).pop(newMessage);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Message'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(icon: const Icon(Icons.attachment), onPressed: _addContext, tooltip: 'Add File Context'),
+                IconButton(icon: const Icon(Icons.clear_all), onPressed: () => setState(() { _contextItems.clear(); _validate(); }), tooltip: 'Clear Context'),
+              ],
+            ),
+            if (_contextItems.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: _contextItems.map((item) => _ContextItemCard(
+                        item: item,
+                        onRemove: () => setState(() { _contextItems.remove(item); _validate(); }),
+                      )).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            const Divider(),
+            Expanded(
+              child: TextField(
+                controller: _textController,
+                autofocus: true,
+                expands: true,
+                maxLines: null,
+                minLines: null,
+                decoration: const InputDecoration(
+                  hintText: 'Type your message...',
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _canSave ? _onSave : null,
+          child: const Text('Save & Rerun'),
+        ),
+      ],
     );
   }
 }
