@@ -11,15 +11,21 @@ import 'llm_editor_widget.dart';
 // Represents a single message in the chat history.
 @immutable
 class ChatMessage {
-  final String role; // e.g., 'user', 'assistant'
+  final String role; // 'user' or 'assistant'
   final String content;
+  final List<ContextItem>? context; // NEW: Optional context list
 
-  const ChatMessage({required this.role, required this.content});
+  const ChatMessage({
+    required this.role, 
+    required this.content,
+    this.context, // NEW
+  });
 
-  ChatMessage copyWith({String? role, String? content}) {
+  ChatMessage copyWith({String? role, String? content, List<ContextItem>? context}) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
+      context: context ?? this.context,
     );
   }
   
@@ -27,10 +33,20 @@ class ChatMessage {
     return ChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
+      // NEW: Deserialization
+      context: (json['context'] as List<dynamic>?)
+          ?.map((item) => ContextItem(source: item['source'], content: item['content']))
+          .toList(),
     );
   }
 
-  Map<String, dynamic> toJson() => {'role': role, 'content': content};
+  Map<String, dynamic> toJson() => {
+    'role': role, 
+    'content': content,
+    // NEW: Serialization, omitting if null or empty
+    if (context != null && context!.isNotEmpty)
+      'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
+  };
 }
 
 // The EditorTab implementation for the LLM Editor.

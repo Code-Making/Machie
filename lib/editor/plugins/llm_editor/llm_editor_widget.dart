@@ -87,6 +87,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   Timer? _scrollEndTimer;
 
   final List<ContextItem> _contextItems = [];
+  int _composingTokenCount = 0;
+  int _totalTokenCount = 0;
+  StreamSubscription? _llmSubscription;
+
+  // NEW: Simple token counting approximation
+  static const int _charsPerToken = 4;
 
   @override
   void initState() {
@@ -94,78 +100,59 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _displayMessages = widget.tab.initialMessages
         .map((msg) => DisplayMessage.fromChatMessage(msg))
         .toList();
+    
+    // NEW: Add listener for composing token count
+    _textController.addListener(_updateComposingTokenCount);
+
+    // NEW: Initial calculation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateComposingTokenCount();
+      _updateTotalTokenCount();
+    });
   }
 
   @override
   void dispose() {
+    _textController.removeListener(_updateComposingTokenCount);
+    _llmSubscription?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     _scrollEndTimer?.cancel();
     super.dispose();
   }
+  
+  // NEW: Token counting methods
+  void _updateComposingTokenCount() {
+    final contextChars = _contextItems.fold<int>(0, (sum, item) => sum + item.content.length);
+    final promptChars = _textController.text.length;
+    setState(() {
+      _composingTokenCount = ((contextChars + promptChars) / _charsPerToken).ceil();
+    });
+  }
 
-  Future<void> _submitPrompt(String prompt) async {
-    if (prompt.isEmpty || _isLoading) return;
+  void _updateTotalTokenCount() {
+    int totalChars = 0;
+    for (final dm in _displayMessages) {
+      totalChars += dm.message.content.length;
+      if (dm.message.context != null) {
+        totalChars += dm.message.context!.fold<int>(0, (sum, item) => sum + item.content.length);
+      }
+    }
+    setState(() {
+      _totalTokenCount = (totalChars / _charsPerToken).ceil();
+    });
+  }
+
+  Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
     final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
     final providerId = settings?.selectedProviderId ?? 'dummy';
     final modelId = settings?.selectedModelIds[providerId] ??
         allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
 
-    setState(() {
-      _displayMessages.add(DisplayMessage.fromChatMessage(ChatMessage(role: 'user', content: prompt)));
-      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
-      _isLoading = true;
-    });
-
-    _scrollToBottom();
-    ref.read(editorServiceProvider).markCurrentTabDirty();
-
-    final provider = ref.read(llmServiceProvider);
-    final responseStream = provider.generateResponse(
-      history: _displayMessages.sublist(0, _displayMessages.length - 2).map((dm) => dm.message).toList(),
-      prompt: prompt,
-      modelId: modelId,
-    );
-
-    try {
-      await for (final chunk in responseStream) {
-        if (!mounted) return;
-        setState(() {
-          final lastDisplayMessage = _displayMessages.last;
-          final updatedMessage = lastDisplayMessage.message.copyWith(
-            content: lastDisplayMessage.message.content + chunk,
-          );
-          _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        final lastDisplayMessage = _displayMessages.last;
-        final updatedMessage = lastDisplayMessage.message.copyWith(
-          content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n$e',
-        );
-        _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ref.read(editorServiceProvider).markCurrentTabDirty();
-      }
-    }
-  }
-
-  Future<void> _sendMessage() async {
-    final userPrompt = _textController.text.trim();
-    if (userPrompt.isEmpty && _contextItems.isEmpty) return;
-
-    // Combine context and user prompt
     final fullPrompt = StringBuffer();
-    if (_contextItems.isNotEmpty) {
+    if (context != null && context.isNotEmpty) {
       fullPrompt.writeln("Use the following files as context for my request:\n");
-      for (final item in _contextItems) {
+      for (final item in context) {
         fullPrompt.writeln('--- CONTEXT FILE: ${item.source} ---\n');
         fullPrompt.writeln('```');
         fullPrompt.writeln(item.content);
@@ -174,25 +161,97 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       fullPrompt.writeln("--- END OF CONTEXT ---\n");
     }
     fullPrompt.write(userPrompt);
+
+    setState(() {
+      _displayMessages.add(DisplayMessage.fromChatMessage(ChatMessage(role: 'user', content: userPrompt, context: context)));
+      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
+      _isLoading = true;
+      _updateTotalTokenCount();
+    });
+
+    _scrollToBottom();
+    ref.read(editorServiceProvider).markCurrentTabDirty();
+
+    final provider = ref.read(llmServiceProvider);
+    final responseStream = provider.generateResponse(
+      history: _displayMessages.sublist(0, _displayMessages.length - 2).map((dm) => dm.message).toList(),
+      prompt: fullPrompt.toString(),
+      modelId: modelId,
+    );
+
+    _llmSubscription = responseStream.listen(
+      (chunk) { // onData
+        if (!mounted) return;
+        setState(() {
+          final lastDisplayMessage = _displayMessages.last;
+          final updatedMessage = lastDisplayMessage.message.copyWith(
+            content: lastDisplayMessage.message.content + chunk,
+          );
+          _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+          _updateTotalTokenCount();
+        });
+      },
+      onError: (e) { // onError
+        if (!mounted) return;
+        setState(() {
+          final lastDisplayMessage = _displayMessages.last;
+          final updatedMessage = lastDisplayMessage.message.copyWith(
+            content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n$e',
+          );
+          _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+          _isLoading = false;
+          _llmSubscription = null;
+          _updateTotalTokenCount();
+        });
+      },
+      onDone: () { // onDone
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _llmSubscription = null;
+          });
+          ref.read(editorServiceProvider).markCurrentTabDirty();
+        }
+      },
+      cancelOnError: true,
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    final userPrompt = _textController.text.trim();
+    if (userPrompt.isEmpty && _contextItems.isEmpty) return;
+
+    final contextToSend = List<ContextItem>.from(_contextItems);
     
     _textController.clear();
     setState(() {
       _contextItems.clear();
+      _composingTokenCount = 0;
     });
 
-    await _submitPrompt(fullPrompt.toString());
+    await _submitPrompt(userPrompt, context: contextToSend);
+  }
+  
+  void _stopGeneration() {
+    _llmSubscription?.cancel();
+    setState(() {
+      _isLoading = false;
+      _llmSubscription = null;
+    });
+    ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
   void _rerun(int messageIndex) async {
     final messageToRerun = _displayMessages[messageIndex].message;
     if (messageToRerun.role != 'user') return;
     _deleteAfter(messageIndex);
-    await _submitPrompt(messageToRerun.content);
+    await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
   }
 
   void _delete(int index) {
     setState(() {
       _displayMessages.removeAt(index);
+      _updateTotalTokenCount();
     });
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
@@ -200,11 +259,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void _deleteAfter(int index) {
     setState(() {
       _displayMessages.removeRange(index, _displayMessages.length);
+      _updateTotalTokenCount();
     });
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
   
-    Future<void> _showAddContextDialog() async {
+  Future<void> _showAddContextDialog() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
@@ -236,6 +296,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.add(ContextItem(source: relativePath, content: content));
     });
+    _updateComposingTokenCount();
   }
   
   Future<void> _gatherRecursiveImports(DocumentFile initialFile, String projectRootUri) async {
@@ -277,6 +338,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.addAll(gatheredContext);
     });
+    _updateComposingTokenCount();
     MachineToast.info('Added ${gatheredContext.length} files to context.');
   }
   
@@ -373,6 +435,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     return Column(
       children: [
+        _buildTopBar(), // NEW
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
@@ -422,6 +485,22 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       ],
     );
   }
+  
+    Widget _buildTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      color: Theme.of(context).appBarTheme.backgroundColor?.withOpacity(0.5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Total Tokens: ~$_totalTokenCount',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildChatInput() {
     return Material(
@@ -433,7 +512,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // NEW: Context items display
             if (_contextItems.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 120),
@@ -445,18 +523,18 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                       runSpacing: 4,
                       children: _contextItems.map((item) => _ContextItemCard(
                         item: item,
-                        onRemove: () => setState(() => _contextItems.remove(item)),
+                        onRemove: () {
+                          setState(() => _contextItems.remove(item));
+                          _updateComposingTokenCount();
+                        },
                       )).toList(),
                     ),
                   ),
                 ),
               ),
-
-            // Existing input row, with a new button
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // NEW: Add Context Button
                 IconButton(
                   icon: const Icon(Icons.attachment),
                   tooltip: 'Add File Context',
@@ -469,17 +547,25 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     keyboardType: TextInputType.multiline,
                     maxLines: 5,
                     minLines: 1,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Type your message...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      // NEW: Show composing token count
+                      suffix: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text('~$_composingTokenCount tok', style: Theme.of(context).textTheme.bodySmall),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8.0),
+                // UPDATED: Dynamic send/stop button
                 IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _isLoading ? null : _sendMessage,
+                  icon: Icon(_isLoading ? Icons.stop_circle_outlined : Icons.send),
+                  tooltip: _isLoading ? 'Stop Generation' : 'Send',
+                  onPressed: _isLoading ? _stopGeneration : _sendMessage,
+                  color: _isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
                 ),
               ],
             ),
@@ -607,37 +693,74 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
               ],
             ),
           ),
-    AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      child: _isFolded
-          ? const SizedBox(width: double.infinity)
-          : Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
-              child: MarkdownBody( // USED FOR BOTH USER AND ASSISTANT
-                      data: widget.message.content,
-                      builders: {
-                        'code': _CodeBlockBuilder(
-                          keys: widget.codeBlockKeys,
-                          theme: highlightTheme,
-                          textStyle: TextStyle(
-                            fontFamily: codeEditorSettings.fontFamily,
-                            fontSize: codeEditorSettings.fontSize - 1,
-                          ),
-                        )
-                      },
-                      styleSheet: MarkdownStyleSheet(
-                        codeblockDecoration: const BoxDecoration(
-                          color: Colors.transparent,
-                        ),
-                      ),
-                    ),
-            ),
-    ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isFolded
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    child: isUser
+                        ? _buildUserMessageBody(codeEditorSettings, highlightTheme) // UPDATED
+                        : _buildAssistantMessageBody(codeEditorSettings, highlightTheme),
+                  ),
+          ),
         ],
       ),
+    );
+  }
+  
+// NEW: Widget for rendering the user message body with context
+  Widget _buildUserMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
+    final hasContext = widget.message.context?.isNotEmpty ?? false;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasContext) ...[
+          Text('Context Files:', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: widget.message.context!.map((item) => _ContextItemViewChip(item: item)).toList(),
+          ),
+          const Divider(height: 16),
+        ],
+        MarkdownBody( // User prompt is now also rendered as Markdown
+          data: widget.message.content,
+          builders: {
+            'code': _CodeBlockBuilder(
+              keys: const [], // User message doesn't need jump keys
+              theme: theme,
+              textStyle: TextStyle(
+                fontFamily: settings.fontFamily,
+                fontSize: settings.fontSize - 1,
+              ),
+            )
+          },
+          styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
+        ),
+      ],
+    );
+  }
+
+  // MOVED: The original assistant message body logic is now here
+  Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
+    return MarkdownBody(
+      data: widget.message.content,
+      builders: {
+        'code': _CodeBlockBuilder(
+          keys: widget.codeBlockKeys,
+          theme: theme,
+          textStyle: TextStyle(
+            fontFamily: settings.fontFamily,
+            fontSize: settings.fontSize - 1,
+          ),
+        )
+      },
+      styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
   }
 
@@ -983,6 +1106,39 @@ class _FilePickerLiteDialogState extends ConsumerState<_FilePickerLiteDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
       ],
+    );
+  }
+}
+
+class _ContextItemViewChip extends StatelessWidget {
+  final ContextItem item;
+  const _ContextItemViewChip({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: const Icon(Icons.description_outlined, size: 14),
+      label: Text(item.source, style: const TextStyle(fontSize: 12)),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(item.source),
+            content: SingleChildScrollView(child: SelectableText(item.content)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.copy),
+                tooltip: 'Copy Content',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: item.content));
+                  MachineToast.info('Context content copied.');
+                },
+              ),
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+            ],
+          ),
+        );
+      },
     );
   }
 }
