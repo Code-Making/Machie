@@ -1,6 +1,8 @@
 // FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
 import 'dart:convert';
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +21,9 @@ import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
+import 'package:re_highlight/languages/all.dart';
+import 'package:re_highlight/styles/all.dart';
+
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
