@@ -697,7 +697,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: editorStyle.codeTheme?.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(4.0),
       ),
       child: Column(
@@ -736,7 +736,7 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             child: _isFolded
-                ? const SizedBox(width: double.infinity, height: editorHeight)
+                ? SizedBox(width: double.infinity, height: editorHeight)
                 : Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(8.0),
