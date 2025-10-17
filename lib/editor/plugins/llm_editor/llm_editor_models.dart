@@ -13,12 +13,12 @@ import 'llm_editor_widget.dart';
 class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
-  final List<ContextItem>? context; // NEW: Optional context list
+  final List<ContextItem>? context;
 
   const ChatMessage({
     required this.role, 
     required this.content,
-    this.context, // NEW
+    this.context,
   });
 
   ChatMessage copyWith({String? role, String? content, List<ContextItem>? context}) {
@@ -33,9 +33,12 @@ class ChatMessage {
     return ChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
-      // NEW: Deserialization
+      // CORRECTED: Explicitly cast each map in the context list
       context: (json['context'] as List<dynamic>?)
-          ?.map((item) => ContextItem(source: item['source'], content: item['content']))
+          ?.map((item) {
+            final itemMap = Map<String, dynamic>.from(item);
+            return ContextItem(source: itemMap['source'], content: itemMap['content']);
+          })
           .toList(),
     );
   }
@@ -43,7 +46,6 @@ class ChatMessage {
   Map<String, dynamic> toJson() => {
     'role': role, 
     'content': content,
-    // NEW: Serialization, omitting if null or empty
     if (context != null && context!.isNotEmpty)
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
   };
