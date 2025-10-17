@@ -8,7 +8,6 @@ import 'llm_editor_models.dart';
 @immutable
 class LlmEditorHotStateDto extends TabHotStateDto {
   final List<ChatMessage> messages;
-  // REMOVED composingPrompt and composingContext
 
   const LlmEditorHotStateDto({
     required this.messages,
@@ -19,13 +18,13 @@ class LlmEditorHotStateDto extends TabHotStateDto {
 class LlmEditorHotStateAdapter implements TypeAdapter<LlmEditorHotStateDto> {
   static const String _messagesKey = 'messages';
   static const String _hashKey = 'baseContentHash';
-  // REMOVED _promptKey and _contextKey
 
   @override
   LlmEditorHotStateDto fromJson(Map<String, dynamic> json) {
     final messagesJson = json[_messagesKey] as List<dynamic>? ?? [];
     return LlmEditorHotStateDto(
-      messages: messagesJson.map((m) => ChatMessage.fromJson(m)).toList(),
+      // CORRECTED: Explicitly cast each map in the list
+      messages: messagesJson.map((m) => ChatMessage.fromJson(Map<String, dynamic>.from(m))).toList(),
       baseContentHash: json[_hashKey] as String?,
     );
   }
