@@ -801,7 +801,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     
     // THE FIX: Use the new delegating/linking builders
     final pathLinkBuilder = _PathLinkBuilder(ref: ref);
-    final delegatingCodeBuilder = _DelegatingCodeBuilder(
+    final codeBuilder = _CodeBlockBuilder(
       ref: ref,
       keys: const [], // No code blocks to jump to in user messages
       theme: theme,
@@ -844,8 +844,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         MarkdownBody(
           data: widget.message.content,
           builders: {
-            'code': delegatingCodeBuilder, // Use the delegating builder
-            'p': pathLinkBuilder, // Use the path builder for paragraphs
+            'code': codeBuilder,
+            'p': pathLinkBuilder,
           },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
         ),
@@ -858,7 +858,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     
     // THE FIX: Use the new delegating/linking builders
     final pathLinkBuilder = _PathLinkBuilder(ref: ref);
-    final delegatingCodeBuilder = _DelegatingCodeBuilder(
+    final codeBuilder = _CodeBlockBuilder(
       ref: ref,
       keys: widget.codeBlockKeys, // Pass the keys for jump targets
       theme: theme,
@@ -871,8 +871,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     return MarkdownBody(
       data: widget.message.content,
       builders: {
-        'code': delegatingCodeBuilder, // Use the delegating builder
-        'p': pathLinkBuilder, // Use the path builder for paragraphs
+        'code': codeBuilder,
+        'p': pathLinkBuilder,
       },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
@@ -917,12 +917,13 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
 }
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
+  final WidgetRef ref;
   final List<GlobalKey> keys;
   final Map<String, TextStyle> theme;
   final TextStyle textStyle;
   int _codeBlockCounter = 0;
 
-  _CodeBlockBuilder({required this.keys, required this.theme, required this.textStyle});
+  _CodeBlockBuilder({required this.ref, required this.keys, required this.theme, required this.textStyle});
 
   @override
   Widget? visitElementAfterWithContext(
@@ -941,22 +942,15 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       _codeBlockCounter++;
       return _CodeBlockWrapper(
         key: key,
+        ref: ref, // Pass ref
         code: text.trim(),
         language: language,
         theme: theme,
         textStyle: textStyle,
       );
     } else {
-      final theme = Theme.of(context);
-      return RichText(
-        text: TextSpan(
-          text: text,
-          style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
-            fontFamily: textStyle.fontFamily,
-            backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
-          ),
-        ),
-      );
+      // It's an inline code block. Use the PathLinkBuilder to process it.
+      return _PathLinkBuilder(ref: ref).visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
     }
   }
 
@@ -969,6 +963,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 }
 
 class _CodeBlockWrapper extends StatefulWidget {
+  final WidgetRef ref;
   final String code;
   final String language;
   final Map<String, TextStyle> theme;
@@ -976,6 +971,7 @@ class _CodeBlockWrapper extends StatefulWidget {
 
   const _CodeBlockWrapper({
     super.key,
+    required this.ref,
     required this.code,
     required this.language,
     required this.theme,
@@ -1015,16 +1011,99 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
   }
 
   void _highlightCode() {
-
     final HighlightResult result = _highlight.highlight(
       code: widget.code,
       language: widget.language,
+      // ignoreIllegals is important for graceful failure
+      ignoreIllegals: true,
     );
-    final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
-    result.render(renderer);
-    setState(() {
-      _highlightedCode = renderer.span;
-    });
+
+    // This is the new recursive builder
+    final List<InlineSpan> spans = _buildSpansFromHighlightResult(
+      result.nodes ?? [],
+      isInsideComment: false,
+    );
+    
+    if (mounted) {
+      setState(() {
+        _highlightedCode = TextSpan(
+          children: spans,
+          style: widget.textStyle,
+        );
+      });
+    }
+  }
+
+  /// Recursively walks the syntax tree from the highlighter, building TextSpans.
+  List<InlineSpan> _buildSpansFromHighlightResult(
+    List<Node> nodes, {
+    required bool isInsideComment,
+  }) {
+    final List<InlineSpan> spans = [];
+    for (final node in nodes) {
+      // Determine if the current node or any of its ancestors is a comment.
+      final bool currentlyInComment = isInsideComment || node.className == 'comment';
+
+      if (node.children != null) {
+        // This is a styled node (e.g., keyword, string). Recurse into its children.
+        final childSpans = _buildSpansFromHighlightResult(
+          node.children!,
+          isInsideComment: currentlyInComment,
+        );
+        final style = widget.theme[node.className];
+        spans.add(TextSpan(children: childSpans, style: style));
+      } else {
+        // This is a leaf node (a plain text part).
+        // If we are inside a comment, try to find links. Otherwise, just add the text.
+        spans.addAll(_createSpansForText(
+          node.value!,
+          isComment: currentlyInComment,
+        ));
+      }
+    }
+    return spans;
+  }
+
+  /// Creates TextSpans for a given string. If it's a comment, it searches for file paths.
+  List<InlineSpan> _createSpansForText(String text, {required bool isComment}) {
+    final theme = Theme.of(context);
+
+    if (!isComment) {
+      return [TextSpan(text: text)];
+    }
+
+    final matches = _PathLinkBuilder._pathRegex.allMatches(text).toList();
+    if (matches.isEmpty) {
+      return [TextSpan(text: text)];
+    }
+
+    final List<InlineSpan> spans = [];
+    int lastIndex = 0;
+    for (final match in matches) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(text: text.substring(lastIndex, match.start)));
+      }
+      final String path = match.group(0)!;
+      spans.add(
+        TextSpan(
+          text: path,
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: theme.colorScheme.primary,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              widget.ref.read(editorServiceProvider).openOrCreate(path);
+            },
+        ),
+      );
+      lastIndex = match.end;
+    }
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(text: text.substring(lastIndex)));
+    }
+    return spans;
   }
 
   @override
@@ -1079,7 +1158,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
                 : Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12.0),
-                    // UPDATED: Wrap with SingleChildScrollView for horizontal scrolling
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: _highlightedCode == null
@@ -1472,39 +1550,7 @@ class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> 
 // === NEW LINK DETECTION WIDGETS ========================================
 // =======================================================================
 
-/// A Markdown builder that decides whether to render a full code block
-/// or an inline code snippet with link detection.
-class _DelegatingCodeBuilder extends MarkdownElementBuilder {
-  final WidgetRef ref;
-  final _CodeBlockBuilder codeBlockBuilder;
-  final _PathLinkBuilder pathLinkBuilder;
-
-  _DelegatingCodeBuilder({
-    required this.ref,
-    required List<GlobalKey> keys,
-    required Map<String, TextStyle> theme,
-    required TextStyle textStyle,
-  })  : codeBlockBuilder = _CodeBlockBuilder(keys: keys, theme: theme, textStyle: textStyle),
-        pathLinkBuilder = _PathLinkBuilder(ref: ref);
-
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final textContent = element.textContent;
-    // Differentiate between block and inline code
-    if (textContent.contains('\n')) {
-      return codeBlockBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
-    } else {
-      return pathLinkBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
-    }
-  }
-}
-
-/// A Markdown builder that finds and makes file paths tappable.
+/// A Markdown builder that finds and makes file paths tappable within paragraphs.
 class _PathLinkBuilder extends MarkdownElementBuilder {
   final WidgetRef ref;
 
