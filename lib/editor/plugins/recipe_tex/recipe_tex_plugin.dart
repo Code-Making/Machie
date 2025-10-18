@@ -1,6 +1,7 @@
 // =========================================
 // UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_plugin.dart
 // =========================================
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +66,7 @@ class RecipeTexPlugin extends EditorPlugin {
     DocumentFile file,
     EditorInitData initData, {
     String? id,
+    Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     RecipeData? hotStateData;
     if (initData.hotState is RecipeTexHotStateDto) {
@@ -74,6 +76,7 @@ class RecipeTexPlugin extends EditorPlugin {
     return RecipeTexTab(
       plugin: this,
       id: id,
+      onReadyCompleter: onReadyCompleter,
       initialContent: initData.stringData ?? '',
       initialBaseContentHash: initData.baseContentHash,
       hotStateData: hotStateData,

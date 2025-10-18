@@ -2,6 +2,7 @@
 // NEW FILE: lib/editor/plugins/llm_editor/llm_editor_plugin.dart
 // =========================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,7 @@ class LlmEditorPlugin extends EditorPlugin {
     DocumentFile file,
     EditorInitData initData, {
     String? id,
+    Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     List<ChatMessage> messagesToShow;
     final hotState = initData.hotState as LlmEditorHotStateDto?;
@@ -84,6 +86,7 @@ class LlmEditorPlugin extends EditorPlugin {
       plugin: this,
       initialMessages: messagesToShow,
       id: id,
+      onReadyCompleter: onReadyCompleter,
     );
   }
   

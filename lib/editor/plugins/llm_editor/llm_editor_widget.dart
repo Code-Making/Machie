@@ -96,22 +96,24 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   static const int _charsPerToken = 4;
 
   @override
-  void initState() {
-    super.initState();
+  void init() {
     _displayMessages = widget.tab.initialMessages
         .map((msg) => DisplayMessage.fromChatMessage(msg))
         .toList();
     
-    // REMOVED: Restoration of composing state
-    // _textController.text = widget.tab.initialComposingPrompt ?? '';
-    // _contextItems.addAll(widget.tab.initialComposingContext ?? []);
-
     _textController.addListener(_onStateChanged);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  }
+  
+  @override
+  void onFirstFrameReady() {
+    if(mounted ){
       _updateComposingTokenCount();
       _updateTotalTokenCount();
-    });
+      if (!widget.tab.onReady.isCompleted) {
+          widget.tab.onReady.complete(this);
+      }
+    }
   }
 
   @override

@@ -65,8 +65,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
 
 
   @override
-  void initState() {
-    super.initState();
+  void init() {
     _baseContentHash = (widget.tab as RecipeTexTab).initialBaseContentHash;
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
@@ -79,13 +78,17 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     } else {
       _initializeControllersAndFocusNodes(_initialData);
     }
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  }
+  
+  @override
+  void onFirstFrameReady() {
       if (mounted) {
         _checkIfDirty();
         syncCommandContext();
       }
-    });
+      if (!widget.tab.onReady.isCompleted) {
+          widget.tab.onReady.complete(this);
+      }
   }
 
   @override
