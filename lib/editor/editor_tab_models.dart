@@ -1,6 +1,6 @@
-// =========================================
-// UPDATED: lib/editor/editor_tab_models.dart
-// =========================================
+// FILE: lib/editor/editor_tab_models.dart
+
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -66,20 +66,17 @@ class EditorContentBytes extends EditorContent {
 }
 
 
-// ### NEW: The contract for any widget that serves as an editor UI.
 abstract class EditorWidget extends ConsumerStatefulWidget {
   final EditorTab tab;
 
   const EditorWidget({required this.tab, required super.key});
 }
 
-// ### NEW: The explicit, stateful contract for an EditorWidget.
-// This is what plugins MUST implement in their State objects.
-abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {
+abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {  
   @override
   void initState() {
     super.initState();
-    // THE FIX: The base class now controls the "ready" signal.
+    init();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // 1. Call the new lifecycle hook for subclasses to perform their setup.
@@ -90,17 +87,24 @@ abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T
     });
   }
   
+  // Offers a clean method for state initialization that leaves orchestration to the architecture.
+  @protected
+  void init();
+  
   /// A lifecycle hook called once after the first frame is built.
   /// Subclasses should override this to perform initial setup, like applying
   /// cached content, before the widget is considered fully "ready".
   @protected
   void onFirstFrameReady();
-
+  
   /// Synchronizes the editor's internal, command-relevant state with the
   /// global `commandContextProvider`. This method is the core of the
   /// reactive command system. It should be called whenever state like
   /// `canUndo`, `canRedo`, or selection changes.
   void syncCommandContext();
+
+  // REMOVED: canUndo, canRedo are no longer part of the public contract.
+  // They will be exposed via the CommandContext.
 
   void undo();
   void redo();
@@ -122,13 +126,17 @@ abstract class WorkspaceTab {
 
 @immutable
 abstract class EditorTab extends WorkspaceTab {
-  // MODIFIED: The key is no longer created here. It's now an abstract getter.
   GlobalKey<EditorWidgetState> get editorKey;
+  
+  /// A completer that finishes when the editor widget's state is initialized.
+  /// This allows services to await the readiness of an editor before interacting with it.
+  final Completer<EditorWidgetState> onReady;
   
   EditorTab({
     required super.plugin,
     super.id,
-  });
+    Completer<EditorWidgetState>? onReadyCompleter,
+  }) : onReady = onReadyCompleter ?? Completer<EditorWidgetState>();
 
   @override
   void dispose();

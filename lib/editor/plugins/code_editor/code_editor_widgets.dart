@@ -1,7 +1,8 @@
-import 'dart:math';
 // =========================================
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
+import 'dart:async';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -103,45 +104,24 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   static final _fromRGBORegex = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
 
   // --- TextEditable Interface
-  @override
+@override
   void replaceAllOccurrences(String find, String replace) {
-    controller.replaceAll(find, replace);
+    if (!mounted) return;
+    controller.text = controller.text.replaceAll(find, replace);
   }
 
   @override
   void replaceLines(int startLine, int endLine, String newContent) {
-    // Ensure the line numbers are valid before proceeding.
-    if (startLine < 0 || endLine >= controller.codeLines.length || startLine > endLine) {
-      throw ArgumentError("Invalid line range provided for replacement.");
-    }
-    
-    // Define the start of the selection at the beginning of the start line.
-    final startPosition = CodeLinePosition(index: startLine, offset: 0);
-    
-    // Define the end of the selection. This is the tricky part.
-    final CodeLinePosition endPosition;
+    if (!mounted) return;
 
-    if (endLine + 1 < controller.codeLines.length) {
-      // If we are not at the end of the file, the selection ends at the
-      // beginning of the line *after* our target end line.
-      endPosition = CodeLinePosition(index: endLine + 1, offset: 0);
-    } else {
-      // If we are replacing up to the last line, the selection ends at
-      // the very end of that last line.
-      endPosition = CodeLinePosition(
-        index: endLine,
-        offset: controller.codeLines.last.text.length,
-      );
-    }
+    final start = startLine.clamp(0, controller.codeLines.length);
+    final end = endLine.clamp(0, controller.codeLines.length - 1);
+    if (start > end) return;
 
-    // Create and apply the selection.
-    controller.selection = CodeLineSelection(
-      base: startPosition,
-      extent: endPosition,
-    );
-
-    // Replace the selected text with the new content.
-    controller.replaceSelection(newContent);
+    controller.runRevocableOp(() {
+      controller.removeCodeLines(start, end - start + 1);
+      controller.insertCodeLines(start, CodeLines.fromText(newContent));
+    });
   }
 
   @override
@@ -177,8 +157,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   }
   
   @override
-  void initState() {
-    super.initState();
+  void init() {
+    super.init();
     _focusNode = FocusNode();
     _baseContentHash = widget.tab.initialBaseContentHash;
 
@@ -202,12 +182,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   
   @override
   void onFirstFrameReady() {
-    // This logic now runs before the completer is resolved.
     if (mounted) {
       syncCommandContext();
       if (widget.tab.cachedContent != null) {
         controller.text = widget.tab.cachedContent!;
       }
+      if (!widget.tab.onReady.isCompleted) {
+          widget.tab.onReady.complete(this);
+        }
     }
   }
 
