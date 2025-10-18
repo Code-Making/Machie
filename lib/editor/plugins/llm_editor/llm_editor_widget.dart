@@ -1022,8 +1022,17 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
     final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
     result.render(renderer);
     
-    // NEW: Post-process the generated span to add links
-    final linkedSpan = _addLinksToSpans(renderer.span);
+    // FIX 1: Handle the case where the renderer's span is null.
+    final baseSpan = renderer.span;
+    if (baseSpan == null) {
+      setState(() {
+        _highlightedCode = null;
+      });
+      return;
+    }
+
+    // Post-process the generated span to add links
+    final linkedSpan = _addLinksToSpans(baseSpan);
     
     setState(() {
       _highlightedCode = linkedSpan;
@@ -1034,7 +1043,8 @@ class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   TextSpan _addLinksToSpans(TextSpan sourceSpan) {
     final commentStyle = widget.theme['comment'];
     // If the theme has no specific comment style, we can't detect comments.
-    if (commentStyle?.color == null) {
+    // FIX 2: Check for null on commentStyle itself before proceeding.
+    if (commentStyle == null) {
       return sourceSpan;
     }
 
