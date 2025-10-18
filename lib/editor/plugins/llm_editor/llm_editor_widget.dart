@@ -950,7 +950,12 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       );
     } else {
       // It's an inline code block. Use the PathLinkBuilder to process it.
-      return _PathLinkBuilder(ref: ref).visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+      // We also give it a slightly different style to distinguish it.
+      final inlineStyle = (parentStyle ?? Theme.of(context).textTheme.bodyMedium)?.copyWith(
+        fontFamily: textStyle.fontFamily,
+        backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+      );
+      return _PathLinkBuilder(ref: ref).visitElementAfterWithContext(context, element, preferredStyle, inlineStyle);
     }
   }
 
@@ -1014,96 +1019,22 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
     final HighlightResult result = _highlight.highlight(
       code: widget.code,
       language: widget.language,
-      // ignoreIllegals is important for graceful failure
       ignoreIllegals: true,
     );
 
-    // This is the new recursive builder
-    final List<InlineSpan> spans = _buildSpansFromHighlightResult(
-      result.nodes ?? [],
-      isInsideComment: false,
+    // Create and use the custom renderer.
+    final renderer = _CommentLinkRenderer(
+      ref: widget.ref,
+      theme: widget.theme,
+      baseStyle: widget.textStyle,
     );
-    
+    result.render(renderer);
+
     if (mounted) {
       setState(() {
-        _highlightedCode = TextSpan(
-          children: spans,
-          style: widget.textStyle,
-        );
+        _highlightedCode = renderer.getFinalSpan();
       });
     }
-  }
-
-  /// Recursively walks the syntax tree from the highlighter, building TextSpans.
-  List<InlineSpan> _buildSpansFromHighlightResult(
-    List<Node> nodes, {
-    required bool isInsideComment,
-  }) {
-    final List<InlineSpan> spans = [];
-    for (final node in nodes) {
-      // Determine if the current node or any of its ancestors is a comment.
-      final bool currentlyInComment = isInsideComment || node.className == 'comment';
-
-      if (node.children != null) {
-        // This is a styled node (e.g., keyword, string). Recurse into its children.
-        final childSpans = _buildSpansFromHighlightResult(
-          node.children!,
-          isInsideComment: currentlyInComment,
-        );
-        final style = widget.theme[node.className];
-        spans.add(TextSpan(children: childSpans, style: style));
-      } else {
-        // This is a leaf node (a plain text part).
-        // If we are inside a comment, try to find links. Otherwise, just add the text.
-        spans.addAll(_createSpansForText(
-          node.value!,
-          isComment: currentlyInComment,
-        ));
-      }
-    }
-    return spans;
-  }
-
-  /// Creates TextSpans for a given string. If it's a comment, it searches for file paths.
-  List<InlineSpan> _createSpansForText(String text, {required bool isComment}) {
-    final theme = Theme.of(context);
-
-    if (!isComment) {
-      return [TextSpan(text: text)];
-    }
-
-    final matches = _PathLinkBuilder._pathRegex.allMatches(text).toList();
-    if (matches.isEmpty) {
-      return [TextSpan(text: text)];
-    }
-
-    final List<InlineSpan> spans = [];
-    int lastIndex = 0;
-    for (final match in matches) {
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(text: text.substring(lastIndex, match.start)));
-      }
-      final String path = match.group(0)!;
-      spans.add(
-        TextSpan(
-          text: path,
-          style: TextStyle(
-            color: theme.colorScheme.primary,
-            decoration: TextDecoration.underline,
-            decorationColor: theme.colorScheme.primary,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () {
-              widget.ref.read(editorServiceProvider).openOrCreate(path);
-            },
-        ),
-      );
-      lastIndex = match.end;
-    }
-    if (lastIndex < text.length) {
-      spans.add(TextSpan(text: text.substring(lastIndex)));
-    }
-    return spans;
   }
 
   @override
@@ -1172,6 +1103,90 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
         ],
       ),
     );
+  }
+}
+
+class _CommentLinkRenderer implements HighlightRenderer {
+  final WidgetRef ref;
+  final Map<String, TextStyle> theme;
+  final TextStyle baseStyle;
+
+  // Internal state for building the TextSpan tree
+  final List<List<InlineSpan>> _spanStacks = [[]];
+  final List<bool> _commentStateStack = [false];
+
+  _CommentLinkRenderer({
+    required this.ref,
+    required this.theme,
+    required this.baseStyle,
+  });
+
+  TextSpan getFinalSpan() {
+    return TextSpan(children: _spanStacks.first, style: baseStyle);
+  }
+
+  @override
+  void addText(String text) {
+    final bool isInsideComment = _commentStateStack.last;
+    
+    // If we're not in a comment, just add the plain text and return.
+    if (!isInsideComment) {
+      _spanStacks.last.add(TextSpan(text: text));
+      return;
+    }
+
+    // If we ARE in a comment, run the path detection logic.
+    final matches = _PathLinkBuilder._pathRegex.allMatches(text).toList();
+    if (matches.isEmpty) {
+      _spanStacks.last.add(TextSpan(text: text));
+      return;
+    }
+    
+    final context = ref.read(navigatorKeyProvider).currentContext!;
+    final theme = Theme.of(context);
+    int lastIndex = 0;
+    
+    for (final match in matches) {
+      if (match.start > lastIndex) {
+        _spanStacks.last.add(TextSpan(text: text.substring(lastIndex, match.start)));
+      }
+      final String path = match.group(0)!;
+      _spanStacks.last.add(
+        TextSpan(
+          text: path,
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: theme.colorScheme.primary,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () => ref.read(editorServiceProvider).openOrCreate(path),
+        ),
+      );
+      lastIndex = match.end;
+    }
+    
+    if (lastIndex < text.length) {
+      _spanStacks.last.add(TextSpan(text: text.substring(lastIndex)));
+    }
+  }
+
+  @override
+  void openNode(HighlightNode node) {
+    _spanStacks.add([]);
+    final bool isParentAComment = _commentStateStack.last;
+    _commentStateStack.add(isParentAComment || node.className == 'comment');
+  }
+
+  @override
+  void closeNode(HighlightNode node) {
+    final List<InlineSpan> children = _spanStacks.removeLast();
+    _commentStateStack.removeLast();
+    final style = theme[node.className];
+    
+    if (children.isNotEmpty) {
+      _spanStacks.last.add(TextSpan(children: children, style: style));
+    }
   }
 }
 
