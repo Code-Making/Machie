@@ -191,7 +191,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                   ),
                   Expanded(
                     child: Text(
-                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectUri),
+                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri), // FIXED: Changed widget.projectUri to widget.projectRootUri
                       style: Theme.of(context).textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),

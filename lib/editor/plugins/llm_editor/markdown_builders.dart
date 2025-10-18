@@ -17,6 +17,8 @@ import 'package:markdown/markdown.dart' as md;
 
 // NEW IMPORT for split files
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
+// ADDED IMPORT for mapEquals
+import 'package:flutter/foundation.dart';
 
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
@@ -105,7 +107,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code ||
         widget.language != oldWidget.language ||
-        !mapEquals(widget.theme, oldWidget.theme) ||
+        !mapEquals(widget.theme, oldWidget.theme) || // FIXED: mapEquals imported from foundation.dart
         widget.textStyle != oldWidget.textStyle) {
       _highlightCode();
     }
