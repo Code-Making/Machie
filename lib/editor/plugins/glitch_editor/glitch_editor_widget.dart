@@ -72,15 +72,20 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   bool get canRedo => _redoStack.isNotEmpty;
 
   @override
-  void initState() {
-    super.initState();
+  void init() {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController.addListener(_updateImageDisplayParams);
-    _loadImage(); // This method now contains the rehydration logic.
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if(mounted) syncCommandContext();
-    });
+    _loadImage(); // This method now contains the rehydration logic.    
+  }
+  
+  @override
+  void onFirstFrameReady() {
+    if (mounted) {
+      syncCommandContext();
+      if (!widget.tab.onReady.isCompleted) {
+          widget.tab.onReady.complete(this);
+        }
+    }
   }
 
   @override
