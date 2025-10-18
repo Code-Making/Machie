@@ -2,6 +2,7 @@
 // NEW FILE: lib/editor/plugins/llm_editor/llm_editor_models.dart
 // =========================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/editor_tab_models.dart';
@@ -64,6 +65,7 @@ class LlmEditorTab extends EditorTab {
     required super.plugin,
     required this.initialMessages,
     super.id,
+    super.onReadyCompleter,
   }) : editorKey = GlobalKey<LlmEditorWidgetState>();
 
   @override

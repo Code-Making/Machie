@@ -104,19 +104,6 @@ class CodeEditorPlugin extends EditorPlugin {
     return null;
   }
 
-  // @override
-  // Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
-  //   final editorState = _getEditorState(tab);
-  //   if (editorState == null) return null;
-
-  //   final stateMap = editorState.getHotState();
-  //   return CodeEditorHotStateDto(
-  //     content: stateMap['content'],
-  //     languageKey: stateMap['languageKey'],
-  //     baseContentHash: stateMap['baseContentHash'], // <-- GET HASH FROM WIDGET
-  //   );
-  // }
-
   @override
   List<CommandPosition> getCommandPositions() {
     return [selectionToolbar];
@@ -150,21 +137,6 @@ class CodeEditorPlugin extends EditorPlugin {
       onReadyCompleter: onReadyCompleter,
     );
   }
-
-  // @override
-  // Future<EditorTab> createTabFromSerialization(
-  //   Map<String, dynamic> tabJson,
-  //   FileHandler fileHandler,
-  // ) async {
-  //   final fileUri = tabJson['fileUri'] as String;
-  //   final file = await fileHandler.getFileMetadata(fileUri);
-  //   if (file == null) {
-  //     throw Exception('File not found for tab URI: $fileUri');
-  //   }
-  //   final content = await fileHandler.readFile(fileUri);
-  //   final initData = EditorInitData(stringData: content);
-  //   return createTab(file, initData);
-  // }
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
@@ -482,7 +454,6 @@ class CodeEditorPlugin extends EditorPlugin {
       },
       canExecute: (ref) {
         final editorState = _getActiveEditorState(ref);
-        // This is the default case for commands that don't have special conditions.
         return canExecute?.call(ref, editorState) ?? (editorState != null);
       },
     );

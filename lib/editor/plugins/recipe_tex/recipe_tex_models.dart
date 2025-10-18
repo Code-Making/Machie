@@ -1,6 +1,7 @@
 // =========================================
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
 // =========================================
+import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ class RecipeTexTab extends EditorTab {
     this.initialBaseContentHash,
     this.hotStateData,
     super.id,
+    super.onReadyCompleter,
   }) : editorKey = GlobalKey<RecipeEditorWidgetState>();
 
   @override
