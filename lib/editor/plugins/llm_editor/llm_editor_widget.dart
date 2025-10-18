@@ -801,7 +801,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     
     // THE FIX: Use the new delegating/linking builders
     final pathLinkBuilder = _PathLinkBuilder(ref: ref);
-    final codeBuilder = _CodeBlockBuilder(
+    final delegatingCodeBuilder = _DelegatingCodeBuilder(
       ref: ref,
       keys: const [], // No code blocks to jump to in user messages
       theme: theme,
@@ -844,8 +844,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         MarkdownBody(
           data: widget.message.content,
           builders: {
-            'code': codeBuilder,
-            'p': pathLinkBuilder,
+            'code': delegatingCodeBuilder, // Use the delegating builder
+            'p': pathLinkBuilder, // Use the path builder for paragraphs
           },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
         ),
@@ -858,7 +858,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     
     // THE FIX: Use the new delegating/linking builders
     final pathLinkBuilder = _PathLinkBuilder(ref: ref);
-    final codeBuilder = _CodeBlockBuilder(
+    final delegatingCodeBuilder = _DelegatingCodeBuilder(
       ref: ref,
       keys: widget.codeBlockKeys, // Pass the keys for jump targets
       theme: theme,
@@ -871,8 +871,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     return MarkdownBody(
       data: widget.message.content,
       builders: {
-        'code': codeBuilder,
-        'p': pathLinkBuilder,
+        'code': delegatingCodeBuilder, // Use the delegating builder
+        'p': pathLinkBuilder, // Use the path builder for paragraphs
       },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
@@ -917,13 +917,12 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
 }
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
-  final WidgetRef ref;
   final List<GlobalKey> keys;
   final Map<String, TextStyle> theme;
   final TextStyle textStyle;
   int _codeBlockCounter = 0;
 
-  _CodeBlockBuilder({required this.ref, required this.keys, required this.theme, required this.textStyle});
+  _CodeBlockBuilder({required this.keys, required this.theme, required this.textStyle});
 
   @override
   Widget? visitElementAfterWithContext(
@@ -942,20 +941,22 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       _codeBlockCounter++;
       return _CodeBlockWrapper(
         key: key,
-        ref: ref, // Pass ref
         code: text.trim(),
         language: language,
         theme: theme,
         textStyle: textStyle,
       );
     } else {
-      // It's an inline code block. Use the PathLinkBuilder to process it.
-      // We also give it a slightly different style to distinguish it.
-      final inlineStyle = (parentStyle ?? Theme.of(context).textTheme.bodyMedium)?.copyWith(
-        fontFamily: textStyle.fontFamily,
-        backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+      final theme = Theme.of(context);
+      return RichText(
+        text: TextSpan(
+          text: text,
+          style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
+            fontFamily: textStyle.fontFamily,
+            backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+          ),
+        ),
       );
-      return _PathLinkBuilder(ref: ref).visitElementAfterWithContext(context, element, preferredStyle, inlineStyle);
     }
   }
 
@@ -967,8 +968,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   }
 }
 
-class _CodeBlockWrapper extends StatefulWidget {
-  final WidgetRef ref;
+class _CodeBlockWrapper extends ConsumerStatefulWidget {
   final String code;
   final String language;
   final Map<String, TextStyle> theme;
@@ -976,7 +976,6 @@ class _CodeBlockWrapper extends StatefulWidget {
 
   const _CodeBlockWrapper({
     super.key,
-    required this.ref,
     required this.code,
     required this.language,
     required this.theme,
@@ -984,10 +983,10 @@ class _CodeBlockWrapper extends StatefulWidget {
   });
 
   @override
-  State<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
+  ConsumerState<_CodeBlockWrapper> createState() => _CodeBlockWrapperState();
 }
 
-class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
+class _CodeBlockWrapperState extends ConsumerState<_CodeBlockWrapper> {
   bool _isFolded = false;
   TextSpan? _highlightedCode;
 
@@ -1019,22 +1018,55 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
     final HighlightResult result = _highlight.highlight(
       code: widget.code,
       language: widget.language,
-      ignoreIllegals: true,
     );
-
-    // Create and use the custom renderer.
-    final renderer = _CommentLinkRenderer(
-      ref: widget.ref,
-      theme: widget.theme,
-      baseStyle: widget.textStyle,
-    );
+    final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
     result.render(renderer);
+    
+    // NEW: Post-process the generated span to add links
+    final linkedSpan = _addLinksToSpans(renderer.span);
+    
+    setState(() {
+      _highlightedCode = linkedSpan;
+    });
+  }
 
-    if (mounted) {
-      setState(() {
-        _highlightedCode = renderer.getFinalSpan();
-      });
+  // NEW: Tree-walking function to find paths inside comments.
+  TextSpan _addLinksToSpans(TextSpan sourceSpan) {
+    final commentStyle = widget.theme['comment'];
+    // If the theme has no specific comment style, we can't detect comments.
+    if (commentStyle?.color == null) {
+      return sourceSpan;
     }
+
+    // Recursive helper function
+    List<InlineSpan> walk(InlineSpan span) {
+      if (span is! TextSpan) {
+        return [span];
+      }
+
+      // Recursive step: process children first
+      if (span.children?.isNotEmpty ?? false) {
+        final newChildren = span.children!.expand((child) => walk(child)).toList();
+        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+      }
+
+      // Base case: This is a leaf node (a span with text and a single style).
+      // Check if this span's style matches the comment style's color.
+      if (span.style?.color == commentStyle.color) {
+        // It's a comment! Apply the same linking logic as _PathLinkBuilder.
+        return _PathLinkBuilder._createLinkedSpansForText(
+          text: span.text ?? '',
+          style: span.style!,
+          onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
+          ref: ref,
+        );
+      }
+
+      // Not a comment, return it as is.
+      return [span];
+    }
+    
+    return TextSpan(children: walk(sourceSpan));
   }
 
   @override
@@ -1089,6 +1121,7 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
                 : Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12.0),
+                    // UPDATED: Wrap with SingleChildScrollView for horizontal scrolling
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: _highlightedCode == null
@@ -1103,90 +1136,6 @@ class _CodeBlockWrapperState extends State<_CodeBlockWrapper> {
         ],
       ),
     );
-  }
-}
-
-class _CommentLinkRenderer implements HighlightRenderer {
-  final WidgetRef ref;
-  final Map<String, TextStyle> theme;
-  final TextStyle baseStyle;
-
-  // Internal state for building the TextSpan tree
-  final List<List<InlineSpan>> _spanStacks = [[]];
-  final List<bool> _commentStateStack = [false];
-
-  _CommentLinkRenderer({
-    required this.ref,
-    required this.theme,
-    required this.baseStyle,
-  });
-
-  TextSpan getFinalSpan() {
-    return TextSpan(children: _spanStacks.first, style: baseStyle);
-  }
-
-  @override
-  void addText(String text) {
-    final bool isInsideComment = _commentStateStack.last;
-    
-    // If we're not in a comment, just add the plain text and return.
-    if (!isInsideComment) {
-      _spanStacks.last.add(TextSpan(text: text));
-      return;
-    }
-
-    // If we ARE in a comment, run the path detection logic.
-    final matches = _PathLinkBuilder._pathRegex.allMatches(text).toList();
-    if (matches.isEmpty) {
-      _spanStacks.last.add(TextSpan(text: text));
-      return;
-    }
-    
-    final context = ref.read(navigatorKeyProvider).currentContext!;
-    final theme = Theme.of(context);
-    int lastIndex = 0;
-    
-    for (final match in matches) {
-      if (match.start > lastIndex) {
-        _spanStacks.last.add(TextSpan(text: text.substring(lastIndex, match.start)));
-      }
-      final String path = match.group(0)!;
-      _spanStacks.last.add(
-        TextSpan(
-          text: path,
-          style: TextStyle(
-            color: theme.colorScheme.primary,
-            decoration: TextDecoration.underline,
-            decorationColor: theme.colorScheme.primary,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => ref.read(editorServiceProvider).openOrCreate(path),
-        ),
-      );
-      lastIndex = match.end;
-    }
-    
-    if (lastIndex < text.length) {
-      _spanStacks.last.add(TextSpan(text: text.substring(lastIndex)));
-    }
-  }
-
-  @override
-  void openNode(HighlightNode node) {
-    _spanStacks.add([]);
-    final bool isParentAComment = _commentStateStack.last;
-    _commentStateStack.add(isParentAComment || node.className == 'comment');
-  }
-
-  @override
-  void closeNode(HighlightNode node) {
-    final List<InlineSpan> children = _spanStacks.removeLast();
-    _commentStateStack.removeLast();
-    final style = theme[node.className];
-    
-    if (children.isNotEmpty) {
-      _spanStacks.last.add(TextSpan(children: children, style: style));
-    }
   }
 }
 
@@ -1565,7 +1514,39 @@ class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> 
 // === NEW LINK DETECTION WIDGETS ========================================
 // =======================================================================
 
-/// A Markdown builder that finds and makes file paths tappable within paragraphs.
+/// A Markdown builder that decides whether to render a full code block
+/// or an inline code snippet with link detection.
+class _DelegatingCodeBuilder extends MarkdownElementBuilder {
+  final WidgetRef ref;
+  final _CodeBlockBuilder codeBlockBuilder;
+  final _PathLinkBuilder pathLinkBuilder;
+
+  _DelegatingCodeBuilder({
+    required this.ref,
+    required List<GlobalKey> keys,
+    required Map<String, TextStyle> theme,
+    required TextStyle textStyle,
+  })  : codeBlockBuilder = _CodeBlockBuilder(keys: keys, theme: theme, textStyle: textStyle),
+        pathLinkBuilder = _PathLinkBuilder(ref: ref);
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final textContent = element.textContent;
+    // Differentiate between block and inline code
+    if (textContent.contains('\n')) {
+      return codeBlockBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+    } else {
+      return pathLinkBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+    }
+  }
+}
+
+/// A Markdown builder that finds and makes file paths tappable.
 class _PathLinkBuilder extends MarkdownElementBuilder {
   final WidgetRef ref;
 
@@ -1581,6 +1562,56 @@ class _PathLinkBuilder extends MarkdownElementBuilder {
     caseSensitive: false,
   );
 
+  // REFACTORED: Extracted the core linking logic into a static helper.
+  static List<InlineSpan> _createLinkedSpansForText({
+    required String text,
+    required TextStyle style,
+    required void Function(String path) onTap,
+    required WidgetRef ref,
+  }) {
+    final theme = Theme.of(ref.context);
+    final matches = _pathRegex.allMatches(text).toList();
+    if (matches.isEmpty) {
+      return [TextSpan(text: text, style: style)];
+    }
+
+    final List<InlineSpan> spans = [];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: style,
+        ));
+      }
+
+      final String path = match.group(0)!;
+      spans.add(
+        TextSpan(
+          text: path,
+          style: style.copyWith(
+            color: theme.colorScheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: theme.colorScheme.primary,
+          ),
+          recognizer: TapGestureRecognizer()..onTap = () => onTap(path),
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: style,
+      ));
+    }
+
+    return spans;
+  }
+
   @override
   Widget? visitElementAfterWithContext(
     BuildContext context,
@@ -1588,56 +1619,28 @@ class _PathLinkBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final textContent = element.textContent;
     final theme = Theme.of(context);
-    final style = (parentStyle ?? theme.textTheme.bodyMedium);
+    final isInlineCode = element.tag == 'code';
 
-    final matches = _pathRegex.allMatches(textContent).toList();
-    if (matches.isEmpty) {
-      return null; // Let the default builder handle it.
-    }
-
-    final List<InlineSpan> spans = [];
-    int lastIndex = 0;
-
-    for (final match in matches) {
-      // Add the text before the link
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: textContent.substring(lastIndex, match.start),
-        ));
-      }
-
-      // Add the tappable link
-      final String path = match.group(0)!;
-      spans.add(
-        TextSpan(
-          text: path,
-          style: TextStyle(
-            color: theme.colorScheme.primary,
-            decoration: TextDecoration.underline,
-            decorationColor: theme.colorScheme.primary,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () {
-              ref.read(editorServiceProvider).openOrCreate(path);
-            },
-        ),
+    // Determine the base style
+    TextStyle baseStyle = parentStyle ?? theme.textTheme.bodyMedium!;
+    if (isInlineCode) {
+      baseStyle = baseStyle.copyWith(
+        fontFamily: ref.read(settingsProvider.select((s) => (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)?.fontFamily)),
+        backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
       );
-
-      lastIndex = match.end;
     }
-
-    // Add any remaining text after the last link
-    if (lastIndex < textContent.length) {
-      spans.add(TextSpan(
-        text: textContent.substring(lastIndex),
-      ));
-    }
+    
+    final spans = _createLinkedSpansForText(
+      text: element.textContent,
+      style: baseStyle,
+      onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
+      ref: ref,
+    );
 
     return RichText(
       text: TextSpan(
-        style: style,
+        style: baseStyle,
         children: spans,
       ),
     );
