@@ -15,6 +15,7 @@ import '../../data/file_handler/file_handler.dart' show DocumentFile;
 import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../explorer/common/file_explorer_dialogs.dart';
+import '../../explorer/services/explorer_service.dart';
 import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
