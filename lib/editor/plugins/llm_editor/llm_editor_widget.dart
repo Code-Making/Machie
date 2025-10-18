@@ -1,8 +1,9 @@
-// FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
+// FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
 import 'dart:convert';
 import 'dart:async';
 import 'package:collection/collection.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -795,9 +796,21 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     );
   }
   
-// NEW: Widget for rendering the user message body with context
   Widget _buildUserMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
     final hasContext = widget.message.context?.isNotEmpty ?? false;
+    
+    // THE FIX: Use the new delegating/linking builders
+    final pathLinkBuilder = _PathLinkBuilder(ref: ref);
+    final delegatingCodeBuilder = _DelegatingCodeBuilder(
+      ref: ref,
+      keys: const [], // No code blocks to jump to in user messages
+      theme: theme,
+      textStyle: TextStyle(
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize - 1,
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -831,14 +844,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         MarkdownBody(
           data: widget.message.content,
           builders: {
-            'code': _CodeBlockBuilder(
-              keys: const [],
-              theme: theme,
-              textStyle: TextStyle(
-                fontFamily: settings.fontFamily,
-                fontSize: settings.fontSize - 1,
-              ),
-            )
+            'code': delegatingCodeBuilder, // Use the delegating builder
+            'p': pathLinkBuilder, // Use the path builder for paragraphs
           },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
         ),
@@ -848,17 +855,24 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
 
   // MOVED: The original assistant message body logic is now here
   Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
+    
+    // THE FIX: Use the new delegating/linking builders
+    final pathLinkBuilder = _PathLinkBuilder(ref: ref);
+    final delegatingCodeBuilder = _DelegatingCodeBuilder(
+      ref: ref,
+      keys: widget.codeBlockKeys, // Pass the keys for jump targets
+      theme: theme,
+      textStyle: TextStyle(
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize - 1,
+      ),
+    );
+
     return MarkdownBody(
       data: widget.message.content,
       builders: {
-        'code': _CodeBlockBuilder(
-          keys: widget.codeBlockKeys,
-          theme: theme,
-          textStyle: TextStyle(
-            fontFamily: settings.fontFamily,
-            fontSize: settings.fontSize - 1,
-          ),
-        )
+        'code': delegatingCodeBuilder, // Use the delegating builder
+        'p': pathLinkBuilder, // Use the path builder for paragraphs
       },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
@@ -1389,7 +1403,6 @@ class _ContextItemCard extends StatelessWidget {
   }
 }
 
-// NEW: A stateful widget to handle memoized highlighting for context previews
 class _ContextPreviewContent extends ConsumerStatefulWidget {
   final ContextItem item;
   const _ContextPreviewContent({required this.item});
@@ -1450,6 +1463,121 @@ class _ContextPreviewContentState extends ConsumerState<_ContextPreviewContent> 
                   child: SelectableText.rich(_highlightedCode!),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+// =======================================================================
+// === NEW LINK DETECTION WIDGETS ========================================
+// =======================================================================
+
+/// A Markdown builder that decides whether to render a full code block
+/// or an inline code snippet with link detection.
+class _DelegatingCodeBuilder extends MarkdownElementBuilder {
+  final WidgetRef ref;
+  final _CodeBlockBuilder codeBlockBuilder;
+  final _PathLinkBuilder pathLinkBuilder;
+
+  _DelegatingCodeBuilder({
+    required this.ref,
+    required List<GlobalKey> keys,
+    required Map<String, TextStyle> theme,
+    required TextStyle textStyle,
+  })  : codeBlockBuilder = _CodeBlockBuilder(keys: keys, theme: theme, textStyle: textStyle),
+        pathLinkBuilder = _PathLinkBuilder(ref: ref);
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final textContent = element.textContent;
+    // Differentiate between block and inline code
+    if (textContent.contains('\n')) {
+      return codeBlockBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+    } else {
+      return pathLinkBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+    }
+  }
+}
+
+/// A Markdown builder that finds and makes file paths tappable.
+class _PathLinkBuilder extends MarkdownElementBuilder {
+  final WidgetRef ref;
+
+  _PathLinkBuilder({required this.ref});
+
+  // Regex to find potential file paths. It looks for sequences of letters, numbers,
+  // underscores, hyphens, dots, and slashes, ending in a dot and a known extension.
+  static final _pathRegex = RegExp(
+    r'([\w\-\/\\]+?\.' // Path parts
+    r'(' // Start of extensions group
+    '${CodeThemes.languageExtToNameMap.keys.join('|')}' // All known extensions
+    r'))', // End of extensions group
+    caseSensitive: false,
+  );
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final textContent = element.textContent;
+    final theme = Theme.of(context);
+    final style = (parentStyle ?? theme.textTheme.bodyMedium);
+
+    final matches = _pathRegex.allMatches(textContent).toList();
+    if (matches.isEmpty) {
+      return null; // Let the default builder handle it.
+    }
+
+    final List<InlineSpan> spans = [];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      // Add the text before the link
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: textContent.substring(lastIndex, match.start),
+        ));
+      }
+
+      // Add the tappable link
+      final String path = match.group(0)!;
+      spans.add(
+        TextSpan(
+          text: path,
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+            decoration: TextDecoration.underline,
+            decorationColor: theme.colorScheme.primary,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              ref.read(editorServiceProvider).openOrCreate(path);
+            },
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    // Add any remaining text after the last link
+    if (lastIndex < textContent.length) {
+      spans.add(TextSpan(
+        text: textContent.substring(lastIndex),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: style,
+        children: spans,
       ),
     );
   }
