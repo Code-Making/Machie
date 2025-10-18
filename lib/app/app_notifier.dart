@@ -352,6 +352,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   Future<bool> openFileInEditor(
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
+    Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     final project = state.value?.currentProject;
     if (project == null) return false;
@@ -360,6 +361,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
       project,
       file,
       explicitPlugin: explicitPlugin,
+      onReadyCompleter: onReadyCompleter,
     );
 
     switch (result) {

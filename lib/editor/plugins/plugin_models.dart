@@ -108,7 +108,12 @@ abstract class EditorPlugin {
   /// responsible for passing the necessary parts of `initData` (like
   /// initial content, cached content, and hash) to its concrete Tab
   /// class constructor. The `EditorTab` itself will not store `initData`.
-  Future<EditorTab> createTab(DocumentFile file, EditorInitData initData, {String? id});
+  Future<EditorTab> createTab(
+    DocumentFile file,
+    EditorInitData initData, {
+    String? id,
+    Completer<EditorWidgetState>? onReadyCompleter,
+  });
 
   /// Creates the main editor UI widget for a given tab.
   /// The returned widget MUST extend `EditorWidget`.

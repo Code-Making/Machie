@@ -127,6 +127,7 @@ class CodeEditorPlugin extends EditorPlugin {
     DocumentFile file,
     EditorInitData initData, {
     String? id,
+    Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     final initialContent = initData.stringData ?? '';
     final initialBaseContentHash = initData.baseContentHash;
@@ -146,6 +147,7 @@ class CodeEditorPlugin extends EditorPlugin {
       initialLanguageKey: initialLanguageKey,
       initialBaseContentHash: initialBaseContentHash,
       id: id,
+      onReadyCompleter: onReadyCompleter,
     );
   }
 

@@ -3,6 +3,7 @@
 // =========================================
 
 // lib/editor/plugins/code_editor/code_editor_models.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
@@ -11,7 +12,6 @@ import '../../editor_tab_models.dart';
 import 'code_editor_widgets.dart';
 @immutable
 class CodeEditorTab extends EditorTab {
-  // ADDED: The key is now created and stored here with the correct concrete state type.
   @override
   final GlobalKey<CodeEditorMachineState> editorKey;
   
@@ -27,7 +27,7 @@ class CodeEditorTab extends EditorTab {
     this.initialLanguageKey,
     this.initialBaseContentHash,
     super.id,
-  // ADDED: Initialize the key in the constructor.
+    super.onReadyCompleter,
   }) : editorKey = GlobalKey<CodeEditorMachineState>();
 
   @override
