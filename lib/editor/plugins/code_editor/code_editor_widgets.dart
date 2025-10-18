@@ -103,26 +103,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   static final _fromARGBRegex = RegExp(r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
   static final _fromRGBORegex = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
 
-  // --- TextEditable Interface
+// --- TextEditable Interface ---
+
 @override
-  void replaceAllOccurrences(String find, String replace) {
-    if (!mounted) return;
-    controller.text = controller.text.replaceAll(find, replace);
-  }
+void replaceAllOccurrences(String find, String replace) {
+  if (!mounted) return;
+  // This method remains correct as it operates on the full text string.
+  controller.text = controller.text.replaceAll(find, replace);
+}
 
-  @override
-  void replaceLines(int startLine, int endLine, String newContent) {
-    if (!mounted) return;
+@override
+void replaceLines(int startLine, int endLine, String newContent) {
+  if (!mounted) return;
 
-    final start = startLine.clamp(0, controller.codeLines.length);
-    final end = endLine.clamp(0, controller.codeLines.length - 1);
-    if (start > end) return;
+  final start = startLine.clamp(0, controller.codeLines.length);
+  // Clamp the end to the last valid line index.
+  final end = endLine.clamp(0, controller.codeLines.length - 1);
+  if (start > end) return;
 
-    controller.runRevocableOp(() {
-      controller.removeCodeLines(start, end - start + 1);
-      controller.insertCodeLines(start, CodeLines.fromText(newContent));
-    });
-  }
+  controller.runRevocableOp(() {
+    // CORRECTED: Use `removeRange` to delete the lines.
+    controller.removeRange(start, end - start + 1);
+    // CORRECTED: Use `insert` to add the new CodeLines.
+    controller.insert(start, CodeLines.fromText(newContent));
+  });
+}
 
   @override
   void undo() {
@@ -158,7 +163,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   
   @override
   void init() {
-    super.init();
     _focusNode = FocusNode();
     _baseContentHash = widget.tab.initialBaseContentHash;
 
