@@ -290,6 +290,65 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
+  Future<DocumentFile?> resolvePath(String parentUri, String relativePath) async {
+    final segments = relativePath.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.isEmpty) {
+      return getFileMetadata(parentUri);
+    }
+
+    DocumentFile? currentParent;
+    try {
+      // Ensure the starting parent directory exists.
+      final stat = await _safUtil.stat(parentUri, true);
+      if (stat == null) return null;
+      currentParent = CustomSAFDocumentFile(stat);
+    } catch (_) {
+      return null;
+    }
+
+    for (int i = 0; i < segments.length; i++) {
+      final segment = segments[i];
+      final isLastSegment = i == segments.length - 1;
+
+      try {
+        final children = await listDirectory(currentParent!.uri);
+        final foundChild = children.firstWhereOrNull((child) => child.name == segment);
+
+        if (foundChild == null) {
+          return null; // Path segment not found
+        }
+
+        if (isLastSegment) {
+          return foundChild; // Success: Found the final file/folder
+        } else if (foundChild.isDirectory) {
+          currentParent = foundChild; // Continue traversal
+        } else {
+          return null; // A file was found in the middle of the path, which is invalid.
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<DocumentFile> createDirectoryAndFile(
+    String parentUri,
+    String relativePath, {
+    String? initialContent,
+  }) async {
+    final segments = relativePath.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.isEmpty) {
+      throw ArgumentError('Relative path cannot be empty.');
+    }
+    final fileName = segments.last;
+    final directorySegments = segments.length > 1 ? segments.sublist(0, segments.length - 1) : <String>[];
+    String finalParentUri = directorySegments.isNotEmpty ? (await _safUtil.mkdirp(parentUri, directorySegments)).uri : parentUri;
+    return createDocumentFile(finalParentUri, fileName, isDirectory: false, initialContent: initialContent ?? '');
+  }
+
+  @override
   Future<DocumentFile?> getFileMetadata(String uri) async {
      try {
         final file = await _safUtil.stat(uri, false);

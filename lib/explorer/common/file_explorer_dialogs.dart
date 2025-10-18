@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../editor/plugins/plugin_models.dart';
 import '../../editor/tab_state_manager.dart'; // <-- ADD THIS IMPORT
 
-//TODO : check dependency
+//TODO: check dependency
 
 Future<EditorPlugin?> showOpenWithDialog(
   BuildContext context,
@@ -83,6 +83,32 @@ Future<bool> showConfirmDialog(
                 ),
               ],
             ),
+      ) ??
+      false;
+}
+
+Future<bool> showCreateFileConfirmationDialog(
+  BuildContext context, {
+  required String relativePath,
+}) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('File Not Found'),
+          content: Text(
+            'The file "$relativePath" does not exist.\n\nWould you like to create it, along with any missing parent directories?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Create'),
+            ),
+          ],
+        ),
       ) ??
       false;
 }
