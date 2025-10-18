@@ -79,10 +79,7 @@ abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T
     init();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // 1. Call the new lifecycle hook for subclasses to perform their setup.
         onFirstFrameReady();
-        // 2. ONLY AFTER setup is complete, resolve the completer.
-        ref.read(editorServiceProvider).resolveCompleterForTab(widget.tab.id, this);
       }
     });
   }
