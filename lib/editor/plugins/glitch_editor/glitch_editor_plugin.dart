@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:typed_data';
+import 'dart:async';
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
@@ -80,6 +81,7 @@ class GlitchEditorPlugin extends EditorPlugin {
     DocumentFile file,
     EditorInitData initData, {
     String? id,
+    Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     // The initial image is ALWAYS the data from disk.
     final initialImageData = initData.byteData ?? Uint8List(0);
@@ -99,6 +101,7 @@ class GlitchEditorPlugin extends EditorPlugin {
       cachedImageData: cachedImageData, // <-- Pass cached image separately
       initialBaseContentHash: initialBaseContentHash,
       id: id,
+      onReadyCompleter: onReadyCompleter,
     );
   }
 
