@@ -75,15 +75,32 @@ abstract class EditorWidget extends ConsumerStatefulWidget {
 
 // ### NEW: The explicit, stateful contract for an EditorWidget.
 // This is what plugins MUST implement in their State objects.
-abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {  
+abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {
+  @override
+  void initState() {
+    super.initState();
+    // THE FIX: The base class now controls the "ready" signal.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // 1. Call the new lifecycle hook for subclasses to perform their setup.
+        onFirstFrameReady();
+        // 2. ONLY AFTER setup is complete, resolve the completer.
+        ref.read(editorServiceProvider).resolveCompleterForTab(widget.tab.id, this);
+      }
+    });
+  }
+  
+  /// A lifecycle hook called once after the first frame is built.
+  /// Subclasses should override this to perform initial setup, like applying
+  /// cached content, before the widget is considered fully "ready".
+  @protected
+  void onFirstFrameReady();
+
   /// Synchronizes the editor's internal, command-relevant state with the
   /// global `commandContextProvider`. This method is the core of the
   /// reactive command system. It should be called whenever state like
   /// `canUndo`, `canRedo`, or selection changes.
   void syncCommandContext();
-
-  // REMOVED: canUndo, canRedo are no longer part of the public contract.
-  // They will be exposed via the CommandContext.
 
   void undo();
   void redo();

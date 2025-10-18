@@ -21,13 +21,14 @@ import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
 
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
+import '../../../editor/plugins/editor_command_context.dart'; // ADDED: For CommandButton
+import '../../../editor/services/editor_service.dart';
+import '../../../editor/services/text_editing_capability.dart'; // <-- ADD THIS IMPORT
 
 import '../../../app/app_notifier.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../command/command_models.dart'; // ADDED: For Command class
-import '../../../editor/plugins/editor_command_context.dart'; // ADDED: For CommandButton
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
-import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 
 import '../../../data/repositories/project_repository.dart';
@@ -66,7 +67,7 @@ class CodeEditorMachine extends EditorWidget {
   CodeEditorMachineState createState() => CodeEditorMachineState();
 }
 
-class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
+class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implements TextEditable {
   // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
@@ -101,9 +102,48 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
   static final _fromARGBRegex = RegExp(r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
   static final _fromRGBORegex = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
 
+  // --- TextEditable Interface
+  @override
+  void replaceAllOccurrences(String find, String replace) {
+    controller.replaceAll(find, replace);
+  }
 
-  // The public getters for canUndo/canRedo are now gone.
-  // The private methods remain.
+  @override
+  void replaceLines(int startLine, int endLine, String newContent) {
+    // Ensure the line numbers are valid before proceeding.
+    if (startLine < 0 || endLine >= controller.codeLines.length || startLine > endLine) {
+      throw ArgumentError("Invalid line range provided for replacement.");
+    }
+    
+    // Define the start of the selection at the beginning of the start line.
+    final startPosition = CodeLinePosition(index: startLine, offset: 0);
+    
+    // Define the end of the selection. This is the tricky part.
+    final CodeLinePosition endPosition;
+
+    if (endLine + 1 < controller.codeLines.length) {
+      // If we are not at the end of the file, the selection ends at the
+      // beginning of the line *after* our target end line.
+      endPosition = CodeLinePosition(index: endLine + 1, offset: 0);
+    } else {
+      // If we are replacing up to the last line, the selection ends at
+      // the very end of that last line.
+      endPosition = CodeLinePosition(
+        index: endLine,
+        offset: controller.codeLines.last.text.length,
+      );
+    }
+
+    // Create and apply the selection.
+    controller.selection = CodeLineSelection(
+      base: startPosition,
+      extent: endPosition,
+    );
+
+    // Replace the selected text with the new content.
+    controller.replaceSelection(newContent);
+  }
+
   @override
   void undo() {
     if (controller.canUndo) controller.undo();
@@ -113,7 +153,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     if (controller.canRedo) controller.redo();
   }
   
-    @override
+  @override
   Future<EditorContent> getContent() async {
     return EditorContentString(controller.text);
   }
@@ -158,16 +198,19 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> {
     findController.addListener(syncCommandContext);
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        syncCommandContext();
-        if (widget.tab.cachedContent != null) {
-          controller.text = widget.tab.cachedContent!;
-        }
-      }
-    });
   }
+  
+  @override
+  void onFirstFrameReady() {
+    // This logic now runs before the completer is resolved.
+    if (mounted) {
+      syncCommandContext();
+      if (widget.tab.cachedContent != null) {
+        controller.text = widget.tab.cachedContent!;
+      }
+    }
+  }
+
   
   @override
   void didChangeDependencies() {

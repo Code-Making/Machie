@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert'; // For utf8
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart'; // For md5
@@ -12,6 +13,7 @@ import '../../editor/plugins/plugin_registry.dart';
 import '../../project/project_models.dart';
 import '../../logs/logs_provider.dart';
 import '../../data/file_handler/file_handler.dart' show DocumentFile;
+import 'text_editing_capability.dart'; // <-- ADD THIS IMPORT
 import '../tab_state_manager.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../explorer/common/file_explorer_dialogs.dart';
@@ -452,6 +454,151 @@ class EditorService {
       project: project.copyWith(session: newSession),
       wasAlreadyOpen: false,
     );
+  }
+  
+  /// Called by EditorWidgetState's initState to resolve a pending future.
+  void resolveCompleterForTab(String tabId, EditorWidgetState state) {
+    final completer = _widgetCompleters[tabId];
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(state);
+      // The completer is removed in the 'finally' block of the calling function.
+    }
+  }
+
+  /// Opens a file and, once the editor widget is built and ready,
+  /// executes a given function on its state.
+  Future<void> openFileAndExecute<T extends EditorWidgetState>({
+    required DocumentFile file,
+    EditorPlugin? explicitPlugin,
+    required FutureOr<void> Function(T editorState) onOpened,
+  }) async {
+    final project = _currentProject;
+    if (project == null) {
+      MachineToast.error("No project is open.");
+      return;
+    }
+
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
+    final talker = _ref.read(talkerProvider);
+    String? tabIdToWaitFor;
+
+    try {
+      // Step 1: Check if the tab is already open.
+      final metadataMap = _ref.read(tabMetadataProvider);
+      final existingTabEntry = metadataMap.entries.firstWhereOrNull((entry) => entry.value.file.uri == file.uri);
+      final existingTab = (existingTabEntry != null) ? project.session.tabs.firstWhereOrNull((t) => t.id == existingTabEntry.key) : null;
+      
+      if (existingTab != null) {
+        // Tab exists, switch to it and check its type.
+        final existingIndex = project.session.tabs.indexOf(existingTab);
+        appNotifier.switchTab(existingIndex);
+
+        final currentState = existingTab.editorKey.currentState;
+        if (currentState != null) {
+          // Widget is already built and its state is available.
+          if (currentState is T) {
+            // Correct type, execute immediately.
+            await onOpened(currentState);
+            return; // Success, we are done.
+          } else {
+            // Wrong type, show an error and abort.
+            MachineToast.error("Cannot perform action. File is open in a different editor type.");
+            return;
+          }
+        } else {
+          // Widget is not built yet (it's in the background). Fall through to wait for it.
+          tabIdToWaitFor = existingTab.id;
+        }
+      } else {
+        // Tab does not exist, open it.
+        final result = await openFile(project, file, explicitPlugin: explicitPlugin);
+        if (result is OpenFileSuccess) {
+          appNotifier.updateCurrentProject(result.project);
+          tabIdToWaitFor = result.project.session.currentTab?.id;
+        } else if (result is OpenFileError) {
+          MachineToast.error(result.message);
+          return;
+        }
+      }
+
+      if (tabIdToWaitFor == null) {
+        throw Exception("Failed to get a tab ID for the file operation.");
+      }
+
+      // Step 2: Create and wait for the completer.
+      final completer = Completer<EditorWidgetState>();
+      _widgetCompleters[tabIdToWaitFor] = completer;
+
+      talker.info("Waiting for editor widget for tab '$tabIdToWaitFor' to be ready...");
+
+      // Wait for the widget's initState to call `resolveCompleterForTab`.
+      // Add a timeout for safety.
+      final editorState = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException("Editor widget did not initialize in time."),
+      );
+
+      // Step 3: Execute the callback on the resolved widget state after type checking.
+      if (editorState is T) {
+        await onOpened(editorState);
+      } else {
+        throw Exception("Opened editor is of type ${editorState.runtimeType}, but expected $T.");
+      }
+    } catch (e, st) {
+      talker.handle(e, st, "Failed during openFileAndExecute for ${file.name}");
+      MachineToast.error("Could not perform action on ${file.name}: $e");
+    } finally {
+      // Step 4: Always clean up the completer from the map.
+      if (tabIdToWaitFor != null) {
+        _widgetCompleters.remove(tabIdToWaitFor);
+      }
+    }
+  }
+  
+  /// Applies a specific [TextEdit] to a given [file].
+  ///
+  /// This service will find the appropriate plugin, open the file if necessary,
+  /// verify that the editor supports text editing via the [TextEditable]
+  /// interface, and then perform the edit.
+  ///
+  /// Returns `true` if the edit was successfully applied, `false` otherwise.
+  Future<bool> applyTextEdit({
+    required DocumentFile file,
+    required TextEdit edit,
+    EditorPlugin? explicitPlugin,
+  }) async {
+    bool success = false;
+    await openFileAndExecute<EditorWidgetState>(
+      file: file,
+      explicitPlugin: explicitPlugin,
+      onOpened: (editorState) {
+        // Check if the opened editor has the text editing capability.
+        if (editorState is TextEditable) {
+          final editable = editorState as TextEditable;
+          
+          // Use a switch to apply the correct edit type.
+          switch (edit) {
+            case ReplaceLinesEdit():
+              editable.replaceLines(edit.startLine, edit.endLine, edit.newContent);
+              break;
+            case ReplaceAllOccurrencesEdit():
+              editable.replaceAllOccurrences(edit.find, edit.replace);
+              break;
+          }
+          success = true;
+        } else {
+          // The opened editor (e.g., an image viewer) does not support this.
+          final plugin = _ref.read(activePluginsProvider).firstWhereOrNull(
+            (p) => p.supportsFile(file),
+          );
+          MachineToast.error(
+            "Cannot apply text edit. The default editor '${plugin?.name ?? 'Unknown'}' does not support this action.",
+          );
+          success = false;
+        }
+      },
+    );
+    return success;
   }
 
 
