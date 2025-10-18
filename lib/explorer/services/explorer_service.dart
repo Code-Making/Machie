@@ -42,6 +42,18 @@ class ExplorerService {
     final newProject = project.copyWith(workspace: newWorkspace);
     return newProject;
   }
+  
+  Future<DocumentFile> createFileWithHierarchy(String projectRootUri, String relativePath) async {
+    final newFile = await _repo.fileHandler.createDirectoryAndFile(
+      projectRootUri,
+      relativePath,
+    );
+    _ref
+        .read(fileOperationControllerProvider)
+        .add(FileCreateEvent(createdFile: newFile));
+    _talker.info('Created file with hierarchy: "$relativePath"');
+    return newFile;
+  }
 
   Future<void> createFile(String parentUri, String name) async {
     final newFile = await _repo.createDocumentFile(
@@ -49,7 +61,6 @@ class ExplorerService {
       name,
       isDirectory: false,
     );
-    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: newFile));
@@ -61,7 +72,6 @@ class ExplorerService {
       name,
       isDirectory: true,
     );
-    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: newFolder));
@@ -69,7 +79,6 @@ class ExplorerService {
 
   Future<void> deleteItem(DocumentFile item) async {
     await _repo.deleteDocumentFile(item);
-    // REMOVED: No longer need to manually update cache
     _ref
         .read(fileOperationControllerProvider)
         .add(FileDeleteEvent(deletedFile: item));
@@ -78,7 +87,6 @@ class ExplorerService {
   Future<void> renameItem(DocumentFile item, String newName) async {
     try {
       final renamedFile = await _repo.renameDocumentFile(item, newName);
-      // REMOVED: No longer need to manually update cache
       _ref
           .read(fileOperationControllerProvider)
           .add(FileRenameEvent(oldFile: item, newFile: renamedFile));
@@ -106,7 +114,6 @@ class ExplorerService {
           sourceFile,
           destinationFolder.uri,
         );
-        // REMOVED: No longer need to manually update cache
         _ref
             .read(fileOperationControllerProvider)
             .add(FileCreateEvent(createdFile: copiedFile));
@@ -139,7 +146,6 @@ class ExplorerService {
         source,
         destinationFolder.uri,
       );
-      // REMOVED: No longer need to manually update cache
       _ref
           .read(fileOperationControllerProvider)
           .add(FileRenameEvent(oldFile: source, newFile: movedFile));
@@ -165,7 +171,6 @@ class ExplorerService {
         pickedFile,
         projectRootUri,
       );
-      // REMOVED: No longer need to manually update cache
       _ref
           .read(fileOperationControllerProvider)
           .add(FileCreateEvent(createdFile: importedFile));

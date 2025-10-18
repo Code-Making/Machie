@@ -67,7 +67,19 @@ abstract class FileHandler {
   );
 
   Future<DocumentFile?> getFileMetadata(String uri);
+ 
+  /// Resolves a relative path from a parent URI to a DocumentFile.
+  /// Returns null if the path does not exist.
+  Future<DocumentFile?> resolvePath(String parentUri, String relativePath);
 
+  /// Creates a file at the given relative path, creating any necessary
+  /// parent directories along the way.
+  Future<DocumentFile> createDirectoryAndFile(
+    String parentUri,
+    String relativePath, {
+    String? initialContent,
+  });
+  
   /// Returns the parent URI of the given URI.
   String getParentUri(String uri);
 
