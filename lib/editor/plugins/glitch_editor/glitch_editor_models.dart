@@ -3,6 +3,7 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_models.dart
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 // import '../../../data/file_handler/file_handler.dart'; // REMOVED
@@ -25,6 +26,7 @@ class GlitchEditorTab extends EditorTab {
     this.cachedImageData,
     this.initialBaseContentHash,
     super.id,
+    super.onReadyCompleter,
   // ADDED: Initialize the key in the constructor.
   }) : editorKey = GlobalKey<GlitchEditorWidgetState>();
 
