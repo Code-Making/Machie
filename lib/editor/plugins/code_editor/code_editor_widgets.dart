@@ -103,31 +103,40 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   static final _fromARGBRegex = RegExp(r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
   static final _fromRGBORegex = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
 
-// --- TextEditable Interface ---
 
-@override
-void replaceAllOccurrences(String find, String replace) {
-  if (!mounted) return;
-  // This method remains correct as it operates on the full text string.
-  controller.text = controller.text.replaceAll(find, replace);
-}
+  // --- TextEditable Interface Implementation ---
 
-@override
-void replaceLines(int startLine, int endLine, String newContent) {
-  if (!mounted) return;
+  @override
+  void replaceAllOccurrences(String find, String replace) {
+    if (!mounted) return;
+    // This method is correct as the `replaceAll` method exists.
+    controller.replaceAll(find, replace);
+  }
 
-  final start = startLine.clamp(0, controller.codeLines.length);
-  // Clamp the end to the last valid line index.
-  final end = endLine.clamp(0, controller.codeLines.length - 1);
-  if (start > end) return;
+  @override
+  void replaceLines(int startLine, int endLine, String newContent) {
+    if (!mounted) return;
 
-  controller.runRevocableOp(() {
-    // CORRECTED: Use `removeRange` to delete the lines.
-    controller.removeRange(start, end - start + 1);
-    // CORRECTED: Use `insert` to add the new CodeLines.
-    controller.insert(start, CodeLines.fromText(newContent));
-  });
-}
+    final start = startLine.clamp(0, controller.codeLines.length);
+    // Clamp the end line to be a valid index.
+    final end = endLine.clamp(0, controller.codeLines.length - 1);
+
+    if (start > end) return;
+
+    // Create a selection that spans the full lines to be replaced.
+    // The selection's extent goes to the beginning (offset 0) of the line *after* the last line to replace.
+    final selectionToReplace = CodeLineSelection(
+      baseIndex: start,
+      baseOffset: 0,
+      extentIndex: (end + 1).clamp(0, controller.codeLines.length),
+      extentOffset: 0,
+    );
+
+    // Perform the replacement within a single, undoable operation.
+    controller.runRevocableOp(() {
+      controller.replaceSelection(newContent, selectionToReplace);
+    });
+  }
 
   @override
   void undo() {
