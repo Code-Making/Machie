@@ -178,14 +178,9 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
 
   Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme, {required bool isStreaming}) {
     if (isStreaming) {
-    final textStyle = TextStyle(
-      fontFamily: settings.fontFamily,
-      fontSize: settings.fontSize - 1,
-    );
-      return SelectableText(
-        // Append a blinking cursor character to indicate streaming
-        '${widget.message.content}▍',
-        style: textStyle,
+      return MarkdownBody(
+        data: widget.message.content,
+        styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
       );
     }
     
