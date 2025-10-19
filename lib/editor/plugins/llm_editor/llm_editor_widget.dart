@@ -121,15 +121,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _updateTotalTokenCount() {
-    int totalChars = 0;
+    int totalPrompt = 0;
+    int totalResponse = 0;
     for (final dm in _displayMessages) {
-      totalChars += dm.message.content.length;
-      if (dm.message.context != null) {
-        totalChars += dm.message.context!.fold<int>(0, (sum, item) => sum + item.content.length);
-      }
+      totalPrompt += dm.message.promptTokenCount ?? 0;
+      totalResponse += dm.message.responseTokenCount ?? 0;
     }
     setState(() {
-      _totalTokenCount = (totalChars / _charsPerToken).ceil();
+      _totalTokenCount = totalPrompt + totalResponse;
     });
   }
   
@@ -146,51 +145,80 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final modelId = settings?.selectedModelIds[providerId] ??
         allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
 
-    final fullPrompt = StringBuffer();
-    if (context != null && context.isNotEmpty) {
-      fullPrompt.writeln("Use the following files as context for my request:\n");
-      for (final item in context) {
-        fullPrompt.writeln('--- CONTEXT FILE: ${item.source} ---\n');
-        fullPrompt.writeln('```');
-        fullPrompt.writeln(item.content);
-        fullPrompt.writeln('```\n');
-      }
-      fullPrompt.writeln("--- END OF CONTEXT ---\n");
-    }
-    fullPrompt.write(userPrompt);
+    final provider = ref.read(llmServiceProvider);
 
+    // 1. Create user message and count tokens
+    final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
     setState(() {
-      _displayMessages.add(DisplayMessage.fromChatMessage(ChatMessage(role: 'user', content: userPrompt, context: context)));
-      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
+      _displayMessages.add(DisplayMessage.fromChatMessage(userMessage));
       _isLoading = true;
-      _updateTotalTokenCount();
+    });
+    
+    _scrollToBottom();
+
+    final promptTokenCount = await provider.countTokens(
+      history: _displayMessages.sublist(0, _displayMessages.length - 1).map((dm) => dm.message).toList(),
+      prompt: userPrompt,
+      modelId: modelId,
+    );
+
+    // 2. Update user message with its token count
+    setState(() {
+      final lastUserDisplayMessageIndex = _displayMessages.length - 1;
+      _displayMessages[lastUserDisplayMessageIndex] = DisplayMessage.fromChatMessage(
+          userMessage.copyWith(promptTokenCount: promptTokenCount)
+      );
+    });
+
+    // 3. Add placeholder for assistant response
+    setState(() {
+      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
+      _updateTotalTokenCount(); // Update total with new prompt tokens
     });
 
     _scrollToBottom();
     ref.read(editorServiceProvider).markCurrentTabDirty();
-
-    final provider = ref.read(llmServiceProvider);
+    
+    // 4. Generate response with the new stream
     final responseStream = provider.generateResponse(
       history: _displayMessages.sublist(0, _displayMessages.length - 2).map((dm) => dm.message).toList(),
-      prompt: fullPrompt.toString(),
+      prompt: userPrompt, // The prompt itself doesn't need the context prefix here
       modelId: modelId,
     );
-
+    
     _llmSubscription = responseStream.listen(
-      (chunk) { // onData
+      (event) {
         if (!mounted) return;
         setState(() {
           final lastDisplayMessage = _displayMessages.last;
-          final updatedMessage = lastDisplayMessage.message.copyWith(
-            content: lastDisplayMessage.message.content + chunk,
-          );
-          _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-          _updateTotalTokenCount();
+          switch (event) {
+            case LlmTextChunk():
+              final updatedMessage = lastDisplayMessage.message.copyWith(
+                content: lastDisplayMessage.message.content + event.chunk,
+              );
+              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+              break;
+            case LlmResponseMetadata():
+               final updatedMessage = lastDisplayMessage.message.copyWith(
+                promptTokenCount: event.promptTokenCount,
+                responseTokenCount: event.responseTokenCount,
+              );
+              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+              break;
+            case LlmError():
+              final updatedMessage = lastDisplayMessage.message.copyWith(
+                content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n${event.message}',
+              );
+              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+              break;
+          }
+           _updateTotalTokenCount();
         });
       },
-      onError: (e) { // onError
+      onError: (e) { 
         if (!mounted) return;
         setState(() {
+          // This branch might be redundant now with LlmError, but kept for safety
           final lastDisplayMessage = _displayMessages.last;
           final updatedMessage = lastDisplayMessage.message.copyWith(
             content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n$e',
@@ -201,7 +229,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           _updateTotalTokenCount();
         });
       },
-      onDone: () { // onDone
+      onDone: () { 
         if (mounted) {
           setState(() {
             _isLoading = false;

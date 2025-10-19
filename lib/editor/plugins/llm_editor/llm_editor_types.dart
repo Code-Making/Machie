@@ -24,6 +24,26 @@ class DisplayMessage {
   }
 }
 
+// ADDED: Sealed class for richer stream responses
+@immutable
+sealed class LlmResponseEvent {}
+
+class LlmTextChunk extends LlmResponseEvent {
+  final String chunk;
+  LlmTextChunk(this.chunk);
+}
+
+class LlmResponseMetadata extends LlmResponseEvent {
+  final int promptTokenCount;
+  final int responseTokenCount;
+  LlmResponseMetadata({required this.promptTokenCount, required this.responseTokenCount});
+}
+
+class LlmError extends LlmResponseEvent {
+  final String message;
+  LlmError(this.message);
+}
+
 int _countCodeBlocks(String markdownText) {
   final RegExp codeBlockRegex = RegExp(r'```[\s\S]*?```');
   return codeBlockRegex.allMatches(markdownText).length;
