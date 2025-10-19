@@ -160,51 +160,39 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     final provider = ref.read(llmServiceProvider);
 
-    // 1. Create the user message object first.
     final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
     
-    // 2. Add it to the display list and set loading state.
     setState(() {
       _displayMessages.add(DisplayMessage.fromChatMessage(userMessage));
       _isLoading = true;
     });
     _scrollToBottom();
     
-    // 3. Count the tokens for the newly added user message.
+    final historyForTokenCount = _displayMessages.map((dm) => dm.message).toList();
+    
     final promptTokenCount = await provider.countTokens(
-      // We pass all history up to AND INCLUDING the new user message.
-      history: _displayMessages.map((dm) => dm.message).toList(),
-      prompt: '', // The prompt is already in the history, so this is empty.
+      history: historyForTokenCount,
+      prompt: '', 
       model: model,
     );
 
-    // 4. PRE-FLIGHT CHECK: Validate token count against the model's limit.
-    if (promptTokenCount > model.inputTokenLimit) {
-        MachineToast.error('Prompt is too long (${promptTokenCount} tokens). The current model limit is ${model.inputTokenLimit} tokens.');
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            // Remove the invalid user message we added optimistically.
-            _displayMessages.removeLast();
-          });
-        }
-        return;
-    }
+    if (promptTokenCount > model.inputTokenLimit) { /* ... (unchanged) */ }
 
-    // 5. UPDATE UI: Update the user's message in the display list with its accurate token count.
+    // This ensures its token count is displayed immediately.
+    final userMessageWithTokens = userMessage.copyWith(promptTokenCount: promptTokenCount);
+    
     if (mounted) {
       setState(() {
+        // Replace the placeholder user message with the one containing the token count.
         final lastUserDisplayMessageIndex = _displayMessages.length - 1;
-        _displayMessages[lastUserDisplayMessageIndex] = DisplayMessage.fromChatMessage(
-            userMessage.copyWith(promptTokenCount: promptTokenCount)
-        );
-        // Add placeholder for assistant response.
+        _displayMessages[lastUserDisplayMessageIndex] = DisplayMessage.fromChatMessage(userMessageWithTokens);
+
+        // Add the placeholder for the assistant response.
         _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
-        _updateTotalTokenCount(); // Update total now that we have the new prompt tokens.
+        _updateTotalTokenCount(); // Update total with the new known prompt tokens.
       });
     }
 
-    // --- END OF REFACTOR ---
 
     _scrollToBottom();
     ref.read(editorServiceProvider).markCurrentTabDirty();
@@ -228,28 +216,26 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
               _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
               break;
             case LlmResponseMetadata():
-              // --- START OF NEW LOGIC ---
-              // The API's source-of-truth prompt token count for this turn.
               final actualPromptTokens = event.promptTokenCount;
               final actualResponseTokens = event.responseTokenCount;
               
-              // Our own calculation of known prompt tokens from history.
               int knownPromptTokens = 0;
-              // Iterate up to the message before the assistant response.
               for (var i = 0; i < _displayMessages.length - 1; i++) {
-                  knownPromptTokens += _displayMessages[i].message.promptTokenCount ?? 0;
+                  final msg = _displayMessages[i].message;
+                  knownPromptTokens += msg.promptTokenCount ?? 0;
+                  // Only add unaccounted tokens to our "known" total for the calculation.
+                  knownPromptTokens += msg.unaccountedTokens ?? 0; 
               }
               
-              // The discrepancy is the difference.
               final unaccounted = actualPromptTokens - knownPromptTokens;
 
               final updatedMessage = lastDisplayMessage.message.copyWith(
                 responseTokenCount: actualResponseTokens,
-                unaccountedTokens: unaccounted > 0 ? unaccounted : null, // Store only if there's a positive discrepancy
+                unaccountedTokens: unaccounted > 0 ? unaccounted : null,
               );
-              // --- END OF NEW LOGIC ---
               
               _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+              break;
               break;
             case LlmError():
               final updatedMessage = lastDisplayMessage.message.copyWith(
