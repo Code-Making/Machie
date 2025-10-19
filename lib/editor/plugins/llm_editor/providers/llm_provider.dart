@@ -77,7 +77,6 @@ class DummyProvider implements LlmProvider {
 
 // A concrete implementation for Google's Gemini API.
 class GeminiProvider implements LlmProvider {
-  // ... (id, name, availableModels, constructor are unchanged)
   @override
   String get id => 'gemini';
   @override
@@ -92,11 +91,7 @@ class GeminiProvider implements LlmProvider {
     }
 
     final client = http.Client();
-    final uri = Uri.https(
-      'generativelanguage.googleapis.com',
-      '/v1beta/models',
-      {'key': _apiKey},
-    );
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$_apiKey');
 
     try {
       final response = await client.get(uri);
