@@ -10,16 +10,15 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart'; // ADD
 abstract class LlmProvider {
   String get id;
   String get name;
-  List<String> get availableModels;
+  
+  Future<List<LlmModelInfo>> listModels();
 
-  // MODIFIED: Return type changed
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> history,
     required String prompt,
     required String modelId,
   });
 
-  // ADDED: New method for counting tokens
   Future<int> countTokens({
     required List<ChatMessage> history,
     required String prompt,
@@ -33,8 +32,17 @@ class DummyProvider implements LlmProvider {
   @override
   String get name => 'Dummy (Testing)';
   @override
-  List<String> get availableModels => ['dummy-model'];
-
+  Future<List<LlmModelInfo>> listModels() async {
+    return [
+      const LlmModelInfo(
+        name: 'models/dummy-model',
+        displayName: 'Dummy Model',
+        inputTokenLimit: 8192,
+        outputTokenLimit: 2048,
+        supportedGenerationMethods: ['generateContent', 'streamGenerateContent'],
+      ),
+    ];
+  }
   // ADDED: Dummy implementation for countTokens
   @override
   Future<int> countTokens({
@@ -75,13 +83,51 @@ class GeminiProvider implements LlmProvider {
   @override
   String get name => 'Google Gemini';
   @override
-  List<String> get availableModels => [
-        'gemini-2.5-pro',
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
-      ];
+  Future<List<LlmModelInfo>> listModels() async {
+    if (_cachedModels != null) {
+      return _cachedModels!;
+    }
+    if (_apiKey.isEmpty) {
+      return [];
+    }
+
+    final client = http.Client();
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models');
+    final headers = {'x-goog-api-key': _apiKey};
+
+    try {
+      final response = await client.get(uri, headers: headers);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final modelsList = (json['models'] as List<dynamic>)
+            .map((modelJson) => LlmModelInfo.fromJson(modelJson))
+            // IMPORTANT: Only keep models that support the streaming method we use.
+            .where((model) => model.supportedGenerationMethods.contains('streamGenerateContent'))
+            .toList();
+            
+        // Sort to have 'flash' models appear first as they are often preferred for chat.
+        modelsList.sort((a, b) {
+          if (a.displayName.contains('Flash') && !b.displayName.contains('Flash')) return -1;
+          if (!a.displayName.contains('Flash') && b.displayName.contains('Flash')) return 1;
+          return a.displayName.compareTo(b.displayName);
+        });
+
+        _cachedModels = modelsList;
+        return modelsList;
+      } else {
+        // Log error or handle it appropriately
+        return [];
+      }
+    } catch (e) {
+      return [];
+    } finally {
+      client.close();
+    }
+  }
       
   final String _apiKey;
+  List<LlmModelInfo>? _cachedModels;
+
   GeminiProvider(this._apiKey);
 
   // ADDED: Full implementation for countTokens

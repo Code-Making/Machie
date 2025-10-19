@@ -70,6 +70,36 @@ class ChatMessage {
   };
 }
 
+@immutable
+class LlmModelInfo {
+  final String name; // e.g., models/gemini-1.5-flash-latest
+  final String displayName; // e.g., Gemini 1.5 Flash
+  final int inputTokenLimit;
+  final int outputTokenLimit;
+  final List<String> supportedGenerationMethods;
+
+  const LlmModelInfo({
+    required this.name,
+    required this.displayName,
+    required this.inputTokenLimit,
+    required this.outputTokenLimit,
+    required this.supportedGenerationMethods,
+  });
+
+  factory LlmModelInfo.fromJson(Map<String, dynamic> json) {
+    return LlmModelInfo(
+      name: json['name'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? 'Unknown Model',
+      inputTokenLimit: json['inputTokenLimit'] as int? ?? 0,
+      outputTokenLimit: json['outputTokenLimit'] as int? ?? 0,
+      supportedGenerationMethods: (json['supportedGenerationMethods'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+    );
+  }
+}
+
 // The EditorTab implementation for the LLM Editor.
 @immutable
 class LlmEditorTab extends EditorTab {
