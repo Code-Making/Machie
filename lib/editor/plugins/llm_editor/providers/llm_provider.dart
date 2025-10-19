@@ -92,11 +92,14 @@ class GeminiProvider implements LlmProvider {
     }
 
     final client = http.Client();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models');
-    final headers = {'x-goog-api-key': _apiKey};
+    final uri = Uri.https(
+      'generativelanguage.googleapis.com',
+      '/v1beta/models',
+      {'key': _apiKey},
+    );
 
     try {
-      final response = await client.get(uri, headers: headers);
+      final response = await client.get(uri);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final modelsList = (json['models'] as List<dynamic>)
