@@ -37,8 +37,8 @@ class DummyProvider implements LlmProvider {
       const LlmModelInfo(
         name: 'models/dummy-model',
         displayName: 'Dummy Model',
-        inputTokenLimit: 8192,
-        outputTokenLimit: 2048,
+        inputTokenLimit: 819200,
+        outputTokenLimit: 1000000,
         supportedGenerationMethods: ['generateContent', 'streamGenerateContent'],
       ),
     ];
