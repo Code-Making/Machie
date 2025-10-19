@@ -21,6 +21,7 @@ class ChatBubble extends ConsumerStatefulWidget {
   final ChatMessage message;
   final GlobalKey headerKey;
   final List<GlobalKey> codeBlockKeys;
+  final bool isStreaming;
   final VoidCallback onRerun;
   final VoidCallback onDelete;
   final VoidCallback onDeleteAfter;
@@ -31,6 +32,7 @@ class ChatBubble extends ConsumerStatefulWidget {
     required this.message,
     required this.headerKey,
     required this.codeBlockKeys,
+    this.isStreaming = false,
     required this.onRerun,
     required this.onDelete,
     required this.onDeleteAfter,
@@ -175,6 +177,13 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
   }
 
   Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
+    if (isStreaming) {
+      return SelectableText(
+        // Append a blinking cursor character to indicate streaming
+        '${widget.message.content}▍',
+        style: textStyle,
+      );
+    }
     
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(

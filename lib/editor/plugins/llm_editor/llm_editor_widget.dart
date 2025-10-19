@@ -496,11 +496,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                 itemCount: _displayMessages.length,
                 itemBuilder: (context, index) {
                   final displayMessage = _displayMessages[index];
+                  final bool isStreaming = _isLoading && index == _displayMessages.length - 1;
                   return ChatBubble(
                     key: ValueKey('chat_bubble_${displayMessage.message.hashCode}_$index'),
                     message: displayMessage.message,
                     headerKey: displayMessage.headerKey,
                     codeBlockKeys: displayMessage.codeBlockKeys,
+                    isStreaming: isStreaming, // Pass the flag to the ChatBubble.
                     onRerun: () => _rerun(index),
                     onDelete: () => _delete(index),
                     onDeleteAfter: () => _deleteAfter(index+1),
