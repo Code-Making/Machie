@@ -114,7 +114,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                         horizontal: 14, vertical: 10),
                     child: isUser
                         ? _buildUserMessageBody(codeEditorSettings, highlightTheme)
-                        : _buildAssistantMessageBody(codeEditorSettings, highlightTheme),
+                        : _buildAssistantMessageBody(codeEditorSettings, highlightTheme, isStreaming: widget.isStreaming),
                   ),
           ),
         ],
