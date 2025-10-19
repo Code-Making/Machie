@@ -52,6 +52,12 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     final isUser = widget.message.role == 'user';
     final theme = Theme.of(context);
     final roleText = isUser ? "User" : "Assistant";
+    String? tokenString;
+    if (widget.message.promptTokenCount != null && widget.message.role == 'user') {
+      tokenString = '${widget.message.promptTokenCount} tokens';
+    } else if (widget.message.responseTokenCount != null) {
+      tokenString = '${widget.message.responseTokenCount} tokens';
+    }
     final backgroundColor = isUser
         ? theme.colorScheme.primaryContainer.withOpacity(0.5)
         : theme.colorScheme.surface;
@@ -91,6 +97,13 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                   style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
+                if (tokenString != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    tokenString,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  )
+                ],
                 const Spacer(),
                 IconButton(
                   icon: Icon(

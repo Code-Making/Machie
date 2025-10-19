@@ -15,40 +15,58 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final List<ContextItem>? context;
+  // ADDED: Token counts
+  final int? promptTokenCount;
+  final int? responseTokenCount;
 
   const ChatMessage({
-    required this.role, 
+    required this.role,
     required this.content,
     this.context,
+    this.promptTokenCount, // ADDED
+    this.responseTokenCount, // ADDED
   });
 
-  ChatMessage copyWith({String? role, String? content, List<ContextItem>? context}) {
+  ChatMessage copyWith({
+    String? role,
+    String? content,
+    List<ContextItem>? context,
+    int? promptTokenCount, // ADDED
+    int? responseTokenCount, // ADDED
+  }) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
+      promptTokenCount: promptTokenCount ?? this.promptTokenCount, // ADDED
+      responseTokenCount: responseTokenCount ?? this.responseTokenCount, // ADDED
     );
   }
-  
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
-      // CORRECTED: Explicitly cast each map in the context list
       context: (json['context'] as List<dynamic>?)
           ?.map((item) {
             final itemMap = Map<String, dynamic>.from(item);
             return ContextItem(source: itemMap['source'], content: itemMap['content']);
           })
           .toList(),
+      // ADDED: Deserialize token counts
+      promptTokenCount: json['promptTokenCount'] as int?,
+      responseTokenCount: json['responseTokenCount'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'role': role, 
+    'role': role,
     'content': content,
     if (context != null && context!.isNotEmpty)
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
+    // ADDED: Serialize token counts
+    if (promptTokenCount != null) 'promptTokenCount': promptTokenCount,
+    if (responseTokenCount != null) 'responseTokenCount': responseTokenCount,
   };
 }
 
