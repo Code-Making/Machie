@@ -52,12 +52,23 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     final isUser = widget.message.role == 'user';
     final theme = Theme.of(context);
     final roleText = isUser ? "User" : "Assistant";
+    
     String? tokenString;
-    if (widget.message.promptTokenCount != null && widget.message.role == 'user') {
-      tokenString = '${widget.message.promptTokenCount} tokens';
-    } else if (widget.message.responseTokenCount != null) {
-      tokenString = '${widget.message.responseTokenCount} tokens';
+    if (widget.message.role == 'user') {
+      if (widget.message.promptTokenCount != null && widget.message.promptTokenCount! > 0) {
+        tokenString = '${widget.message.promptTokenCount} tokens';
+      } else if (!widget.isStreaming) {
+        // Show '?' only after the stream is complete and if count is still 0/null
+        tokenString = '? tokens';
+      }
+    } else { // Assistant role
+      if (widget.message.responseTokenCount != null && widget.message.responseTokenCount! > 0) {
+        tokenString = '${widget.message.responseTokenCount} tokens';
+      } else if (!widget.isStreaming) {
+        tokenString = '? tokens';
+      }
     }
+    
     final backgroundColor = isUser
         ? theme.colorScheme.primaryContainer.withOpacity(0.5)
         : theme.colorScheme.surface;
