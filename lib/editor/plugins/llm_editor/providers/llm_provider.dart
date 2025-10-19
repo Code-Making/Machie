@@ -100,7 +100,8 @@ class GeminiProvider implements LlmProvider {
         final modelsList = (json['models'] as List<dynamic>)
             .map((modelJson) => LlmModelInfo.fromJson(modelJson))
             // IMPORTANT: Only keep models that support the streaming method we use.
-            .where((model) => model.supportedGenerationMethods.contains('streamGenerateContent'))
+            .where((model) => model.supportedGenerationMethods.contains('generateContent'))
+            .where((model) => model.supportedGenerationMethods.contains('countTokens'))
             .toList();
             
         // Sort to have 'flash' models appear first as they are often preferred for chat.
