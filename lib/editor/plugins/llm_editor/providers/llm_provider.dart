@@ -16,13 +16,13 @@ abstract class LlmProvider {
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   });
 
   Future<int> countTokens({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   });
 }
 
@@ -48,7 +48,7 @@ class DummyProvider implements LlmProvider {
   Future<int> countTokens({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   }) async {
     // Simple approximation for the dummy provider
     return (prompt.length / 4).ceil();
@@ -59,9 +59,9 @@ class DummyProvider implements LlmProvider {
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   }) async* {
-    final response = "This is a streaming dummy response for model **'$modelId'** to your prompt: **'$prompt'**. Here is some markdown code:\n\n```dart\nvoid main() {\n  print('Hello, Streaming World!');\n}\n```\n\nLists are also supported:\n* Item 1\n* Item 2";
+    final response = "This is a streaming dummy response for model **'${model.displayName}'** to your prompt: **'$prompt'**. Here is some markdown code:\n\n```dart\nvoid main() {\n  print('Hello, Streaming World!');\n}\n```\n\nLists are also supported:\n* Item 1\n* Item 2";
     final words = response.split(' ');
     for (final word in words) {
       await Future.delayed(const Duration(milliseconds: 5));
@@ -135,13 +135,13 @@ class GeminiProvider implements LlmProvider {
   Future<int> countTokens({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   }) async {
     if (_apiKey.isEmpty) return 0;
 
     final client = http.Client();
     final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$modelId:countTokens');
+        'https://generativelanguage.googleapis.com/v1beta/models/${model.name}:countTokens');
 
     final headers = {
       'Content-Type': 'application/json',
@@ -170,7 +170,7 @@ class GeminiProvider implements LlmProvider {
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> history,
     required String prompt,
-    required String modelId,
+    required LlmModelInfo model,
   }) async* {
     if (_apiKey.isEmpty) {
       yield LlmError('Error: Google Gemini API key is not set in the plugin settings.');
@@ -179,7 +179,7 @@ class GeminiProvider implements LlmProvider {
 
     final client = http.Client();
     final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$modelId:streamGenerateContent?alt=sse');
+        'https://generativelanguage.googleapis.com/v1beta/models/${model.name}:streamGenerateContent?alt=sse');
 
     final headers = {
       'Content-Type': 'application/json',

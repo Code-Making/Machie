@@ -142,8 +142,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
     final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
     final providerId = settings?.selectedProviderId ?? 'dummy';
-    final modelId = settings?.selectedModelIds[providerId] ??
-        allLlmProviders.firstWhere((p) => p.id == providerId).availableModels.first;
+
+    final model = settings.selectedModels[settings.selectedProviderId];
+
+    if (model == null) {
+      MachineToast.error('No LLM model selected. Please configure one in the settings.');
+      setState(() => _isLoading = false);
+      return;
+    }
 
     final provider = ref.read(llmServiceProvider);
 
@@ -159,8 +165,20 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final promptTokenCount = await provider.countTokens(
       history: _displayMessages.sublist(0, _displayMessages.length - 1).map((dm) => dm.message).toList(),
       prompt: userPrompt,
-      modelId: modelId,
+      // MODIFIED: Pass the model object
+      model: model,
     );
+
+    // ADDED: Pre-flight check for token limit
+    if (promptTokenCount > model.inputTokenLimit) {
+        MachineToast.error('Prompt is too long (${promptTokenCount} tokens). The current model limit is ${model.inputTokenLimit} tokens.');
+        setState(() {
+          _isLoading = false;
+          // Remove the user message we added optimistically
+          _displayMessages.removeLast();
+        });
+        return;
+    }
 
     // 2. Update user message with its token count
     setState(() {
@@ -182,8 +200,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     // 4. Generate response with the new stream
     final responseStream = provider.generateResponse(
       history: _displayMessages.sublist(0, _displayMessages.length - 2).map((dm) => dm.message).toList(),
-      prompt: userPrompt, // The prompt itself doesn't need the context prefix here
-      modelId: modelId,
+      prompt: userPrompt,
+      // MODIFIED: Pass the model object
+      model: model,
     );
     
     _llmSubscription = responseStream.listen(
@@ -552,7 +571,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
     )) ?? LlmEditorSettings();
 
-    final modelId = settings.selectedModelIds[settings.selectedProviderId] ?? '';
+    final model = settings.selectedModels[settings.selectedProviderId];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -560,13 +579,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       child: Row(
         children: [
           Text(
-            modelId,
+            // MODIFIED: Use displayName
+            model?.displayName ?? 'No Model Selected',
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
           Text(
-            'Total Tokens: ~$_totalTokenCount',
+            // MODIFIED: Display total tokens vs limit
+            'Total Tokens: ~$_totalTokenCount${model != null ? ' / ${model.inputTokenLimit}' : ''}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
