@@ -54,11 +54,11 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     if (!mounted) return;
     
     // Auto-select the first model if the current selection is invalid
-    final currentModelId = _currentSettings.selectedModelIds[provider.id];
-    if (models.isNotEmpty && (currentModelId == null || !models.any((m) => m.name == currentModelId))) {
-      final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
-      newModelIds[provider.id] = models.first.name;
-      _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds), triggerModelFetch: false);
+    final currentModel = _currentSettings.selectedModels[provider.id];
+    if (models.isNotEmpty && (currentModel == null || !models.contains(currentModel))) {
+      final newModels = Map<String, LlmModelInfo?>.from(_currentSettings.selectedModels);
+      newModels[provider.id] = models.first;
+      _updateSettings(_currentSettings.copyWith(selectedModels: newModels), triggerModelFetch: false);
     }
 
     setState(() {
@@ -88,7 +88,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     String? currentModelName = _currentSettings.selectedModelIds[_currentSettings.selectedProviderId];
     
     // Find the full model info object for the selected model
-    final selectedModelInfo = _availableModels.firstWhereOrNull((m) => m.name == currentModelName);
+    final LlmModelInfo? selectedModelInfo = _currentSettings.selectedModels[_currentSettings.selectedProviderId];
 
     return Column(
       children: [
@@ -116,17 +116,17 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
             child: LinearProgressIndicator(),
           )
         else if (_availableModels.isNotEmpty)
-          DropdownButtonFormField<String>(
+          DropdownButtonFormField<LlmModelInfo>(
             decoration: const InputDecoration(labelText: 'Model'),
-            value: currentModelName,
+            value: selectedModelInfo,
             items: _availableModels
-                .map((m) => DropdownMenuItem(value: m.name, child: Text(m.displayName)))
+                .map((m) => DropdownMenuItem(value: m, child: Text(m.displayName)))
                 .toList(),
             onChanged: (value) {
               if (value != null) {
-                final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
-                newModelIds[_currentSettings.selectedProviderId] = value;
-                _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds), triggerModelFetch: false);
+                final newModels = Map<String, LlmModelInfo?>.from(_currentSettings.selectedModels);
+                newModels[_currentSettings.selectedProviderId] = value;
+                _updateSettings(_currentSettings.copyWith(selectedModels: newModels), triggerModelFetch: false);
               }
             },
           )

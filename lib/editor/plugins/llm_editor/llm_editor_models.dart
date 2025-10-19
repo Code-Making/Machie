@@ -98,6 +98,26 @@ class LlmModelInfo {
           [],
     );
   }
+
+  // ADDED: toJson for serialization
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'displayName': displayName,
+        'inputTokenLimit': inputTokenLimit,
+        'outputTokenLimit': outputTokenLimit,
+        'supportedGenerationMethods': supportedGenerationMethods,
+      };
+
+  // ADDED: Equality operators for use in DropdownButton value
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmModelInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name;
+
+  @override
+  int get hashCode => name.hashCode;
 }
 
 // The EditorTab implementation for the LLM Editor.
@@ -123,38 +143,48 @@ class LlmEditorTab extends EditorTab {
 // The settings model for the LLM Editor.
 class LlmEditorSettings extends PluginSettings {
   String selectedProviderId;
-  Map<String, String> apiKeys; // Maps provider ID to API key
-  Map<String, String> selectedModelIds; // NEW: Maps provider ID to a model ID
+  Map<String, String> apiKeys;
+  Map<String, LlmModelInfo?> selectedModels;
 
   LlmEditorSettings({
     this.selectedProviderId = 'dummy',
     this.apiKeys = const {},
-    this.selectedModelIds = const {}, // NEW
+    this.selectedModels = const {},
   });
 
   @override
   void fromJson(Map<String, dynamic> json) {
     selectedProviderId = json['selectedProviderId'] ?? 'dummy';
     apiKeys = Map<String, String>.from(json['apiKeys'] ?? {});
-    selectedModelIds = Map<String, String>.from(json['selectedModelIds'] ?? {}); // NEW
+    selectedModels = (json['selectedModels'] as Map<String, dynamic>? ?? {}).map(
+      (key, value) => MapEntry(
+        key,
+        value == null ? null : LlmModelInfo.fromJson(value as Map<String, dynamic>),
+      ),
+    );
   }
 
   @override
   Map<String, dynamic> toJson() => {
         'selectedProviderId': selectedProviderId,
         'apiKeys': apiKeys,
-        'selectedModelIds': selectedModelIds, // NEW
+        'selectedModels': selectedModels
+            .map((key, value) => MapEntry(key, value?.toJson()))
+            // Filter out any entries that might have a null model
+            ..removeWhere((key, value) => value == null),
       };
 
   LlmEditorSettings copyWith({
     String? selectedProviderId,
     Map<String, String>? apiKeys,
-    Map<String, String>? selectedModelIds, // NEW
+    // MODIFIED: Update copyWith signature.
+    Map<String, LlmModelInfo?>? selectedModels,
   }) {
     return LlmEditorSettings(
       selectedProviderId: selectedProviderId ?? this.selectedProviderId,
       apiKeys: apiKeys ?? this.apiKeys,
-      selectedModelIds: selectedModelIds ?? this.selectedModelIds, // NEW
+      // MODIFIED: Update copyWith logic.
+      selectedModels: selectedModels ?? this.selectedModels,
     );
   }
 }
