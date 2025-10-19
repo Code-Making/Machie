@@ -15,31 +15,35 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final List<ContextItem>? context;
-  // ADDED: Token counts
   final int? promptTokenCount;
   final int? responseTokenCount;
+  // ADDED: For storing the discrepancy between calculated and actual token counts.
+  final int? unaccountedTokens;
 
   const ChatMessage({
     required this.role,
     required this.content,
     this.context,
-    this.promptTokenCount, // ADDED
-    this.responseTokenCount, // ADDED
+    this.promptTokenCount,
+    this.responseTokenCount,
+    this.unaccountedTokens, // ADDED
   });
 
   ChatMessage copyWith({
     String? role,
     String? content,
     List<ContextItem>? context,
-    int? promptTokenCount, // ADDED
-    int? responseTokenCount, // ADDED
+    int? promptTokenCount,
+    int? responseTokenCount,
+    int? unaccountedTokens, // ADDED
   }) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
-      promptTokenCount: promptTokenCount ?? this.promptTokenCount, // ADDED
-      responseTokenCount: responseTokenCount ?? this.responseTokenCount, // ADDED
+      promptTokenCount: promptTokenCount ?? this.promptTokenCount,
+      responseTokenCount: responseTokenCount ?? this.responseTokenCount,
+      unaccountedTokens: unaccountedTokens ?? this.unaccountedTokens, // ADDED
     );
   }
 
@@ -53,9 +57,9 @@ class ChatMessage {
             return ContextItem(source: itemMap['source'], content: itemMap['content']);
           })
           .toList(),
-      // ADDED: Deserialize token counts
       promptTokenCount: json['promptTokenCount'] as int?,
       responseTokenCount: json['responseTokenCount'] as int?,
+      unaccountedTokens: json['unaccountedTokens'] as int?, // ADDED
     );
   }
 
@@ -64,9 +68,9 @@ class ChatMessage {
     'content': content,
     if (context != null && context!.isNotEmpty)
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
-    // ADDED: Serialize token counts
     if (promptTokenCount != null) 'promptTokenCount': promptTokenCount,
     if (responseTokenCount != null) 'responseTokenCount': responseTokenCount,
+    if (unaccountedTokens != null) 'unaccountedTokens': unaccountedTokens, // ADDED
   };
 }
 
