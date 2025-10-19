@@ -83,9 +83,6 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     final selectedProvider = allLlmProviders.firstWhereOrNull(
       (p) => p.id == _currentSettings.selectedProviderId,
     );
-
-    // Get the currently selected model ID for the active provider
-    String? currentModelName = _currentSettings.selectedModelIds[_currentSettings.selectedProviderId];
     
     // Find the full model info object for the selected model
     final LlmModelInfo? selectedModelInfo = _currentSettings.selectedModels[_currentSettings.selectedProviderId];
