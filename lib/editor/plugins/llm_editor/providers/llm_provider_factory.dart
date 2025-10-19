@@ -15,14 +15,16 @@ final allLlmProviders = [
 
 // The main service provider that the UI will use.
 final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
-  final settings = ref.watch(
-    settingsProvider.select(
-      (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
-    ),
-  );
+  final providerConfig = ref.watch(settingsProvider.select((s) {
+    final settings = s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    final id = settings?.selectedProviderId ?? 'dummy';
+    final key = settings?.apiKeys[id] ?? '';
+    // Return a record for easy comparison.
+    return (id: id, key: key);
+  }));
 
-  final selectedId = settings?.selectedProviderId ?? 'dummy';
-  final apiKey = settings?.apiKeys[selectedId] ?? '';
+  final selectedId = providerConfig.id;
+  final apiKey = providerConfig.key;
 
   switch (selectedId) {
     case 'gemini': // NEW: Handle Gemini case
