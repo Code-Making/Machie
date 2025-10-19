@@ -22,6 +22,9 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
   late LlmEditorSettings _currentSettings;
   late TextEditingController _apiKeyController;
 
+  bool _isLoadingModels = true;
+  List<LlmModelInfo> _availableModels = [];
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +32,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     _apiKeyController = TextEditingController(
       text: _currentSettings.apiKeys[_currentSettings.selectedProviderId],
     );
+    _fetchModels();
   }
 
   @override
@@ -37,24 +41,54 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     super.dispose();
   }
   
-  void _updateSettings(LlmEditorSettings newSettings) {
+  Future<void> _fetchModels() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingModels = true;
+      _availableModels = [];
+    });
+
+    final provider = ref.read(llmServiceProvider);
+    final models = await provider.listModels();
+
+    if (!mounted) return;
+    
+    // Auto-select the first model if the current selection is invalid
+    final currentModelId = _currentSettings.selectedModelIds[provider.id];
+    if (models.isNotEmpty && (currentModelId == null || !models.any((m) => m.name == currentModelId))) {
+      final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
+      newModelIds[provider.id] = models.first.name;
+      _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds), triggerModelFetch: false);
+    }
+
+    setState(() {
+      _availableModels = models;
+      _isLoadingModels = false;
+    });
+  }
+
+  void _updateSettings(LlmEditorSettings newSettings, {bool triggerModelFetch = true}) {
     setState(() => _currentSettings = newSettings);
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
+    if (triggerModelFetch) {
+      // Use a post-frame callback to ensure the provider has updated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchModels();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get the provider instance for the currently selected ID.
     final selectedProvider = allLlmProviders.firstWhereOrNull(
       (p) => p.id == _currentSettings.selectedProviderId,
     );
-    final availableModels = selectedProvider?.availableModels ?? [];
 
-    // Ensure the currently selected model is valid, or default to the first available.
-    String? currentModel = _currentSettings.selectedModelIds[_currentSettings.selectedProviderId];
-    if (currentModel == null || !availableModels.contains(currentModel)) {
-      currentModel = availableModels.firstOrNull;
-    }
+    // Get the currently selected model ID for the active provider
+    String? currentModelName = _currentSettings.selectedModelIds[_currentSettings.selectedProviderId];
+    
+    // Find the full model info object for the selected model
+    final selectedModelInfo = _availableModels.firstWhereOrNull((m) => m.name == currentModelName);
 
     return Column(
       children: [
@@ -68,41 +102,49 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
               .toList(),
           onChanged: (value) {
             if (value != null) {
-              // When provider changes, we need to select a default model for it if one isn't set.
-              final newProvider = allLlmProviders.firstWhere((p) => p.id == value);
-              final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
-              if (!newModelIds.containsKey(value)) {
-                newModelIds[value] = newProvider.availableModels.first;
-              }
-
-              final newSettings = _currentSettings.copyWith(
-                selectedProviderId: value,
-                selectedModelIds: newModelIds,
-              );
-              _updateSettings(newSettings);
+              final newSettings = _currentSettings.copyWith(selectedProviderId: value);
+              _updateSettings(newSettings); // This will trigger a fetch
               _apiKeyController.text = newSettings.apiKeys[value] ?? '';
             }
           },
         ),
         const SizedBox(height: 16),
-
-        // NEW: Model Selection Dropdown
-        if (availableModels.isNotEmpty)
+        
+        if (_isLoadingModels)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20.0),
+            child: LinearProgressIndicator(),
+          )
+        else if (_availableModels.isNotEmpty)
           DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Model'),
-            value: currentModel,
-            items: availableModels
-                .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+            value: currentModelName,
+            items: _availableModels
+                .map((m) => DropdownMenuItem(value: m.name, child: Text(m.displayName)))
                 .toList(),
             onChanged: (value) {
               if (value != null) {
                 final newModelIds = Map<String, String>.from(_currentSettings.selectedModelIds);
                 newModelIds[_currentSettings.selectedProviderId] = value;
-                _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds));
+                _updateSettings(_currentSettings.copyWith(selectedModelIds: newModelIds), triggerModelFetch: false);
               }
             },
+          )
+        else
+           ListTile(
+            leading: Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            title: Text('No compatible models found.'),
+            subtitle: Text('Check your API key or network connection.'),
           ),
         
+        if (selectedModelInfo != null)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('Token Limits'),
+            subtitle: Text('Input: ${selectedModelInfo.inputTokenLimit}, Output: ${selectedModelInfo.outputTokenLimit}'),
+          ),
+
         const SizedBox(height: 16),
         if (_currentSettings.selectedProviderId != 'dummy')
           TextFormField(
@@ -112,7 +154,13 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
             onChanged: (value) {
               final newApiKeys = Map<String, String>.from(_currentSettings.apiKeys);
               newApiKeys[_currentSettings.selectedProviderId] = value;
-              _updateSettings(_currentSettings.copyWith(apiKeys: newApiKeys));
+              // No need to fetch models again, just update the key
+              _updateSettings(_currentSettings.copyWith(apiKeys: newApiKeys), triggerModelFetch: false);
+            },
+            // ADDED: Debounce API key check
+            onEditingComplete: () {
+              // Re-fetch models when the user finishes editing the API key
+               _fetchModels();
             },
           ),
       ],
