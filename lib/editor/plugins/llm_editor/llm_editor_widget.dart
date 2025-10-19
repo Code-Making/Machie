@@ -141,8 +141,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
     final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    
+    if (settings == null) {
+      MachineToast.error('LLM settings are not available.');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+    
     final providerId = settings?.selectedProviderId ?? 'dummy';
-
     final model = settings.selectedModels[settings.selectedProviderId];
 
     if (model == null) {
