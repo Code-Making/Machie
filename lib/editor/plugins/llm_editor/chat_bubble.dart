@@ -1,18 +1,11 @@
-// FILE: lib/editor/plugins/llm_editor/chat_bubble.dart
-
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_highlight/styles/default.dart'; // Used for defaultTheme
+import 'package:re_highlight/styles/default.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/services/editor_service.dart';
-
-// NEW IMPORTS for split files
-import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart'; // For DisplayMessage, though ChatBubble uses ChatMessage directly
 import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 
@@ -47,6 +40,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
   bool _isFolded = false;
   bool _isContextFolded = false;
 
+  
+  
   @override
   Widget build(BuildContext context) {
     final isUser = widget.message.role == 'user';
@@ -56,14 +51,6 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     final backgroundColor = isUser
         ? theme.colorScheme.primaryContainer.withOpacity(0.5)
         : theme.colorScheme.surface;
-    
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    ) ?? CodeEditorSettings();
-    
-    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -113,9 +100,10 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
+                    
                     child: isUser
-                        ? _buildUserMessageBody(codeEditorSettings, highlightTheme)
-                        : _buildAssistantMessageBody(codeEditorSettings, highlightTheme, isStreaming: widget.isStreaming),
+                        ? _buildUserMessageBody()
+                        : _buildAssistantMessageBody(),
                   ),
           ),
         ],
@@ -123,17 +111,21 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     );
   }
   
-  Widget _buildUserMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
+  Widget _buildUserMessageBody() {
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
+    ) ?? CodeEditorSettings();
+    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
     final hasContext = widget.message.context?.isNotEmpty ?? false;
     
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
-      keys: const [], // No code blocks to jump to in user messages
-      theme: theme,
+      keys: const [],
+      theme: highlightTheme,
       textStyle: TextStyle(
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize - 1,
+        fontFamily: codeEditorSettings.fontFamily,
+        fontSize: codeEditorSettings.fontSize - 1,
       ),
     );
 
@@ -167,33 +159,28 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         ],
         MarkdownBody(
           data: widget.message.content,
-          builders: {
-            'code': delegatingCodeBuilder,
-            'p': pathLinkBuilder,
-          },
+          builders: { 'code': delegatingCodeBuilder, 'p': pathLinkBuilder, },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
         ),
       ],
     );
   }
 
-  Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme, {required bool isStreaming}) {
-    if (isStreaming) {
-      return MarkdownBody(
-        data: widget.message.content,
-        styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
-      );
-    }
-    
+  
+  Widget _buildAssistantMessageBody() {
+    if (widget.message.content.isEmpty) return const SizedBox.shrink();
+
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
+    ) ?? CodeEditorSettings();
+    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
+
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
-      keys: widget.codeBlockKeys, // Pass the keys for jump targets
-      theme: theme,
-      textStyle: TextStyle(
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize - 1,
-      ),
+      keys: widget.codeBlockKeys,
+      theme: highlightTheme,
+      textStyle: TextStyle( fontFamily: codeEditorSettings.fontFamily, fontSize: codeEditorSettings.fontSize - 1 ),
     );
 
     return MarkdownBody(
