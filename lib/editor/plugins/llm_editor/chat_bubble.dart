@@ -259,27 +259,24 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
   }
 
   // MODIFIED: This is now a pure builder function.
-  Widget _buildAssistantMessageBody({required String content, required bool isComplete}) {
-    if (content.isEmpty) return const SizedBox.shrink();
-
-    // MODIFIED: Gets settings directly from the build context via ref
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
-    ) ?? CodeEditorSettings();
-    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
-
-    // We can now always use the full-featured builders because we aren't calling this on every chunk.
+  Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
       keys: widget.codeBlockKeys,
-      theme: highlightTheme,
-      textStyle: TextStyle( fontFamily: codeEditorSettings.fontFamily, fontSize: codeEditorSettings.fontSize - 1 ),
+      theme: theme,
+      textStyle: TextStyle(
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize - 1,
+      ),
     );
 
     return MarkdownBody(
-      data: content,
-      builders: { 'code': delegatingCodeBuilder, 'p': pathLinkBuilder, },
+      data: widget.message.content,
+      builders: {
+        'code': delegatingCodeBuilder,
+        'p': pathLinkBuilder,
+      },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
   }
