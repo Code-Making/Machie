@@ -39,6 +39,12 @@ class LlmResponseMetadata extends LlmResponseEvent {
   LlmResponseMetadata({required this.promptTokenCount, required this.responseTokenCount});
 }
 
+class LlmStructuredResponse extends LlmResponseEvent {
+  final Map<String, dynamic> jsonData;
+  LlmStructuredResponse(this.jsonData);
+}
+
+
 class LlmError extends LlmResponseEvent {
   final String message;
   LlmError(this.message);
