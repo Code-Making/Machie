@@ -15,31 +15,29 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final List<ContextItem>? context;
+  
+  // MODIFIED: Replaced individual counts with a single total.
+  // This represents the total tokens in the conversation UP TO this message.
   final int? totalConversationTokenCount;
-  final Map<String, dynamic>? structuredResponse; // <-- NEW
 
   const ChatMessage({
     required this.role,
     required this.content,
     this.context,
-    this.totalConversationTokenCount,
-    this.structuredResponse, // <-- NEW
+    this.totalConversationTokenCount, // MODIFIED
   });
 
   ChatMessage copyWith({
     String? role,
     String? content,
     List<ContextItem>? context,
-    int? totalConversationTokenCount,
-    Map<String, dynamic>? structuredResponse, // <-- NEW
+    int? totalConversationTokenCount, // MODIFIED
   }) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
-      totalConversationTokenCount:
-          totalConversationTokenCount ?? this.totalConversationTokenCount,
-      structuredResponse: structuredResponse ?? this.structuredResponse, // <-- NEW
+      totalConversationTokenCount: totalConversationTokenCount ?? this.totalConversationTokenCount, // MODIFIED
     );
   }
 
@@ -54,7 +52,6 @@ class ChatMessage {
           })
           .toList(),
       totalConversationTokenCount: json['totalConversationTokenCount'] as int?,
-      structuredResponse: json['structuredResponse'] as Map<String, dynamic>?, // <-- NEW
     );
   }
 
@@ -64,7 +61,6 @@ class ChatMessage {
     if (context != null && context!.isNotEmpty)
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
     if (totalConversationTokenCount != null) 'totalConversationTokenCount': totalConversationTokenCount,
-    if (structuredResponse != null) 'structuredResponse': structuredResponse, // <-- NEW
   };
 }
 
