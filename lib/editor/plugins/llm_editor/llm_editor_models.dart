@@ -15,35 +15,29 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final List<ContextItem>? context;
-  final int? promptTokenCount;
-  final int? responseTokenCount;
-  // ADDED: For storing the discrepancy between calculated and actual token counts.
-  final int? unaccountedTokens;
+  
+  // MODIFIED: Replaced individual counts with a single total.
+  // This represents the total tokens in the conversation UP TO this message.
+  final int? totalConversationTokenCount;
 
   const ChatMessage({
     required this.role,
     required this.content,
     this.context,
-    this.promptTokenCount,
-    this.responseTokenCount,
-    this.unaccountedTokens, // ADDED
+    this.totalConversationTokenCount, // MODIFIED
   });
 
   ChatMessage copyWith({
     String? role,
     String? content,
     List<ContextItem>? context,
-    int? promptTokenCount,
-    int? responseTokenCount,
-    int? unaccountedTokens, // ADDED
+    int? totalConversationTokenCount, // MODIFIED
   }) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
-      promptTokenCount: promptTokenCount ?? this.promptTokenCount,
-      responseTokenCount: responseTokenCount ?? this.responseTokenCount,
-      unaccountedTokens: unaccountedTokens ?? this.unaccountedTokens, // ADDED
+      totalConversationTokenCount: totalConversationTokenCount ?? this.totalConversationTokenCount, // MODIFIED
     );
   }
 
@@ -57,9 +51,7 @@ class ChatMessage {
             return ContextItem(source: itemMap['source'], content: itemMap['content']);
           })
           .toList(),
-      promptTokenCount: json['promptTokenCount'] as int?,
-      responseTokenCount: json['responseTokenCount'] as int?,
-      unaccountedTokens: json['unaccountedTokens'] as int?, // ADDED
+      totalConversationTokenCount: json['totalConversationTokenCount'] as int?,
     );
   }
 
@@ -68,9 +60,7 @@ class ChatMessage {
     'content': content,
     if (context != null && context!.isNotEmpty)
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
-    if (promptTokenCount != null) 'promptTokenCount': promptTokenCount,
-    if (responseTokenCount != null) 'responseTokenCount': responseTokenCount,
-    if (unaccountedTokens != null) 'unaccountedTokens': unaccountedTokens, // ADDED
+    if (totalConversationTokenCount != null) 'totalConversationTokenCount': totalConversationTokenCount,
   };
 }
 
