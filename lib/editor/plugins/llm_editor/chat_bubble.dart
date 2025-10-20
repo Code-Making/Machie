@@ -1,3 +1,5 @@
+// MODIFIED FILE: lib/editor/plugins/llm_editor/chat_bubble.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,12 +38,94 @@ class ChatBubble extends ConsumerStatefulWidget {
   ConsumerState<ChatBubble> createState() => _ChatBubbleState();
 }
 
+// NEW HELPER CLASS
+@immutable
+class _StableStreamingContent {
+  final String stable;
+  final String streaming;
+  const _StableStreamingContent({this.stable = '', this.streaming = ''});
+}
+
+
 class _ChatBubbleState extends ConsumerState<ChatBubble> {
   bool _isFolded = false;
   bool _isContextFolded = false;
+  
+  // --- NEW STATE FOR MEMOIZATION ---
+  Widget? _stableMarkdownWidget;
+  String _streamingTail = '';
+  String _lastStablePart = '';
+  // ---------------------------------
 
-  
-  
+  @override
+  void initState() {
+    super.initState();
+    _processMessageContent(widget.message.content);
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // This is the core optimization: only process content if it changed.
+    if (widget.message.content != oldWidget.message.content) {
+      _processMessageContent(widget.message.content);
+    }
+  }
+
+  // NEW: The core optimization logic.
+  void _processMessageContent(String content) {
+    if (!widget.isStreaming || widget.message.role == 'user') {
+      // If not streaming or it's a user message, render the whole thing at once.
+      _stableMarkdownWidget = _buildAssistantMessageBody(
+        content: content,
+        isComplete: true
+      );
+      _streamingTail = '';
+      _lastStablePart = content;
+    } else {
+      // If streaming, split into stable and streaming parts.
+      final parts = _splitContent(content);
+      
+      if (parts.stable != _lastStablePart) {
+        // Only rebuild the expensive markdown part if it has actually grown.
+        _stableMarkdownWidget = _buildAssistantMessageBody(
+          content: parts.stable,
+          isComplete: true
+        );
+        _lastStablePart = parts.stable;
+      }
+      _streamingTail = parts.streaming;
+    }
+  }
+
+  // NEW: Helper to find the boundary between stable and streaming content.
+  _StableStreamingContent _splitContent(String content) {
+    // A complete code block is a great "stable" boundary.
+    int lastCodeBlockEnd = content.lastIndexOf('```\n');
+    if (lastCodeBlockEnd != -1) {
+      final splitPoint = lastCodeBlockEnd + 4;
+      return _StableStreamingContent(
+        stable: content.substring(0, splitPoint),
+        streaming: content.substring(splitPoint),
+      );
+    }
+    
+    // Fallback to double newline for paragraphs.
+    int lastParagraphEnd = content.lastIndexOf('\n\n');
+     if (lastParagraphEnd != -1) {
+      final splitPoint = lastParagraphEnd + 2;
+       return _StableStreamingContent(
+        stable: content.substring(0, splitPoint),
+        streaming: content.substring(splitPoint),
+      );
+    }
+    
+    // If no clear boundary, treat everything as streaming.
+    return _StableStreamingContent(stable: '', streaming: content);
+  }
+
+  // The rest of the _ChatBubbleState remains largely the same...
+
   @override
   Widget build(BuildContext context) {
     final isUser = widget.message.role == 'user';
@@ -100,10 +184,17 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
-                    
+                    // MODIFIED: Simplified rendering logic
                     child: isUser
                         ? _buildUserMessageBody()
-                        : _buildAssistantMessageBody(),
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_stableMarkdownWidget != null) _stableMarkdownWidget!,
+                              if (_streamingTail.isNotEmpty) 
+                                SelectableText(_streamingTail),
+                            ],
+                          )
                   ),
           ),
         ],
@@ -112,6 +203,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
   }
   
   Widget _buildUserMessageBody() {
+    // MODIFIED: Gets settings directly from the build context via ref
     final codeEditorSettings = ref.watch(
       settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
     ) ?? CodeEditorSettings();
@@ -121,7 +213,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
-      keys: const [],
+      keys: const [], // No code blocks to jump to in user messages
       theme: highlightTheme,
       textStyle: TextStyle(
         fontFamily: codeEditorSettings.fontFamily,
@@ -166,15 +258,17 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     );
   }
 
-  
-  Widget _buildAssistantMessageBody() {
-    if (widget.message.content.isEmpty) return const SizedBox.shrink();
+  // MODIFIED: This is now a pure builder function.
+  Widget _buildAssistantMessageBody({required String content, required bool isComplete}) {
+    if (content.isEmpty) return const SizedBox.shrink();
 
+    // MODIFIED: Gets settings directly from the build context via ref
     final codeEditorSettings = ref.watch(
       settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
     ) ?? CodeEditorSettings();
     final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
 
+    // We can now always use the full-featured builders because we aren't calling this on every chunk.
     final pathLinkBuilder = PathLinkBuilder(ref: ref);
     final delegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
@@ -184,15 +278,13 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     );
 
     return MarkdownBody(
-      data: widget.message.content,
-      builders: {
-        'code': delegatingCodeBuilder,
-        'p': pathLinkBuilder,
-      },
+      data: content,
+      builders: { 'code': delegatingCodeBuilder, 'p': pathLinkBuilder, },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
   }
 
+  // ... (PopupMenu and other parts of the widget are unchanged) ...
   Widget _buildPopupMenu(BuildContext context, {required bool isUser}) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, size: 18),
