@@ -45,6 +45,7 @@ class LlmEditorWidget extends EditorWidget {
 }
 
 class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
+  late final LlmEditorController _controller;
   late List<DisplayMessage> _displayMessages;
   String? _baseContentHash;
   bool _isLoading = false;
@@ -68,21 +69,18 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   void init() {
-    _displayMessages = widget.tab.initialMessages
-        .map((msg) => DisplayMessage.fromChatMessage(msg))
-        .toList();
-    
-    _textController.addListener(_onStateChanged);
-
+    _controller = LlmEditorController(initialMessages: widget.tab.initialMessages);
+    _controller.addListener(_onControllerUpdate);
+    _textController.addListener(_updateComposingTokenCount);
   }
   
   @override
   void onFirstFrameReady() {
-    if(mounted ){
+    if (mounted) {
       _updateComposingTokenCount();
-      _updateTotalTokenCount();
+      _updateTotalTokenCount(); // Calculate initial count
       if (!widget.tab.onReady.isCompleted) {
-          widget.tab.onReady.complete(this);
+        widget.tab.onReady.complete(this);
       }
     }
   }
@@ -90,6 +88,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   @override
   void dispose() {
     _textController.removeListener(_updateComposingTokenCount);
+    _controller.removeListener(_onControllerUpdate);
+    _controller.dispose();
     _llmSubscription?.cancel();
     _textController.dispose();
     _scrollController.dispose();
@@ -97,19 +97,19 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     super.dispose();
   }
   
-  void _onStateChanged() {
-    _updateComposingTokenCount();
-  }
-  
-  // A dedicated method for signaling cache for history changes.
-  void _signalHistoryChanged() {
-    _updateTotalTokenCount();
+  void _onControllerUpdate() {
+    // This runs outside the build method.
+    _updateTotalTokenCount(); // This can now call setState as it's not frequent
+    
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project != null) {
       ref.read(editorServiceProvider).markCurrentTabDirty();
+      // The caching now happens centrally via the AppLifecycle, but we
+      // can still trigger it if we want. For now, just marking it dirty is enough.
       ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
     }
   }
+  
   
   // Token counting methods
   void _updateComposingTokenCount() {
@@ -121,9 +121,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _updateTotalTokenCount() {
-    // MODIFIED: Simpler logic
+    if (!mounted) return;
     setState(() {
-      _totalTokenCount = _displayMessages.lastOrNull?.message.totalConversationTokenCount ?? 0;
+      _totalTokenCount = _controller.messages.lastOrNull?.message.totalConversationTokenCount ?? 0;
     });
   }
   
@@ -131,131 +131,103 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _contextItems.clear();
     });
-    _updateComposingTokenCount(); // No need to signal cache, as only composing state changed
+    _updateComposingTokenCount();
   }
 
   Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
-    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    setState(() {}); // Update UI to reflect loading state immediately
     
+    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
     if (settings == null) {
       MachineToast.error('LLM settings are not available.');
-      if (mounted) setState(() => _isLoading = false);
+      _controller.stopStreaming();
+      setState(() {});
       return;
     }
     
     final model = settings.selectedModels[settings.selectedProviderId];
-
     if (model == null) {
       MachineToast.error('No LLM model selected. Please configure one in the settings.');
-      if (mounted) setState(() => _isLoading = false);
+      _controller.stopStreaming();
+      setState(() {});
       return;
     }
 
     final provider = ref.read(llmServiceProvider);
     
-    // 1. Prepare the new conversation state
     final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
-    final conversationForTokenCheck = [..._displayMessages.map((dm) => dm.message), userMessage];
+    // Use the controller's current messages for the check
+    final conversationForTokenCheck = [..._controller.messages.map((dm) => dm.message), userMessage];
 
-    setState(() {
-      _displayMessages.add(DisplayMessage.fromChatMessage(userMessage));
-      _isLoading = true;
-    });
+    _controller.addMessage(userMessage);
     _scrollToBottom();
+    final newUserMessageIndex = _controller.messages.length - 1;
 
-    // 2. Count tokens for the new, full conversation
-    final newUserMessageIndex = _displayMessages.length - 1;
-    final tokenCount = await provider.countTokens(
-      conversation: conversationForTokenCheck,
-      model: model,
-    );
-    
-    // 3. Pre-flight check
-    if (tokenCount > model.inputTokenLimit) {
-      MachineToast.error('Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.');
-      if (mounted) setState(() { _isLoading = false; _displayMessages.removeLast(); });
-      return;
+    try {
+      final tokenCount = await provider.countTokens(
+        conversation: conversationForTokenCheck,
+        model: model,
+      );
+      
+      if (tokenCount > model.inputTokenLimit) {
+        MachineToast.error('Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.');
+        _controller.removeLastMessage();
+        setState(() {}); // To update UI
+        return;
+      }
+      
+      _controller.updateMessage(newUserMessageIndex, userMessage.copyWith(totalConversationTokenCount: tokenCount));
+    } catch (e) {
+        MachineToast.error('Failed to count tokens. Check API Key.');
+        _controller.removeLastMessage();
+        setState(() {});
+        return;
     }
 
-    // 4. Update user message with the total token count
-    if (mounted) {
-      setState(() {
-        _displayMessages[newUserMessageIndex] = DisplayMessage.fromChatMessage(
-            userMessage.copyWith(totalConversationTokenCount: tokenCount)
-        );
-        _updateTotalTokenCount();
-      });
-    }
 
-    // 5. Add assistant placeholder
-    setState(() {
-      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
-    });
+    _controller.startStreamingPlaceholder();
     _scrollToBottom();
-    ref.read(editorServiceProvider).markCurrentTabDirty();
     
-    // 6. Generate response by passing the full conversation up to the user message
-    final conversationForApi = _displayMessages.sublist(0, _displayMessages.length - 1).map((dm) => dm.message).toList();
+    final conversationForApi = _controller.messages.sublist(0, _controller.messages.length - 1).map((dm) => dm.message).toList();
     final responseStream = provider.generateResponse(
       conversation: conversationForApi,
       model: model,
     );
   
+    ChatMessage streamingMessage = const ChatMessage(role: 'assistant', content: '');
     _llmSubscription = responseStream.listen(
       (event) {
         if (!mounted) return;
-        setState(() {
-          final lastAsstMessageIndex = _displayMessages.length - 1;
-          final lastAsstDisplayMessage = _displayMessages.last;
-
-          switch (event) {
-            case LlmTextChunk():
-              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
-                content: lastAsstDisplayMessage.message.content + event.chunk,
-              );
-              _displayMessages[lastAsstMessageIndex] = DisplayMessage.fromChatMessage(updatedMessage);
-              break;
-            case LlmResponseMetadata():
-              // The final total includes the assistant's response.
-              final finalTotal = (lastAsstDisplayMessage.message.totalConversationTokenCount ?? 0) + event.responseTokenCount;
-              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
-                totalConversationTokenCount: event.promptTokenCount + event.responseTokenCount,
-              );
-              _displayMessages[lastAsstMessageIndex] = DisplayMessage.fromChatMessage(updatedMessage);
-              _updateTotalTokenCount(); // Update top bar with final count
-              break;
-            case LlmError():
-              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
-                content: '${lastAsstDisplayMessage.message.content}\n\n--- Error ---\n${event.message}',
-              );
-              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-              break;
-          }
-           _updateTotalTokenCount();
-        });
+        switch (event) {
+          case LlmTextChunk():
+            _controller.appendChunkToStreamingMessage(event.chunk);
+            break;
+          case LlmResponseMetadata():
+            streamingMessage = streamingMessage.copyWith(
+              totalConversationTokenCount: event.promptTokenCount + event.responseTokenCount
+            );
+            break;
+          case LlmError():
+            streamingMessage = streamingMessage.copyWith(
+              content: '${streamingMessage.content}\n\n--- Error ---\n${event.message}',
+            );
+            break;
+        }
       },
-      // ... (onError, onDone, cancelOnError are unchanged)
       onError: (e) { 
         if (!mounted) return;
-        setState(() {
-          final lastDisplayMessage = _displayMessages.last;
-          final updatedMessage = lastDisplayMessage.message.copyWith(
-            content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n$e',
-          );
-          _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-          _isLoading = false;
-          _llmSubscription = null;
-          _updateTotalTokenCount();
-        });
+        _controller.appendChunkToStreamingMessage('\n\n--- Error ---\n$e');
+        _controller.stopStreaming();
+        _llmSubscription = null;
+        setState(() {}); // Update isLoading state
       },
       onDone: () { 
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _llmSubscription = null;
-          });
-          ref.read(editorServiceProvider).markCurrentTabDirty();
-          _signalHistoryChanged();
+          final finalContent = _controller.messages.last.message.content;
+          streamingMessage = streamingMessage.copyWith(content: finalContent);
+          _controller.finalizeStreamingMessage(streamingMessage);
+          _llmSubscription = null;
+          setState(() {}); // Update isLoading state
         }
       },
       cancelOnError: true,
@@ -275,23 +247,20 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     });
 
     await _submitPrompt(userPrompt, context: contextToSend);
-    _onStateChanged(); // Signal state change after sending
   }
   
   void _stopGeneration() {
     _llmSubscription?.cancel();
-    setState(() {
-      _isLoading = false;
-      _llmSubscription = null;
-    });
-    _signalHistoryChanged(); // A partial message was added, so history changed.
+    _controller.stopStreaming();
+    _llmSubscription = null;
+    setState(() {}); // To update loading UI state
+    // The controller's listener will trigger the save state
   }
 
   void _rerun(int messageIndex) async {
-    final messageToRerun = _displayMessages[messageIndex].message;
+    final messageToRerun = _controller.messages[messageIndex].message;
     if (messageToRerun.role != 'user') return;
-    // The core logic is now just deleting subsequent messages and submitting
-    _deleteAfter(messageIndex);
+    _controller.deleteAfter(messageIndex);
     await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
   }
   
@@ -322,23 +291,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _delete(int index) {
-    setState(() {
-      _displayMessages.removeAt(index);
-    });
-    _recalculateTokensAfterEdit(); // Recalculate
-    _signalHistoryChanged();
+    _controller.deleteMessage(index);
   }
 
   void _deleteAfter(int index) {
-    setState(() {
-      _displayMessages.removeRange(index, _displayMessages.length);
-    });
-    _recalculateTokensAfterEdit(); // Recalculate
-    _signalHistoryChanged();
+    _controller.deleteAfter(index);
   }
   
   Future<void> _showEditMessageDialog(int index) async {
-    final originalMessage = _displayMessages[index].message;
+    final originalMessage = _controller.messages[index].message;
 
     final newMessage = await showDialog<ChatMessage>(
       context: context,
@@ -346,7 +307,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
 
     if (newMessage != null) {
-      // Check if anything actually changed to avoid unnecessary re-runs
       final bool contentChanged = originalMessage.content != newMessage.content;
       final bool contextChanged = !const DeepCollectionEquality().equals(
         originalMessage.context?.map((e) => e.source).toSet(), 
@@ -354,7 +314,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       );
 
       if (contentChanged || contextChanged) {
-        _updateAndRerunMessage(index, newMessage);
+        _controller.updateMessage(index, newMessage);
+        _rerun(index);
       }
     }
   }
@@ -367,38 +328,38 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _rerun(index);
   }
   
-  Future<void> _showAddContextDialog() async {
+    Future<void> _showAddContextDialog() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
 
-    final file = await showDialog<DocumentFile>(
+    final files = await showDialog<List<DocumentFile>>(
       context: context,
       builder: (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
     );
-
-    if (file == null) return;
     
-    final content = await repo.readFile(file.uri);
-    final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+    if (files == null || files.isEmpty) return;
 
-    // Check if we should ask about recursion
-    if (file.name.endsWith('.dart')) {
-      final confirm = await showConfirmDialog(
-        context,
-        title: 'Gather Imports?',
-        content: 'Do you want to recursively gather all local imports from "${file.name}"?',
-      );
-      if (confirm) {
-        await _gatherRecursiveImports(file, project.rootUri);
-        return;
-      }
+    if (files.length == 1 && files.first.name.endsWith('.dart')) {
+        final confirm = await showConfirmDialog(
+            context,
+            title: 'Gather Imports?',
+            content: 'Do you want to recursively gather all local imports from "${files.first.name}"?',
+        );
+        if (confirm) {
+            await _gatherRecursiveImports(files.first, project.rootUri);
+            return;
+        }
     }
-    
-    // Default case: just add the single file
-    setState(() {
-      _contextItems.add(ContextItem(source: relativePath, content: content));
-    });
+
+    // Default case: add selected files
+    for (final file in files) {
+        final content = await repo.readFile(file.uri);
+        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+        setState(() {
+            _contextItems.add(ContextItem(source: relativePath, content: content));
+        });
+    }
     _updateComposingTokenCount();
   }
   
@@ -432,7 +393,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
               filesToProcess.add(nextFile);
             }
           } catch(e) {
-            // Silently fail if a path can't be resolved
           }
         }
       }
@@ -522,71 +482,77 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    _scrollTargetKeys.clear();
-    _sortedScrollTargetIds.clear();
-    for (int i = 0; i < _displayMessages.length; i++) {
-      final dm = _displayMessages[i];
-      final headerId = 'chat-$i';
-      _scrollTargetKeys[headerId] = dm.headerKey;
-      _sortedScrollTargetIds.add(headerId);
-      for (int j = 0; j < dm.codeBlockKeys.length; j++) {
-        final codeId = 'code-$i-$j';
-        _scrollTargetKeys[codeId] = dm.codeBlockKeys[j];
-        _sortedScrollTargetIds.add(codeId);
-      }
-    }
-
     return Column(
       children: [
         _buildTopBar(),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                _scrollEndTimer?.cancel();
-                if (mounted && !_isScrolling) {
-                  setState(() => _isScrolling = true);
+          // REFACTORED: The core of the optimization
+          child: ListenableBuilder(
+            listenable: _controller,
+            builder: (context, child) {
+              final messages = _controller.messages;
+              final isLoading = _controller.isLoading;
+
+              _scrollTargetKeys.clear();
+              _sortedScrollTargetIds.clear();
+              for (int i = 0; i < messages.length; i++) {
+                final dm = messages[i];
+                final headerId = 'chat-$i';
+                _scrollTargetKeys[headerId] = dm.headerKey;
+                _sortedScrollTargetIds.add(headerId);
+                for (int j = 0; j < dm.codeBlockKeys.length; j++) {
+                  final codeId = 'code-$i-$j';
+                  _scrollTargetKeys[codeId] = dm.codeBlockKeys[j];
+                  _sortedScrollTargetIds.add(codeId);
                 }
-              } else if (notification is ScrollEndNotification) {
-                _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
-                  if (mounted && _isScrolling) {
-                    setState(() => _isScrolling = false);
-                  }
-                });
               }
-              return false;
-            },
-            child: RawScrollbar(
-              controller: _scrollController,
-              thumbVisibility: _isScrolling,
-              thickness: 16.0,
-              interactive: true,
-              radius: const Radius.circular(8.0),
-              child: ListView.builder(
-                key: _listViewKey,
-                controller: _scrollController,
-                padding: const EdgeInsets.all(8.0),
-                itemCount: _displayMessages.length,
-                itemBuilder: (context, index) {
-                  final displayMessage = _displayMessages[index];
-                  final bool isStreaming = _isLoading && index == _displayMessages.length - 1;
-                  return ChatBubble(
-                    key: ValueKey('chat_bubble_${displayMessage.message.hashCode}_$index'),
-                    message: displayMessage.message,
-                    headerKey: displayMessage.headerKey,
-                    codeBlockKeys: displayMessage.codeBlockKeys,
-                    isStreaming: isStreaming, // Pass the flag to the ChatBubble.
-                    onRerun: () => _rerun(index),
-                    onDelete: () => _delete(index),
-                    onDeleteAfter: () => _deleteAfter(index+1),
-                    onEdit: () => _showEditMessageDialog(index),
-                  );
+
+              return NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification) {
+                    _scrollEndTimer?.cancel();
+                    if (mounted && !_isScrolling) setState(() => _isScrolling = true);
+                  } else if (notification is ScrollEndNotification) {
+                    _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
+                      if (mounted && _isScrolling) setState(() => _isScrolling = false);
+                    });
+                  }
+                  return false;
                 },
-              ),
-            ),
+                child: RawScrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: _isScrolling,
+                  thickness: 16.0,
+                  interactive: true,
+                  radius: const Radius.circular(8.0),
+                  child: ListView.builder(
+                    key: _listViewKey,
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(8.0),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final displayMessage = messages[index];
+                      // MODIFIED: We now always pass the full isStreaming status.
+                      final bool isStreaming = isLoading && index == messages.length - 1;
+                      return ChatBubble(
+                        key: ValueKey('chat_bubble_${displayMessage.message.hashCode}_$index'),
+                        message: displayMessage.message,
+                        headerKey: displayMessage.headerKey,
+                        codeBlockKeys: displayMessage.codeBlockKeys,
+                        isStreaming: isStreaming,
+                        onRerun: () => _rerun(index),
+                        onDelete: () => _delete(index),
+                        onDeleteAfter: () => _deleteAfter(index+1),
+                        onEdit: () => _showEditMessageDialog(index),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
-        if (_isLoading) const LinearProgressIndicator(),
+        if (_controller.isLoading) const LinearProgressIndicator(),
         _buildChatInput(),
       ],
     );
@@ -689,10 +655,10 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                 ),
                 const SizedBox(width: 8.0),
                 IconButton(
-                  icon: Icon(_isLoading ? Icons.stop_circle_outlined : Icons.send),
-                  tooltip: _isLoading ? 'Stop Generation' : 'Send',
-                  onPressed: _isLoading ? _stopGeneration : _sendMessage,
-                  color: _isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
+                  icon: Icon(_controller.isLoading ? Icons.stop_circle_outlined : Icons.send),
+                  tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
+                  onPressed: _controller.isLoading ? _stopGeneration : _sendMessage,
+                  color: _controller.isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
                 ),
               ],
             ),
@@ -708,7 +674,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   @override
   Future<EditorContent> getContent() async {
     final List<Map<String, dynamic>> jsonList =
-        _displayMessages.map((dm) => dm.message.toJson()).toList();
+        _controller.messages.map((dm) => dm.message.toJson()).toList();
     const encoder = JsonEncoder.withIndent('  ');
     return EditorContentString(encoder.convert(jsonList));
   }
@@ -722,7 +688,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    final List<ChatMessage> messagesToSave = _displayMessages
+    final List<ChatMessage> messagesToSave = _controller.messages
         .map((displayMessage) => displayMessage.message)
         .toList();
     
