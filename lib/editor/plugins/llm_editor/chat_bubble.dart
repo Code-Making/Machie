@@ -11,10 +11,10 @@ import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/services/editor_service.dart';
 
+// NEW IMPORTS for split files
 import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart'; // For DisplayMessage, though ChatBubble uses ChatMessage directly
 import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
-import 'package:machine/editor/plugins/llm_editor/actionable_view.dart';
 
 
 class ChatBubble extends ConsumerStatefulWidget {
@@ -196,22 +196,13 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        MarkdownBody(
-          data: widget.message.content,
-          builders: {
-            'code': delegatingCodeBuilder,
-            'p': pathLinkBuilder,
-          },
-          styleSheet: MarkdownStyleSheet(
-              codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
-        ),
-        // --- NEW: Render the actionable view ---
-        if (widget.message.structuredResponse != null)
-          ActionableView(responseData: widget.message.structuredResponse!),
-      ],
+    return MarkdownBody(
+      data: widget.message.content,
+      builders: {
+        'code': delegatingCodeBuilder,
+        'p': pathLinkBuilder,
+      },
+      styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
   }
 

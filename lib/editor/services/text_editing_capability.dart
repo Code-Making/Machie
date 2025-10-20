@@ -45,8 +45,6 @@ abstract class TextEditable {
   ///
   /// Both [startLine] and [endLine] are 0-based and inclusive.
   void replaceLines(int startLine, int endLine, String newContent);
-  void addLinesAfter(int line, String newContent); // <-- NEW
-  void deleteLines(int startLine, int endLine); // <-- NEW
 
   /// Replaces all occurrences of a [find] string with a [replace] string
   /// throughout the entire document.
