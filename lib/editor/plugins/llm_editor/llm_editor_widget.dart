@@ -121,16 +121,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _updateTotalTokenCount() {
-    int total = 0;
-    for (final dm in _displayMessages) {
-      // Add known tokens for every message
-      total += dm.message.promptTokenCount ?? 0;
-      total += dm.message.responseTokenCount ?? 0;
-      // Add any unaccounted tokens (usually only on the last assistant message)
-      total += dm.message.unaccountedTokens ?? 0;
-    }
+    // MODIFIED: Simpler logic
     setState(() {
-      _totalTokenCount = total;
+      _totalTokenCount = _displayMessages.lastOrNull?.message.totalConversationTokenCount ?? 0;
     });
   }
   
@@ -159,83 +152,77 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     }
 
     final provider = ref.read(llmServiceProvider);
-
-    final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
     
+    // 1. Prepare the new conversation state
+    final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
+    final conversationForTokenCheck = [..._displayMessages.map((dm) => dm.message), userMessage];
+
     setState(() {
       _displayMessages.add(DisplayMessage.fromChatMessage(userMessage));
       _isLoading = true;
     });
     _scrollToBottom();
-    
-    final historyForTokenCount = _displayMessages.map((dm) => dm.message).toList();
-    
-    final promptTokenCount = await provider.countTokens(
-      history: historyForTokenCount,
-      prompt: '', 
+
+    // 2. Count tokens for the new, full conversation
+    final newUserMessageIndex = _displayMessages.length - 1;
+    final tokenCount = await provider.countTokens(
+      conversation: conversationForTokenCheck,
       model: model,
     );
-
-    if (promptTokenCount > model.inputTokenLimit) { /* ... (unchanged) */ }
-
-    // This ensures its token count is displayed immediately.
-    final userMessageWithTokens = userMessage.copyWith(promptTokenCount: promptTokenCount);
     
+    // 3. Pre-flight check
+    if (tokenCount > model.inputTokenLimit) {
+      MachineToast.error('Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.');
+      if (mounted) setState(() { _isLoading = false; _displayMessages.removeLast(); });
+      return;
+    }
+
+    // 4. Update user message with the total token count
     if (mounted) {
       setState(() {
-        // Replace the placeholder user message with the one containing the token count.
-        final lastUserDisplayMessageIndex = _displayMessages.length - 1;
-        _displayMessages[lastUserDisplayMessageIndex] = DisplayMessage.fromChatMessage(userMessageWithTokens);
-
-        // Add the placeholder for the assistant response.
-        _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
-        _updateTotalTokenCount(); // Update total with the new known prompt tokens.
+        _displayMessages[newUserMessageIndex] = DisplayMessage.fromChatMessage(
+            userMessage.copyWith(totalConversationTokenCount: tokenCount)
+        );
+        _updateTotalTokenCount();
       });
     }
 
-
+    // 5. Add assistant placeholder
+    setState(() {
+      _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
+    });
     _scrollToBottom();
     ref.read(editorServiceProvider).markCurrentTabDirty();
     
+    // 6. Generate response by passing the full conversation up to the user message
+    final conversationForApi = _displayMessages.sublist(0, _displayMessages.length - 1).map((dm) => dm.message).toList();
     final responseStream = provider.generateResponse(
-      history: _displayMessages.sublist(0, _displayMessages.length - 2).map((dm) => dm.message).toList(),
-      prompt: userPrompt, // The prompt to the API still only contains the user's text.
+      conversation: conversationForApi,
       model: model,
     );
-    
+  
     _llmSubscription = responseStream.listen(
       (event) {
         if (!mounted) return;
         setState(() {
-          final lastDisplayMessage = _displayMessages.last;
+          final lastAsstMessageIndex = _displayMessages.length - 1;
+          final lastAsstDisplayMessage = _displayMessages.last;
+
           switch (event) {
             case LlmTextChunk():
-              final updatedMessage = lastDisplayMessage.message.copyWith(
-                content: lastDisplayMessage.message.content + event.chunk,
+              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
+                content: lastAsstDisplayMessage.message.content + event.chunk,
               );
-              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
+              _displayMessages[lastAsstMessageIndex] = DisplayMessage.fromChatMessage(updatedMessage);
               break;
             case LlmResponseMetadata():
-              final actualPromptTokens = event.promptTokenCount;
-              final actualResponseTokens = event.responseTokenCount;
-              
-              int knownPromptTokens = 0;
-              for (var i = 0; i < _displayMessages.length - 1; i++) {
-                  final msg = _displayMessages[i].message;
-                  knownPromptTokens += msg.promptTokenCount ?? 0;
-                  // Only add unaccounted tokens to our "known" total for the calculation.
-                  knownPromptTokens += msg.unaccountedTokens ?? 0; 
-              }
-              
-              final unaccounted = actualPromptTokens - knownPromptTokens;
-
-              final updatedMessage = lastDisplayMessage.message.copyWith(
-                responseTokenCount: actualResponseTokens,
-                unaccountedTokens: unaccounted > 0 ? unaccounted : null,
+              // The final total includes the assistant's response.
+              final finalTotal = (lastAsstDisplayMessage.message.totalConversationTokenCount ?? 0) + event.responseTokenCount;
+              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
+                totalConversationTokenCount: event.promptTokenCount + event.responseTokenCount,
               );
-              
-              _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
-              break;
+              _displayMessages[lastAsstMessageIndex] = DisplayMessage.fromChatMessage(updatedMessage);
+              _updateTotalTokenCount(); // Update top bar with final count
               break;
             case LlmError():
               final updatedMessage = lastDisplayMessage.message.copyWith(
@@ -307,12 +294,38 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _deleteAfter(messageIndex);
     await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
   }
+  
+    Future<void> _recalculateTokensAfterEdit() async {
+    final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?)
+        ?.selectedModels
+        .values
+        .firstWhereOrNull((m) => m != null);
+    
+    if (!mounted || model == null || _displayMessages.isEmpty) {
+        if(mounted) setState(() => _totalTokenCount = 0);
+        return;
+    }
+
+    final provider = ref.read(llmServiceProvider);
+    final conversation = _displayMessages.map((dm) => dm.message).toList();
+    final tokenCount = await provider.countTokens(conversation: conversation, model: model);
+
+    if (mounted) {
+        setState(() {
+            final lastMessage = _displayMessages.last.message;
+            _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(
+                lastMessage.copyWith(totalConversationTokenCount: tokenCount)
+            );
+            _updateTotalTokenCount();
+        });
+    }
+  }
 
   void _delete(int index) {
     setState(() {
       _displayMessages.removeAt(index);
     });
-    _updateTotalTokenCount();
+    _recalculateTokensAfterEdit(); // Recalculate
     _signalHistoryChanged();
   }
 
@@ -320,7 +333,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {
       _displayMessages.removeRange(index, _displayMessages.length);
     });
-    _updateTotalTokenCount();
+    _recalculateTokensAfterEdit(); // Recalculate
     _signalHistoryChanged();
   }
   
