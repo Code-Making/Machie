@@ -241,9 +241,7 @@ class DelegatingCodeBuilder extends MarkdownElementBuilder {
   DelegatingCodeBuilder({
     required this.ref,
     required List<GlobalKey> keys,
-    required Map<String, TextStyle> theme,
-    required TextStyle textStyle,
-  })  : codeBlockBuilder = CodeBlockBuilder(keys: keys, theme: theme, textStyle: textStyle),
+  })  : codeBlockBuilder = CodeBlockBuilder(keys: keys),
         pathLinkBuilder = PathLinkBuilder(ref: ref);
 
   @override
@@ -254,7 +252,6 @@ class DelegatingCodeBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final textContent = element.textContent;
-    // Differentiate between block and inline code
     if (textContent.contains('\n')) {
       return codeBlockBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
     } else {
