@@ -13,6 +13,7 @@ import 'package:machine/data/repositories/project_repository.dart';
 import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_controller.dart'; // NEW
 import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
