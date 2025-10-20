@@ -1,13 +1,16 @@
 // MODIFIED FILE: lib/editor/plugins/llm_editor/chat_bubble.dart
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:re_highlight/styles/default.dart';
+import 'package:re_highlight/styles/default.dart'; // Used for defaultTheme
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
+import 'package:machine/editor/services/editor_service.dart';
+
 import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 
@@ -50,81 +53,21 @@ class _StableStreamingContent {
 class _ChatBubbleState extends ConsumerState<ChatBubble> {
   bool _isFolded = false;
   bool _isContextFolded = false;
-  
-  // --- NEW STATE FOR MEMOIZATION ---
-  Widget? _stableMarkdownWidget;
-  String _streamingTail = '';
-  String _lastStablePart = '';
-  // ---------------------------------
+
+  // *** OPTIMIZATION: Create builders once and reuse them. ***
+  late final PathLinkBuilder _pathLinkBuilder;
+  late final DelegatingCodeBuilder _delegatingCodeBuilder;
 
   @override
   void initState() {
     super.initState();
-    _processMessageContent(widget.message.content);
+    _pathLinkBuilder = PathLinkBuilder(ref: ref);
+    _delegatingCodeBuilder = DelegatingCodeBuilder(
+      ref: ref,
+      keys: widget.codeBlockKeys,
+    );
   }
 
-  @override
-  void didUpdateWidget(covariant ChatBubble oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // This is the core optimization: only process content if it changed.
-    if (widget.message.content != oldWidget.message.content) {
-      _processMessageContent(widget.message.content);
-    }
-  }
-
-  // NEW: The core optimization logic.
-  void _processMessageContent(String content) {
-    if (!widget.isStreaming || widget.message.role == 'user') {
-      // If not streaming or it's a user message, render the whole thing at once.
-      _stableMarkdownWidget = _buildAssistantMessageBody(
-        content: content,
-        isComplete: true
-      );
-      _streamingTail = '';
-      _lastStablePart = content;
-    } else {
-      // If streaming, split into stable and streaming parts.
-      final parts = _splitContent(content);
-      
-      if (parts.stable != _lastStablePart) {
-        // Only rebuild the expensive markdown part if it has actually grown.
-        _stableMarkdownWidget = _buildAssistantMessageBody(
-          content: parts.stable,
-          isComplete: true
-        );
-        _lastStablePart = parts.stable;
-      }
-      _streamingTail = parts.streaming;
-    }
-  }
-
-  // NEW: Helper to find the boundary between stable and streaming content.
-  _StableStreamingContent _splitContent(String content) {
-    // A complete code block is a great "stable" boundary.
-    int lastCodeBlockEnd = content.lastIndexOf('```\n');
-    if (lastCodeBlockEnd != -1) {
-      final splitPoint = lastCodeBlockEnd + 4;
-      return _StableStreamingContent(
-        stable: content.substring(0, splitPoint),
-        streaming: content.substring(splitPoint),
-      );
-    }
-    
-    // Fallback to double newline for paragraphs.
-    int lastParagraphEnd = content.lastIndexOf('\n\n');
-     if (lastParagraphEnd != -1) {
-      final splitPoint = lastParagraphEnd + 2;
-       return _StableStreamingContent(
-        stable: content.substring(0, splitPoint),
-        streaming: content.substring(splitPoint),
-      );
-    }
-    
-    // If no clear boundary, treat everything as streaming.
-    return _StableStreamingContent(stable: '', streaming: content);
-  }
-
-  // The rest of the _ChatBubbleState remains largely the same...
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +78,16 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     final backgroundColor = isUser
         ? theme.colorScheme.primaryContainer.withOpacity(0.5)
         : theme.colorScheme.surface;
+    
+    // NOTE: These settings are now only used for _buildUserMessageBody.
+    // The assistant's code blocks get settings from the CodeBlockController.
+    final codeEditorSettings = ref.watch(
+      settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      ),
+    ) ?? CodeEditorSettings();
+    
+    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -184,17 +137,10 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
-                    // MODIFIED: Simplified rendering logic
+                    // *** FIX: Correctly call the build methods with required args ***
                     child: isUser
-                        ? _buildUserMessageBody()
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (_stableMarkdownWidget != null) _stableMarkdownWidget!,
-                              if (_streamingTail.isNotEmpty) 
-                                SelectableText(_streamingTail),
-                            ],
-                          )
+                        ? _buildUserMessageBody(codeEditorSettings, highlightTheme)
+                        : _buildAssistantMessageBody(),
                   ),
           ),
         ],
@@ -202,25 +148,15 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
     );
   }
   
-  Widget _buildUserMessageBody() {
-    // MODIFIED: Gets settings directly from the build context via ref
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select( (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?),
-    ) ?? CodeEditorSettings();
-    final highlightTheme = CodeThemes.availableCodeThemes[codeEditorSettings.themeName] ?? defaultTheme;
+  Widget _buildUserMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
     final hasContext = widget.message.context?.isNotEmpty ?? false;
-    
-    final pathLinkBuilder = PathLinkBuilder(ref: ref);
-    final delegatingCodeBuilder = DelegatingCodeBuilder(
+
+    // We can use the cached builders here as well.
+    final userMessageDelegatingCodeBuilder = DelegatingCodeBuilder(
       ref: ref,
       keys: const [], // No code blocks to jump to in user messages
-      theme: highlightTheme,
-      textStyle: TextStyle(
-        fontFamily: codeEditorSettings.fontFamily,
-        fontSize: codeEditorSettings.fontSize - 1,
-      ),
     );
-
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -251,39 +187,31 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
         ],
         MarkdownBody(
           data: widget.message.content,
-          builders: { 'code': delegatingCodeBuilder, 'p': pathLinkBuilder, },
+          builders: {
+            'code': userMessageDelegatingCodeBuilder, // Use the specific user message builder
+            'p': _pathLinkBuilder,
+          },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
         ),
       ],
     );
   }
 
-  // MODIFIED: This is now a pure builder function.
-  Widget _buildAssistantMessageBody(CodeEditorSettings settings, Map<String, TextStyle> theme) {
-    final pathLinkBuilder = PathLinkBuilder(ref: ref);
-    final delegatingCodeBuilder = DelegatingCodeBuilder(
-      ref: ref,
-      keys: widget.codeBlockKeys,
-      theme: theme,
-      textStyle: TextStyle(
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize - 1,
-      ),
-    );
-
+  // REFACTORED: Now much simpler and doesn't need arguments.
+  Widget _buildAssistantMessageBody() {
     return MarkdownBody(
       data: widget.message.content,
       builders: {
-        'code': delegatingCodeBuilder,
-        'p': pathLinkBuilder,
+        'code': _delegatingCodeBuilder, // Use the cached builder
+        'p': _pathLinkBuilder,          // Use the cached builder
       },
       styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
     );
   }
 
-  // ... (PopupMenu and other parts of the widget are unchanged) ...
   Widget _buildPopupMenu(BuildContext context, {required bool isUser}) {
-    return PopupMenuButton<String>(
+    // ... This method is unchanged ...
+        return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, size: 18),
       onSelected: (value) {
         if (value == 'rerun') widget.onRerun();

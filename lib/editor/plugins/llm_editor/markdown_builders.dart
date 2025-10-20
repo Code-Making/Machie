@@ -22,11 +22,10 @@ import 'package:machine/editor/plugins/llm_editor/code_block_controller.dart'; /
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;
-  final Map<String, TextStyle> theme;
-  final TextStyle textStyle;
+  // REMOVED: theme and textStyle are no longer needed here.
   int _codeBlockCounter = 0;
 
-  CodeBlockBuilder({required this.keys, required this.theme, required this.textStyle});
+  CodeBlockBuilder({required this.keys}); // MODIFIED
 
   @override
   Widget? visitElementAfterWithContext(
@@ -43,20 +42,23 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
       final String language = _parseLanguage(element);
       final key = (_codeBlockCounter < keys.length) ? keys[_codeBlockCounter] : GlobalKey();
       _codeBlockCounter++;
+      // *** FIX: Correctly instantiate CodeBlockWrapper with its new, simpler constructor ***
       return CodeBlockWrapper(
         key: key,
         code: text.trim(),
         language: language,
-        theme: theme,
-        textStyle: textStyle,
       );
     } else {
+      // Inline code rendering is now handled by PathLinkBuilder, but this is a safe fallback.
       final theme = Theme.of(context);
+      final settings = ProviderScope.containerOf(context).read(settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+      )) ?? CodeEditorSettings();
       return RichText(
         text: TextSpan(
           text: text,
           style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
-            fontFamily: textStyle.fontFamily,
+            fontFamily: settings.fontFamily,
             backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
           ),
         ),
@@ -89,21 +91,20 @@ class CodeBlockWrapper extends ConsumerStatefulWidget {
 
 class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   late final CodeBlockController _controller;
-  // REMOVED: isFolded and highlightedCode state
 
   @override
   void initState() {
     super.initState();
     _initializeController();
   }
-  
+
   void _initializeController() {
     final settings = ref.read(settingsProvider.select(
       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
     )) ?? CodeEditorSettings();
     final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 1);
-    
+
     _controller = CodeBlockController(
       initialCode: widget.code,
       language: widget.language,
@@ -118,17 +119,14 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
     if (widget.code != oldWidget.code) {
       _controller.updateCode(widget.code, widget.language);
     }
-    // Note: A theme change won't be reflected live, which is an acceptable tradeoff
-    // to avoid re-creating the controller. Re-running the LLM prompt would fix it.
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
   
-  // NEW: This logic was moved out of the `TextSpanRenderer` for clarity
   TextSpan? _addLinksToCode(TextSpan? sourceSpan) {
     final codeSettings = ref.read(settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)) ?? CodeEditorSettings();
@@ -166,7 +164,6 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Controller's theme map has what we need for BG color
     final codeBgColor = _controller.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
 
     return Container(
