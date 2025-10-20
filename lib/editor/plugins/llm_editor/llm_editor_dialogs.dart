@@ -9,10 +9,11 @@ import 'package:machine/data/repositories/project_repository.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/project/services/project_hierarchy_service.dart';
 
-// NEW IMPORTS for split files
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 
+// NEW: Provider to remember the last path within the current session.
+final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;
@@ -52,21 +53,29 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
     }
   }
 
+  // MODIFIED: This function now handles a list of files.
   Future<void> _addContext() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null) return;
 
-    final file = await showDialog<DocumentFile>(
+    final files = await showDialog<List<DocumentFile>>(
       context: context,
       builder: (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
     );
 
-    if (file != null) {
+    if (files != null && files.isNotEmpty) {
       final repo = ref.read(projectRepositoryProvider)!;
-      final content = await repo.readFile(file.uri);
-      final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
-      setState(() {
+      for (final file in files) {
+        // Avoid adding duplicates
+        if (_contextItems.any((item) => item.source == file.name)) continue;
+        
+        final content = await repo.readFile(file.uri);
+        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+        
+        // No need for setState in loop, add all then setState once.
         _contextItems.add(ContextItem(source: relativePath, content: content));
+      }
+      setState(() {
         _validate();
       });
     }
@@ -83,6 +92,7 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // ... rest of the EditMessageDialog build method is unchanged ...
     return AlertDialog(
       title: const Text('Edit Message'),
       content: SizedBox(
@@ -144,6 +154,8 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
   }
 }
 
+
+// ENTIRELY REWRITTEN/REFACTORED WIDGET
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
   const FilePickerLiteDialog({required this.projectRootUri});
@@ -154,25 +166,124 @@ class FilePickerLiteDialog extends ConsumerStatefulWidget {
 
 class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
   late String _currentPathUri;
+  bool _isMultiSelectMode = false;
+  final Set<DocumentFile> _selectedFiles = {};
 
   @override
   void initState() {
     super.initState();
-    _currentPathUri = widget.projectRootUri;
+    // NEW: Use the provider to get the last path, or default to the root.
+    _currentPathUri = ref.read(filePickerLastPathProvider) ?? widget.projectRootUri;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(_currentPathUri);
       }
     });
   }
+  
+  // NEW: Helper function to change directories and update the session provider
+  void _setCurrentPath(String newPath) {
+    ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
+    ref.read(filePickerLastPathProvider.notifier).state = newPath;
+    setState(() => _currentPathUri = newPath);
+  }
+
+  void _toggleMultiSelectMode(DocumentFile? initialFile) {
+    setState(() {
+      _isMultiSelectMode = !_isMultiSelectMode;
+      _selectedFiles.clear();
+      if (_isMultiSelectMode && initialFile != null) {
+        _selectedFiles.add(initialFile);
+      }
+    });
+  }
+
+  void _toggleFileSelection(DocumentFile file) {
+    setState(() {
+      if (_selectedFiles.contains(file)) {
+        _selectedFiles.remove(file);
+      } else {
+        _selectedFiles.add(file);
+      }
+    });
+  }
+
+  Future<void> _onLongPressFolder(DocumentFile folder) async {
+    final result = await showDialog<bool?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Add all files from "${folder.name}"?'),
+        content: const Text('This will add all compatible text files to the context.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Folder only')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Folder & Subfolders')),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      final List<DocumentFile> filesToAdd = await _gatherFiles(folder, result);
+      if (mounted) {
+        Navigator.of(context).pop(filesToAdd);
+      }
+    }
+  }
+
+  Future<List<DocumentFile>> _gatherFiles(DocumentFile startFolder, bool recursive) async {
+    final List<DocumentFile> gatheredFiles = [];
+    final repo = ref.read(projectRepositoryProvider);
+    if (repo == null) return [];
+    
+    final queue = [startFolder];
+
+    while (queue.isNotEmpty) {
+      final currentFolder = queue.removeAt(0);
+      try {
+        final children = await repo.listDirectory(currentFolder.uri);
+        for (final child in children) {
+          if (child.isDirectory) {
+            if (recursive) {
+              queue.add(child);
+            }
+          } else {
+            final extension = child.name.split('.').lastOrNull?.toLowerCase();
+            if (extension != null && CodeThemes.languageExtToNameMap.containsKey(extension)) {
+              gatheredFiles.add(child);
+            }
+          }
+        }
+      } catch (e) {
+        // Could be a permissions issue, just skip this directory
+      }
+    }
+    return gatheredFiles;
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final directoryState = ref.watch(directoryContentsProvider(_currentPathUri));
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
 
+    Widget titleWidget;
+    if (_isMultiSelectMode) {
+      titleWidget = Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('${_selectedFiles.length} Selected'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => _toggleMultiSelectMode(null),
+          )
+        ],
+      );
+    } else {
+      titleWidget = const Text('Select a File for Context');
+    }
+
     return AlertDialog(
-      title: const Text('Select a File for Context'),
+      title: titleWidget,
       content: SizedBox(
         width: double.maxFinite,
         height: 400,
@@ -185,13 +296,12 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                     icon: const Icon(Icons.arrow_upward),
                     onPressed: _currentPathUri == widget.projectRootUri ? null : () {
                       final newPath = fileHandler.getParentUri(_currentPathUri);
-                      ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
-                      setState(() => _currentPathUri = newPath);
+                      _setCurrentPath(newPath); // MODIFIED
                     },
                   ),
                   Expanded(
                     child: Text(
-                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri), // FIXED: Changed widget.projectUri to widget.projectRootUri
+                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri),
                       style: Theme.of(context).textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -219,18 +329,35 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                           itemCount: filteredNodes.length,
                           itemBuilder: (context, index) {
                             final node = filteredNodes[index];
-                            return ListTile(
-                              leading: Icon(node.file.isDirectory ? Icons.folder_outlined : Icons.article_outlined),
-                              title: Text(node.file.name),
-                              onTap: () {
-                                if (node.file.isDirectory) {
-                                  ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(node.file.uri);
-                                  setState(() => _currentPathUri = node.file.uri);
-                                } else {
-                                  Navigator.of(context).pop(node.file);
-                                }
-                              },
-                            );
+                            final isSelected = _selectedFiles.contains(node.file);
+
+                            if (node.file.isDirectory) {
+                              return ListTile(
+                                leading: const Icon(Icons.folder_outlined),
+                                title: Text(node.file.name),
+                                onTap: () => _setCurrentPath(node.file.uri), // MODIFIED
+                                onLongPress: () => _onLongPressFolder(node.file), // NEW
+                              );
+                            } else { // It's a file
+                              return ListTile(
+                                leading: _isMultiSelectMode
+                                    ? Checkbox(value: isSelected, onChanged: (_) => _toggleFileSelection(node.file))
+                                    : const Icon(Icons.article_outlined),
+                                title: Text(node.file.name),
+                                onTap: () {
+                                  if (_isMultiSelectMode) {
+                                    _toggleFileSelection(node.file);
+                                  } else {
+                                    Navigator.of(context).pop([node.file]);
+                                  }
+                                },
+                                onLongPress: () {
+                                  if (!_isMultiSelectMode) {
+                                    _toggleMultiSelectMode(node.file);
+                                  }
+                                },
+                              );
+                            }
                           },
                         );
                       },
@@ -241,9 +368,17 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-      ],
+      actions: _isMultiSelectMode ? [
+          TextButton(onPressed: () => _toggleMultiSelectMode(null), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: _selectedFiles.isNotEmpty
+              ? () => Navigator.of(context).pop(_selectedFiles.toList())
+              : null,
+            child: const Text('Add Selected'),
+          ),
+        ] : [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        ],
     );
   }
 }
