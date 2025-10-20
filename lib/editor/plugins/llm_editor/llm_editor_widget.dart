@@ -225,8 +225,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
               _updateTotalTokenCount(); // Update top bar with final count
               break;
             case LlmError():
-              final updatedMessage = lastDisplayMessage.message.copyWith(
-                content: '${lastDisplayMessage.message.content}\n\n--- Error ---\n${event.message}',
+              final updatedMessage = lastAsstDisplayMessage.message.copyWith(
+                content: '${lastAsstDisplayMessage.message.content}\n\n--- Error ---\n${event.message}',
               );
               _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(updatedMessage);
               break;
