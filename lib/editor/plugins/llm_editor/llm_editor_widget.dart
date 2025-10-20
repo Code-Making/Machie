@@ -55,6 +55,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   final Map<String, GlobalKey> _scrollTargetKeys = {};
   List<String> _sortedScrollTargetIds = [];
 
+  bool _requestingActions = false;
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
 
@@ -65,6 +66,76 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   // Simple token counting approximation
   static const int _charsPerToken = 4;
+  static const Map<String, dynamic> _codeChangesSchema = {
+  "type": "object",
+  "properties": {
+    "code_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file being modified"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "replace",
+                    "add",
+                    "delete"
+                  ],
+                  "description": "Type of change being made"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "The new content to add or replace with"
+                },
+                "line_range": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "description": "Start and end line numbers from input file [start, end]",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "propertyOrdering": [
+                "action",
+                "content",
+                "line_range"
+              ],
+              "required": [
+                "action",
+                "line_range"
+              ]
+            }
+          }
+        },
+        "propertyOrdering": [
+          "file_path",
+          "changes"
+        ],
+        "required": [
+          "file_path",
+          "changes"
+        ]
+      }
+    }
+  },
+  "propertyOrdering": [
+    "code_changes"
+  ],
+  "required": [
+    "code_changes"
+  ]
+};
 
   @override
   void init() {
@@ -134,7 +205,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _updateComposingTokenCount(); // No need to signal cache, as only composing state changed
   }
 
-  Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
+Future<void> _submitPrompt(String userPrompt,
+    {List<ContextItem>? context, bool requestActions = false}) async { // <-- Modified
     final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
     
     if (settings == null) {
@@ -197,8 +269,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     // 6. Generate response by passing the full conversation up to the user message
     final conversationForApi = _displayMessages.sublist(0, _displayMessages.length - 1).map((dm) => dm.message).toList();
     final responseStream = provider.generateResponse(
-      conversation: conversationForApi,
-      model: model,
+        conversation: conversationForApi,
+        model: model,
+        responseSchema: requestActions ? _codeChangesSchema : null, // <-- MODIFIED
     );
   
     _llmSubscription = responseStream.listen(
@@ -214,6 +287,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                 content: lastAsstDisplayMessage.message.content + event.chunk,
               );
               _displayMessages[lastAsstMessageIndex] = DisplayMessage.fromChatMessage(updatedMessage);
+              break;
+            case LlmStructuredResponse(): // <-- NEW
+              final updatedMessage = lastAsstDisplayMessage.message
+                  .copyWith(structuredResponse: event.jsonData);
+              _displayMessages[lastAsstMessageIndex] =
+                  DisplayMessage.fromChatMessage(updatedMessage);
               break;
             case LlmResponseMetadata():
               // The final total includes the assistant's response.
@@ -262,21 +341,23 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Future<void> _sendMessage() async {
+Future<void> _sendMessage() async {
     final userPrompt = _textController.text.trim();
     if (userPrompt.isEmpty && _contextItems.isEmpty) return;
 
     final contextToSend = List<ContextItem>.from(_contextItems);
-    
+    final requestActions = _requestingActions; // Capture current state
+
     _textController.clear();
     setState(() {
       _contextItems.clear();
       _composingTokenCount = 0;
+      _requestingActions = false; // Reset after sending
     });
 
-    await _submitPrompt(userPrompt, context: contextToSend);
-    _onStateChanged(); // Signal state change after sending
-  }
+    await _submitPrompt(userPrompt, context: contextToSend, requestActions: requestActions); // <-- Pass the flag
+    _onStateChanged();
+}
   
   void _stopGeneration() {
     _llmSubscription?.cancel();
@@ -651,6 +732,18 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                   ),
                 ),
               ),
+            Padding(
+            padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
+            child: FilterChip(
+              label: const Text('Request Code Actions'),
+              selected: _requestingActions,
+              onSelected: _isLoading ? null : (selected) {
+                setState(() {
+                  _requestingActions = selected;
+                });
+              },
+            ),
+          ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [

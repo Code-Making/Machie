@@ -16,6 +16,7 @@ abstract class LlmProvider {
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> conversation,
     required LlmModelInfo model,
+    Map<String, dynamic>? responseSchema, // <-- NEW
   });
 
   Future<int> countTokens({
@@ -53,9 +54,10 @@ class DummyProvider implements LlmProvider {
   
   // MODIFIED: Dummy implementation for the new stream type
   @override
-    Stream<LlmResponseEvent> generateResponse({
+  Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> conversation,
     required LlmModelInfo model,
+    Map<String, dynamic>? responseSchema, // <-- NEW
   }) async* {
     // The last message is the new prompt
     final prompt = conversation.last.content;
@@ -170,8 +172,9 @@ class GeminiProvider implements LlmProvider {
   Stream<LlmResponseEvent> generateResponse({
     required List<ChatMessage> conversation,
     required LlmModelInfo model,
+    Map<String, dynamic>? responseSchema, // <-- NEW
   }) async* {
-    if (_apiKey.isEmpty) { 
+    if (_apiKey.isEmpty) {
       yield LlmError('Error: Google Gemini API key is not set in the plugin settings.');
       return;
     }
@@ -180,9 +183,17 @@ class GeminiProvider implements LlmProvider {
     final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:streamGenerateContent?alt=sse');
     final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
 
-    // MODIFIED: Build contents from the entire conversation directly
     final contents = _buildContents(conversation);
-    final body = jsonEncode({'contents': contents});
+    final bodyMap = {'contents': contents};
+
+    // --- NEW: ADD SCHEMA TO REQUEST ---
+    if (responseSchema != null) {
+      bodyMap['generationConfig'] = {
+        'responseMimeType': 'application/json',
+        'responseSchema': responseSchema,
+      };
+    }
+    final body = jsonEncode(bodyMap);
 
     try {
       final request = http.Request('POST', uri)
@@ -196,6 +207,8 @@ class GeminiProvider implements LlmProvider {
         yield LlmError('API Error (${response.statusCode}): $errorBody');
         return;
       }
+
+      String responseBuffer = ''; // Buffer for structured response
 
       await for (final chunk in response.stream.transform(utf8.decoder)) {
         final lines = chunk.split('\n').where((line) => line.isNotEmpty);
@@ -222,6 +235,17 @@ class GeminiProvider implements LlmProvider {
                 yield LlmError('Prompt blocked due to: ${promptFeedback['blockReason']}');
             }
           }
+        }
+      }
+      // --- NEW: YIELD STRUCTURED DATA ---
+      if (responseSchema != null && responseBuffer.isNotEmpty) {
+        try {
+          // The buffer contains the full JSON string now
+          yield LlmTextChunk(responseBuffer); // Yield the raw text first
+          final jsonData = jsonDecode(responseBuffer) as Map<String, dynamic>;
+          yield LlmStructuredResponse(jsonData); // Then yield the parsed data
+        } catch (e) {
+          yield LlmError("Failed to parse structured JSON response: $e");
         }
       }
     } catch (e) {
