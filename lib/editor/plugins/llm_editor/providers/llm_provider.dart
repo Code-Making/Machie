@@ -7,6 +7,11 @@ import 'package:http/http.dart' as http;
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart'; // ADDED
 
+class LlmStructuredResponse extends LlmResponseEvent {
+  final Map<String, dynamic> jsonData;
+  LlmStructuredResponse(this.jsonData);
+}
+
 abstract class LlmProvider {
   String get id;
   String get name;
