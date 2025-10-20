@@ -42,33 +42,13 @@ class DummyProvider implements LlmProvider {
     ];
   }
   // ADDED: Dummy implementation for countTokens
-    @override
+@override
   Future<int> countTokens({
     required List<ChatMessage> conversation,
     required LlmModelInfo model,
   }) async {
-    if (_apiKey.isEmpty) return 0;
-    
-    final client = http.Client();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:countTokens');
-    final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
-    
-    // MODIFIED: Build contents from the entire conversation
-    final contents = _buildContents(conversation);
-    final body = jsonEncode({'contents': contents});
-
-    try {
-      final response = await client.post(uri, headers: headers, body: body);
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        return json['totalTokens'] as int? ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      return 0;
-    } finally {
-      client.close();
-    }
+    final totalChars = conversation.fold<int>(0, (sum, msg) => sum + msg.content.length);
+    return (totalChars / 4).ceil();
   }
   
   // MODIFIED: Dummy implementation for the new stream type
@@ -157,22 +137,17 @@ class GeminiProvider implements LlmProvider {
   // ADDED: Full implementation for countTokens
   @override
   Future<int> countTokens({
-    required List<ChatMessage> history,
-    required String prompt,
+    required List<ChatMessage> conversation,
     required LlmModelInfo model,
   }) async {
     if (_apiKey.isEmpty) return 0;
-
+    
     final client = http.Client();
-    final uri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/${model.name}:countTokens');
-
-    final headers = {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': _apiKey,
-    };
-
-    final contents = _buildContents(history, prompt);
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:countTokens');
+    final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
+    
+    // MODIFIED: Build contents from the entire conversation
+    final contents = _buildContents(conversation);
     final body = jsonEncode({'contents': contents});
 
     try {
@@ -183,11 +158,12 @@ class GeminiProvider implements LlmProvider {
       }
       return 0;
     } catch (e) {
-      return 0; // Silently fail on count error
+      return 0;
     } finally {
       client.close();
     }
   }
+
 
   // MODIFIED: Full implementation for the new stream type
   @override
@@ -255,7 +231,7 @@ class GeminiProvider implements LlmProvider {
     }
   }
 
-  // ADDED: Helper to build the 'contents' part of the request body
+}
   List<Map<String, dynamic>> _buildContents(List<ChatMessage> conversation) {
     return conversation.map((m) {
       final parts = <Map<String, String>>[{'text': m.content}];
@@ -272,4 +248,3 @@ class GeminiProvider implements LlmProvider {
       };
     }).toList();
   }
-}
