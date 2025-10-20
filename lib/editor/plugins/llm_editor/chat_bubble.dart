@@ -196,13 +196,22 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> {
       ),
     );
 
-    return MarkdownBody(
-      data: widget.message.content,
-      builders: {
-        'code': delegatingCodeBuilder,
-        'p': pathLinkBuilder,
-      },
-      styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MarkdownBody(
+          data: widget.message.content,
+          builders: {
+            'code': delegatingCodeBuilder,
+            'p': pathLinkBuilder,
+          },
+          styleSheet: MarkdownStyleSheet(
+              codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
+        ),
+        // --- NEW: Render the actionable view ---
+        if (widget.message.structuredResponse != null)
+          ActionableView(responseData: widget.message.structuredResponse!),
+      ],
     );
   }
 
