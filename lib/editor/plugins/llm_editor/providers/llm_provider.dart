@@ -69,6 +69,7 @@ class DummyProvider implements LlmProvider {
     } finally {
       client.close();
     }
+  }
   
   // MODIFIED: Dummy implementation for the new stream type
   @override
