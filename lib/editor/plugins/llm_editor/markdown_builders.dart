@@ -15,10 +15,9 @@ import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 
-// NEW IMPORT for split files
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
-// ADDED IMPORT for mapEquals
 import 'package:flutter/foundation.dart';
+import 'package:machine/editor/plugins/llm_editor/code_block_controller.dart'; // NEW import
 
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
@@ -76,15 +75,12 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
 class CodeBlockWrapper extends ConsumerStatefulWidget {
   final String code;
   final String language;
-  final Map<String, TextStyle> theme;
-  final TextStyle textStyle;
-
+  // REMOVED: theme and textStyle are now passed to the controller
+  
   const CodeBlockWrapper({
     super.key,
     required this.code,
     required this.language,
-    required this.theme,
-    required this.textStyle,
   });
 
   @override
@@ -92,53 +88,54 @@ class CodeBlockWrapper extends ConsumerStatefulWidget {
 }
 
 class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
-  bool _isFolded = false;
-  TextSpan? _highlightedCode;
+  late final CodeBlockController _controller;
+  // REMOVED: isFolded and highlightedCode state
 
   @override
   void initState() {
     super.initState();
-    LlmHighlightUtil.ensureLanguagesRegistered();
-    _highlightCode();
+    _initializeController();
+  }
+  
+  void _initializeController() {
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 1);
+    
+    _controller = CodeBlockController(
+      initialCode: widget.code,
+      language: widget.language,
+      theme: theme,
+      textStyle: textStyle
+    );
   }
 
   @override
   void didUpdateWidget(covariant CodeBlockWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.code != oldWidget.code ||
-        widget.language != oldWidget.language ||
-        !mapEquals(widget.theme, oldWidget.theme) || // FIXED: mapEquals imported from foundation.dart
-        widget.textStyle != oldWidget.textStyle) {
-      _highlightCode();
+    if (widget.code != oldWidget.code) {
+      _controller.updateCode(widget.code, widget.language);
     }
+    // Note: A theme change won't be reflected live, which is an acceptable tradeoff
+    // to avoid re-creating the controller. Re-running the LLM prompt would fix it.
   }
-
-  void _highlightCode() {
-    final HighlightResult result = LlmHighlightUtil.highlight.highlight(
-      code: widget.code,
-      language: widget.language,
-    );
-    final renderer = TextSpanRenderer(widget.textStyle, widget.theme);
-    result.render(renderer);
-    
-    final baseSpan = renderer.span;
-    if (baseSpan == null) {
-      setState(() {
-        _highlightedCode = null;
-      });
-      return;
-    }
-
-    final linkedSpan = _addLinksToSpans(baseSpan);
-    
-    setState(() {
-      _highlightedCode = linkedSpan;
-    });
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
+  
+  // NEW: This logic was moved out of the `TextSpanRenderer` for clarity
+  TextSpan? _addLinksToCode(TextSpan? sourceSpan) {
+    final codeSettings = ref.read(settingsProvider.select(
+        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)) ?? CodeEditorSettings();
+    final theme = CodeThemes.availableCodeThemes[codeSettings.themeName] ?? defaultTheme;
 
-  TextSpan _addLinksToSpans(TextSpan sourceSpan) {
-    final commentStyle = widget.theme['comment'];
-    if (commentStyle == null) {
+    final commentStyle = theme['comment'];
+    if (sourceSpan == null || commentStyle == null) {
       return sourceSpan;
     }
 
@@ -160,17 +157,17 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
           ref: ref,
         );
       }
-
       return [span];
     }
-    
     return TextSpan(children: walk(sourceSpan));
   }
+
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final codeBgColor = widget.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+    // Controller's theme map has what we need for BG color
+    final codeBgColor = _controller.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -188,8 +185,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
               children: [
                 Text(
                   widget.language,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
                 const Spacer(),
                 IconButton(
@@ -201,34 +197,36 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
                   },
                 ),
                 IconButton(
-                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less,
-                      size: 16),
-                  tooltip: _isFolded ? 'Unfold Code' : 'Fold Code',
-                  onPressed: () {
-                    setState(() => _isFolded = !_isFolded);
-                  },
+                  icon: Icon(_controller.isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                  tooltip: _controller.isFolded ? 'Unfold Code' : 'Fold Code',
+                  onPressed: () => _controller.toggleFold(),
                 ),
               ],
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            child: _isFolded
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: _highlightedCode == null
-                          ? SelectableText(widget.code, style: widget.textStyle)
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, child) {
+              return AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _controller.isFolded
+                  ? const SizedBox(width: double.infinity)
+                  : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: _controller.highlightedCode == null
+                          ? SelectableText(widget.code, style: _controller.textStyle)
                           : SelectableText.rich(
-                              _highlightedCode!,
-                              style: widget.textStyle,
+                              _addLinksToCode(_controller.highlightedCode!)!,
+                              style: _controller.textStyle,
                             ),
+                      ),
                     ),
-                  ),
+              );
+            },
           ),
         ],
       ),
