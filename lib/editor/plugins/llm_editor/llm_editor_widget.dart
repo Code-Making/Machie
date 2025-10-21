@@ -651,40 +651,42 @@ Widget _buildChatInput() {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: TextField(
-                  controller: _textController,
-                  enabled: !_isLoading,
-                  keyboardType: TextInputType.multiline,
-                  maxLines: 5,
-                  minLines: 1,
-                  decoration: InputDecoration(
-                    hintText: 'Type your message...',
-                    border: const OutlineInputBorder(),
-                    // Tweak content padding to be more balanced.
-                    contentPadding: const EdgeInsets.fromLTRB(12, 10, 48, 10),
-                    // Use suffixIcon to have better control over placement and padding.
-                    suffixIcon: Padding(
-                      // Add a little padding to the right to not be glued to the border.
-                      padding: const EdgeInsets.only(right: 2.0),
+                // 1. Use a Stack to overlay the suffix on the TextField.
+                child: Stack(
+                  children: [
+                    TextField(
+                      controller: _textController,
+                      enabled: !_isLoading,
+                      keyboardType: TextInputType.multiline,
+                      maxLines: 5,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        hintText: 'Type your message...',
+                        border: const OutlineInputBorder(),
+                        // 2. Add padding on the right to create a "dead zone"
+                        // where the text will not draw, leaving space for the suffix.
+                        contentPadding: const EdgeInsets.fromLTRB(12, 10, 64, 10),
+                      ),
+                    ),
+                    // 3. Use Positioned to anchor the suffix to the bottom-right.
+                    Positioned(
+                      bottom: 10,
+                      right: 12,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // IconButton still has a default 8.0 padding. Let's remove it.
                           SizedBox(
-                            // Constrain the size to be just the icon.
-                            width: 24, 
+                            width: 24,
                             height: 24,
                             child: IconButton(
                               icon: const Icon(Icons.attachment),
-                              // Remove all internal padding.
                               padding: EdgeInsets.zero,
                               tooltip: 'Add File Context',
                               onPressed: _isLoading ? null : _showAddContextDialog,
                             ),
                           ),
-                          // Add a small spacer.
                           const SizedBox(height: 4),
                           Text(
                             '~$_composingTokenCount tok',
@@ -693,7 +695,7 @@ Widget _buildChatInput() {
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8.0),
