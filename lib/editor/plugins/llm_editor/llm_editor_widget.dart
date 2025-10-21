@@ -28,6 +28,7 @@ import 'package:machine/editor/plugins/llm_editor/chat_bubble.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_dialogs.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 import 'package:machine/editor/plugins/llm_editor/streaming_chat_bubble.dart';
+import 'package:machine/editor/plugins/llm_editor/editing_chat_bubble.dart'; // NEW IMPORT
 
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
@@ -535,26 +536,45 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final displayMessage = messages[index];
-                      // The condition for the swap is here
-                      final bool isStreamingAndLast = isLoading && index == messages.length - 1;
+                      final isStreamingAndLast = isLoading && index == messages.length - 1;
+                      final isEditing = displayMessage.id == _controller.editingMessageId;
 
-                      // THE SWAP LOGIC
-                      if (isStreamingAndLast) {
-                        // Render the hyper-optimized placeholder
+                      // --- THE WIDGET SWAP LOGIC ---
+
+                      if (isEditing) {
+                        // RENDER THE EDITING WIDGET
+                        return EditingChatBubble(
+                          key: ValueKey(displayMessage.id),
+                          initialMessage: displayMessage.message,
+                          onCancel: () => _controller.cancelEditing(),
+                          onSave: (newMessage) {
+                            _controller.saveEdit(displayMessage.id, newMessage);
+                          },
+                          onSaveAndRerun: (newMessage) {
+                            _controller.saveEdit(displayMessage.id, newMessage);
+                            // We need to find the index again as it might have changed
+                            final newIndex = _controller.messages.indexWhere((m) => m.id == displayMessage.id);
+                            if (newIndex != -1) {
+                              _rerun(newIndex);
+                            }
+                          },
+                        );
+                      } else if (isStreamingAndLast) {
+                        // RENDER THE STREAMING WIDGET
                         return StreamingChatBubble(
-                          key: ValueKey(displayMessage.id), // The stable key is still important!
+                          key: ValueKey(displayMessage.id),
                           content: displayMessage.message.content,
                         );
                       } else {
-                        // Render the final, fully-featured widget
+                        // RENDER THE NORMAL DISPLAY WIDGET
                         return ChatBubble(
                           key: ValueKey(displayMessage.id),
                           displayMessage: displayMessage,
-                          isStreaming: false, // It's never streaming if it's not the last one
+                          isStreaming: false,
                           onRerun: () => _rerun(index),
                           onDelete: () => _delete(index),
                           onDeleteAfter: () => _deleteAfter(index + 1),
-                          onEdit: () => _showEditMessageDialog(index),
+                          onEdit: () => _controller.startEditing(displayMessage.id),
                           onToggleFold: () => _controller.toggleMessageFold(displayMessage.id),
                           onToggleContextFold: () => _controller.toggleContextFold(displayMessage.id),
                         );
