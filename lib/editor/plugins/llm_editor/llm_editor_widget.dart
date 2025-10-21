@@ -611,19 +611,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- NEW CONTEXT AREA ---
             if (_contextItems.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 120),
                 child: Row(
                   children: [
-                    // "Clear All" button is now here, outside the scroll area.
                     IconButton(
                       icon: const Icon(Icons.clear_all),
                       tooltip: 'Clear Context',
                       onPressed: _clearContext,
                     ),
-                    // Pills are in an Expanded, scrollable area.
                     Expanded(
                       child: Scrollbar(
                         controller: _contextScrollController,
@@ -650,7 +647,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                   ],
                 ),
               ),
-            // --- NEW MAIN INPUT ROW ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -664,23 +660,33 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     decoration: InputDecoration(
                       hintText: 'Type your message...',
                       border: const OutlineInputBorder(),
-                      // Adjust padding to avoid text overlapping the new suffix.
-                      contentPadding: const EdgeInsets.fromLTRB(12, 8, 56, 8),
-                      // The suffix now contains the attachment button and token count.
-                      suffix: Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
+                      // Tweak padding slightly for a balanced look.
+                      contentPadding: const EdgeInsets.fromLTRB(12, 10, 48, 10),
+                      // The suffix is now a more tightly controlled layout.
+                      suffix: SizedBox(
+                        // Set a specific width for the suffix area.
+                        width: 48,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.end,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.attachment),
-                              constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.only(bottom: 4),
-                              tooltip: 'Add File Context',
-                              onPressed: _isLoading ? null : _showAddContextDialog,
+                            // Use a SizedBox to constrain the IconButton's tap area
+                            // without adding visual padding.
+                            SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: IconButton(
+                                icon: const Icon(Icons.attachment),
+                                iconSize: 20, // Slightly smaller icon
+                                // Set padding to zero to make it flush.
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                tooltip: 'Add File Context',
+                                onPressed: _isLoading ? null : _showAddContextDialog,
+                              ),
                             ),
+                            const SizedBox(height: 4), // Manual spacing
                             Text(
                               '~$_composingTokenCount tok',
                               style: Theme.of(context).textTheme.bodySmall,
