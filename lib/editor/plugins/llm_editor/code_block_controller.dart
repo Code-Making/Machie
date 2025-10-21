@@ -1,28 +1,25 @@
-// MODIFIED FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
+// FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
 
 import 'dart:async';
-import 'dart:math'; // *** FIX: Import dart:math for max() and min() ***
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
 import 'package:re_highlight/re_highlight.dart';
 
-// --- DATA STRUCTURES FOR ISOLATE COMMUNICATION ---
+// --- DATA STRUCTURES and ISOLATE FUNCTION are UNCHANGED ---
 
-// Represents a single styled piece of text
 class _HighlightNode {
   final String? className;
   final String value;
   const _HighlightNode(this.value, [this.className]);
 }
 
-// The result for a single line of code
 class _HighlightLineResult {
   final List<_HighlightNode> nodes;
   const _HighlightLineResult(this.nodes);
 }
 
-// Payload for the partial highlighting isolate
 class _PartialHighlightPayload {
   final List<String> codeLines;
   final int dirtyLineIndex;
@@ -35,14 +32,13 @@ class _PartialHighlightPayload {
   });
 }
 
-// Renders HighlightResult into a list of line results
 class _HighlightLineRenderer implements HighlightRenderer {
+    // ... implementation unchanged ...
   final List<_HighlightLineResult> lineResults;
   final List<String?> classNames;
   _HighlightLineRenderer()
       : lineResults = [_HighlightLineResult([])],
         classNames = [];
-
   @override
   void addText(String text) {
     final String? className = classNames.isEmpty ? null : classNames.last;
@@ -54,48 +50,32 @@ class _HighlightLineRenderer implements HighlightRenderer {
       }
     }
   }
-
   @override
   void openNode(DataNode node) {
     final String? className = classNames.isEmpty ? null : classNames.last;
     String? newClassName;
-    if (className == null || node.scope == null) {
-      newClassName = node.scope;
-    } else {
-      newClassName = '$className-${node.scope!}';
-    }
+    if (className == null || node.scope == null) { newClassName = node.scope; } else { newClassName = '$className-${node.scope!}'; }
     newClassName = newClassName?.split('.')[0];
     classNames.add(newClassName);
   }
-
   @override
   void closeNode(DataNode node) {
-    if (classNames.isNotEmpty) {
-      classNames.removeLast();
-    }
+    if (classNames.isNotEmpty) { classNames.removeLast(); }
   }
 }
 
-// --- TOP-LEVEL ISOLATE FUNCTION ---
-
 Map<int, _HighlightLineResult> _highlightPartialIsolate(_PartialHighlightPayload payload) {
-  const int contextSize = 20; // smaller context for faster partial updates
+    // ... implementation unchanged ...
+  const int contextSize = 20;
   final int startLine = max(0, payload.dirtyLineIndex - contextSize);
   final int endLine = min(payload.codeLines.length, payload.dirtyLineIndex + contextSize + 1);
-
-  if (startLine >= endLine) {
-    return {};
-  }
-
+  if (startLine >= endLine) { return {}; }
   final linesToHighlight = payload.codeLines.sublist(startLine, endLine);
   final textChunk = linesToHighlight.join('\n');
-  
   LlmHighlightUtil.ensureLanguagesRegistered();
   final HighlightResult result = LlmHighlightUtil.highlight.highlight(code: textChunk, language: payload.language);
-  
   final renderer = _HighlightLineRenderer();
   result.render(renderer);
-  
   final Map<int, _HighlightLineResult> updatedResults = {};
   for (int i = 0; i < renderer.lineResults.length; i++) {
     final int absoluteLineIndex = startLine + i;
@@ -103,11 +83,10 @@ Map<int, _HighlightLineResult> _highlightPartialIsolate(_PartialHighlightPayload
       updatedResults[absoluteLineIndex] = renderer.lineResults[i];
     }
   }
-  
   return updatedResults;
 }
 
-// --- THE CONTROLLER ---
+// --- THE CONTROLLER (with corrected logic) ---
 
 class CodeBlockController extends ChangeNotifier {
   final TextStyle textStyle;
@@ -120,7 +99,6 @@ class CodeBlockController extends ChangeNotifier {
   bool _isFolded = false;
   Timer? _debounceTimer;
 
-  // The final composite TextSpan that the UI displays.
   TextSpan get displaySpan => TextSpan(
     style: textStyle,
     children: _intersperse(const TextSpan(text: '\n'), _highlightedLines).toList(),
@@ -142,62 +120,86 @@ class CodeBlockController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // *** REWRITTEN UPDATE LOGIC ***
   void updateCode(String newCode, {bool initial = false}) {
     final newLines = newCode.split('\n');
-    final oldLinesCount = _codeLines.length;
-    final newLinesCount = newLines.length;
+    final newHighlightedLines = <TextSpan>[];
+    int firstDirtyLine = -1;
+    bool needsNotify = false;
 
-    // Immediately update the UI with plain text for new/changed lines
-    if (newLinesCount > oldLinesCount) {
-      _highlightedLines.addAll(newLines.sublist(oldLinesCount).map((line) => TextSpan(text: line)));
-    } else if (newLinesCount < oldLinesCount) {
-      _highlightedLines.removeRange(newLinesCount, oldLinesCount);
+    // Build the new list of TextSpans, intelligently reusing old ones.
+    for (int i = 0; i < newLines.length; i++) {
+      if (i < _codeLines.length && newLines[i] == _codeLines[i]) {
+        // Line is UNCHANGED. Reuse the already highlighted TextSpan.
+        newHighlightedLines.add(_highlightedLines[i]);
+      } else {
+        // Line is NEW or CHANGED. Use plain text for now.
+        newHighlightedLines.add(TextSpan(text: newLines[i]));
+        needsNotify = true;
+        if (firstDirtyLine == -1) {
+          firstDirtyLine = i;
+        }
+      }
     }
 
-    if (newLinesCount > 0 && (oldLinesCount == 0 || newLines.last != _codeLines.last)) {
-       _highlightedLines[newLinesCount - 1] = TextSpan(text: newLines.last);
+    if (newLines.length != _codeLines.length) {
+        needsNotify = true;
     }
-    
+
+    _highlightedLines = newHighlightedLines;
     _codeLines = newLines;
 
-    if (!initial) {
-      // Show un-styled text immediately for responsiveness
-      notifyListeners(); 
+    if (needsNotify && !initial) {
+      // Immediately show the new state with un-styled new/changed lines.
+      // Unchanged lines remain perfectly styled. NO FLICKER.
+      notifyListeners();
     }
     
-    // Debounce the expensive partial highlighting
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 50), () {
-      _runPartialHighlight();
-    });
+    // If there's something to highlight, schedule the background work.
+    if (firstDirtyLine != -1 || initial) {
+        if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+            // Use the last modified line for the streaming case
+            _runPartialHighlight(newLines.length - 1);
+        });
+    }
   }
 
-  Future<void> _runPartialHighlight() async {
+  Future<void> _runPartialHighlight(int dirtyLineIndex) async {
     if (_codeLines.isEmpty) return;
 
     final payload = _PartialHighlightPayload(
       codeLines: _codeLines,
-      dirtyLineIndex: _codeLines.length - 1, // We only append, so dirty line is the last
+      dirtyLineIndex: dirtyLineIndex,
       language: language,
     );
 
     try {
       final Map<int, _HighlightLineResult> result = await compute(_highlightPartialIsolate, payload);
 
+      bool didUpdate = false;
       for (final entry in result.entries) {
         final lineIndex = entry.key;
         if (lineIndex < _highlightedLines.length) {
-          _highlightedLines[lineIndex] = _renderNodesToSpan(entry.value.nodes);
+          // IMPORTANT: Check if the code for this line hasn't changed again
+          // while the isolate was running.
+          final lineContent = entry.value.nodes.map((n) => n.value).join();
+          if (_codeLines[lineIndex] == lineContent) {
+            _highlightedLines[lineIndex] = _renderNodesToSpan(entry.value.nodes);
+            didUpdate = true;
+          }
         }
       }
+
+      if (didUpdate) {
+        notifyListeners();
+      }
     } catch (e) {
-      // Don't crash, just log it. The UI will show plain text.
       debugPrint("Partial highlighting failed: $e");
-    } finally {
-      notifyListeners();
     }
   }
 
+  // All helper methods below are unchanged
   TextSpan _renderNodesToSpan(List<_HighlightNode> nodes) {
     if (nodes.isEmpty) return const TextSpan(text: '');
     return TextSpan(
@@ -208,13 +210,11 @@ class CodeBlockController extends ChangeNotifier {
     );
   }
 
-  // Helper to find styles in the theme map
   TextStyle? _findStyle(String? className) {
     if (className == null) return null;
-    return theme[className]; // Simplified lookup
+    return theme[className];
   }
   
-  // Helper to join TextSpans with a separator
   Iterable<T> _intersperse<T>(T separator, Iterable<T> elements) {
     if (elements.isEmpty) return [];
     final iterator = elements.iterator;
