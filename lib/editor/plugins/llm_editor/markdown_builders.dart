@@ -117,7 +117,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   void didUpdateWidget(covariant CodeBlockWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code) {
-      _controller.updateCode(widget.code);
+      _controller.updateCode(widget.code, widget.language);
     }
   }
 
@@ -127,14 +127,15 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
     super.dispose();
   }
   
-  TextSpan? _addLinksToCode(TextSpan? sourceSpan) {
+  TextSpan? _addLinksToBaseSpan(TextSpan? baseSpan) {
+    // ... implementation from previous step is unchanged ...
     final codeSettings = ref.read(settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)) ?? CodeEditorSettings();
     final theme = CodeThemes.availableCodeThemes[codeSettings.themeName] ?? defaultTheme;
 
     final commentStyle = theme['comment'];
-    if (sourceSpan == null || commentStyle == null) {
-      return sourceSpan;
+    if (baseSpan == null || commentStyle == null) {
+      return baseSpan;
     }
 
     List<InlineSpan> walk(InlineSpan span) {
@@ -157,7 +158,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
       }
       return [span];
     }
-    return TextSpan(children: walk(sourceSpan));
+    return TextSpan(children: walk(baseSpan));
   }
 
 
@@ -204,6 +205,10 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
           ListenableBuilder(
             listenable: _controller,
             builder: (context, child) {
+              final TextSpan displaySpan = _controller.displaySpan;
+              // Now, apply linkification to the full display span
+              final TextSpan finalSpanWithLinks = _addLinksToBaseSpan(displaySpan) ?? displaySpan;
+              
               return AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
@@ -214,12 +219,11 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
                       padding: const EdgeInsets.all(12.0),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: _controller.highlightedCode == null
-                          ? SelectableText(widget.code, style: _controller.textStyle)
-                          : SelectableText.rich(
-                              _addLinksToCode(_controller.highlightedCode!)!,
-                              style: _controller.textStyle,
-                            ),
+                        // ** MODIFIED: Use the final span with links **
+                        child: SelectableText.rich(
+                          finalSpanWithLinks,
+                          style: _controller.textStyle,
+                        ),
                       ),
                     ),
               );
