@@ -1,43 +1,37 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/llm_editor/llm_editor_models.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/plugin_models.dart';
 import 'llm_editor_widget.dart';
+import 'package:collection/collection.dart';
 
-// Represents a single message in the chat history.
 @immutable
 class ChatMessage {
-  final String role; // 'user' or 'assistant'
+  final String role;
   final String content;
   final List<ContextItem>? context;
-  
-  // MODIFIED: Replaced individual counts with a single total.
-  // This represents the total tokens in the conversation UP TO this message.
+
   final int? totalConversationTokenCount;
 
   const ChatMessage({
     required this.role,
     required this.content,
     this.context,
-    this.totalConversationTokenCount, // MODIFIED
+    this.totalConversationTokenCount,
   });
 
   ChatMessage copyWith({
     String? role,
     String? content,
     List<ContextItem>? context,
-    int? totalConversationTokenCount, // MODIFIED
+    int? totalConversationTokenCount,
   }) {
     return ChatMessage(
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
-      totalConversationTokenCount: totalConversationTokenCount ?? this.totalConversationTokenCount, // MODIFIED
+      totalConversationTokenCount: totalConversationTokenCount ?? this.totalConversationTokenCount,
     );
   }
 
@@ -62,12 +56,33 @@ class ChatMessage {
       'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
     if (totalConversationTokenCount != null) 'totalConversationTokenCount': totalConversationTokenCount,
   };
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+  
+    return other is ChatMessage &&
+      other.role == role &&
+      other.content == content &&
+      const DeepCollectionEquality().equals(other.context, context) &&
+      other.totalConversationTokenCount == totalConversationTokenCount;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      role,
+      content,
+      const DeepCollectionEquality().hash(context),
+      totalConversationTokenCount,
+    );
+  }
 }
 
 @immutable
 class LlmModelInfo {
-  final String name; // e.g., models/gemini-1.5-flash-latest
-  final String displayName; // e.g., Gemini 1.5 Flash
+  final String name;
+  final String displayName;
   final int inputTokenLimit;
   final int outputTokenLimit;
   final List<String> supportedGenerationMethods;
@@ -93,7 +108,6 @@ class LlmModelInfo {
     );
   }
 
-  // ADDED: toJson for serialization
   Map<String, dynamic> toJson() => {
         'name': name,
         'displayName': displayName,
@@ -102,7 +116,6 @@ class LlmModelInfo {
         'supportedGenerationMethods': supportedGenerationMethods,
       };
 
-  // ADDED: Equality operators for use in DropdownButton value
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -114,14 +127,12 @@ class LlmModelInfo {
   int get hashCode => name.hashCode;
 }
 
-// The EditorTab implementation for the LLM Editor.
 @immutable
 class LlmEditorTab extends EditorTab {
   @override
   final GlobalKey<LlmEditorWidgetState> editorKey;
 
   final List<ChatMessage> initialMessages;
-  // REMOVED initialComposingPrompt and initialComposingContext
 
   LlmEditorTab({
     required super.plugin,
@@ -134,7 +145,6 @@ class LlmEditorTab extends EditorTab {
   void dispose() {}
 }
 
-// The settings model for the LLM Editor.
 class LlmEditorSettings extends PluginSettings {
   String selectedProviderId;
   Map<String, String> apiKeys;
@@ -164,20 +174,17 @@ class LlmEditorSettings extends PluginSettings {
         'apiKeys': apiKeys,
         'selectedModels': selectedModels
             .map((key, value) => MapEntry(key, value?.toJson()))
-            // Filter out any entries that might have a null model
             ..removeWhere((key, value) => value == null),
       };
 
   LlmEditorSettings copyWith({
     String? selectedProviderId,
     Map<String, String>? apiKeys,
-    // MODIFIED: Update copyWith signature.
     Map<String, LlmModelInfo?>? selectedModels,
   }) {
     return LlmEditorSettings(
       selectedProviderId: selectedProviderId ?? this.selectedProviderId,
       apiKeys: apiKeys ?? this.apiKeys,
-      // MODIFIED: Update copyWith logic.
       selectedModels: selectedModels ?? this.selectedModels,
     );
   }
@@ -185,8 +192,20 @@ class LlmEditorSettings extends PluginSettings {
 
 @immutable
 class ContextItem {
-  final String source; // e.g., "lib/app/app_notifier.dart"
+  final String source;
   final String content;
 
   const ContextItem({required this.source, required this.content});
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+  
+    return other is ContextItem &&
+      other.source == source &&
+      other.content == content;
+  }
+
+  @override
+  int get hashCode => Object.hash(source, content);
 }
