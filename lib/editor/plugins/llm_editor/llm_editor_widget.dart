@@ -51,6 +51,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   String? _baseContentHash;
   bool _isLoading = false;
   final _textController = TextEditingController();
+  final _contextScrollController = ScrollController();
+
   final _scrollController = ScrollController();
   final GlobalKey _listViewKey = GlobalKey();
 
@@ -93,6 +95,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _controller.dispose();
     _llmSubscription?.cancel();
     _textController.dispose();
+    _contextScrollController.dispose();
     _scrollController.dispose();
     _scrollEndTimer?.cancel();
     super.dispose();
@@ -608,44 +611,49 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- NEW CONTEXT AREA ---
             if (_contextItems.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 120),
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: _contextItems.map((item) => ContextItemCard(
-                        item: item,
-                        onRemove: () {
-                          setState(() => _contextItems.remove(item));
-                          _updateComposingTokenCount();
-                        },
-                      )).toList(),
-                    ),
-                  ),
-                ),
-              ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.attachment),
-                      tooltip: 'Add File Context',
-                      onPressed: _isLoading ? null : _showAddContextDialog,
-                    ),
+                    // "Clear All" button is now here, outside the scroll area.
                     IconButton(
                       icon: const Icon(Icons.clear_all),
                       tooltip: 'Clear Context',
-                      onPressed: _contextItems.isEmpty ? null : _clearContext,
+                      onPressed: _clearContext,
+                    ),
+                    // Pills are in an Expanded, scrollable area.
+                    Expanded(
+                      child: Scrollbar(
+                        controller: _contextScrollController,
+                        child: SingleChildScrollView(
+                          controller: _contextScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: _contextItems.map((item) => ContextItemCard(
+                                item: item,
+                                onRemove: () {
+                                  setState(() => _contextItems.remove(item));
+                                  _updateComposingTokenCount();
+                                },
+                              )).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
+              ),
+            // --- NEW MAIN INPUT ROW ---
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
                 Expanded(
                   child: TextField(
                     controller: _textController,
@@ -656,10 +664,29 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     decoration: InputDecoration(
                       hintText: 'Type your message...',
                       border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      // Adjust padding to avoid text overlapping the new suffix.
+                      contentPadding: const EdgeInsets.fromLTRB(12, 8, 56, 8),
+                      // The suffix now contains the attachment button and token count.
                       suffix: Padding(
                         padding: const EdgeInsets.only(left: 8.0),
-                        child: Text('~$_composingTokenCount tok', style: Theme.of(context).textTheme.bodySmall),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.attachment),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.only(bottom: 4),
+                              tooltip: 'Add File Context',
+                              onPressed: _isLoading ? null : _showAddContextDialog,
+                            ),
+                            Text(
+                              '~$_composingTokenCount tok',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
