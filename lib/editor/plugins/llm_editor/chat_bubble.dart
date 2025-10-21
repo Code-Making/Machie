@@ -50,13 +50,16 @@ class _StableStreamingContent {
 }
 
 
-class _ChatBubbleState extends ConsumerState<ChatBubble> {
+class _ChatBubbleState extends ConsumerState<ChatBubble> with AutomaticKeepAliveClientMixin {
   bool _isFolded = false;
   bool _isContextFolded = false;
 
   // *** OPTIMIZATION: Create builders once and reuse them. ***
   late final PathLinkBuilder _pathLinkBuilder;
   late final DelegatingCodeBuilder _delegatingCodeBuilder;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
