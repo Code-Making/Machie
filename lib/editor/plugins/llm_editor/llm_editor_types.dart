@@ -3,19 +3,24 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:uuid/uuid.dart';
 
 class DisplayMessage {
-  // 1. Add a final, stable ID.
   final String id;
   final ChatMessage message;
   final GlobalKey headerKey;
   final List<GlobalKey> codeBlockKeys;
+  
+  // 1. Add the state properties here.
+  final bool isFolded;
+  final bool isContextFolded;
 
   DisplayMessage({
     required this.message,
     required this.headerKey,
     required this.codeBlockKeys,
-    // 2. Make the ID parameter optional in the constructor.
     String? id,
-  }) : id = id ?? const Uuid().v4(); // Generate a new ID if one isn't provided.
+    // 2. Add them to the constructor with default values.
+    this.isFolded = false,
+    this.isContextFolded = false,
+  }) : id = id ?? const Uuid().v4();
 
   factory DisplayMessage.fromChatMessage(ChatMessage message) {
     final codeBlockCount = _countCodeBlocks(message.content);
@@ -26,13 +31,19 @@ class DisplayMessage {
     );
   }
 
-  DisplayMessage copyWith({ChatMessage? message}) {
+  DisplayMessage copyWith({
+    ChatMessage? message,
+    // 3. Add them to copyWith so we can update them.
+    bool? isFolded,
+    bool? isContextFolded,
+  }) {
     return DisplayMessage(
-      // 3. CRUCIAL: Pass the existing ID to the new instance.
       id: id,
       message: message ?? this.message,
       headerKey: headerKey,
       codeBlockKeys: codeBlockKeys,
+      isFolded: isFolded ?? this.isFolded,
+      isContextFolded: isContextFolded ?? this.isContextFolded,
     );
   }
 }

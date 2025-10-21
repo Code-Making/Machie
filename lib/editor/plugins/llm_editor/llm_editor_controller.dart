@@ -56,6 +56,24 @@ class LlmEditorController extends ChangeNotifier {
     
     notifyListeners();
   }
+  
+  void toggleMessageFold(String messageId) {
+    final index = _displayMessages.indexWhere((m) => m.id == messageId);
+    if (index != -1) {
+      final message = _displayMessages[index];
+      _displayMessages[index] = message.copyWith(isFolded: !message.isFolded);
+      notifyListeners();
+    }
+  }
+
+  void toggleContextFold(String messageId) {
+    final index = _displayMessages.indexWhere((m) => m.id == messageId);
+    if (index != -1) {
+      final message = _displayMessages[index];
+      _displayMessages[index] = message.copyWith(isContextFolded: !message.isContextFolded);
+      notifyListeners();
+    }
+  }
 
   void stopStreaming() {
     _isLoading = false;
