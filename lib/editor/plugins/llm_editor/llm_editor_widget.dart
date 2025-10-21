@@ -601,116 +601,115 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Widget _buildChatInput() {
-    return Material(
-      elevation: 4.0,
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_contextItems.isNotEmpty)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.clear_all),
-                      tooltip: 'Clear Context',
-                      onPressed: _clearContext,
-                    ),
-                    Expanded(
-                      child: Scrollbar(
+Widget _buildChatInput() {
+  return Material(
+    elevation: 4.0,
+    color: Theme.of(context).scaffoldBackgroundColor,
+    child: Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_contextItems.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.clear_all),
+                    tooltip: 'Clear Context',
+                    onPressed: _clearContext,
+                  ),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _contextScrollController,
+                      child: SingleChildScrollView(
                         controller: _contextScrollController,
-                        child: SingleChildScrollView(
-                          controller: _contextScrollController,
-                          scrollDirection: Axis.horizontal,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: _contextItems.map((item) => ContextItemCard(
-                                item: item,
-                                onRemove: () {
-                                  setState(() => _contextItems.remove(item));
-                                  _updateComposingTokenCount();
-                                },
-                              )).toList(),
-                            ),
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: _contextItems.map((item) => ContextItemCard(
+                              item: item,
+                              onRemove: () {
+                                setState(() => _contextItems.remove(item));
+                                _updateComposingTokenCount();
+                              },
+                            )).toList(),
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    enabled: !_isLoading,
-                    keyboardType: TextInputType.multiline,
-                    maxLines: 5,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      hintText: 'Type your message...',
-                      border: const OutlineInputBorder(),
-                      // Tweak padding slightly for a balanced look.
-                      contentPadding: const EdgeInsets.fromLTRB(12, 10, 48, 10),
-                      // The suffix is now a more tightly controlled layout.
-                      suffix: SizedBox(
-                        // Set a specific width for the suffix area.
-                        width: 48,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // Use a SizedBox to constrain the IconButton's tap area
-                            // without adding visual padding.
-                            SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: IconButton(
-                                icon: const Icon(Icons.attachment),
-                                iconSize: 20, // Slightly smaller icon
-                                // Set padding to zero to make it flush.
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                tooltip: 'Add File Context',
-                                onPressed: _isLoading ? null : _showAddContextDialog,
-                              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  enabled: !_isLoading,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: 5,
+                  minLines: 1,
+                  decoration: InputDecoration(
+                    hintText: 'Type your message...',
+                    border: const OutlineInputBorder(),
+                    // Tweak content padding to be more balanced.
+                    contentPadding: const EdgeInsets.fromLTRB(12, 10, 48, 10),
+                    // Use suffixIcon to have better control over placement and padding.
+                    suffixIcon: Padding(
+                      // Add a little padding to the right to not be glued to the border.
+                      padding: const EdgeInsets.only(right: 2.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // IconButton still has a default 8.0 padding. Let's remove it.
+                          SizedBox(
+                            // Constrain the size to be just the icon.
+                            width: 24, 
+                            height: 24,
+                            child: IconButton(
+                              icon: const Icon(Icons.attachment),
+                              // Remove all internal padding.
+                              padding: EdgeInsets.zero,
+                              tooltip: 'Add File Context',
+                              onPressed: _isLoading ? null : _showAddContextDialog,
                             ),
-                            const SizedBox(height: 4), // Manual spacing
-                            Text(
-                              '~$_composingTokenCount tok',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
+                          ),
+                          // Add a small spacer.
+                          const SizedBox(height: 4),
+                          Text(
+                            '~$_composingTokenCount tok',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8.0),
-                IconButton(
-                  icon: Icon(_controller.isLoading ? Icons.stop_circle_outlined : Icons.send),
-                  tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
-                  onPressed: _controller.isLoading ? _stopGeneration : _sendMessage,
-                  color: _controller.isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(width: 8.0),
+              IconButton(
+                icon: Icon(_controller.isLoading ? Icons.stop_circle_outlined : Icons.send),
+                tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
+                onPressed: _controller.isLoading ? _stopGeneration : _sendMessage,
+                color: _controller.isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   void syncCommandContext() {}
