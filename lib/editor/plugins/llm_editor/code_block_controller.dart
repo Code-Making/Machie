@@ -1,10 +1,11 @@
 // FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
 
 import 'dart:async';
-import 'package.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
 import 'package:re_highlight/re_highlight.dart';
+import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart'; // For PathLinkBuilder
 
 // Payload for the isolate. This is a pure data class.
 class _HighlightPayload {
