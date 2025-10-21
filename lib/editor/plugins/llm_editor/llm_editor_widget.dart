@@ -23,11 +23,11 @@ import 'package:machine/project/services/project_hierarchy_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 
-// NEW IMPORTS for split files
 import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
 import 'package:machine/editor/plugins/llm_editor/chat_bubble.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_dialogs.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
+import 'package:machine/editor/plugins/llm_editor/streaming_chat_bubble.dart';
 
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
@@ -532,20 +532,30 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final displayMessage = messages[index];
-                      final bool isStreaming = isLoading && index == messages.length - 1;
-                      
-                      // THIS IS THE UPDATED INSTANTIATION
-                      return ChatBubble(
-                        key: ValueKey(displayMessage.id),
-                        displayMessage: displayMessage,
-                        isStreaming: isStreaming,
-                        onRerun: () => _rerun(index),
-                        onDelete: () => _delete(index),
-                        onDeleteAfter: () => _deleteAfter(index+1),
-                        onEdit: () => _showEditMessageDialog(index),
-                        onToggleFold: () => _controller.toggleMessageFold(displayMessage.id),
-                        onToggleContextFold: () => _controller.toggleContextFold(displayMessage.id),
-                      );
+                      // The condition for the swap is here
+                      final bool isStreamingAndLast = isLoading && index == messages.length - 1;
+
+                      // THE SWAP LOGIC
+                      if (isStreamingAndLast) {
+                        // Render the hyper-optimized placeholder
+                        return StreamingChatBubble(
+                          key: ValueKey(displayMessage.id), // The stable key is still important!
+                          content: displayMessage.message.content,
+                        );
+                      } else {
+                        // Render the final, fully-featured widget
+                        return ChatBubble(
+                          key: ValueKey(displayMessage.id),
+                          displayMessage: displayMessage,
+                          isStreaming: false, // It's never streaming if it's not the last one
+                          onRerun: () => _rerun(index),
+                          onDelete: () => _delete(index),
+                          onDeleteAfter: () => _deleteAfter(index + 1),
+                          onEdit: () => _showEditMessageDialog(index),
+                          onToggleFold: () => _controller.toggleMessageFold(displayMessage.id),
+                          onToggleContextFold: () => _controller.toggleContextFold(displayMessage.id),
+                        );
+                      }
                     },
                   ),
                 ),
