@@ -1,5 +1,3 @@
-// MODIFIED FILE: lib/editor/plugins/llm_editor/chat_bubble.dart
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -74,6 +72,8 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> with AutomaticKeepAlive
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     final isUser = widget.message.role == 'user';
     final theme = Theme.of(context);
     final roleText = isUser ? "User" : "Assistant";
