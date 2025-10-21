@@ -98,6 +98,9 @@ class CodeBlockController extends ChangeNotifier {
 
   bool _isFolded = false;
   Timer? _debounceTimer;
+  int _highlightGeneration = 0; // Generation counter to discard stale results
+
+  String getFullCode() => _codeLines.join('\n');
 
   TextSpan get displaySpan => TextSpan(
     style: textStyle,
@@ -120,53 +123,48 @@ class CodeBlockController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // *** REWRITTEN UPDATE LOGIC ***
   void updateCode(String newCode, {bool initial = false}) {
     final newLines = newCode.split('\n');
+    
+    // Immediately update UI with plain text for changed parts to avoid flicker.
+    // This is cheap and ensures responsiveness.
+    bool needsNotify = _codeLines.length != newLines.length;
     final newHighlightedLines = <TextSpan>[];
-    int firstDirtyLine = -1;
-    bool needsNotify = false;
-
-    // Build the new list of TextSpans, intelligently reusing old ones.
     for (int i = 0; i < newLines.length; i++) {
       if (i < _codeLines.length && newLines[i] == _codeLines[i]) {
-        // Line is UNCHANGED. Reuse the already highlighted TextSpan.
-        newHighlightedLines.add(_highlightedLines[i]);
+        newHighlightedLines.add(_highlightedLines[i]); // Reuse old span
       } else {
-        // Line is NEW or CHANGED. Use plain text for now.
-        newHighlightedLines.add(TextSpan(text: newLines[i]));
+        newHighlightedLines.add(TextSpan(text: newLines[i])); // New or changed line
         needsNotify = true;
-        if (firstDirtyLine == -1) {
-          firstDirtyLine = i;
-        }
       }
-    }
-
-    if (newLines.length != _codeLines.length) {
-        needsNotify = true;
     }
 
     _highlightedLines = newHighlightedLines;
     _codeLines = newLines;
 
     if (needsNotify && !initial) {
-      // Immediately show the new state with un-styled new/changed lines.
-      // Unchanged lines remain perfectly styled. NO FLICKER.
       notifyListeners();
     }
     
-    // If there's something to highlight, schedule the background work.
-    if (firstDirtyLine != -1 || initial) {
-        if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-        _debounceTimer = Timer(const Duration(milliseconds: 50), () {
-            // Use the last modified line for the streaming case
-            _runPartialHighlight(newLines.length - 1);
-        });
-    }
+    // Cancel any pending work and start a new, full highlighting pass in chunks.
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _highlightGeneration++; // Invalidate previous work
+    _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+      _processHighlightQueue(0, _highlightGeneration);
+    });
   }
 
-  Future<void> _runPartialHighlight(int dirtyLineIndex) async {
-    if (_codeLines.isEmpty) return;
+  // Asynchronously processes the entire code block in managed chunks.
+  void _processHighlightQueue(int startLine, int generation) async {
+    // If a new update came in, abandon this old work.
+    if (generation != _highlightGeneration || startLine >= _codeLines.length) {
+      return;
+    }
+
+    const int contextSize = 30;
+    const int chunkSize = contextSize * 2 + 1;
+    // The "dirty" line is the center of our processing window for this chunk.
+    final int dirtyLineIndex = startLine + contextSize;
 
     final payload = _PartialHighlightPayload(
       codeLines: _codeLines,
@@ -175,32 +173,36 @@ class CodeBlockController extends ChangeNotifier {
     );
 
     try {
-      final Map<int, _HighlightLineResult> result = await compute(_highlightPartialIsolate, payload);
-
+      final result = await compute(_highlightPartialIsolate, payload);
+      
+      // Check generation again after the await.
+      if (generation != _highlightGeneration) return;
+      
       bool didUpdate = false;
       for (final entry in result.entries) {
         final lineIndex = entry.key;
         if (lineIndex < _highlightedLines.length) {
-          // IMPORTANT: Check if the code for this line hasn't changed again
-          // while the isolate was running.
-          final lineContent = entry.value.nodes.map((n) => n.value).join();
-          if (_codeLines[lineIndex] == lineContent) {
-            _highlightedLines[lineIndex] = _renderNodesToSpan(entry.value.nodes);
-            didUpdate = true;
-          }
+          _highlightedLines[lineIndex] = _renderNodesToSpan(entry.value.nodes);
+          didUpdate = true;
         }
       }
 
       if (didUpdate) {
         notifyListeners();
       }
+
+      // Schedule the next chunk of work, yielding to the event loop.
+      Future.delayed(Duration.zero, () {
+        _processHighlightQueue(startLine + chunkSize, generation);
+      });
+
     } catch (e) {
-      debugPrint("Partial highlighting failed: $e");
+      debugPrint("Chunked highlighting failed: $e");
     }
   }
 
-  // All helper methods below are unchanged
-  TextSpan _renderNodesToSpan(List<_HighlightNode> nodes) {
+  // --- Helper Methods (unchanged) ---
+TextSpan _renderNodesToSpan(List<_HighlightNode> nodes) {
     if (nodes.isEmpty) return const TextSpan(text: '');
     return TextSpan(
       children: nodes.map((e) => TextSpan(
@@ -226,7 +228,6 @@ class CodeBlockController extends ChangeNotifier {
     }
     return result;
   }
-
   @override
   void dispose() {
     _debounceTimer?.cancel();
