@@ -14,6 +14,7 @@ class LlmEditorController extends ChangeNotifier {
 
   UnmodifiableListView<DisplayMessage> get messages => UnmodifiableListView(_displayMessages);
   bool get isLoading => _isLoading;
+  String? get editingMessageId => _editingMessageId; // NEW: Public getter.
 
 void startEditing(String messageId) {
     _editingMessageId = messageId;
