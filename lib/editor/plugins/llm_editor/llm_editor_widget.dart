@@ -536,7 +536,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                       // MODIFIED: We now always pass the full isStreaming status.
                       final bool isStreaming = isLoading && index == messages.length - 1;
                       return ChatBubble(
-                        key: ValueKey('chat_bubble_${displayMessage.message.hashCode}_$index'),
+                        key: ValueKey(displayMessage.id),
                         message: displayMessage.message,
                         headerKey: displayMessage.headerKey,
                         codeBlockKeys: displayMessage.codeBlockKeys,
