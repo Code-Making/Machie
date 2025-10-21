@@ -1,13 +1,10 @@
-// FILE: lib/editor/plugins/llm_editor/markdown_builders.dart
-
-import 'package:collection/collection.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_highlight/re_highlight.dart';
-import 'package:re_highlight/styles/default.dart'; // Just for defaultTheme if needed elsewhere
+import 'package:re_highlight/styles/default.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/services/editor_service.dart';
@@ -16,16 +13,13 @@ import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
-import 'package:flutter/foundation.dart';
-import 'package:machine/editor/plugins/llm_editor/code_block_controller.dart'; // NEW import
 
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;
-  // REMOVED: theme and textStyle are no longer needed here.
   int _codeBlockCounter = 0;
 
-  CodeBlockBuilder({required this.keys}); // MODIFIED
+  CodeBlockBuilder({required this.keys});
 
   @override
   Widget? visitElementAfterWithContext(
@@ -42,14 +36,12 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
       final String language = _parseLanguage(element);
       final key = (_codeBlockCounter < keys.length) ? keys[_codeBlockCounter] : GlobalKey();
       _codeBlockCounter++;
-      // *** FIX: Correctly instantiate CodeBlockWrapper with its new, simpler constructor ***
       return CodeBlockWrapper(
         key: key,
         code: text.trim(),
         language: language,
       );
     } else {
-      // Inline code rendering is now handled by PathLinkBuilder, but this is a safe fallback.
       final theme = Theme.of(context);
       final settings = ProviderScope.containerOf(context).read(settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -77,8 +69,7 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
 class CodeBlockWrapper extends ConsumerStatefulWidget {
   final String code;
   final String language;
-  // REMOVED: theme and textStyle are now passed to the controller
-  
+
   const CodeBlockWrapper({
     super.key,
     required this.code,
@@ -90,50 +81,54 @@ class CodeBlockWrapper extends ConsumerStatefulWidget {
 }
 
 class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
-  late final CodeBlockController _controller;
+  // State is now local to the widget's State object.
+  bool _isFolded = false;
+  late TextSpan _highlightedSpan;
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
-  }
-
-  void _initializeController() {
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
-    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 1);
-
-    _controller = CodeBlockController(
-      initialCode: widget.code,
-      language: widget.language,
-      theme: theme,
-      textStyle: textStyle
-    );
+    _highlightCode();
   }
 
   @override
   void didUpdateWidget(covariant CodeBlockWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code) {
-      _controller.updateCode(widget.code);
+      // If the code changes (e.g., message edit), re-highlight.
+      _highlightCode();
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void _toggleFold() {
+    setState(() {
+      _isFolded = !_isFolded;
+    });
   }
-  
+
+  void _highlightCode() {
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 1);
+
+    LlmHighlightUtil.ensureLanguagesRegistered();
+    final result = LlmHighlightUtil.highlight.highlight(
+      code: widget.code,
+      language: widget.language,
+    );
+    final renderer = TextSpanRenderer(textStyle, theme);
+    result.render(renderer);
+    _highlightedSpan = renderer.span ?? const TextSpan();
+  }
+
   TextSpan? _addLinksToBaseSpan(TextSpan? baseSpan) {
-    // ... implementation from previous step is unchanged ...
     final codeSettings = ref.read(settingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)) ?? CodeEditorSettings();
     final theme = CodeThemes.availableCodeThemes[codeSettings.themeName] ?? defaultTheme;
-
     final commentStyle = theme['comment'];
+
     if (baseSpan == null || commentStyle == null) {
       return baseSpan;
     }
@@ -142,12 +137,10 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
       if (span is! TextSpan) {
         return [span];
       }
-
       if (span.children?.isNotEmpty ?? false) {
         final newChildren = span.children!.expand((child) => walk(child)).toList();
         return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
       }
-
       if (span.style?.color == commentStyle.color) {
         return PathLinkBuilder._createLinkedSpansForText(
           text: span.text ?? '',
@@ -158,14 +151,20 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
       }
       return [span];
     }
-    return TextSpan(children: walk(baseSpan));
+    return TextSpan(style: baseSpan.style, children: walk(baseSpan));
   }
-
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+    final codeTheme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final codeBgColor = codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
     final theme = Theme.of(context);
-    final codeBgColor = _controller.theme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+
+    // Get the final, link-ified span.
+    final finalSpanWithLinks = _addLinksToBaseSpan(_highlightedSpan) ?? _highlightedSpan;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -195,39 +194,26 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
                   },
                 ),
                 IconButton(
-                  icon: Icon(_controller.isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
-                  tooltip: _controller.isFolded ? 'Unfold Code' : 'Fold Code',
-                  onPressed: () => _controller.toggleFold(),
+                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                  tooltip: _isFolded ? 'Unfold Code' : 'Fold Code',
+                  onPressed: _toggleFold, // Use the local method.
                 ),
               ],
             ),
           ),
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, child) {
-              final TextSpan displaySpan = _controller.displaySpan;
-              // Now, apply linkification to the full display span
-              final TextSpan finalSpanWithLinks = _addLinksToBaseSpan(displaySpan) ?? displaySpan;
-              
-              return AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: _controller.isFolded
-                  ? const SizedBox(width: double.infinity)
-                  : Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        // ** MODIFIED: Use the final span with links **
-                        child: SelectableText.rich(
-                          finalSpanWithLinks,
-                          style: _controller.textStyle,
-                        ),
-                      ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isFolded
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12.0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SelectableText.rich(finalSpanWithLinks),
                     ),
-              );
-            },
+                  ),
           ),
         ],
       ),
@@ -235,8 +221,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   }
 }
 
-/// A Markdown builder that decides whether to render a full code block
-/// or an inline code snippet with link detection.
+// DelegatingCodeBuilder and PathLinkBuilder are unchanged.
 class DelegatingCodeBuilder extends MarkdownElementBuilder {
   final WidgetRef ref;
   final CodeBlockBuilder codeBlockBuilder;
@@ -264,19 +249,16 @@ class DelegatingCodeBuilder extends MarkdownElementBuilder {
   }
 }
 
-/// A Markdown builder that finds and makes file paths tappable.
 class PathLinkBuilder extends MarkdownElementBuilder {
   final WidgetRef ref;
 
   PathLinkBuilder({required this.ref});
 
-  // Regex to find potential file paths. It looks for sequences of letters, numbers,
-  // underscores, hyphens, dots, and slashes, ending in a dot and a known extension.
   static final _pathRegex = RegExp(
-    r'([\w\-\/\\]+?\.' // Path parts
-    r'(' // Start of extensions group
-    '${CodeThemes.languageExtToNameMap.keys.join('|')}' // All known extensions
-    r'))', // End of extensions group
+    r'([\w\-\/\\]+?\.'
+    r'('
+    '${CodeThemes.languageExtToNameMap.keys.join('|')}'
+    r'))',
     caseSensitive: false,
   );
 
@@ -339,7 +321,6 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     final theme = Theme.of(context);
     final isInlineCode = element.tag == 'code';
 
-    // Determine the base style
     TextStyle baseStyle = parentStyle ?? theme.textTheme.bodyMedium!;
     if (isInlineCode) {
       baseStyle = baseStyle.copyWith(
@@ -347,7 +328,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
         backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
       );
     }
-    
+
     final spans = _createLinkedSpansForText(
       text: element.textContent,
       style: baseStyle,
