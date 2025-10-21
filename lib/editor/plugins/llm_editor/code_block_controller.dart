@@ -1,27 +1,33 @@
-// NEW FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
+// FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package.dart';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
 import 'package:re_highlight/re_highlight.dart';
-import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart'; // For PathLinkBuilder
 
-// Payload for the isolate
+// Payload for the isolate. This is a pure data class.
 class _HighlightPayload {
   final String code;
   final String language;
-
   _HighlightPayload(this.code, this.language);
 }
 
-// The top-level function to be executed in an isolate
-HighlightResult _highlightIsolate(_HighlightPayload payload) {
+// Data class to return from the isolate. Contains only Dart primitives.
+class _HighlightResultData {
+  final List<Object?> nodes;
+  _HighlightResultData(this.nodes);
+}
+
+// Top-level function for the isolate.
+// It performs the heavy lifting and returns pure data.
+_HighlightResultData _highlightIsolate(_HighlightPayload payload) {
   LlmHighlightUtil.ensureLanguagesRegistered();
-  return LlmHighlightUtil.highlight.highlight(
+  final result = LlmHighlightUtil.highlight.highlight(
     code: payload.code,
     language: payload.language,
   );
+  return _HighlightResultData(result.nodes ?? []);
 }
 
 
@@ -29,20 +35,35 @@ class CodeBlockController extends ChangeNotifier {
   final TextStyle textStyle;
   final Map<String, TextStyle> theme;
 
+  // The final TextSpan ready for the UI.
   TextSpan? _highlightedCode;
+  // The latest version of the code from the stream.
+  String _currentCode;
+  // The last version of the code we sent to be highlighted.
+  String? _lastProcessedCode;
+  
   bool _isFolded = false;
-  Timer? _debounceTimer;
+  // A periodic timer acting as a throttle.
+  Timer? _throttleTimer;
+  // Flag to prevent multiple concurrent highlight operations.
+  bool _isHighlighting = false;
+  // How often we should update the highlighting during a stream.
+  static const _throttleDuration = Duration(milliseconds: 250);
+
 
   CodeBlockController({
     required String initialCode,
-    required String language,
+    required this.language,
     required this.textStyle,
     required this.theme,
-  }) {
-    // Perform initial highlighting immediately.
-    _updateHighlight(initialCode, language);
+  }) : _currentCode = initialCode {
+    // Perform initial highlighting immediately, not throttled.
+    _runHighlight();
   }
   
+  // Stored language to avoid passing it on every update.
+  final String language;
+
   TextSpan? get highlightedCode => _highlightedCode;
   bool get isFolded => _isFolded;
   
@@ -51,38 +72,58 @@ class CodeBlockController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateCode(String newCode, String language) {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
-      _updateHighlight(newCode, language);
-    });
+  /// Called frequently by the widget when new code streams in.
+  void updateCode(String newCode) {
+    _currentCode = newCode;
+    // If the throttle timer isn't running, start it.
+    _throttleTimer ??= Timer.periodic(_throttleDuration, _onThrottleTick);
   }
 
-  Future<void> _updateHighlight(String code, String language) async {
-    final payload = _HighlightPayload(code, language);
+  // The throttle callback.
+  void _onThrottleTick(Timer timer) {
+    // If there's new code to process and we're not already busy, run the highlight.
+    if (_currentCode != _lastProcessedCode && !_isHighlighting) {
+      _runHighlight();
+    }
+  }
+
+  Future<void> _runHighlight() async {
+    // If we're already highlighting, do nothing.
+    if (_isHighlighting) return;
+
+    _isHighlighting = true;
+    _lastProcessedCode = _currentCode;
+    final codeToProcess = _currentCode;
+
+    final payload = _HighlightPayload(codeToProcess, language);
 
     try {
-      // Run the expensive highlighting in a background isolate
-      final HighlightResult result = await compute(_highlightIsolate, payload);
+      final _HighlightResultData resultData = await compute(_highlightIsolate, payload);
 
-      // Render the result back into a TextSpan on the main thread
-      final renderer = TextSpanRenderer(textStyle, theme);
-      result.render(renderer);
-      
-      _highlightedCode = renderer.span;
-      
+      // Only update if the code we processed is still the latest version.
+      // This prevents a slow highlight from overwriting a newer, faster one.
+      if (codeToProcess == _currentCode) {
+        final renderer = TextSpanRenderer(textStyle, theme);
+        // Re-construct the HighlightResult on the main thread
+        final result = HighlightResult(nodes: resultData.nodes);
+        result.render(renderer);
+        
+        _highlightedCode = renderer.span;
+        notifyListeners();
+      }
     } catch (e) {
-      // Fallback to plain text on error
-      _highlightedCode = TextSpan(text: code, style: textStyle);
+      debugPrint("Highlighting failed: $e");
+      // Fallback to plain text on error.
+      _highlightedCode = TextSpan(text: codeToProcess, style: textStyle);
+      notifyListeners();
+    } finally {
+      _isHighlighting = false;
     }
-    
-    // Notify listeners that the new TextSpan is ready
-    notifyListeners();
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
+    _throttleTimer?.cancel();
     super.dispose();
   }
 }
