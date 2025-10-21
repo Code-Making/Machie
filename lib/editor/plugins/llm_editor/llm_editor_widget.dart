@@ -487,7 +487,6 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       children: [
         _buildTopBar(),
         Expanded(
-          // REFACTORED: The core of the optimization
           child: ListenableBuilder(
             listenable: _controller,
             builder: (context, child) {
@@ -533,18 +532,19 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final displayMessage = messages[index];
-                      // MODIFIED: We now always pass the full isStreaming status.
                       final bool isStreaming = isLoading && index == messages.length - 1;
+                      
+                      // THIS IS THE UPDATED INSTANTIATION
                       return ChatBubble(
                         key: ValueKey(displayMessage.id),
-                        message: displayMessage.message,
-                        headerKey: displayMessage.headerKey,
-                        codeBlockKeys: displayMessage.codeBlockKeys,
+                        displayMessage: displayMessage,
                         isStreaming: isStreaming,
                         onRerun: () => _rerun(index),
                         onDelete: () => _delete(index),
                         onDeleteAfter: () => _deleteAfter(index+1),
                         onEdit: () => _showEditMessageDialog(index),
+                        onToggleFold: () => _controller.toggleMessageFold(displayMessage.id),
+                        onToggleContextFold: () => _controller.toggleContextFold(displayMessage.id),
                       );
                     },
                   ),
