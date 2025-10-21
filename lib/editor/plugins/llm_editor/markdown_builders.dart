@@ -117,7 +117,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   void didUpdateWidget(covariant CodeBlockWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.code != oldWidget.code) {
-      _controller.updateCode(widget.code, widget.language);
+      _controller.updateCode(widget.code);
     }
   }
 

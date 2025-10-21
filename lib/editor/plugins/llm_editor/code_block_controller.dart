@@ -1,7 +1,7 @@
 // MODIFIED FILE: lib/editor/plugins/llm_editor/code_block_controller.dart
 
 import 'dart:async';
-import 'package.dart';
+import 'dart:math'; // *** FIX: Import dart:math for max() and min() ***
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
