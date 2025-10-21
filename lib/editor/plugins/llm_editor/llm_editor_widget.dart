@@ -606,99 +606,86 @@ Widget _buildChatInput() {
     elevation: 4.0,
     color: Theme.of(context).scaffoldBackgroundColor,
     child: Padding(
+      // The main padding for the whole input area.
       padding: const EdgeInsets.all(8.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The context pills area remains largely the same.
           if (_contextItems.isNotEmpty)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 120),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.clear_all),
-                    tooltip: 'Clear Context',
-                    onPressed: _clearContext,
-                  ),
-                  Expanded(
-                    child: Scrollbar(
-                      controller: _contextScrollController,
-                      child: SingleChildScrollView(
-                        controller: _contextScrollController,
-                        scrollDirection: Axis.horizontal,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: _contextItems.map((item) => ContextItemCard(
-                              item: item,
-                              onRemove: () {
-                                setState(() => _contextItems.remove(item));
-                                _updateComposingTokenCount();
-                              },
-                            )).toList(),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                // 1. Use a Stack to overlay the suffix on the TextField.
-                child: Stack(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: Row(
                   children: [
-                    TextField(
-                      controller: _textController,
-                      enabled: !_isLoading,
-                      keyboardType: TextInputType.multiline,
-                      maxLines: 5,
-                      minLines: 1,
-                      decoration: InputDecoration(
-                        hintText: 'Type your message...',
-                        border: const OutlineInputBorder(),
-                        // 2. Add padding on the right to create a "dead zone"
-                        // where the text will not draw, leaving space for the suffix.
-                        contentPadding: const EdgeInsets.fromLTRB(12, 10, 64, 10),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.clear_all),
+                      tooltip: 'Clear Context',
+                      onPressed: _clearContext,
                     ),
-                    // 3. Use Positioned to anchor the suffix to the bottom-right.
-                    Positioned(
-                      bottom: 10,
-                      right: 12,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: IconButton(
-                              icon: const Icon(Icons.attachment),
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Add File Context',
-                              onPressed: _isLoading ? null : _showAddContextDialog,
+                    Expanded(
+                      child: Scrollbar(
+                        controller: _contextScrollController,
+                        child: SingleChildScrollView(
+                          controller: _contextScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: _contextItems.map((item) => ContextItemCard(
+                                item: item,
+                                onRemove: () {
+                                  setState(() => _contextItems.remove(item));
+                                  _updateComposingTokenCount();
+                                },
+                              )).toList(),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '~$_composingTokenCount tok',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8.0),
+            ),
+          
+          // The TextField now takes full width, with a simple decoration.
+          TextField(
+            controller: _textController,
+            enabled: !_isLoading,
+            keyboardType: TextInputType.multiline,
+            maxLines: 5,
+            minLines: 1,
+            decoration: const InputDecoration(
+              hintText: 'Type your message...',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+            ),
+          ),
+
+          // A small spacer between the text field and the controls below.
+          const SizedBox(height: 8.0),
+
+          // The new row for all controls.
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.attachment),
+                tooltip: 'Add File Context',
+                onPressed: _isLoading ? null : _showAddContextDialog,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  '~$_composingTokenCount tok',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const Spacer(), // Pushes the send button to the far right.
               IconButton(
                 icon: Icon(_controller.isLoading ? Icons.stop_circle_outlined : Icons.send),
                 tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
