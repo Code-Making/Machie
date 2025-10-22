@@ -32,7 +32,8 @@ import '../../../editor/plugins/editor_command_context.dart'; // <-- IMPORT NEW 
 import '../../../editor/services/editor_service.dart';
 import '../../../editor/services/text_editing_capability.dart';
 import '../../../data/repositories/project_repository.dart';
-
+import '../../../utils/toast.dart'; // <-- FIX: ADDED IMPORT
+import '../../../logs/logs_provider.dart'; // <-- FIX: ADDED IMPORT
 
 
 class CodeEditorPlugin extends EditorPlugin {
@@ -131,7 +132,7 @@ class CodeEditorPlugin extends EditorPlugin {
           final importString = "import '$relativePath';\n";
 
           final activeEditorState = activeTab.editorKey.currentState;
-          if (activeEditorState is TextEditable) {
+          if (activeEditorState != null && activeEditorState is TextEditable) {
             activeEditorState.replaceLines(0, 0, importString);
           } else {
             MachineToast.error('Active editor does not support text edits.');
