@@ -137,7 +137,8 @@ class CodeEditorPlugin extends EditorPlugin {
             return;
           }
           if (activeEditorState is TextEditable) {
-            activeEditorState!.replaceLines(0, 0, importString);
+            final editableState = activeEditorState as TextEditable;
+            editableState!.replaceLines(0, 0, importString);
           } else {
             MachineToast.error('Active editor does not support text edits.');
           }
