@@ -26,6 +26,7 @@ import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
 import 'package:machine/utils/toast.dart';
 import '../../services/text_editing_capability.dart';
 import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../data/repositories/project_repository.dart';
 
 // 1. Define a helper class to parse the structured JSON response.
 @immutable
