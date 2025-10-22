@@ -23,6 +23,7 @@ import 'package:machine/project/project_models.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
+import 'package:machine/utils/toast.dart';
 
 // 1. Define a helper class to parse the structured JSON response.
 @immutable
