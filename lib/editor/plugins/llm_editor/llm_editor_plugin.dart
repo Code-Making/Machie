@@ -230,63 +230,65 @@ class LlmEditorPlugin extends EditorPlugin {
         return context.hasSelection;
       },
       execute: (ref, textEditable) async {
-        final selectedText = await textEditable.getSelectedText();
-        if (selectedText.isEmpty) return;
-        
-        final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context == null || !context.mounted) return;
+        // 1. Keep the provider alive for the duration of this command.
+        final link = ref.keepAlive();
+        // We'll use a Timer to automatically close the link after a timeout,
+        // just in case something goes wrong.
+        final timer = Timer(const Duration(minutes: 2), () {
+          link.close();
+        });
 
-        final project = ref.read(appNotifierProvider).value!.currentProject!;
-        final activeTab = project.session.currentTab!;
-        final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-        final repo = ref.read(projectRepositoryProvider)!;
+        try {
+          final selectedText = await textEditable.getSelectedText();
+          if (selectedText.isEmpty) return; // No need to continue if nothing is selected
 
-        // 2. Get the display path of the file relative to the project root
-        final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+          final context = ref.read(navigatorKeyProvider).currentContext;
+          if (context == null || !context.mounted) return;
 
-        // 1. Ask the user for their modification instructions.
-        final userPrompt = await showTextInputDialog(
-          context,
-          title: 'Refactor Selection',
-        );
+          final userPrompt = await showTextInputDialog(
+            context,
+            title: 'Refactor Selection',
+          );
 
-        if (userPrompt == null || userPrompt.trim().isEmpty) {
-          return; // User cancelled.
-        }
+          if (userPrompt == null || userPrompt.trim().isEmpty) {
+            return; // User cancelled
+          }
 
-        // 2. Show a loading indicator to the user.
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => const PopScope(
-            canPop: false,
-            child: AlertDialog(
-              content: Row(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: 24),
-                  Text("Applying AI modification..."),
-                ],
+          // Show loading dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const PopScope(
+              canPop: false,
+              child: AlertDialog(
+                content: Row(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(width: 24),
+                    Text("Applying AI modification..."),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
+          );
         
-        try {
-          // v-- AUGMENT THE PROMPT SENT TO THE LLM --v
+          final project = ref.read(appNotifierProvider).value!.currentProject!;
+          final activeTab = project.session.currentTab!;
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+          final repo = ref.read(projectRepositoryProvider)!;
+          final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+
           final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
                              '\n\nUser instructions: "$userPrompt"'
                              '\n\nHere is the code selection to modify:';
-          // ^-- END OF AUGMENTATION --^
-
+          
           final modifiedText = await LlmEditorPlugin.applyModification(
             ref,
-            // Pass the new, more detailed prompt
             prompt: fullPrompt,
             inputText: selectedText,
           );
           
-          if (context.mounted) Navigator.of(context).pop();
+          if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
 
           if (modifiedText != selectedText) {
             textEditable.replaceSelection(modifiedText);
@@ -294,9 +296,17 @@ class LlmEditorPlugin extends EditorPlugin {
             MachineToast.info("AI did not suggest any changes.");
           }
         } catch (e) {
-          // Ensure the dialog is closed even on error.
-          if (context.mounted) Navigator.of(context).pop();
-          MachineToast.error("An unexpected error occurred.");
+          // In case of any error, ensure the loading dialog is closed.
+          final context = ref.read(navigatorKeyProvider).currentContext;
+          if (context != null && context.mounted && Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+          }
+          MachineToast.error("An unexpected error occurred during refactor.");
+          ref.read(talkerProvider).handle(e, StackTrace.current, "[LlmRefactorCommand]");
+        } finally {
+          // 2. IMPORTANT: Close the link and cancel the timer when the operation is complete.
+          timer.cancel();
+          link.close();
         }
       },
     ),
