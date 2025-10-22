@@ -305,7 +305,7 @@ class GeminiProvider implements LlmProvider {
     }
 
     final client = http.Client();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/${model.name}:generateContent');
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent');
     final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
 
     final body = jsonEncode({
