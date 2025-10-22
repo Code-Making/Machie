@@ -28,22 +28,6 @@ import '../../services/text_editing_capability.dart';
 import '../../../explorer/common/file_explorer_dialogs.dart';
 import '../../../data/repositories/project_repository.dart';
 
-// 1. Define a helper class to parse the structured JSON response.
-@immutable
-class _StructuredModificationResponse {
-  final String modifiedText;
-  final String? explanation;
-
-  const _StructuredModificationResponse({required this.modifiedText, this.explanation});
-
-  factory _StructuredModificationResponse.fromJson(Map<String, dynamic> json) {
-    return _StructuredModificationResponse(
-      modifiedText: json['modifiedText'] as String? ?? '',
-      explanation: json['explanation'] as String?,
-    );
-  }
-}
-
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
@@ -83,47 +67,49 @@ class LlmEditorPlugin extends EditorPlugin {
       return inputText;
     }
 
-    if (settings.selectedProviderId == 'dummy') {
-      // Return a mock response for testing.
-      return "/* This model is for testing. Your prompt was: '$prompt' */\n\n$inputText";
-    }
-    
     final model = settings.selectedModels[settings.selectedProviderId];
     if (model == null) {
       MachineToast.error('No LLM model selected. Please configure one in the settings.');
       return inputText;
     }
 
-    // Use the provider factory to get a correctly configured provider instance.
     final provider = ref.read(llmServiceProvider);
-
-    final responseSchema = {
-      'type': 'OBJECT',
-      'properties': {
-        'modifiedText': {'type': 'STRING'},
-        'explanation': {'type': 'STRING'},
-      },
-      'required': ['modifiedText']
-    };
-
-    final fullPrompt = '$prompt\n\nHere is the text to modify:\n\n---\n$inputText\n---';
+    
+    // We add a system instruction to the prompt to guide the model's output.
+    final fullPrompt = 'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
+                       'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
+                       '\n\nUser instructions: "$prompt"'
+                       '\n\nHere is the code to modify:\n\n---\n$inputText\n---';
     
     try {
-      final jsonString = await provider.generateStructuredResponse(
+      final rawResponse = await provider.generateSimpleResponse(
         prompt: fullPrompt,
         model: model,
-        responseSchema: responseSchema,
       );
 
-      final parsedResponse = _StructuredModificationResponse.fromJson(jsonDecode(jsonString));
-      
-      return parsedResponse.modifiedText;
+      // Now, parse the response to extract code blocks.
+      return _extractCodeFromMarkdown(rawResponse) ?? inputText;
 
     } catch (e) {
       MachineToast.error('Failed to apply modification: $e');
-      // On failure, return the original text so no data is lost.
-      return inputText;
+      return inputText; // Return original text on failure.
     }
+  }
+
+  /// Extracts code from markdown code blocks in a string.
+  /// If multiple blocks are found, they are concatenated.
+  static String? _extractCodeFromMarkdown(String markdown) {
+    final codeBlockRegex = RegExp(r'```(?:[a-zA-Z]+)?\n([\s\S]*?)```');
+    final matches = codeBlockRegex.allMatches(markdown);
+
+    if (matches.isEmpty) {
+      // As a fallback, if no fenced code blocks are found,
+      // return the whole string trimmed, assuming the model obeyed the prompt.
+      final trimmed = markdown.trim();
+      return trimmed.isNotEmpty ? trimmed : null;
+    }
+
+    return matches.map((match) => match.group(1)?.trim()).where((code) => code != null).join('\n');
   }
 
   @override
@@ -240,11 +226,7 @@ class LlmEditorPlugin extends EditorPlugin {
       defaultPositions: [AppCommandPositions.pluginToolbar], 
       sourcePlugin: id, // The command originates from the LLM plugin.
       canExecute: (ref, context) {
-        // This command is only active if:
-        // 1. There is text selected.
-        // 2. A real LLM provider is configured (not the dummy one).
-        final settings = ref.watch(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
-        return context.hasSelection && (settings != null && settings.selectedProviderId != 'dummy');
+        return context.hasSelection;
       },
       execute: (ref, textEditable) async {
         final selectedText = await textEditable.getSelectedText();
