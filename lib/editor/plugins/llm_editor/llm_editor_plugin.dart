@@ -80,9 +80,9 @@ class LlmEditorPlugin extends EditorPlugin {
       return inputText;
     }
 
-    // Handle the dummy model case as requested.
     if (settings.selectedProviderId == 'dummy') {
-      return "This model is for testing, switch to an actual model for a response";
+      // Return a mock response for testing.
+      return "/* This model is for testing. Your prompt was: '$prompt' */\n\n$inputText";
     }
     
     final model = settings.selectedModels[settings.selectedProviderId];
@@ -91,19 +91,9 @@ class LlmEditorPlugin extends EditorPlugin {
       return inputText;
     }
 
-    // Temporarily create a provider instance based on current settings.
-    final apiKey = settings.apiKeys[settings.selectedProviderId] ?? '';
-    final LlmProvider provider;
-    switch (settings.selectedProviderId) {
-      case 'gemini':
-        provider = GeminiProvider(apiKey);
-        break;
-      default:
-        // This case should be unreachable due to the dummy check above.
-        return inputText;
-    }
+    // Use the provider factory to get a correctly configured provider instance.
+    final provider = ref.read(llmServiceProvider);
 
-    // Define the JSON schema for the expected output.
     final responseSchema = {
       'type': 'OBJECT',
       'properties': {
@@ -113,7 +103,6 @@ class LlmEditorPlugin extends EditorPlugin {
       'required': ['modifiedText']
     };
 
-    // Construct the full prompt for the model.
     final fullPrompt = '$prompt\n\nHere is the text to modify:\n\n---\n$inputText\n---';
     
     try {
@@ -125,13 +114,11 @@ class LlmEditorPlugin extends EditorPlugin {
 
       final parsedResponse = _StructuredModificationResponse.fromJson(jsonDecode(jsonString));
       
-      // We only return the modified text as per the function's contract.
-      // The explanation is available if you need to log or display it.
       return parsedResponse.modifiedText;
 
     } catch (e) {
       MachineToast.error('Failed to apply modification: $e');
-      // On failure, return the original text to prevent data loss.
+      // On failure, return the original text so no data is lost.
       return inputText;
     }
   }
@@ -241,6 +228,79 @@ class LlmEditorPlugin extends EditorPlugin {
       sourcePlugin: id,
       execute: (ref) async => _getActiveEditorState(ref)?.jumpToPreviousTarget(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
+    ),
+    BaseTextEditableCommand(
+      id: 'llm_refactor_selection',
+      label: 'Refactor Selection',
+      icon: const Icon(Icons.auto_awesome),
+      // We want this button to appear on the Code Editor's selection toolbar.
+      defaultPositions: [CodeEditorPlugin.selectionToolbar], 
+      sourcePlugin: id, // The command originates from the LLM plugin.
+      canExecute: (ref, context) {
+        // This command is only active if:
+        // 1. There is text selected.
+        // 2. A real LLM provider is configured (not the dummy one).
+        final settings = ref.watch(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+        return context.hasSelection && (settings != null && settings.selectedProviderId != 'dummy');
+      },
+      execute: (ref, textEditable) async {
+        final selectedText = await textEditable.getSelectedText();
+        if (selectedText.isEmpty) return;
+        
+        final context = ref.read(navigatorKeyProvider).currentContext;
+        if (context == null || !context.mounted) return;
+
+        // 1. Ask the user for their modification instructions.
+        final userPrompt = await showTextInputDialog(
+          context,
+          title: 'Refactor Selection',
+        );
+
+        if (userPrompt == null || userPrompt.trim().isEmpty) {
+          return; // User cancelled.
+        }
+
+        // 2. Show a loading indicator to the user.
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const PopScope(
+            canPop: false,
+            child: AlertDialog(
+              content: Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 24),
+                  Text("Applying AI modification..."),
+                ],
+              ),
+            ),
+          ),
+        );
+        
+        try {
+          // 3. Call our static logic function.
+          final modifiedText = await LlmEditorPlugin.applyModification(
+            ref,
+            prompt: userPrompt,
+            inputText: selectedText,
+          );
+          
+          // 4. Close the loading dialog.
+          if (context.mounted) Navigator.of(context).pop();
+
+          // 5. Use the TextEditable interface to replace the selection.
+          if (modifiedText != selectedText) {
+            textEditable.replaceSelection(modifiedText);
+          } else {
+            MachineToast.info("AI did not suggest any changes.");
+          }
+        } catch (e) {
+          // Ensure the dialog is closed even on error.
+          if (context.mounted) Navigator.of(context).pop();
+          MachineToast.error("An unexpected error occurred.");
+        }
+      },
     ),
   ];
 
