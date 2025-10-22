@@ -95,8 +95,6 @@ class LlmEditorPlugin extends EditorPlugin {
     } catch (e) {
       MachineToast.error('Failed to apply modification: $e');
       return inputText; // Return original text on failure.
-    } finally {
-      provider.dispose();
     }
   }
 
@@ -240,7 +238,10 @@ class LlmEditorPlugin extends EditorPlugin {
           final context = ref.read(navigatorKeyProvider).currentContext;
           if (context == null || !context.mounted) return;
 
-          final userPrompt = await showTextInputDialog( /* ... */ );
+          final userPrompt = await showTextInputDialog(
+            context,
+            title: 'Refactor Selection',
+          );
           if (userPrompt == null || userPrompt.trim().isEmpty) return;
 
           showDialog(
