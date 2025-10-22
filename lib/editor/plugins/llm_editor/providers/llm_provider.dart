@@ -18,10 +18,9 @@ abstract class LlmProvider {
     required LlmModelInfo model,
   });
   
-  Future<String> generateStructuredResponse({
+  Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
-    required Map<String, dynamic> responseSchema,
   });
 
   Future<int> countTokens({
@@ -82,61 +81,18 @@ class DummyProvider implements LlmProvider {
   }
   
   @override
-  Future<String> generateStructuredResponse({
+  Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
-    required Map<String, dynamic> responseSchema,
   }) async {
-    // This helper builds a dummy JSON object based on the schema's properties.
-    final dummyResponseObject = _createDummyObjectFromSchema(responseSchema);
-    
-    // As per the request, the dummy model's response should be a specific message.
-    // We will inject this message into the 'modifiedText' field if it exists in the schema.
-    final properties = responseSchema['properties'] as Map<String, dynamic>?;
-    if (properties != null && properties.containsKey('modifiedText')) {
-      dummyResponseObject['modifiedText'] = "This model is for testing, switch to an actual model for a response";
-    }
-
-    // Return the correctly formatted JSON string.
-    return jsonEncode(dummyResponseObject);
-  }
-
-  /// A simple recursive helper to generate a dummy object from a JSON schema.
-  Map<String, dynamic> _createDummyObjectFromSchema(Map<String, dynamic> schema) {
-    final Map<String, dynamic> dummyObject = {};
-    final properties = schema['properties'] as Map<String, dynamic>?;
-
-    if (properties != null) {
-      for (final entry in properties.entries) {
-        final key = entry.key;
-        final propSchema = entry.value as Map<String, dynamic>;
-        final type = propSchema['type'] as String?;
-
-        switch (type) {
-          case 'STRING':
-            dummyObject[key] = 'dummy string for $key';
-            break;
-          case 'INTEGER':
-            dummyObject[key] = 0;
-            break;
-          case 'NUMBER':
-            dummyObject[key] = 0.0;
-            break;
-          case 'BOOLEAN':
-            dummyObject[key] = false;
-            break;
-          case 'ARRAY':
-            dummyObject[key] = [];
-            break;
-          case 'OBJECT':
-            dummyObject[key] = _createDummyObjectFromSchema(propSchema);
-            break;
-          default:
-            dummyObject[key] = null;
-        }
-      }
-    }
-    return dummyObject;
+    // Simulate a markdown response for testing the parser.
+    return Future.value(
+      "Sure, here is the modified code block as requested:\n\n"
+      "```dart\n"
+      "/* This model is for testing. Your prompt was: '$prompt' */\n"
+      "```\n\n"
+      "I hope this helps!"
+    );
   }
 }
 
@@ -229,71 +185,53 @@ class GeminiProvider implements LlmProvider {
   }
 
 
-  // MODIFIED: Full implementation for the new stream type
   @override
-  Stream<LlmResponseEvent> generateResponse({
-    required List<ChatMessage> conversation,
+  Future<String> generateSimpleResponse({
+    required String prompt,
     required LlmModelInfo model,
-  }) async* {
-    if (_apiKey.isEmpty) { 
-      yield LlmError('Error: Google Gemini API key is not set in the plugin settings.');
-      return;
+  }) async {
+    if (_apiKey.isEmpty) {
+      throw Exception('Google Gemini API key is not set.');
     }
 
     final client = http.Client();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:streamGenerateContent?alt=sse');
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent');
     final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
 
-    // MODIFIED: Build contents from the entire conversation directly
-    final contents = _buildContents(conversation);
-    final body = jsonEncode({'contents': contents});
+    // Note: We are no longer sending 'responseSchema'.
+    final body = jsonEncode({
+      'contents': [{ 'parts': [{'text': prompt}] }],
+      'generationConfig': {
+        // We can keep this to encourage JSON-like output, but we won't rely on it.
+        'responseMimeType': 'text/plain',
+      }
+    });
 
     try {
-      final request = http.Request('POST', uri)
-        ..headers.addAll(headers)
-        ..body = body;
+      final response = await client.post(uri, headers: headers, body: body);
 
-      final response = await client.send(request);
-
-      if (response.statusCode != 200) {
-        final errorBody = await response.stream.bytesToString();
-        yield LlmError('API Error (${response.statusCode}): $errorBody');
-        return;
-      }
-
-      await for (final chunk in response.stream.transform(utf8.decoder)) {
-        final lines = chunk.split('\n').where((line) => line.isNotEmpty);
-        for (final line in lines) {
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6);
-            final json = jsonDecode(data);
-
-            final textContent = json['candidates']?[0]?['content']?['parts']?[0]?['text'];
-            if (textContent != null) {
-              yield LlmTextChunk(textContent as String);
-            }
-            
-            final usageMetadata = json['usageMetadata'];
-            if (usageMetadata != null) {
-              yield LlmResponseMetadata(
-                promptTokenCount: usageMetadata['promptTokenCount'] as int? ?? 0,
-                responseTokenCount: usageMetadata['candidatesTokenCount'] as int? ?? 0,
-              );
-            }
-
-            final promptFeedback = json['promptFeedback'];
-            if (promptFeedback != null && promptFeedback['blockReason'] != null) {
-                yield LlmError('Prompt blocked due to: ${promptFeedback['blockReason']}');
-            }
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        // Extract the plain text response which should contain markdown.
+        final content = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        if (content != null) {
+          return content as String;
+        } else {
+          // Check for blocked content
+          final blockReason = jsonResponse['promptFeedback']?['blockReason'];
+          if (blockReason != null) {
+            throw Exception('Prompt was blocked by the API: $blockReason');
           }
+          throw Exception('Invalid response structure from Gemini API.');
         }
+      } else {
+        throw Exception('API Error (${response.statusCode}): ${response.body}');
       }
-    } catch (e) {
-      yield LlmError('Network Error: Failed to connect to Google Gemini API. $e');
     } finally {
       client.close();
     }
   }
+
 @override
   Future<String> generateStructuredResponse({
     required String prompt,
