@@ -4,30 +4,31 @@
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/command/command_models.dart';
-import 'package:machine/data/cache/type_adapters.dart';
-import 'package:machine/data/dto/tab_hot_state_dto.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/editor/editor_tab_models.dart';
-import 'package:machine/editor/plugins/plugin_models.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_settings_widget.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_widget.dart';
-import 'package:machine/editor/services/editor_service.dart';
-import 'package:machine/editor/tab_state_manager.dart';
-import 'package:machine/project/project_models.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
-import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
-import 'package:machine/utils/toast.dart';
-import '../../services/text_editing_capability.dart';
-import '../../../explorer/common/file_explorer_dialogs.dart';
-import '../../../data/repositories/project_repository.dart';
 
+import '../../../app/app_notifier.dart';
+import '../../../command/command_models.dart';
+import '../../../data/cache/type_adapters.dart';
+import '../../../data/dto/tab_hot_state_dto.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../project/project_models.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+import '../../editor_tab_models.dart';
+import '../../services/editor_service.dart';
+import '../../services/text_editing_capability.dart';
+import '../../tab_state_manager.dart';
+import '../plugin_models.dart';
+import 'llm_editor_hot_state.dart';
+import 'llm_editor_models.dart';
+import 'llm_editor_settings_widget.dart';
+import 'llm_editor_widget.dart';
+import 'providers/llm_provider.dart';
+import 'providers/llm_provider_factory.dart';
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
