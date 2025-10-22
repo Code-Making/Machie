@@ -252,6 +252,14 @@ class LlmEditorPlugin extends EditorPlugin {
         final context = ref.read(navigatorKeyProvider).currentContext;
         if (context == null || !context.mounted) return;
 
+        final project = ref.read(appNotifierProvider).value!.currentProject!;
+        final activeTab = project.session.currentTab!;
+        final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+        final repo = ref.read(projectRepositoryProvider)!;
+
+        // 2. Get the display path of the file relative to the project root
+        final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+
         // 1. Ask the user for their modification instructions.
         final userPrompt = await showTextInputDialog(
           context,
@@ -281,17 +289,21 @@ class LlmEditorPlugin extends EditorPlugin {
         );
         
         try {
-          // 3. Call our static logic function.
+          // v-- AUGMENT THE PROMPT SENT TO THE LLM --v
+          final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
+                             '\n\nUser instructions: "$userPrompt"'
+                             '\n\nHere is the code selection to modify:';
+          // ^-- END OF AUGMENTATION --^
+
           final modifiedText = await LlmEditorPlugin.applyModification(
             ref,
-            prompt: userPrompt,
+            // Pass the new, more detailed prompt
+            prompt: fullPrompt,
             inputText: selectedText,
           );
           
-          // 4. Close the loading dialog.
           if (context.mounted) Navigator.of(context).pop();
 
-          // 5. Use the TextEditable interface to replace the selection.
           if (modifiedText != selectedText) {
             textEditable.replaceSelection(modifiedText);
           } else {
