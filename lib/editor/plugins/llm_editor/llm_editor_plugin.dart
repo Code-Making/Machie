@@ -31,6 +31,58 @@ import 'providers/llm_provider.dart';
 import 'providers/llm_provider_factory.dart';
 import '../../../logs/logs_provider.dart';
 
+@immutable
+class LlmModificationRequest {
+  final String prompt;
+  final String inputText;
+
+  const LlmModificationRequest({required this.prompt, required this.inputText});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LlmModificationRequest &&
+          runtimeType == other.runtimeType &&
+          prompt == other.prompt &&
+          inputText == other.inputText;
+
+  @override
+  int get hashCode => prompt.hashCode ^ inputText.hashCode;
+}
+
+final llmModificationProvider = FutureProvider.autoDispose
+    .family<String, LlmModificationRequest>((ref, request) async {
+  // This provider encapsulates the entire async "use case".
+  // Because it's a FutureProvider, Riverpod will automatically keep its
+  // dependencies (like llmServiceProvider) alive until the future completes.
+
+  final settings = ref.watch(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+  if (settings == null) {
+    throw Exception('LLM settings are not configured.');
+  }
+
+  final model = settings.selectedModels[settings.selectedProviderId];
+  if (model == null) {
+    throw Exception('No LLM model selected. Please configure one in the settings.');
+  }
+
+  // Here, we read the auto-disposing provider. Riverpod ensures it stays
+  // alive because this FutureProvider is actively being awaited.
+  final provider = ref.watch(llmServiceProvider);
+
+  final fullPrompt = 'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
+                     'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
+                     '\n\nUser instructions: "${request.prompt}"'
+                     '\n\nHere is the code to modify:\n\n---\n${request.inputText}\n---';
+  
+  final rawResponse = await provider.generateSimpleResponse(
+    prompt: fullPrompt,
+    model: model,
+  );
+
+  return LlmEditorPlugin._extractCodeFromMarkdown(rawResponse) ?? request.inputText;
+});
+
 class LlmEditorPlugin extends EditorPlugin {
   @override
   String get id => 'com.machine.llm_editor';
@@ -56,46 +108,6 @@ class LlmEditorPlugin extends EditorPlugin {
   @override
   Widget buildSettingsUI(PluginSettings settings) {
     return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
-  }
-  
-  static Future<String> applyModification(
-    WidgetRef ref, {
-    required String prompt,
-    required String inputText,
-  }) async {
-    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
-    if (settings == null) {
-      MachineToast.error('LLM settings are not configured.');
-      return inputText;
-    }
-
-    final model = settings.selectedModels[settings.selectedProviderId];
-    if (model == null) {
-      MachineToast.error('No LLM model selected. Please configure one in the settings.');
-      return inputText;
-    }
-
-    final provider = ref.read(llmServiceProvider);
-    
-    // We add a system instruction to the prompt to guide the model's output.
-    final fullPrompt = 'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
-                       'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
-                       '\n\nUser instructions: "$prompt"'
-                       '\n\nHere is the code to modify:\n\n---\n$inputText\n---';
-    
-    try {
-      final rawResponse = await provider.generateSimpleResponse(
-        prompt: fullPrompt,
-        model: model,
-      );
-
-      // Now, parse the response to extract code blocks.
-      return _extractCodeFromMarkdown(rawResponse) ?? inputText;
-
-    } catch (e) {
-      MachineToast.error('Failed to apply modification: $e');
-      return inputText; // Return original text on failure.
-    }
   }
 
   /// Extracts code from markdown code blocks in a string.
@@ -223,7 +235,7 @@ class LlmEditorPlugin extends EditorPlugin {
     BaseTextEditableCommand(
       id: 'llm_refactor_selection',
       label: 'Refactor Selection',
-      icon: const Icon(Icons.auto_awesome),
+      icon: const Icon(Icons.auto_fix_high),
       // We want this button to appear on the Code Editor's selection toolbar.
       defaultPositions: [AppCommandPositions.pluginToolbar], 
       sourcePlugin: id, // The command originates from the LLM plugin.
@@ -231,9 +243,6 @@ class LlmEditorPlugin extends EditorPlugin {
         return context.hasSelection;
       },
       execute: (ref, textEditable) async {
-        // 1. Create a subscription to the provider to keep it alive.
-        final sub = ref.listen(llmServiceProvider, (_, __) {});
-
         try {
           final selectedText = await textEditable.getSelectedText();
           if (selectedText.isEmpty) return;
@@ -246,43 +255,20 @@ class LlmEditorPlugin extends EditorPlugin {
             title: 'Refactor Selection',
           );
 
-          if (userPrompt == null || userPrompt.trim().isEmpty) {
-            return; // User cancelled
-          }
+          if (userPrompt == null || userPrompt.trim().isEmpty) return;
 
-          // Show loading dialog
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (ctx) => const PopScope(
-              canPop: false,
-              child: AlertDialog(
-                content: Row(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(width: 24),
-                    Text("Applying AI modification..."),
-                  ],
-                ),
-              ),
-            ),
+            builder: (ctx) => const PopScope( /* ... loading dialog ... */ ),
           );
         
-          final project = ref.read(appNotifierProvider).value!.currentProject!;
-          final activeTab = project.session.currentTab!;
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-          final repo = ref.read(projectRepositoryProvider)!;
-          final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
-
-          final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
-                             '\n\nUser instructions: "$userPrompt"'
-                             '\n\nHere is the code selection to modify:';
+          // Create the request object
+          final request = LlmModificationRequest(prompt: userPrompt, inputText: selectedText);
           
-          final modifiedText = await LlmEditorPlugin.applyModification(
-            ref,
-            prompt: fullPrompt,
-            inputText: selectedText,
-          );
+          // Execute the use case by reading the FutureProvider's future.
+          // Riverpod handles the entire lifecycle for us.
+          final modifiedText = await ref.read(llmModificationProvider(request).future);
           
           if (context.mounted) Navigator.of(context).pop(); // Close loading dialog
 
@@ -296,12 +282,8 @@ class LlmEditorPlugin extends EditorPlugin {
           if (context != null && context.mounted && Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
           }
-          MachineToast.error("An unexpected error occurred during refactor.");
-          // FIX: Added StackTrace to the handler
+          MachineToast.error("Refactor failed: ${e.toString().split(':').last}");
           ref.read(talkerProvider).handle(e, st, "[LlmRefactorCommand]");
-        } finally {
-          // 2. IMPORTANT: Close the subscription to allow the provider to be disposed.
-          sub.close();
         }
       },
     ),
