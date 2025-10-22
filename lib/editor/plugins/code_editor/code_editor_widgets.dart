@@ -106,6 +106,16 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
 
   // --- TextEditable Interface Implementation ---
   @override
+  Future<bool> isSelectionCollapsed() async {
+    return controller.selection.isCollapsed;
+  }
+
+  @override
+  Future<String> getSelectedText() async {
+    return controller.selection.text;
+  }
+  
+  @override
   Future<String> getTextContent() async {
     // Return the controller's current text, wrapped in a Future to match the interface.
     return controller.text;
@@ -656,22 +666,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   void syncCommandContext() {
     if (!mounted) return;
 
-    final hasSelection = !controller.selection.isCollapsed;
+    final hasSelection = !controller.selection.isCollapsed; // This logic is already here
     Widget? appBarOverride;
 
-    // Priority 1: If the find panel is active, its app bar takes precedence.
     if (findController.value != null) {
       appBarOverride = CodeFindAppBar(controller: findController);
     } 
-    // Priority 2: If no find panel, but there is a selection, show the selection bar.
     else if (hasSelection) {
       appBarOverride = _buildSelectionAppBar();
     }
     
+    // This now correctly creates the CodeEditorCommandContext which IS-A TextEditableCommandContext
     final newContext = CodeEditorCommandContext(
       canUndo: controller.canUndo,
       canRedo: controller.canRedo,
-      hasSelection: hasSelection,
+      hasSelection: hasSelection, // Pass the value here
       hasMark: _markPosition != null,
       appBarOverride: appBarOverride,
     );

@@ -17,14 +17,16 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
 ) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-  final currentPluginId = ref.watch(
+
+  // v-- WE WATCH THE PLUGIN ITSELF, NOT THE CONTEXT --v
+  final currentPlugin = ref.watch(
     appNotifierProvider.select(
-      (s) => s.value?.currentProject?.session.currentTab?.plugin.id,
+      (s) => s.value?.currentProject?.session.currentTab?.plugin,
     ),
   );
+  // ^-- END OF CHANGE --^
 
   final visibleItems = <dynamic>[];
-  // Get the order for the specified position
   final order = commandState.orderedCommandsByPosition[positionId] ?? [];
 
   for (final id in order) {
@@ -32,11 +34,22 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       visibleItems.add(commandState.commandGroups[id]!);
       continue;
     }
-    final command = notifier.allRegisteredCommands.firstWhereOrNull(
-      (c) =>
-          c.id == id &&
-          (c.sourcePlugin == currentPluginId || c.sourcePlugin == 'App'),
-    );
+
+    // v-- REPLACED THE FILTERING LOGIC with the plugin check --v
+    final command = notifier.allRegisteredCommands.firstWhereOrNull((c) {
+      // Condition 1: It's an app-level command.
+      if (c.sourcePlugin == 'App') return true;
+      
+      // Condition 2: It's a generic text command and the ACTIVE PLUGIN is a TextEditablePlugin.
+      if (c is BaseTextEditableCommand && currentPlugin is TextEditablePlugin) {
+        return true;
+      }
+      
+      // Condition 3: The command's source matches the currently active plugin's ID.
+      return c.sourcePlugin == currentPlugin?.id;
+    });
+    // ^-- END OF REPLACEMENT --^
+    
     if (command != null) {
       visibleItems.add(command);
     }

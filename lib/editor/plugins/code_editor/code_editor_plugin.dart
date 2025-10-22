@@ -36,7 +36,7 @@ import '../../../utils/toast.dart'; // <-- FIX: ADDED IMPORT
 import '../../../logs/logs_provider.dart'; // <-- FIX: ADDED IMPORT
 
 
-class CodeEditorPlugin extends EditorPlugin {
+class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
   static const String hotStateId = 'com.machine.code_editor_state';
   static const CommandPosition selectionToolbar = CommandPosition(
