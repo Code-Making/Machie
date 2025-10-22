@@ -34,3 +34,23 @@ final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
       return DummyProvider();
   }
 });
+
+final llmCommandServiceProvider = Provider<LlmProvider>((ref) {
+  final providerConfig = ref.watch(settingsProvider.select((s) {
+    final settings = s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    final id = settings?.selectedProviderId ?? 'dummy';
+    final key = settings?.apiKeys[id] ?? '';
+    return (id: id, key: key);
+  }));
+
+  final selectedId = providerConfig.id;
+  final apiKey = providerConfig.key;
+
+  switch (selectedId) {
+    case 'gemini':
+      return GeminiProvider(apiKey);
+    case 'dummy':
+    default:
+      return DummyProvider();
+  }
+});
