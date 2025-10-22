@@ -223,7 +223,7 @@ class LlmEditorPlugin extends EditorPlugin {
     BaseTextEditableCommand(
       id: 'llm_refactor_selection',
       label: 'Refactor Selection',
-      icon: const Icon(Icons.auto_awesome),
+      icon: const Icon(Icons.auto_fix_high),
       // We want this button to appear on the Code Editor's selection toolbar.
       defaultPositions: [AppCommandPositions.pluginToolbar], 
       sourcePlugin: id, // The command originates from the LLM plugin.
@@ -231,67 +231,81 @@ class LlmEditorPlugin extends EditorPlugin {
         return context.hasSelection;
       },
       execute: (ref, textEditable) async {
-        try {
-          final selectedText = await textEditable.getSelectedText();
-          if (selectedText.isEmpty) return;
+        final selectedText = await textEditable.getSelectedText();
+        if (selectedText.isEmpty) return;
+        
+        final context = ref.read(navigatorKeyProvider).currentContext;
+        if (context == null || !context.mounted) return;
 
-          final context = ref.read(navigatorKeyProvider).currentContext;
-          if (context == null || !context.mounted) return;
+        // 1. Get the user's prompt first.
+        final userPrompt = await showTextInputDialog(
+          context,
+          title: 'Refactor Selection',
+        );
 
-          final userPrompt = await showTextInputDialog(
-            context,
-            title: 'Refactor Selection',
-          );
-          if (userPrompt == null || userPrompt.trim().isEmpty) return;
-
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => const PopScope(
-              canPop: false,
-              child: AlertDialog(
-                content: Row(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(width: 24),
-                    Text("Applying AI modification..."),
-                  ],
-                ),
-              ),
-            ),
-          );        
-          final project = ref.read(appNotifierProvider).value!.currentProject!;
-          final activeTab = project.session.currentTab!;
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-          final repo = ref.read(projectRepositoryProvider)!;
-          final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
-
-          final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
-                             '\n\nUser instructions: "$userPrompt"'
-                             '\n\nHere is the code selection to modify:';
-          
-          
-          final modifiedText = await LlmEditorPlugin.applyModification(
-            ref,
-            prompt: fullPrompt,
-            inputText: selectedText,
-          );
-          
-          if (context.mounted) Navigator.of(context).pop();
-
-          if (modifiedText != selectedText) {
-            textEditable.replaceSelection(modifiedText);
-          } else {
-            MachineToast.info("AI did not suggest any changes.");
-          }
-        } catch (e, st) {
-          final context = ref.read(navigatorKeyProvider).currentContext;
-          if (context != null && context.mounted && Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-          }
-          MachineToast.error("An unexpected error occurred during refactor.");
-          ref.read(talkerProvider).handle(e, st, "[LlmRefactorCommand]");
+        if (userPrompt == null || userPrompt.trim().isEmpty) {
+          return; // User cancelled.
         }
+
+        // 2. Get all the necessary context information BEFORE showing the dialog.
+        final project = ref.read(appNotifierProvider).value!;
+        final activeTab = project.session.currentTab!;
+        final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+        final repo = ref.read(projectRepositoryProvider)!;
+        final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+        
+        final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
+                           '\n\nUser instructions: "$userPrompt"'
+                           '\n\nHere is the code selection to modify:';
+
+        // 3. Show the dialog and pass it the Future to execute.
+        final modificationFuture = LlmEditorPlugin.applyModification(
+          ref,
+          prompt: fullPrompt,
+          inputText: selectedText,
+        );
+
+        // We show the dialog and wait for it to return the result.
+        final String? modifiedText = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            return FutureBuilder<String>(
+              future: modificationFuture,
+              builder: (context, snapshot) {
+                // When the future completes, pop the dialog with the result.
+                if (snapshot.connectionState == ConnectionState.done) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Navigator.of(dialogContext).pop(snapshot.data);
+                  });
+                }
+                
+                // While waiting, show the loading indicator.
+                return const PopScope(
+                  canPop: false,
+                  child: AlertDialog(
+                    content: Row(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(width: 24),
+                        Text("Applying AI modification..."),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+
+        // 4. After the dialog has been popped, process the result.
+        if (modifiedText != null && modifiedText != selectedText) {
+          textEditable.replaceSelection(modifiedText);
+        } else if (modifiedText != null) {
+          MachineToast.info("AI did not suggest any changes.");
+        }
+        // If modifiedText is null, it means an error occurred and the toast
+        // was already shown inside applyModification.
       },
     ),
   ];
