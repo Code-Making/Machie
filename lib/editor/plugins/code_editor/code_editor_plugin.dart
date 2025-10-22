@@ -132,8 +132,12 @@ class CodeEditorPlugin extends EditorPlugin {
           final importString = "import '$relativePath';\n";
 
           final activeEditorState = activeTab.editorKey.currentState;
-          if (activeEditorState != null && activeEditorState is TextEditable) {
-            activeEditorState.replaceLines(0, 0, importString);
+          if(activeEditorState == null){
+            MachineToast.error('No Active editor.');
+            return;
+          }
+          if (activeEditorState is TextEditable) {
+            activeEditorState!.replaceLines(0, 0, importString);
           } else {
             MachineToast.error('Active editor does not support text edits.');
           }
