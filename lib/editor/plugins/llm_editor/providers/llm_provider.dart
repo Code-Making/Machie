@@ -251,7 +251,8 @@ class GeminiProvider implements LlmProvider {
       client.close();
     }
   }
-@@override
+
+@override
   Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
