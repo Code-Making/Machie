@@ -40,12 +40,31 @@ void showFileContextMenu(
           .where((p) => p.supportsFile(item))
           .toList();
 
-  final allCommands =
-      FileContextCommands.getCommands(
-        ref,
-        item,
-        compatiblePlugins,
-      ).where((cmd) => cmd.canExecuteFor(ref, item)).toList();
+  
+  final List<FileContextCommand> allCommands = [];
+
+  // 1. Add commands from ALL compatible plugins first.
+  for (final plugin in compatiblePlugins) {
+    allCommands.addAll(plugin.getFileContextMenuCommands(item));
+  }
+
+  final generalCommands = FileContextCommands.getCommands(
+    ref,
+    item,
+    compatiblePlugins,
+  );
+
+  // 2. Add a divider if there were plugin commands and there will be general commands.
+  if (allCommands.isNotEmpty && generalCommands.isNotEmpty) {
+    allCommands.add(const _DividerCommand());
+  }
+
+  // 3. Add the general commands.
+  allCommands.addAll(generalCommands);
+
+  final executableCommands = allCommands
+      .where((cmd) => cmd.canExecuteFor(ref, item))
+      .toList();
 
   showModalBottomSheet(
     context: context,
@@ -64,7 +83,7 @@ void showFileContextMenu(
                   ),
                 ),
                 const Divider(),
-                ...allCommands.map((command) {
+                ...executableCommands.map((command) { // <-- Use the newly constructed list
                   if (command is _DividerCommand) {
                     return const Divider(height: 1, indent: 16, endIndent: 16);
                   }

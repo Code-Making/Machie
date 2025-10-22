@@ -30,6 +30,10 @@ import '../../../data/cache/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
 import '../../../editor/plugins/editor_command_context.dart'; // <-- IMPORT NEW CONTEXT
 import '../../../editor/services/editor_service.dart';
+import '../../../editor/services/text_editing_capability.dart';
+import '../../../data/repositories/project_repository.dart';
+
+
 
 class CodeEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -87,8 +91,102 @@ class CodeEditorPlugin extends EditorPlugin {
   }
 
   @override
-  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
+  List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) {
+    return [
+      BaseFileContextCommand(
+        id: 'add_import',
+        label: 'Add Import',
+        icon: const Icon(Icons.arrow_downward),
+        sourcePlugin: id,
+        canExecuteFor: (ref, item) {
+          // Can only import files that are supported by the code editor itself.
+          if (!supportsFile(item)) {
+            return false;
+          }
+          // The currently active tab must also be a code editor showing a file this plugin supports.
+          final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+          if (activeTab is! CodeEditorTab) {
+            return false;
+          }
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
+          return activeFile != null && supportsFile(activeFile);
+        },
+        executeFor: (ref, item) async {
+          final activeTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab!;
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+          final repo = ref.read(projectRepositoryProvider)!;
 
+          final relativePath = _calculateRelativePath(
+            from: activeFile.uri,
+            to: item.uri,
+            fileHandler: repo.fileHandler,
+            ref: ref, // Pass ref for logging
+          );
+
+          if (relativePath == null) {
+            MachineToast.error('Could not calculate relative path.');
+            return;
+          }
+
+          final importString = "import '$relativePath';\n";
+
+          final activeEditorState = activeTab.editorKey.currentState;
+          if (activeEditorState is TextEditable) {
+            activeEditorState.replaceLines(0, 0, importString);
+          } else {
+            MachineToast.error('Active editor does not support text edits.');
+          }
+        },
+      ),
+    ];
+  }
+  
+  // v-- REPLACED with FileHandler-only implementation --v
+  String? _calculateRelativePath({
+    required String from,
+    required String to,
+    required FileHandler fileHandler,
+    required WidgetRef ref, // Pass ref for logging
+  }) {
+    try {
+      final fromDirUri = fileHandler.getParentUri(from);
+      
+      // Use getPathForDisplay to get clean, comparable path strings
+      final fromPath = fileHandler.getPathForDisplay(fromDirUri);
+      final toPath = fileHandler.getPathForDisplay(to);
+
+      final fromSegments = fromPath.split('/').where((s) => s.isNotEmpty).toList();
+      final toSegments = toPath.split('/').where((s) => s.isNotEmpty).toList();
+
+      // Find the common ancestor path
+      int commonLength = 0;
+      while (commonLength < fromSegments.length &&
+             commonLength < toSegments.length &&
+             fromSegments[commonLength] == toSegments[commonLength]) {
+        commonLength++;
+      }
+
+      // Calculate how many levels to go up ('..')
+      final upCount = fromSegments.length - commonLength;
+      final upPath = List.filled(upCount, '..');
+
+      // Get the remaining path to go down
+      final downPath = toSegments.sublist(commonLength);
+
+      final relativePathSegments = [...upPath, ...downPath];
+      
+      // Handle case where files are in the same directory
+      if (relativePathSegments.isEmpty && toSegments.isNotEmpty) {
+        return toSegments.last;
+      }
+
+      return relativePathSegments.join('/');
+    } catch (e) {
+      ref.read(talkerProvider).error("Failed to calculate relative path: $e");
+      return null;
+    }
+  }
+  
   @override
   String get hotStateDtoType => hotStateId;
 
