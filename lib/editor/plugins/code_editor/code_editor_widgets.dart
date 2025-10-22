@@ -105,7 +105,30 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
 
 
   // --- TextEditable Interface Implementation ---
+  @override
+  Future<String> getTextContent() async {
+    // Return the controller's current text, wrapped in a Future to match the interface.
+    return controller.text;
+  }
+  
+  @override
+  void insertTextAtLine(int lineNumber, String textToInsert) {
+    if (!mounted) return;
+    
+    // Clamp the line number to be within the valid range of the document.
+    final line = lineNumber.clamp(0, controller.codeLines.length);
 
+    // To insert at the beginning of a line, we replace a zero-length selection 
+    // at the start of that line.
+    final selectionToReplace = CodeLineSelection.fromPosition(
+      position: CodeLinePosition(index: line, offset: 0)
+    );
+
+    controller.runRevocableOp(() {
+      controller.replaceSelection(textToInsert, selectionToReplace);
+    });
+  }
+  
   @override
   void replaceAllOccurrences(String find, String replace) {
     if (!mounted) return;

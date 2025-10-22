@@ -41,6 +41,9 @@ class ReplaceAllOccurrencesEdit extends TextEdit {
 /// advanced text editing capabilities. This allows services to perform
 /// text manipulations without depending on a concrete editor implementation.
 abstract class TextEditable {
+  Future<String> getTextContent();
+  void insertTextAtLine(int lineNumber, String textToInsert);
+
   /// Replaces a range of lines in the editor with new content.
   ///
   /// Both [startLine] and [endLine] are 0-based and inclusive.
