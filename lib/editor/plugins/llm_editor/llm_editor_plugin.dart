@@ -20,6 +20,26 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_widget.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/editor/tab_state_manager.dart';
 import 'package:machine/project/project_models.dart';
+import 'package:machine/settings/settings_notifier.dart';
+import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
+import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
+
+// 1. Define a helper class to parse the structured JSON response.
+@immutable
+class _StructuredModificationResponse {
+  final String modifiedText;
+  final String? explanation;
+
+  const _StructuredModificationResponse({required this.modifiedText, this.explanation});
+
+  factory _StructuredModificationResponse.fromJson(Map<String, dynamic> json) {
+    return _StructuredModificationResponse(
+      modifiedText: json['modifiedText'] as String? ?? '',
+      explanation: json['explanation'] as String?,
+    );
+  }
+}
+
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
@@ -42,9 +62,77 @@ class LlmEditorPlugin extends EditorPlugin {
   @override
   PluginSettings? get settings => LlmEditorSettings();
   
+  
   @override
   Widget buildSettingsUI(PluginSettings settings) {
     return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
+  }
+  
+  static Future<String> applyModification(
+    WidgetRef ref, {
+    required String prompt,
+    required String inputText,
+  }) async {
+    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+    if (settings == null) {
+      MachineToast.error('LLM settings are not configured.');
+      return inputText;
+    }
+
+    // Handle the dummy model case as requested.
+    if (settings.selectedProviderId == 'dummy') {
+      return "This model is for testing, switch to an actual model for a response";
+    }
+    
+    final model = settings.selectedModels[settings.selectedProviderId];
+    if (model == null) {
+      MachineToast.error('No LLM model selected. Please configure one in the settings.');
+      return inputText;
+    }
+
+    // Temporarily create a provider instance based on current settings.
+    final apiKey = settings.apiKeys[settings.selectedProviderId] ?? '';
+    final LlmProvider provider;
+    switch (settings.selectedProviderId) {
+      case 'gemini':
+        provider = GeminiProvider(apiKey);
+        break;
+      default:
+        // This case should be unreachable due to the dummy check above.
+        return inputText;
+    }
+
+    // Define the JSON schema for the expected output.
+    final responseSchema = {
+      'type': 'OBJECT',
+      'properties': {
+        'modifiedText': {'type': 'STRING'},
+        'explanation': {'type': 'STRING'},
+      },
+      'required': ['modifiedText']
+    };
+
+    // Construct the full prompt for the model.
+    final fullPrompt = '$prompt\n\nHere is the text to modify:\n\n---\n$inputText\n---';
+    
+    try {
+      final jsonString = await provider.generateStructuredResponse(
+        prompt: fullPrompt,
+        model: model,
+        responseSchema: responseSchema,
+      );
+
+      final parsedResponse = _StructuredModificationResponse.fromJson(jsonDecode(jsonString));
+      
+      // We only return the modified text as per the function's contract.
+      // The explanation is available if you need to log or display it.
+      return parsedResponse.modifiedText;
+
+    } catch (e) {
+      MachineToast.error('Failed to apply modification: $e');
+      // On failure, return the original text to prevent data loss.
+      return inputText;
+    }
   }
 
   @override
