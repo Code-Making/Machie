@@ -18,14 +18,11 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
 ) {
   final commandState = ref.watch(commandProvider);
   final notifier = ref.read(commandProvider.notifier);
-
-  // v-- WE WATCH THE PLUGIN ITSELF, NOT THE CONTEXT --v
   final currentPlugin = ref.watch(
     appNotifierProvider.select(
       (s) => s.value?.currentProject?.session.currentTab?.plugin,
     ),
   );
-  // ^-- END OF CHANGE --^
 
   final visibleItems = <dynamic>[];
   final order = commandState.orderedCommandsByPosition[positionId] ?? [];
@@ -36,8 +33,14 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       continue;
     }
 
-    // v-- REPLACED THE FILTERING LOGIC with the plugin check --v
+    // v-- THIS IS THE CORRECTED LOGIC --v
     final command = notifier.allRegisteredCommands.firstWhereOrNull((c) {
+      // The command ID from the registry MUST match the ID from our ordered list.
+      if (c.id != id) {
+        return false;
+      }
+
+      // Now that we have the correct command, check if it's valid in the current context.
       // Condition 1: It's an app-level command.
       if (c.sourcePlugin == 'App') return true;
       
@@ -49,7 +52,7 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       // Condition 3: The command's source matches the currently active plugin's ID.
       return c.sourcePlugin == currentPlugin?.id;
     });
-    // ^-- END OF REPLACEMENT --^
+    // ^-- END OF CORRECTION --^
     
     if (command != null) {
       visibleItems.add(command);
