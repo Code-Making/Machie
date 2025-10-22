@@ -29,6 +29,7 @@ import 'llm_editor_settings_widget.dart';
 import 'llm_editor_widget.dart';
 import 'providers/llm_provider.dart';
 import 'providers/llm_provider_factory.dart';
+import '../../../logs/logs_provider.dart';
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
@@ -230,17 +231,12 @@ class LlmEditorPlugin extends EditorPlugin {
         return context.hasSelection;
       },
       execute: (ref, textEditable) async {
-        // 1. Keep the provider alive for the duration of this command.
-        final link = ref.keepAlive();
-        // We'll use a Timer to automatically close the link after a timeout,
-        // just in case something goes wrong.
-        final timer = Timer(const Duration(minutes: 2), () {
-          link.close();
-        });
+        // 1. Create a subscription to the provider to keep it alive.
+        final sub = ref.listen(llmServiceProvider, (_, __) {});
 
         try {
           final selectedText = await textEditable.getSelectedText();
-          if (selectedText.isEmpty) return; // No need to continue if nothing is selected
+          if (selectedText.isEmpty) return;
 
           final context = ref.read(navigatorKeyProvider).currentContext;
           if (context == null || !context.mounted) return;
@@ -295,18 +291,17 @@ class LlmEditorPlugin extends EditorPlugin {
           } else {
             MachineToast.info("AI did not suggest any changes.");
           }
-        } catch (e) {
-          // In case of any error, ensure the loading dialog is closed.
+        } catch (e, st) {
           final context = ref.read(navigatorKeyProvider).currentContext;
           if (context != null && context.mounted && Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
           }
           MachineToast.error("An unexpected error occurred during refactor.");
-          ref.read(talkerProvider).handle(e, StackTrace.current, "[LlmRefactorCommand]");
+          // FIX: Added StackTrace to the handler
+          ref.read(talkerProvider).handle(e, st, "[LlmRefactorCommand]");
         } finally {
-          // 2. IMPORTANT: Close the link and cancel the timer when the operation is complete.
-          timer.cancel();
-          link.close();
+          // 2. IMPORTANT: Close the subscription to allow the provider to be disposed.
+          sub.close();
         }
       },
     ),
