@@ -100,11 +100,10 @@ class CodeEditorPlugin extends EditorPlugin {
         icon: const Icon(Icons.arrow_downward),
         sourcePlugin: id,
         canExecuteFor: (ref, item) {
-          // Can only import files that are supported by the code editor itself.
+          // ... (canExecuteFor logic is unchanged)
           if (!supportsFile(item)) {
             return false;
           }
-          // The currently active tab must also be a code editor showing a file this plugin supports.
           final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
           if (activeTab is! CodeEditorTab) {
             return false;
@@ -112,16 +111,29 @@ class CodeEditorPlugin extends EditorPlugin {
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
           return activeFile != null && supportsFile(activeFile);
         },
+        // v-- THIS is the updated logic --v
         executeFor: (ref, item) async {
           final activeTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab!;
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
           final repo = ref.read(projectRepositoryProvider)!;
+          final activeEditorState = activeTab.editorKey.currentState;
 
+          if (activeEditorState == null || activeEditorState is! TextEditable) {
+            MachineToast.error('Active editor does not support text edits.');
+            return;
+          }
+          final editableState = activeEditorState as TextEditable;
+
+          // 1. Get the full text content using the new interface method
+          final currentContent = await editableState.getTextContent();
+          final lines = currentContent.split('\n');
+
+          // 2. Calculate the relative path for the import
           final relativePath = _calculateRelativePath(
             from: activeFile.uri,
             to: item.uri,
             fileHandler: repo.fileHandler,
-            ref: ref, // Pass ref for logging
+            ref: ref,
           );
 
           if (relativePath == null) {
@@ -129,23 +141,29 @@ class CodeEditorPlugin extends EditorPlugin {
             return;
           }
 
-          final importString = "import '$relativePath';\n";
-
-          final activeEditorState = activeTab.editorKey.currentState;
-          if(activeEditorState == null){
-            MachineToast.error('No Active editor.');
+          // 3. Check if the import already exists
+          final importStatement = "import '$relativePath';";
+          if (lines.any((line) => line.trim() == importStatement)) {
+            MachineToast.info('Import already exists.');
             return;
           }
-          if (activeEditorState is TextEditable) {
-            final editableState = activeEditorState as TextEditable;
-            editableState!.replaceLines(0, 0, importString);
-          } else {
-            MachineToast.error('Active editor does not support text edits.');
+
+          // 4. Find the correct line to insert the new import
+          final importRegex = RegExp(r"^\s*import\s+['].*?['];");
+          int lastImportLineIndex = -1;
+          for (int i = 0; i < lines.length; i++) {
+            if (importRegex.hasMatch(lines[i])) {
+              lastImportLineIndex = i;
+            }
           }
+          final insertionLine = lastImportLineIndex + 1;
+
+          // 5. Use the new, specific interface method to perform the insertion
+          editableState.insertTextAtLine(insertionLine, "$importStatement\n");
         },
       ),
     ];
-  }
+  } 
   
   // v-- REPLACED with FileHandler-only implementation --v
   String? _calculateRelativePath({
