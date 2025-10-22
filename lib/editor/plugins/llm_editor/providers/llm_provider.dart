@@ -17,6 +17,12 @@ abstract class LlmProvider {
     required List<ChatMessage> conversation,
     required LlmModelInfo model,
   });
+  
+  Future<String> generateStructuredResponse({
+    required String prompt,
+    required LlmModelInfo model,
+    required Map<String, dynamic> responseSchema,
+  });
 
   Future<int> countTokens({
     required List<ChatMessage> conversation,
@@ -73,6 +79,64 @@ class DummyProvider implements LlmProvider {
       promptTokenCount: totalPromptTokens,
       responseTokenCount: responseTokens,
     );
+  }
+  
+  @override
+  Future<String> generateStructuredResponse({
+    required String prompt,
+    required LlmModelInfo model,
+    required Map<String, dynamic> responseSchema,
+  }) async {
+    // This helper builds a dummy JSON object based on the schema's properties.
+    final dummyResponseObject = _createDummyObjectFromSchema(responseSchema);
+    
+    // As per the request, the dummy model's response should be a specific message.
+    // We will inject this message into the 'modifiedText' field if it exists in the schema.
+    final properties = responseSchema['properties'] as Map<String, dynamic>?;
+    if (properties != null && properties.containsKey('modifiedText')) {
+      dummyResponseObject['modifiedText'] = "This model is for testing, switch to an actual model for a response";
+    }
+
+    // Return the correctly formatted JSON string.
+    return jsonEncode(dummyResponseObject);
+  }
+
+  /// A simple recursive helper to generate a dummy object from a JSON schema.
+  Map<String, dynamic> _createDummyObjectFromSchema(Map<String, dynamic> schema) {
+    final Map<String, dynamic> dummyObject = {};
+    final properties = schema['properties'] as Map<String, dynamic>?;
+
+    if (properties != null) {
+      for (final entry in properties.entries) {
+        final key = entry.key;
+        final propSchema = entry.value as Map<String, dynamic>;
+        final type = propSchema['type'] as String?;
+
+        switch (type) {
+          case 'STRING':
+            dummyObject[key] = 'dummy string for $key';
+            break;
+          case 'INTEGER':
+            dummyObject[key] = 0;
+            break;
+          case 'NUMBER':
+            dummyObject[key] = 0.0;
+            break;
+          case 'BOOLEAN':
+            dummyObject[key] = false;
+            break;
+          case 'ARRAY':
+            dummyObject[key] = [];
+            break;
+          case 'OBJECT':
+            dummyObject[key] = _createDummyObjectFromSchema(propSchema);
+            break;
+          default:
+            dummyObject[key] = null;
+        }
+      }
+    }
+    return dummyObject;
   }
 }
 
@@ -230,7 +294,47 @@ class GeminiProvider implements LlmProvider {
       client.close();
     }
   }
+@override
+  Future<String> generateStructuredResponse({
+    required String prompt,
+    required LlmModelInfo model,
+    required Map<String, dynamic> responseSchema,
+  }) async {
+    if (_apiKey.isEmpty) {
+      throw Exception('Google Gemini API key is not set.');
+    }
 
+    final client = http.Client();
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/${model.name}:generateContent');
+    final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
+
+    final body = jsonEncode({
+      'contents': [{ 'parts': [{'text': prompt}] }],
+      'generationConfig': {
+        'responseMimeType': 'application/json',
+        'responseSchema': responseSchema,
+      }
+    });
+
+    try {
+      final response = await client.post(uri, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        // The response body *is* the JSON content.
+        final jsonResponse = jsonDecode(response.body);
+        final content = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        if (content != null) {
+          return content;
+        } else {
+          throw Exception('Invalid response structure from Gemini API.');
+        }
+      } else {
+        throw Exception('API Error (${response.statusCode}): ${response.body}');
+      }
+    } finally {
+      client.close();
+    }
+  }
 }
   List<Map<String, dynamic>> _buildContents(List<ChatMessage> conversation) {
     return conversation.map((m) {
