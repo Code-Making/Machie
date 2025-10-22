@@ -1,9 +1,10 @@
 // FILE: lib/editor/services/text_editing_capability.dart
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import '../plugins/plugin_models.dart';
 import '../plugins/editor_command_context.dart';
 import '../../command/command_models.dart';
+import '../../app/app_notifier.dart';
 
 /// An abstract base class for different types of text edits.
 /// This allows for an extensible API in the EditorService.
