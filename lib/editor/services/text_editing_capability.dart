@@ -13,6 +13,22 @@ sealed class TextEdit {
   const TextEdit();
 }
 
+@immutable
+class TextPosition {
+  final int line;
+  final int column;
+
+  const TextPosition({required this.line, required this.column});
+}
+
+@immutable
+class TextRange {
+  final TextPosition start;
+  final TextPosition end;
+
+  const TextRange({required this.start, required this.end});
+}
+
 /// A text edit that replaces a range of lines.
 class ReplaceLinesEdit extends TextEdit {
   /// The 0-based index of the first line to replace.
@@ -50,6 +66,10 @@ mixin TextEditablePlugin on EditorPlugin {}
 /// advanced text editing capabilities. This allows services to perform
 /// text manipulations without depending on a concrete editor implementation.
 abstract class TextEditable {
+  /// Replaces the currently selected text with the given [replacement].
+  /// If an optional [range] is provided, it replaces the text in that range instead.
+  void replaceSelection(String replacement, {TextRange? range});
+
   /// Returns true if the current selection is collapsed (i.e., it's a cursor).
   Future<bool> isSelectionCollapsed();
 
