@@ -105,6 +105,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
 
 
   // --- TextEditable Interface Implementation ---
+  
+  @override
+  void replaceSelection(String replacement, {TextRange? range}) {
+    if (!mounted) return;
+
+    CodeLineSelection? selectionToReplace;
+
+    // This is the translation layer. If our abstract range is provided,
+    // convert it to the concrete type the controller understands.
+    if (range != null) {
+      selectionToReplace = CodeLineSelection(
+        baseIndex: range.start.line,
+        baseOffset: range.start.column,
+        extentIndex: range.end.line,
+        extentOffset: range.end.column,
+      );
+    }
+
+    // The controller's replaceSelection method handles the null case by
+    // using the current selection, which is exactly what we want.
+    controller.runRevocableOp(() {
+      controller.replaceSelection(replacement, selectionToReplace);
+    });
+  }
+  
   @override
   Future<bool> isSelectionCollapsed() async {
     return controller.selection.isCollapsed;
@@ -112,7 +137,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
 
   @override
   Future<String> getSelectedText() async {
-    return controller.selection.text;
+    return controller.selectedText; // <-- The fix is here
   }
   
   @override
