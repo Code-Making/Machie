@@ -260,7 +260,18 @@ class LlmEditorPlugin extends EditorPlugin {
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (ctx) => const PopScope( /* ... loading dialog ... */ ),
+            builder: (ctx) => const PopScope(
+              canPop: false,
+              child: AlertDialog(
+                content: Row(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(width: 24),
+                    Text("Applying AI modification..."),
+                  ],
+                ),
+              ),
+            ),
           );
         
           // Create the request object
