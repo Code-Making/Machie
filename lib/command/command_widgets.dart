@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/app_notifier.dart';
 import '../command/command_models.dart';
 import 'command_notifier.dart';
+import '../editor/services/text_editing_capability.dart';
 
 // REFACTORED: A generic provider family to get commands for any position.
 final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
