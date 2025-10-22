@@ -24,6 +24,8 @@ import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
 import 'package:machine/utils/toast.dart';
+import '../../services/text_editing_capability.dart';
+import '../../../explorer/common/file_explorer_dialogs.dart';
 
 // 1. Define a helper class to parse the structured JSON response.
 @immutable
@@ -234,7 +236,7 @@ class LlmEditorPlugin extends EditorPlugin {
       label: 'Refactor Selection',
       icon: const Icon(Icons.auto_awesome),
       // We want this button to appear on the Code Editor's selection toolbar.
-      defaultPositions: [CodeEditorPlugin.selectionToolbar], 
+      defaultPositions: [AppCommandPositions.pluginToolbar], 
       sourcePlugin: id, // The command originates from the LLM plugin.
       canExecute: (ref, context) {
         // This command is only active if:
