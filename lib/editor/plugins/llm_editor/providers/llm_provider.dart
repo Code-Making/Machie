@@ -94,6 +94,7 @@ class DummyProvider implements LlmProvider {
       "I hope this helps!"
     );
   }
+
 }
 
 // A concrete implementation for Google's Gemini API.
@@ -185,7 +186,72 @@ class GeminiProvider implements LlmProvider {
   }
 
 
+  // MODIFIED: Full implementation for the new stream type
   @override
+  Stream<LlmResponseEvent> generateResponse({
+    required List<ChatMessage> conversation,
+    required LlmModelInfo model,
+  }) async* {
+    if (_apiKey.isEmpty) { 
+      yield LlmError('Error: Google Gemini API key is not set in the plugin settings.');
+      return;
+    }
+
+    final client = http.Client();
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:streamGenerateContent?alt=sse');
+    final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
+
+    // MODIFIED: Build contents from the entire conversation directly
+    final contents = _buildContents(conversation);
+    final body = jsonEncode({'contents': contents});
+
+    try {
+      final request = http.Request('POST', uri)
+        ..headers.addAll(headers)
+        ..body = body;
+
+      final response = await client.send(request);
+
+      if (response.statusCode != 200) {
+        final errorBody = await response.stream.bytesToString();
+        yield LlmError('API Error (${response.statusCode}): $errorBody');
+        return;
+      }
+
+      await for (final chunk in response.stream.transform(utf8.decoder)) {
+        final lines = chunk.split('\n').where((line) => line.isNotEmpty);
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            final json = jsonDecode(data);
+
+            final textContent = json['candidates']?[0]?['content']?['parts']?[0]?['text'];
+            if (textContent != null) {
+              yield LlmTextChunk(textContent as String);
+            }
+            
+            final usageMetadata = json['usageMetadata'];
+            if (usageMetadata != null) {
+              yield LlmResponseMetadata(
+                promptTokenCount: usageMetadata['promptTokenCount'] as int? ?? 0,
+                responseTokenCount: usageMetadata['candidatesTokenCount'] as int? ?? 0,
+              );
+            }
+
+            final promptFeedback = json['promptFeedback'];
+            if (promptFeedback != null && promptFeedback['blockReason'] != null) {
+                yield LlmError('Prompt blocked due to: ${promptFeedback['blockReason']}');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      yield LlmError('Network Error: Failed to connect to Google Gemini API. $e');
+    } finally {
+      client.close();
+    }
+  }
+@@override
   Future<String> generateSimpleResponse({
     required String prompt,
     required LlmModelInfo model,
@@ -222,48 +288,6 @@ class GeminiProvider implements LlmProvider {
           if (blockReason != null) {
             throw Exception('Prompt was blocked by the API: $blockReason');
           }
-          throw Exception('Invalid response structure from Gemini API.');
-        }
-      } else {
-        throw Exception('API Error (${response.statusCode}): ${response.body}');
-      }
-    } finally {
-      client.close();
-    }
-  }
-
-@override
-  Future<String> generateStructuredResponse({
-    required String prompt,
-    required LlmModelInfo model,
-    required Map<String, dynamic> responseSchema,
-  }) async {
-    if (_apiKey.isEmpty) {
-      throw Exception('Google Gemini API key is not set.');
-    }
-
-    final client = http.Client();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent');
-    final headers = {'Content-Type': 'application/json', 'x-goog-api-key': _apiKey};
-
-    final body = jsonEncode({
-      'contents': [{ 'parts': [{'text': prompt}] }],
-      'generationConfig': {
-        'responseMimeType': 'application/json',
-        'responseSchema': responseSchema,
-      }
-    });
-
-    try {
-      final response = await client.post(uri, headers: headers, body: body);
-
-      if (response.statusCode == 200) {
-        // The response body *is* the JSON content.
-        final jsonResponse = jsonDecode(response.body);
-        final content = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        if (content != null) {
-          return content;
-        } else {
           throw Exception('Invalid response structure from Gemini API.');
         }
       } else {
