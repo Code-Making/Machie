@@ -248,11 +248,11 @@ class LlmEditorPlugin extends EditorPlugin {
         }
 
         // 2. Get all the necessary context information BEFORE showing the dialog.
-        final project = ref.read(appNotifierProvider).value!;
-        final activeTab = project.session.currentTab!;
-        final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-        final repo = ref.read(projectRepositoryProvider)!;
-        final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+          final project = ref.read(appNotifierProvider).value!.currentProject!;
+          final activeTab = project.session.currentTab!;
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+          final repo = ref.read(projectRepositoryProvider)!;
+          final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
         
         final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
                            '\n\nUser instructions: "$userPrompt"'
