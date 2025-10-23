@@ -124,9 +124,9 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         ) ??
         GeneralSettings();
 
-    final appBarOverride = ref.watch(
-      activeCommandContextProvider.select((context) => context.appBarOverride)
-    );
+    // final appBarOverride = ref.watch(
+    //   activeCommandContextProvider.select((context) => context.appBarOverride)
+    // );
     
     final double toolbarHeight =
         Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
@@ -135,12 +135,12 @@ class _AppScreenState extends ConsumerState<AppScreen> {
       key: _scaffoldKey,
       appBar:
           (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
-              ? (appBarOverride != null
+              ? /*(appBarOverride != null
                   ? PreferredSize(
                     preferredSize: Size.fromHeight(toolbarHeight),
                     child: appBarOverride,
                   )
-                  : AppBar(
+                  :*/ AppBar(
                     leading: IconButton(
                       icon: const Icon(Icons.menu),
                       onPressed: () => _scaffoldKey.currentState?.openDrawer(),
@@ -152,7 +152,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
                         const AppBarCommands(),
                     ],
                     title: Text(appBarTitle),
-                  ))
+                  /*)*/)
               : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
