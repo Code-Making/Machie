@@ -212,6 +212,6 @@ class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
     // Return the default toolbar height. The actual widget returned by `build`
     // (AppBar or a custom override) will manage its own height, making this a
     // safe and standard approach for custom PreferredSizeWidgets.
-    return const Size.fromHeight(height);
+    return const new Size.fromHeight(height);
   }
 }
