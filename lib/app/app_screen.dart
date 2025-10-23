@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_notifier.dart';
 import '../command/command_widgets.dart';
 import '../editor/editor_widgets.dart';
-import '../editor/plugins/editor_command_context.dart'; // ADDED
+import '../editor/plugins/editor_command_context.dart';
 import '../editor/tab_state_manager.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../explorer/explorer_host_drawer.dart';
@@ -124,47 +124,90 @@ class _AppScreenState extends ConsumerState<AppScreen> {
         ) ??
         GeneralSettings();
 
+    // REMOVED: The watch for appBarOverride is now in the new _AppScreenAppBar widget.
     // final appBarOverride = ref.watch(
     //   activeCommandContextProvider.select((context) => context.appBarOverride)
     // );
-    
-    final double toolbarHeight =
-        Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
+    // final double toolbarHeight =
+    //     Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
 
     return Scaffold(
       key: _scaffoldKey,
-      appBar:
-          (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
-              ? /*(appBarOverride != null
-                  ? PreferredSize(
-                    preferredSize: Size.fromHeight(toolbarHeight),
-                    child: appBarOverride,
-                  )
-                  :*/ AppBar(
-                    leading: IconButton(
-                      icon: const Icon(Icons.menu),
-                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                    ),
-                    actions: [
-                      if (currentPlugin != null)
-                        currentPlugin.wrapCommandToolbar(const AppBarCommands())
-                      else
-                        const AppBarCommands(),
-                    ],
-                    title: Text(appBarTitle),
-                  /*)*/)
-              : null,
+      // UPDATED: The complex logic is replaced by the new, self-contained widget.
+      // This is only rebuilt when high-level state like isFullScreen changes,
+      // not when the command context's appBarOverride changes.
+      appBar: (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
+          ? _AppScreenAppBar(
+              scaffoldKey: _scaffoldKey,
+              currentPlugin: currentPlugin,
+              appBarTitle: appBarTitle,
+            )
+          : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
-            TabBarWidget(),
-          Expanded(child: FocusScope(child: EditorView())),
+            const TabBarWidget(),
+          const Expanded(child: FocusScope(child: EditorView())),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
             currentPlugin.buildToolbar(ref),
         ],
       ),
     );
+  }
+}
+
+/// A dedicated widget to build the app bar.
+///
+/// It encapsulates the watch on `activeCommandContextProvider` so that only the
+/// AppBar rebuilds when the command context changes, not the entire `AppScreen`.
+/// It implements `PreferredSizeWidget` to be a valid `Scaffold.appBar`.
+class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
+  const _AppScreenAppBar({
+    required this.scaffoldKey,
+    required this.currentPlugin,
+    required this.appBarTitle,
+  });
+
+  final GlobalKey<ScaffoldState> scaffoldKey;
+  final EditorPlugin? currentPlugin;
+  final String appBarTitle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Encapsulated watch: only this widget rebuilds when the override changes.
+    final appBarOverride = ref.watch(
+      activeCommandContextProvider.select((context) => context.appBarOverride),
+    );
+
+    // If an override from the command context is active, render it directly.
+    // This widget, being a PreferredSizeWidget, provides the necessary constraints.
+    if (appBarOverride != null) {
+      return appBarOverride;
+    }
+
+    // Otherwise, build the default AppBar.
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.menu),
+        onPressed: () => scaffoldKey.currentState?.openDrawer(),
+      ),
+      actions: [
+        if (currentPlugin != null)
+          currentPlugin!.wrapCommandToolbar(const AppBarCommands())
+        else
+          const AppBarCommands(),
+      ],
+      title: Text(appBarTitle),
+    );
+  }
+
+  @override
+  Size get preferredSize {
+    // Return the default toolbar height. The actual widget returned by `build`
+    // (AppBar or a custom override) will manage its own height, making this a
+    // safe and standard approach for custom PreferredSizeWidgets.
+    return const Size.fromHeight(kToolbarHeight);
   }
 }
