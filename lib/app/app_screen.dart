@@ -129,8 +129,8 @@ class _AppScreenState extends ConsumerState<AppScreen> {
     // final appBarOverride = ref.watch(
     //   activeCommandContextProvider.select((context) => context.appBarOverride)
     // );
-    // final double toolbarHeight =
-    //     Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
+    final double toolbarHeight =
+        Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -142,6 +142,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
               scaffoldKey: _scaffoldKey,
               currentPlugin: currentPlugin,
               appBarTitle: appBarTitle,
+              height: toolbarHeight,
             )
           : null,
       drawer: const ExplorerHostDrawer(),
@@ -169,11 +170,13 @@ class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.scaffoldKey,
     required this.currentPlugin,
     required this.appBarTitle,
+    required this.height,
   });
 
   final GlobalKey<ScaffoldState> scaffoldKey;
   final EditorPlugin? currentPlugin;
   final String appBarTitle;
+  final double height;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -209,6 +212,6 @@ class _AppScreenAppBar extends ConsumerWidget implements PreferredSizeWidget {
     // Return the default toolbar height. The actual widget returned by `build`
     // (AppBar or a custom override) will manage its own height, making this a
     // safe and standard approach for custom PreferredSizeWidgets.
-    return const Size.fromHeight(kToolbarHeight);
+    return const Size.fromHeight(height);
   }
 }
