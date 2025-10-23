@@ -106,7 +106,7 @@ class ChatBubble extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     child: isUser
-                        ? _buildUserMessageBody(context, ref, pathLinkBuilder)
+                        ? _buildUserMessageBody(context, ref, delegatingCodeBuilder, pathLinkBuilder)
                         : _buildAssistantMessageBody(context, ref, delegatingCodeBuilder, pathLinkBuilder),
                   ),
           ),
@@ -115,16 +115,14 @@ class ChatBubble extends ConsumerWidget {
     );
   }
 
-  Widget _buildUserMessageBody(BuildContext context, WidgetRef ref, PathLinkBuilder pathLinkBuilder) {
+  Widget _buildUserMessageBody(BuildContext context, WidgetRef ref, DelegatingCodeBuilder codeBuilder, PathLinkBuilder pathLinkBuilder) {
     final hasContext = displayMessage.message.context?.isNotEmpty ?? false;
     final isContextFolded = displayMessage.isContextFolded;
 
-    // A separate builder is needed here because the user message shouldn't share
-    // the same code block keys as the assistant messages.
-    final userMessageDelegatingCodeBuilder = DelegatingCodeBuilder(
-      ref: ref,
-      keys: const [],
-    );
+    // final userMessageDelegatingCodeBuilder = DelegatingCodeBuilder(
+    //   ref: ref,
+    //   keys: const [],
+    // );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,7 +155,7 @@ class ChatBubble extends ConsumerWidget {
         MarkdownBody(
           data: displayMessage.message.content,
           builders: {
-            'code': userMessageDelegatingCodeBuilder,
+            'code': codeBuilder,
             'p': pathLinkBuilder,
           },
           styleSheet: MarkdownStyleSheet(codeblockDecoration: const BoxDecoration(color: Colors.transparent)),
