@@ -15,6 +15,7 @@ import '../editor/tab_state_manager.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
 import '../explorer/explorer_host_drawer.dart';
 import '../settings/settings_notifier.dart';
+import '../editor/plugins/plugin_models.dart';
 
 class AppScreen extends ConsumerStatefulWidget {
   const AppScreen({super.key});
@@ -147,7 +148,7 @@ class _AppScreenState extends ConsumerState<AppScreen> {
       body: Column(
         children: [
           if (!isFullScreen || !generalSettings.hideTabBarInFullScreen)
-            const TabBarWidget(),
+            TabBarWidget(),
           const Expanded(child: FocusScope(child: EditorView())),
           if (currentPlugin != null &&
               (!isFullScreen || !generalSettings.hideBottomToolbarInFullScreen))
