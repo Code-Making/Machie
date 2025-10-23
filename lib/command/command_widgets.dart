@@ -164,17 +164,19 @@ class CommandButton extends ConsumerWidget {
 
     if (showLabel) {
       return TextButton.icon(
-        canRequestFocus: false,
         icon: command.icon,
         label: Text(command.label),
         onPressed: isEnabled ? () => command.execute(ref) : null,
       );
     }
 
-    return IconButton(
-      icon: command.icon,
-      onPressed: isEnabled ? () => command.execute(ref) : null,
-      tooltip: command.label,
+return Focus(
+      canRequestFocus: false,
+      child: IconButton(
+        icon: command.icon,
+        onPressed: isEnabled ? () => command.execute(ref) : null,
+        tooltip: command.label,
+      ),
     );
   }
 }
