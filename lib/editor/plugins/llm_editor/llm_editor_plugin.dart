@@ -50,32 +50,31 @@ class LlmEditorPlugin extends EditorPlugin {
 
   @override
   PluginSettings? get settings => LlmEditorSettings();
-  
-  
+
+
   @override
   Widget buildSettingsUI(PluginSettings settings) {
     return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
   }
-  
-  static Future<String> applyModification(
-    WidgetRef ref, {
+
+  // *** FIX: This function no longer accepts a WidgetRef. ***
+  // It now receives the dependencies it needs directly, making it safer to call
+  // after an 'await'.
+  static Future<String> applyModification({
+    required LlmProvider provider,
+    required LlmEditorSettings? settings,
     required String prompt,
     required String inputText,
   }) async {
-    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
     if (settings == null) {
-      MachineToast.error('LLM settings are not configured.');
-      return inputText;
+      throw Exception('LLM settings are not configured.');
     }
 
     final model = settings.selectedModels[settings.selectedProviderId];
     if (model == null) {
-      MachineToast.error('No LLM model selected. Please configure one in the settings.');
-      return inputText;
+      throw Exception('No LLM model selected. Please configure one in the settings.');
     }
 
-    final provider = ref.read(llmServiceProvider);
-    
     // We add a system instruction to the prompt to guide the model's output.
     final fullPrompt = 'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
                        'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
@@ -92,6 +91,8 @@ class LlmEditorPlugin extends EditorPlugin {
       return _extractCodeFromMarkdown(rawResponse) ?? inputText;
 
     } catch (e) {
+      // Re-throw to allow the caller to manage UI state (like closing a loading dialog)
+      // and display a more context-aware error.
       rethrow;
     }
   }
@@ -122,7 +123,6 @@ class LlmEditorPlugin extends EditorPlugin {
     List<ChatMessage> messagesToShow;
     final hotState = initData.hotState as LlmEditorHotStateDto?;
 
-    // THE FIX: Decide which message list to use right here.
     if (hotState != null && hotState.messages.isNotEmpty) {
       // If cached state exists, it takes priority.
       messagesToShow = hotState.messages;
@@ -154,7 +154,7 @@ class LlmEditorPlugin extends EditorPlugin {
       onReadyCompleter: onReadyCompleter,
     );
   }
-  
+
     LlmEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
     if (tab is! LlmEditorTab) return null;
@@ -166,7 +166,7 @@ class LlmEditorPlugin extends EditorPlugin {
     final llmTab = tab as LlmEditorTab;
     return LlmEditorWidget(key: llmTab.editorKey, tab: llmTab);
   }
-  
+
     List<Command> getCommands() => [
     BaseCommand(
       id: 'save',
@@ -221,10 +221,9 @@ class LlmEditorPlugin extends EditorPlugin {
     BaseTextEditableCommand(
       id: 'llm_refactor_selection',
       label: 'Refactor Selection',
-      icon: const Icon(Icons.auto_awesome),
-      // We want this button to appear on the Code Editor's selection toolbar.
+      icon: const Icon(Icons.auto_fix_high),
       defaultPositions: [AppCommandPositions.pluginToolbar], 
-      sourcePlugin: id, // The command originates from the LLM plugin.
+      sourcePlugin: id,
       canExecute: (ref, context) {
         return context.hasSelection;
       },
@@ -232,15 +231,19 @@ class LlmEditorPlugin extends EditorPlugin {
         final selectedText = await textEditable.getSelectedText();
         if (selectedText.isEmpty) return;
         
+        // Grab the context and all dependencies from ref BEFORE the first await.
         final context = ref.read(navigatorKeyProvider).currentContext;
-        if (context == null || !context.mounted) return;
-
+        // *** FIX: Get dependencies from ref BEFORE the first await ***
+        final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+        final provider = ref.read(llmServiceProvider);
         final project = ref.read(appNotifierProvider).value!.currentProject!;
         final activeTab = project.session.currentTab!;
         final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
         final repo = ref.read(projectRepositoryProvider)!;
 
-        // 2. Get the display path of the file relative to the project root
+        if (context == null || !context.mounted) return;
+
+        // Gather non-UI info.
         final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
 
         // 1. Ask the user for their modification instructions.
@@ -252,48 +255,54 @@ class LlmEditorPlugin extends EditorPlugin {
         if (userPrompt == null || userPrompt.trim().isEmpty) {
           return; // User cancelled.
         }
-        
-                // FIX: After an async gap (awaiting the dialog), we must re-check if the context is still valid
-        // before attempting to use it to show another dialog.
+
+        // After an async gap, we must re-check if the context is still valid.
         if (!context.mounted) return;
 
-        // This completer will be used to signal if the user cancelled the dialog.
-        // It will complete with `true` if cancelled, `false` otherwise.
-        final Completer<bool> dialogCancelledCompleter = Completer<bool>();
-
-        // 2. Show a loading indicator to the user.
+        var isCancelled = false;
+        // 2. Show a loading indicator.
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => const PopScope(
+          builder: (ctx) => PopScope(
             canPop: false,
             child: AlertDialog(
-              content: Row(
+              content: const Row(
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(width: 24),
                   Text("Applying AI modification..."),
                 ],
               ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    isCancelled = true;
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Stop'),
+                ),
+              ],
             ),
           ),
         );
         
         try {
-          // v-- AUGMENT THE PROMPT SENT TO THE LLM --v
           final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
                              '\n\nUser instructions: "$userPrompt"'
                              '\n\nHere is the code selection to modify:';
-          // ^-- END OF AUGMENTATION --^
 
+          // *** FIX: Pass the actual provider and settings, not the ref ***
           final modifiedText = await LlmEditorPlugin.applyModification(
-            ref,
-            // Pass the new, more detailed prompt
+            provider: provider,
+            settings: settings,
             prompt: fullPrompt,
             inputText: selectedText,
           );
           
           if (context.mounted) Navigator.of(context).pop();
+
+          if (isCancelled) return;
 
           if (modifiedText != selectedText) {
             textEditable.replaceSelection(modifiedText);
@@ -301,8 +310,8 @@ class LlmEditorPlugin extends EditorPlugin {
             MachineToast.info("AI did not suggest any changes.");
           }
         } catch (e) {
-          // Ensure the dialog is closed even on error.
           if (context.mounted) Navigator.of(context).pop();
+          if (isCancelled) return;
           MachineToast.error("Failed to apply AI modification: $e");
         }
       },
