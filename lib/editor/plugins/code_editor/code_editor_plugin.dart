@@ -477,7 +477,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       label: 'Indent',
       icon: Icons.format_indent_increase,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.applyIndent(),
+      execute: (ref, editor) => editor?.controller.applyIndent(fromLineStart: true),
     ),
     _createCommand(
       id: 'outdent',
