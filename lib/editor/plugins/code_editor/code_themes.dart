@@ -239,7 +239,7 @@ class CodeThemes {
   }
 
   static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(
-    String? langKey,
+    String? langKey, {
     bool enableRainbowBrackets = false, // Default to false
   }) {
     final effectiveLangKey = langKey ?? 'plaintext';
