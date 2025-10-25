@@ -275,9 +275,6 @@ class CodeThemes {
   }
 }
 
-// In your CodeThemes file...
-import 'package:re_highlight/re_highlight.dart';
-
 // --- Place these utility functions at the top level of your file ---
 
 /// Recursively copies a Mode object, allowing for modifications.
