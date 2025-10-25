@@ -357,12 +357,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       fontSize: codeEditorSettings?.fontSize ?? 12.0,
       fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
       fontFeatures: fontFeatures,
-      //patternRecognizers: _patternRecognizers,
       codeTheme: CodeHighlightTheme(
         theme:
             CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
         languages: CodeThemes.getHighlightThemeMode(_languageKey),
+        plugins: [
+            RainbowBracketsPlugin(),
+          ],
       ),
     );
   }

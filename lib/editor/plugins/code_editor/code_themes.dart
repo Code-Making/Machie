@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart'; // For TextStyle
 import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
+import 'package:re_highlight/re_highlight.dart';
 
 // IMPORTS FOR ALL THEMES
 import 'package:re_highlight/styles/agate.dart';
@@ -245,5 +246,118 @@ class CodeThemes {
     if (key == 'markdown') return 'Markdown';
     if (key == 'kotlin') return 'Kotlin';
     return key[0].toUpperCase() + key.substring(1);
+  }
+}
+
+/// A plugin for re_highlight that colors bracket pairs in a cycling sequence
+/// of colors, creating a "rainbow" effect.
+///
+/// It uses existing, common theme scopes to ensure that the bracket colors
+/// are always consistent with the currently active theme.
+class RainbowBracketsPlugin extends HLPlugin {
+  /// A list of common scope names that are likely to have distinct and
+  /// visually pleasing colors in most themes. The colors will cycle through this list.
+  final List<String> _scopes = const [
+    'keyword',        // Often blue or purple
+    'built_in',       // Often cyan or teal
+    'title.class_',   // Often yellow or orange
+    'string',         // Often green
+    'number',         // Often red or magenta
+  ];
+
+  /// Defines the matching pairs for opening and closing brackets.
+  final Map<String, String> _bracketPairs = const {
+    '(': ')',
+    '[': ']',
+    '{': '}',
+  };
+
+  @override
+  void run(Context context) {
+    // This will hold the final list of nodes after processing.
+    final List<DataNode> newNodes = [];
+
+    // The stack tracks the current open brackets to determine nesting depth.
+    final List<String> bracketStack = [];
+
+    // We define a recursive function to process nodes. This allows us to "step into"
+    // nodes that don't have a scope, but "step over" nodes that are already styled
+    // (like strings, comments, etc.), preventing us from coloring brackets inside them.
+    void processNodes(List<DataNode> nodes) {
+      for (final node in nodes) {
+        // If the node is already styled (has a scope), we add it as-is and
+        // do not process its children. This prevents coloring brackets in strings, etc.
+        if (node.scope != null) {
+          newNodes.add(node);
+          continue;
+        }
+
+        // If the node is a plain TextNode, we parse it for brackets.
+        if (node is TextNode) {
+          final text = node.value;
+          int lastIndex = 0;
+
+          for (int i = 0; i < text.length; i++) {
+            final char = text[i];
+            
+            // --- Handle Opening Brackets ---
+            if (_bracketPairs.containsKey(char)) {
+              // Add any plain text that came before this bracket.
+              if (i > lastIndex) {
+                newNodes.add(TextNode(value: text.substring(lastIndex, i)));
+              }
+              
+              // Determine the color/scope based on the current stack depth.
+              final scope = _scopes[bracketStack.length % _scopes.length];
+              
+              // Add the styled bracket as a new DataNode.
+              newNodes.add(DataNode(scope: scope, children: [TextNode(value: char)]));
+              
+              // Push the bracket onto the stack to increase the nesting level.
+              bracketStack.add(char);
+              lastIndex = i + 1;
+            } 
+            // --- Handle Closing Brackets ---
+            else if (_bracketPairs.containsValue(char)) {
+              // Check if the stack is not empty and the closing bracket matches the last open one.
+              if (bracketStack.isNotEmpty && _bracketPairs[bracketStack.last] == char) {
+                // Add any plain text that came before this bracket.
+                if (i > lastIndex) {
+                  newNodes.add(TextNode(value: text.substring(lastIndex, i)));
+                }
+
+                // Pop from the stack *first* to get the correct nesting level for the closing bracket.
+                bracketStack.removeLast();
+                
+                // The closing bracket should have the same color as its opening pair.
+                final scope = _scopes[bracketStack.length % _scopes.length];
+
+                // Add the styled bracket.
+                newNodes.add(DataNode(scope: scope, children: [TextNode(value: char)]));
+                
+                lastIndex = i + 1;
+              }
+              // If it's a mismatched bracket, we just let it be treated as plain text.
+            }
+          }
+          
+          // Add any remaining text after the last processed bracket.
+          if (lastIndex < text.length) {
+            newNodes.add(TextNode(value: text.substring(lastIndex)));
+          }
+        } 
+        // If the node has children but no scope, recurse into it.
+        else if (node.children != null) {
+          processNodes(node.children!);
+        }
+      }
+    }
+    
+    // Start processing from the root nodes.
+    processNodes(context.nodes);
+    
+    // Replace the original nodes with our new, colorized list.
+    context.nodes.clear();
+    context.nodes.addAll(newNodes);
   }
 }
