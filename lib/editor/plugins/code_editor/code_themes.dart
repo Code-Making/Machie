@@ -272,92 +272,107 @@ class RainbowBracketsPlugin extends HLPlugin {
     '{': '}',
   };
 
+  // This method is required by the abstract class but not needed for this plugin.
   @override
-  void run(Context context) {
-    // This will hold the final list of nodes after processing.
+  void beforeHighlight(BeforeHighlightContext context) {
+    // No-op
+  }
+
+  /// This method is called after the main highlighting is complete.
+  /// We will process the resulting nodes here to add colors to the brackets.
+  @override
+  void afterHighlight(HighlightResult result) {
+    // If there are no nodes, there's nothing to do.
+    if (result.nodes == null) {
+      return;
+    }
+    // Start the recursive processing of nodes.
+    // The result's node list is modified in place by the helper function.
+    result.nodes = _processNodes(result.nodes!, []);
+  }
+
+  /// Recursively processes a list of DataNodes to find and colorize brackets.
+  List<DataNode> _processNodes(List<DataNode> nodes, List<String> bracketStack) {
     final List<DataNode> newNodes = [];
 
-    // The stack tracks the current open brackets to determine nesting depth.
-    final List<String> bracketStack = [];
+    for (final node in nodes) {
+      // If the node is already styled (e.g., a string or comment), we add it
+      // as-is and do not process its children. This prevents coloring brackets
+      // inside strings or comments.
+      if (node.scope != null) {
+        newNodes.add(node);
+        continue;
+      }
 
-    // We define a recursive function to process nodes. This allows us to "step into"
-    // nodes that don't have a scope, but "step over" nodes that are already styled
-    // (like strings, comments, etc.), preventing us from coloring brackets inside them.
-    void processNodes(List<DataNode> nodes) {
-      for (final node in nodes) {
-        // If the node is already styled (has a scope), we add it as-is and
-        // do not process its children. This prevents coloring brackets in strings, etc.
-        if (node.scope != null) {
-          newNodes.add(node);
-          continue;
+      // If the node contains plain text, parse it for brackets.
+      if (node.value != null) {
+        newNodes.addAll(_parseTextForBrackets(node.value!, bracketStack));
+      } 
+      // If the node is a container for other nodes, process its children recursively.
+      else if (node.children != null) {
+        // Ensure children are of the correct type before processing.
+        final List<DataNode> children = node.children!.cast<DataNode>();
+        final processedChildren = _processNodes(children, bracketStack);
+        newNodes.add(DataNode(children: processedChildren));
+      }
+    }
+
+    return newNodes;
+  }
+
+  /// Parses a single string of plain text, splitting it into styled brackets
+  /// and unstyled text fragments.
+  List<DataNode> _parseTextForBrackets(String text, List<String> bracketStack) {
+    final List<DataNode> parsedNodes = [];
+    int lastIndex = 0;
+
+    for (int i = 0; i < text.length; i++) {
+      final char = text[i];
+      final bool isOpenBracket = _bracketPairs.containsKey(char);
+      final bool isCloseBracket = _bracketPairs.containsValue(char);
+
+      if (isOpenBracket) {
+        // Add any plain text that came before this bracket.
+        if (i > lastIndex) {
+          parsedNodes.add(DataNode(value: text.substring(lastIndex, i)));
         }
-
-        // If the node is a plain TextNode, we parse it for brackets.
-        if (node is TextNode) {
-          final text = node.value;
-          int lastIndex = 0;
-
-          for (int i = 0; i < text.length; i++) {
-            final char = text[i];
-            
-            // --- Handle Opening Brackets ---
-            if (_bracketPairs.containsKey(char)) {
-              // Add any plain text that came before this bracket.
-              if (i > lastIndex) {
-                newNodes.add(TextNode(value: text.substring(lastIndex, i)));
-              }
-              
-              // Determine the color/scope based on the current stack depth.
-              final scope = _scopes[bracketStack.length % _scopes.length];
-              
-              // Add the styled bracket as a new DataNode.
-              newNodes.add(DataNode(scope: scope, children: [TextNode(value: char)]));
-              
-              // Push the bracket onto the stack to increase the nesting level.
-              bracketStack.add(char);
-              lastIndex = i + 1;
-            } 
-            // --- Handle Closing Brackets ---
-            else if (_bracketPairs.containsValue(char)) {
-              // Check if the stack is not empty and the closing bracket matches the last open one.
-              if (bracketStack.isNotEmpty && _bracketPairs[bracketStack.last] == char) {
-                // Add any plain text that came before this bracket.
-                if (i > lastIndex) {
-                  newNodes.add(TextNode(value: text.substring(lastIndex, i)));
-                }
-
-                // Pop from the stack *first* to get the correct nesting level for the closing bracket.
-                bracketStack.removeLast();
-                
-                // The closing bracket should have the same color as its opening pair.
-                final scope = _scopes[bracketStack.length % _scopes.length];
-
-                // Add the styled bracket.
-                newNodes.add(DataNode(scope: scope, children: [TextNode(value: char)]));
-                
-                lastIndex = i + 1;
-              }
-              // If it's a mismatched bracket, we just let it be treated as plain text.
-            }
+        
+        // Determine the color/scope based on the current stack depth.
+        final scope = _scopes[bracketStack.length % _scopes.length];
+        
+        // Add the styled bracket as a new DataNode.
+        parsedNodes.add(DataNode(scope: scope, children: [DataNode(value: char)]));
+        
+        // Push the bracket onto the stack to increase the nesting level.
+        bracketStack.add(char);
+        lastIndex = i + 1;
+      } else if (isCloseBracket) {
+        // Check if the stack is not empty and the closing bracket matches the last open one.
+        if (bracketStack.isNotEmpty && _bracketPairs[bracketStack.last] == char) {
+          // Add any plain text that came before this bracket.
+          if (i > lastIndex) {
+            parsedNodes.add(DataNode(value: text.substring(lastIndex, i)));
           }
+
+          // Pop from the stack *first* to get the correct nesting level for the closing bracket.
+          bracketStack.removeLast();
           
-          // Add any remaining text after the last processed bracket.
-          if (lastIndex < text.length) {
-            newNodes.add(TextNode(value: text.substring(lastIndex)));
-          }
-        } 
-        // If the node has children but no scope, recurse into it.
-        else if (node.children != null) {
-          processNodes(node.children!);
+          // The closing bracket should have the same color as its opening pair.
+          final scope = _scopes[bracketStack.length % _scopes.length];
+
+          // Add the styled bracket.
+          parsedNodes.add(DataNode(scope: scope, children: [DataNode(value: char)]));
+          
+          lastIndex = i + 1;
         }
       }
     }
     
-    // Start processing from the root nodes.
-    processNodes(context.nodes);
-    
-    // Replace the original nodes with our new, colorized list.
-    context.nodes.clear();
-    context.nodes.addAll(newNodes);
+    // Add any remaining text after the last processed bracket.
+    if (lastIndex < text.length) {
+      parsedNodes.add(DataNode(value: text.substring(lastIndex)));
+    }
+
+    return parsedNodes;
   }
 }
