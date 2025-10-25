@@ -311,54 +311,45 @@ Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) 
 }
 
 /// Merges a list of additive modes into a base language grammar.
-Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
-  // A set to keep track of visited ref keys to prevent infinite loops.
+Mode mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
   final Set<String> visitedRefs = {};
-  
-  // A map to store the newly created, merged modes from the refs.
   final Map<String, Mode> newRefs = {};
 
-  // This function will be called on every mode in the tree.
   Mode _recursiveMerge(Mode currentMode) {
-    // If this is a reference, look it up, process it, and return a new ref.
     if (currentMode.ref != null) {
-      // If we haven't processed this ref key yet...
       if (!visitedRefs.contains(currentMode.ref!)) {
         visitedRefs.add(currentMode.ref!);
-        // Find the original mode definition in the base language's refs.
         final Mode? originalRefMode = baseLanguage.refs?[currentMode.ref!];
         if (originalRefMode != null) {
-          // Recursively merge the original ref's definition and store it.
           newRefs[currentMode.ref!] = _recursiveMerge(originalRefMode);
         }
       }
-      // Return the original reference object. The highlighter will use our newRefs map.
       return currentMode;
     }
 
-    // --- This part is for non-reference modes ---
-    
-    // Create a mutable list of the mode's children.
     List<Mode> newContains = [];
     if (currentMode.contains != null) {
       for (final childMode in currentMode.contains!) {
-        // Recursively process each child.
         newContains.add(_recursiveMerge(childMode));
       }
     }
 
-    // Prepend our high-priority additive modes.
-    newContains.insertAll(0, additiveModes);
+    // --- CRITICAL CHANGE HERE ---
+    // Only add rainbow brackets to modes that are NOT self-contained blocks
+    // like strings or comments. These typically have a 'begin' and 'end'.
+    // Heuristic: If a mode doesn't define a simple container, it's likely a
+    // general context where brackets should be highlighted.
+    final bool isContainer = currentMode.begin != null && currentMode.end != null;
+    if (!isContainer) {
+      newContains.insertAll(0, additiveModes);
+    }
+    // --- END OF CRITICAL CHANGE ---
 
-    // Return a new clone of the current mode with the merged children.
     return _cloneMode(currentMode, contains: newContains);
   }
 
-  // Start the process on the top-level mode.
   final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
 
-  // The `refs` map on the top-level mode is the source of truth.
-  // We need to process it directly as well.
   baseLanguage.refs?.forEach((key, mode) {
     if (!visitedRefs.contains(key)) {
       visitedRefs.add(key);
@@ -366,8 +357,6 @@ Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
     }
   });
 
-  // Return a final clone of the top-level mode, replacing its refs
-  // with our new, fully merged refs map.
   return _cloneMode(mergedTopLevelMode, refs: newRefs);
 }
 

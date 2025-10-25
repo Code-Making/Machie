@@ -350,7 +350,16 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
               FontFeature.disable('calt'),
             ];
 
-    //_patternRecognizers = _buildPatternRecognizers();
+  // 1. Get the base theme.
+  final Map<String, TextStyle> baseTheme =
+      CodeThemes.availableCodeThemes[selectedThemeName] ??
+      CodeThemes.availableCodeThemes['Atom One Dark']!;
+  
+  // 2. --- THIS IS THE FIX ---
+  //    Conditionally merge the rainbow styles into the theme map.
+  final Map<String, TextStyle> finalTheme = enableRainbow
+      ? (Map.from(baseTheme)..addAll(CodeThemes.rainbowStyles))
+      : baseTheme;
 
     _style = CodeEditorStyle(
       fontHeight: codeEditorSettings?.fontHeight,
@@ -358,9 +367,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
       fontFeatures: fontFeatures,
       codeTheme: CodeHighlightTheme(
-        theme:
-            CodeThemes.availableCodeThemes[selectedThemeName] ??
-            CodeThemes.availableCodeThemes['Atom One Dark']!,
+        theme: finalTheme,
         languages: CodeThemes.getHighlightThemeMode(_languageKey, enableRainbowBrackets: true),
       ),
     );
