@@ -723,31 +723,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   void syncCommandContext() {
     if (!mounted) return;
 
-    final hasSelection = !controller.selection.isCollapsed; // This logic is already here
+    final hasSelection = !controller.selection.isCollapsed;
     Widget? appBarOverride;
+    Key? appBarOverrideKey;
 
     if (findController.value != null) {
       appBarOverride = CodeFindAppBar(controller: findController);
-    } 
+      appBarOverrideKey = ValueKey('findController_toolbar');
+    }
     else if (hasSelection) {
       appBarOverride = _buildSelectionAppBar();
+      appBarOverrideKey = const ValueKey('selection_toolbar_active');
     }
-    
-    // This now correctly creates the CodeEditorCommandContext which IS-A TextEditableCommandContext
+
     final newContext = CodeEditorCommandContext(
       canUndo: controller.canUndo,
       canRedo: controller.canRedo,
-      hasSelection: hasSelection, // Pass the value here
+      hasSelection: hasSelection,
       hasMark: _markPosition != null,
       appBarOverride: appBarOverride,
+      appBarOverrideKey: appBarOverrideKey, // ADDED: Pass the key
     );
-    
+
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
-  
-  
 
-  // ... (setMark, selectToMark, toggleComments, etc. are unchanged as they work on the controller) ...
   void setMark() {
     setState(() {
       _markPosition = controller.selection.base;
