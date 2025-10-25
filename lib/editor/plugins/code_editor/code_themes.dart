@@ -278,8 +278,9 @@ class CodeThemes {
 // --- Place these utility functions at the top level of your file ---
 
 /// Recursively copies a Mode object, allowing for modifications.
-Mode _cloneMode(Mode original, {List<Mode>? contains}) {
+Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) {
   return Mode(
+    // --- Copying all properties from the original ---
     aliases: original.aliases,
     begin: original.begin,
     beginKeywords: original.beginKeywords,
@@ -303,25 +304,71 @@ Mode _cloneMode(Mode original, {List<Mode>? contains}) {
     starts: original.starts,
     subLanguage: original.subLanguage,
     variants: original.variants,
+    // --- Overriding with new values ---
     contains: contains ?? original.contains,
+    refs: refs ?? original.refs,
   );
 }
 
 /// Merges a list of additive modes into a base language grammar.
 Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
-  Mode _recursiveMerge(Mode currentMode) {
-    List<Mode> originalContains = List.from(currentMode.contains ?? []);
-    List<Mode> newContains = [];
+  // A set to keep track of visited ref keys to prevent infinite loops.
+  final Set<String> visitedRefs = {};
+  
+  // A map to store the newly created, merged modes from the refs.
+  final Map<String, Mode> newRefs = {};
 
-    for (final childMode in originalContains) {
-      newContains.add(_recursiveMerge(childMode));
+  // This function will be called on every mode in the tree.
+  Mode _recursiveMerge(Mode currentMode) {
+    // If this is a reference, look it up, process it, and return a new ref.
+    if (currentMode.ref != null) {
+      // If we haven't processed this ref key yet...
+      if (!visitedRefs.contains(currentMode.ref!)) {
+        visitedRefs.add(currentMode.ref!);
+        // Find the original mode definition in the base language's refs.
+        final Mode? originalRefMode = baseLanguage.refs?[currentMode.ref!];
+        if (originalRefMode != null) {
+          // Recursively merge the original ref's definition and store it.
+          newRefs[currentMode.ref!] = _recursiveMerge(originalRefMode);
+        }
+      }
+      // Return the original reference object. The highlighter will use our newRefs map.
+      return currentMode;
     }
 
+    // --- This part is for non-reference modes ---
+    
+    // Create a mutable list of the mode's children.
+    List<Mode> newContains = [];
+    if (currentMode.contains != null) {
+      for (final childMode in currentMode.contains!) {
+        // Recursively process each child.
+        newContains.add(_recursiveMerge(childMode));
+      }
+    }
+
+    // Prepend our high-priority additive modes.
     newContains.insertAll(0, additiveModes);
+
+    // Return a new clone of the current mode with the merged children.
     return _cloneMode(currentMode, contains: newContains);
   }
 
-  return _recursiveMerge(baseLanguage);
+  // Start the process on the top-level mode.
+  final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
+
+  // The `refs` map on the top-level mode is the source of truth.
+  // We need to process it directly as well.
+  baseLanguage.refs?.forEach((key, mode) {
+    if (!visitedRefs.contains(key)) {
+      visitedRefs.add(key);
+      newRefs[key] = _recursiveMerge(mode);
+    }
+  });
+
+  // Return a final clone of the top-level mode, replacing its refs
+  // with our new, fully merged refs map.
+  return _cloneMode(mergedTopLevelMode, refs: newRefs);
 }
 
 /// Recursively generates the nested modes for rainbow brackets.
@@ -329,11 +376,8 @@ List<Mode> _createRainbowBracketsModes({int depth = 0, int maxDepth = 6}) {
   if (depth >= maxDepth) {
     return [];
   }
-
   final String scope = 'rainbow-bracket-depth-$depth';
   final List<Mode> nestedModes = _createRainbowBracketsModes(depth: depth + 1, maxDepth: maxDepth);
-
-  // Set relevance to 0 to prevent brackets from interfering with language detection.
   return [
     Mode(begin: r'\(', end: r'\)', scope: scope, contains: nestedModes, relevance: 0),
     Mode(begin: r'\[', end: r'\]', scope: scope, contains: nestedModes, relevance: 0),
