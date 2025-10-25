@@ -241,29 +241,24 @@ class CodeThemes {
   static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(
     String? langKey, {
     bool enableRainbowBrackets = false, // Default to false
-  }) {
-    final effectiveLangKey = langKey ?? 'plaintext';
-    final Mode? originalMode = languageNameToModeMap[effectiveLangKey];
-    
-    // Fallback to plaintext if the language is not found.
-    if (originalMode == null) {
-      return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
-    }
-    
-    // If rainbow brackets are disabled, return the original mode.
-    if (!enableRainbowBrackets) {
-      return {effectiveLangKey: CodeHighlightThemeMode(mode: originalMode)};
-    }
-    
-    // If enabled, perform the merge.
-    final List<Mode> rainbowModes = _createRainbowBracketsModes();
-    final Mode mergedMode = _mergeGrammars(originalMode, rainbowModes);
-    
-    // Return the merged grammar under a new, unique key to avoid cache collisions.
-    final String rainbowLangKey = '$effectiveLangKey-rainbow';
-    
-    return {rainbowLangKey: CodeHighlightThemeMode(mode: mergedMode)};
+}) {
+  final effectiveLangKey = langKey ?? 'plaintext';
+  final Mode? originalMode = languageNameToModeMap[effectiveLangKey];
+  
+  if (originalMode == null) {
+    return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
   }
+  
+  if (!enableRainbowBrackets) {
+    return {effectiveLangKey: CodeHighlightThemeMode(mode: originalMode)};
+  }
+  
+  // Call the robust merger.
+  final Mode mergedMode = _mergeGrammars(originalMode);
+  
+  final String rainbowLangKey = '$effectiveLangKey-rainbow';
+  return {rainbowLangKey: CodeHighlightThemeMode(mode: mergedMode)};
+}
 
   static String formatLanguageName(String key) {
     if (key == 'cpp') return 'C++';
@@ -280,7 +275,6 @@ class CodeThemes {
 /// Recursively copies a Mode object, allowing for modifications.
 Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) {
   return Mode(
-    // --- Copying all properties from the original ---
     aliases: original.aliases,
     begin: original.begin,
     beginKeywords: original.beginKeywords,
@@ -304,14 +298,71 @@ Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) 
     starts: original.starts,
     subLanguage: original.subLanguage,
     variants: original.variants,
-    // --- Overriding with new values ---
     contains: contains ?? original.contains,
     refs: refs ?? original.refs,
+    // --- Specific properties for beginScope/endScope ---
+    beginScope: original.beginScope,
+    endScope: original.endScope,
   );
 }
 
+List<Mode> _createRainbowRules(
+  List<Mode> contentModes, {
+  int depth = 0,
+  int maxDepth = 6,
+}) {
+  if (depth >= maxDepth) {
+    // At the deepest level, we don't add more rainbow rules, just the content.
+    return [];
+  }
+
+  final String scopeName = 'rainbow-bracket-depth-$depth';
+
+  // Create the rules for the next, deeper level of nesting.
+  final List<Mode> nestedRainbowRules = _createRainbowRules(
+    contentModes,
+    depth: depth + 1,
+    maxDepth: maxDepth,
+  );
+
+  // The content for this level is the deeper rainbow rules + the original language rules.
+  final List<Mode> currentLevelContent = [...nestedRainbowRules, ...contentModes];
+
+  return [
+    // Rule for ()
+    Mode(
+      begin: r'\(',
+      end: r'\)',
+      // Apply scope ONLY to begin and end delimiters
+      beginScope: scopeName,
+      endScope: scopeName,
+      // The content inside can be deeper brackets or the original language rules
+      contains: currentLevelContent,
+      relevance: 0,
+    ),
+    // Rule for []
+    Mode(
+      begin: r'\[',
+      end: r'\]',
+      beginScope: scopeName,
+      endScope: scopeName,
+      contains: currentLevelContent,
+      relevance: 0,
+    ),
+    // Rule for {}
+    Mode(
+      begin: r'\{',
+      end: r'\}',
+      beginScope: scopeName,
+      endScope: scopeName,
+      contains: currentLevelContent,
+      relevance: 0,
+    ),
+  ];
+}
+
 /// Merges a list of additive modes into a base language grammar.
-Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
+Mode _mergeGrammars(Mode baseLanguage) {
   final Set<String> visitedRefs = {};
   final Map<String, Mode> newRefs = {};
 
@@ -327,29 +378,26 @@ Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
       return currentMode;
     }
 
-    List<Mode> newContains = [];
+    // First, recursively process all children of the current mode.
+    List<Mode> processedChildren = [];
     if (currentMode.contains != null) {
       for (final childMode in currentMode.contains!) {
-        newContains.add(_recursiveMerge(childMode));
+        processedChildren.add(_recursiveMerge(childMode));
       }
     }
 
-    // --- CRITICAL CHANGE HERE ---
-    // Only add rainbow brackets to modes that are NOT self-contained blocks
-    // like strings or comments. These typically have a 'begin' and 'end'.
-    // Heuristic: If a mode doesn't define a simple container, it's likely a
-    // general context where brackets should be highlighted.
-    final bool isContainer = currentMode.begin != null && currentMode.end != null;
-    if (!isContainer) {
-      newContains.insertAll(0, additiveModes);
-    }
-    // --- END OF CRITICAL CHANGE ---
+    // Now, generate the rainbow rules. Pass the already-processed children
+    // to them so they know what content to parse inside the brackets.
+    final List<Mode> rainbowRules = _createRainbowRules(processedChildren);
 
-    return _cloneMode(currentMode, contains: newContains);
+    // The new set of rules for this mode is the rainbow rules first,
+    // then the original (processed) children as a fallback.
+    final List<Mode> finalContains = [...rainbowRules, ...processedChildren];
+
+    return _cloneMode(currentMode, contains: finalContains);
   }
 
-  final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
-
+  // First, process all the modes defined in `refs`.
   baseLanguage.refs?.forEach((key, mode) {
     if (!visitedRefs.contains(key)) {
       visitedRefs.add(key);
@@ -357,6 +405,10 @@ Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
     }
   });
 
+  // Then, process the top-level mode itself.
+  final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
+
+  // Return the final result with the new, merged refs map.
   return _cloneMode(mergedTopLevelMode, refs: newRefs);
 }
 
