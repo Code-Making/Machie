@@ -356,6 +356,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       CodeThemes.availableCodeThemes['Atom One Dark']!;
   
   // 2. --- THIS IS THE FIX ---
+  bool enableRainbow = true;
   //    Conditionally merge the rainbow styles into the theme map.
   final Map<String, TextStyle> finalTheme = enableRainbow
       ? (Map.from(baseTheme)..addAll(CodeThemes.rainbowStyles))
