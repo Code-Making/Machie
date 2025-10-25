@@ -311,7 +311,7 @@ Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) 
 }
 
 /// Merges a list of additive modes into a base language grammar.
-Mode mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
+Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
   final Set<String> visitedRefs = {};
   final Map<String, Mode> newRefs = {};
 
