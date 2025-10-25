@@ -95,6 +95,16 @@ import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 
 class CodeThemes {
+
+// NEW: Add the custom rainbow styles.
+  static const Map<String, TextStyle> rainbowStyles = {
+    'rainbow-bracket-depth-0': TextStyle(color: Color(0xFFE06C75)), // Red
+    'rainbow-bracket-depth-1': TextStyle(color: Color(0xFFE5C07B)), // Yellow
+    'rainbow-bracket-depth-2': TextStyle(color: Color(0xFF61AFEF)), // Blue
+    'rainbow-bracket-depth-3': TextStyle(color: Color(0xFFC678DD)), // Purple
+    'rainbow-bracket-depth-4': TextStyle(color: Color(0xFF98C379)), // Green
+    'rainbow-bracket-depth-5': TextStyle(color: Color(0xFF56B6C2)), // Cyan
+  };
   // Define available code themes as a map of theme names to their highlight maps
   static final Map<String, Map<String, TextStyle>> availableCodeThemes = {
     // Manually add Atom One Dark as a default, then auto-generate the rest.
@@ -230,13 +240,29 @@ class CodeThemes {
 
   static Map<String, CodeHighlightThemeMode> getHighlightThemeMode(
     String? langKey,
-  ) {
+    bool enableRainbowBrackets = false, // Default to false
+  }) {
     final effectiveLangKey = langKey ?? 'plaintext';
-    final mode = languageNameToModeMap[effectiveLangKey];
-    if (mode != null) {
-      return {effectiveLangKey: CodeHighlightThemeMode(mode: mode)};
+    final Mode? originalMode = languageNameToModeMap[effectiveLangKey];
+    
+    // Fallback to plaintext if the language is not found.
+    if (originalMode == null) {
+      return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
     }
-    return {'plaintext': CodeHighlightThemeMode(mode: langPlaintext)};
+    
+    // If rainbow brackets are disabled, return the original mode.
+    if (!enableRainbowBrackets) {
+      return {effectiveLangKey: CodeHighlightThemeMode(mode: originalMode)};
+    }
+    
+    // If enabled, perform the merge.
+    final List<Mode> rainbowModes = _createRainbowBracketsModes();
+    final Mode mergedMode = _mergeGrammars(originalMode, rainbowModes);
+    
+    // Return the merged grammar under a new, unique key to avoid cache collisions.
+    final String rainbowLangKey = '$effectiveLangKey-rainbow';
+    
+    return {rainbowLangKey: CodeHighlightThemeMode(mode: mergedMode)};
   }
 
   static String formatLanguageName(String key) {
@@ -249,107 +275,71 @@ class CodeThemes {
   }
 }
 
-/// A plugin for re_highlight that colors bracket pairs in a cycling sequence
-/// of colors, creating a "rainbow" effect.
-///
-/// It uses existing, common theme scopes to ensure that the bracket colors
-/// are always consistent with the currently active theme.
-class RainbowBracketsPlugin extends HLPlugin {
-  /// A list of common scope names that are likely to have distinct and
-  /// visually pleasing colors in most themes. The colors will cycle through this list.
-  final List<String> _scopes = const [
-    'keyword',
-    'built_in',
-    'title.class_',
-    'string',
-    'number',
+// In your CodeThemes file...
+import 'package:re_highlight/re_highlight.dart';
+
+// --- Place these utility functions at the top level of your file ---
+
+/// Recursively copies a Mode object, allowing for modifications.
+Mode _cloneMode(Mode original, {List<Mode>? contains}) {
+  return Mode(
+    aliases: original.aliases,
+    begin: original.begin,
+    beginKeywords: original.beginKeywords,
+    cachedVariants: original.cachedVariants,
+    caseInsensitive: original.caseInsensitive,
+    className: original.className,
+    end: original.end,
+    endSameAsBegin: original.endSameAsBegin,
+    endsWithParent: original.endsWithParent,
+    excludeBegin: original.excludeBegin,
+    excludeEnd: original.excludeEnd,
+    illegal: original.illegal,
+    keywords: original.keywords,
+    lexemes: original.lexemes,
+    parent: original.parent,
+    relevance: original.relevance,
+    returnBegin: original.returnBegin,
+    returnEnd: original.returnEnd,
+    scope: original.scope,
+    skip: original.skip,
+    starts: original.starts,
+    subLanguage: original.subLanguage,
+    variants: original.variants,
+    contains: contains ?? original.contains,
+  );
+}
+
+/// Merges a list of additive modes into a base language grammar.
+Mode _mergeGrammars(Mode baseLanguage, List<Mode> additiveModes) {
+  Mode _recursiveMerge(Mode currentMode) {
+    List<Mode> originalContains = List.from(currentMode.contains ?? []);
+    List<Mode> newContains = [];
+
+    for (final childMode in originalContains) {
+      newContains.add(_recursiveMerge(childMode));
+    }
+
+    newContains.insertAll(0, additiveModes);
+    return _cloneMode(currentMode, contains: newContains);
+  }
+
+  return _recursiveMerge(baseLanguage);
+}
+
+/// Recursively generates the nested modes for rainbow brackets.
+List<Mode> _createRainbowBracketsModes({int depth = 0, int maxDepth = 6}) {
+  if (depth >= maxDepth) {
+    return [];
+  }
+
+  final String scope = 'rainbow-bracket-depth-$depth';
+  final List<Mode> nestedModes = _createRainbowBracketsModes(depth: depth + 1, maxDepth: maxDepth);
+
+  // Set relevance to 0 to prevent brackets from interfering with language detection.
+  return [
+    Mode(begin: r'\(', end: r'\)', scope: scope, contains: nestedModes, relevance: 0),
+    Mode(begin: r'\[', end: r'\]', scope: scope, contains: nestedModes, relevance: 0),
+    Mode(begin: r'\{', end: r'\}', scope: scope, contains: nestedModes, relevance: 0),
   ];
-
-  /// Defines the matching pairs for opening and closing brackets.
-  final Map<String, String> _bracketPairs = const {
-    '(': ')',
-    '[': ']',
-    '{': '}',
-  };
-
-  /// This hook is called before the main highlighting process. We don't need
-  /// to do anything here, so we provide an empty implementation.
-  @override
-  void beforeHighlight(BeforeHighlightContext context) {}
-
-  /// This hook is called after the main highlighting process is complete.
-  /// We will traverse the resulting node tree and apply our bracket colors.
-  @override
-  void afterHighlight(HighlightResult result) {
-    // The emitter's root node contains the list of all top-level nodes.
-    final rootChildren = result.emitter.rootNode.children;
-    if (rootChildren == null) {
-      return;
-    }
-
-    // Start the recursive processing and replace the root's children with the new list.
-    result.emitter.rootNode.children = _processNodes(rootChildren, []);
-  }
-
-  /// Recursively processes a list of DataNodes to apply bracket coloring.
-  /// A stack is passed down to keep track of the current nesting depth.
-  List<DataNode> _processNodes(List<DataNode> nodes, List<String> bracketStack) {
-    final List<DataNode> newNodes = [];
-
-    for (final node in nodes) {
-      // If the node is already styled (has a scope), we add it as-is and
-      // do not process it further. This prevents coloring brackets in strings, comments, etc.
-      if (node.scope != null) {
-        newNodes.add(node);
-        continue;
-      }
-      
-      // If a node has children, it's a container. Recurse into it.
-      if (node.children != null) {
-        final processedChildren = _processNodes(node.children!, bracketStack);
-        newNodes.add(DataNode(children: processedChildren));
-        continue;
-      }
-      
-      // If a node has a value, it's a leaf node containing plain text.
-      // This is where we will find and color the brackets.
-      if (node.value != null) {
-        final text = node.value!;
-        int lastIndex = 0;
-        
-        for (int i = 0; i < text.length; i++) {
-          final char = text[i];
-          
-          // --- Handle Opening Brackets ---
-          if (_bracketPairs.containsKey(char)) {
-            if (i > lastIndex) {
-              newNodes.add(DataNode(value: text.substring(lastIndex, i)));
-            }
-            final scope = _scopes[bracketStack.length % _scopes.length];
-            newNodes.add(DataNode(scope: scope, value: char));
-            bracketStack.add(char);
-            lastIndex = i + 1;
-          }
-          // --- Handle Closing Brackets ---
-          else if (_bracketPairs.containsValue(char)) {
-            if (bracketStack.isNotEmpty && _bracketPairs[bracketStack.last] == char) {
-              if (i > lastIndex) {
-                newNodes.add(DataNode(value: text.substring(lastIndex, i)));
-              }
-              bracketStack.removeLast();
-              final scope = _scopes[bracketStack.length % _scopes.length];
-              newNodes.add(DataNode(scope: scope, value: char));
-              lastIndex = i + 1;
-            }
-          }
-        }
-        
-        if (lastIndex < text.length) {
-          newNodes.add(DataNode(value: text.substring(lastIndex)));
-        }
-      }
-    }
-    
-    return newNodes;
-  }
 }

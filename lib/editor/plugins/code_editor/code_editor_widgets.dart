@@ -361,10 +361,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         theme:
             CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
-        languages: CodeThemes.getHighlightThemeMode(_languageKey),
-        plugins: [
-            RainbowBracketsPlugin(),
-          ],
+        languages: CodeThemes.getHighlightThemeMode(_languageKey, true),
       ),
     );
   }
