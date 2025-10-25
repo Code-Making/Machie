@@ -742,7 +742,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       hasSelection: hasSelection,
       hasMark: _markPosition != null,
       appBarOverride: appBarOverride,
-      appBarOverrideKey: appBarOverrideKey, // ADDED: Pass the key
+      appBarOverrideKey: appBarOverrideKey,
     );
 
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
