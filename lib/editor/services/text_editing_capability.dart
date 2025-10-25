@@ -29,6 +29,14 @@ class TextRange {
   const TextRange({required this.start, required this.end});
 }
 
+@immutable
+class TextSelectionDetails {
+  final TextRange? range; // null if selection is collapsed (cursor)
+  final String content;
+
+  const TextSelectionDetails({required this.range, required this.content});
+}
+
 /// A text edit that replaces a range of lines.
 class ReplaceLinesEdit extends TextEdit {
   /// The 0-based index of the first line to replace.
@@ -66,6 +74,10 @@ mixin TextEditablePlugin on EditorPlugin {}
 /// advanced text editing capabilities. This allows services to perform
 /// text manipulations without depending on a concrete editor implementation.
 abstract class TextEditable {
+  /// Returns the details of the current text selection, including its range and content.
+  /// If the selection is collapsed (a cursor), the `range` will be null, and `content` will be empty.
+  Future<TextSelectionDetails> getSelectionDetails();
+
   /// Replaces the currently selected text with the given [replacement].
   /// If an optional [range] is provided, it replaces the text in that range instead.
   void replaceSelection(String replacement, {TextRange? range});
@@ -90,6 +102,10 @@ abstract class TextEditable {
   /// Replaces all occurrences of a [find] string with a [replace] string
   /// throughout the entire document.
   void replaceAllOccurrences(String find, String replace);
+  
+  /// Replaces all substrings that match the given [pattern] with [replacement].
+  /// The [pattern] can be a [String] or a [RegExp].
+  void replaceAllPattern(Pattern pattern, String replacement);
 }
 
 abstract class TextEditableCommandContext extends CommandContext {

@@ -107,6 +107,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   // --- TextEditable Interface Implementation ---
   
   @override
+  Future<TextSelectionDetails> getSelectionDetails() async {
+    final CodeLineSelection currentSelection = controller.selection;
+
+    TextRange? textRange;
+    if (!currentSelection.isCollapsed) {
+      // Convert CodeLineSelection to TextRange
+      textRange = TextRange(
+        start: TextPosition(
+          line: currentSelection.start.index,
+          column: currentSelection.start.offset,
+        ),
+        end: TextPosition(
+          line: currentSelection.end.index,
+          column: currentSelection.end.offset,
+        ),
+      );
+    }
+
+    return TextSelectionDetails(
+      range: textRange,
+      content: controller.selectedText,
+    );
+  }
+  
+  @override
   void replaceSelection(String replacement, {TextRange? range}) {
     if (!mounted) return;
 
@@ -195,6 +220,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       controller.replaceSelection(newContent, selectionToReplace);
     });
   }
+  
+  @override
+  void replaceAllPattern(Pattern pattern, String replacement) {
+    if (!mounted) return;
+    controller.replaceAll(pattern, replacement);
+  }
+
 
   @override
   void undo() {
