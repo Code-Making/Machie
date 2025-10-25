@@ -115,6 +115,20 @@ abstract class TextEditableCommandContext extends CommandContext {
     required this.hasSelection,
     super.appBarOverride,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TextEditableCommandContext &&
+           other.hasSelection == hasSelection &&
+           super == other; // Delegate to CommandContext's equality
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        super.hashCode,
+        hasSelection,
+      );
 }
 
 class BaseTextEditableCommand extends Command {
