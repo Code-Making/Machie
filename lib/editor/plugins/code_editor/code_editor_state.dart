@@ -3,7 +3,7 @@
 // =========================================
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart'; // ADDED: For Widget
+import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/editor_command_context.dart';
 import '../../services/text_editing_capability.dart';
 
@@ -19,9 +19,9 @@ class CodeEditorCommandContext extends TextEditableCommandContext {
     this.hasMark = false,
     required super.hasSelection,
     super.appBarOverride,
+    super.appBarOverrideKey,
   });
 
-  // ADDED: operator == and hashCode for CodeEditorCommandContext
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -29,7 +29,7 @@ class CodeEditorCommandContext extends TextEditableCommandContext {
            other.canUndo == canUndo &&
            other.canRedo == canRedo &&
            other.hasMark == hasMark &&
-           super == other; // Delegate to TextEditableCommandContext's equality
+           super == other;
   }
 
   @override

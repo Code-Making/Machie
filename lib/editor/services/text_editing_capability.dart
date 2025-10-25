@@ -114,6 +114,7 @@ abstract class TextEditableCommandContext extends CommandContext {
   const TextEditableCommandContext({
     required this.hasSelection,
     super.appBarOverride,
+    super.appBarOverrideKey,
   });
 
   @override
@@ -121,7 +122,7 @@ abstract class TextEditableCommandContext extends CommandContext {
     if (identical(this, other)) return true;
     return other is TextEditableCommandContext &&
            other.hasSelection == hasSelection &&
-           super == other; // Delegate to CommandContext's equality
+           super == other;
   }
 
   @override

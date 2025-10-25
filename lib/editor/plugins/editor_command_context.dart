@@ -9,33 +9,28 @@ import 'package:machine/app/app_notifier.dart';
 @immutable
 abstract class CommandContext {
   final Widget? appBarOverride;
+  final Key? appBarOverrideKey;
 
-  const CommandContext({this.appBarOverride});
+  const CommandContext({
+    this.appBarOverride,
+    this.appBarOverrideKey,
+  });
 
-  // ADDED: operator == and hashCode for CommandContext
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    // Note: Comparing Widget instances for equality directly can be tricky.
-    // Here, we compare `appBarOverride` by identity (`identical`).
-    // If a non-const widget (like `CodeFindPanelView`) is always recreated
-    // with new instances, even if its conceptual state is the same, this
-    // comparison will return `false`, leading to notifications.
-    // For `const` widgets (like `CodeEditorSelectionAppBar`), this works well.
     return other is CommandContext &&
-           identical(other.appBarOverride, appBarOverride);
+           other.appBarOverrideKey == appBarOverrideKey;
   }
 
   @override
-  int get hashCode => Object.hash(appBarOverride);
+  int get hashCode => appBarOverrideKey.hashCode;
 }
 
-// MODIFIED: The default context now passes null for the override.
 class EmptyCommandContext extends CommandContext {
-  const EmptyCommandContext() : super(appBarOverride: null);
+  const EmptyCommandContext() : super(appBarOverride: null, appBarOverrideKey: null);
 }
 
-// ... commandContextProvider and activeCommandContextProvider are unchanged ...
 final commandContextProvider =
     StateProvider.family<CommandContext, String>(
   (ref, tabId) => const EmptyCommandContext(),
