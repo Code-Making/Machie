@@ -253,11 +253,11 @@ class CodeThemes {
     return {effectiveLangKey: CodeHighlightThemeMode(mode: originalMode)};
   }
   
-  // Call the robust merger.
-  final Mode mergedMode = _mergeGrammars(originalMode);
+  // Just call the decorator. No need to pass in extra rules.
+  final Mode decoratedMode = mergeGrammars(originalMode);
   
   final String rainbowLangKey = '$effectiveLangKey-rainbow';
-  return {rainbowLangKey: CodeHighlightThemeMode(mode: mergedMode)};
+  return {rainbowLangKey: CodeHighlightThemeMode(mode: decoratedMode)};
 }
 
   static String formatLanguageName(String key) {
@@ -273,7 +273,12 @@ class CodeThemes {
 // --- Place these utility functions at the top level of your file ---
 
 /// Recursively copies a Mode object, allowing for modifications.
-Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) {
+Mode _cloneMode(Mode original, {
+  List<Mode>? contains,
+  Map<String, Mode>? refs,
+  Object? beginScope, // Can be String or Map
+  Object? endScope,   // Can be String or Map
+}) {
   return Mode(
     aliases: original.aliases,
     begin: original.begin,
@@ -298,11 +303,11 @@ Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) 
     starts: original.starts,
     subLanguage: original.subLanguage,
     variants: original.variants,
+    // --- Overriding with new values ---
     contains: contains ?? original.contains,
     refs: refs ?? original.refs,
-    // --- Specific properties for beginScope/endScope ---
-    beginScope: original.beginScope,
-    endScope: original.endScope,
+    beginScope: beginScope ?? original.beginScope,
+    endScope: endScope ?? original.endScope,
   );
 }
 
@@ -337,47 +342,75 @@ List<Mode> _createRainbowRules({int depth = 0, int maxDepth = 6}) {
 }
 
 /// Merges a list of additive modes into a base language grammar.
-Mode _mergeGrammars(Mode baseLanguage) {
+Mode mergeGrammars(Mode baseLanguage, {int maxDepth = 6}) {
   final Set<String> visitedRefs = {};
   final Map<String, Mode> newRefs = {};
-  
-  // Generate the complete, self-contained rainbow grammar once.
-  final List<Mode> rainbowRules = _createRainbowRules();
 
-  Mode _recursiveMerge(Mode currentMode) {
+  // The core recursive decorator function. It carries the current nesting depth.
+  Mode _recursiveDecorator(Mode currentMode, int depth) {
+    // 1. Handle references to avoid infinite loops and ensure all parts are processed.
     if (currentMode.ref != null) {
       if (!visitedRefs.contains(currentMode.ref!)) {
         visitedRefs.add(currentMode.ref!);
         final Mode? originalRefMode = baseLanguage.refs?[currentMode.ref!];
         if (originalRefMode != null) {
-          newRefs[currentMode.ref!] = _recursiveMerge(originalRefMode);
+          // IMPORTANT: Recurse into the ref's definition with the *current* depth.
+          newRefs[currentMode.ref!] = _recursiveDecorator(originalRefMode, depth);
         }
       }
       return currentMode;
     }
 
+    // 2. Check if the current mode is a bracket container.
+    final bool isParen = currentMode.begin == r'\(' && currentMode.end == r'\)';
+    final bool isBracket = currentMode.begin == r'\[' && currentMode.end == r'\]';
+    final bool isBrace = currentMode.begin == r'\{' && currentMode.end == r'\}';
+    final bool isBracketContainer = (isParen || isBracket || isBrace) && depth < maxDepth;
+
+    // 3. Determine the depth for any nested children.
+    // The depth only increases if we are inside a new bracket container.
+    final int childDepth = isBracketContainer ? depth + 1 : depth;
+
+    // 4. Recursively process all children with the new depth.
     List<Mode> processedChildren = [];
     if (currentMode.contains != null) {
       for (final childMode in currentMode.contains!) {
-        processedChildren.add(_recursiveMerge(childMode));
+        processedChildren.add(_recursiveDecorator(childMode, childDepth));
       }
     }
 
-    // --- THE KEY CHANGE: APPEND INSTEAD OF PREPEND ---
-    // The original rules run first. Our rainbow rules act as a fallback.
-    final List<Mode> finalContains = [...processedChildren, ...rainbowRules];
-
-    return _cloneMode(currentMode, contains: finalContains);
+    // 5. If this is a bracket container, prepare the rainbow scopes.
+    if (isBracketContainer) {
+      final String scopeName = 'rainbow-bracket-depth-$depth';
+      
+      // Decorate the current mode with beginScope and endScope for rainbow coloring.
+      // This styles ONLY the delimiters, not the content.
+      return _cloneMode(
+        currentMode,
+        contains: processedChildren,
+        beginScope: scopeName,
+        endScope: scopeName,
+      );
+    } else {
+      // If it's not a bracket container, just return the cloned mode with its processed children.
+      return _cloneMode(currentMode, contains: processedChildren);
+    }
   }
 
+  // --- Main Execution ---
+
+  // First, process all modes defined in the top-level `refs` map.
   baseLanguage.refs?.forEach((key, mode) {
     if (!visitedRefs.contains(key)) {
       visitedRefs.add(key);
-      newRefs[key] = _recursiveMerge(mode);
+      newRefs[key] = _recursiveDecorator(mode, 0); // Start at depth 0
     }
   });
 
-  final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
+  // Then, process the top-level mode itself.
+  final Mode mergedTopLevelMode = _recursiveDecorator(baseLanguage, 0); // Start at depth 0
+
+  // Return the final result, replacing the original `refs` with our new, decorated map.
   return _cloneMode(mergedTopLevelMode, refs: newRefs);
 }
 
