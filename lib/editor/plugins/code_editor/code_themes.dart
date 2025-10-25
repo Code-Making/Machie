@@ -306,57 +306,32 @@ Mode _cloneMode(Mode original, {List<Mode>? contains, Map<String, Mode>? refs}) 
   );
 }
 
-List<Mode> _createRainbowRules(
-  List<Mode> contentModes, {
-  int depth = 0,
-  int maxDepth = 6,
-}) {
+List<Mode> _createRainbowRules({int depth = 0, int maxDepth = 6}) {
   if (depth >= maxDepth) {
-    // At the deepest level, we don't add more rainbow rules, just the content.
     return [];
   }
-
   final String scopeName = 'rainbow-bracket-depth-$depth';
-
-  // Create the rules for the next, deeper level of nesting.
-  final List<Mode> nestedRainbowRules = _createRainbowRules(
-    contentModes,
-    depth: depth + 1,
-    maxDepth: maxDepth,
-  );
-
-  // The content for this level is the deeper rainbow rules + the original language rules.
-  final List<Mode> currentLevelContent = [...nestedRainbowRules, ...contentModes];
+  
+  // CRITICAL: The 'contains' list for a rainbow rule should only contain
+  // the rules for the *next level* of rainbow brackets.
+  // It no longer needs to contain the original language rules.
+  final List<Mode> nestedRules = _createRainbowRules(depth: depth + 1, maxDepth: maxDepth);
 
   return [
-    // Rule for ()
     Mode(
-      begin: r'\(',
-      end: r'\)',
-      // Apply scope ONLY to begin and end delimiters
-      beginScope: scopeName,
-      endScope: scopeName,
-      // The content inside can be deeper brackets or the original language rules
-      contains: currentLevelContent,
-      relevance: 0,
+      begin: r'\{', end: r'\}',
+      beginScope: scopeName, endScope: scopeName,
+      contains: nestedRules, relevance: 0,
     ),
-    // Rule for []
     Mode(
-      begin: r'\[',
-      end: r'\]',
-      beginScope: scopeName,
-      endScope: scopeName,
-      contains: currentLevelContent,
-      relevance: 0,
+      begin: r'\(', end: r'\)',
+      beginScope: scopeName, endScope: scopeName,
+      contains: nestedRules, relevance: 0,
     ),
-    // Rule for {}
     Mode(
-      begin: r'\{',
-      end: r'\}',
-      beginScope: scopeName,
-      endScope: scopeName,
-      contains: currentLevelContent,
-      relevance: 0,
+      begin: r'\[', end: r'\]',
+      beginScope: scopeName, endScope: scopeName,
+      contains: nestedRules, relevance: 0,
     ),
   ];
 }
@@ -365,6 +340,9 @@ List<Mode> _createRainbowRules(
 Mode _mergeGrammars(Mode baseLanguage) {
   final Set<String> visitedRefs = {};
   final Map<String, Mode> newRefs = {};
+  
+  // Generate the complete, self-contained rainbow grammar once.
+  final List<Mode> rainbowRules = _createRainbowRules();
 
   Mode _recursiveMerge(Mode currentMode) {
     if (currentMode.ref != null) {
@@ -378,7 +356,6 @@ Mode _mergeGrammars(Mode baseLanguage) {
       return currentMode;
     }
 
-    // First, recursively process all children of the current mode.
     List<Mode> processedChildren = [];
     if (currentMode.contains != null) {
       for (final childMode in currentMode.contains!) {
@@ -386,18 +363,13 @@ Mode _mergeGrammars(Mode baseLanguage) {
       }
     }
 
-    // Now, generate the rainbow rules. Pass the already-processed children
-    // to them so they know what content to parse inside the brackets.
-    final List<Mode> rainbowRules = _createRainbowRules(processedChildren);
-
-    // The new set of rules for this mode is the rainbow rules first,
-    // then the original (processed) children as a fallback.
-    final List<Mode> finalContains = [...rainbowRules, ...processedChildren];
+    // --- THE KEY CHANGE: APPEND INSTEAD OF PREPEND ---
+    // The original rules run first. Our rainbow rules act as a fallback.
+    final List<Mode> finalContains = [...processedChildren, ...rainbowRules];
 
     return _cloneMode(currentMode, contains: finalContains);
   }
 
-  // First, process all the modes defined in `refs`.
   baseLanguage.refs?.forEach((key, mode) {
     if (!visitedRefs.contains(key)) {
       visitedRefs.add(key);
@@ -405,10 +377,7 @@ Mode _mergeGrammars(Mode baseLanguage) {
     }
   });
 
-  // Then, process the top-level mode itself.
   final Mode mergedTopLevelMode = _recursiveMerge(baseLanguage);
-
-  // Return the final result with the new, merged refs map.
   return _cloneMode(mergedTopLevelMode, refs: newRefs);
 }
 
