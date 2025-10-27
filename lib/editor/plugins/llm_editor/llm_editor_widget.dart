@@ -41,7 +41,7 @@ class LlmEditorWidget extends EditorWidget {
 
 class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   late final LlmEditorController _controller;
-  late List<DisplayMessage> _displayMessages;
+  // late List<DisplayMessage> _displayMessages;
   String? _baseContentHash;
   bool _isLoading = false;
   final _textController = TextEditingController();

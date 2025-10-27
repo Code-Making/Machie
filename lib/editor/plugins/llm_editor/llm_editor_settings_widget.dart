@@ -1,8 +1,4 @@
-// =========================================
-// UPDATED: lib/editor/plugins/llm_editor/llm_editor_settings_widget.dart
-// =========================================
-
-import 'package:collection/collection.dart'; // Import for firstWhereOrNull
+// import 'package:collection/collection.dart'; // Import for firstWhereOrNull
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
