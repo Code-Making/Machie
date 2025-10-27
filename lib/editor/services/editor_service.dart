@@ -142,7 +142,7 @@ class EditorService {
     final editorState = tab.editorKey.currentState;
 
     if (metadata != null && metadata.isDirty && editorState != null) {
-      final hotStateDto = await editorState.serializeHotState();
+      final hotStateDto = await editorState.serializeHotState() ?? TabHotStateDto();
       hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
     }
   }
@@ -205,7 +205,7 @@ class EditorService {
       );
       if (result == null) return;
 
-      final DocumentFile newFile = (editorContent is EditorContentString)
+      final ProjectDocumentFile newFile = (editorContent is EditorContentString)
           ? await _repo.createDocumentFile(
               result.parentUri,
               result.fileName,
