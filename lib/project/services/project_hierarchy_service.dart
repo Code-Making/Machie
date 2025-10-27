@@ -18,7 +18,7 @@ final _penEvents = AnsiPen()..yellow();
 
 // (FileTreeNode class remains the same)
 class FileTreeNode {
-  final DocumentFile file;
+  final ProjectDocumentFile file;
   FileTreeNode(this.file);
 }
 
@@ -318,9 +318,9 @@ final projectHierarchyServiceProvider = NotifierProvider<
 >(ProjectHierarchyService.new);
 
 final flatFileIndexProvider =
-    Provider.autoDispose<AsyncValue<List<DocumentFile>>>((ref) {
+    Provider.autoDispose<AsyncValue<List<ProjectDocumentFile>>>((ref) {
       final hierarchyState = ref.watch(projectHierarchyServiceProvider);
-      final allFiles = <DocumentFile>[];
+      final allFiles = <ProjectDocumentFile>[];
       final addedUris = <String>{};
       for (final entry in hierarchyState.entries) {
         entry.value.whenData((nodes) {

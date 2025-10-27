@@ -187,30 +187,30 @@ abstract class FileContextCommand {
     required this.sourcePlugin,
   });
 
-  bool canExecuteFor(WidgetRef ref, DocumentFile item);
-  Future<void> executeFor(WidgetRef ref, DocumentFile item);
+  bool canExecuteFor(WidgetRef ref, ProjectDocumentFile item);
+  Future<void> executeFor(WidgetRef ref, ProjectDocumentFile item);
 }
 
 class BaseFileContextCommand extends FileContextCommand {
-  final bool Function(WidgetRef, DocumentFile) _canExecuteFor;
-  final Future<void> Function(WidgetRef, DocumentFile) _executeFor;
+  final bool Function(WidgetRef, ProjectDocumentFile) _canExecuteFor;
+  final Future<void> Function(WidgetRef, ProjectDocumentFile) _executeFor;
 
   const BaseFileContextCommand({
     required super.id,
     required super.label,
     required super.icon,
     required super.sourcePlugin,
-    required bool Function(WidgetRef, DocumentFile) canExecuteFor,
-    required Future<void> Function(WidgetRef, DocumentFile) executeFor,
+    required bool Function(WidgetRef, ProjectDocumentFile) canExecuteFor,
+    required Future<void> Function(WidgetRef, ProjectDocumentFile) executeFor,
   }) : _canExecuteFor = canExecuteFor,
        _executeFor = executeFor;
 
   @override
-  bool canExecuteFor(WidgetRef ref, DocumentFile item) =>
+  bool canExecuteFor(WidgetRef ref, ProjectDocumentFile item) =>
       _canExecuteFor(ref, item);
 
   @override
-  Future<void> executeFor(WidgetRef ref, DocumentFile item) =>
+  Future<void> executeFor(WidgetRef ref, ProjectDocumentFile item) =>
       _executeFor(ref, item);
 }
 
