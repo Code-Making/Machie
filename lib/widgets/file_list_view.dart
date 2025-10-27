@@ -1,4 +1,5 @@
 // lib/widgets/file_list_view.dart
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/plugin_registry.dart';
@@ -94,8 +95,18 @@ class FileItem extends StatelessWidget {
   final DocumentFile file;
   final int depth;
   final VoidCallback onTapped;
-  const FileItem({required this.file, required this.depth, required this.onTapped});
+  final String? subtitle; // ADDED: Optional subtitle
+
+  const FileItem({
+    super.key,
+    required this.file,
+    required this.depth,
+    required this.onTapped,
+    this.subtitle, // ADDED
+  });
+
   static const double _kIndentPerLevel = 16.0;
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
@@ -103,7 +114,19 @@ class FileItem extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.only(left: depth * _kIndentPerLevel, right: 8.0),
       leading: FileTypeIcon(file: file),
-      title: Text(file.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.0)),
+      title: Text(
+        file.name,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 14.0),
+      ),
+      // ADDED: Conditionally display the subtitle
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.0),
+            )
+          : null,
     );
   }
 }
