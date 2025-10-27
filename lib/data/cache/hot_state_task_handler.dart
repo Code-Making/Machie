@@ -60,14 +60,14 @@ class HotStateTaskHandler extends TaskHandler {
 
       case 'ui_paused':
         // The UI has gone into the background. Start the shutdown timer.
-        print(
-          '[Background Service] UI is paused. Starting 5-minute shutdown timer.',
-        );
+        // print(
+        //   '[Background Service] UI is paused. Starting 5-minute shutdown timer.',
+        // );
         _shutdownTimer?.cancel(); // Cancel any existing timer
         _shutdownTimer = Timer(const Duration(minutes: 5), () {
-          print(
-            '[Background Service] Inactivity timeout reached. Stopping service.',
-          );
+          // print(
+          //   '[Background Service] Inactivity timeout reached. Stopping service.',
+          // );
           FlutterForegroundTask.stopService();
         });
         break;
@@ -77,9 +77,9 @@ class HotStateTaskHandler extends TaskHandler {
         final String? tabId = data['tabId'];
         if (projectId != null && tabId != null) {
           _inMemoryHotState[projectId]?.remove(tabId);
-          print(
-            '[Background Service] Cleared in-memory hot state for tab $projectId/$tabId',
-          );
+          // print(
+          //   '[Background Service] Cleared in-memory hot state for tab $projectId/$tabId',
+          // );
         }
         break;
 
@@ -101,9 +101,9 @@ class HotStateTaskHandler extends TaskHandler {
         final String? projectId = data['projectId'];
         if (projectId != null) {
           _inMemoryHotState.remove(projectId);
-          print(
-            '[Background Service] Cleared in-memory hot state for project $projectId',
-          );
+          // print(
+          //   '[Background Service] Cleared in-memory hot state for project $projectId',
+          // );
         }
         break;
     }
@@ -149,9 +149,9 @@ class HotStateTaskHandler extends TaskHandler {
   /// opportunity to save any pending data.
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    print(
-      '[Background Service] Service is being destroyed. Final flush attempt...',
-    );
+    // print(
+    //   '[Background Service] Service is being destroyed. Final flush attempt...',
+    // );
     await _flushInMemoryState();
     await _hiveRepo.close();
     _shutdownTimer?.cancel(); // Clean up the timer

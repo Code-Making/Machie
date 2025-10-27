@@ -38,10 +38,9 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       if (c.sourcePlugin == 'App') return true;
 
       // Condition 2: It's a generic text command and the ACTIVE PLUGIN is a TextEditablePlugin.
-      if (c is BaseTextEditableCommand && currentPlugin is TextEditablePlugin) {
-        return true;
+      if (c is BaseTextEditableCommand {
+        return currentPlugin is TextEditablePlugin;
       } else {
-        // Condition 3: The command's source matches the currently active plugin's ID.
         return c.sourcePlugin == currentPlugin?.id;
       }
     });
