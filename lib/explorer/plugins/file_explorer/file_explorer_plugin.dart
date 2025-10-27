@@ -21,6 +21,9 @@ class FileExplorerPlugin implements ExplorerPlugin {
   final ExplorerPluginSettings? settings = FileExplorerSettings();
 
   @override
+  List<FileContentProvider> get fileContentProviders => [];
+
+  @override
   Widget build(WidgetRef ref, Project project) {
     return FileExplorerView(project: project);
   }
