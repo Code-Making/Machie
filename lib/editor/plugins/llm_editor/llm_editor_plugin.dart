@@ -126,7 +126,7 @@ class LlmEditorPlugin extends EditorPlugin {
     List<ChatMessage> messagesToShow;
     final hotState = initData.hotState as LlmEditorHotStateDto?;
 
-    if (hotState != null && hotState.messages.isNotEmpty) {
+    if (hotState.messages.isNotEmpty) {
       // If cached state exists, it takes priority.
       messagesToShow = hotState.messages;
     } else {
@@ -168,7 +168,7 @@ class LlmEditorPlugin extends EditorPlugin {
       ),
     );
     if (tab is! LlmEditorTab) return null;
-    return tab.editorKey.currentState as LlmEditorWidgetState?;
+    return tab.editorKey.currentState;
   }
 
   @override

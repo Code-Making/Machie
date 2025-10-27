@@ -305,36 +305,36 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-  Future<void> _recalculateTokensAfterEdit() async {
-    final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
-            as LlmEditorSettings?)
-        ?.selectedModels
-        .values
-        .firstWhereOrNull((m) => m != null);
+  // Future<void> _recalculateTokensAfterEdit() async {
+  //   final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+  //           as LlmEditorSettings?)
+  //       ?.selectedModels
+  //       .values
+  //       .firstWhereOrNull((m) => m != null);
 
-    if (!mounted || model == null || _displayMessages.isEmpty) {
-      if (mounted) setState(() => _totalTokenCount = 0);
-      return;
-    }
+  //   if (!mounted || model == null || _displayMessages.isEmpty) {
+  //     if (mounted) setState(() => _totalTokenCount = 0);
+  //     return;
+  //   }
 
-    final provider = ref.read(llmServiceProvider);
-    final conversation = _displayMessages.map((dm) => dm.message).toList();
-    final tokenCount = await provider.countTokens(
-      conversation: conversation,
-      model: model,
-    );
+  //   final provider = ref.read(llmServiceProvider);
+  //   final conversation = _displayMessages.map((dm) => dm.message).toList();
+  //   final tokenCount = await provider.countTokens(
+  //     conversation: conversation,
+  //     model: model,
+  //   );
 
-    if (mounted) {
-      setState(() {
-        final lastMessage = _displayMessages.last.message;
-        _displayMessages[_displayMessages.length -
-            1] = DisplayMessage.fromChatMessage(
-          lastMessage.copyWith(totalConversationTokenCount: tokenCount),
-        );
-        _updateTotalTokenCount();
-      });
-    }
-  }
+  //   if (mounted) {
+  //     setState(() {
+  //       final lastMessage = _displayMessages.last.message;
+  //       _displayMessages[_displayMessages.length -
+  //           1] = DisplayMessage.fromChatMessage(
+  //         lastMessage.copyWith(totalConversationTokenCount: tokenCount),
+  //       );
+  //       _updateTotalTokenCount();
+  //     });
+  //   }
+  // }
 
   void _delete(int index) {
     _controller.deleteMessage(index);
@@ -344,36 +344,36 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _controller.deleteAfter(index);
   }
 
-  Future<void> _showEditMessageDialog(int index) async {
-    final originalMessage = _controller.messages[index].message;
+  // Future<void> _showEditMessageDialog(int index) async {
+  //   final originalMessage = _controller.messages[index].message;
 
-    final newMessage = await showDialog<ChatMessage>(
-      context: context,
-      builder: (context) => EditMessageDialog(initialMessage: originalMessage),
-    );
+  //   final newMessage = await showDialog<ChatMessage>(
+  //     context: context,
+  //     builder: (context) => EditMessageDialog(initialMessage: originalMessage),
+  //   );
 
-    if (newMessage != null) {
-      final bool contentChanged = originalMessage.content != newMessage.content;
-      final bool contextChanged =
-          !const DeepCollectionEquality().equals(
-            originalMessage.context?.map((e) => e.source).toSet(),
-            newMessage.context?.map((e) => e.source).toSet(),
-          );
+  //   if (newMessage != null) {
+  //     final bool contentChanged = originalMessage.content != newMessage.content;
+  //     final bool contextChanged =
+  //         !const DeepCollectionEquality().equals(
+  //           originalMessage.context?.map((e) => e.source).toSet(),
+  //           newMessage.context?.map((e) => e.source).toSet(),
+  //         );
 
-      if (contentChanged || contextChanged) {
-        _controller.updateMessage(index, newMessage);
-        _rerun(index);
-      }
-    }
-  }
+  //     if (contentChanged || contextChanged) {
+  //       _controller.updateMessage(index, newMessage);
+  //       _rerun(index);
+  //     }
+  //   }
+  // }
 
-  void _updateAndRerunMessage(int index, ChatMessage newMessage) {
-    setState(() {
-      _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
-    });
-    // Re-use the rerun logic! It correctly deletes subsequent messages and resubmits.
-    _rerun(index);
-  }
+  // void _updateAndRerunMessage(int index, ChatMessage newMessage) {
+  //   setState(() {
+  //     _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
+  //   });
+  //   // Re-use the rerun logic! It correctly deletes subsequent messages and resubmits.
+  //   _rerun(index);
+  // }
 
   Future<void> _showAddContextDialog() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
@@ -532,13 +532,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       target ??= targets.last;
     }
 
-    if (target != null) {
       _scrollController.animateTo(
         target.offset,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-    }
   }
 
   void _scrollToBottom() {

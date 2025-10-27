@@ -89,9 +89,9 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedProvider = allLlmProviders.firstWhereOrNull(
-      (p) => p.id == _currentSettings.selectedProviderId,
-    );
+    // final selectedProvider = allLlmProviders.firstWhereOrNull(
+    //   (p) => p.id == _currentSettings.selectedProviderId,
+    // );
 
     // Find the full model info object for the selected model
     final LlmModelInfo? selectedModelInfo =
