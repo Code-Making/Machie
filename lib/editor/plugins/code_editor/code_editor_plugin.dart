@@ -330,7 +330,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
         // Create the unified init data object.
         final initData = EditorInitData(
-          initContent: EditorContentString(''), // No file to read, so default to empty string.
+          initialContent: EditorContentString(''), // No file to read, so default to empty string.
           hotState: cachedDto,
           baseContentHash: '',
         );

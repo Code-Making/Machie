@@ -85,7 +85,7 @@ class GlitchEditorPlugin extends EditorPlugin {
   }) async {
     // The initial image is ALWAYS the data from disk.
     final byteContent = initData.initialContent as EditorContentBytes;
-    final initialImageData = byteContent.content ?? Uint8List(0);
+    final initialImageData = byteContent.bytes ?? Uint8List(0);
     final initialBaseContentHash = initData.baseContentHash;
 
     Uint8List? cachedImageData;
