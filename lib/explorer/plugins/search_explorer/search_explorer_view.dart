@@ -1,14 +1,14 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/search_explorer/search_explorer_view.dart
-// =========================================
-
+// lib/explorer/plugins/search_explorer/search_explorer_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../project/project_models.dart';
-import '../../common/file_explorer_widgets.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/project/project_models.dart';
+import 'package:machine/project/services/project_hierarchy_service.dart';
+import 'package:machine/data/repositories/project_repository.dart';
+// THE FIX: Import the new generic widgets file.
+import 'package:machine/widgets/file_list_view.dart';
 import 'search_explorer_state.dart';
-import '../../../project/services/project_hierarchy_service.dart'; // IMPORT THE NEW SERVICE
-import '../../../data/repositories/project_repository.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -25,7 +25,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
   void initState() {
     super.initState();
     _textController.addListener(() {
-      // The search notifier no longer needs the project ID.
       ref.read(searchStateProvider.notifier).search(_textController.text);
     });
   }
@@ -38,7 +37,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch both the index state (for loading/errors) and the search results.
     final indexState = ref.watch(flatFileIndexProvider);
     final searchState = ref.watch(searchStateProvider);
     final projectRootUri = widget.project.rootUri;
@@ -66,13 +64,11 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
             ),
           ),
         ),
-        // Use the indexState to handle loading and error states for the whole view.
         Expanded(
           child: indexState.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text('Error: $err')),
             data: (allFiles) {
-              // Once the index is loaded, we can display the search results.
               if (searchState.query.isNotEmpty && searchState.results.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -83,7 +79,6 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
               return ListView.builder(
                 itemCount: searchState.results.length,
                 itemBuilder: (context, index) {
-                  // THE FIX: Unwrap the SearchResult to get the file.
                   final searchResult = searchState.results[index];
                   final file = searchResult.file;
 
@@ -92,18 +87,23 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                     relativeTo: projectRootUri,
                   );
                   final pathSegments = relativePath.split('/');
-                  final subtitle =
-                      pathSegments.length > 1
-                          ? pathSegments
-                              .sublist(0, pathSegments.length - 1)
-                              .join('/')
-                          : '.';
+                  final subtitle = pathSegments.length > 1
+                      ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
+                      : '.';
 
-                  return DirectoryItem(
-                    item: file,
-                    depth: 0,
-                    isExpanded: false,
+                  // THE FIX: Replace the old `DirectoryItem` with the new, generic `FileItem`.
+                  return FileItem(
+                    file: file,
+                    depth: 1, // All search results are at the same "depth"
                     subtitle: subtitle,
+                    onTapped: () async {
+                      final navigator = Navigator.of(context);
+                      // Cast is safe because search only operates on project files.
+                      final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+                      if (success && context.mounted) {
+                        navigator.pop(); // Close the drawer
+                      }
+                    },
                   );
                 },
               );
