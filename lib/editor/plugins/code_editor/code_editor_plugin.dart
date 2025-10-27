@@ -240,7 +240,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   }) async {
     String initialContent;
     if (initData.initialContent is EditorContentString) {
-      initialContent = initData.initialContent;
+      initialContent = initData.initialContent.content;
     } else{
       initialContent = "";
     }
