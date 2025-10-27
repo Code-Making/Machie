@@ -139,11 +139,12 @@ class EditorService {
   Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
     final metadata = _ref.read(tabMetadataProvider)[tab.id];
-    final editorState = tab.editorKey.currentState;
 
-    if (metadata != null && metadata.isDirty && editorState != null) {
-      final hotStateDto = await editorState.serializeHotState() ?? TabHotStateDto();
-      hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
+    if (metadata != null && metadata.isDirty) {
+      final hotStateDto = await tab.editorKey.currentState?.serializeHotState();
+      if (hotStateDto != null) {
+        hotStateCacheService.updateTabState(project.id, tab.id, hotStateDto);
+      }
     }
   }
 
