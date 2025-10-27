@@ -11,18 +11,18 @@ sealed class FileOperationEvent {
 }
 
 class FileCreateEvent extends FileOperationEvent {
-  final DocumentFile createdFile;
+  final ProjectDocumentFile createdFile;
   const FileCreateEvent({required this.createdFile});
 }
 
 class FileRenameEvent extends FileOperationEvent {
-  final DocumentFile oldFile;
-  final DocumentFile newFile;
+  final ProjectDocumentFile oldFile;
+  final ProjectDocumentFile newFile;
   const FileRenameEvent({required this.oldFile, required this.newFile});
 }
 
 class FileDeleteEvent extends FileOperationEvent {
-  final DocumentFile deletedFile;
+  final ProjectDocumentFile deletedFile;
   const FileDeleteEvent({required this.deletedFile});
 }
 
@@ -49,7 +49,7 @@ abstract class ProjectRepository {
   FileHandler get fileHandler;
   Future<ProjectDto> loadProjectDto();
   Future<void> saveProjectDto(ProjectDto projectDto);
-  Future<DocumentFile> createDocumentFile(
+  Future<ProjectDocumentFile> createDocumentFile(
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -57,25 +57,25 @@ abstract class ProjectRepository {
     Uint8List? initialBytes,
     bool overwrite = false,
   });
-  Future<void> deleteDocumentFile(DocumentFile file);
+  Future<void> deleteDocumentFile(ProjectDocumentFile file);
 
-  Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName);
-  Future<DocumentFile> copyDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> renameDocumentFile(ProjectDocumentFile file, String newName);
+  Future<ProjectDocumentFile> copyDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   );
-  Future<DocumentFile> moveDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> moveDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   );
 
-  Future<List<DocumentFile>> listDirectory(
+  Future<List<ProjectDocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
   });
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
-  Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes);
-  Future<DocumentFile?> getFileMetadata(String uri);
+  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content);
+  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes);
+  Future<ProjectDocumentFile?> getFileMetadata(String uri);
 }

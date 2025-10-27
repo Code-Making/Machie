@@ -1,27 +1,30 @@
 import 'dart:async';
-import 'dart:convert'; // For utf8
+import 'dart:convert';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart'; // For md5
+
+import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../editor/editor_tab_models.dart';
-import '../../editor/plugins/plugin_registry.dart';
-import '../../project/project_models.dart';
-import '../../logs/logs_provider.dart';
 import '../../data/file_handler/file_handler.dart' show DocumentFile;
-import 'text_editing_capability.dart'; // <-- ADD THIS IMPORT
-import '../tab_state_manager.dart';
-import '../../explorer/common/save_as_dialog.dart';
-import '../../explorer/common/file_explorer_dialogs.dart';
-import '../../explorer/services/explorer_service.dart';
-import '../../utils/toast.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 import '../../data/cache/hot_state_cache_service.dart';
+import '../../explorer/common/save_as_dialog.dart';
+import '../../explorer/common/file_explorer_dialogs.dart';
+import '../../explorer/services/explorer_service.dart';
+import '../../logs/logs_provider.dart';
+import '../../project/project_models.dart';
+import '../../utils/toast.dart';
+import '../editor_tab_models.dart';
+import '../plugins/plugin_registry.dart';
+import '../tab_state_manager.dart';
+import 'file_content_provider.dart';
+import 'text_editing_capability.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -42,6 +45,10 @@ class EditorService {
     }
     return repo;
   }
+  
+  FileContentProviderRegistry get _contentProviderRegistry =>
+    _ref.read(fileContentProviderRegistryProvider);
+
 
   Future<TabSessionState> rehydrateTabSession(
     ProjectDto dto,

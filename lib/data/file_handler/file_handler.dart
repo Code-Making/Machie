@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/data/file_handler/file_handler.dart
-// =========================================
-
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
@@ -17,6 +13,7 @@ class PermissionDeniedException implements Exception {
   String toString() => message;
 }
 
+/// The base abstract class for any file-like entity in the application.
 abstract class DocumentFile {
   String get uri;
   String get name;
@@ -26,26 +23,32 @@ abstract class DocumentFile {
   String get mimeType;
 }
 
+
+/// A specialized [DocumentFile] that represents a file or directory physically
+/// present within the project's structure and managed by the [ProjectRepository].
+abstract class ProjectDocumentFile extends DocumentFile {}
+
+
+/// The contract for handling file system operations.
+/// It now explicitly produces and consumes [ProjectDocumentFile] instances.
 abstract class FileHandler {
-  /// Checks if the application currently holds a valid, persisted permission
-  /// for the given URI.
   Future<bool> hasPermission(String uri);
   Future<bool> reRequestPermission(String uri);
-  Future<DocumentFile?> pickDirectory();
-  Future<List<DocumentFile>> listDirectory(
+  Future<ProjectDocumentFile?> pickDirectory();
+  Future<List<ProjectDocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
   });
-  Future<DocumentFile?> pickFile();
-  Future<List<DocumentFile>> pickFiles();
+  Future<ProjectDocumentFile?> pickFile();
+  Future<List<ProjectDocumentFile>> pickFiles();
 
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
 
-  Future<DocumentFile> writeFile(DocumentFile file, String content);
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes);
+  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content);
+  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes);
 
-  Future<DocumentFile> createDocumentFile(
+  Future<ProjectDocumentFile> createDocumentFile(
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -54,39 +57,29 @@ abstract class FileHandler {
     bool overwrite = false,
   });
 
-  Future<void> deleteDocumentFile(DocumentFile file);
+  Future<void> deleteDocumentFile(ProjectDocumentFile file);
 
-  Future<DocumentFile> renameDocumentFile(DocumentFile file, String newName);
-  Future<DocumentFile> copyDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> renameDocumentFile(ProjectDocumentFile file, String newName);
+  Future<ProjectDocumentFile> copyDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   );
-  Future<DocumentFile> moveDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> moveDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   );
 
-  Future<DocumentFile?> getFileMetadata(String uri);
+  Future<ProjectDocumentFile?> getFileMetadata(String uri);
  
-  /// Resolves a relative path from a parent URI to a DocumentFile.
-  /// Returns null if the path does not exist.
-  Future<DocumentFile?> resolvePath(String parentUri, String relativePath);
+  Future<ProjectDocumentFile?> resolvePath(String parentUri, String relativePath);
 
-  /// Creates a file at the given relative path, creating any necessary
-  /// parent directories along the way.
-  Future<DocumentFile> createDirectoryAndFile(
+  Future<ProjectDocumentFile> createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
   });
   
-  /// Returns the parent URI of the given URI.
   String getParentUri(String uri);
-
-  /// Returns the final component (file or folder name) of the given URI.
   String getFileName(String uri);
-
-  /// Returns a user-friendly, decoded path string for display purposes.
-  /// If `relativeTo` is provided, it returns a relative path.
   String getPathForDisplay(String uri, {String? relativeTo});
 }

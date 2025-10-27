@@ -14,6 +14,7 @@ import '../data/dto/tab_hot_state_dto.dart';
 
 import 'plugins/plugin_models.dart';
 import 'tab_state_manager.dart';
+import 'services/file_content_provider.dart'; // NEW IMPORT
 
 export '../data/dto/tab_hot_state_dto.dart';
 
@@ -29,14 +30,23 @@ class TabSessionState {
     this.tabMetadata = const {},
   });
 
-  TabSessionStateDto toDto(Map<String, TabMetadata> liveMetadata) {
+  TabSessionStateDto toDto(
+    Map<String, TabMetadata> liveMetadata,
+    FileContentProviderRegistry registry, // Pass the registry
+  ) {
     return TabSessionStateDto(
       tabs: tabs.map((t) => t.toDto()).toList(),
       currentTabIndex: currentTabIndex,
       tabMetadata: liveMetadata.map(
         (key, value) => MapEntry(
           key,
-          TabMetadataDto(fileUri: value.file.uri, isDirty: value.isDirty),
+          TabMetadataDto(
+            fileUri: value.file.uri,
+            isDirty: value.isDirty,
+            fileName: value.file.name,
+            // Use the registry to get the type ID
+            fileType: registry.getTypeIdForFile(value.file), 
+          ),
         ),
       ),
     );
