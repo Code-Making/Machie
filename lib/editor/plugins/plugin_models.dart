@@ -20,12 +20,12 @@ enum PluginDataRequirement { string, bytes }
 class EditorInitData {
   final EditorContent initialContent;
   final TabHotStateDto? hotState;
-  final String? baseContentHash;
+  final String baseContentHash;
 
   const EditorInitData({
     required this.initialContent,
     this.hotState,
-    this.baseContentHash,
+    requured this.baseContentHash,
   });
 }
 
