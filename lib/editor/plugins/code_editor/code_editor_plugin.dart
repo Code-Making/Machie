@@ -1,7 +1,3 @@
-// =========================================
-// FILE: lib/editor/plugins/code_editor/code_editor_plugin.dart
-// =========================================
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,28 +8,26 @@ import 'code_themes.dart';
 import 'code_editor_models.dart';
 import 'code_editor_widgets.dart';
 import 'code_editor_settings_widget.dart';
-import 'code_editor_state.dart'; // <-- ADD THIS IMPORT
-import 'code_editor_hot_state_adapter.dart'; // ADDED
-import 'code_editor_hot_state_dto.dart'; // ADDED
+import 'code_editor_state.dart';
+import 'code_editor_hot_state_adapter.dart';
+import 'code_editor_hot_state_dto.dart';
 
 import '../plugin_models.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
-import '../../../app/app_commands.dart'; // Import for scratchpadTabId
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
-// ADDED
-import '../../../data/cache/type_adapters.dart'; // ADDED
-import '../../../data/cache/hot_state_cache_service.dart';
+
+import '../../../data/cache/type_adapters.dart';
 import '../../../project/project_models.dart';
-import '../../../editor/plugins/editor_command_context.dart'; // <-- IMPORT NEW CONTEXT
+import '../../../editor/plugins/editor_command_context.dart';
 import '../../../editor/services/editor_service.dart';
 import '../../../editor/services/text_editing_capability.dart';
 import '../../../data/repositories/project_repository.dart';
-import '../../../utils/toast.dart'; // <-- FIX: ADDED IMPORT
-import '../../../logs/logs_provider.dart'; // <-- FIX: ADDED IMPORT
+import '../../../utils/toast.dart';
+import '../../../logs/logs_provider.dart';
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -283,7 +277,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       ),
     );
     if (tab is! CodeEditorTab) return null;
-    return tab.editorKey.currentState as CodeEditorMachineState?;
+    return tab.editorKey.currentState;
   }
 
   @override
