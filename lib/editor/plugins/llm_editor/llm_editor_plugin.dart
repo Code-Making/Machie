@@ -139,7 +139,7 @@ class LlmEditorPlugin extends EditorPlugin {
       List<ChatMessage> messagesFromFile = [];
       final stringData = initData.initialContent as EditorContentString;
       final content = stringData.content;
-      if (content != null && content.isNotEmpty) {
+      if (content.isNotEmpty) {
         try {
           final List<dynamic> jsonList = jsonDecode(content);
           messagesFromFile =
