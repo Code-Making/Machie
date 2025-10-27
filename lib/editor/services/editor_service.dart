@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../data/file_handler/file_handler.dart' show DocumentFile;
+import '../../data/file_handler/file_handler.dart' show DocumentFile, ProjectDocumentFile;
 import '../../data/dto/project_dto.dart';
 import '../../data/dto/tab_hot_state_dto.dart';
 import '../../data/cache/hot_state_cache_service.dart';
@@ -25,7 +25,6 @@ import '../plugins/plugin_registry.dart';
 import '../tab_state_manager.dart';
 import 'file_content_provider.dart';
 import 'text_editing_capability.dart';
-import '../../data/file_handler/file_handler.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
