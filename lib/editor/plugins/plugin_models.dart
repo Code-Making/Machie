@@ -13,6 +13,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../command/command_models.dart';
 import '../editor_tab_models.dart';
 import '../../settings/settings_models.dart';
+import '../services/file_content_provider.dart';
 
 enum PluginDataRequirement { string, bytes }
 

@@ -16,6 +16,10 @@ import '../../project/project_models.dart';
 import '../../utils/toast.dart';
 import 'editor_service.dart';
 import '../../data/dto/project_dto.dart'; // NEW IMPORT
+import '../plugins/plugin_models.dart';
+import '../plugins/plugin_registry.dart';
+import '../../explorer/explorer_plugin_registry.dart';
+import '../../data/file_handler/local_file_handler_saf.dart';
 
 /// A result class that encapsulates the content of a file and its MD5 hash.
 class EditorContentResult {

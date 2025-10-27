@@ -43,7 +43,7 @@ class ExplorerService {
     return newProject;
   }
   
-  Future<DocumentFile> createFileWithHierarchy(String projectRootUri, String relativePath) async {
+  Future<ProjectDocumentFile> createFileWithHierarchy(String projectRootUri, String relativePath) async {
     final newFile = await _repo.fileHandler.createDirectoryAndFile(
       projectRootUri,
       relativePath,
@@ -77,14 +77,14 @@ class ExplorerService {
         .add(FileCreateEvent(createdFile: newFolder));
   }
 
-  Future<void> deleteItem(DocumentFile item) async {
+  Future<void> deleteItem(ProjectDocumentFile item) async {
     await _repo.deleteDocumentFile(item);
     _ref
         .read(fileOperationControllerProvider)
         .add(FileDeleteEvent(deletedFile: item));
   }
 
-  Future<void> renameItem(DocumentFile item, String newName) async {
+  Future<void> renameItem(ProjectDocumentFile item, String newName) async {
     try {
       final renamedFile = await _repo.renameDocumentFile(item, newName);
       _ref
@@ -100,7 +100,7 @@ class ExplorerService {
   }
 
   Future<void> pasteItem(
-    DocumentFile destinationFolder,
+    ProjectDocumentFile destinationFolder,
     ClipboardItem clipboardItem,
   ) async {
     try {
@@ -134,8 +134,8 @@ class ExplorerService {
   }
 
   Future<void> moveItem(
-    DocumentFile source,
-    DocumentFile destinationFolder,
+    ProjectDocumentFile source,
+    ProjectDocumentFile destinationFolder,
   ) async {
     if (!destinationFolder.isDirectory) {
       MachineToast.error('Destination must be a folder.');
@@ -163,7 +163,7 @@ class ExplorerService {
   }
 
   Future<void> importFile(
-    DocumentFile pickedFile,
+    ProjectDocumentFile pickedFile,
     String projectRootUri,
   ) async {
     try {

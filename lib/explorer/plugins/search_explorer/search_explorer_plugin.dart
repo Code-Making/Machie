@@ -20,6 +20,9 @@ class SearchExplorerPlugin implements ExplorerPlugin {
   ExplorerPluginSettings? get settings => null;
 
   @override
+  List<FileContentProvider> get fileContentProviders => [];
+
+  @override
   Widget build(WidgetRef ref, Project project) {
     return SearchExplorerView(project: project);
   }
