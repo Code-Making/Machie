@@ -258,38 +258,43 @@ class EditorService {
   /// Opens a file from a relative path within the current project.
   /// If the file does not exist, it prompts the user to create it.
   /// Returns `true` if a tab was successfully opened or created.
-  Future<bool> openOrCreate(String projectRootUri, String relativePath) async {
-    final context = _ref.read(navigatorKeyProvider).currentContext;
-    final fileHandler = _repo.fileHandler;
-    if (context == null || !context.mounted) return false;
+  Future<bool> openOrCreate(String relativePath) async {
+    final project = _currentProject;
+    if (project == null) {
+      MachineToast.error("No project is open.");
+      return false;
+    }
 
+    final repo = _ref.read(projectRepositoryProvider);
+    final appNotifier = _ref.read(appNotifierProvider.notifier);
+    final explorerService = _ref.read(explorerServiceProvider);
+    final context = _ref.read(navigatorKeyProvider).currentContext;
+
+    if (repo == null || context == null || !context.mounted) {
+      return false;
+    }
+
+    // Sanitize path to use forward slashes, which our SAF handler expects.
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    ProjectDocumentFile? file = await fileHandler.resolvePath(
-      projectRootUri,
-      sanitizedPath,
-    );
+    DocumentFile? file =
+        await repo.fileHandler.resolvePath(project.rootUri, sanitizedPath);
 
     if (file != null) {
-      return await _ref
-          .read(appNotifierProvider.notifier)
-          .openFileInEditor(file);
+      // File exists, open it directly.
+      return await appNotifier.openFileInEditor(file);
     } else {
+      // File does not exist, ask to create it.
       final shouldCreate = await showCreateFileConfirmationDialog(
         context,
         relativePath: sanitizedPath,
       );
+
       if (shouldCreate) {
         try {
-          final newFile = await _ref
-              .read(explorerServiceProvider)
-              .createFileWithHierarchy(projectRootUri, sanitizedPath);
-          return await _ref
-              .read(appNotifierProvider.notifier)
-              .openFileInEditor(newFile);
+          final newFile = await explorerService.createFileWithHierarchy(project.rootUri, sanitizedPath);
+          return await appNotifier.openFileInEditor(newFile);
         } catch (e, st) {
-          _ref
-              .read(talkerProvider)
-              .handle(e, st, 'Failed to create file at path: $sanitizedPath');
+          _ref.read(talkerProvider).handle(e, st, 'Failed to create file at path: $sanitizedPath');
           MachineToast.error("Could not create file: $e");
         }
       }
