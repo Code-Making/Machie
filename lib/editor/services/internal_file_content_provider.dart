@@ -12,6 +12,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import 'file_content_provider.dart';
 import '../editor_tab_models.dart';
+import '../plugins/plugin_models.dart';
 
 class InternalFileContentProvider implements FileContentProvider, IRehydratable {
   // Use a singleton future to avoid calling getApplicationDocumentsDirectory repeatedly.
