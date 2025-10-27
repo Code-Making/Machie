@@ -8,6 +8,7 @@ import '../project/project_models.dart';
 import '../data/dto/app_state_dto.dart'; // ADDED
 import '../data/dto/project_dto.dart'; // ADDED
 import '../editor/tab_state_manager.dart'; // ADDED
+import '../editor/services/file_content_provider.dart';
 
 @immutable
 class AppState {
@@ -31,11 +32,13 @@ class AppState {
 
   factory AppState.initial() => const AppState();
 
-  // ADDED: Method to create a DTO from the live state.
-  AppStateDto toDto(Map<String, TabMetadata> liveTabMetadata) {
+  AppStateDto toDto(
+    Map<String, TabMetadata> liveTabMetadata,
+    FileContentProviderRegistry registry,
+  ) {
     ProjectDto? simpleProjectDto;
     if (currentProject?.projectTypeId == 'simple_local') {
-      simpleProjectDto = currentProject!.toDto(liveTabMetadata);
+      simpleProjectDto = currentProject!.toDto(liveTabMetadata, registry);
     }
 
     return AppStateDto(

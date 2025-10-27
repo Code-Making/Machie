@@ -17,6 +17,7 @@ import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
 import '../../editor/tab_state_manager.dart';
 import '../project_models.dart';
+import '../../editor/services/file_content_provider.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -122,7 +123,9 @@ class ProjectService {
     if (repo == null) return;
 
     final liveMetadata = _ref.read(tabMetadataProvider);
-    final projectDto = project.toDto(liveMetadata);
+    // THE FIX: The registry is now read from the ref and passed to toDto.
+    final registry = _ref.read(fileContentProviderRegistryProvider);
+    final projectDto = project.toDto(liveMetadata, registry);
 
     await repo.saveProjectDto(projectDto);
   }
