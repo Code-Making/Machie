@@ -12,6 +12,7 @@ import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
+import '../../services/editor_service.dart';
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;
