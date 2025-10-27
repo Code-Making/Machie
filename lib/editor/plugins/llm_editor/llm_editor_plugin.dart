@@ -125,8 +125,8 @@ class LlmEditorPlugin extends EditorPlugin {
   }) async {
     List<ChatMessage> messagesToShow;
     LlmEditorHotStateDto hotState;
-    if (initData.hotstate!=null){
-      hotState = initData.hotState as LlmEditorHotStateDto; 
+    if (initData.hotState!=null){
+      hotState = initData!.hotState as LlmEditorHotStateDto; 
     }
 
     if (hotState!=null && hotState.messages.isNotEmpty) {
