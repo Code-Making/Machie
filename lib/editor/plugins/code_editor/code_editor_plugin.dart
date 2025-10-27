@@ -305,7 +305,7 @@ BaseCommand(
     // 1. Define the well-known scratchpad file.
     //    We create a placeholder object; its content will be loaded by the provider.
     final scratchpadFile = InternalAppFile(
-      uri: 'internal://scratchpad.md',
+      uri: 'internal://scratchpad.dart',
       name: 'Scratchpad',
       modifiedDate: DateTime.now(), // Placeholder date
     );
