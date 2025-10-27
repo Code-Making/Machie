@@ -9,6 +9,7 @@ import '../explorer/explorer_workspace_state.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/tab_state_manager.dart';
 import 'package:machine/data/dto/project_dto.dart'; // ADDED
+import '../editor/services/file_content_provider.dart';
 
 // ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
 class IncompleteDocumentFile implements DocumentFile {

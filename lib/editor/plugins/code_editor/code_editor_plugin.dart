@@ -238,7 +238,12 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     String? id,
     Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
-    final initialContent = initData.stringData ?? '';
+    String initialContent;
+    if (initData.initialContent is EditorContentString) {
+      initialContent = initData.initialContent;
+    } else{
+      initialContent = "";
+    }
     final initialBaseContentHash = initData.baseContentHash;
     String? cachedContent;
     String? initialLanguageKey;
