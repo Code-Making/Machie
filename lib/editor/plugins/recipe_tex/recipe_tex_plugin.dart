@@ -77,7 +77,7 @@ class RecipeTexPlugin extends EditorPlugin {
       plugin: this,
       id: id,
       onReadyCompleter: onReadyCompleter,
-      initialContent: initialContent ?? '',
+      initialContent: initialContent,
       initialBaseContentHash: initData.baseContentHash,
       hotStateData: hotStateData,
     );
@@ -113,7 +113,7 @@ class RecipeTexPlugin extends EditorPlugin {
       ),
     );
     if (tab is! RecipeTexTab) return null;
-    return tab.editorKey.currentState as RecipeEditorWidgetState?;
+    return tab.editorKey.currentState;
   }
 
   @override

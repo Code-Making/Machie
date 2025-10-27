@@ -6,14 +6,6 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
 import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 
-// NEW HELPER CLASS
-@immutable
-class _StableStreamingContent {
-  final String stable;
-  final String streaming;
-  const _StableStreamingContent({this.stable = '', this.streaming = ''});
-}
-
 class ChatBubble extends ConsumerWidget {
   final DisplayMessage displayMessage;
   final bool isStreaming;

@@ -186,10 +186,10 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
-    final String result =
-        (value.result == null || value.result!.matches.isEmpty)
-            ? 'No results'
-            : '${value.result!.index + 1}/${value.result!.matches.length}';
+    // final String result =
+    //     (value.result == null || value.result!.matches.isEmpty)
+    //         ? 'No results'
+    //         : '${value.result!.index + 1}/${value.result!.matches.length}';
 
     return SizedBox(
       height: _kDefaultFindPanelHeight,
@@ -264,7 +264,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // ... _buildReplaceInputView is unchanged ...
   Widget _buildReplaceInputView(BuildContext context, CodeFindValue value) {
     return SizedBox(
       height: _kDefaultFindPanelHeight,
