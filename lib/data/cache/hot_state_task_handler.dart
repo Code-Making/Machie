@@ -35,7 +35,7 @@ class HotStateTaskHandler extends TaskHandler {
 
     // Initialize the connection to the shared Hive database isolate.
     await _hiveRepo.init();
-    print('[Background Service] IsolatedHive Initialized.');
+    // print('[Background Service] IsolatedHive Initialized.');
   }
 
   /// Called whenever the main app sends data to the service using
@@ -53,7 +53,7 @@ class HotStateTaskHandler extends TaskHandler {
         // If we receive a heartbeat, it means the UI is active.
         // We must cancel any pending shutdown timer.
         if (_shutdownTimer?.isActive ?? false) {
-          print('[Background Service] Heartbeat received. Shutdown cancelled.');
+          // print('[Background Service] Heartbeat received. Shutdown cancelled.');
           _shutdownTimer!.cancel();
         }
         break;
@@ -89,7 +89,7 @@ class HotStateTaskHandler extends TaskHandler {
         final Map<String, dynamic>? payload = data['payload'];
         if (projectId != null && tabId != null && payload != null) {
           (_inMemoryHotState[projectId] ??= {})[tabId] = payload;
-          // print('[Background Service] Updated in-memory hot state for $projectId/$tabId');
+          // // print('[Background Service] Updated in-memory hot state for $projectId/$tabId');
         }
         break;
 
@@ -112,9 +112,9 @@ class HotStateTaskHandler extends TaskHandler {
   /// Asynchronously writes all data from the in-memory cache to the
   /// persistent Hive database on disk.
   Future<void> _flushInMemoryState() async {
-    print('[Background Service] Flushing in-memory state to disk...');
+    // print('[Background Service] Flushing in-memory state to disk...');
     if (_inMemoryHotState.isEmpty) {
-      print('[Background Service] In-memory state is empty. Nothing to flush.');
+      // print('[Background Service] In-memory state is empty. Nothing to flush.');
       return;
     }
 
@@ -132,9 +132,9 @@ class HotStateTaskHandler extends TaskHandler {
         try {
           // Use the isolate-safe repository to write to disk.
           await _hiveRepo.put<Map<String, dynamic>>(projectId, tabId, payload);
-          print('[Background Service] Flushed $projectId/$tabId');
+          // print('[Background Service] Flushed $projectId/$tabId');
         } catch (e) {
-          print('[Background Service] ERROR flushing $projectId/$tabId: $e');
+          // print('[Background Service] ERROR flushing $projectId/$tabId: $e');
           // If flushing fails, we should consider putting the data back
           // into the in-memory cache for a retry on the next flush.
           (_inMemoryHotState[projectId] ??= {})[tabId] = payload;
@@ -142,7 +142,7 @@ class HotStateTaskHandler extends TaskHandler {
       }
     }
 
-    print('[Background Service] Flush complete.');
+    // print('[Background Service] Flush complete.');
   }
 
   /// Called when the service is being destroyed. This serves as a final
@@ -155,7 +155,7 @@ class HotStateTaskHandler extends TaskHandler {
     await _flushInMemoryState();
     await _hiveRepo.close();
     _shutdownTimer?.cancel(); // Clean up the timer
-    print('[Background Service] Service destroyed.');
+    // print('[Background Service] Service destroyed.');
   }
 
   // --- Unused callbacks for this implementation ---
@@ -168,7 +168,7 @@ class HotStateTaskHandler extends TaskHandler {
   @override
   void onNotificationButtonPressed(String id) {
     if (id == 'STOP_SERVICE_ACTION') {
-      print('[Background Service] "Stop" button pressed. Stopping service.');
+      // print('[Background Service] "Stop" button pressed. Stopping service.');
       // CORRECTED: Directly call stopService.
       FlutterForegroundTask.stopService();
     }
