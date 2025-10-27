@@ -279,7 +279,7 @@ final fileContentProviderRegistryProvider = Provider<FileContentProviderRegistry
       .toList();
 
   // 3. Create the core, default providers.
-  final coreProviders = [
+  final coreProviders = <FileContentProvider>[
     ProjectFileContentProvider(repo),
     VirtualFileContentProvider(),
   ];

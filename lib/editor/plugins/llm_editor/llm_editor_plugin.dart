@@ -184,30 +184,24 @@ class LlmEditorPlugin extends EditorPlugin {
         return (metadata?.isDirty ?? false) && metadata?.file is! VirtualDocumentFile;
       },
     ),
-BaseCommand(
-  id: 'save_as',
-  label: 'Save Chat As...',
-  icon: const Icon(Icons.save_as),
-  defaultPositions: [AppCommandPositions.appBar],
-  sourcePlugin: id, // Assuming 'id' is the plugin's ID in this scope
-  execute: (ref) async {
-    // 1. Get the ID of the currently active tab from the AppState.
-    final activeTabId = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab?.id;
-    if (activeTabId == null) return;
-
-    // 2. Get the specific API handle for that tab.
-    final handle = ref.read(editorTabHandleProvider(activeTabId));
-
-    // 3. Call the clean, argument-free method on the handle.
-    //    The handle and underlying service now manage getting the content.
-    await handle.saveAs();
-  },
-  canExecute: (ref) {
-    // The command can execute if there is any tab currently active.
-    // Use `watch` here so the button's enabled state updates reactively.
-    return ref.watch(appNotifierProvider).value?.currentProject?.session.currentTab != null;
-  },
-),
+    //FIXME: BaseCommand(
+    //   id: 'save_as',
+    //   label: 'Save Chat As...',
+    //   icon: const Icon(Icons.save_as),
+    //   defaultPositions: [AppCommandPositions.appBar],
+    //   sourcePlugin: id,
+    //   execute: (ref) async {
+    //     final editorState = _getActiveEditorState(ref);
+    //     if (editorState == null) return;
+    //     await ref.read(editorServiceProvider).saveCurrentTabAs(
+    //       stringDataProvider: () async {
+    //         final content = await editorState.getContent();
+    //         return (content is EditorContentString) ? content.content : null;
+    //       },
+    //     );
+    //   },
+    //   canExecute: (ref) => _getActiveEditorState(ref) != null,
+    // ),
     BaseCommand(
       id: 'jump_to_next_code',
       label: 'Next Code Block',
