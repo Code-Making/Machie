@@ -139,9 +139,13 @@ class PersistentProjectRepository implements ProjectRepository {
   Future<Uint8List> readFileAsBytes(String uri) =>
       fileHandler.readFileAsBytes(uri);
   @override
-  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content) =>
-      fileHandler.writeFile(file, content);
+  Future<ProjectDocumentFile> writeFile(
+    ProjectDocumentFile file,
+    String content,
+  ) => fileHandler.writeFile(file, content);
   @override
-  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes) =>
-      fileHandler.writeFileAsBytes(file, bytes);
+  Future<ProjectDocumentFile> writeFileAsBytes(
+    ProjectDocumentFile file,
+    Uint8List bytes,
+  ) => fileHandler.writeFileAsBytes(file, bytes);
 }

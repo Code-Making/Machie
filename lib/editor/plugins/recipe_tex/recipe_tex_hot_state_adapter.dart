@@ -26,9 +26,6 @@ class RecipeTexHotStateAdapter implements TypeAdapter<RecipeTexHotStateDto> {
 
   @override
   Map<String, dynamic> toJson(RecipeTexHotStateDto object) {
-    return {
-      _dataKey: object.data.toJson(),
-      _hashKey: object.baseContentHash,
-    };
+    return {_dataKey: object.data.toJson(), _hashKey: object.baseContentHash};
   }
 }

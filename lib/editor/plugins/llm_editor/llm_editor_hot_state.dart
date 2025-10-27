@@ -9,10 +9,7 @@ import 'llm_editor_models.dart';
 class LlmEditorHotStateDto extends TabHotStateDto {
   final List<ChatMessage> messages;
 
-  const LlmEditorHotStateDto({
-    required this.messages,
-    super.baseContentHash,
-  });
+  const LlmEditorHotStateDto({required this.messages, super.baseContentHash});
 }
 
 class LlmEditorHotStateAdapter implements TypeAdapter<LlmEditorHotStateDto> {
@@ -24,7 +21,10 @@ class LlmEditorHotStateAdapter implements TypeAdapter<LlmEditorHotStateDto> {
     final messagesJson = json[_messagesKey] as List<dynamic>? ?? [];
     return LlmEditorHotStateDto(
       // CORRECTED: Explicitly cast each map in the list
-      messages: messagesJson.map((m) => ChatMessage.fromJson(Map<String, dynamic>.from(m))).toList(),
+      messages:
+          messagesJson
+              .map((m) => ChatMessage.fromJson(Map<String, dynamic>.from(m)))
+              .toList(),
       baseContentHash: json[_hashKey] as String?,
     );
   }

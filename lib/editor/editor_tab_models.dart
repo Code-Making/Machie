@@ -1,11 +1,9 @@
 // FILE: lib/editor/editor_tab_models.dart
 
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:uuid/uuid.dart';
@@ -45,7 +43,7 @@ class TabSessionState {
             isDirty: value.isDirty,
             fileName: value.file.name,
             // Use the registry to get the type ID
-            fileType: registry.getTypeIdForFile(value.file), 
+            fileType: registry.getTypeIdForFile(value.file),
           ),
         ),
       ),
@@ -66,15 +64,16 @@ class TabSessionState {
 }
 
 sealed class EditorContent {}
+
 class EditorContentString extends EditorContent {
   final String content;
   EditorContentString(this.content);
 }
+
 class EditorContentBytes extends EditorContent {
   final Uint8List bytes;
   EditorContentBytes(this.bytes);
 }
-
 
 abstract class EditorWidget extends ConsumerStatefulWidget {
   final EditorTab tab;
@@ -82,7 +81,8 @@ abstract class EditorWidget extends ConsumerStatefulWidget {
   const EditorWidget({required this.tab, required super.key});
 }
 
-abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T> {  
+abstract class EditorWidgetState<T extends EditorWidget>
+    extends ConsumerState<T> {
   @override
   void initState() {
     super.initState();
@@ -93,17 +93,17 @@ abstract class EditorWidgetState<T extends EditorWidget> extends ConsumerState<T
       }
     });
   }
-  
+
   // Offers a clean method for state initialization that leaves orchestration to the architecture.
   @protected
   void init();
-  
+
   /// A lifecycle hook called once after the first frame is built.
   /// Subclasses should override this to perform initial setup, like applying
   /// cached content, before the widget is considered fully "ready".
   @protected
   void onFirstFrameReady();
-  
+
   /// Synchronizes the editor's internal, command-relevant state with the
   /// global `commandContextProvider`. This method is the core of the
   /// reactive command system. It should be called whenever state like
@@ -134,11 +134,11 @@ abstract class WorkspaceTab {
 @immutable
 abstract class EditorTab extends WorkspaceTab {
   GlobalKey<EditorWidgetState> get editorKey;
-  
+
   /// A completer that finishes when the editor widget's state is initialized.
   /// This allows services to await the readiness of an editor before interacting with it.
   final Completer<EditorWidgetState> onReady;
-  
+
   EditorTab({
     required super.plugin,
     super.id,

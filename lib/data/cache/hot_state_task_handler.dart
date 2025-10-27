@@ -2,7 +2,6 @@
 // FINAL CORRECTED FILE: lib/data/cache/hot_state_task_handler.dart
 // =========================================
 import 'dart:async'; // Import for Timer
-import 'dart:isolate';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:machine/data/cache/hive_cache_repository.dart';
 import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
@@ -72,7 +71,7 @@ class HotStateTaskHandler extends TaskHandler {
           FlutterForegroundTask.stopService();
         });
         break;
-        
+
       case 'clear_tab_state':
         final String? projectId = data['projectId'];
         final String? tabId = data['tabId'];
@@ -83,7 +82,7 @@ class HotStateTaskHandler extends TaskHandler {
           );
         }
         break;
-        
+
       case 'update_hot_state':
         final String? projectId = data['projectId'];
         final String? tabId = data['tabId'];

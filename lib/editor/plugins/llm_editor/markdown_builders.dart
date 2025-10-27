@@ -7,13 +7,11 @@ import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
 import 'package:machine/editor/plugins/code_editor/code_themes.dart';
-import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
-
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;
@@ -34,18 +32,22 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
 
     if (isBlock) {
       final String language = _parseLanguage(element);
-      final key = (_codeBlockCounter < keys.length) ? keys[_codeBlockCounter] : GlobalKey();
+      final key =
+          (_codeBlockCounter < keys.length)
+              ? keys[_codeBlockCounter]
+              : GlobalKey();
       _codeBlockCounter++;
-      return CodeBlockWrapper(
-        key: key,
-        code: text.trim(),
-        language: language,
-      );
+      return CodeBlockWrapper(key: key, code: text.trim(), language: language);
     } else {
       final theme = Theme.of(context);
-      final settings = ProviderScope.containerOf(context).read(settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      )) ?? CodeEditorSettings();
+      final settings =
+          ProviderScope.containerOf(context).read(
+            settingsProvider.select(
+              (s) =>
+                  s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+            ),
+          ) ??
+          CodeEditorSettings();
       return RichText(
         text: TextSpan(
           text: text,
@@ -107,11 +109,19 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   }
 
   void _highlightCode() {
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
-    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 1);
+    final settings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final theme =
+        CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final textStyle = TextStyle(
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize - 1,
+    );
 
     LlmHighlightUtil.ensureLanguagesRegistered();
     final result = LlmHighlightUtil.highlight.highlight(
@@ -124,9 +134,15 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   }
 
   TextSpan? _addLinksToBaseSpan(TextSpan? baseSpan) {
-    final codeSettings = ref.read(settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)) ?? CodeEditorSettings();
-    final theme = CodeThemes.availableCodeThemes[codeSettings.themeName] ?? defaultTheme;
+    final codeSettings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final theme =
+        CodeThemes.availableCodeThemes[codeSettings.themeName] ?? defaultTheme;
     final commentStyle = theme['comment'];
 
     if (baseSpan == null || commentStyle == null) {
@@ -138,33 +154,50 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
         return [span];
       }
       if (span.children?.isNotEmpty ?? false) {
-        final newChildren = span.children!.expand((child) => walk(child)).toList();
-        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+        final newChildren =
+            span.children!.expand((child) => walk(child)).toList();
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
       }
       if (span.style?.color == commentStyle.color) {
         return PathLinkBuilder._createLinkedSpansForText(
           text: span.text ?? '',
           style: span.style!,
-          onTap: (path) => {}, //FIXME:ref.read(editorServiceProvider).openOrCreate(path),
+          onTap:
+              (path) =>
+                  {}, //FIXME:ref.read(editorServiceProvider).openOrCreate(path),
           ref: ref,
         );
       }
       return [span];
     }
+
     return TextSpan(style: baseSpan.style, children: walk(baseSpan));
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final codeTheme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
-    final codeBgColor = codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+    final settings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final codeTheme =
+        CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final codeBgColor =
+        codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
     final theme = Theme.of(context);
 
     // Get the final, link-ified span.
-    final finalSpanWithLinks = _addLinksToBaseSpan(_highlightedSpan) ?? _highlightedSpan;
+    final finalSpanWithLinks =
+        _addLinksToBaseSpan(_highlightedSpan) ?? _highlightedSpan;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -182,7 +215,9 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
               children: [
                 Text(
                   widget.language,
-                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
@@ -194,7 +229,10 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
                   },
                 ),
                 IconButton(
-                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 16),
+                  icon: Icon(
+                    _isFolded ? Icons.unfold_more : Icons.unfold_less,
+                    size: 16,
+                  ),
                   tooltip: _isFolded ? 'Unfold Code' : 'Fold Code',
                   onPressed: _toggleFold, // Use the local method.
                 ),
@@ -204,16 +242,17 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child: _isFolded
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SelectableText.rich(finalSpanWithLinks),
+            child:
+                _isFolded
+                    ? const SizedBox(width: double.infinity)
+                    : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SelectableText.rich(finalSpanWithLinks),
+                      ),
                     ),
-                  ),
           ),
         ],
       ),
@@ -227,11 +266,9 @@ class DelegatingCodeBuilder extends MarkdownElementBuilder {
   final CodeBlockBuilder codeBlockBuilder;
   final PathLinkBuilder pathLinkBuilder;
 
-  DelegatingCodeBuilder({
-    required this.ref,
-    required List<GlobalKey> keys,
-  })  : codeBlockBuilder = CodeBlockBuilder(keys: keys),
-        pathLinkBuilder = PathLinkBuilder(ref: ref);
+  DelegatingCodeBuilder({required this.ref, required List<GlobalKey> keys})
+    : codeBlockBuilder = CodeBlockBuilder(keys: keys),
+      pathLinkBuilder = PathLinkBuilder(ref: ref);
 
   @override
   Widget? visitElementAfterWithContext(
@@ -242,9 +279,19 @@ class DelegatingCodeBuilder extends MarkdownElementBuilder {
   ) {
     final textContent = element.textContent;
     if (textContent.contains('\n')) {
-      return codeBlockBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+      return codeBlockBuilder.visitElementAfterWithContext(
+        context,
+        element,
+        preferredStyle,
+        parentStyle,
+      );
     } else {
-      return pathLinkBuilder.visitElementAfterWithContext(context, element, preferredStyle, parentStyle);
+      return pathLinkBuilder.visitElementAfterWithContext(
+        context,
+        element,
+        preferredStyle,
+        parentStyle,
+      );
     }
   }
 }
@@ -279,10 +326,9 @@ class PathLinkBuilder extends MarkdownElementBuilder {
 
     for (final match in matches) {
       if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: text.substring(lastIndex, match.start),
-          style: style,
-        ));
+        spans.add(
+          TextSpan(text: text.substring(lastIndex, match.start), style: style),
+        );
       }
 
       final String path = match.group(0)!;
@@ -302,10 +348,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     }
 
     if (lastIndex < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastIndex),
-        style: style,
-      ));
+      spans.add(TextSpan(text: text.substring(lastIndex), style: style));
     }
 
     return spans;
@@ -324,7 +367,13 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     TextStyle baseStyle = parentStyle ?? theme.textTheme.bodyMedium!;
     if (isInlineCode) {
       baseStyle = baseStyle.copyWith(
-        fontFamily: ref.read(settingsProvider.select((s) => (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)?.fontFamily)),
+        fontFamily: ref.read(
+          settingsProvider.select(
+            (s) =>
+                (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)
+                    ?.fontFamily,
+          ),
+        ),
         backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
       );
     }
@@ -332,15 +381,12 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     final spans = _createLinkedSpansForText(
       text: element.textContent,
       style: baseStyle,
-      onTap: (path) => {},//FIXME: ref.read(editorServiceProvider).openOrCreate(path),
+      onTap:
+          (path) =>
+              {}, //FIXME: ref.read(editorServiceProvider).openOrCreate(path),
       ref: ref,
     );
 
-    return RichText(
-      text: TextSpan(
-        style: baseStyle,
-        children: spans,
-      ),
-    );
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
   }
 }

@@ -163,10 +163,7 @@ class TabWidget extends ConsumerWidget {
                   title,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: textColor,
-                  ),
+                  style: TextStyle(fontSize: 13, color: textColor),
                 ),
               ),
             ],

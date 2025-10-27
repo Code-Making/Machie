@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
-import '../command/command_models.dart';
 import '../editor/services/text_editing_capability.dart';
 import 'command_notifier.dart';
 
@@ -37,16 +36,16 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       // Now that we have the correct command, check if it's valid in the current context.
       // Condition 1: It's an app-level command.
       if (c.sourcePlugin == 'App') return true;
-      
+
       // Condition 2: It's a generic text command and the ACTIVE PLUGIN is a TextEditablePlugin.
       if (c is BaseTextEditableCommand && currentPlugin is TextEditablePlugin) {
         return true;
       } else {
-       // Condition 3: The command's source matches the currently active plugin's ID.
-       return c.sourcePlugin == currentPlugin?.id;
+        // Condition 3: The command's source matches the currently active plugin's ID.
+        return c.sourcePlugin == currentPlugin?.id;
       }
     });
-    
+
     if (command != null) {
       visibleItems.add(command);
     }
@@ -203,7 +202,7 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
-  
+
   void _handleCommandExecution(Command command) {
     _hideMenu();
     // Check if enabled before executing
@@ -223,14 +222,16 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     final alignRight = (offset.dx + size.width / 2) > screenSize.width / 2;
     final openUpwards = (offset.dy + size.height / 2) > screenSize.height / 2;
 
-    final Alignment followerAnchor = openUpwards
-        ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
-        : (alignRight ? Alignment.topRight : Alignment.topLeft);
-        
-    final Alignment targetAnchor = openUpwards
-        ? (alignRight ? Alignment.topRight : Alignment.topLeft)
-        : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft);
-        
+    final Alignment followerAnchor =
+        openUpwards
+            ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+            : (alignRight ? Alignment.topRight : Alignment.topLeft);
+
+    final Alignment targetAnchor =
+        openUpwards
+            ? (alignRight ? Alignment.topRight : Alignment.topLeft)
+            : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft);
+
     _overlayEntry = OverlayEntry(
       builder: (context) {
         final commandsInGroup = _getCommandsInGroup(ref);
@@ -238,7 +239,7 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
           WidgetsBinding.instance.addPostFrameCallback((_) => _hideMenu());
           return const SizedBox.shrink();
         }
-        
+
         // ================== THE FINAL REFINEMENT ==================
         Widget menuBody;
 
@@ -250,16 +251,17 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: commandsInGroup.map((command) {
-                final isEnabled = command.canExecute(ref);
-                return ListTile(
-                  dense: true,
-                  enabled: isEnabled,
-                  leading: command.icon,
-                  title: Text(command.label),
-                  onTap: () => _handleCommandExecution(command),
-                );
-              }).toList(),
+              children:
+                  commandsInGroup.map((command) {
+                    final isEnabled = command.canExecute(ref);
+                    return ListTile(
+                      dense: true,
+                      enabled: isEnabled,
+                      leading: command.icon,
+                      title: Text(command.label),
+                      onTap: () => _handleCommandExecution(command),
+                    );
+                  }).toList(),
             ),
           );
         } else {
@@ -267,16 +269,18 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
           // Column of IconButtons will naturally have the correct, compact width.
           menuBody = Column(
             mainAxisSize: MainAxisSize.min,
-            children: commandsInGroup.map((command) {
-              final isEnabled = command.canExecute(ref);
-              return IconButton(
-                icon: command.icon,
-                tooltip: command.label,
-                onPressed: isEnabled
-                    ? () => _handleCommandExecution(command)
-                    : null,
-              );
-            }).toList(),
+            children:
+                commandsInGroup.map((command) {
+                  final isEnabled = command.canExecute(ref);
+                  return IconButton(
+                    icon: command.icon,
+                    tooltip: command.label,
+                    onPressed:
+                        isEnabled
+                            ? () => _handleCommandExecution(command)
+                            : null,
+                  );
+                }).toList(),
           );
         }
         // ==========================================================

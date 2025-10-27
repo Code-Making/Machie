@@ -9,14 +9,17 @@ class LlmEditorController extends ChangeNotifier {
   String? _editingMessageId; // NEW: To track which message is in edit mode.
 
   LlmEditorController({required List<ChatMessage> initialMessages}) {
-    _displayMessages.addAll(initialMessages.map((msg) => DisplayMessage.fromChatMessage(msg)));
+    _displayMessages.addAll(
+      initialMessages.map((msg) => DisplayMessage.fromChatMessage(msg)),
+    );
   }
 
-  UnmodifiableListView<DisplayMessage> get messages => UnmodifiableListView(_displayMessages);
+  UnmodifiableListView<DisplayMessage> get messages =>
+      UnmodifiableListView(_displayMessages);
   bool get isLoading => _isLoading;
   String? get editingMessageId => _editingMessageId; // NEW: Public getter.
 
-void startEditing(String messageId) {
+  void startEditing(String messageId) {
     _editingMessageId = messageId;
     notifyListeners();
   }
@@ -44,7 +47,11 @@ void startEditing(String messageId) {
 
   void startStreamingPlaceholder() {
     _isLoading = true;
-    _displayMessages.add(DisplayMessage.fromChatMessage(const ChatMessage(role: 'assistant', content: '')));
+    _displayMessages.add(
+      DisplayMessage.fromChatMessage(
+        const ChatMessage(role: 'assistant', content: ''),
+      ),
+    );
     notifyListeners();
   }
 
@@ -55,13 +62,17 @@ void startEditing(String messageId) {
     final lastMessage = lastDisplayMessage.message;
 
     // The ChatMessage is still immutable, which is good. We create a new one.
-    final updatedMessage = lastMessage.copyWith(content: lastMessage.content + chunk);
+    final updatedMessage = lastMessage.copyWith(
+      content: lastMessage.content + chunk,
+    );
 
     // THE CRITICAL CHANGE:
     // Instead of creating a whole new DisplayMessage from scratch (which would
     // generate new keys), we use copyWith to create a new DisplayMessage
     // that carries over the *existing* keys.
-    _displayMessages[_displayMessages.length - 1] = lastDisplayMessage.copyWith(message: updatedMessage);
+    _displayMessages[_displayMessages.length - 1] = lastDisplayMessage.copyWith(
+      message: updatedMessage,
+    );
 
     notifyListeners();
   }
@@ -69,17 +80,19 @@ void startEditing(String messageId) {
   void finalizeStreamingMessage(ChatMessage finalMessage) {
     if (_displayMessages.isEmpty) return;
     _isLoading = false;
-    
+
     final lastDisplayMessage = _displayMessages.last;
 
     // We do the same here: update the message content but keep the keys.
     // Note: This assumes the number of code blocks doesn't change between
     // the last streaming chunk and finalization, which is a safe assumption.
-    _displayMessages[_displayMessages.length - 1] = lastDisplayMessage.copyWith(message: finalMessage);
-    
+    _displayMessages[_displayMessages.length - 1] = lastDisplayMessage.copyWith(
+      message: finalMessage,
+    );
+
     notifyListeners();
   }
-  
+
   void toggleMessageFold(String messageId) {
     final index = _displayMessages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
@@ -93,7 +106,9 @@ void startEditing(String messageId) {
     final index = _displayMessages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
       final message = _displayMessages[index];
-      _displayMessages[index] = message.copyWith(isContextFolded: !message.isContextFolded);
+      _displayMessages[index] = message.copyWith(
+        isContextFolded: !message.isContextFolded,
+      );
       notifyListeners();
     }
   }

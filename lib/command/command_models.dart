@@ -136,7 +136,8 @@ class CommandGroup {
     required this.label,
     required this.iconName,
     this.commandIds = const [],
-    this.showLabels = true, // <-- ADDED (default to true for backward compatibility)
+    this.showLabels =
+        true, // <-- ADDED (default to true for backward compatibility)
   });
 
   Widget get icon => CommandIcon.getIcon(iconName);

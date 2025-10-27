@@ -7,7 +7,7 @@ class DisplayMessage {
   final ChatMessage message;
   final GlobalKey headerKey;
   final List<GlobalKey> codeBlockKeys;
-  
+
   // 1. Add the state properties here.
   final bool isFolded;
   final bool isContextFolded;
@@ -27,7 +27,11 @@ class DisplayMessage {
     return DisplayMessage(
       message: message,
       headerKey: GlobalKey(),
-      codeBlockKeys: List.generate(codeBlockCount, (_) => GlobalKey(), growable: false),
+      codeBlockKeys: List.generate(
+        codeBlockCount,
+        (_) => GlobalKey(),
+        growable: false,
+      ),
     );
   }
 
@@ -60,7 +64,10 @@ class LlmTextChunk extends LlmResponseEvent {
 class LlmResponseMetadata extends LlmResponseEvent {
   final int promptTokenCount;
   final int responseTokenCount;
-  LlmResponseMetadata({required this.promptTokenCount, required this.responseTokenCount});
+  LlmResponseMetadata({
+    required this.promptTokenCount,
+    required this.responseTokenCount,
+  });
 }
 
 class LlmError extends LlmResponseEvent {

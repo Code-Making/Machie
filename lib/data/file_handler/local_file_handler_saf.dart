@@ -48,20 +48,27 @@ class SafFileHandler implements LocalFileHandler {
   final SafStream _safStream = SafStream();
   // THE FIX: Implement the new interface methods with SAF-specific logic.
   static const String _separator = '%2F';
-  
+
   @override
   Future<bool> hasPermission(String uri) async {
     // getPersistedUriPermissions returns a list of all URIs the app
     // currently has permission to access.
-    final permissions = await _safUtil.hasPersistedPermission(uri, checkRead: true, checkWrite: true);
+    final permissions = await _safUtil.hasPersistedPermission(
+      uri,
+      checkRead: true,
+      checkWrite: true,
+    );
     if (permissions == false) {
       return false;
-    } 
-    
+    }
+
     try {
       // We don't care about the result, only that it doesn't throw.
-      final stat = await _safUtil.stat(uri, true); // `true` because we are checking a directory.
-      if (stat !=null){
+      final stat = await _safUtil.stat(
+        uri,
+        true,
+      ); // `true` because we are checking a directory.
+      if (stat != null) {
         return true;
       } else {
         return false;
@@ -98,7 +105,7 @@ class SafFileHandler implements LocalFileHandler {
     // The user cancelled or selected the wrong directory.
     return false;
   }
-  
+
   @override
   Future<ProjectDocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory(
@@ -144,7 +151,10 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content) async {
+  Future<ProjectDocumentFile> writeFile(
+    ProjectDocumentFile file,
+    String content,
+  ) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     final result = await _safStream.writeFileBytes(
       parentUri,
@@ -322,8 +332,12 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<ProjectDocumentFile?> resolvePath(String parentUri, String relativePath) async {
-    final segments = relativePath.split('/').where((s) => s.isNotEmpty).toList();
+  Future<ProjectDocumentFile?> resolvePath(
+    String parentUri,
+    String relativePath,
+  ) async {
+    final segments =
+        relativePath.split('/').where((s) => s.isNotEmpty).toList();
     if (segments.isEmpty) {
       return getFileMetadata(parentUri);
     }
@@ -344,7 +358,9 @@ class SafFileHandler implements LocalFileHandler {
 
       try {
         final children = await listDirectory(currentParent!.uri);
-        final foundChild = children.firstWhereOrNull((child) => child.name == segment);
+        final foundChild = children.firstWhereOrNull(
+          (child) => child.name == segment,
+        );
 
         if (foundChild == null) {
           return null; // Path segment not found
@@ -370,22 +386,34 @@ class SafFileHandler implements LocalFileHandler {
     String relativePath, {
     String? initialContent,
   }) async {
-    final segments = relativePath.split('/').where((s) => s.isNotEmpty).toList();
+    final segments =
+        relativePath.split('/').where((s) => s.isNotEmpty).toList();
     if (segments.isEmpty) {
       throw ArgumentError('Relative path cannot be empty.');
     }
     final fileName = segments.last;
-    final directorySegments = segments.length > 1 ? segments.sublist(0, segments.length - 1) : <String>[];
-    String finalParentUri = directorySegments.isNotEmpty ? (await _safUtil.mkdirp(parentUri, directorySegments)).uri : parentUri;
-    return createDocumentFile(finalParentUri, fileName, isDirectory: false, initialContent: initialContent ?? '');
+    final directorySegments =
+        segments.length > 1
+            ? segments.sublist(0, segments.length - 1)
+            : <String>[];
+    String finalParentUri =
+        directorySegments.isNotEmpty
+            ? (await _safUtil.mkdirp(parentUri, directorySegments)).uri
+            : parentUri;
+    return createDocumentFile(
+      finalParentUri,
+      fileName,
+      isDirectory: false,
+      initialContent: initialContent ?? '',
+    );
   }
 
   @override
   Future<ProjectDocumentFile?> getFileMetadata(String uri) async {
-     try {
-        final file = await _safUtil.stat(uri, false);
-        return file != null ? CustomSAFDocumentFile(file) : null;
-     } on PlatformException catch (e) {
+    try {
+      final file = await _safUtil.stat(uri, false);
+      return file != null ? CustomSAFDocumentFile(file) : null;
+    } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_DENIED') {
         throw PermissionDeniedException(uri: uri);
       }

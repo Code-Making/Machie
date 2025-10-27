@@ -3,10 +3,9 @@
 // =========================================
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/foundation.dart'; // <-- FIX: ADD THIS IMPORT for ValueListenable
+// <-- FIX: ADD THIS IMPORT for ValueListenable
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -27,8 +26,7 @@ import '../../../editor/services/editor_service.dart';
 import '../../../editor/services/text_editing_capability.dart'; // <-- ADD THIS IMPORT
 
 import '../../../app/app_notifier.dart';
-import '../../../data/dto/tab_hot_state_dto.dart';
-import '../../../command/command_models.dart'; // ADDED: For Command class
+// ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
 import '../../../settings/settings_notifier.dart';
 
@@ -68,7 +66,8 @@ class CodeEditorMachine extends EditorWidget {
   CodeEditorMachineState createState() => CodeEditorMachineState();
 }
 
-class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implements TextEditable {
+class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
+    implements TextEditable {
   // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
@@ -80,15 +79,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
-  
+
   late CodeEditorStyle _style;
   // late List<PatternRecognizer> _patternRecognizers;
 
-
   bool _wasSelectionActive = false;
-  
+
   late String? _baseContentHash; // <-- ADDED
-  
+
   static const List<Color> _rainbowBracketColors = [
     Color(0xFFE06C75), // Red
     Color(0xFF98C379), // Green
@@ -99,13 +97,18 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   ];
   static final _hexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
   static final _shortHexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{3,4})\b');
-  static final _colorConstructorRegex = RegExp(r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)');
-  static final _fromARGBRegex = RegExp(r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
-  static final _fromRGBORegex = RegExp(r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
-
+  static final _colorConstructorRegex = RegExp(
+    r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)',
+  );
+  static final _fromARGBRegex = RegExp(
+    r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
+  );
+  static final _fromRGBORegex = RegExp(
+    r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
+  );
 
   // --- TextEditable Interface Implementation ---
-  
+
   @override
   Future<TextSelectionDetails> getSelectionDetails() async {
     final CodeLineSelection currentSelection = controller.selection;
@@ -130,7 +133,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       content: controller.selectedText,
     );
   }
-  
+
   @override
   void replaceSelection(String replacement, {TextRange? range}) {
     if (!mounted) return;
@@ -154,7 +157,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       controller.replaceSelection(replacement, selectionToReplace);
     });
   }
-  
+
   @override
   Future<bool> isSelectionCollapsed() async {
     return controller.selection.isCollapsed;
@@ -164,31 +167,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   Future<String> getSelectedText() async {
     return controller.selectedText; // <-- The fix is here
   }
-  
+
   @override
   Future<String> getTextContent() async {
     // Return the controller's current text, wrapped in a Future to match the interface.
     return controller.text;
   }
-  
+
   @override
   void insertTextAtLine(int lineNumber, String textToInsert) {
     if (!mounted) return;
-    
+
     // Clamp the line number to be within the valid range of the document.
     final line = lineNumber.clamp(0, controller.codeLines.length);
 
-    // To insert at the beginning of a line, we replace a zero-length selection 
+    // To insert at the beginning of a line, we replace a zero-length selection
     // at the start of that line.
     final selectionToReplace = CodeLineSelection.fromPosition(
-      position: CodeLinePosition(index: line, offset: 0)
+      position: CodeLinePosition(index: line, offset: 0),
     );
 
     controller.runRevocableOp(() {
       controller.replaceSelection(textToInsert, selectionToReplace);
     });
   }
-  
+
   @override
   void replaceAllOccurrences(String find, String replace) {
     if (!mounted) return;
@@ -220,23 +223,23 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       controller.replaceSelection(newContent, selectionToReplace);
     });
   }
-  
+
   @override
   void replaceAllPattern(Pattern pattern, String replacement) {
     if (!mounted) return;
     controller.replaceAll(pattern, replacement);
   }
 
-
   @override
   void undo() {
     if (controller.canUndo) controller.undo();
   }
+
   @override
   void redo() {
     if (controller.canRedo) controller.redo();
   }
-  
+
   @override
   Future<EditorContent> getContent() async {
     return EditorContentString(controller.text);
@@ -259,7 +262,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       baseContentHash: _baseContentHash,
     );
   }
-  
+
   @override
   void init() {
     _focusNode = FocusNode();
@@ -270,19 +273,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    _languageKey = widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
+    _languageKey =
+        widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
     _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
       spanBuilder: _buildHighlightingSpan,
-    );    findController = CodeFindController(controller);
-    
+    );
+    findController = CodeFindController(controller);
+
     findController.addListener(syncCommandContext);
     controller.addListener(_onControllerChange);
     controller.dirty.addListener(_onDirtyStateChange);
   }
-  
+
   @override
   void onFirstFrameReady() {
     if (mounted) {
@@ -291,12 +296,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         controller.text = widget.tab.cachedContent!;
       }
       if (!widget.tab.onReady.isCompleted) {
-          widget.tab.onReady.complete(this);
-        }
+        widget.tab.onReady.complete(this);
+      }
     }
   }
 
-  
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -306,7 +310,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri =
+        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
@@ -331,7 +336,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     findController.dispose();
     super.dispose();
   }
-  
+
   void _updateStyleAndRecognizers() {
     final codeEditorSettings = ref.read(
       settingsProvider.select(
@@ -636,7 +641,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   void showReplacePanel() {
     findController.replaceMode();
   }
-  
 
   // NEW: The handler for when a recognized import path is tapped.
   void _onImportTap(String relativePath) async {
@@ -645,10 +649,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     final currentFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
     if (fileHandler == null || currentFileMetadata == null) return;
-    
+
     try {
-      final currentDirectoryUri = fileHandler.getParentUri(currentFileMetadata.file.uri);
-      final pathSegments = [...currentDirectoryUri.split('%2F'), ...relativePath.split('/')];
+      final currentDirectoryUri = fileHandler.getParentUri(
+        currentFileMetadata.file.uri,
+      );
+      final pathSegments = [
+        ...currentDirectoryUri.split('%2F'),
+        ...relativePath.split('/'),
+      ];
       final resolvedSegments = <String>[];
 
       for (final segment in pathSegments) {
@@ -660,16 +669,15 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
           resolvedSegments.add(segment);
         }
       }
-      
+
       final resolvedUri = resolvedSegments.join('%2F');
       final targetFile = await fileHandler.getFileMetadata(resolvedUri);
-      
+
       if (targetFile != null) {
         await appNotifier.openFileInEditor(targetFile);
       } else {
         MachineToast.error('File not found: $relativePath');
       }
-
     } catch (e) {
       MachineToast.error('Could not open file: $e');
     }
@@ -717,8 +725,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     };
   }
 
-
-  
   @override
   void syncCommandContext() {
     if (!mounted) return;
@@ -730,8 +736,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     if (findController.value != null) {
       appBarOverride = CodeFindAppBar(controller: findController);
       appBarOverrideKey = ValueKey('findController_toolbar');
-    }
-    else if (hasSelection) {
+    } else if (hasSelection) {
       appBarOverride = _buildSelectionAppBar();
       appBarOverrideKey = const ValueKey('selection_toolbar_active');
     }
@@ -855,8 +860,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       highlightedLines: newHighlightedLines,
     );
   }
-  
-    int? _parseColorComponent(String? s) {
+
+  int? _parseColorComponent(String? s) {
     if (s == null) return null;
     s = s.trim();
     if (s.startsWith('0x')) {
@@ -893,11 +898,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       // This inner loop robustly finds the next valid character position,
       // correctly skipping over line breaks and empty lines.
       while (offset < 0 || offset >= codeLines[index].text.length) {
-        if (direction > 0) { // Searching forward
+        if (direction > 0) {
+          // Searching forward
           index++;
           if (index >= codeLines.length) return null; // Reached end of document
           offset = 0;
-        } else { // Searching backward
+        } else {
+          // Searching backward
           index--;
           if (index < 0) return null; // Reached start of document
           offset = codeLines[index].text.length - 1;
@@ -936,19 +943,25 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     final linkedSpan = _linkifyImportPaths(codeLine, textSpan, style);
     final rainbowSpan = _highlightColorCodes(codeLine, linkedSpan, style);
     final finalSpan = _highlightBrackets(index, rainbowSpan, style);
-    
+
     return finalSpan;
   }
 
   /// PIPELINE STEP 1: Finds import paths using fast string manipulation and makes them tappable.
-  TextSpan _linkifyImportPaths(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
+  TextSpan _linkifyImportPaths(
+    CodeLine codeLine,
+    TextSpan textSpan,
+    TextStyle style,
+  ) {
     final text = codeLine.text;
 
     // Fast path: check for 'import' keyword first.
-    if (!(text.startsWith('import') || text.startsWith('export') || text.startsWith('part'))) {
+    if (!(text.startsWith('import') ||
+        text.startsWith('export') ||
+        text.startsWith('part'))) {
       return textSpan;
     }
-    if (text.contains(':')){
+    if (text.contains(':')) {
       return textSpan;
     }
 
@@ -968,7 +981,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     // Convert indices from `trimmedText` back to original `text` coordinates.
     final pathStartIndex = quote1Index + 1;
     final pathEndIndex = quote2Index;
-    
+
     // If path is empty, do nothing.
     if (pathStartIndex >= pathEndIndex) return textSpan;
 
@@ -989,41 +1002,61 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
             childPos += child.toPlainText().length;
           }
         }
-        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
       }
 
       if (spanEnd <= pathStartIndex || spanStart >= pathEndIndex) {
         return [span];
       }
-      
-      final beforeText = spanText.substring(0, (pathStartIndex - spanStart).clamp(0, spanText.length));
+
+      final beforeText = spanText.substring(
+        0,
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+      );
       final linkText = spanText.substring(
         (pathStartIndex - spanStart).clamp(0, spanText.length),
-        (pathEndIndex - spanStart).clamp(0, spanText.length)
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
       );
-      final afterText = spanText.substring((pathEndIndex - spanStart).clamp(0, spanText.length));
+      final afterText = spanText.substring(
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
+      );
 
-      if (beforeText.isNotEmpty) newChildren.add(TextSpan(text: beforeText, style: span.style));
+      if (beforeText.isNotEmpty)
+        newChildren.add(TextSpan(text: beforeText, style: span.style));
       if (linkText.isNotEmpty) {
-        newChildren.add(TextSpan(
-          text: linkText,
-          style: (span.style ?? style).copyWith(
-            //color: Colors.cyan[300],
-            decoration: TextDecoration.underline,
-            //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+        newChildren.add(
+          TextSpan(
+            text: linkText,
+            style: (span.style ?? style).copyWith(
+              //color: Colors.cyan[300],
+              decoration: TextDecoration.underline,
+              //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+            ),
+            recognizer:
+                TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
           ),
-          recognizer: TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
-        ));
+        );
       }
-      if (afterText.isNotEmpty) newChildren.add(TextSpan(text: afterText, style: span.style));
+      if (afterText.isNotEmpty)
+        newChildren.add(TextSpan(text: afterText, style: span.style));
 
       return newChildren;
     }
 
     return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
   }
-  
-  TextSpan _highlightColorCodes(CodeLine codeLine, TextSpan textSpan, TextStyle style) {
+
+  TextSpan _highlightColorCodes(
+    CodeLine codeLine,
+    TextSpan textSpan,
+    TextStyle style,
+  ) {
     final text = codeLine.text;
     final List<_ColorMatch> matches = [];
 
@@ -1040,7 +1073,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
     });
     _shortHexColorRegex.allMatches(text).forEach((m) {
       String hex = m.group(1)!;
-      hex = hex.length == 3 ? hex.split('').map((e) => e + e).join() : hex[0] + hex[0] + hex.substring(1).split('').map((e) => e + e).join();
+      hex =
+          hex.length == 3
+              ? hex.split('').map((e) => e + e).join()
+              : hex[0] +
+                  hex[0] +
+                  hex.substring(1).split('').map((e) => e + e).join();
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
         final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
@@ -1051,7 +1089,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       final hex = m.group(1);
       if (hex != null) {
         final val = int.tryParse(hex.substring(2), radix: 16);
-        if (val != null) matches.add(_ColorMatch(start: m.start, end: m.end, color: Color(val)));
+        if (val != null)
+          matches.add(
+            _ColorMatch(start: m.start, end: m.end, color: Color(val)),
+          );
       }
     });
     _fromARGBRegex.allMatches(text).forEach((m) {
@@ -1059,8 +1100,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       final r = _parseColorComponent(m.group(2));
       final g = _parseColorComponent(m.group(3));
       final b = _parseColorComponent(m.group(4));
-      if (a!=null && r!=null && g!=null && b!=null) {
-        matches.add(_ColorMatch(start: m.start, end: m.end, color: Color.fromARGB(a, r, g, b)));
+      if (a != null && r != null && g != null && b != null) {
+        matches.add(
+          _ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: Color.fromARGB(a, r, g, b),
+          ),
+        );
       }
     });
     _fromRGBORegex.allMatches(text).forEach((m) {
@@ -1068,28 +1115,34 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
       final g = int.tryParse(m.group(2) ?? '');
       final b = int.tryParse(m.group(3) ?? '');
       final o = double.tryParse(m.group(4) ?? '');
-      if (r!=null && g!=null && b!=null && o!=null) {
-        matches.add(_ColorMatch(start: m.start, end: m.end, color: Color.fromRGBO(r, g, b, o)));
+      if (r != null && g != null && b != null && o != null) {
+        matches.add(
+          _ColorMatch(
+            start: m.start,
+            end: m.end,
+            color: Color.fromRGBO(r, g, b, o),
+          ),
+        );
       }
     });
-    
+
     // Fast path: no colors found on this line.
     if (matches.isEmpty) {
       return textSpan;
     }
-    
+
     // Sort and filter out overlapping matches
     matches.sort((a, b) => a.start.compareTo(b.start));
     final uniqueMatches = <_ColorMatch>[];
     int lastEnd = -1;
     for (final match in matches) {
-        if (match.start >= lastEnd) {
-            uniqueMatches.add(match);
-            lastEnd = match.end;
-        }
+      if (match.start >= lastEnd) {
+        uniqueMatches.add(match);
+        lastEnd = match.end;
+      }
     }
     if (uniqueMatches.isEmpty) return textSpan;
-    
+
     // --- New Tree-Walking Logic ---
     List<TextSpan> _walkAndColor(TextSpan span, int currentPos) {
       final newChildren = <TextSpan>[];
@@ -1105,7 +1158,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
             childPos += child.toPlainText().length;
           }
         }
-        return [TextSpan(style: span.style, children: newChildren, recognizer: span.recognizer)];
+        return [
+          TextSpan(
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
+        ];
       }
 
       int lastSplitEnd = 0;
@@ -1117,25 +1176,33 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         if (effectiveStart < effectiveEnd) {
           // Part before the match (within this span)
           if (effectiveStart > spanStart + lastSplitEnd) {
-            final beforeText = spanText.substring(lastSplitEnd, effectiveStart - spanStart);
+            final beforeText = spanText.substring(
+              lastSplitEnd,
+              effectiveStart - spanStart,
+            );
             newChildren.add(TextSpan(text: beforeText, style: span.style));
           }
 
           // The matched part
-          final matchText = spanText.substring(effectiveStart - spanStart, effectiveEnd - spanStart);
-          
+          final matchText = spanText.substring(
+            effectiveStart - spanStart,
+            effectiveEnd - spanStart,
+          );
+
           // --- CONTRAST LOGIC ---
           final isDark = match.color.computeLuminance() < 0.5;
           final textColor = isDark ? Colors.white : Colors.black;
           // ----------------------
-          
-          newChildren.add(TextSpan(
-            text: matchText,
-            style: (span.style ?? style).copyWith(
-              backgroundColor: match.color,
-              color: textColor,
+
+          newChildren.add(
+            TextSpan(
+              text: matchText,
+              style: (span.style ?? style).copyWith(
+                backgroundColor: match.color,
+                color: textColor,
+              ),
             ),
-          ));
+          );
           lastSplitEnd = effectiveEnd - spanStart;
         }
       }
@@ -1145,7 +1212,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         final remainingText = spanText.substring(lastSplitEnd);
         newChildren.add(TextSpan(text: remainingText, style: span.style));
       }
-      
+
       return newChildren;
     }
 
@@ -1156,10 +1223,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
   TextSpan _highlightBrackets(int index, TextSpan textSpan, TextStyle style) {
     // This logic is extracted from the old _buildHighlightingSpan method.
     final highlightState = _bracketHighlightState;
-    final highlightPositions = highlightState.bracketPositions
-        .where((pos) => pos.index == index)
-        .map((pos) => pos.offset)
-        .toSet();
+    final highlightPositions =
+        highlightState.bracketPositions
+            .where((pos) => pos.index == index)
+            .map((pos) => pos.offset)
+            .toSet();
 
     // Fast path: if no brackets to highlight on this line, return the span as is.
     if (highlightPositions.isEmpty) {
@@ -1179,7 +1247,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         final absolutePosition = currentPosition + i;
         if (highlightPositions.contains(absolutePosition)) {
           if (i > lastSplit) {
-            builtSpans.add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+            builtSpans.add(
+              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
+            );
           }
           builtSpans.add(
             TextSpan(
@@ -1194,7 +1264,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         }
       }
       if (lastSplit < text.length) {
-        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+        builtSpans.add(
+          TextSpan(text: text.substring(lastSplit), style: spanStyle),
+        );
       }
       currentPosition += text.length;
 
@@ -1257,7 +1329,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         });
       }
     });
-    
+
     final colorScheme = Theme.of(context).colorScheme;
 
     return Focus(
@@ -1285,7 +1357,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
             child: child,
           );
         },
-        indicatorBuilder: (context, editingController, chunkController, notifier) {
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
           _chunkController = chunkController;
           return CustomEditorIndicator(
             controller: editingController,
@@ -1298,7 +1375,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine> implem
         style: _style,
         wordWrap: ref.watch(
           settingsProvider.select(
-            (s) => (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)?.wordWrap ?? false,
+            (s) =>
+                (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)
+                    ?.wordWrap ??
+                false,
           ),
         ),
       ),
@@ -1498,7 +1578,8 @@ class _ColorSwatch extends StatelessWidget {
         borderRadius: BorderRadius.circular(2.0),
         border: Border.all(
           // Add a border that contrasts with the swatch color for visibility.
-          color: color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54,
+          color:
+              color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54,
           width: 1.0,
         ),
       ),

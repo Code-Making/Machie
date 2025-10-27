@@ -4,22 +4,16 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/dto/tab_hot_state_dto.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project_repository.dart';
 import 'package:machine/editor/editor_tab_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_controller.dart'; // NEW
 import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
 import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
 import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/explorer/common/file_explorer_dialogs.dart';
-import 'package:machine/project/services/project_hierarchy_service.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 
@@ -29,7 +23,6 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_dialogs.dart';
 import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
 import 'package:machine/editor/plugins/llm_editor/streaming_chat_bubble.dart';
 import 'package:machine/editor/plugins/llm_editor/editing_chat_bubble.dart'; // NEW IMPORT
-
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
@@ -73,11 +66,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
   @override
   void init() {
-    _controller = LlmEditorController(initialMessages: widget.tab.initialMessages);
+    _controller = LlmEditorController(
+      initialMessages: widget.tab.initialMessages,
+    );
     _controller.addListener(_onControllerUpdate);
     _textController.addListener(_updateComposingTokenCount);
   }
-  
+
   @override
   void onFirstFrameReady() {
     if (mounted) {
@@ -101,37 +96,48 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _scrollEndTimer?.cancel();
     super.dispose();
   }
-  
+
   void _onControllerUpdate() {
     // This runs outside the build method.
     _updateTotalTokenCount(); // This can now call setState as it's not frequent
-    
+
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project != null) {
       ref.read(editorServiceProvider).markCurrentTabDirty();
       // The caching now happens centrally via the AppLifecycle, but we
       // can still trigger it if we want. For now, just marking it dirty is enough.
-      ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+      ref
+          .read(editorServiceProvider)
+          .updateAndCacheDirtyTab(project, widget.tab);
     }
   }
-  
-  
+
   // Token counting methods
   void _updateComposingTokenCount() {
-    final contextChars = _contextItems.fold<int>(0, (sum, item) => sum + item.content.length);
+    final contextChars = _contextItems.fold<int>(
+      0,
+      (sum, item) => sum + item.content.length,
+    );
     final promptChars = _textController.text.length;
     setState(() {
-      _composingTokenCount = ((contextChars + promptChars) / _charsPerToken).ceil();
+      _composingTokenCount =
+          ((contextChars + promptChars) / _charsPerToken).ceil();
     });
   }
 
   void _updateTotalTokenCount() {
     if (!mounted) return;
     setState(() {
-      _totalTokenCount = _controller.messages.lastOrNull?.message.totalConversationTokenCount ?? 0;
+      _totalTokenCount =
+          _controller
+              .messages
+              .lastOrNull
+              ?.message
+              .totalConversationTokenCount ??
+          0;
     });
   }
-  
+
   void _clearContext() {
     setState(() {
       _contextItems.clear();
@@ -139,30 +145,44 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _updateComposingTokenCount();
   }
 
-  Future<void> _submitPrompt(String userPrompt, {List<ContextItem>? context}) async {
+  Future<void> _submitPrompt(
+    String userPrompt, {
+    List<ContextItem>? context,
+  }) async {
     setState(() {}); // Update UI to reflect loading state immediately
-    
-    final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+
+    final settings =
+        ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+            as LlmEditorSettings?;
     if (settings == null) {
       MachineToast.error('LLM settings are not available.');
       _controller.stopStreaming();
       setState(() {});
       return;
     }
-    
+
     final model = settings.selectedModels[settings.selectedProviderId];
     if (model == null) {
-      MachineToast.error('No LLM model selected. Please configure one in the settings.');
+      MachineToast.error(
+        'No LLM model selected. Please configure one in the settings.',
+      );
       _controller.stopStreaming();
       setState(() {});
       return;
     }
 
     final provider = ref.read(llmServiceProvider);
-    
-    final userMessage = ChatMessage(role: 'user', content: userPrompt, context: context);
+
+    final userMessage = ChatMessage(
+      role: 'user',
+      content: userPrompt,
+      context: context,
+    );
     // Use the controller's current messages for the check
-    final conversationForTokenCheck = [..._controller.messages.map((dm) => dm.message), userMessage];
+    final conversationForTokenCheck = [
+      ..._controller.messages.map((dm) => dm.message),
+      userMessage,
+    ];
 
     _controller.addMessage(userMessage);
     _scrollToBottom();
@@ -173,33 +193,44 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         conversation: conversationForTokenCheck,
         model: model,
       );
-      
+
       if (tokenCount > model.inputTokenLimit) {
-        MachineToast.error('Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.');
+        MachineToast.error(
+          'Conversation is too long ($tokenCount tokens). The current model limit is ${model.inputTokenLimit} tokens.',
+        );
         _controller.removeLastMessage();
         setState(() {}); // To update UI
         return;
       }
-      
-      _controller.updateMessage(newUserMessageIndex, userMessage.copyWith(totalConversationTokenCount: tokenCount));
-    } catch (e) {
-        MachineToast.error('Failed to count tokens. Check API Key.');
-        _controller.removeLastMessage();
-        setState(() {});
-        return;
-    }
 
+      _controller.updateMessage(
+        newUserMessageIndex,
+        userMessage.copyWith(totalConversationTokenCount: tokenCount),
+      );
+    } catch (e) {
+      MachineToast.error('Failed to count tokens. Check API Key.');
+      _controller.removeLastMessage();
+      setState(() {});
+      return;
+    }
 
     _controller.startStreamingPlaceholder();
     _scrollToBottom();
-    
-    final conversationForApi = _controller.messages.sublist(0, _controller.messages.length - 1).map((dm) => dm.message).toList();
+
+    final conversationForApi =
+        _controller.messages
+            .sublist(0, _controller.messages.length - 1)
+            .map((dm) => dm.message)
+            .toList();
     final responseStream = provider.generateResponse(
       conversation: conversationForApi,
       model: model,
     );
-  
-    ChatMessage streamingMessage = const ChatMessage(role: 'assistant', content: '');
+
+    ChatMessage streamingMessage = const ChatMessage(
+      role: 'assistant',
+      content: '',
+    );
     _llmSubscription = responseStream.listen(
       (event) {
         if (!mounted) return;
@@ -209,24 +240,26 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
             break;
           case LlmResponseMetadata():
             streamingMessage = streamingMessage.copyWith(
-              totalConversationTokenCount: event.promptTokenCount + event.responseTokenCount
+              totalConversationTokenCount:
+                  event.promptTokenCount + event.responseTokenCount,
             );
             break;
           case LlmError():
             streamingMessage = streamingMessage.copyWith(
-              content: '${streamingMessage.content}\n\n--- Error ---\n${event.message}',
+              content:
+                  '${streamingMessage.content}\n\n--- Error ---\n${event.message}',
             );
             break;
         }
       },
-      onError: (e) { 
+      onError: (e) {
         if (!mounted) return;
         _controller.appendChunkToStreamingMessage('\n\n--- Error ---\n$e');
         _controller.stopStreaming();
         _llmSubscription = null;
         setState(() {}); // Update isLoading state
       },
-      onDone: () { 
+      onDone: () {
         if (mounted) {
           final finalContent = _controller.messages.last.message.content;
           streamingMessage = streamingMessage.copyWith(content: finalContent);
@@ -244,7 +277,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     if (userPrompt.isEmpty && _contextItems.isEmpty) return;
 
     final contextToSend = List<ContextItem>.from(_contextItems);
-    
+
     _textController.clear();
     setState(() {
       _contextItems.clear();
@@ -253,7 +286,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     await _submitPrompt(userPrompt, context: contextToSend);
   }
-  
+
   void _stopGeneration() {
     _llmSubscription?.cancel();
     _controller.stopStreaming();
@@ -266,32 +299,40 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final messageToRerun = _controller.messages[messageIndex].message;
     if (messageToRerun.role != 'user') return;
     _controller.deleteAfter(messageIndex);
-    await _submitPrompt(messageToRerun.content, context: messageToRerun.context);
+    await _submitPrompt(
+      messageToRerun.content,
+      context: messageToRerun.context,
+    );
   }
-  
-    Future<void> _recalculateTokensAfterEdit() async {
-    final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?)
+
+  Future<void> _recalculateTokensAfterEdit() async {
+    final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+            as LlmEditorSettings?)
         ?.selectedModels
         .values
         .firstWhereOrNull((m) => m != null);
-    
+
     if (!mounted || model == null || _displayMessages.isEmpty) {
-        if(mounted) setState(() => _totalTokenCount = 0);
-        return;
+      if (mounted) setState(() => _totalTokenCount = 0);
+      return;
     }
 
     final provider = ref.read(llmServiceProvider);
     final conversation = _displayMessages.map((dm) => dm.message).toList();
-    final tokenCount = await provider.countTokens(conversation: conversation, model: model);
+    final tokenCount = await provider.countTokens(
+      conversation: conversation,
+      model: model,
+    );
 
     if (mounted) {
-        setState(() {
-            final lastMessage = _displayMessages.last.message;
-            _displayMessages[_displayMessages.length - 1] = DisplayMessage.fromChatMessage(
-                lastMessage.copyWith(totalConversationTokenCount: tokenCount)
-            );
-            _updateTotalTokenCount();
-        });
+      setState(() {
+        final lastMessage = _displayMessages.last.message;
+        _displayMessages[_displayMessages.length -
+            1] = DisplayMessage.fromChatMessage(
+          lastMessage.copyWith(totalConversationTokenCount: tokenCount),
+        );
+        _updateTotalTokenCount();
+      });
     }
   }
 
@@ -302,7 +343,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   void _deleteAfter(int index) {
     _controller.deleteAfter(index);
   }
-  
+
   Future<void> _showEditMessageDialog(int index) async {
     final originalMessage = _controller.messages[index].message;
 
@@ -313,10 +354,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     if (newMessage != null) {
       final bool contentChanged = originalMessage.content != newMessage.content;
-      final bool contextChanged = !const DeepCollectionEquality().equals(
-        originalMessage.context?.map((e) => e.source).toSet(), 
-        newMessage.context?.map((e) => e.source).toSet()
-      );
+      final bool contextChanged =
+          !const DeepCollectionEquality().equals(
+            originalMessage.context?.map((e) => e.source).toSet(),
+            newMessage.context?.map((e) => e.source).toSet(),
+          );
 
       if (contentChanged || contextChanged) {
         _controller.updateMessage(index, newMessage);
@@ -324,7 +366,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       }
     }
   }
-  
+
   void _updateAndRerunMessage(int index, ChatMessage newMessage) {
     setState(() {
       _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
@@ -332,51 +374,62 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     // Re-use the rerun logic! It correctly deletes subsequent messages and resubmits.
     _rerun(index);
   }
-  
-    Future<void> _showAddContextDialog() async {
+
+  Future<void> _showAddContextDialog() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
 
     final files = await showDialog<List<DocumentFile>>(
       context: context,
-      builder: (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
+      builder:
+          (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
     );
-    
+
     if (files == null || files.isEmpty) return;
 
     if (files.length == 1 && files.first.name.endsWith('.dart')) {
-        final confirm = await showConfirmDialog(
-            context,
-            title: 'Gather Imports?',
-            content: 'Do you want to recursively gather all local imports from "${files.first.name}"?',
-        );
-        if (confirm) {
-            await _gatherRecursiveImports(files.first, project.rootUri);
-            return;
-        }
+      final confirm = await showConfirmDialog(
+        context,
+        title: 'Gather Imports?',
+        content:
+            'Do you want to recursively gather all local imports from "${files.first.name}"?',
+      );
+      if (confirm) {
+        await _gatherRecursiveImports(files.first, project.rootUri);
+        return;
+      }
     }
 
     // Default case: add selected files
     for (final file in files) {
-        final content = await repo.readFile(file.uri);
-        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
-        setState(() {
-            _contextItems.add(ContextItem(source: relativePath, content: content));
-        });
+      final content = await repo.readFile(file.uri);
+      final relativePath = repo.fileHandler.getPathForDisplay(
+        file.uri,
+        relativeTo: project.rootUri,
+      );
+      setState(() {
+        _contextItems.add(ContextItem(source: relativePath, content: content));
+      });
     }
     _updateComposingTokenCount();
   }
-  
-  Future<void> _gatherRecursiveImports(DocumentFile initialFile, String projectRootUri) async {
+
+  Future<void> _gatherRecursiveImports(
+    DocumentFile initialFile,
+    String projectRootUri,
+  ) async {
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return;
 
     final filesToProcess = <DocumentFile>[initialFile];
     final processedUris = <String>{};
     final gatheredContext = <ContextItem>[];
-    
-    final importRegex = RegExp(r"^\s*import\s+'(?!package:|dart:)(.+?)';", multiLine: true);
+
+    final importRegex = RegExp(
+      r"^\s*import\s+'(?!package:|dart:)(.+?)';",
+      multiLine: true,
+    );
 
     while (filesToProcess.isNotEmpty) {
       final currentFile = filesToProcess.removeAt(0);
@@ -384,7 +437,10 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
       processedUris.add(currentFile.uri);
       final content = await repo.readFile(currentFile.uri);
-      final relativePath = repo.fileHandler.getPathForDisplay(currentFile.uri, relativeTo: projectRootUri);
+      final relativePath = repo.fileHandler.getPathForDisplay(
+        currentFile.uri,
+        relativeTo: projectRootUri,
+      );
       gatheredContext.add(ContextItem(source: relativePath, content: content));
 
       final matches = importRegex.allMatches(content);
@@ -392,13 +448,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
         final relativeImportPath = match.group(1);
         if (relativeImportPath != null) {
           try {
-            final resolvedUri = await _resolveRelativePath(currentFile.uri, relativeImportPath, repo.fileHandler);
+            final resolvedUri = await _resolveRelativePath(
+              currentFile.uri,
+              relativeImportPath,
+              repo.fileHandler,
+            );
             final nextFile = await repo.getFileMetadata(resolvedUri);
             if (nextFile != null && !processedUris.contains(nextFile.uri)) {
               filesToProcess.add(nextFile);
             }
-          } catch(e) {
-          }
+          } catch (e) {}
         }
       }
     }
@@ -409,8 +468,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _updateComposingTokenCount();
     MachineToast.info('Added ${gatheredContext.length} files to context.');
   }
-  
-  Future<String> _resolveRelativePath(String currentFileUri, String relativePath, FileHandler fileHandler) async {
+
+  Future<String> _resolveRelativePath(
+    String currentFileUri,
+    String relativePath,
+    FileHandler fileHandler,
+  ) async {
     final parentUri = fileHandler.getParentUri(currentFileUri);
     final parentSegments = parentUri.split('%2F');
     final pathSegments = relativePath.split('/');
@@ -437,7 +500,8 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       final context = key?.currentContext;
       if (context != null) {
         final renderBox = context.findRenderObject() as RenderBox;
-        final positionInViewport = renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
+        final positionInViewport =
+            renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox).dy;
         final absoluteOffset = _scrollController.offset + positionInViewport;
         visibleTargets.add((id: id, key: key!, offset: absoluteOffset));
       }
@@ -457,10 +521,14 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     _ScrollTarget? target;
 
     if (direction > 0) {
-      target = targets.firstWhereOrNull((t) => t.offset > currentOffset + deadZone);
+      target = targets.firstWhereOrNull(
+        (t) => t.offset > currentOffset + deadZone,
+      );
       target ??= targets.first;
     } else {
-      target = targets.lastWhereOrNull((t) => t.offset < currentOffset - deadZone);
+      target = targets.lastWhereOrNull(
+        (t) => t.offset < currentOffset - deadZone,
+      );
       target ??= targets.last;
     }
 
@@ -515,11 +583,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                 onNotification: (notification) {
                   if (notification is ScrollStartNotification) {
                     _scrollEndTimer?.cancel();
-                    if (mounted && !_isScrolling) setState(() => _isScrolling = true);
+                    if (mounted && !_isScrolling)
+                      setState(() => _isScrolling = true);
                   } else if (notification is ScrollEndNotification) {
-                    _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
-                      if (mounted && _isScrolling) setState(() => _isScrolling = false);
-                    });
+                    _scrollEndTimer = Timer(
+                      const Duration(milliseconds: 800),
+                      () {
+                        if (mounted && _isScrolling)
+                          setState(() => _isScrolling = false);
+                      },
+                    );
                   }
                   return false;
                 },
@@ -536,8 +609,10 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final displayMessage = messages[index];
-                      final isStreamingAndLast = isLoading && index == messages.length - 1;
-                      final isEditing = displayMessage.id == _controller.editingMessageId;
+                      final isStreamingAndLast =
+                          isLoading && index == messages.length - 1;
+                      final isEditing =
+                          displayMessage.id == _controller.editingMessageId;
 
                       // --- THE WIDGET SWAP LOGIC ---
 
@@ -553,7 +628,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                           onSaveAndRerun: (newMessage) {
                             _controller.saveEdit(displayMessage.id, newMessage);
                             // We need to find the index again as it might have changed
-                            final newIndex = _controller.messages.indexWhere((m) => m.id == displayMessage.id);
+                            final newIndex = _controller.messages.indexWhere(
+                              (m) => m.id == displayMessage.id,
+                            );
                             if (newIndex != -1) {
                               _rerun(newIndex);
                             }
@@ -574,9 +651,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                           onRerun: () => _rerun(index),
                           onDelete: () => _delete(index),
                           onDeleteAfter: () => _deleteAfter(index + 1),
-                          onEdit: () => _controller.startEditing(displayMessage.id),
-                          onToggleFold: () => _controller.toggleMessageFold(displayMessage.id),
-                          onToggleContextFold: () => _controller.toggleContextFold(displayMessage.id),
+                          onEdit:
+                              () => _controller.startEditing(displayMessage.id),
+                          onToggleFold:
+                              () => _controller.toggleMessageFold(
+                                displayMessage.id,
+                              ),
+                          onToggleContextFold:
+                              () => _controller.toggleContextFold(
+                                displayMessage.id,
+                              ),
                         );
                       }
                     },
@@ -591,11 +675,15 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       ],
     );
   }
-  
+
   Widget _buildTopBar() {
-    final settings = ref.watch(settingsProvider.select(
-      (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
-    )) ?? LlmEditorSettings();
+    final settings =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
+          ),
+        ) ??
+        LlmEditorSettings();
 
     final model = settings.selectedModels[settings.selectedProviderId];
 
@@ -621,104 +709,125 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     );
   }
 
-Widget _buildChatInput() {
-  return Material(
-    elevation: 4.0,
-    color: Theme.of(context).scaffoldBackgroundColor,
-    child: Padding(
-      // The main padding for the whole input area.
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // The context pills area remains largely the same.
-          if (_contextItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.clear_all),
-                      tooltip: 'Clear Context',
-                      onPressed: _clearContext,
-                    ),
-                    Expanded(
-                      child: Scrollbar(
-                        controller: _contextScrollController,
-                        child: SingleChildScrollView(
+  Widget _buildChatInput() {
+    return Material(
+      elevation: 4.0,
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        // The main padding for the whole input area.
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // The context pills area remains largely the same.
+            if (_contextItems.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 120),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.clear_all),
+                        tooltip: 'Clear Context',
+                        onPressed: _clearContext,
+                      ),
+                      Expanded(
+                        child: Scrollbar(
                           controller: _contextScrollController,
-                          scrollDirection: Axis.horizontal,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: _contextItems.map((item) => ContextItemCard(
-                                item: item,
-                                onRemove: () {
-                                  setState(() => _contextItems.remove(item));
-                                  _updateComposingTokenCount();
-                                },
-                              )).toList(),
+                          child: SingleChildScrollView(
+                            controller: _contextScrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children:
+                                    _contextItems
+                                        .map(
+                                          (item) => ContextItemCard(
+                                            item: item,
+                                            onRemove: () {
+                                              setState(
+                                                () =>
+                                                    _contextItems.remove(item),
+                                              );
+                                              _updateComposingTokenCount();
+                                            },
+                                          ),
+                                        )
+                                        .toList(),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              ),
+
+            // The TextField now takes full width, with a simple decoration.
+            TextField(
+              controller: _textController,
+              enabled: !_isLoading,
+              keyboardType: TextInputType.multiline,
+              maxLines: 5,
+              minLines: 1,
+              decoration: const InputDecoration(
+                hintText: 'Type your message...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 10.0,
                 ),
               ),
             ),
-          
-          // The TextField now takes full width, with a simple decoration.
-          TextField(
-            controller: _textController,
-            enabled: !_isLoading,
-            keyboardType: TextInputType.multiline,
-            maxLines: 5,
-            minLines: 1,
-            decoration: const InputDecoration(
-              hintText: 'Type your message...',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-            ),
-          ),
 
-          // A small spacer between the text field and the controls below.
-          const SizedBox(height: 8.0),
+            // A small spacer between the text field and the controls below.
+            const SizedBox(height: 8.0),
 
-          // The new row for all controls.
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.attachment),
-                tooltip: 'Add File Context',
-                onPressed: _isLoading ? null : _showAddContextDialog,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  '~$_composingTokenCount tok',
-                  style: Theme.of(context).textTheme.bodySmall,
+            // The new row for all controls.
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.attachment),
+                  tooltip: 'Add File Context',
+                  onPressed: _isLoading ? null : _showAddContextDialog,
                 ),
-              ),
-              const Spacer(), // Pushes the send button to the far right.
-              IconButton(
-                icon: Icon(_controller.isLoading ? Icons.stop_circle_outlined : Icons.send),
-                tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
-                onPressed: _controller.isLoading ? _stopGeneration : _sendMessage,
-                color: _controller.isLoading ? Colors.redAccent : Theme.of(context).colorScheme.primary,
-              ),
-            ],
-          ),
-        ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Text(
+                    '~$_composingTokenCount tok',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                const Spacer(), // Pushes the send button to the far right.
+                IconButton(
+                  icon: Icon(
+                    _controller.isLoading
+                        ? Icons.stop_circle_outlined
+                        : Icons.send,
+                  ),
+                  tooltip: _controller.isLoading ? 'Stop Generation' : 'Send',
+                  onPressed:
+                      _controller.isLoading ? _stopGeneration : _sendMessage,
+                  color:
+                      _controller.isLoading
+                          ? Colors.redAccent
+                          : Theme.of(context).colorScheme.primary,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   void syncCommandContext() {}
@@ -740,10 +849,11 @@ Widget _buildChatInput() {
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    final List<ChatMessage> messagesToSave = _controller.messages
-        .map((displayMessage) => displayMessage.message)
-        .toList();
-    
+    final List<ChatMessage> messagesToSave =
+        _controller.messages
+            .map((displayMessage) => displayMessage.message)
+            .toList();
+
     final hotStateDto = LlmEditorHotStateDto(
       messages: messagesToSave,
       baseContentHash: _baseContentHash,

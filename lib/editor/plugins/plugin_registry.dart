@@ -22,13 +22,13 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
 // MODIFIED: This provider now returns a sorted list, not a set.
 final activePluginsProvider =
     StateNotifierProvider<PluginManager, List<EditorPlugin>>((ref) {
-  final initialPlugins = ref.read(pluginRegistryProvider);
-  return PluginManager(initialPlugins);
-});
+      final initialPlugins = ref.read(pluginRegistryProvider);
+      return PluginManager(initialPlugins);
+    });
 
 class PluginManager extends StateNotifier<List<EditorPlugin>> {
   PluginManager(Set<EditorPlugin> plugins)
-      : super(_sortPlugins(plugins.toList()));
+    : super(_sortPlugins(plugins.toList()));
 
   static List<EditorPlugin> _sortPlugins(List<EditorPlugin> plugins) {
     // Sorts plugins in descending order of priority.

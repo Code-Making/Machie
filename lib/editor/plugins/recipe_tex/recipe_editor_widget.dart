@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart'; // Needed for project access
 import '../../editor_tab_models.dart';
@@ -63,13 +62,12 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   Timer? _cacheDebounceTimer;
   Timer? _typingUndoDebounce;
 
-
   @override
   void init() {
     _baseContentHash = (widget.tab as RecipeTexTab).initialBaseContentHash;
     final hotStateData = (widget.tab as RecipeTexTab).hotStateData;
     final initialContent = (widget.tab as RecipeTexTab).initialContent;
-    
+
     _initialData = RecipeTexPlugin.parseRecipeContent(initialContent);
 
     if (hotStateData != null) {
@@ -79,16 +77,16 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       _initializeControllersAndFocusNodes(_initialData);
     }
   }
-  
+
   @override
   void onFirstFrameReady() {
-      if (mounted) {
-        _checkIfDirty();
-        syncCommandContext();
-      }
-      if (!widget.tab.onReady.isCompleted) {
-          widget.tab.onReady.complete(this);
-      }
+    if (mounted) {
+      _checkIfDirty();
+      syncCommandContext();
+    }
+    if (!widget.tab.onReady.isCompleted) {
+      widget.tab.onReady.complete(this);
+    }
   }
 
   @override
@@ -102,13 +100,20 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   void _disposeControllersAndFocusNodes() {
     if (!_isInitialized) return;
 
-    _titleController.dispose(); _titleFocusNode.dispose();
-    _acidRefluxScoreController.dispose(); _acidRefluxScoreFocusNode.dispose();
-    _acidRefluxReasonController.dispose(); _acidRefluxReasonFocusNode.dispose();
-    _prepTimeController.dispose(); _prepTimeFocusNode.dispose();
-    _cookTimeController.dispose(); _cookTimeFocusNode.dispose();
-    _portionsController.dispose(); _portionsFocusNode.dispose();
-    _notesController.dispose(); _notesFocusNode.dispose();
+    _titleController.dispose();
+    _titleFocusNode.dispose();
+    _acidRefluxScoreController.dispose();
+    _acidRefluxScoreFocusNode.dispose();
+    _acidRefluxReasonController.dispose();
+    _acidRefluxReasonFocusNode.dispose();
+    _prepTimeController.dispose();
+    _prepTimeFocusNode.dispose();
+    _cookTimeController.dispose();
+    _cookTimeFocusNode.dispose();
+    _portionsController.dispose();
+    _portionsFocusNode.dispose();
+    _notesController.dispose();
+    _notesFocusNode.dispose();
     _ingredientControllers.forEach((list) => list.forEach((c) => c.dispose()));
     _instructionControllers.forEach((list) => list.forEach((c) => c.dispose()));
     _ingredientFocusNodes.forEach((list) => list.forEach((c) => c.dispose()));
@@ -121,19 +126,39 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     }
 
     _titleController = TextEditingController(text: data.title);
-    _titleFocusNode = FocusNode()..addListener(() => _handleFocusChange(_titleFocusNode.hasFocus));
-    _acidRefluxScoreController = TextEditingController(text: data.acidRefluxScore.toString());
-    _acidRefluxScoreFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxScoreFocusNode.hasFocus));
-    _acidRefluxReasonController = TextEditingController(text: data.acidRefluxReason);
-    _acidRefluxReasonFocusNode = FocusNode()..addListener(() => _handleFocusChange(_acidRefluxReasonFocusNode.hasFocus));
+    _titleFocusNode =
+        FocusNode()
+          ..addListener(() => _handleFocusChange(_titleFocusNode.hasFocus));
+    _acidRefluxScoreController = TextEditingController(
+      text: data.acidRefluxScore.toString(),
+    );
+    _acidRefluxScoreFocusNode =
+        FocusNode()..addListener(
+          () => _handleFocusChange(_acidRefluxScoreFocusNode.hasFocus),
+        );
+    _acidRefluxReasonController = TextEditingController(
+      text: data.acidRefluxReason,
+    );
+    _acidRefluxReasonFocusNode =
+        FocusNode()..addListener(
+          () => _handleFocusChange(_acidRefluxReasonFocusNode.hasFocus),
+        );
     _prepTimeController = TextEditingController(text: data.prepTime);
-    _prepTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_prepTimeFocusNode.hasFocus));
+    _prepTimeFocusNode =
+        FocusNode()
+          ..addListener(() => _handleFocusChange(_prepTimeFocusNode.hasFocus));
     _cookTimeController = TextEditingController(text: data.cookTime);
-    _cookTimeFocusNode = FocusNode()..addListener(() => _handleFocusChange(_cookTimeFocusNode.hasFocus));
+    _cookTimeFocusNode =
+        FocusNode()
+          ..addListener(() => _handleFocusChange(_cookTimeFocusNode.hasFocus));
     _portionsController = TextEditingController(text: data.portions);
-    _portionsFocusNode = FocusNode()..addListener(() => _handleFocusChange(_portionsFocusNode.hasFocus));
+    _portionsFocusNode =
+        FocusNode()
+          ..addListener(() => _handleFocusChange(_portionsFocusNode.hasFocus));
     _notesController = TextEditingController(text: data.notes);
-    _notesFocusNode = FocusNode()..addListener(() => _handleFocusChange(_notesFocusNode.hasFocus));
+    _notesFocusNode =
+        FocusNode()
+          ..addListener(() => _handleFocusChange(_notesFocusNode.hasFocus));
 
     // Use loops to safely create and assign listeners.
     _ingredientControllers = [];
@@ -150,7 +175,7 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
       nodes[2].addListener(() => _handleFocusChange(nodes[2].hasFocus));
       _ingredientFocusNodes.add(nodes);
     }
-    
+
     _instructionControllers = [];
     _instructionFocusNodes = [];
     for (final inst in data.instructions) {
@@ -165,19 +190,29 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     }
     _isInitialized = true;
   }
-  
-RecipeData _buildDataFromControllers() {
+
+  RecipeData _buildDataFromControllers() {
     return RecipeData(
       title: _titleController.text,
-      acidRefluxScore: (int.tryParse(_acidRefluxScoreController.text) ?? 1).clamp(0, 5),
+      acidRefluxScore: (int.tryParse(_acidRefluxScoreController.text) ?? 1)
+          .clamp(0, 5),
       acidRefluxReason: _acidRefluxReasonController.text,
       prepTime: _prepTimeController.text,
       cookTime: _cookTimeController.text,
       portions: _portionsController.text,
       image: _initialData.image,
       rawImagesSection: _initialData.rawImagesSection,
-      ingredients: _ingredientControllers.map((ctrls) => Ingredient(ctrls[0].text, ctrls[1].text, ctrls[2].text)).toList(),
-      instructions: _instructionControllers.map((ctrls) => InstructionStep(ctrls[0].text, ctrls[1].text)).toList(),
+      ingredients:
+          _ingredientControllers
+              .map(
+                (ctrls) =>
+                    Ingredient(ctrls[0].text, ctrls[1].text, ctrls[2].text),
+              )
+              .toList(),
+      instructions:
+          _instructionControllers
+              .map((ctrls) => InstructionStep(ctrls[0].text, ctrls[1].text))
+              .toList(),
       notes: _notesController.text,
     );
   }
@@ -191,14 +226,14 @@ RecipeData _buildDataFromControllers() {
     );
     ref.read(commandContextProvider(widget.tab.id).notifier).state = newContext;
   }
-    
+
   void _pushUndoState(RecipeData dataToPush) {
     // FIX #1: Prevent pushing consecutive duplicate states.
     if (_undoStack.isNotEmpty &&
         const DeepCollectionEquality().equals(_undoStack.last, dataToPush)) {
       return;
     }
-    
+
     _undoStack.add(dataToPush);
     if (_undoStack.length > 30) _undoStack.removeAt(0);
     _redoStack.clear();
@@ -209,12 +244,14 @@ RecipeData _buildDataFromControllers() {
   void undo() {
     _commitPendingUndo(); // Finalize any "in-flight" text edits first.
     if (_undoStack.isEmpty) return;
-    
+
     _redoStack.add(_buildDataFromControllers());
     final previousState = _undoStack.removeLast();
-    
-    setState(() { _initializeControllersAndFocusNodes(previousState); });
-    
+
+    setState(() {
+      _initializeControllersAndFocusNodes(previousState);
+    });
+
     _checkIfDirtyAndCache();
     syncCommandContext();
   }
@@ -223,11 +260,13 @@ RecipeData _buildDataFromControllers() {
   void redo() {
     _commitPendingUndo(); // Finalize any "in-flight" text edits first.
     if (_redoStack.isEmpty) return;
-    
+
     _undoStack.add(_buildDataFromControllers());
     final nextState = _redoStack.removeLast();
 
-    setState(() { _initializeControllersAndFocusNodes(nextState); });
+    setState(() {
+      _initializeControllersAndFocusNodes(nextState);
+    });
 
     _checkIfDirtyAndCache();
     syncCommandContext();
@@ -236,9 +275,11 @@ RecipeData _buildDataFromControllers() {
   @override
   Future<EditorContent> getContent() async {
     _commitPendingUndo();
-    return EditorContentString(RecipeTexPlugin.generateTexContent(_buildDataFromControllers()));
+    return EditorContentString(
+      RecipeTexPlugin.generateTexContent(_buildDataFromControllers()),
+    );
   }
-  
+
   Future<String> getTexContent() async {
     _commitPendingUndo();
     return RecipeTexPlugin.generateTexContent(_buildDataFromControllers());
@@ -269,7 +310,8 @@ RecipeData _buildDataFromControllers() {
 
   void _checkIfDirty() {
     final currentData = _buildDataFromControllers();
-    final isDirty = !const DeepCollectionEquality().equals(currentData, _initialData);
+    final isDirty =
+        !const DeepCollectionEquality().equals(currentData, _initialData);
     final editorService = ref.read(editorServiceProvider);
     if (isDirty) {
       editorService.markCurrentTabDirty();
@@ -305,10 +347,12 @@ RecipeData _buildDataFromControllers() {
     _cacheDebounceTimer = Timer(const Duration(milliseconds: 750), () {
       if (!mounted) return;
       _checkIfDirty();
-      
+
       final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
-        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+        ref
+            .read(editorServiceProvider)
+            .updateAndCacheDirtyTab(project, widget.tab);
       }
     });
   }
@@ -328,7 +372,11 @@ RecipeData _buildDataFromControllers() {
     _commitPendingUndo();
     _pushUndoState(_buildDataFromControllers());
     setState(() {
-      _ingredientControllers.add([ TextEditingController(), TextEditingController(), TextEditingController() ]);
+      _ingredientControllers.add([
+        TextEditingController(),
+        TextEditingController(),
+        TextEditingController(),
+      ]);
       final nodes = [FocusNode(), FocusNode(), FocusNode()];
       nodes[0].addListener(() => _handleFocusChange(nodes[0].hasFocus));
       nodes[1].addListener(() => _handleFocusChange(nodes[1].hasFocus));
@@ -347,14 +395,20 @@ RecipeData _buildDataFromControllers() {
     });
     _checkIfDirtyAndCache();
   }
-  
+
   void reorderIngredient(int oldIndex, int newIndex) {
     _commitPendingUndo();
     _pushUndoState(_buildDataFromControllers());
     setState(() {
       if (oldIndex < newIndex) newIndex--;
-      _ingredientControllers.insert(newIndex, _ingredientControllers.removeAt(oldIndex));
-      _ingredientFocusNodes.insert(newIndex, _ingredientFocusNodes.removeAt(oldIndex));
+      _ingredientControllers.insert(
+        newIndex,
+        _ingredientControllers.removeAt(oldIndex),
+      );
+      _ingredientFocusNodes.insert(
+        newIndex,
+        _ingredientFocusNodes.removeAt(oldIndex),
+      );
     });
     _checkIfDirtyAndCache();
   }
@@ -363,11 +417,14 @@ RecipeData _buildDataFromControllers() {
     _commitPendingUndo();
     _pushUndoState(_buildDataFromControllers());
     setState(() {
-       _instructionControllers.add([ TextEditingController(), TextEditingController() ]);
-       final nodes = [FocusNode(), FocusNode()];
-       nodes[0].addListener(() => _handleFocusChange(nodes[0].hasFocus));
-       nodes[1].addListener(() => _handleFocusChange(nodes[1].hasFocus));
-       _instructionFocusNodes.add(nodes);
+      _instructionControllers.add([
+        TextEditingController(),
+        TextEditingController(),
+      ]);
+      final nodes = [FocusNode(), FocusNode()];
+      nodes[0].addListener(() => _handleFocusChange(nodes[0].hasFocus));
+      nodes[1].addListener(() => _handleFocusChange(nodes[1].hasFocus));
+      _instructionFocusNodes.add(nodes);
     });
     _checkIfDirtyAndCache();
   }
@@ -406,75 +463,200 @@ RecipeData _buildDataFromControllers() {
     );
   }
 
-Widget _buildHeaderSection() {
+  Widget _buildHeaderSection() {
     return Column(
       children: [
-        TextFormField(controller: _titleController, focusNode: _titleFocusNode, decoration: const InputDecoration(labelText: 'Recipe Title'), onChanged: (_) => _onFieldChanged()),
+        TextFormField(
+          controller: _titleController,
+          focusNode: _titleFocusNode,
+          decoration: const InputDecoration(labelText: 'Recipe Title'),
+          onChanged: (_) => _onFieldChanged(),
+        ),
         const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: TextFormField(controller: _acidRefluxScoreController, focusNode: _acidRefluxScoreFocusNode, decoration: const InputDecoration(labelText: 'Acid Reflux Score (0-5)', suffixText: '/5'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onFieldChanged())),
-          const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _acidRefluxReasonController, focusNode: _acidRefluxReasonFocusNode, decoration: const InputDecoration(labelText: 'Reason for Score'), onChanged: (_) => _onFieldChanged())),
-        ]),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _acidRefluxScoreController,
+                focusNode: _acidRefluxScoreFocusNode,
+                decoration: const InputDecoration(
+                  labelText: 'Acid Reflux Score (0-5)',
+                  suffixText: '/5',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => _onFieldChanged(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _acidRefluxReasonController,
+                focusNode: _acidRefluxReasonFocusNode,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for Score',
+                ),
+                onChanged: (_) => _onFieldChanged(),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: TextFormField(controller: _prepTimeController, focusNode: _prepTimeFocusNode, decoration: const InputDecoration(labelText: 'Prep Time'), onChanged: (_) => _onFieldChanged())),
-          const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _cookTimeController, focusNode: _cookTimeFocusNode, decoration: const InputDecoration(labelText: 'Cook Time'), onChanged: (_) => _onFieldChanged())),
-          const SizedBox(width: 10),
-          Expanded(child: TextFormField(controller: _portionsController, focusNode: _portionsFocusNode, decoration: const InputDecoration(labelText: 'Portions'), onChanged: (_) => _onFieldChanged())),
-        ]),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _prepTimeController,
+                focusNode: _prepTimeFocusNode,
+                decoration: const InputDecoration(labelText: 'Prep Time'),
+                onChanged: (_) => _onFieldChanged(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _cookTimeController,
+                focusNode: _cookTimeFocusNode,
+                decoration: const InputDecoration(labelText: 'Cook Time'),
+                onChanged: (_) => _onFieldChanged(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _portionsController,
+                focusNode: _portionsFocusNode,
+                decoration: const InputDecoration(labelText: 'Portions'),
+                onChanged: (_) => _onFieldChanged(),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildIngredientsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
-      ReorderableListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _ingredientControllers.length,
-        itemBuilder: (context, index) => _buildIngredientRow(index),
-        onReorder: reorderIngredient,
-      ),
-      ElevatedButton(onPressed: addIngredient, child: const Text('Add Ingredient')),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _ingredientControllers.length,
+          itemBuilder: (context, index) => _buildIngredientRow(index),
+          onReorder: reorderIngredient,
+        ),
+        ElevatedButton(
+          onPressed: addIngredient,
+          child: const Text('Add Ingredient'),
+        ),
+      ],
+    );
   }
 
   Widget _buildIngredientRow(int index) {
     final controllers = _ingredientControllers[index];
     final focusNodes = _ingredientFocusNodes[index];
-    return Row(key: ValueKey('ingredient_$index'), children: [
-      const Icon(Icons.drag_handle, color: Colors.grey),
-      const SizedBox(width: 8),
-      SizedBox(width: 50, child: TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: const InputDecoration(labelText: 'Qty'), onChanged: (_) => _onFieldChanged())),
-      const SizedBox(width: 8),
-      SizedBox(width: 70, child: TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: const InputDecoration(labelText: 'Unit'), onChanged: (_) => _onFieldChanged())),
-      const SizedBox(width: 8),
-      Expanded(child: TextFormField(controller: controllers[2], focusNode: focusNodes[2], decoration: const InputDecoration(labelText: 'Ingredient'), onChanged: (_) => _onFieldChanged())),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeIngredient(index)),
-    ]);
+    return Row(
+      key: ValueKey('ingredient_$index'),
+      children: [
+        const Icon(Icons.drag_handle, color: Colors.grey),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 50,
+          child: TextFormField(
+            controller: controllers[0],
+            focusNode: focusNodes[0],
+            decoration: const InputDecoration(labelText: 'Qty'),
+            onChanged: (_) => _onFieldChanged(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 70,
+          child: TextFormField(
+            controller: controllers[1],
+            focusNode: focusNodes[1],
+            decoration: const InputDecoration(labelText: 'Unit'),
+            onChanged: (_) => _onFieldChanged(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            controller: controllers[2],
+            focusNode: focusNodes[2],
+            decoration: const InputDecoration(labelText: 'Ingredient'),
+            onChanged: (_) => _onFieldChanged(),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => removeIngredient(index),
+        ),
+      ],
+    );
   }
 
   Widget _buildInstructionsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
-      ..._instructionControllers.mapIndexed((index, e) => _buildInstructionItem(index)),
-      ElevatedButton(onPressed: addInstruction, child: const Text('Add Instruction')),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
+        ..._instructionControllers.mapIndexed(
+          (index, e) => _buildInstructionItem(index),
+        ),
+        ElevatedButton(
+          onPressed: addInstruction,
+          child: const Text('Add Instruction'),
+        ),
+      ],
+    );
   }
 
   Widget _buildInstructionItem(int index) {
     final controllers = _instructionControllers[index];
     final focusNodes = _instructionFocusNodes[index];
-    return Column(key: ValueKey('instruction_$index'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-      TextFormField(controller: controllers[0], focusNode: focusNodes[0], decoration: InputDecoration(labelText: 'Step ${index + 1} Title', hintText: 'e.g., "Preparation"'), onChanged: (_) => _onFieldChanged()),
-      TextFormField(controller: controllers[1], focusNode: focusNodes[1], decoration: InputDecoration(labelText: 'Step ${index + 1} Details', hintText: 'Describe this step...'), maxLines: null, minLines: 2, onChanged: (_) => _onFieldChanged()),
-      IconButton(icon: const Icon(Icons.delete), onPressed: () => removeInstruction(index)),
-      const Divider(),
-    ]);
+    return Column(
+      key: ValueKey('instruction_$index'),
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        TextFormField(
+          controller: controllers[0],
+          focusNode: focusNodes[0],
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Title',
+            hintText: 'e.g., "Preparation"',
+          ),
+          onChanged: (_) => _onFieldChanged(),
+        ),
+        TextFormField(
+          controller: controllers[1],
+          focusNode: focusNodes[1],
+          decoration: InputDecoration(
+            labelText: 'Step ${index + 1} Details',
+            hintText: 'Describe this step...',
+          ),
+          maxLines: null,
+          minLines: 2,
+          onChanged: (_) => _onFieldChanged(),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () => removeInstruction(index),
+        ),
+        const Divider(),
+      ],
+    );
   }
 
-  Widget _buildNotesSection() => TextFormField(controller: _notesController, focusNode: _notesFocusNode, decoration: const InputDecoration(labelText: 'Additional Notes'), maxLines: 3, onChanged: (_) => _onFieldChanged());
+  Widget _buildNotesSection() => TextFormField(
+    controller: _notesController,
+    focusNode: _notesFocusNode,
+    decoration: const InputDecoration(labelText: 'Additional Notes'),
+    maxLines: 3,
+    onChanged: (_) => _onFieldChanged(),
+  );
 }

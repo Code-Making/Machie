@@ -42,8 +42,11 @@ class ExplorerService {
     final newProject = project.copyWith(workspace: newWorkspace);
     return newProject;
   }
-  
-  Future<ProjectDocumentFile> createFileWithHierarchy(String projectRootUri, String relativePath) async {
+
+  Future<ProjectDocumentFile> createFileWithHierarchy(
+    String projectRootUri,
+    String relativePath,
+  ) async {
     final newFile = await _repo.fileHandler.createDirectoryAndFile(
       projectRootUri,
       relativePath,

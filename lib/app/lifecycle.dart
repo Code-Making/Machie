@@ -1,7 +1,6 @@
 import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
 import '../data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER

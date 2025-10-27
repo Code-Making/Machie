@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
-import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../explorer/common/file_explorer_dialogs.dart';
@@ -29,7 +28,6 @@ import 'llm_editor_settings_widget.dart';
 import 'llm_editor_widget.dart';
 import 'providers/llm_provider.dart';
 import 'providers/llm_provider_factory.dart';
-import '../../services/file_content_provider.dart';
 
 class LlmEditorPlugin extends EditorPlugin {
   @override
@@ -52,7 +50,6 @@ class LlmEditorPlugin extends EditorPlugin {
   @override
   PluginSettings? get settings => LlmEditorSettings();
 
-
   @override
   Widget buildSettingsUI(PluginSettings settings) {
     return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
@@ -73,15 +70,18 @@ class LlmEditorPlugin extends EditorPlugin {
 
     final model = settings.selectedModels[settings.selectedProviderId];
     if (model == null) {
-      throw Exception('No LLM model selected. Please configure one in the settings.');
+      throw Exception(
+        'No LLM model selected. Please configure one in the settings.',
+      );
     }
 
     // We add a system instruction to the prompt to guide the model's output.
-    final fullPrompt = 'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
-                       'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
-                       '\n\nUser instructions: "$prompt"'
-                       '\n\nHere is the code to modify:\n\n---\n$inputText\n---';
-    
+    final fullPrompt =
+        'You are an expert code modification assistant. Your task is to modify the user-provided code based on their instructions. '
+        'You MUST respond with ONLY the modified code, enclosed in a single markdown code block. Do not include any explanations, apologies, or introductory text outside of the code block.'
+        '\n\nUser instructions: "$prompt"'
+        '\n\nHere is the code to modify:\n\n---\n$inputText\n---';
+
     try {
       final rawResponse = await provider.generateSimpleResponse(
         prompt: fullPrompt,
@@ -90,7 +90,6 @@ class LlmEditorPlugin extends EditorPlugin {
 
       // Now, parse the response to extract code blocks.
       return _extractCodeFromMarkdown(rawResponse) ?? inputText;
-
     } catch (e) {
       // Re-throw to allow the caller to manage UI state (like closing a loading dialog)
       // and display a more context-aware error.
@@ -111,7 +110,10 @@ class LlmEditorPlugin extends EditorPlugin {
       return trimmed.isNotEmpty ? trimmed : null;
     }
 
-    return matches.map((match) => match.group(1)?.trim()).where((code) => code != null).join('\n');
+    return matches
+        .map((match) => match.group(1)?.trim())
+        .where((code) => code != null)
+        .join('\n');
   }
 
   @override
@@ -135,12 +137,14 @@ class LlmEditorPlugin extends EditorPlugin {
       if (content != null && content.isNotEmpty) {
         try {
           final List<dynamic> jsonList = jsonDecode(content);
-          messagesFromFile = jsonList.map((item) => ChatMessage.fromJson(item)).toList();
+          messagesFromFile =
+              jsonList.map((item) => ChatMessage.fromJson(item)).toList();
         } catch (e) {
           messagesFromFile.add(
             ChatMessage(
               role: 'assistant',
-              content: 'Error: Could not parse .llm file. Starting a new chat. \n\nDetails: $e',
+              content:
+                  'Error: Could not parse .llm file. Starting a new chat. \n\nDetails: $e',
             ),
           );
         }
@@ -157,8 +161,12 @@ class LlmEditorPlugin extends EditorPlugin {
     );
   }
 
-    LlmEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
-    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+  LlmEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     if (tab is! LlmEditorTab) return null;
     return tab.editorKey.currentState as LlmEditorWidgetState?;
   }
@@ -169,7 +177,7 @@ class LlmEditorPlugin extends EditorPlugin {
     return LlmEditorWidget(key: llmTab.editorKey, tab: llmTab);
   }
 
-    List<Command> getCommands() => [
+  List<Command> getCommands() => [
     BaseCommand(
       id: 'save',
       label: 'Save Chat',
@@ -178,10 +186,17 @@ class LlmEditorPlugin extends EditorPlugin {
       sourcePlugin: id,
       execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
       canExecute: (ref) {
-        final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        final currentTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (currentTabId == null) return false;
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
-        return (metadata?.isDirty ?? false) && metadata?.file is! VirtualDocumentFile;
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[currentTabId]),
+        );
+        return (metadata?.isDirty ?? false) &&
+            metadata?.file is! VirtualDocumentFile;
       },
     ),
     //FIXME: BaseCommand(
@@ -217,14 +232,15 @@ class LlmEditorPlugin extends EditorPlugin {
       icon: const Icon(Icons.keyboard_arrow_up),
       defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
-      execute: (ref) async => _getActiveEditorState(ref)?.jumpToPreviousTarget(),
+      execute:
+          (ref) async => _getActiveEditorState(ref)?.jumpToPreviousTarget(),
       canExecute: (ref) => _getActiveEditorState(ref) != null,
     ),
     BaseTextEditableCommand(
       id: 'llm_refactor_selection',
       label: 'Refactor Selection',
       icon: const Icon(Icons.auto_fix_high),
-      defaultPositions: [AppCommandPositions.pluginToolbar], 
+      defaultPositions: [AppCommandPositions.pluginToolbar],
       sourcePlugin: id,
       canExecute: (ref, context) {
         return context.hasSelection;
@@ -232,11 +248,13 @@ class LlmEditorPlugin extends EditorPlugin {
       execute: (ref, textEditable) async {
         final selectedText = await textEditable.getSelectedText();
         if (selectedText.isEmpty) return;
-        
+
         // Grab the context and all dependencies from ref BEFORE the first await.
         final context = ref.read(navigatorKeyProvider).currentContext;
         // *** FIX: Get dependencies from ref BEFORE the first await ***
-        final settings = ref.read(settingsProvider).pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
+        final settings =
+            ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+                as LlmEditorSettings?;
         final provider = ref.read(llmServiceProvider);
         final project = ref.read(appNotifierProvider).value!.currentProject!;
         final activeTab = project.session.currentTab!;
@@ -246,7 +264,10 @@ class LlmEditorPlugin extends EditorPlugin {
         if (context == null || !context.mounted) return;
 
         // Gather non-UI info.
-        final displayPath = repo.fileHandler.getPathForDisplay(activeFile.uri, relativeTo: project.rootUri);
+        final displayPath = repo.fileHandler.getPathForDisplay(
+          activeFile.uri,
+          relativeTo: project.rootUri,
+        );
 
         // 1. Ask the user for their modification instructions.
         final userPrompt = await showTextInputDialog(
@@ -266,33 +287,35 @@ class LlmEditorPlugin extends EditorPlugin {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => PopScope(
-            canPop: false,
-            child: AlertDialog(
-              content: const Row(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: 24),
-                  Text("Applying AI modification..."),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    isCancelled = true;
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Stop'),
+          builder:
+              (ctx) => PopScope(
+                canPop: false,
+                child: AlertDialog(
+                  content: const Row(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 24),
+                      Text("Applying AI modification..."),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        isCancelled = true;
+                        Navigator.of(ctx).pop();
+                      },
+                      child: const Text('Stop'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
         );
-        
+
         try {
-          final fullPrompt = 'The user wants to refactor a selection from the file at path: `$displayPath`.'
-                             '\n\nUser instructions: "$userPrompt"'
-                             '\n\nHere is the code selection to modify:';
+          final fullPrompt =
+              'The user wants to refactor a selection from the file at path: `$displayPath`.'
+              '\n\nUser instructions: "$userPrompt"'
+              '\n\nHere is the code selection to modify:';
 
           // *** FIX: Pass the actual provider and settings, not the ref ***
           final modifiedText = await LlmEditorPlugin.applyModification(
@@ -301,7 +324,7 @@ class LlmEditorPlugin extends EditorPlugin {
             prompt: fullPrompt,
             inputText: selectedText,
           );
-          
+
           if (context.mounted) Navigator.of(context).pop();
 
           if (isCancelled) return;
@@ -326,5 +349,6 @@ class LlmEditorPlugin extends EditorPlugin {
   @override
   Type? get hotStateDtoRuntimeType => LlmEditorHotStateDto;
   @override
-  TypeAdapter<TabHotStateDto>? get hotStateAdapter => LlmEditorHotStateAdapter();
+  TypeAdapter<TabHotStateDto>? get hotStateAdapter =>
+      LlmEditorHotStateAdapter();
 }

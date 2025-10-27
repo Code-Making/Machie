@@ -7,7 +7,7 @@ class PermissionDeniedException implements Exception {
   final String message;
 
   PermissionDeniedException({required this.uri, String? message})
-      : message = message ?? 'Permission denied for URI: $uri';
+    : message = message ?? 'Permission denied for URI: $uri';
 
   @override
   String toString() => message;
@@ -23,11 +23,9 @@ abstract class DocumentFile {
   String get mimeType;
 }
 
-
 /// A specialized [DocumentFile] that represents a file or directory physically
 /// present within the project's structure and managed by the [ProjectRepository].
 abstract class ProjectDocumentFile extends DocumentFile {}
-
 
 /// The contract for handling file system operations.
 /// It now explicitly produces and consumes [ProjectDocumentFile] instances.
@@ -45,8 +43,14 @@ abstract class FileHandler {
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
 
-  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content);
-  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes);
+  Future<ProjectDocumentFile> writeFile(
+    ProjectDocumentFile file,
+    String content,
+  );
+  Future<ProjectDocumentFile> writeFileAsBytes(
+    ProjectDocumentFile file,
+    Uint8List bytes,
+  );
 
   Future<ProjectDocumentFile> createDocumentFile(
     String parentUri,
@@ -59,7 +63,10 @@ abstract class FileHandler {
 
   Future<void> deleteDocumentFile(ProjectDocumentFile file);
 
-  Future<ProjectDocumentFile> renameDocumentFile(ProjectDocumentFile file, String newName);
+  Future<ProjectDocumentFile> renameDocumentFile(
+    ProjectDocumentFile file,
+    String newName,
+  );
   Future<ProjectDocumentFile> copyDocumentFile(
     ProjectDocumentFile source,
     String destinationParentUri,
@@ -70,15 +77,18 @@ abstract class FileHandler {
   );
 
   Future<ProjectDocumentFile?> getFileMetadata(String uri);
- 
-  Future<ProjectDocumentFile?> resolvePath(String parentUri, String relativePath);
+
+  Future<ProjectDocumentFile?> resolvePath(
+    String parentUri,
+    String relativePath,
+  );
 
   Future<ProjectDocumentFile> createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
   });
-  
+
   String getParentUri(String uri);
   String getFileName(String uri);
   String getPathForDisplay(String uri, {String? relativeTo});

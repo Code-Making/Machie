@@ -11,8 +11,5 @@ class RecipeTexHotStateDto extends TabHotStateDto {
   /// The full, parsed recipe data that is being edited.
   final RecipeData data;
 
-  const RecipeTexHotStateDto({
-    required this.data,
-    super.baseContentHash,
-  });
+  const RecipeTexHotStateDto({required this.data, super.baseContentHash});
 }

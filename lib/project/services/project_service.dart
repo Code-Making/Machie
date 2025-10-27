@@ -8,7 +8,6 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/cache/hot_state_cache_service.dart';
-import '../../data/cache/hot_state_task_handler.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/file_handler/local_file_handler.dart';
@@ -39,10 +38,14 @@ class ProjectPermissionDeniedException implements Exception {
   final ProjectMetadata metadata;
   final String deniedUri;
 
-  ProjectPermissionDeniedException({required this.metadata, required this.deniedUri});
+  ProjectPermissionDeniedException({
+    required this.metadata,
+    required this.deniedUri,
+  });
 
   @override
-  String toString() => 'Permission was denied for project "${metadata.name}" at URI: $deniedUri';
+  String toString() =>
+      'Permission was denied for project "${metadata.name}" at URI: $deniedUri';
 }
 
 class ProjectService {
@@ -78,7 +81,7 @@ class ProjectService {
   }) async {
     final fileHandler = LocalFileHandlerFactory.create();
     final ProjectRepository repo;
-    
+
     if (!await fileHandler.hasPermission(metadata.rootUri)) {
       // If we don't have permission, we immediately throw our custom exception.
       // This bypasses the silent failure of `listDirectory` and triggers
@@ -100,9 +103,13 @@ class ProjectService {
         repo = PersistentProjectRepository(fileHandler, projectDataPath);
       } on PermissionDeniedException catch (e) {
         // Re-throw with more context if this specific operation fails.
-        throw ProjectPermissionDeniedException(metadata: metadata, deniedUri: e.uri);
+        throw ProjectPermissionDeniedException(
+          metadata: metadata,
+          deniedUri: e.uri,
+        );
       }
-    } else { // 'simple_local'
+    } else {
+      // 'simple_local'
       repo = SimpleProjectRepository(fileHandler, projectStateJson);
     }
 
@@ -114,7 +121,10 @@ class ProjectService {
     } on PermissionDeniedException catch (e) {
       // If loading fails due to permissions, catch the low-level exception
       // and re-throw our new, high-level exception with all the context.
-      throw ProjectPermissionDeniedException(metadata: metadata, deniedUri: e.uri);
+      throw ProjectPermissionDeniedException(
+        metadata: metadata,
+        deniedUri: e.uri,
+      );
     }
   }
 
@@ -147,7 +157,7 @@ class ProjectService {
     }
 
     await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
-    
+
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
 
@@ -157,7 +167,8 @@ class ProjectService {
   Future<bool> reGrantPermissionForProject(ProjectMetadata metadata) async {
     // This service knows that "local" projects use a LocalFileHandler.
     // Future project types (e.g., 'git_project') could have different logic here.
-    if (metadata.projectTypeId == 'local_persistent' || metadata.projectTypeId == 'simple_local') {
+    if (metadata.projectTypeId == 'local_persistent' ||
+        metadata.projectTypeId == 'simple_local') {
       final handler = LocalFileHandlerFactory.create();
       return await handler.reRequestPermission(metadata.rootUri);
     }
@@ -165,7 +176,7 @@ class ProjectService {
     // For unknown or unsupported project types, we cannot re-grant.
     return false;
   }
-  
+
   ProjectMetadata _createNewProjectMetadata({
     required String rootUri,
     required String name,

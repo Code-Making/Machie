@@ -117,7 +117,6 @@ class Project {
   }
 }
 
-
 // This now correctly extends the base DocumentFile, clearly separating it
 // from files managed by the ProjectRepository.
 @immutable

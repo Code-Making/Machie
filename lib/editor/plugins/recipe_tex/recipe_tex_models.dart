@@ -1,9 +1,7 @@
 // =========================================
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
 // =========================================
-import 'dart:async';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../editor_tab_models.dart';
@@ -44,10 +42,7 @@ class InstructionStep {
   Map<String, dynamic> toJson() => {'title': title, 'content': content};
 
   InstructionStep copyWith({String? title, String? content}) {
-    return InstructionStep(
-      title ?? this.title,
-      content ?? this.content,
-    );
+    return InstructionStep(title ?? this.title, content ?? this.content);
   }
 
   // ===================================
@@ -74,16 +69,16 @@ class Ingredient {
   const Ingredient(this.quantity, this.unit, this.name);
 
   factory Ingredient.fromJson(Map<String, dynamic> json) => Ingredient(
-        json['quantity'] as String,
-        json['unit'] as String,
-        json['name'] as String,
-      );
+    json['quantity'] as String,
+    json['unit'] as String,
+    json['name'] as String,
+  );
 
   Map<String, dynamic> toJson() => {
-        'quantity': quantity,
-        'unit': unit,
-        'name': name,
-      };
+    'quantity': quantity,
+    'unit': unit,
+    'name': name,
+  };
 
   Ingredient copyWith({String? quantity, String? unit, String? name}) {
     return Ingredient(
@@ -139,12 +134,17 @@ class RecipeData {
   });
 
   factory RecipeData.fromJson(Map<String, dynamic> json) {
-    final ingredientsList = (json['ingredients'] as List<dynamic>? ?? [])
-        .map((item) => Ingredient.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
-    final instructionsList = (json['instructions'] as List<dynamic>? ?? [])
-        .map((item) => InstructionStep.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
+    final ingredientsList =
+        (json['ingredients'] as List<dynamic>? ?? [])
+            .map((item) => Ingredient.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+    final instructionsList =
+        (json['instructions'] as List<dynamic>? ?? [])
+            .map(
+              (item) =>
+                  InstructionStep.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList();
     return RecipeData(
       title: json['title'] as String? ?? '',
       acidRefluxScore: json['acidRefluxScore'] as int? ?? 1,
@@ -161,18 +161,18 @@ class RecipeData {
   }
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'acidRefluxScore': acidRefluxScore,
-        'acidRefluxReason': acidRefluxReason,
-        'prepTime': prepTime,
-        'cookTime': cookTime,
-        'portions': portions,
-        'image': image,
-        'ingredients': ingredients.map((i) => i.toJson()).toList(),
-        'instructions': instructions.map((i) => i.toJson()).toList(),
-        'notes': notes,
-        'rawImagesSection': rawImagesSection,
-      };
+    'title': title,
+    'acidRefluxScore': acidRefluxScore,
+    'acidRefluxReason': acidRefluxReason,
+    'prepTime': prepTime,
+    'cookTime': cookTime,
+    'portions': portions,
+    'image': image,
+    'ingredients': ingredients.map((i) => i.toJson()).toList(),
+    'instructions': instructions.map((i) => i.toJson()).toList(),
+    'notes': notes,
+    'rawImagesSection': rawImagesSection,
+  };
 
   RecipeData copyWith({
     String? title,
@@ -201,7 +201,7 @@ class RecipeData {
       rawImagesSection: rawImagesSection ?? this.rawImagesSection,
     );
   }
-  
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

@@ -18,7 +18,6 @@ import '../plugin_models.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_widget.dart';
 import '../../tab_state_manager.dart';
-import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/cache/type_adapters.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
@@ -63,6 +62,7 @@ class GlitchEditorPlugin extends EditorPlugin {
   bool canOpenFileContent(String content, DocumentFile file) {
     return false;
   }
+
   @override
   Future<void> dispose() async {}
   @override
@@ -173,7 +173,11 @@ class GlitchEditorPlugin extends EditorPlugin {
   // }
 
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
-    final tab = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab));
+    final tab = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab,
+      ),
+    );
     if (tab is! GlitchEditorTab) return null;
     return tab.editorKey.currentState as GlitchEditorWidgetState?;
   }
@@ -192,12 +196,14 @@ class GlitchEditorPlugin extends EditorPlugin {
       execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
       // MODIFIED: 'save' now watches the global TabMetadata provider.
       canExecute: (ref) {
-        final currentTabId = ref.watch(appNotifierProvider.select(
-          (s) => s.value?.currentProject?.session.currentTab?.id
-        ));
+        final currentTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (currentTabId == null) return false;
         final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[currentTabId])
+          tabMetadataProvider.select((m) => m[currentTabId]),
         );
         return metadata?.isDirty ?? false;
       },
@@ -211,12 +217,14 @@ class GlitchEditorPlugin extends EditorPlugin {
       execute: (ref) async => _getActiveEditorState(ref)?.resetImage(),
       // MODIFIED: 'reset' also watches the global TabMetadata provider.
       canExecute: (ref) {
-        final currentTabId = ref.watch(appNotifierProvider.select(
-          (s) => s.value?.currentProject?.session.currentTab?.id
-        ));
+        final currentTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (currentTabId == null) return false;
         final metadata = ref.watch(
-          tabMetadataProvider.select((m) => m[currentTabId])
+          tabMetadataProvider.select((m) => m[currentTabId]),
         );
         return metadata?.isDirty ?? false;
       },

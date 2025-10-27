@@ -3,7 +3,6 @@
 // =========================================
 
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/services/project_hierarchy_service.dart';

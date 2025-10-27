@@ -81,9 +81,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
             meta,
             projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
-          
+
           if (project != null) {
-             _talker.info("Project should be loaded");
+            _talker.info("Project should be loaded");
             return AppState(
               knownProjects: appStateDto.knownProjects,
               lastOpenedProjectId: appStateDto.lastOpenedProjectId,
@@ -92,10 +92,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
           }
           // If project is null, it means recovery failed or was cancelled.
           // Fall through to the default state.
-
         } catch (e, st) {
           // Catch any non-permission final errors.
-          ref.read(talkerProvider).handle(e, st, 'Failed to auto-open last project');
+          ref
+              .read(talkerProvider)
+              .handle(e, st, 'Failed to auto-open last project');
         }
       }
     }
@@ -106,8 +107,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
       lastOpenedProjectId: appStateDto.lastOpenedProjectId,
     );
   }
-  
-    // --- NEW PRIVATE HELPER METHOD for recovery logic ---
+
+  // --- NEW PRIVATE HELPER METHOD for recovery logic ---
   Future<Project?> _openProjectWithRecovery(
     ProjectMetadata meta, {
     Map<String, dynamic>? projectStateJson,
@@ -119,37 +120,54 @@ class AppNotifier extends AsyncNotifier<AppState> {
         projectStateJson: projectStateJson,
       );
       // ... (rest of the success path is unchanged)
-      final liveSession = await _editorService.rehydrateTabSession(projectDto, meta);
-      final liveWorkspace = _explorerService.rehydrateWorkspace(projectDto.workspace);
-      return Project(metadata: meta, session: liveSession, workspace: liveWorkspace);
-
+      final liveSession = await _editorService.rehydrateTabSession(
+        projectDto,
+        meta,
+      );
+      final liveWorkspace = _explorerService.rehydrateWorkspace(
+        projectDto.workspace,
+      );
+      return Project(
+        metadata: meta,
+        session: liveSession,
+        workspace: liveWorkspace,
+      );
     } on ProjectPermissionDeniedException catch (e) {
       // UI orchestration logic (unchanged)
       final context = ref.read(navigatorKeyProvider).currentContext;
       if (context == null || !context.mounted) {
-        _talker.error("Permission denied, but no UI context to ask for it again.");
+        _talker.error(
+          "Permission denied, but no UI context to ask for it again.",
+        );
         return null;
       }
       final bool? wantsToGrant = await showConfirmDialog(
         context,
         title: 'Permission Required',
-        content: 'Access to the project folder "${e.metadata.name}" has been lost. Please re-select the folder to grant access again.',
+        content:
+            'Access to the project folder "${e.metadata.name}" has been lost. Please re-select the folder to grant access again.',
       );
 
       if (wantsToGrant == true) {
         // === THIS IS THE FIX ===
         // Delegate the permission request to the ProjectService.
         // The AppNotifier no longer knows HOW this is done.
-        final bool permissionGranted = await _projectService.reGrantPermissionForProject(e.metadata);
+        final bool permissionGranted = await _projectService
+            .reGrantPermissionForProject(e.metadata);
         // =======================
 
         if (permissionGranted) {
           _talker.info("Permission re-granted. Retrying project open...");
-          return await _openProjectWithRecovery(meta, projectStateJson: projectStateJson);
+          return await _openProjectWithRecovery(
+            meta,
+            projectStateJson: projectStateJson,
+          );
         }
       }
 
-      _talker.warning("User cancelled permission recovery for project ${e.metadata.name}.");
+      _talker.warning(
+        "User cancelled permission recovery for project ${e.metadata.name}.",
+      );
       MachineToast.error("Could not open project: Permission not granted.");
       return null;
     }
@@ -189,8 +207,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
         break;
     }
   }
-  
-    // NEW: The gatekeeper function.
+
+  // NEW: The gatekeeper function.
   /// Checks a list of tabs for unsaved changes and prompts the user if necessary.
   /// Returns the user's chosen action, or `UnsavedChangesAction.discard` if no prompt was needed.
   Future<UnsavedChangesAction> _handleUnsavedChanges(
@@ -199,11 +217,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
     final metadataMap = ref.read(tabMetadataProvider);
 
     // THE FIX: Filter out any tabs that are associated with a VirtualDocumentFile.
-    final dirtyTabsMetadata = tabsToCheck
-        .map((tab) => metadataMap[tab.id])
-        .whereNotNull()
-        .where((metadata) => metadata.isDirty && metadata.file is! VirtualDocumentFile)
-        .toList();
+    final dirtyTabsMetadata =
+        tabsToCheck
+            .map((tab) => metadataMap[tab.id])
+            .whereNotNull()
+            .where(
+              (metadata) =>
+                  metadata.isDirty && metadata.file is! VirtualDocumentFile,
+            )
+            .toList();
 
     if (dirtyTabsMetadata.isEmpty) {
       // No dirty (and non-virtual) tabs, so we can proceed without saving.
@@ -218,7 +240,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       return UnsavedChangesAction.cancel;
     }
 
-    return await showUnsavedChangesDialog(context, dirtyFiles: dirtyTabsMetadata) ??
+    return await showUnsavedChangesDialog(
+          context,
+          dirtyFiles: dirtyTabsMetadata,
+        ) ??
         UnsavedChangesAction.cancel;
   }
 
@@ -285,9 +310,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
       // --- REFACTORED LOGIC ---
       final finalProject = await _openProjectWithRecovery(
         meta,
-        projectStateJson: (appStateDto.lastOpenedProjectId == projectId)
-            ? appStateDto.currentSimpleProjectDto?.toJson()
-            : null,
+        projectStateJson:
+            (appStateDto.lastOpenedProjectId == projectId)
+                ? appStateDto.currentSimpleProjectDto?.toJson()
+                : null,
       );
 
       if (finalProject != null) {

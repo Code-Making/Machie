@@ -16,7 +16,7 @@ import 'data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 import 'data/cache/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
 import 'settings/settings_screen.dart';
-import 'data/cache/hot_state_task_handler.dart'; // ADD THIS
+// ADD THIS
 
 // --------------------
 //   Global Providers
@@ -123,7 +123,7 @@ void main() {
     settings: TalkerRiverpodLoggerSettings(
       enabled: true,
       printStateFullData: false, // Truncate long state objects
-  ),
+    ),
   );
   CacheServiceManager.Init();
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
@@ -146,8 +146,8 @@ void main() {
           details.stack,
           'Flutter framework error',
         );
-      };    
-    
+      };
+
       runApp(
         ProviderScope(
           overrides: [talkerProvider.overrideWithValue(talker)],

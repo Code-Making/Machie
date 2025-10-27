@@ -8,7 +8,6 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/plugins/editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
 import 'package:machine/editor/services/editor_service.dart';
@@ -18,7 +17,6 @@ import 'glitch_toolbar.dart';
 import 'glitch_editor_state.dart'; // <-- ADD STATE IMPORT
 import 'glitch_editor_hot_state_dto.dart'; // <-- ADD STATE IMPORT
 import '../../editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
-import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../tab_state_manager.dart';
 
 class GlitchEditorWidget extends EditorWidget {
@@ -40,10 +38,9 @@ class GlitchEditorWidget extends EditorWidget {
 class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   // --- STATE ---
   String? _baseContentHash;
-  
+
   final List<ui.Image> _undoStack = [];
   final List<ui.Image> _redoStack = [];
-
 
   ui.Image? _displayImage;
   ui.Image? _originalImage;
@@ -65,9 +62,9 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   bool _isLoading = true;
 
   final Random _random = Random();
-  
+
   static const int _maxUndoStackSize = 2;
-  
+
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
@@ -75,16 +72,16 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   void init() {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController.addListener(_updateImageDisplayParams);
-    _loadImage(); // This method now contains the rehydration logic.    
+    _loadImage(); // This method now contains the rehydration logic.
   }
-  
+
   @override
   void onFirstFrameReady() {
     if (mounted) {
       syncCommandContext();
       if (!widget.tab.onReady.isCompleted) {
-          widget.tab.onReady.complete(this);
-        }
+        widget.tab.onReady.complete(this);
+      }
     }
   }
 
@@ -100,7 +97,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     _clearHistory(updateState: false);
     super.dispose();
   }
-  
+
   void _clearHistory({bool updateState = true}) {
     for (final img in _undoStack) {
       img.dispose();
@@ -134,7 +131,9 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
       _pushUndoState();
 
       // 3b. Load the cached image.
-      final cachedCodec = await ui.instantiateImageCodec(widget.tab.cachedImageData!);
+      final cachedCodec = await ui.instantiateImageCodec(
+        widget.tab.cachedImageData!,
+      );
       final cachedFrame = await cachedCodec.getNextFrame();
       if (!mounted) {
         // Cleanup if widget is disposed during async gap
@@ -147,7 +146,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
       // 3c. Replace the display image with the cached version.
       _displayImage?.dispose(); // Dispose the old clean image instance.
       _displayImage = cachedFrame.image;
-      
+
       // 3d. Since we loaded from cache, this state is now dirty.
       _updateDirtyState(true);
     }
@@ -214,10 +213,12 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
   @override
   Future<EditorContent> getContent() async {
     if (_displayImage == null) return EditorContentBytes(Uint8List(0));
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    final byteData = await _displayImage!.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     return EditorContentBytes(byteData!.buffer.asUint8List());
   }
-  
+
   @override
   void onSaveSuccess(String newHash) {
     if (!mounted) return;
@@ -229,11 +230,13 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     _clearHistory();
     _updateDirtyState(false);
   }
-  
+
   @override
   Future<TabHotStateDto?> serializeHotState() async {
     if (_displayImage == null) return null;
-    final byteData = await _displayImage!.toByteData(format: ui.ImageByteFormat.png);
+    final byteData = await _displayImage!.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     return GlitchEditorHotStateDto(
       imageData: byteData!.buffer.asUint8List(),
       baseContentHash: _baseContentHash,
@@ -267,10 +270,11 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     _updateDirtyState(true);
     syncCommandContext();
   }
-  
+
   void _updateDirtyState(bool isDirty) {
     // We only need to report if the state is changing.
-    final currentDirtyState = ref.read(tabMetadataProvider)[widget.tab.id]?.isDirty ?? false;
+    final currentDirtyState =
+        ref.read(tabMetadataProvider)[widget.tab.id]?.isDirty ?? false;
     if (currentDirtyState == isDirty) return;
 
     if (isDirty) {
@@ -279,7 +283,6 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
       ref.read(editorServiceProvider).markCurrentTabClean();
     }
   }
-
 
   void toggleToolbar() {
     setState(() {
@@ -295,9 +298,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     });
   }
 
-
-  
-    // NEW: Helper to push the current state to the undo stack
+  // NEW: Helper to push the current state to the undo stack
   void _pushUndoState() {
     if (_displayImage != null) {
       _undoStack.add(_displayImage!.clone());
@@ -317,16 +318,15 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
 
   // --- Public API for Commands ---
 
-  
   void _checkIfDirty() {
     if (_originalImage == null || _displayImage == null) return;
     // A simple heuristic: if the undo stack is empty, we are back at the
     // original state (or the state from the first post-cache-load edit).
     // A more robust check would compare image bytes, but that's expensive.
     if (_undoStack.isEmpty) {
-        ref.read(editorServiceProvider).markCurrentTabClean();
+      ref.read(editorServiceProvider).markCurrentTabClean();
     } else {
-        ref.read(editorServiceProvider).markCurrentTabDirty();
+      ref.read(editorServiceProvider).markCurrentTabDirty();
     }
   }
 
@@ -384,7 +384,7 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
     if (isZoomMode) return;
 
     if (_displayImage == null || _currentStrokePoints.isEmpty) return;
-    
+
     _pushUndoState();
 
     final viewerScale = _transformationController.value.getMaxScaleOnAxis();

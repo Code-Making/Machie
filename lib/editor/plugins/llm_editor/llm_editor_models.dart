@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:machine/editor/editor_tab_models.dart';
 import 'package:machine/editor/plugins/plugin_models.dart';
@@ -31,7 +29,8 @@ class ChatMessage {
       role: role ?? this.role,
       content: content ?? this.content,
       context: context ?? this.context,
-      totalConversationTokenCount: totalConversationTokenCount ?? this.totalConversationTokenCount,
+      totalConversationTokenCount:
+          totalConversationTokenCount ?? this.totalConversationTokenCount,
     );
   }
 
@@ -39,12 +38,14 @@ class ChatMessage {
     return ChatMessage(
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
-      context: (json['context'] as List<dynamic>?)
-          ?.map((item) {
+      context:
+          (json['context'] as List<dynamic>?)?.map((item) {
             final itemMap = Map<String, dynamic>.from(item);
-            return ContextItem(source: itemMap['source'], content: itemMap['content']);
-          })
-          .toList(),
+            return ContextItem(
+              source: itemMap['source'],
+              content: itemMap['content'],
+            );
+          }).toList(),
       totalConversationTokenCount: json['totalConversationTokenCount'] as int?,
     );
   }
@@ -53,19 +54,23 @@ class ChatMessage {
     'role': role,
     'content': content,
     if (context != null && context!.isNotEmpty)
-      'context': context!.map((item) => {'source': item.source, 'content': item.content}).toList(),
-    if (totalConversationTokenCount != null) 'totalConversationTokenCount': totalConversationTokenCount,
+      'context':
+          context!
+              .map((item) => {'source': item.source, 'content': item.content})
+              .toList(),
+    if (totalConversationTokenCount != null)
+      'totalConversationTokenCount': totalConversationTokenCount,
   };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-  
+
     return other is ChatMessage &&
-      other.role == role &&
-      other.content == content &&
-      const DeepCollectionEquality().equals(other.context, context) &&
-      other.totalConversationTokenCount == totalConversationTokenCount;
+        other.role == role &&
+        other.content == content &&
+        const DeepCollectionEquality().equals(other.context, context) &&
+        other.totalConversationTokenCount == totalConversationTokenCount;
   }
 
   @override
@@ -101,7 +106,8 @@ class LlmModelInfo {
       displayName: json['displayName'] as String? ?? 'Unknown Model',
       inputTokenLimit: json['inputTokenLimit'] as int? ?? 0,
       outputTokenLimit: json['outputTokenLimit'] as int? ?? 0,
-      supportedGenerationMethods: (json['supportedGenerationMethods'] as List<dynamic>?)
+      supportedGenerationMethods:
+          (json['supportedGenerationMethods'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -109,12 +115,12 @@ class LlmModelInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'displayName': displayName,
-        'inputTokenLimit': inputTokenLimit,
-        'outputTokenLimit': outputTokenLimit,
-        'supportedGenerationMethods': supportedGenerationMethods,
-      };
+    'name': name,
+    'displayName': displayName,
+    'inputTokenLimit': inputTokenLimit,
+    'outputTokenLimit': outputTokenLimit,
+    'supportedGenerationMethods': supportedGenerationMethods,
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -160,22 +166,25 @@ class LlmEditorSettings extends PluginSettings {
   void fromJson(Map<String, dynamic> json) {
     selectedProviderId = json['selectedProviderId'] ?? 'dummy';
     apiKeys = Map<String, String>.from(json['apiKeys'] ?? {});
-    selectedModels = (json['selectedModels'] as Map<String, dynamic>? ?? {}).map(
-      (key, value) => MapEntry(
-        key,
-        value == null ? null : LlmModelInfo.fromJson(value as Map<String, dynamic>),
-      ),
-    );
+    selectedModels = (json['selectedModels'] as Map<String, dynamic>? ?? {})
+        .map(
+          (key, value) => MapEntry(
+            key,
+            value == null
+                ? null
+                : LlmModelInfo.fromJson(value as Map<String, dynamic>),
+          ),
+        );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'selectedProviderId': selectedProviderId,
-        'apiKeys': apiKeys,
-        'selectedModels': selectedModels
-            .map((key, value) => MapEntry(key, value?.toJson()))
-            ..removeWhere((key, value) => value == null),
-      };
+    'selectedProviderId': selectedProviderId,
+    'apiKeys': apiKeys,
+    'selectedModels': selectedModels.map(
+      (key, value) => MapEntry(key, value?.toJson()),
+    )..removeWhere((key, value) => value == null),
+  };
 
   LlmEditorSettings copyWith({
     String? selectedProviderId,
@@ -200,10 +209,10 @@ class ContextItem {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-  
+
     return other is ContextItem &&
-      other.source == source &&
-      other.content == content;
+        other.source == source &&
+        other.content == content;
   }
 
   @override

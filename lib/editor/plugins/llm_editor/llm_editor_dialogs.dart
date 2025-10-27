@@ -31,7 +31,9 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(text: widget.initialMessage.content);
+    _textController = TextEditingController(
+      text: widget.initialMessage.content,
+    );
     _contextItems = List<ContextItem>.from(widget.initialMessage.context ?? []);
     _textController.addListener(_validate);
     _validate();
@@ -43,9 +45,10 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
     _textController.dispose();
     super.dispose();
   }
-  
+
   void _validate() {
-    final canSave = _textController.text.trim().isNotEmpty || _contextItems.isNotEmpty;
+    final canSave =
+        _textController.text.trim().isNotEmpty || _contextItems.isNotEmpty;
     if (canSave != _canSave) {
       setState(() {
         _canSave = canSave;
@@ -60,7 +63,8 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
 
     final files = await showDialog<List<DocumentFile>>(
       context: context,
-      builder: (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
+      builder:
+          (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
     );
 
     if (files != null && files.isNotEmpty) {
@@ -68,10 +72,13 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
       for (final file in files) {
         // Avoid adding duplicates
         if (_contextItems.any((item) => item.source == file.name)) continue;
-        
+
         final content = await repo.readFile(file.uri);
-        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
-        
+        final relativePath = repo.fileHandler.getPathForDisplay(
+          file.uri,
+          relativeTo: project.rootUri,
+        );
+
         // No need for setState in loop, add all then setState once.
         _contextItems.add(ContextItem(source: relativePath, content: content));
       }
@@ -102,8 +109,20 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
           children: [
             Row(
               children: [
-                IconButton(icon: const Icon(Icons.attachment), onPressed: _addContext, tooltip: 'Add File Context'),
-                IconButton(icon: const Icon(Icons.clear_all), onPressed: () => setState(() { _contextItems.clear(); _validate(); }), tooltip: 'Clear Context'),
+                IconButton(
+                  icon: const Icon(Icons.attachment),
+                  onPressed: _addContext,
+                  tooltip: 'Add File Context',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.clear_all),
+                  onPressed:
+                      () => setState(() {
+                        _contextItems.clear();
+                        _validate();
+                      }),
+                  tooltip: 'Clear Context',
+                ),
               ],
             ),
             if (_contextItems.isNotEmpty)
@@ -115,10 +134,19 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 4,
-                      children: _contextItems.map((item) => ContextItemCard(
-                        item: item,
-                        onRemove: () => setState(() { _contextItems.remove(item); _validate(); }),
-                      )).toList(),
+                      children:
+                          _contextItems
+                              .map(
+                                (item) => ContextItemCard(
+                                  item: item,
+                                  onRemove:
+                                      () => setState(() {
+                                        _contextItems.remove(item);
+                                        _validate();
+                                      }),
+                                ),
+                              )
+                              .toList(),
                     ),
                   ),
                 ),
@@ -154,14 +182,14 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
   }
 }
 
-
 // ENTIRELY REWRITTEN/REFACTORED WIDGET
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
   const FilePickerLiteDialog({required this.projectRootUri});
 
   @override
-  ConsumerState<FilePickerLiteDialog> createState() => _FilePickerLiteDialogState();
+  ConsumerState<FilePickerLiteDialog> createState() =>
+      _FilePickerLiteDialogState();
 }
 
 class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
@@ -173,15 +201,18 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
   void initState() {
     super.initState();
     // NEW: Use the provider to get the last path, or default to the root.
-    _currentPathUri = ref.read(filePickerLastPathProvider) ?? widget.projectRootUri;
+    _currentPathUri =
+        ref.read(filePickerLastPathProvider) ?? widget.projectRootUri;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(_currentPathUri);
+        ref
+            .read(projectHierarchyServiceProvider.notifier)
+            .loadDirectory(_currentPathUri);
       }
     });
   }
-  
+
   // NEW: Helper function to change directories and update the session provider
   void _setCurrentPath(String newPath) {
     ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
@@ -212,14 +243,23 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
   Future<void> _onLongPressFolder(DocumentFile folder) async {
     final result = await showDialog<bool?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Add all files from "${folder.name}"?'),
-        content: const Text('This will add all compatible text files to the context.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Folder only')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Folder & Subfolders')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Add all files from "${folder.name}"?'),
+            content: const Text(
+              'This will add all compatible text files to the context.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Folder only'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Folder & Subfolders'),
+              ),
+            ],
+          ),
     );
 
     if (result != null) {
@@ -230,11 +270,14 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     }
   }
 
-  Future<List<DocumentFile>> _gatherFiles(DocumentFile startFolder, bool recursive) async {
+  Future<List<DocumentFile>> _gatherFiles(
+    DocumentFile startFolder,
+    bool recursive,
+  ) async {
     final List<DocumentFile> gatheredFiles = [];
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return [];
-    
+
     final queue = [startFolder];
 
     while (queue.isNotEmpty) {
@@ -248,7 +291,8 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
             }
           } else {
             final extension = child.name.split('.').lastOrNull?.toLowerCase();
-            if (extension != null && CodeThemes.languageExtToNameMap.containsKey(extension)) {
+            if (extension != null &&
+                CodeThemes.languageExtToNameMap.containsKey(extension)) {
               gatheredFiles.add(child);
             }
           }
@@ -260,10 +304,11 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     return gatheredFiles;
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final directoryState = ref.watch(directoryContentsProvider(_currentPathUri));
+    final directoryState = ref.watch(
+      directoryContentsProvider(_currentPathUri),
+    );
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
 
     Widget titleWidget;
@@ -275,7 +320,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => _toggleMultiSelectMode(null),
-          )
+          ),
         ],
       );
     } else {
@@ -294,14 +339,29 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_upward),
-                    onPressed: _currentPathUri == widget.projectRootUri ? null : () {
-                      final newPath = fileHandler.getParentUri(_currentPathUri);
-                      _setCurrentPath(newPath); // MODIFIED
-                    },
+                    onPressed:
+                        _currentPathUri == widget.projectRootUri
+                            ? null
+                            : () {
+                              final newPath = fileHandler.getParentUri(
+                                _currentPathUri,
+                              );
+                              _setCurrentPath(newPath); // MODIFIED
+                            },
                   ),
                   Expanded(
                     child: Text(
-                      fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri).isEmpty ? '/' : fileHandler.getPathForDisplay(_currentPathUri, relativeTo: widget.projectRootUri),
+                      fileHandler
+                              .getPathForDisplay(
+                                _currentPathUri,
+                                relativeTo: widget.projectRootUri,
+                              )
+                              .isEmpty
+                          ? '/'
+                          : fileHandler.getPathForDisplay(
+                            _currentPathUri,
+                            relativeTo: widget.projectRootUri,
+                          ),
                       style: Theme.of(context).textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -310,75 +370,117 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
               ),
             const Divider(),
             Expanded(
-              child: directoryState == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : directoryState.when(
-                      data: (nodes) {
-                        final sortedNodes = List.of(nodes)..sort((a,b) {
-                          if (a.file.isDirectory != b.file.isDirectory) return a.file.isDirectory ? -1 : 1;
-                          return a.file.name.toLowerCase().compareTo(b.file.name.toLowerCase());
-                        });
+              child:
+                  directoryState == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : directoryState.when(
+                        data: (nodes) {
+                          final sortedNodes = List.of(nodes)..sort((a, b) {
+                            if (a.file.isDirectory != b.file.isDirectory)
+                              return a.file.isDirectory ? -1 : 1;
+                            return a.file.name.toLowerCase().compareTo(
+                              b.file.name.toLowerCase(),
+                            );
+                          });
 
-                        final filteredNodes = sortedNodes.where((node) {
-                          if (node.file.isDirectory) return true;
-                          final extension = node.file.name.split('.').lastOrNull?.toLowerCase();
-                          return extension != null && CodeThemes.languageExtToNameMap.containsKey(extension);
-                        }).toList();
+                          final filteredNodes =
+                              sortedNodes.where((node) {
+                                if (node.file.isDirectory) return true;
+                                final extension =
+                                    node.file.name
+                                        .split('.')
+                                        .lastOrNull
+                                        ?.toLowerCase();
+                                return extension != null &&
+                                    CodeThemes.languageExtToNameMap.containsKey(
+                                      extension,
+                                    );
+                              }).toList();
 
-                        return ListView.builder(
-                          itemCount: filteredNodes.length,
-                          itemBuilder: (context, index) {
-                            final node = filteredNodes[index];
-                            final isSelected = _selectedFiles.contains(node.file);
-
-                            if (node.file.isDirectory) {
-                              return ListTile(
-                                leading: const Icon(Icons.folder_outlined),
-                                title: Text(node.file.name),
-                                onTap: () => _setCurrentPath(node.file.uri), // MODIFIED
-                                onLongPress: () => _onLongPressFolder(node.file), // NEW
+                          return ListView.builder(
+                            itemCount: filteredNodes.length,
+                            itemBuilder: (context, index) {
+                              final node = filteredNodes[index];
+                              final isSelected = _selectedFiles.contains(
+                                node.file,
                               );
-                            } else { // It's a file
-                              return ListTile(
-                                leading: _isMultiSelectMode
-                                    ? Checkbox(value: isSelected, onChanged: (_) => _toggleFileSelection(node.file))
-                                    : const Icon(Icons.article_outlined),
-                                title: Text(node.file.name),
-                                onTap: () {
-                                  if (_isMultiSelectMode) {
-                                    _toggleFileSelection(node.file);
-                                  } else {
-                                    Navigator.of(context).pop([node.file]);
-                                  }
-                                },
-                                onLongPress: () {
-                                  if (!_isMultiSelectMode) {
-                                    _toggleMultiSelectMode(node.file);
-                                  }
-                                },
-                              );
-                            }
-                          },
-                        );
-                      },
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (err, stack) => Center(child: Text('Error: $err')),
-                    ),
+
+                              if (node.file.isDirectory) {
+                                return ListTile(
+                                  leading: const Icon(Icons.folder_outlined),
+                                  title: Text(node.file.name),
+                                  onTap:
+                                      () => _setCurrentPath(
+                                        node.file.uri,
+                                      ), // MODIFIED
+                                  onLongPress:
+                                      () =>
+                                          _onLongPressFolder(node.file), // NEW
+                                );
+                              } else {
+                                // It's a file
+                                return ListTile(
+                                  leading:
+                                      _isMultiSelectMode
+                                          ? Checkbox(
+                                            value: isSelected,
+                                            onChanged:
+                                                (_) => _toggleFileSelection(
+                                                  node.file,
+                                                ),
+                                          )
+                                          : const Icon(Icons.article_outlined),
+                                  title: Text(node.file.name),
+                                  onTap: () {
+                                    if (_isMultiSelectMode) {
+                                      _toggleFileSelection(node.file);
+                                    } else {
+                                      Navigator.of(context).pop([node.file]);
+                                    }
+                                  },
+                                  onLongPress: () {
+                                    if (!_isMultiSelectMode) {
+                                      _toggleMultiSelectMode(node.file);
+                                    }
+                                  },
+                                );
+                              }
+                            },
+                          );
+                        },
+                        loading:
+                            () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                        error:
+                            (err, stack) => Center(child: Text('Error: $err')),
+                      ),
             ),
           ],
         ),
       ),
-      actions: _isMultiSelectMode ? [
-          TextButton(onPressed: () => _toggleMultiSelectMode(null), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: _selectedFiles.isNotEmpty
-              ? () => Navigator.of(context).pop(_selectedFiles.toList())
-              : null,
-            child: const Text('Add Selected'),
-          ),
-        ] : [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        ],
+      actions:
+          _isMultiSelectMode
+              ? [
+                TextButton(
+                  onPressed: () => _toggleMultiSelectMode(null),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed:
+                      _selectedFiles.isNotEmpty
+                          ? () =>
+                              Navigator.of(context).pop(_selectedFiles.toList())
+                          : null,
+                  child: const Text('Add Selected'),
+                ),
+              ]
+              : [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
     );
   }
 }

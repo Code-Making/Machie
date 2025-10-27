@@ -41,8 +41,10 @@ class TextSelectionDetails {
 class ReplaceLinesEdit extends TextEdit {
   /// The 0-based index of the first line to replace.
   final int startLine;
+
   /// The 0-based index of the last line to replace (inclusive).
   final int endLine;
+
   /// The new content that will replace the specified lines.
   final String newContent;
 
@@ -58,10 +60,7 @@ class ReplaceAllOccurrencesEdit extends TextEdit {
   final String find;
   final String replace;
 
-  const ReplaceAllOccurrencesEdit({
-    required this.find,
-    required this.replace,
-  });
+  const ReplaceAllOccurrencesEdit({required this.find, required this.replace});
 }
 
 /// A marker mixin for editor plugins whose primary tabs implement [TextEditable].
@@ -102,7 +101,7 @@ abstract class TextEditable {
   /// Replaces all occurrences of a [find] string with a [replace] string
   /// throughout the entire document.
   void replaceAllOccurrences(String find, String replace);
-  
+
   /// Replaces all substrings that match the given [pattern] with [replacement].
   /// The [pattern] can be a [String] or a [RegExp].
   void replaceAllPattern(Pattern pattern, String replacement);
@@ -121,15 +120,12 @@ abstract class TextEditableCommandContext extends CommandContext {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is TextEditableCommandContext &&
-           other.hasSelection == hasSelection &&
-           super == other;
+        other.hasSelection == hasSelection &&
+        super == other;
   }
 
   @override
-  int get hashCode => Object.hash(
-        super.hashCode,
-        hasSelection,
-      );
+  int get hashCode => Object.hash(super.hashCode, hasSelection);
 }
 
 class BaseTextEditableCommand extends Command {
@@ -144,8 +140,8 @@ class BaseTextEditableCommand extends Command {
     required super.sourcePlugin,
     required Future<void> Function(WidgetRef, TextEditable) execute,
     bool Function(WidgetRef, TextEditableCommandContext)? canExecute,
-  })  : _execute = execute,
-        _canExecute = canExecute;
+  }) : _execute = execute,
+       _canExecute = canExecute;
 
   @override
   bool canExecute(WidgetRef ref) {
@@ -158,7 +154,8 @@ class BaseTextEditableCommand extends Command {
 
   @override
   Future<void> execute(WidgetRef ref) async {
-    final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final activeTab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     final editorState = activeTab?.editorKey.currentState;
 
     if (editorState != null && editorState is TextEditable) {

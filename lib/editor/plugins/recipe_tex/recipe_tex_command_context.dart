@@ -9,8 +9,6 @@ class RecipeTexCommandContext extends CommandContext {
   final bool canUndo;
   final bool canRedo;
 
-  const RecipeTexCommandContext({
-    this.canUndo = false,
-    this.canRedo = false,
-  }) : super(appBarOverride: null);
+  const RecipeTexCommandContext({this.canUndo = false, this.canRedo = false})
+    : super(appBarOverride: null);
 }
