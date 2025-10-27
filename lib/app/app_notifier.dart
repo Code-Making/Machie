@@ -24,6 +24,7 @@ import '../project/services/project_service.dart';
 import '../utils/clipboard.dart';
 import '../utils/toast.dart';
 import '../editor/editor_tab_models.dart';
+import '../editor/services/file_content_provider.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -464,9 +465,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
-
+    final registry = _ref.read(fileContentProviderRegistryProvider);
     final liveTabMetadata = ref.read(tabMetadataProvider);
-    final appStateDto = appState.toDto(liveTabMetadata);
+    final appStateDto = appState.toDto(liveTabMetadata, registry);
     await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
