@@ -25,6 +25,7 @@ import '../plugins/plugin_registry.dart';
 import '../tab_state_manager.dart';
 import 'file_content_provider.dart';
 import 'text_editing_capability.dart';
+import '../../data/file_handler/file_handler.dart';
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
