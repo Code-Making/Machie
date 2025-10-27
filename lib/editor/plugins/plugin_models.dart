@@ -18,7 +18,7 @@ import '../services/file_content_provider.dart';
 enum PluginDataRequirement { string, bytes }
 
 class EditorInitData {
-  final EditorContent? initialContent;
+  final EditorContent initialContent;
   final TabHotStateDto? hotState;
   final String? baseContentHash;
 
