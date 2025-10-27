@@ -17,6 +17,7 @@ import '../../data/dto/project_dto.dart'; // NEW IMPORT
 import '../plugins/plugin_registry.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../data/file_handler/local_file_handler_saf.dart';
+import 'internal_file_content_provider.dart';
 
 /// A result class that encapsulates the content of a file and its MD5 hash.
 class EditorContentResult {
@@ -285,6 +286,7 @@ final fileContentProviderRegistryProvider =
       final coreProviders = <FileContentProvider>[
         ProjectFileContentProvider(repo),
         VirtualFileContentProvider(),
+        InternalFileContentProvider(),
       ];
 
       // 4. Combine them all into a single list.

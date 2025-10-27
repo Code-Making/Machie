@@ -230,14 +230,6 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   TypeAdapter<TabHotStateDto> get hotStateAdapter =>
       CodeEditorHotStateAdapter();
 
-  /// Helper to get the active editor's state object.
-  CodeEditorMachineState? _getEditorState(EditorTab tab) {
-    if (tab.editorKey.currentState is CodeEditorMachineState) {
-      return tab.editorKey.currentState as CodeEditorMachineState;
-    }
-    return null;
-  }
-
   @override
   List<CommandPosition> getCommandPositions() {
     return [selectionToolbar];
@@ -301,71 +293,30 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   List<Command> getAppCommands() => [
-    BaseCommand(
-      id: 'open_scratchpad',
-      label: 'Open Scratchpad',
-      icon: const Icon(Icons.edit_note),
-      defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: 'App',
-      canExecute:
-          (ref) => ref.watch(
-            appNotifierProvider.select((s) => s.value?.currentProject != null),
-          ),
-      execute: (ref) async {
-        final appNotifier = ref.read(appNotifierProvider.notifier);
-        final project = ref.read(appNotifierProvider).value!.currentProject!;
+BaseCommand(
+  id: 'open_scratchpad',
+  label: 'Open Scratchpad',
+  icon: const Icon(Icons.edit_note),
+  defaultPositions: [AppCommandPositions.appBar],
+  sourcePlugin: 'App',
+  // No need to check for a project, the scratchpad is global.
+  canExecute: (ref) => true,
+  execute: (ref) async {
+    // 1. Define the well-known scratchpad file.
+    //    We create a placeholder object; its content will be loaded by the provider.
+    final scratchpadFile = InternalAppFile(
+      uri: 'internal://scratchpad.md',
+      name: 'Scratchpad',
+      modifiedDate: DateTime.now(), // Placeholder date
+    );
 
-        final existingTab = project.session.tabs.firstWhereOrNull(
-          (t) => t.id == AppCommands.scratchpadTabId,
-        );
-        if (existingTab != null) {
-          final index = project.session.tabs.indexOf(existingTab);
-          appNotifier.switchTab(index);
-          return;
-        }
-
-        final hotStateCacheService = ref.read(hotStateCacheServiceProvider);
-        final codeEditorPlugin = this;
-        final scratchpadFile = VirtualDocumentFile(
-          uri: 'scratchpad://${project.id}',
-          name: 'Scratchpad',
-        );
-
-        // Try to load cached DTO.
-        final cachedDto = await hotStateCacheService.getTabState(
-          project.id,
-          AppCommands.scratchpadTabId,
-        );
-
-        // Create the unified init data object.
-        final initData = EditorInitData(
-          initialContent: EditorContentString(
-            '',
-          ), // No file to read, so default to empty string.
-          hotState: cachedDto,
-          baseContentHash: '',
-        );
-
-        final newTab = await codeEditorPlugin.createTab(
-          scratchpadFile,
-          initData,
-          id: AppCommands.scratchpadTabId,
-        );
-
-        final newTabs = [...project.session.tabs, newTab];
-        final newProject = project.copyWith(
-          session: project.session.copyWith(
-            tabs: newTabs,
-            currentTabIndex: newTabs.length - 1,
-          ),
-        );
-        appNotifier.updateCurrentProject(newProject);
-
-        final metadataNotifier = ref.read(tabMetadataProvider.notifier);
-        metadataNotifier.initTab(newTab.id, scratchpadFile);
-        metadataNotifier.markDirty(newTab.id);
-      },
-    ),
+    // 2. Ask the app to open it.
+    //    The AppHandle/EditorService will do all the work of checking if it's
+    //    already open, finding the content provider, loading content,
+    //    and creating the tab.
+    await ref.read(appNotifierProvider.notifier).openFileInEditor(scratchpadFile);
+  },
+),
   ];
 
   // The command definitions are now correct. They find the active

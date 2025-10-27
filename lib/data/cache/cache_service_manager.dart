@@ -10,7 +10,7 @@ import 'hot_state_task_handler.dart';
 /// import or directly call flutter_foreground_task.
 class CacheServiceManager {
   final Talker _talker;
-  static const _iconName = 'ic_stat___'; // As defined in AndroidManifest.xml
+  // static const _iconName = 'ic_stat___'; // As defined in AndroidManifest.xml
 
   CacheServiceManager(this._talker);
 

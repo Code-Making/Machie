@@ -29,6 +29,36 @@ class IncompleteDocumentFile implements DocumentFile {
   String get mimeType => 'application/octet-stream';
 }
 
+/// A concrete implementation of [DocumentFile] for files stored in the app's
+/// private internal storage directory. These files are not part of any user
+/// project and persist globally for the application.
+@immutable
+class InternalAppFile implements DocumentFile {
+  @override
+  final String uri; // e.g., "internal://scratchpad.md"
+
+  @override
+  final String name;
+
+  // These properties are often fixed or irrelevant for internal files.
+  @override
+  final bool isDirectory = false;
+  @override
+  final int size;
+  @override
+  final DateTime modifiedDate;
+  @override
+  final String mimeType;
+
+  InternalAppFile({
+    required this.uri,
+    required this.name,
+    this.size = 0,
+    required this.modifiedDate,
+    this.mimeType = 'text/plain',
+  });
+}
+
 @immutable
 class ProjectMetadata {
   final String id;

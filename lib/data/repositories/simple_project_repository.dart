@@ -18,7 +18,7 @@ class SimpleProjectRepository implements ProjectRepository {
   @override
   Future<ProjectDto> loadProjectDto() async {
     if (_projectStateJson != null) {
-      return ProjectDto.fromJson(_projectStateJson!);
+      return ProjectDto.fromJson(_projectStateJson);
     } else {
       return const ProjectDto(
         session: TabSessionStateDto(
