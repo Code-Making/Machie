@@ -124,7 +124,12 @@ class LlmEditorPlugin extends EditorPlugin {
     Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     List<ChatMessage> messagesToShow;
-    final hotState = (initData.hotState as LlmEditorHotStateDto) ?? null;
+    LlmEditorHotStateDto? hotState;
+    if (initData.hotState !=null){
+     hotState = initData.hotState as LlmEditorHotStateDto;
+    } else {
+      hotState = null;
+    }
 
     if (hotState!=null && hotState.messages.isNotEmpty) {
       // If cached state exists, it takes priority.
