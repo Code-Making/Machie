@@ -1,16 +1,47 @@
-// =========================================
-// UPDATED: lib/data/file_handler/local_file_handler_saf.dart
-// =========================================
-
 import 'dart:convert';
+
 import 'package:collection/collection.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
+
 import 'file_handler.dart';
 import 'local_file_handler.dart';
+
+class CustomSAFDocumentFile extends ProjectDocumentFile {
+  final SafDocumentFile _safFile;
+  CustomSAFDocumentFile(this._safFile);
+
+  @override
+  String get uri => _safFile.uri;
+  @override
+  String get name => _safFile.name;
+  @override
+  bool get isDirectory => _safFile.isDir;
+  @override
+  int get size => _safFile.length;
+  @override
+  DateTime get modifiedDate =>
+      DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
+  @override
+  String get mimeType =>
+      _safFile.isDir
+          ? 'inode/directory'
+          : (_mimeTypes[name.split('.').lastOrNull?.toLowerCase()] ??
+              'application/octet-stream');
+
+  static const _mimeTypes = {
+    'txt': 'text/plain',
+    'dart': 'text/x-dart',
+    'js': 'text/javascript',
+    'json': 'application/json',
+    'md': 'text/markdown',
+  };
+}
 
 class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
@@ -69,7 +100,7 @@ class SafFileHandler implements LocalFileHandler {
   }
   
   @override
-  Future<DocumentFile?> pickDirectory() async {
+  Future<ProjectDocumentFile?> pickDirectory() async {
     final dir = await _safUtil.pickDirectory(
       persistablePermission: true,
       writePermission: true,
@@ -78,7 +109,7 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<List<DocumentFile>> listDirectory(
+  Future<List<ProjectDocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
   }) async {
@@ -113,7 +144,7 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) async {
+  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
     final result = await _safStream.writeFileBytes(
       parentUri,
@@ -130,8 +161,8 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile> writeFileAsBytes(
-    DocumentFile file,
+  Future<ProjectDocumentFile> writeFileAsBytes(
+    ProjectDocumentFile file,
     Uint8List bytes,
   ) async {
     final parentUri = file.uri.substring(0, file.uri.lastIndexOf('%2F'));
@@ -155,7 +186,7 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile> createDocumentFile(
+  Future<ProjectDocumentFile> createDocumentFile(
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -191,14 +222,14 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<void> deleteDocumentFile(DocumentFile file) async {
+  Future<void> deleteDocumentFile(ProjectDocumentFile file) async {
     await _safUtil.delete(file.uri, file.isDirectory);
   }
 
   // THE FIX: Implemented robust rename with fallback.
   @override
-  Future<DocumentFile> renameDocumentFile(
-    DocumentFile file,
+  Future<ProjectDocumentFile> renameDocumentFile(
+    ProjectDocumentFile file,
     String newName,
   ) async {
     try {
@@ -237,8 +268,8 @@ class SafFileHandler implements LocalFileHandler {
 
   // `copyDocumentFile` remains the same, as it already uses the stream-based method.
   @override
-  Future<DocumentFile> copyDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> copyDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   ) async {
     if (source.isDirectory) {
@@ -255,8 +286,8 @@ class SafFileHandler implements LocalFileHandler {
 
   // THE FIX: Implemented robust move with fallback.
   @override
-  Future<DocumentFile> moveDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> moveDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   ) async {
     try {
@@ -291,13 +322,13 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile?> resolvePath(String parentUri, String relativePath) async {
+  Future<ProjectDocumentFile?> resolvePath(String parentUri, String relativePath) async {
     final segments = relativePath.split('/').where((s) => s.isNotEmpty).toList();
     if (segments.isEmpty) {
       return getFileMetadata(parentUri);
     }
 
-    DocumentFile? currentParent;
+    ProjectDocumentFile? currentParent;
     try {
       // Ensure the starting parent directory exists.
       final stat = await _safUtil.stat(parentUri, true);
@@ -334,7 +365,7 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile> createDirectoryAndFile(
+  Future<ProjectDocumentFile> createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
@@ -350,7 +381,7 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) async {
+  Future<ProjectDocumentFile?> getFileMetadata(String uri) async {
      try {
         final file = await _safUtil.stat(uri, false);
         return file != null ? CustomSAFDocumentFile(file) : null;
@@ -363,13 +394,13 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<DocumentFile?> pickFile() async {
+  Future<ProjectDocumentFile?> pickFile() async {
     final file = await _safUtil.pickFile();
     return file != null ? CustomSAFDocumentFile(file) : null;
   }
 
   @override
-  Future<List<DocumentFile>> pickFiles() async {
+  Future<List<ProjectDocumentFile>> pickFiles() async {
     final files = await _safUtil.pickFiles();
     return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
   }
@@ -399,38 +430,6 @@ class SafFileHandler implements LocalFileHandler {
         path = path.substring(_separator.length);
       }
     }
-    // Decode each component of the path for display.
     return path.split(_separator).map((s) => Uri.decodeComponent(s)).join('/');
   }
-}
-
-class CustomSAFDocumentFile implements DocumentFile {
-  final SafDocumentFile _safFile;
-  CustomSAFDocumentFile(this._safFile);
-
-  @override
-  String get uri => _safFile.uri;
-  @override
-  String get name => _safFile.name;
-  @override
-  bool get isDirectory => _safFile.isDir;
-  @override
-  int get size => _safFile.length;
-  @override
-  DateTime get modifiedDate =>
-      DateTime.fromMillisecondsSinceEpoch(_safFile.lastModified);
-  @override
-  String get mimeType =>
-      _safFile.isDir
-          ? 'inode/directory'
-          : (_mimeTypes[name.split('.').lastOrNull?.toLowerCase()] ??
-              'application/octet-stream');
-
-  static const _mimeTypes = {
-    'txt': 'text/plain',
-    'dart': 'text/x-dart',
-    'js': 'text/javascript',
-    'json': 'application/json',
-    'md': 'text/markdown',
-  };
 }

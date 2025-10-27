@@ -17,16 +17,14 @@ import '../../settings/settings_models.dart';
 enum PluginDataRequirement { string, bytes }
 
 class EditorInitData {
-  final String? stringData;
-  final Uint8List? byteData;
+  final EditorContent? initialContent;
   final TabHotStateDto? hotState;
-  final String? baseContentHash; // <-- ADDED
+  final String? baseContentHash;
 
   const EditorInitData({
-    this.stringData,
-    this.byteData,
+    this.initialContent,
     this.hotState,
-    this.baseContentHash, // <-- ADDED
+    this.baseContentHash,
   });
 }
 
@@ -89,6 +87,11 @@ abstract class EditorPlugin {
   Future<void> dispose() async {}
 
   // --- Explicit Serialization Contract ---
+  
+  /// A list of [FileContentProvider]s that this plugin introduces.
+  /// This allows the explorer to define custom [DocumentFile] types and
+  /// how their content should be fetched and saved.
+  List<FileContentProvider> get fileContentProviders => [];
   
   /// A unique string identifying the type of the hot state DTO for this plugin.
   /// Must be implemented if the plugin supports caching.

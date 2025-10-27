@@ -75,7 +75,7 @@ class PersistentProjectRepository implements ProjectRepository {
 
   // ... (createDocumentFile and deleteDocumentFile are unchanged) ...
   @override
-  Future<DocumentFile> createDocumentFile(
+  Future<ProjectDocumentFile> createDocumentFile(
     String parentUri,
     String name, {
     bool isDirectory = false,
@@ -95,30 +95,30 @@ class PersistentProjectRepository implements ProjectRepository {
   }
 
   @override
-  Future<void> deleteDocumentFile(DocumentFile file) async {
+  Future<void> deleteDocumentFile(ProjectDocumentFile file) async {
     await fileHandler.deleteDocumentFile(file);
   }
 
   // REFACTORED: Signatures updated to return non-nullable Futures.
   @override
-  Future<DocumentFile> renameDocumentFile(
-    DocumentFile file,
+  Future<ProjectDocumentFile> renameDocumentFile(
+    ProjectDocumentFile file,
     String newName,
   ) async {
     return fileHandler.renameDocumentFile(file, newName);
   }
 
   @override
-  Future<DocumentFile> copyDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> copyDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   ) async {
     return fileHandler.copyDocumentFile(source, destinationParentUri);
   }
 
   @override
-  Future<DocumentFile> moveDocumentFile(
-    DocumentFile source,
+  Future<ProjectDocumentFile> moveDocumentFile(
+    ProjectDocumentFile source,
     String destinationParentUri,
   ) async {
     return fileHandler.moveDocumentFile(source, destinationParentUri);
@@ -126,10 +126,10 @@ class PersistentProjectRepository implements ProjectRepository {
 
   // ... (Unchanged Delegations) ...
   @override
-  Future<DocumentFile?> getFileMetadata(String uri) =>
+  Future<ProjectDocumentFile?> getFileMetadata(String uri) =>
       fileHandler.getFileMetadata(uri);
   @override
-  Future<List<DocumentFile>> listDirectory(
+  Future<List<ProjectDocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
   }) => fileHandler.listDirectory(uri, includeHidden: includeHidden);
@@ -139,9 +139,9 @@ class PersistentProjectRepository implements ProjectRepository {
   Future<Uint8List> readFileAsBytes(String uri) =>
       fileHandler.readFileAsBytes(uri);
   @override
-  Future<DocumentFile> writeFile(DocumentFile file, String content) =>
+  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content) =>
       fileHandler.writeFile(file, content);
   @override
-  Future<DocumentFile> writeFileAsBytes(DocumentFile file, Uint8List bytes) =>
+  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes) =>
       fileHandler.writeFileAsBytes(file, bytes);
 }

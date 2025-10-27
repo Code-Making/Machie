@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/command/command_widgets.dart
-// =========================================
-
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +7,6 @@ import '../command/command_models.dart';
 import '../editor/services/text_editing_capability.dart';
 import 'command_notifier.dart';
 
-// REFACTORED: A generic provider family to get commands for any position.
 final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
   ref,
   positionId,
@@ -33,7 +28,6 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       continue;
     }
 
-    // v-- THIS IS THE CORRECTED LOGIC --v
     final command = notifier.allRegisteredCommands.firstWhereOrNull((c) {
       // The command ID from the registry MUST match the ID from our ordered list.
       if (c.id != id) {
@@ -47,12 +41,11 @@ final commandsForPositionProvider = Provider.family<List<dynamic>, String>((
       // Condition 2: It's a generic text command and the ACTIVE PLUGIN is a TextEditablePlugin.
       if (c is BaseTextEditableCommand && currentPlugin is TextEditablePlugin) {
         return true;
+      } else {
+       // Condition 3: The command's source matches the currently active plugin's ID.
+       return c.sourcePlugin == currentPlugin?.id;
       }
-      
-      // Condition 3: The command's source matches the currently active plugin's ID.
-      return c.sourcePlugin == currentPlugin?.id;
     });
-    // ^-- END OF CORRECTION --^
     
     if (command != null) {
       visibleItems.add(command);
@@ -147,7 +140,6 @@ class BottomToolbar extends ConsumerWidget {
   }
 }
 
-// ... (CommandButton and CommandGroupButton are unchanged) ...
 class CommandButton extends ConsumerWidget {
   final Command command;
   final bool showLabel;
