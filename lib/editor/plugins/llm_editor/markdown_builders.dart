@@ -170,7 +170,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
           style: span.style!,
           onTap:
               (path) =>
-                  {}, //FIXME:ref.read(editorServiceProvider).openOrCreate(path),
+                  ref.read(editorServiceProvider).openOrCreate(path),
           ref: ref,
         );
       }
@@ -383,7 +383,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
       style: baseStyle,
       onTap:
           (path) =>
-              {}, //FIXME: ref.read(editorServiceProvider).openOrCreate(path),
+              ref.read(editorServiceProvider).openOrCreate(path),
       ref: ref,
     );
 
