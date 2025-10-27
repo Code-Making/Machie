@@ -23,7 +23,7 @@ class EditorInitData {
   final String? baseContentHash;
 
   const EditorInitData({
-    this.initialContent,
+    required this.initialContent,
     this.hotState,
     this.baseContentHash,
   });
