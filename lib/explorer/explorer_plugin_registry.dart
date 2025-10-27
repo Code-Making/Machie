@@ -15,7 +15,7 @@ export 'explorer_plugin_models.dart';
 final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [
     FileExplorerPlugin(),
-    SearchExplorerPlugin()
+    SearchExplorerPlugin(),
     GitExplorerPlugin(), // REGISTER THE PLUGIN
   ];
 });
