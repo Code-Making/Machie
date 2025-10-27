@@ -126,7 +126,7 @@ class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
     // For project files, we query the file system to get the live,
     // up-to-date metadata.
-    return _repo.fileHandler.getFileMetadata(dto.uri);
+    return _repo.fileHandler.getFileMetadata(dto.fileUri);
   }
 }
 

@@ -9,17 +9,34 @@ import 'package:flutter/foundation.dart';
 class TabMetadataDto {
   final String fileUri;
   final bool isDirty;
+  // Store the name for reconstruction of virtual files.
+  final String fileName; 
+  // Explicitly store the type identifier for rehydration.
+  final String fileType; 
 
-  const TabMetadataDto({required this.fileUri, required this.isDirty});
+  const TabMetadataDto({
+    required this.fileUri,
+    required this.isDirty,
+    required this.fileName,
+    required this.fileType,
+  });
 
   factory TabMetadataDto.fromJson(Map<String, dynamic> json) {
     return TabMetadataDto(
       fileUri: json['fileUri'],
       isDirty: json['isDirty'] ?? false,
+      fileName: json['fileName'] ?? '',
+      // Default to a project file for backward compatibility with old data.
+      fileType: json['fileType'] ?? 'project', 
     );
   }
 
-  Map<String, dynamic> toJson() => {'fileUri': fileUri, 'isDirty': isDirty};
+  Map<String, dynamic> toJson() => {
+        'fileUri': fileUri,
+        'isDirty': isDirty,
+        'fileName': fileName,
+        'fileType': fileType,
+      };
 }
 
 // DTO for an EditorTab instance
