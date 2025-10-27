@@ -25,7 +25,7 @@ class EditorInitData {
   const EditorInitData({
     required this.initialContent,
     this.hotState,
-    requured this.baseContentHash,
+    required this.baseContentHash,
   });
 }
 

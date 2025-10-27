@@ -72,12 +72,14 @@ class RecipeTexPlugin extends EditorPlugin {
     if (initData.hotState is RecipeTexHotStateDto) {
       hotStateData = (initData.hotState as RecipeTexHotStateDto).data;
     }
+    final stringContent = initData.initialContent as EditorContentString;
+    final initialContent = stringContent.content;
 
     return RecipeTexTab(
       plugin: this,
       id: id,
       onReadyCompleter: onReadyCompleter,
-      initialContent: initData.stringData ?? '',
+      initialContent: initialContent ?? '',
       initialBaseContentHash: initData.baseContentHash,
       hotStateData: hotStateData,
     );
