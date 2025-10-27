@@ -14,8 +14,8 @@ class FileTypeIcon extends ConsumerWidget {
       return Icon(Icons.folder, color: Colors.yellow.shade700);
     }
     final plugins = ref.watch(activePluginsProvider);
-    final plugin = plugins.firstWhere((p) => p.supportsFile(file), orElse: () => CodeEditorPlugin());
-    return plugin.icon;
+    final plugin = plugins.firstWhereOrNull((p) => p.supportsFile(file));
+    return plugin?.icon ?? const Icon(Icons.article_outlined);
   }
 }
 
@@ -71,7 +71,7 @@ class FileListView extends StatelessWidget {
             children: [directoryChildrenBuilder(item)],
           );
         } else {
-          defaultItem = _FileItem(
+          defaultItem = FileItem(
             file: item,
             depth: depth,
             onTapped: () => onFileTapped(item),
@@ -89,12 +89,12 @@ class FileListView extends StatelessWidget {
   }
 }
 
-// (_FileItem and _DirectoryItem implementations are unchanged and remain private)
-class _FileItem extends StatelessWidget {
+// (FileItem and _DirectoryItem implementations are unchanged and remain private)
+class FileItem extends StatelessWidget {
   final DocumentFile file;
   final int depth;
   final VoidCallback onTapped;
-  const _FileItem({required this.file, required this.depth, required this.onTapped});
+  const FileItem({required this.file, required this.depth, required this.onTapped});
   static const double _kIndentPerLevel = 16.0;
   @override
   Widget build(BuildContext context) {
