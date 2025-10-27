@@ -205,13 +205,13 @@ class FileContentProviderRegistry {
 
         // 1. Build the runtime lookup map (Type -> Provider)
         if (_providersByType.containsKey(type)) {
-          print('Warning: Overwriting FileContentProvider for type $type.');
+          // print('Warning: Overwriting FileContentProvider for type $type.');
         }
         _providersByType[type] = provider;
 
         // 2. Build the rehydration lookup map (String ID -> Provider)
         if (_providersById.containsKey(id)) {
-          print('Warning: Overwriting FileContentProvider for typeId "$id".');
+          // print('Warning: Overwriting FileContentProvider for typeId "$id".');
         }
         _providersById[id] = provider;
 
@@ -241,9 +241,9 @@ class FileContentProviderRegistry {
       return (provider as IRehydratable).rehydrate(dto);
     }
 
-    print(
-      'Warning: No IRehydratable provider found for fileType "${dto.fileType}". Cannot rehydrate file.',
-    );
+    // print(
+    //   'Warning: No IRehydratable provider found for fileType "${dto.fileType}". Cannot rehydrate file.',
+    // );
     return Future.value(null);
   }
 
@@ -252,9 +252,9 @@ class FileContentProviderRegistry {
   String getTypeIdForFile(DocumentFile file) {
     final typeId = _typeIdentifiers[file.runtimeType];
     if (typeId == null) {
-      print(
-        'Warning: No type identifier found for file type ${file.runtimeType}.',
-      );
+      // print(
+      //   'Warning: No type identifier found for file type ${file.runtimeType}.',
+      // );
       return 'unknown';
     }
     return typeId;
