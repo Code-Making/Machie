@@ -15,13 +15,13 @@ class HierarchyLog extends TalkerLog {
   HierarchyLog(String super.message);
 
   /// Log title
-  static get getTitle => 'Hierarchy';
+  static String get getTitle => 'Hierarchy';
 
   /// Log key
-  static get getKey => 'hierarchy';
+  static String get getKey => 'hierarchy';
 
   /// Log color
-  static get getPen => AnsiPen()..xterm(75);
+  static AnsiPen get getPen => AnsiPen()..xterm(75);
 
   /// The following overrides are required because the base class expects instance getters,
   /// but we use static getters to allow for easy customization and reuse of colors, titles, and keys.
@@ -41,13 +41,13 @@ class FileOperationLog extends TalkerLog {
   FileOperationLog(String super.message);
 
   /// Log title
-  static get getTitle => 'File Operation';
+  static String get getTitle => 'File Operation';
 
   /// Log key
-  static get getKey => 'file_operation';
+  static String get getKey => 'file_operation';
 
   /// Log color
-  static get getPen => AnsiPen()..yellow();
+  static AnsiPen get getPen => AnsiPen()..yellow();
 
   /// The following overrides are required because the base class expects instance getters,
   /// but we use static getters to allow for easy customization and reuse of colors, titles, and keys.

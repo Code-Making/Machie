@@ -9,11 +9,6 @@ import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../settings/settings_notifier.dart';
 
-// (Logging categories remain the same)
-final _penLifecycle = AnsiPen()..cyan(bold: true);
-final _penLazyLoad = AnsiPen()..magenta();
-final _penBackground = AnsiPen()..blue();
-final _penEvents = AnsiPen()..yellow();
 
 // (FileTreeNode class remains the same)
 class FileTreeNode {
