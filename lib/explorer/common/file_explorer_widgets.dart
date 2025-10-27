@@ -55,8 +55,8 @@ void _applySorting(List<FileTreeNode> contents, FileExplorerViewMode mode) {
 
 // (The _isDropAllowed function remains unchanged)
 bool _isDropAllowed(
-  DocumentFile draggedFile,
-  DocumentFile targetFolder,
+  ProjectDocumentFile draggedFile,
+  ProjectDocumentFile targetFolder,
   FileHandler fileHandler,
 ) {
   if (!targetFolder.isDirectory) return false;
@@ -164,7 +164,7 @@ class RootDropZone extends ConsumerWidget {
     final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     if (fileHandler == null) return const SizedBox.shrink();
 
-    return DragTarget<DocumentFile>(
+    return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         // ### THIS IS THE FIX ###
         // The zone should be expanded if the parent says a drag is active
@@ -245,7 +245,7 @@ class RootDropZone extends ConsumerWidget {
 }
 
 class DirectoryItem extends ConsumerStatefulWidget {
-  final DocumentFile item;
+  final ProjectDocumentFile item;
   final int depth;
   final bool isExpanded;
   final String? subtitle;
@@ -272,7 +272,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     final itemContent =
         widget.item.isDirectory ? _buildDirectoryTile() : _buildFileTile();
 
-    return LongPressDraggable<DocumentFile>(
+    return LongPressDraggable<ProjectDocumentFile>(
       data: widget.item,
       feedback: _buildDragFeedback(),
       childWhenDragging: Opacity(opacity: 0.5, child: itemContent),
@@ -397,7 +397,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
     );
 
     // The DragTarget now wraps the entire ExpansionTile.
-    return DragTarget<DocumentFile>(
+    return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return Container(
           color: _isHoveredByDraggable
@@ -456,7 +456,7 @@ class _DirectoryItemState extends ConsumerState<DirectoryItem> {
   }
 }
 
-class RootPlaceholder implements DocumentFile {
+class RootPlaceholder implements ProjectDocumentFile {
   @override
   final String uri;
   @override
@@ -473,7 +473,7 @@ class RootPlaceholder implements DocumentFile {
 }
 
 class FileTypeIcon extends ConsumerWidget {
-  final DocumentFile file;
+  final ProjectDocumentFile file;
   const FileTypeIcon({super.key, required this.file});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
