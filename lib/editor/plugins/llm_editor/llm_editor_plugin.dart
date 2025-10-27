@@ -29,6 +29,7 @@ import 'llm_editor_settings_widget.dart';
 import 'llm_editor_widget.dart';
 import 'providers/llm_provider.dart';
 import 'providers/llm_provider_factory.dart';
+import '../../services/file_content_provider.dart';
 
 class LlmEditorPlugin extends EditorPlugin {
   @override

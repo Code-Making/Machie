@@ -240,8 +240,8 @@ class FileContentProviderRegistry {
   Future<DocumentFile?> rehydrateFileFromDto(TabMetadataDto dto) {
     final provider = _providersById[dto.fileType];
 
-    if (provider is IRehydratable) {
-      return provider.rehydrate(dto);
+    if ((provider!=null) && (provider is IRehydratable)) {
+      return (provider as IRehydratable)!.rehydrate(dto);
     }
     
     print(
@@ -285,7 +285,7 @@ final fileContentProviderRegistryProvider = Provider<FileContentProviderRegistry
   ];
 
   // 4. Combine them all into a single list.
-  final allProviders = [
+  final allProviders = <FileContentProvider>[
     ...editorPluginProviders,
     ...explorerPluginProviders,
     ...coreProviders,

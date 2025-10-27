@@ -145,7 +145,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
         return PathLinkBuilder._createLinkedSpansForText(
           text: span.text ?? '',
           style: span.style!,
-          onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
+          //TODO: onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
           ref: ref,
         );
       }
@@ -332,7 +332,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     final spans = _createLinkedSpansForText(
       text: element.textContent,
       style: baseStyle,
-      onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
+      //TODO: onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
       ref: ref,
     );
 
