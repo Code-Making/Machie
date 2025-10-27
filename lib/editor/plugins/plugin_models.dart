@@ -90,7 +90,7 @@ abstract class EditorPlugin {
   /// A list of [FileContentProvider]s that this plugin introduces.
   /// This allows the explorer to define custom [DocumentFile] types and
   /// how their content should be fetched and saved.
-  List<FileContentProvider> get fileContentProviders => [];
+  List<FileContentProvider Function(Ref ref)> get fileContentProviderFactories => [];
 
   /// A unique string identifying the type of the hot state DTO for this plugin.
   /// Must be implemented if the plugin supports caching.

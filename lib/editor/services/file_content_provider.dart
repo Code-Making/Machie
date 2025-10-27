@@ -263,38 +263,43 @@ class FileContentProviderRegistry {
 
 // --- Riverpod Providers ---
 
-final fileContentProviderRegistryProvider =
-    Provider<FileContentProviderRegistry>((ref) {
-      final repo = ref.watch(projectRepositoryProvider);
-      if (repo == null) return FileContentProviderRegistry([]);
+final fileContentProviderRegistryProvider = Provider<FileContentProviderRegistry>((ref) {
+  final repo = ref.watch(projectRepositoryProvider);
+  if (repo == null) return FileContentProviderRegistry([]);
 
-      // 1. Get all providers from all active EDITOR plugins.
-      final editorPluginProviders =
-          ref
-              .watch(activePluginsProvider)
-              .expand((plugin) => plugin.fileContentProviders)
-              .toList();
+  final allProviders = <FileContentProvider>[];
 
-      // 2. Get all providers from all active EXPLORER plugins.
-      final explorerPluginProviders =
-          ref
-              .watch(explorerRegistryProvider)
-              .expand((plugin) => plugin.fileContentProviders)
-              .toList();
+  // 1. Get all factories from EDITOR plugins.
+  final editorPluginFactories =
+      ref.watch(activePluginsProvider).expand((plugin) => plugin.fileContentProviderFactories);
 
-      // 3. Create the core, default providers.
-      final coreProviders = <FileContentProvider>[
-        ProjectFileContentProvider(repo),
-        VirtualFileContentProvider(),
-        InternalFileContentProvider(),
-      ];
+  // 2. Get all factories from EXPLORER plugins.
+  final explorerPluginFactories =
+      ref.watch(explorerRegistryProvider).expand((plugin) => plugin.fileContentProviderFactories);
 
-      // 4. Combine them all into a single list.
-      final allProviders = <FileContentProvider>[
-        ...editorPluginProviders,
-        ...explorerPluginProviders,
-        ...coreProviders,
-      ];
+  // 3. Combine them all into a single list of factories.
+  final allFactories = [...editorPluginFactories, ...explorerPluginFactories];
 
-      return FileContentProviderRegistry(allProviders);
-    });
+  // 4. Execute each factory to build the provider instances.
+  for (final factory in allFactories) {
+    try {
+      // The factory is called here, with the ref it needs to resolve dependencies.
+      final provider = factory(ref);
+      allProviders.add(provider);
+    } catch (e, st) {
+      // If a factory fails (e.g., git repo not found), we can safely ignore it.
+      // That provider simply won't be available.
+      ref.read(talkerProvider).handle(e, st, 'Failed to create a FileContentProvider via factory');
+    }
+  }
+
+  // 5. Add the core, default providers.
+  final coreProviders = <FileContentProvider>[
+    ProjectFileContentProvider(repo),
+    VirtualFileContentProvider(),
+    InternalFileContentProvider(),
+  ];
+  allProviders.addAll(coreProviders);
+
+  return FileContentProviderRegistry(allProviders);
+});
