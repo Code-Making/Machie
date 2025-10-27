@@ -378,7 +378,7 @@ class EditorService {
     }
   }
 
-  Future<OpenFileResult> openFile(
+Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
@@ -402,39 +402,42 @@ class EditorService {
     }
 
     try {
-      final allPlugins = _ref.read(activePluginsProvider);
-      final compatiblePlugins =
-          allPlugins.where((p) => p.supportsFile(file)).toList();
-      if (compatiblePlugins.isEmpty) {
-        return OpenFileError("No plugin available to open '${file.name}'.");
-      }
-
       // Step 1: Pick plugin candidates
       final EditorPlugin chosenPlugin;
       if (explicitPlugin != null) {
+        // Use explicit plugin directly without supportsFile check since it's an override
         chosenPlugin = explicitPlugin;
-      } else if (compatiblePlugins.length == 1) {
-        chosenPlugin = compatiblePlugins.first;
       } else {
-        // For multiple compatible plugins, find the best match
-        final contentProvider = _contentProviderRegistry.getProviderFor(file);
-        final contentResult = await contentProvider.getContent(
-          file,
-          PluginDataRequirement.string,
-        );
-        final fileContent = (contentResult.content as EditorContentString).content;
-        
-        final contentMatchingPlugins = compatiblePlugins.where(
-          (p) => p.dataRequirement == PluginDataRequirement.string &&
-                 p.canOpenFileContent(fileContent, file),
-        ).toList();
-        
-        if (contentMatchingPlugins.isEmpty) {
+        final allPlugins = _ref.read(activePluginsProvider);
+        final compatiblePlugins =
+            allPlugins.where((p) => p.supportsFile(file)).toList();
+        if (compatiblePlugins.isEmpty) {
+          return OpenFileError("No plugin available to open '${file.name}'.");
+        }
+
+        if (compatiblePlugins.length == 1) {
           chosenPlugin = compatiblePlugins.first;
-        } else if (contentMatchingPlugins.length == 1) {
-          chosenPlugin = contentMatchingPlugins.first;
         } else {
-          return OpenFileShowChooser(contentMatchingPlugins);
+          // For multiple compatible plugins, find the best match
+          final contentProvider = _contentProviderRegistry.getProviderFor(file);
+          final contentResult = await contentProvider.getContent(
+            file,
+            PluginDataRequirement.string,
+          );
+          final fileContent = (contentResult.content as EditorContentString).content;
+          
+          final contentMatchingPlugins = compatiblePlugins.where(
+            (p) => p.dataRequirement == PluginDataRequirement.string &&
+                   p.canOpenFileContent(fileContent, file),
+          ).toList();
+          
+          if (contentMatchingPlugins.isEmpty) {
+            chosenPlugin = compatiblePlugins.first;
+          } else if (contentMatchingPlugins.length == 1) {
+            chosenPlugin = contentMatchingPlugins.first;
+          } else {
+            return OpenFileShowChooser(contentMatchingPlugins);
+          }
         }
       }
 
