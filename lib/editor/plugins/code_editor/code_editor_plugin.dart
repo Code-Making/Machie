@@ -330,8 +330,9 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
         // Create the unified init data object.
         final initData = EditorInitData(
-          stringData: '', // No file to read, so default to empty string.
+          initContent: EditorContentString(''), // No file to read, so default to empty string.
           hotState: cachedDto,
+          baseContentHash: '',
         );
 
         final newTab = await codeEditorPlugin.createTab(
