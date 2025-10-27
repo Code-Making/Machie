@@ -134,50 +134,7 @@ class EditorService {
     );
   }
 
-  Future<({EditorTab tab, DocumentFile file})?> _createTabForFile(
-    DocumentFile file, {
-    EditorPlugin? explicitPlugin,
-  }) async {
-    final compatiblePlugins =
-        _ref
-            .read(activePluginsProvider)
-            .where((p) => p.supportsFile(file))
-            .toList();
 
-    EditorPlugin? chosenPlugin = explicitPlugin;
-    if (chosenPlugin == null) {
-      if (compatiblePlugins.isEmpty) return null;
-      chosenPlugin = compatiblePlugins.first;
-    }
-
-    try {
-      String? fileContent;
-      Uint8List? fileBytes;
-      String? baseContentHash; // <-- ADDED
-
-      if (chosenPlugin.dataRequirement != PluginDataRequirement.bytes) {
-        fileContent = await _repo.readFile(file.uri);
-        baseContentHash = md5.convert(utf8.encode(fileContent)).toString();
-      } else {
-        fileBytes = await _repo.readFileAsBytes(file.uri);
-        baseContentHash = md5.convert(fileBytes).toString();
-      }
-
-      final initData = EditorInitData(
-        stringData: fileContent,
-        byteData: fileBytes,
-        baseContentHash: baseContentHash, // <-- PASS THE HASH
-      );
-
-      final newTab = await chosenPlugin.createTab(file, initData);
-      return (tab: newTab, file: file);
-    } catch (e) {
-      _ref
-          .read(talkerProvider)
-          .error("Could not read file data for tab: ${file.uri}, error: $e");
-      return null;
-    }
-  }
 
   Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
@@ -298,7 +255,7 @@ class EditorService {
     if (context == null || !context.mounted) return false;
 
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    DocumentFile? file =
+    ProjectDocumentFile? file =
         await fileHandler.resolvePath(projectRootUri, sanitizedPath);
 
     if (file != null) {
