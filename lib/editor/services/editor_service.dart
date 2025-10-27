@@ -409,89 +409,64 @@ class EditorService {
         return OpenFileError("No plugin available to open '${file.name}'.");
       }
 
-      final contentProvider = _contentProviderRegistry.getProviderFor(file);
-
+      // Step 1: Pick plugin candidates
+      final EditorPlugin chosenPlugin;
       if (explicitPlugin != null) {
+        chosenPlugin = explicitPlugin;
+      } else if (compatiblePlugins.length == 1) {
+        chosenPlugin = compatiblePlugins.first;
+      } else {
+        // For multiple compatible plugins, find the best match
+        final contentProvider = _contentProviderRegistry.getProviderFor(file);
         final contentResult = await contentProvider.getContent(
           file,
-          explicitPlugin.dataRequirement,
+          PluginDataRequirement.string,
         );
-        if (contentResult.content is EditorContentString &&
-            !explicitPlugin.canOpenFileContent(
-              (contentResult.content as EditorContentString).content,
-              file,
-            )) {
-          return OpenFileError(
-            "${explicitPlugin.name} cannot open this file's content.",
-          );
-        }
-        final initData = EditorInitData(
-          initialContent: contentResult.content,
-          baseContentHash: contentResult.baseContentHash,
-        );
-        final newTab = await explicitPlugin.createTab(
-          file,
-          initData,
-          onReadyCompleter: onReadyCompleter,
-        );
-        return _constructOpenFileSuccess(project, newTab, file);
-      } else {
-        if (compatiblePlugins.length > 1) {
-          final contentResult = await contentProvider.getContent(
-            file,
-            PluginDataRequirement.string,
-          );
-          final fileContent =
-              (contentResult.content as EditorContentString).content;
-          final contentMatchingPlugins =
-              compatiblePlugins
-                  .where(
-                    (p) =>
-                        p.dataRequirement == PluginDataRequirement.string &&
-                        p.canOpenFileContent(fileContent, file),
-                  )
-                  .toList();
-          if (contentMatchingPlugins.length > 1) {
-            return OpenFileShowChooser(contentMatchingPlugins);
-          }
-        }
-
-        EditorPlugin? chosenPlugin;
-        final highestPriorityPlugin = compatiblePlugins.first;
-        if (highestPriorityPlugin.dataRequirement ==
-            PluginDataRequirement.bytes) {
-          chosenPlugin = highestPriorityPlugin;
+        final fileContent = (contentResult.content as EditorContentString).content;
+        
+        final contentMatchingPlugins = compatiblePlugins.where(
+          (p) => p.dataRequirement == PluginDataRequirement.string &&
+                 p.canOpenFileContent(fileContent, file),
+        ).toList();
+        
+        if (contentMatchingPlugins.isEmpty) {
+          chosenPlugin = compatiblePlugins.first;
+        } else if (contentMatchingPlugins.length == 1) {
+          chosenPlugin = contentMatchingPlugins.first;
         } else {
-          final contentResult = await contentProvider.getContent(
-            file,
-            PluginDataRequirement.string,
-          );
-          final fileContent =
-              (contentResult.content as EditorContentString).content;
-          chosenPlugin = compatiblePlugins.firstWhereOrNull(
-            (plugin) =>
-                plugin.dataRequirement == PluginDataRequirement.string &&
-                plugin.canOpenFileContent(fileContent, file),
+          return OpenFileShowChooser(contentMatchingPlugins);
+        }
+      }
+
+      // Step 2: Open content
+      final contentProvider = _contentProviderRegistry.getProviderFor(file);
+      final contentResult = await contentProvider.getContent(
+        file,
+        chosenPlugin.dataRequirement,
+      );
+
+      // Step 3: Run content check (for string-based plugins)
+      if (chosenPlugin.dataRequirement == PluginDataRequirement.string) {
+        final fileContent = (contentResult.content as EditorContentString).content;
+        if (!chosenPlugin.canOpenFileContent(fileContent, file)) {
+          return OpenFileError(
+            "${chosenPlugin.name} cannot open this file's content.",
           );
         }
-
-        chosenPlugin ??= compatiblePlugins.first;
-
-        final finalContentResult = await contentProvider.getContent(
-          file,
-          chosenPlugin.dataRequirement,
-        );
-        final initData = EditorInitData(
-          initialContent: finalContentResult.content,
-          baseContentHash: finalContentResult.baseContentHash,
-        );
-        final newTab = await chosenPlugin.createTab(
-          file,
-          initData,
-          onReadyCompleter: onReadyCompleter,
-        );
-        return _constructOpenFileSuccess(project, newTab, file);
       }
+
+      // Step 4: Send content to selected plugin
+      final initData = EditorInitData(
+        initialContent: contentResult.content,
+        baseContentHash: contentResult.baseContentHash,
+      );
+      final newTab = await chosenPlugin.createTab(
+        file,
+        initData,
+        onReadyCompleter: onReadyCompleter,
+      );
+      return _constructOpenFileSuccess(project, newTab, file);
+
     } catch (e, st) {
       _ref
           .read(talkerProvider)
@@ -499,7 +474,7 @@ class EditorService {
       return OpenFileError("Error opening file '${file.name}'.");
     }
   }
-
+  
   OpenFileSuccess _constructOpenFileSuccess(
     Project project,
     EditorTab newTab,
