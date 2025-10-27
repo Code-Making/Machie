@@ -85,7 +85,7 @@ class GlitchEditorPlugin extends EditorPlugin {
   }) async {
     // The initial image is ALWAYS the data from disk.
     final byteContent = initData.initialContent as EditorContentBytes;
-    final initialImageData = byteContent.bytes ?? Uint8List(0);
+    final initialImageData = byteContent.bytes;
     final initialBaseContentHash = initData.baseContentHash;
 
     Uint8List? cachedImageData;
@@ -151,27 +151,6 @@ class GlitchEditorPlugin extends EditorPlugin {
     return toolbar;
   }
 
-  /// Helper to get the active editor's state object.
-  GlitchEditorWidgetState? _getEditorState(EditorTab tab) {
-    if (tab.editorKey.currentState is GlitchEditorWidgetState) {
-      return tab.editorKey.currentState as GlitchEditorWidgetState;
-    }
-    return null;
-  }
-
-  // @override
-  // Future<TabHotStateDto?> serializeHotState(EditorTab tab) async {
-  //   final editorState = _getEditorState(tab);
-  //   if (editorState == null) return null;
-
-  //   final stateMap = await editorState.getHotState();
-  //   if (stateMap == null || stateMap['imageData'] == null) return null;
-
-  //   return GlitchEditorHotStateDto(
-  //     imageData: stateMap['imageData'] as Uint8List,
-  //   );
-  // }
-
   GlitchEditorWidgetState? _getActiveEditorState(WidgetRef ref) {
     final tab = ref.watch(
       appNotifierProvider.select(
@@ -179,7 +158,7 @@ class GlitchEditorPlugin extends EditorPlugin {
       ),
     );
     if (tab is! GlitchEditorTab) return null;
-    return tab.editorKey.currentState as GlitchEditorWidgetState?;
+    return tab.editorKey.currentState;
   }
 
   @override

@@ -83,18 +83,16 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   late CodeEditorStyle _style;
   // late List<PatternRecognizer> _patternRecognizers;
 
-  bool _wasSelectionActive = false;
-
   late String? _baseContentHash; // <-- ADDED
 
-  static const List<Color> _rainbowBracketColors = [
-    Color(0xFFE06C75), // Red
-    Color(0xFF98C379), // Green
-    Color(0xFF61AFEF), // Blue
-    Color(0xFFC678DD), // Purple
-    Color(0xFFE5C07B), // Yellow
-    Color(0xFF56B6C2), // Cyan
-  ];
+  // static const List<Color> _rainbowBracketColors = [
+  //   Color(0xFFE06C75), // Red
+  //   Color(0xFF98C379), // Green
+  //   Color(0xFF61AFEF), // Blue
+  //   Color(0xFFC678DD), // Purple
+  //   Color(0xFFE5C07B), // Yellow
+  //   Color(0xFF56B6C2), // Cyan
+  // ];
   static final _hexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
   static final _shortHexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{3,4})\b');
   static final _colorConstructorRegex = RegExp(
@@ -1562,27 +1560,27 @@ class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
   }
 }
 
-class _ColorSwatch extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _ColorSwatch({required this.color, required this.size});
+// class _ColorSwatch extends StatelessWidget {
+//   final Color color;
+//   final double size;
+//   const _ColorSwatch({required this.color, required this.size});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.only(right: 6.0, left: 2.0),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2.0),
-        border: Border.all(
-          // Add a border that contrasts with the swatch color for visibility.
-          color:
-              color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54,
-          width: 1.0,
-        ),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       width: size,
+//       height: size,
+//       margin: const EdgeInsets.only(right: 6.0, left: 2.0),
+//       decoration: BoxDecoration(
+//         color: color,
+//         borderRadius: BorderRadius.circular(2.0),
+//         border: Border.all(
+//           // Add a border that contrasts with the swatch color for visibility.
+//           color:
+//               color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54,
+//           width: 1.0,
+//         ),
+//       ),
+//     );
+//   }
+// }
