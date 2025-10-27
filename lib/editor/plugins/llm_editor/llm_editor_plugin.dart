@@ -129,7 +129,8 @@ class LlmEditorPlugin extends EditorPlugin {
     } else {
       // Otherwise, parse from the file content.
       List<ChatMessage> messagesFromFile = [];
-      final content = initData.stringData;
+      final stringData = initData.initialContent as EditorContentString;
+      final content = stringData.content;
       if (content != null && content.isNotEmpty) {
         try {
           final List<dynamic> jsonList = jsonDecode(content);
