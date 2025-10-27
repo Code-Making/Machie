@@ -314,7 +314,7 @@ BaseCommand(
     //    The AppHandle/EditorService will do all the work of checking if it's
     //    already open, finding the content provider, loading content,
     //    and creating the tab.
-    await ref.read(appNotifierProvider.notifier).openFileInEditor(scratchpadFile);
+    await ref.read(appNotifierProvider.notifier).openFileInEditor(scratchpadFile, explicitPlugin: this);
   },
 ),
   ];
