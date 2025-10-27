@@ -159,7 +159,7 @@ class BaseTextEditableCommand extends Command {
     final editorState = activeTab?.editorKey.currentState;
 
     if (editorState != null && editorState is TextEditable) {
-      final editableState = editorState! as TextEditable;
+      final editableState = editorState as TextEditable;
       await _execute(ref, editableState);
     }
   }

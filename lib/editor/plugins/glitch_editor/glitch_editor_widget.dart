@@ -318,17 +318,17 @@ class GlitchEditorWidgetState extends EditorWidgetState<GlitchEditorWidget> {
 
   // --- Public API for Commands ---
 
-  void _checkIfDirty() {
-    if (_originalImage == null || _displayImage == null) return;
-    // A simple heuristic: if the undo stack is empty, we are back at the
-    // original state (or the state from the first post-cache-load edit).
-    // A more robust check would compare image bytes, but that's expensive.
-    if (_undoStack.isEmpty) {
-      ref.read(editorServiceProvider).markCurrentTabClean();
-    } else {
-      ref.read(editorServiceProvider).markCurrentTabDirty();
-    }
-  }
+  // void _checkIfDirty() {
+  //   if (_originalImage == null || _displayImage == null) return;
+  //   // A simple heuristic: if the undo stack is empty, we are back at the
+  //   // original state (or the state from the first post-cache-load edit).
+  //   // A more robust check would compare image bytes, but that's expensive.
+  //   if (_undoStack.isEmpty) {
+  //     ref.read(editorServiceProvider).markCurrentTabClean();
+  //   } else {
+  //     ref.read(editorServiceProvider).markCurrentTabDirty();
+  //   }
+  // }
 
   void resetImage() {
     if (_originalImage == null) return;

@@ -310,29 +310,6 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Widget _buildTextField({
-    required BuildContext context,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-  }) {
-    return Padding(
-      padding: padding,
-      child: TextField(
-        maxLines: 1,
-        focusNode: focusNode,
-        style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
-        decoration: decoration.copyWith(
-          contentPadding: (decoration.contentPadding ?? EdgeInsets.zero).add(
-            // Padding is only needed for the toggle buttons (Aa, .*, m, s)
-            const EdgeInsets.only(right: 110),
-          ),
-        ),
-        controller: controller,
-      ),
-    );
-  }
-
-  // ... _buildCheckText and _buildIconButton are unchanged ...
   Widget _buildCheckText({
     required BuildContext context,
     required String text,

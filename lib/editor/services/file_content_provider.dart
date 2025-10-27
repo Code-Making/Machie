@@ -238,7 +238,7 @@ class FileContentProviderRegistry {
     final provider = _providersById[dto.fileType];
 
     if ((provider != null) && (provider is IRehydratable)) {
-      return (provider as IRehydratable)!.rehydrate(dto);
+      return (provider as IRehydratable).rehydrate(dto);
     }
 
     print(
