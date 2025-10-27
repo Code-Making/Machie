@@ -10,7 +10,7 @@ import '../../../project/services/project_hierarchy_service.dart';
 
 // THE FIX: Create a wrapper class to hold the score.
 class SearchResult {
-  final DocumentFile file;
+  final ProjectDocumentFile file;
   final int score;
 
   SearchResult({required this.file, required this.score});
