@@ -40,7 +40,6 @@ dependencies:
   dart_git:
     git: https://github.com/hommes-doutant/dart-git.git
     # path: ../gitjournal/dart-git
-
   file_picker: ^10.1.9
   path_provider: ^2.1.5
   re_highlight: ^0.0.3
@@ -67,6 +66,7 @@ dependencies:
   hive_ce_flutter: ^2.3.2
   flutter_markdown: ^0.7.7+1
   http: ^1.5.0
+  markdown: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
