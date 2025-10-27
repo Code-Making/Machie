@@ -79,6 +79,7 @@ class Project {
   String get rootUri => metadata.rootUri;
   String get projectTypeId => metadata.projectTypeId;
 
+  /// Creates a new, empty project state from its metadata.
   factory Project.fresh(ProjectMetadata metadata) {
     return Project(
       metadata: metadata,
@@ -101,9 +102,15 @@ class Project {
     );
   }
 
-  ProjectDto toDto(Map<String, TabMetadata> liveMetadata) {
+  /// Converts the live project state into a serializable Data Transfer Object (DTO).
+  /// Requires the [FileContentProviderRegistry] to correctly identify the
+  /// type of each open file for persistence.
+  ProjectDto toDto(
+    Map<String, TabMetadata> liveMetadata,
+    FileContentProviderRegistry registry,
+  ) {
     return ProjectDto(
-      session: session.toDto(liveMetadata),
+      session: session.toDto(liveMetadata, registry),
       workspace: workspace.toDto(),
     );
   }
