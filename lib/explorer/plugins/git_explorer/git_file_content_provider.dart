@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'git_object_file.dart';
 import 'git_provider.dart';
+import 'package:dart_git/storage/object_storage_extensions.dart';
 
 class GitFileContentProvider implements FileContentProvider, IRehydratable {
   final Ref _ref;

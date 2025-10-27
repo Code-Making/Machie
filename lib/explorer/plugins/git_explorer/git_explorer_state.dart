@@ -9,6 +9,9 @@ import 'package:dart_git/diff_commit.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
+import 'package:dart_git/storage/object_storage_extensions.dart';
+import 'package:dart_git/utils/file_mode.dart';
+
 /// Holds the currently selected commit hash for the Git Explorer view.
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   final gitRepo = ref.watch(gitRepositoryProvider);
