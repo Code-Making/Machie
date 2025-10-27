@@ -11,7 +11,7 @@ import 'package:machine/widgets/file_list_view.dart';
 import 'search_explorer_state.dart';
 // lib/explorer/plugins/search_explorer/search_explorer_view.dart
 import 'package:flutter/material.dart';
-import 'package.flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/project/project_models.dart';
