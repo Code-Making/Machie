@@ -465,7 +465,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
-    final registry = _ref.read(fileContentProviderRegistryProvider);
+    final registry = ref.read(fileContentProviderRegistryProvider);
     final liveTabMetadata = ref.read(tabMetadataProvider);
     final appStateDto = appState.toDto(liveTabMetadata, registry);
     await _appStateRepository.saveAppStateDto(appStateDto);
