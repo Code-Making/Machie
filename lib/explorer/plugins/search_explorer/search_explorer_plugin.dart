@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
 import 'search_explorer_view.dart';
+import '../../../editor/services/file_content_provider.dart';
 
 class SearchExplorerPlugin implements ExplorerPlugin {
   @override
