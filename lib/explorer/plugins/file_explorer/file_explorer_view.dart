@@ -1,14 +1,11 @@
 // lib/explorer/plugins/file_explorer/file_explorer_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../project/project_models.dart';
-import '../../common/file_explorer_widgets.dart';
-import '../../common/file_operations_footer.dart';
-import 'file_explorer_state.dart';
-import '../../explorer_plugin_registry.dart'; // REFACTOR: Import generic provider
-import '../../../data/file_handler/file_handler.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/project/project_models.dart';
+import 'package:machine/explorer/common/file_operations_footer.dart';
+import 'package:machine/explorer/common/file_explorer_widgets.dart';
 
-// MODIFIED: Converted to a ConsumerStatefulWidget
 class FileExplorerView extends ConsumerStatefulWidget {
   final Project project;
   const FileExplorerView({super.key, required this.project});
@@ -18,29 +15,20 @@ class FileExplorerView extends ConsumerStatefulWidget {
 }
 
 class _FileExplorerViewState extends ConsumerState<FileExplorerView> {
-  // ADDED: Local state to track if a drag is happening anywhere over the view.
+  // Local state to track if a drag is happening anywhere over the view.
   bool _isDragInProgress = false;
 
   @override
   Widget build(BuildContext context) {
-    final fileExplorerState =
-        ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
-
-    if (fileExplorerState == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    // ADDED: A parent DragTarget to detect when a drag enters or leaves the explorer area.
-    return DragTarget<DocumentFile>(
-      // This builder renders the actual UI.
+    // A parent DragTarget to detect when a drag enters or leaves the explorer area.
+    return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return Column(
           children: [
             Expanded(
               child: DirectoryView(
-                directory: widget.project.rootUri,
-                projectRootUri: widget.project.rootUri,
-                state: fileExplorerState,
+                directoryUri: widget.project.rootUri,
+                depth: 1,
               ),
             ),
             // Pass the drag-in-progress state down to the drop zone.
@@ -54,26 +42,19 @@ class _FileExplorerViewState extends ConsumerState<FileExplorerView> {
       },
       // When a draggable enters this large area, we update the state.
       onWillAcceptWithDetails: (details) {
-        if (!_isDragInProgress) {
-          setState(() {
-            _isDragInProgress = true;
-          });
+        if (mounted && !_isDragInProgress) {
+          setState(() => _isDragInProgress = true);
         }
-        // We return false because this parent target's job is only DETECTION.
-        // We want the actual acceptance to be handled by the child targets (folders, RootDropZone).
+        // This parent target only detects; it doesn't accept the drop itself.
         return false;
       },
       // When the draggable leaves this area, we reset the state.
       onLeave: (data) {
-        setState(() {
-          _isDragInProgress = false;
-        });
+        if (mounted) setState(() => _isDragInProgress = false);
       },
-      // Also reset on drop, just in case `onLeave` doesn't fire (e.g., app switch).
+      // Also reset on drop, just in case `onLeave` doesn't fire.
       onAcceptWithDetails: (details) {
-        setState(() {
-          _isDragInProgress = false;
-        });
+        if (mounted) setState(() => _isDragInProgress = false);
       },
     );
   }
