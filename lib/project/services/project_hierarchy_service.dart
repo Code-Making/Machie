@@ -1,7 +1,6 @@
 // lib/project/services/project_hierarchy_service.dart
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:talker/talker.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -340,5 +339,3 @@ final directoryContentsProvider = Provider.family
       final hierarchyState = ref.watch(projectHierarchyServiceProvider);
       return hierarchyState[directoryUri];
     });
-
-

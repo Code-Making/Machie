@@ -93,31 +93,32 @@ Future<bool> showCreateFileConfirmationDialog(
 }) async {
   return await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('File Not Found'),
-          content: Text(
-            'The file "$relativePath" does not exist.\n\nWould you like to create it, along with any missing parent directories?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('File Not Found'),
+              content: Text(
+                'The file "$relativePath" does not exist.\n\nWould you like to create it, along with any missing parent directories?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Create'),
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Create'),
-            ),
-          ],
-        ),
       ) ??
       false;
 }
-
 
 // NEW: An enum to represent the user's choice in the conflict dialog.
 enum CacheConflictResolution {
   /// The user wants to apply their unsaved changes.
   loadCache,
+
   /// The user wants to discard their unsaved changes and load the latest from disk.
   loadDisk,
 }
@@ -130,34 +131,31 @@ Future<CacheConflictResolution?> showCacheConflictDialog(
   return await showDialog<CacheConflictResolution>(
     context: context,
     barrierDismissible: false, // User must make a choice.
-    builder: (ctx) => AlertDialog(
-      title: const Text('Unsaved Changes Conflict'),
-      content: Text(
-        'The file "$fileName" has been modified by another application since you last opened it.\n\n'
-        'Would you like to load your unsaved changes, or discard them and reload the file from disk?',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, CacheConflictResolution.loadDisk),
-          child: const Text('Discard & Reload'),
+    builder:
+        (ctx) => AlertDialog(
+          title: const Text('Unsaved Changes Conflict'),
+          content: Text(
+            'The file "$fileName" has been modified by another application since you last opened it.\n\n'
+            'Would you like to load your unsaved changes, or discard them and reload the file from disk?',
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  () => Navigator.pop(ctx, CacheConflictResolution.loadDisk),
+              child: const Text('Discard & Reload'),
+            ),
+            FilledButton(
+              onPressed:
+                  () => Navigator.pop(ctx, CacheConflictResolution.loadCache),
+              child: const Text('Load Unsaved Changes'),
+            ),
+          ],
         ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.pop(ctx, CacheConflictResolution.loadCache),
-          child: const Text('Load Unsaved Changes'),
-        ),
-      ],
-    ),
   );
 }
 
-
 // NEW: An enum to represent the user's choice in the unsaved changes dialog.
-enum UnsavedChangesAction {
-  save,
-  discard,
-  cancel,
-}
+enum UnsavedChangesAction { save, discard, cancel }
 
 // NEW: A dialog for handling unsaved changes.
 Future<UnsavedChangesAction?> showUnsavedChangesDialog(
@@ -169,44 +167,46 @@ Future<UnsavedChangesAction?> showUnsavedChangesDialog(
   return await showDialog<UnsavedChangesAction>(
     context: context,
     barrierDismissible: false, // User must make an explicit choice.
-    builder: (ctx) => AlertDialog(
-      title: const Text('Unsaved Changes'),
-      content: SingleChildScrollView(
-        child: ListBody(
-          children: <Widget>[
-            Text(
-              'Do you want to save the changes you made to the following ${dirtyFiles.length} file(s)?',
+    builder:
+        (ctx) => AlertDialog(
+          title: const Text('Unsaved Changes'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                  'Do you want to save the changes you made to the following ${dirtyFiles.length} file(s)?',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  constraints: const BoxConstraints(maxHeight: 150),
+                  child: SingleChildScrollView(child: Text(fileNames)),
+                ),
+                const SizedBox(height: 8),
+                const Text("Your changes will be lost if you don't save them."),
+              ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(8.0),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(4.0),
-              ),
-              constraints: const BoxConstraints(maxHeight: 150),
-              child: SingleChildScrollView(child: Text(fileNames)),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed:
+                  () => Navigator.of(ctx).pop(UnsavedChangesAction.cancel),
             ),
-            const SizedBox(height: 8),
-            const Text("Your changes will be lost if you don't save them."),
+            TextButton(
+              child: const Text('Discard'),
+              onPressed:
+                  () => Navigator.of(ctx).pop(UnsavedChangesAction.discard),
+            ),
+            FilledButton(
+              child: const Text('Save All'),
+              onPressed: () => Navigator.of(ctx).pop(UnsavedChangesAction.save),
+            ),
           ],
         ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () => Navigator.of(ctx).pop(UnsavedChangesAction.cancel),
-        ),
-        TextButton(
-          child: const Text('Discard'),
-          onPressed: () =>
-              Navigator.of(ctx).pop(UnsavedChangesAction.discard),
-        ),
-        FilledButton(
-          child: const Text('Save All'),
-          onPressed: () => Navigator.of(ctx).pop(UnsavedChangesAction.save),
-        ),
-      ],
-    ),
   );
 }

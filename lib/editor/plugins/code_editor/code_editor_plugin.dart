@@ -24,7 +24,7 @@ import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../data/dto/tab_hot_state_dto.dart'; // ADDED
+// ADDED
 import '../../../data/cache/type_adapters.dart'; // ADDED
 import '../../../data/cache/hot_state_cache_service.dart';
 import '../../../project/project_models.dart';
@@ -34,7 +34,6 @@ import '../../../editor/services/text_editing_capability.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../utils/toast.dart'; // <-- FIX: ADDED IMPORT
 import '../../../logs/logs_provider.dart'; // <-- FIX: ADDED IMPORT
-
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -79,7 +78,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   bool supportsFile(DocumentFile file) {
     final ext = file.name.split('.').lastOrNull?.toLowerCase();
     if (ext == null) return false;
-    
+
     // Check against the map of known language extensions.
     return CodeThemes.languageExtToNameMap.containsKey(ext);
   }
@@ -104,7 +103,13 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
           if (!supportsFile(item)) {
             return false;
           }
-          final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+          final activeTab =
+              ref
+                  .read(appNotifierProvider)
+                  .value
+                  ?.currentProject
+                  ?.session
+                  .currentTab;
           if (activeTab is! CodeEditorTab) {
             return false;
           }
@@ -113,7 +118,13 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         },
         // v-- THIS is the updated logic --v
         executeFor: (ref, item) async {
-          final activeTab = ref.read(appNotifierProvider).value!.currentProject!.session.currentTab!;
+          final activeTab =
+              ref
+                  .read(appNotifierProvider)
+                  .value!
+                  .currentProject!
+                  .session
+                  .currentTab!;
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
           final repo = ref.read(projectRepositoryProvider)!;
           final activeEditorState = activeTab.editorKey.currentState;
@@ -163,8 +174,8 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         },
       ),
     ];
-  } 
-  
+  }
+
   // v-- REPLACED with FileHandler-only implementation --v
   String? _calculateRelativePath({
     required String from,
@@ -174,19 +185,20 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   }) {
     try {
       final fromDirUri = fileHandler.getParentUri(from);
-      
+
       // Use getPathForDisplay to get clean, comparable path strings
       final fromPath = fileHandler.getPathForDisplay(fromDirUri);
       final toPath = fileHandler.getPathForDisplay(to);
 
-      final fromSegments = fromPath.split('/').where((s) => s.isNotEmpty).toList();
+      final fromSegments =
+          fromPath.split('/').where((s) => s.isNotEmpty).toList();
       final toSegments = toPath.split('/').where((s) => s.isNotEmpty).toList();
 
       // Find the common ancestor path
       int commonLength = 0;
       while (commonLength < fromSegments.length &&
-             commonLength < toSegments.length &&
-             fromSegments[commonLength] == toSegments[commonLength]) {
+          commonLength < toSegments.length &&
+          fromSegments[commonLength] == toSegments[commonLength]) {
         commonLength++;
       }
 
@@ -198,7 +210,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       final downPath = toSegments.sublist(commonLength);
 
       final relativePathSegments = [...upPath, ...downPath];
-      
+
       // Handle case where files are in the same directory
       if (relativePathSegments.isEmpty && toSegments.isNotEmpty) {
         return toSegments.last;
@@ -210,7 +222,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       return null;
     }
   }
-  
+
   @override
   String get hotStateDtoType => hotStateId;
 
@@ -265,13 +277,10 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
     // We must ensure the tab is the correct concrete type.
     final codeTab = tab as CodeEditorTab;
-    
+
     // The key is now accessed directly from the correctly-typed tab model.
     // No casting is needed, and the type is correct.
-    return CodeEditorMachine(
-      key: codeTab.editorKey,
-      tab: codeTab,
-    );
+    return CodeEditorMachine(key: codeTab.editorKey, tab: codeTab);
   }
 
   /// Helper to find the state of the currently active editor widget.
@@ -330,7 +339,9 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
         // Create the unified init data object.
         final initData = EditorInitData(
-          initialContent: EditorContentString(''), // No file to read, so default to empty string.
+          initialContent: EditorContentString(
+            '',
+          ), // No file to read, so default to empty string.
           hotState: cachedDto,
           baseContentHash: '',
         );
@@ -370,10 +381,16 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       sourcePlugin: id,
       execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
       canExecute: (ref) {
-        final currentTabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+        final currentTabId = ref.watch(
+          appNotifierProvider.select(
+            (s) => s.value?.currentProject?.session.currentTab?.id,
+          ),
+        );
         if (currentTabId == null) return false;
-        
-        final metadata = ref.watch(tabMetadataProvider.select((m) => m[currentTabId]));
+
+        final metadata = ref.watch(
+          tabMetadataProvider.select((m) => m[currentTabId]),
+        );
         if (metadata == null) return false;
 
         // THE FIX: The command can only execute if the tab is dirty AND it's not a virtual file.

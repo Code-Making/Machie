@@ -605,7 +605,8 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.group?.label ?? '');
-    _selectedIconName = widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
+    _selectedIconName =
+        widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
     _showLabels = widget.group?.showLabels ?? true; // <-- ADDED
   }
 

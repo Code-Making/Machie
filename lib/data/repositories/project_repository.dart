@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../file_handler/file_handler.dart';
-import '../../logs/logs_provider.dart';
 import '../dto/project_dto.dart';
 
 // ... (FileOperationEvent and related providers are unchanged) ...
@@ -59,7 +58,10 @@ abstract class ProjectRepository {
   });
   Future<void> deleteDocumentFile(ProjectDocumentFile file);
 
-  Future<ProjectDocumentFile> renameDocumentFile(ProjectDocumentFile file, String newName);
+  Future<ProjectDocumentFile> renameDocumentFile(
+    ProjectDocumentFile file,
+    String newName,
+  );
   Future<ProjectDocumentFile> copyDocumentFile(
     ProjectDocumentFile source,
     String destinationParentUri,
@@ -75,7 +77,13 @@ abstract class ProjectRepository {
   });
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
-  Future<ProjectDocumentFile> writeFile(ProjectDocumentFile file, String content);
-  Future<ProjectDocumentFile> writeFileAsBytes(ProjectDocumentFile file, Uint8List bytes);
+  Future<ProjectDocumentFile> writeFile(
+    ProjectDocumentFile file,
+    String content,
+  );
+  Future<ProjectDocumentFile> writeFileAsBytes(
+    ProjectDocumentFile file,
+    Uint8List bytes,
+  );
   Future<ProjectDocumentFile?> getFileMetadata(String uri);
 }

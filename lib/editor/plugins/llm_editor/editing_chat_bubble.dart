@@ -35,7 +35,9 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(text: widget.initialMessage.content);
+    _textController = TextEditingController(
+      text: widget.initialMessage.content,
+    );
     _contextItems = List.from(widget.initialMessage.context ?? []);
     _textController.addListener(_validate);
     _validate();
@@ -49,7 +51,8 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
   }
 
   void _validate() {
-    final canSave = _textController.text.trim().isNotEmpty || _contextItems.isNotEmpty;
+    final canSave =
+        _textController.text.trim().isNotEmpty || _contextItems.isNotEmpty;
     if (canSave != _canSave) {
       setState(() {
         _canSave = canSave;
@@ -65,14 +68,18 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
 
     final files = await showDialog<List<DocumentFile>>(
       context: context,
-      builder: (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
+      builder:
+          (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
     );
 
     if (files != null && files.isNotEmpty) {
       for (final file in files) {
         if (_contextItems.any((item) => item.source == file.name)) continue;
         final content = await repo.readFile(file.uri);
-        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+        final relativePath = repo.fileHandler.getPathForDisplay(
+          file.uri,
+          relativeTo: project.rootUri,
+        );
         _contextItems.add(ContextItem(source: relativePath, content: content));
       }
       setState(() {
@@ -105,10 +112,22 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
           // Context editing UI
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.attachment), onPressed: _addContext, tooltip: 'Add File Context'),
-              IconButton(icon: const Icon(Icons.clear_all), onPressed: () => setState(() { _contextItems.clear(); _validate(); }), tooltip: 'Clear Context'),
+              IconButton(
+                icon: const Icon(Icons.attachment),
+                onPressed: _addContext,
+                tooltip: 'Add File Context',
+              ),
+              IconButton(
+                icon: const Icon(Icons.clear_all),
+                onPressed:
+                    () => setState(() {
+                      _contextItems.clear();
+                      _validate();
+                    }),
+                tooltip: 'Clear Context',
+              ),
               const Spacer(),
-              Text('Editing...', style: theme.textTheme.labelSmall)
+              Text('Editing...', style: theme.textTheme.labelSmall),
             ],
           ),
           if (_contextItems.isNotEmpty)
@@ -120,10 +139,19 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: _contextItems.map((item) => ContextItemCard(
-                      item: item,
-                      onRemove: () => setState(() { _contextItems.remove(item); _validate(); }),
-                    )).toList(),
+                    children:
+                        _contextItems
+                            .map(
+                              (item) => ContextItemCard(
+                                item: item,
+                                onRemove:
+                                    () => setState(() {
+                                      _contextItems.remove(item);
+                                      _validate();
+                                    }),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ),
@@ -146,15 +174,24 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(onPressed: widget.onCancel, child: const Text('Cancel')),
+              TextButton(
+                onPressed: widget.onCancel,
+                child: const Text('Cancel'),
+              ),
               const SizedBox(width: 8),
               TextButton(
-                onPressed: _canSave ? () => widget.onSave(_createUpdatedMessage()) : null,
+                onPressed:
+                    _canSave
+                        ? () => widget.onSave(_createUpdatedMessage())
+                        : null,
                 child: const Text('Save'),
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: _canSave ? () => widget.onSaveAndRerun(_createUpdatedMessage()) : null,
+                onPressed:
+                    _canSave
+                        ? () => widget.onSaveAndRerun(_createUpdatedMessage())
+                        : null,
                 child: const Text('Save & Rerun'),
               ),
             ],

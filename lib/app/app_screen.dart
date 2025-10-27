@@ -137,14 +137,15 @@ class _AppScreenState extends ConsumerState<AppScreen> {
       // UPDATED: The complex logic is replaced by the new, self-contained widget.
       // This is only rebuilt when high-level state like isFullScreen changes,
       // not when the command context's appBarOverride changes.
-      appBar: (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
-          ? _AppScreenAppBar(
-              scaffoldKey: _scaffoldKey,
-              currentPlugin: currentPlugin,
-              appBarTitle: appBarTitle,
-              height: toolbarHeight,
-            )
-          : null,
+      appBar:
+          (!isFullScreen || !generalSettings.hideAppBarInFullScreen)
+              ? _AppScreenAppBar(
+                scaffoldKey: _scaffoldKey,
+                currentPlugin: currentPlugin,
+                appBarTitle: appBarTitle,
+                height: toolbarHeight,
+              )
+              : null,
       drawer: const ExplorerHostDrawer(),
       body: Column(
         children: [

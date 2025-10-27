@@ -23,9 +23,10 @@ class CodeFindAppBar extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final String result = (value.result == null || value.result!.matches.isEmpty)
-            ? 'No results'
-            : '${value.result!.index + 1}/${value.result!.matches.length}';
+        final String result =
+            (value.result == null || value.result!.matches.isEmpty)
+                ? 'No results'
+                : '${value.result!.index + 1}/${value.result!.matches.length}';
 
         return Material(
           elevation: 4.0,
@@ -42,14 +43,20 @@ class CodeFindAppBar extends StatelessWidget {
                     onPressed: controller.close,
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.scaffoldBackgroundColor.withOpacity(0.8),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       result,
-                      style: TextStyle(fontSize: _kDefaultFindResultFontSize, color: theme.textTheme.bodySmall?.color),
+                      style: TextStyle(
+                        fontSize: _kDefaultFindResultFontSize,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
                     ),
                   ),
                   const Spacer(), // Pushes the navigation buttons to the right
@@ -57,12 +64,14 @@ class CodeFindAppBar extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.arrow_upward),
                     tooltip: 'Previous Match',
-                    onPressed: value.result == null ? null : controller.previousMatch,
+                    onPressed:
+                        value.result == null ? null : controller.previousMatch,
                   ),
                   IconButton(
                     icon: const Icon(Icons.arrow_downward),
                     tooltip: 'Next Match',
-                    onPressed: value.result == null ? null : controller.nextMatch,
+                    onPressed:
+                        value.result == null ? null : controller.nextMatch,
                   ),
                 ],
               ),
@@ -73,8 +82,6 @@ class CodeFindAppBar extends StatelessWidget {
     );
   }
 }
-
-
 
 // --- Constants are unchanged ---
 const EdgeInsetsGeometry _kDefaultFindMargin = EdgeInsets.only(right: 10);
@@ -163,14 +170,14 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
             ),
             // 1. The main container is now a Stack.
             child: Material(
-                  elevation: 4,
-                  child: Column(
-                    children: [
-                      _buildFindInputView(context, value),
-                      if (value.replaceMode) _buildReplaceInputView(context, value),
-                    ],
-                  ),
-                ),
+              elevation: 4,
+              child: Column(
+                children: [
+                  _buildFindInputView(context, value),
+                  if (value.replaceMode) _buildReplaceInputView(context, value),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -179,9 +186,10 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
 
   // ### THIS IS THE REFACTORED METHOD ###
   Widget _buildFindInputView(BuildContext context, CodeFindValue value) {
-    final String result = (value.result == null || value.result!.matches.isEmpty)
-        ? 'No results'
-        : '${value.result!.index + 1}/${value.result!.matches.length}';
+    final String result =
+        (value.result == null || value.result!.matches.isEmpty)
+            ? 'No results'
+            : '${value.result!.index + 1}/${value.result!.matches.length}';
 
     return SizedBox(
       height: _kDefaultFindPanelHeight,
@@ -193,9 +201,14 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
               child: TextField(
                 maxLines: 1,
                 focusNode: controller.findInputFocusNode,
-                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                style: TextStyle(
+                  color: inputTextColor,
+                  fontSize: inputFontSize,
+                ),
                 decoration: decoration.copyWith(
-                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                  contentPadding:
+                      (decoration.contentPadding ?? EdgeInsets.zero)
+                          as EdgeInsets,
                   // The suffixIcon contains all our controls
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -213,7 +226,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                         checked: value.option.regex,
                         onPressed: () {
                           if (value.option.regex) {
-                            if (value.option.multiLine) controller.toggleMultiLine();
+                            if (value.option.multiLine)
+                              controller.toggleMultiLine();
                             if (value.option.dotAll) controller.toggleDotAll();
                           }
                           controller.toggleRegex();
@@ -224,8 +238,18 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(width: 4),
-                            _buildCheckText(context: context, text: 'm', checked: value.option.multiLine, onPressed: controller.toggleMultiLine),
-                            _buildCheckText(context: context, text: 's', checked: value.option.dotAll, onPressed: controller.toggleDotAll),
+                            _buildCheckText(
+                              context: context,
+                              text: 'm',
+                              checked: value.option.multiLine,
+                              onPressed: controller.toggleMultiLine,
+                            ),
+                            _buildCheckText(
+                              context: context,
+                              text: 's',
+                              checked: value.option.dotAll,
+                              onPressed: controller.toggleDotAll,
+                            ),
                           ],
                         ),
                     ],
@@ -247,21 +271,40 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           Expanded(
-             child: Padding(
+            child: Padding(
               padding: padding,
               child: TextField(
                 maxLines: 1,
                 focusNode: controller.replaceInputFocusNode,
-                style: TextStyle(color: inputTextColor, fontSize: inputFontSize),
+                style: TextStyle(
+                  color: inputTextColor,
+                  fontSize: inputFontSize,
+                ),
                 decoration: decoration.copyWith(
-                  contentPadding: (decoration.contentPadding ?? EdgeInsets.zero) as EdgeInsets,
+                  contentPadding:
+                      (decoration.contentPadding ?? EdgeInsets.zero)
+                          as EdgeInsets,
                 ),
                 controller: controller.replaceInputController,
               ),
             ),
           ),
-          _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceMatch, icon: Icons.done, tooltip: 'Replace'),
-          _buildIconButton(onPressed: value.result == null || readOnly ? null : controller.replaceAllMatches, icon: Icons.done_all, tooltip: 'Replace All'),
+          _buildIconButton(
+            onPressed:
+                value.result == null || readOnly
+                    ? null
+                    : controller.replaceMatch,
+            icon: Icons.done,
+            tooltip: 'Replace',
+          ),
+          _buildIconButton(
+            onPressed:
+                value.result == null || readOnly
+                    ? null
+                    : controller.replaceAllMatches,
+            icon: Icons.done_all,
+            tooltip: 'Replace All',
+          ),
         ],
       ),
     );
@@ -288,7 +331,7 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
-  
+
   // ... _buildCheckText and _buildIconButton are unchanged ...
   Widget _buildCheckText({
     required BuildContext context,
@@ -302,7 +345,8 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
         cursor: SystemMouseCursors.click,
         child: SizedBox(
           width: _kDefaultFindIconWidth * 0.75,
-          child: Tooltip( // Added Tooltip for clarity
+          child: Tooltip(
+            // Added Tooltip for clarity
             message: text == 'm' ? 'Multiline' : (text == 's' ? 'Dot All' : ''),
             child: Text(
               text,

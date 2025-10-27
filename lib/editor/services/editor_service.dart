@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
@@ -10,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../data/file_handler/file_handler.dart' show DocumentFile, ProjectDocumentFile;
+import '../../data/file_handler/file_handler.dart'
+    show DocumentFile, ProjectDocumentFile;
 import '../../data/dto/project_dto.dart';
-import '../../data/dto/tab_hot_state_dto.dart';
 import '../../data/cache/hot_state_cache_service.dart';
 import '../../explorer/common/save_as_dialog.dart';
 import '../../explorer/common/file_explorer_dialogs.dart';
@@ -45,10 +44,9 @@ class EditorService {
     }
     return repo;
   }
-  
-  FileContentProviderRegistry get _contentProviderRegistry =>
-    _ref.read(fileContentProviderRegistryProvider);
 
+  FileContentProviderRegistry get _contentProviderRegistry =>
+      _ref.read(fileContentProviderRegistryProvider);
 
   Future<TabSessionState> rehydrateTabSession(
     ProjectDto dto,
@@ -73,8 +71,9 @@ class EditorService {
       if (plugin == null) continue;
 
       try {
-        final file =
-            await _contentProviderRegistry.rehydrateFileFromDto(persistedMetadata);
+        final file = await _contentProviderRegistry.rehydrateFileFromDto(
+          persistedMetadata,
+        );
 
         if (file == null) continue;
 
@@ -86,8 +85,10 @@ class EditorService {
         );
         final currentDiskHash = currentContentResult.baseContentHash;
 
-        TabHotStateDto? cachedDto =
-            await hotStateCacheService.getTabState(projectMetadata.id, tabId);
+        TabHotStateDto? cachedDto = await hotStateCacheService.getTabState(
+          projectMetadata.id,
+          tabId,
+        );
 
         if (cachedDto != null && cachedDto.baseContentHash != currentDiskHash) {
           talker.warning(
@@ -103,7 +104,10 @@ class EditorService {
             );
             if (resolution == CacheConflictResolution.loadDisk) {
               talker.info('User chose to discard cache for ${file.name}.');
-              await hotStateCacheService.clearTabState(projectMetadata.id, tabId);
+              await hotStateCacheService.clearTabState(
+                projectMetadata.id,
+                tabId,
+              );
               cachedDto = null;
             }
           }
@@ -120,7 +124,9 @@ class EditorService {
         metadataNotifier.initTab(newTab.id, file);
         rehydratedTabs.add(newTab);
       } catch (e, st) {
-        _ref.read(talkerProvider).handle(
+        _ref
+            .read(talkerProvider)
+            .handle(
               e,
               st,
               'Could not restore tab for ${persistedMetadata.fileUri}',
@@ -133,8 +139,6 @@ class EditorService {
       currentTabIndex: dto.session.currentTabIndex,
     );
   }
-
-
 
   Future<void> updateAndCacheDirtyTab(Project project, EditorTab tab) async {
     final hotStateCacheService = _ref.read(hotStateCacheServiceProvider);
@@ -206,23 +210,27 @@ class EditorService {
       );
       if (result == null) return;
 
-      final ProjectDocumentFile newFile = (editorContent is EditorContentString)
-          ? await _repo.createDocumentFile(
-              result.parentUri,
-              result.fileName,
-              initialContent: editorContent.content,
-              overwrite: true,
-            )
-          : await _repo.createDocumentFile(
-              result.parentUri,
-              result.fileName,
-              initialBytes: (editorContent as EditorContentBytes).bytes,
-              overwrite: true,
-            );
+      final ProjectDocumentFile newFile =
+          (editorContent is EditorContentString)
+              ? await _repo.createDocumentFile(
+                result.parentUri,
+                result.fileName,
+                initialContent: editorContent.content,
+                overwrite: true,
+              )
+              : await _repo.createDocumentFile(
+                result.parentUri,
+                result.fileName,
+                initialBytes: (editorContent as EditorContentBytes).bytes,
+                overwrite: true,
+              );
 
-      final newHash = (editorContent is EditorContentString)
-          ? md5.convert(utf8.encode(editorContent.content)).toString()
-          : md5.convert((editorContent as EditorContentBytes).bytes).toString();
+      final newHash =
+          (editorContent is EditorContentString)
+              ? md5.convert(utf8.encode(editorContent.content)).toString()
+              : md5
+                  .convert((editorContent as EditorContentBytes).bytes)
+                  .toString();
 
       _ref.read(tabMetadataProvider.notifier).updateFile(tab.id, newFile);
       _ref.read(tabMetadataProvider.notifier).markClean(tab.id);
@@ -246,7 +254,7 @@ class EditorService {
     if (oldTab != null) oldTab.plugin.deactivateTab(oldTab, _ref);
     if (newTab != null) newTab.plugin.activateTab(newTab, _ref);
   }
-  
+
   /// Opens a file from a relative path within the current project.
   /// If the file does not exist, it prompts the user to create it.
   /// Returns `true` if a tab was successfully opened or created.
@@ -256,14 +264,20 @@ class EditorService {
     if (context == null || !context.mounted) return false;
 
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    ProjectDocumentFile? file =
-        await fileHandler.resolvePath(projectRootUri, sanitizedPath);
+    ProjectDocumentFile? file = await fileHandler.resolvePath(
+      projectRootUri,
+      sanitizedPath,
+    );
 
     if (file != null) {
-      return await _ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+      return await _ref
+          .read(appNotifierProvider.notifier)
+          .openFileInEditor(file);
     } else {
-      final shouldCreate = await showCreateFileConfirmationDialog(context,
-          relativePath: sanitizedPath);
+      final shouldCreate = await showCreateFileConfirmationDialog(
+        context,
+        relativePath: sanitizedPath,
+      );
       if (shouldCreate) {
         try {
           final newFile = await _ref
@@ -273,16 +287,21 @@ class EditorService {
               .read(appNotifierProvider.notifier)
               .openFileInEditor(newFile);
         } catch (e, st) {
-          _ref.read(talkerProvider).handle(
-              e, st, 'Failed to create file at path: $sanitizedPath');
+          _ref
+              .read(talkerProvider)
+              .handle(e, st, 'Failed to create file at path: $sanitizedPath');
           MachineToast.error("Could not create file: $e");
         }
       }
     }
     return false;
   }
-    
-  Future<bool> openAndApplyEdit(String projectRootUri, String relativePath, TextEdit edit) async {
+
+  Future<bool> openAndApplyEdit(
+    String projectRootUri,
+    String relativePath,
+    TextEdit edit,
+  ) async {
     final fileHandler = _repo.fileHandler;
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
     final file = await fileHandler.resolvePath(projectRootUri, sanitizedPath);
@@ -295,19 +314,25 @@ class EditorService {
     final appNotifier = _ref.read(appNotifierProvider.notifier);
     final project = _ref.read(appNotifierProvider).value?.currentProject;
     final metadataMap = _ref.read(tabMetadataProvider);
-    final existingTabId = metadataMap.entries
-        .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
-        ?.key;
-    EditorTab? tabToEdit = (project != null && existingTabId != null)
-        ? project.session.tabs.firstWhereOrNull((t) => t.id == existingTabId)
-        : null;
+    final existingTabId =
+        metadataMap.entries
+            .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
+            ?.key;
+    EditorTab? tabToEdit =
+        (project != null && existingTabId != null)
+            ? project.session.tabs.firstWhereOrNull(
+              (t) => t.id == existingTabId,
+            )
+            : null;
 
     try {
       final EditorWidgetState editorState;
       if (tabToEdit == null) {
         final onReadyCompleter = Completer<EditorWidgetState>();
-        if (!await appNotifier.openFileInEditor(file,
-            onReadyCompleter: onReadyCompleter)) {
+        if (!await appNotifier.openFileInEditor(
+          file,
+          onReadyCompleter: onReadyCompleter,
+        )) {
           return false;
         }
         editorState = await onReadyCompleter.future;
@@ -319,10 +344,13 @@ class EditorService {
       _applyEditToState(editorState, edit);
       return true;
     } catch (e, st) {
-      final errorMessage = e is TypeError
-          ? "Editor does not support programmatic edits."
-          : "Failed to apply edit: $e";
-      _ref.read(talkerProvider).handle(e, st, 'Error applying programmatic edit');
+      final errorMessage =
+          e is TypeError
+              ? "Editor does not support programmatic edits."
+              : "Failed to apply edit: $e";
+      _ref
+          .read(talkerProvider)
+          .handle(e, st, 'Error applying programmatic edit');
       MachineToast.error(errorMessage);
       return false;
     }
@@ -333,7 +361,11 @@ class EditorService {
     final editableState = state as TextEditable;
     switch (edit) {
       case ReplaceLinesEdit():
-        editableState.replaceLines(edit.startLine, edit.endLine, edit.newContent);
+        editableState.replaceLines(
+          edit.startLine,
+          edit.endLine,
+          edit.newContent,
+        );
         break;
       case ReplaceAllOccurrencesEdit():
         editableState.replaceAllOccurrences(edit.find, edit.replace);
@@ -348,12 +380,14 @@ class EditorService {
     Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
     final metadataMap = _ref.read(tabMetadataProvider);
-    final existingTabId = metadataMap.entries
-        .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
-        ?.key;
+    final existingTabId =
+        metadataMap.entries
+            .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
+            ?.key;
     if (existingTabId != null) {
-      final existingIndex =
-          project.session.tabs.indexWhere((t) => t.id == existingTabId);
+      final existingIndex = project.session.tabs.indexWhere(
+        (t) => t.id == existingTabId,
+      );
       if (existingIndex != -1) {
         return OpenFileSuccess(
           project: switchTab(project, existingIndex),
@@ -374,31 +408,44 @@ class EditorService {
 
       if (explicitPlugin != null) {
         final contentResult = await contentProvider.getContent(
-            file, explicitPlugin.dataRequirement);
+          file,
+          explicitPlugin.dataRequirement,
+        );
         if (contentResult.content is EditorContentString &&
             !explicitPlugin.canOpenFileContent(
-                (contentResult.content as EditorContentString).content, file)) {
+              (contentResult.content as EditorContentString).content,
+              file,
+            )) {
           return OpenFileError(
-              "${explicitPlugin.name} cannot open this file's content.");
+            "${explicitPlugin.name} cannot open this file's content.",
+          );
         }
         final initData = EditorInitData(
           initialContent: contentResult.content,
           baseContentHash: contentResult.baseContentHash,
         );
-        final newTab = await explicitPlugin.createTab(file, initData,
-            onReadyCompleter: onReadyCompleter);
+        final newTab = await explicitPlugin.createTab(
+          file,
+          initData,
+          onReadyCompleter: onReadyCompleter,
+        );
         return _constructOpenFileSuccess(project, newTab, file);
       } else {
         if (compatiblePlugins.length > 1) {
           final contentResult = await contentProvider.getContent(
-              file, PluginDataRequirement.string);
+            file,
+            PluginDataRequirement.string,
+          );
           final fileContent =
               (contentResult.content as EditorContentString).content;
-          final contentMatchingPlugins = compatiblePlugins
-              .where((p) =>
-                  p.dataRequirement == PluginDataRequirement.string &&
-                  p.canOpenFileContent(fileContent, file))
-              .toList();
+          final contentMatchingPlugins =
+              compatiblePlugins
+                  .where(
+                    (p) =>
+                        p.dataRequirement == PluginDataRequirement.string &&
+                        p.canOpenFileContent(fileContent, file),
+                  )
+                  .toList();
           if (contentMatchingPlugins.length > 1) {
             return OpenFileShowChooser(contentMatchingPlugins);
           }
@@ -406,11 +453,14 @@ class EditorService {
 
         EditorPlugin? chosenPlugin;
         final highestPriorityPlugin = compatiblePlugins.first;
-        if (highestPriorityPlugin.dataRequirement == PluginDataRequirement.bytes) {
+        if (highestPriorityPlugin.dataRequirement ==
+            PluginDataRequirement.bytes) {
           chosenPlugin = highestPriorityPlugin;
         } else {
           final contentResult = await contentProvider.getContent(
-              file, PluginDataRequirement.string);
+            file,
+            PluginDataRequirement.string,
+          );
           final fileContent =
               (contentResult.content as EditorContentString).content;
           chosenPlugin = compatiblePlugins.firstWhereOrNull(
@@ -423,13 +473,18 @@ class EditorService {
         chosenPlugin ??= compatiblePlugins.first;
 
         final finalContentResult = await contentProvider.getContent(
-            file, chosenPlugin.dataRequirement);
+          file,
+          chosenPlugin.dataRequirement,
+        );
         final initData = EditorInitData(
           initialContent: finalContentResult.content,
           baseContentHash: finalContentResult.baseContentHash,
         );
-        final newTab = await chosenPlugin.createTab(file, initData,
-            onReadyCompleter: onReadyCompleter);
+        final newTab = await chosenPlugin.createTab(
+          file,
+          initData,
+          onReadyCompleter: onReadyCompleter,
+        );
         return _constructOpenFileSuccess(project, newTab, file);
       }
     } catch (e, st) {
@@ -457,7 +512,6 @@ class EditorService {
       wasAlreadyOpen: false,
     );
   }
-
 
   Future<void> saveTab(Project project, EditorTab tabToSave) async {
     final editorState = tabToSave.editorKey.currentState;

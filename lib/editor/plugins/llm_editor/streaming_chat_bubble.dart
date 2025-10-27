@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,7 +11,8 @@ class StreamingChatBubble extends ConsumerStatefulWidget {
   const StreamingChatBubble({super.key, required this.content});
 
   @override
-  ConsumerState<StreamingChatBubble> createState() => _StreamingChatBubbleState();
+  ConsumerState<StreamingChatBubble> createState() =>
+      _StreamingChatBubbleState();
 }
 
 class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
@@ -46,11 +46,13 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final codeEditorSettings = ref.watch(
-      settingsProvider.select(
-        (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-      ),
-    ) ?? CodeEditorSettings();
+    final codeEditorSettings =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
 
     // Use a simple, non-highlighted style for code blocks during streaming.
     final codeTextStyle = TextStyle(
@@ -81,7 +83,9 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
               children: [
                 Text(
                   "Assistant",
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 // Placeholder for layout consistency, no actions needed.
@@ -113,14 +117,23 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
 
   // A lightweight text-to-span converter that just styles code blocks differently.
   // This is extremely fast compared to a full markdown parser.
-  List<TextSpan> _buildStreamingSpans(String text, TextStyle style, TextStyle codeStyle) {
+  List<TextSpan> _buildStreamingSpans(
+    String text,
+    TextStyle style,
+    TextStyle codeStyle,
+  ) {
     final List<TextSpan> spans = [];
     final codeBlockRegex = RegExp(r'```[\s\S]*?```');
     int lastMatchEnd = 0;
 
     for (final match in codeBlockRegex.allMatches(text)) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start), style: style));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: style,
+          ),
+        );
       }
       spans.add(TextSpan(text: match.group(0), style: codeStyle));
       lastMatchEnd = match.end;

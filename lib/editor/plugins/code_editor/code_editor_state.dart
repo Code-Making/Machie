@@ -4,7 +4,6 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart';
 import '../../services/text_editing_capability.dart';
 
 @immutable
@@ -26,17 +25,12 @@ class CodeEditorCommandContext extends TextEditableCommandContext {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is CodeEditorCommandContext &&
-           other.canUndo == canUndo &&
-           other.canRedo == canRedo &&
-           other.hasMark == hasMark &&
-           super == other;
+        other.canUndo == canUndo &&
+        other.canRedo == canRedo &&
+        other.hasMark == hasMark &&
+        super == other;
   }
 
   @override
-  int get hashCode => Object.hash(
-        super.hashCode,
-        canUndo,
-        canRedo,
-        hasMark,
-      );
+  int get hashCode => Object.hash(super.hashCode, canUndo, canRedo, hasMark);
 }

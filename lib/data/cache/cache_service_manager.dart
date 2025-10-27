@@ -1,7 +1,6 @@
 // lib/data/cache/cache_service_manager.dart
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../logs/logs_provider.dart';
 import 'hot_state_task_handler.dart';
@@ -17,30 +16,31 @@ class CacheServiceManager {
 
   /// Initializes the foreground task plugin. Must be called once before runApp.
   static void Init() {
-  FlutterForegroundTask.initCommunicationPort();
-  FlutterForegroundTask.init(
-    androidNotificationOptions: AndroidNotificationOptions(
-      channelId: 'machine_hot_state_service',
-      channelName: 'Machine Hot State Service',
-      channelDescription: 'This notification keeps the unsaved file cache alive.',
-      channelImportance: NotificationChannelImportance.LOW,
-      priority: NotificationPriority.LOW,
-      // The icon is NOT set here. It's set in startService.
-      onlyAlertOnce: true,
-    ),
-    iosNotificationOptions: const IOSNotificationOptions(
-      showNotification: true,
-      playSound: false,
-    ),
-    foregroundTaskOptions: ForegroundTaskOptions(
-      // CORRECTED: There is no `.manual()` action. To create an event-driven
-      // task that doesn't run on a timer, we use `.repeat()` with a very
-      // large interval. This effectively makes it wait for manual triggers.
-      eventAction: ForegroundTaskEventAction.repeat(99999999),
-      autoRunOnBoot: false,
-      allowWifiLock: true,
-    ),
-  );
+    FlutterForegroundTask.initCommunicationPort();
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'machine_hot_state_service',
+        channelName: 'Machine Hot State Service',
+        channelDescription:
+            'This notification keeps the unsaved file cache alive.',
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
+        // The icon is NOT set here. It's set in startService.
+        onlyAlertOnce: true,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: true,
+        playSound: false,
+      ),
+      foregroundTaskOptions: ForegroundTaskOptions(
+        // CORRECTED: There is no `.manual()` action. To create an event-driven
+        // task that doesn't run on a timer, we use `.repeat()` with a very
+        // large interval. This effectively makes it wait for manual triggers.
+        eventAction: ForegroundTaskEventAction.repeat(99999999),
+        autoRunOnBoot: false,
+        allowWifiLock: true,
+      ),
+    );
   }
 
   /// Starts the foreground service.
@@ -127,9 +127,7 @@ class CacheServiceManager {
       'projectId': projectId,
       'tabId': tabId,
     });
-    _talker.info(
-      "[CacheServiceManager] Sent clear command for tab $tabId.",
-    );
+    _talker.info("[CacheServiceManager] Sent clear command for tab $tabId.");
   }
   // ----------------------------
 

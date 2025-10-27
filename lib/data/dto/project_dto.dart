@@ -10,9 +10,9 @@ class TabMetadataDto {
   final String fileUri;
   final bool isDirty;
   // Store the name for reconstruction of virtual files.
-  final String fileName; 
+  final String fileName;
   // Explicitly store the type identifier for rehydration.
-  final String fileType; 
+  final String fileType;
 
   const TabMetadataDto({
     required this.fileUri,
@@ -27,16 +27,16 @@ class TabMetadataDto {
       isDirty: json['isDirty'] ?? false,
       fileName: json['fileName'] ?? '',
       // Default to a project file for backward compatibility with old data.
-      fileType: json['fileType'] ?? 'project', 
+      fileType: json['fileType'] ?? 'project',
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'fileUri': fileUri,
-        'isDirty': isDirty,
-        'fileName': fileName,
-        'fileType': fileType,
-      };
+    'fileUri': fileUri,
+    'isDirty': isDirty,
+    'fileName': fileName,
+    'fileType': fileType,
+  };
 }
 
 // DTO for an EditorTab instance

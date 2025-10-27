@@ -219,7 +219,7 @@ class CodeThemes {
     'tex': 'latex',
     'gitignore': 'plaintext',
     'txt': 'plaintext',
-    'properties' : 'properties',
+    'properties': 'properties',
   };
 
   static String inferLanguageKey(String uri) {

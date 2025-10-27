@@ -14,7 +14,6 @@ import 'package:machine/utils/toast.dart';
 // NEW IMPORT for split files
 import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
 
-
 class ContextItemViewChip extends StatelessWidget {
   final ContextItem item;
   const ContextItemViewChip({required this.item});
@@ -27,21 +26,25 @@ class ContextItemViewChip extends StatelessWidget {
       onPressed: () {
         showDialog(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(item.source),
-            content: ContextPreviewContent(item: item),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.copy),
-                tooltip: 'Copy Content',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: item.content));
-                  MachineToast.info('Context content copied.');
-                },
+          builder:
+              (ctx) => AlertDialog(
+                title: Text(item.source),
+                content: ContextPreviewContent(item: item),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    tooltip: 'Copy Content',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: item.content));
+                      MachineToast.info('Context content copied.');
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
               ),
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
-            ],
-          ),
         );
       },
     );
@@ -63,21 +66,25 @@ class ContextItemCard extends StatelessWidget {
       onPressed: () {
         showDialog(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(item.source),
-            content: ContextPreviewContent(item: item),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.copy),
-                tooltip: 'Copy Content',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: item.content));
-                  MachineToast.info('Context content copied.');
-                },
+          builder:
+              (ctx) => AlertDialog(
+                title: Text(item.source),
+                content: ContextPreviewContent(item: item),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    tooltip: 'Copy Content',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: item.content));
+                      MachineToast.info('Context content copied.');
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
               ),
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
-            ],
-          ),
         );
       },
     );
@@ -89,7 +96,8 @@ class ContextPreviewContent extends ConsumerStatefulWidget {
   const ContextPreviewContent({required this.item});
 
   @override
-  ConsumerState<ContextPreviewContent> createState() => _ContextPreviewContentState();
+  ConsumerState<ContextPreviewContent> createState() =>
+      _ContextPreviewContentState();
 }
 
 class _ContextPreviewContentState extends ConsumerState<ContextPreviewContent> {
@@ -103,22 +111,30 @@ class _ContextPreviewContentState extends ConsumerState<ContextPreviewContent> {
   }
 
   void _highlightCode() {
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
+    final settings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
 
-    final theme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
-    final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: settings.fontSize - 2);
+    final theme =
+        CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
+    final textStyle = TextStyle(
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize - 2,
+    );
 
     final languageKey = CodeThemes.inferLanguageKey(widget.item.source);
-    
+
     final result = LlmHighlightUtil.highlight.highlight(
       code: widget.item.content,
       language: languageKey,
     );
     final renderer = TextSpanRenderer(textStyle, theme);
     result.render(renderer);
-    
+
     if (mounted) {
       setState(() {
         _highlightedCode = renderer.span;
@@ -133,14 +149,17 @@ class _ContextPreviewContentState extends ConsumerState<ContextPreviewContent> {
       height: 400,
       child: Container(
         padding: const EdgeInsets.all(8),
-        color: _highlightedCode?.style?.backgroundColor ?? Theme.of(context).colorScheme.surface,
+        color:
+            _highlightedCode?.style?.backgroundColor ??
+            Theme.of(context).colorScheme.surface,
         child: SingleChildScrollView(
-          child: _highlightedCode == null
-              ? SelectableText(widget.item.content)
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SelectableText.rich(_highlightedCode!),
-                ),
+          child:
+              _highlightedCode == null
+                  ? SelectableText(widget.item.content)
+                  : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SelectableText.rich(_highlightedCode!),
+                  ),
         ),
       ),
     );

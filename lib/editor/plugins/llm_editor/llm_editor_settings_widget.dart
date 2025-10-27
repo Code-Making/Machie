@@ -40,7 +40,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     _apiKeyController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _fetchModels() async {
     if (!mounted) return;
     setState(() {
@@ -52,13 +52,19 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     final models = await provider.listModels();
 
     if (!mounted) return;
-    
+
     // Auto-select the first model if the current selection is invalid
     final currentModel = _currentSettings.selectedModels[provider.id];
-    if (models.isNotEmpty && (currentModel == null || !models.contains(currentModel))) {
-      final newModels = Map<String, LlmModelInfo?>.from(_currentSettings.selectedModels);
+    if (models.isNotEmpty &&
+        (currentModel == null || !models.contains(currentModel))) {
+      final newModels = Map<String, LlmModelInfo?>.from(
+        _currentSettings.selectedModels,
+      );
       newModels[provider.id] = models.first;
-      _updateSettings(_currentSettings.copyWith(selectedModels: newModels), triggerModelFetch: false);
+      _updateSettings(
+        _currentSettings.copyWith(selectedModels: newModels),
+        triggerModelFetch: false,
+      );
     }
 
     setState(() {
@@ -67,7 +73,10 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     });
   }
 
-  void _updateSettings(LlmEditorSettings newSettings, {bool triggerModelFetch = true}) {
+  void _updateSettings(
+    LlmEditorSettings newSettings, {
+    bool triggerModelFetch = true,
+  }) {
     setState(() => _currentSettings = newSettings);
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
     if (triggerModelFetch) {
@@ -83,30 +92,34 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     final selectedProvider = allLlmProviders.firstWhereOrNull(
       (p) => p.id == _currentSettings.selectedProviderId,
     );
-    
+
     // Find the full model info object for the selected model
-    final LlmModelInfo? selectedModelInfo = _currentSettings.selectedModels[_currentSettings.selectedProviderId];
+    final LlmModelInfo? selectedModelInfo =
+        _currentSettings.selectedModels[_currentSettings.selectedProviderId];
 
     return Column(
       children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'LLM Provider'),
           value: _currentSettings.selectedProviderId,
-          items: allLlmProviders
-              .map(
-                (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
-              )
-              .toList(),
+          items:
+              allLlmProviders
+                  .map(
+                    (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
+                  )
+                  .toList(),
           onChanged: (value) {
             if (value != null) {
-              final newSettings = _currentSettings.copyWith(selectedProviderId: value);
+              final newSettings = _currentSettings.copyWith(
+                selectedProviderId: value,
+              );
               _updateSettings(newSettings); // This will trigger a fetch
               _apiKeyController.text = newSettings.apiKeys[value] ?? '';
             }
           },
         ),
         const SizedBox(height: 16),
-        
+
         if (_isLoadingModels)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -116,30 +129,43 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
           DropdownButtonFormField<LlmModelInfo>(
             decoration: const InputDecoration(labelText: 'Model'),
             value: selectedModelInfo,
-            items: _availableModels
-                .map((m) => DropdownMenuItem(value: m, child: Text(m.displayName)))
-                .toList(),
+            items:
+                _availableModels
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(m.displayName),
+                      ),
+                    )
+                    .toList(),
             onChanged: (value) {
               if (value != null) {
-                final newModels = Map<String, LlmModelInfo?>.from(_currentSettings.selectedModels);
+                final newModels = Map<String, LlmModelInfo?>.from(
+                  _currentSettings.selectedModels,
+                );
                 newModels[_currentSettings.selectedProviderId] = value;
-                _updateSettings(_currentSettings.copyWith(selectedModels: newModels), triggerModelFetch: false);
+                _updateSettings(
+                  _currentSettings.copyWith(selectedModels: newModels),
+                  triggerModelFetch: false,
+                );
               }
             },
           )
         else
-           ListTile(
+          ListTile(
             leading: Icon(Icons.warning_amber_rounded, color: Colors.orange),
             title: Text('No compatible models found.'),
             subtitle: Text('Check your API key or network connection.'),
           ),
-        
+
         if (selectedModelInfo != null)
           ListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
             title: const Text('Token Limits'),
-            subtitle: Text('Input: ${selectedModelInfo.inputTokenLimit}, Output: ${selectedModelInfo.outputTokenLimit}'),
+            subtitle: Text(
+              'Input: ${selectedModelInfo.inputTokenLimit}, Output: ${selectedModelInfo.outputTokenLimit}',
+            ),
           ),
 
         const SizedBox(height: 16),
@@ -149,15 +175,20 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
             decoration: const InputDecoration(labelText: 'API Key'),
             obscureText: true,
             onChanged: (value) {
-              final newApiKeys = Map<String, String>.from(_currentSettings.apiKeys);
+              final newApiKeys = Map<String, String>.from(
+                _currentSettings.apiKeys,
+              );
               newApiKeys[_currentSettings.selectedProviderId] = value;
               // No need to fetch models again, just update the key
-              _updateSettings(_currentSettings.copyWith(apiKeys: newApiKeys), triggerModelFetch: false);
+              _updateSettings(
+                _currentSettings.copyWith(apiKeys: newApiKeys),
+                triggerModelFetch: false,
+              );
             },
             // ADDED: Debounce API key check
             onEditingComplete: () {
               // Re-fetch models when the user finishes editing the API key
-               _fetchModels();
+              _fetchModels();
             },
           ),
       ],

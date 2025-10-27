@@ -13,10 +13,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../project/project_models.dart';
-import '../../utils/toast.dart';
-import 'editor_service.dart';
 import '../../data/dto/project_dto.dart'; // NEW IMPORT
-import '../plugins/plugin_models.dart';
 import '../plugins/plugin_registry.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../data/file_handler/local_file_handler_saf.dart';
@@ -75,11 +72,9 @@ abstract class FileContentProvider {
 class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
   final ProjectRepository _repo;
   ProjectFileContentProvider(this._repo);
-  
+
   @override
-  Map<Type, String> get typeMappings => {
-        CustomSAFDocumentFile: 'project',
-      };
+  Map<Type, String> get typeMappings => {CustomSAFDocumentFile: 'project'};
 
   @override
   Future<EditorContentResult> getContent(
@@ -115,13 +110,16 @@ class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
       final hash = md5.convert(utf8.encode(content.content)).toString();
       return SaveResult(savedFile: savedFile, newContentHash: hash);
     } else if (content is EditorContentBytes) {
-      final savedFile = await _repo.writeFileAsBytes(projectFile, content.bytes);
+      final savedFile = await _repo.writeFileAsBytes(
+        projectFile,
+        content.bytes,
+      );
       final hash = md5.convert(content.bytes).toString();
       return SaveResult(savedFile: savedFile, newContentHash: hash);
     }
     throw UnsupportedError('Unknown EditorContent type');
   }
-  
+
   @override
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
     // For project files, we query the file system to get the live,
@@ -133,9 +131,7 @@ class ProjectFileContentProvider implements FileContentProvider, IRehydratable {
 /// A provider specifically for handling in-memory [VirtualDocumentFile] instances.
 class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
   @override
-  Map<Type, String> get typeMappings => {
-        VirtualDocumentFile: 'virtual',
-      };
+  Map<Type, String> get typeMappings => {VirtualDocumentFile: 'virtual'};
 
   @override
   Future<EditorContentResult> getContent(
@@ -169,7 +165,7 @@ class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
     // orchestrate the correct UI flow.
     throw RequiresSaveAsException(file);
   }
-  
+
   @override
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
     // For virtual files, we reconstruct it directly from the DTO's data.
@@ -187,19 +183,19 @@ class VirtualFileContentProvider implements FileContentProvider, IRehydratable {
 class FileContentProviderRegistry {
   /// For runtime lookups: `Map<ConcreteType, ProviderInstance>`
   final Map<Type, FileContentProvider> _providersByType;
-  
+
   /// For rehydration from DTO: `Map<StringId, ProviderInstance>`
   final Map<String, FileContentProvider> _providersById;
-  
+
   /// For serialization to DTO: `Map<ConcreteType, StringId>`
   final Map<Type, String> _typeIdentifiers;
 
   /// The constructor takes a flat list of providers and intelligently builds
   /// the internal lookup maps from the self-describing `typeMappings`.
   FileContentProviderRegistry(List<FileContentProvider> providers)
-      : _providersByType = {},
-        _providersById = {},
-        _typeIdentifiers = {} {
+    : _providersByType = {},
+      _providersById = {},
+      _typeIdentifiers = {} {
     for (final provider in providers) {
       // Iterate through the explicit mappings provided by each provider.
       for (final entry in provider.typeMappings.entries) {
@@ -217,7 +213,7 @@ class FileContentProviderRegistry {
           print('Warning: Overwriting FileContentProvider for typeId "$id".');
         }
         _providersById[id] = provider;
-        
+
         // 3. Build the serialization lookup map (Type -> String ID)
         _typeIdentifiers[type] = id;
       }
@@ -240,10 +236,10 @@ class FileContentProviderRegistry {
   Future<DocumentFile?> rehydrateFileFromDto(TabMetadataDto dto) {
     final provider = _providersById[dto.fileType];
 
-    if ((provider!=null) && (provider is IRehydratable)) {
+    if ((provider != null) && (provider is IRehydratable)) {
       return (provider as IRehydratable)!.rehydrate(dto);
     }
-    
+
     print(
       'Warning: No IRehydratable provider found for fileType "${dto.fileType}". Cannot rehydrate file.',
     );
@@ -255,7 +251,9 @@ class FileContentProviderRegistry {
   String getTypeIdForFile(DocumentFile file) {
     final typeId = _typeIdentifiers[file.runtimeType];
     if (typeId == null) {
-      print('Warning: No type identifier found for file type ${file.runtimeType}.');
+      print(
+        'Warning: No type identifier found for file type ${file.runtimeType}.',
+      );
       return 'unknown';
     }
     return typeId;
@@ -264,32 +262,37 @@ class FileContentProviderRegistry {
 
 // --- Riverpod Providers ---
 
-final fileContentProviderRegistryProvider = Provider<FileContentProviderRegistry>((ref) {
-  final repo = ref.watch(projectRepositoryProvider);
-  if (repo == null) return FileContentProviderRegistry([]);
+final fileContentProviderRegistryProvider =
+    Provider<FileContentProviderRegistry>((ref) {
+      final repo = ref.watch(projectRepositoryProvider);
+      if (repo == null) return FileContentProviderRegistry([]);
 
-  // 1. Get all providers from all active EDITOR plugins.
-  final editorPluginProviders = ref.watch(activePluginsProvider)
-      .expand((plugin) => plugin.fileContentProviders)
-      .toList();
-      
-  // 2. Get all providers from all active EXPLORER plugins.
-  final explorerPluginProviders = ref.watch(explorerRegistryProvider)
-      .expand((plugin) => plugin.fileContentProviders)
-      .toList();
+      // 1. Get all providers from all active EDITOR plugins.
+      final editorPluginProviders =
+          ref
+              .watch(activePluginsProvider)
+              .expand((plugin) => plugin.fileContentProviders)
+              .toList();
 
-  // 3. Create the core, default providers.
-  final coreProviders = <FileContentProvider>[
-    ProjectFileContentProvider(repo),
-    VirtualFileContentProvider(),
-  ];
+      // 2. Get all providers from all active EXPLORER plugins.
+      final explorerPluginProviders =
+          ref
+              .watch(explorerRegistryProvider)
+              .expand((plugin) => plugin.fileContentProviders)
+              .toList();
 
-  // 4. Combine them all into a single list.
-  final allProviders = <FileContentProvider>[
-    ...editorPluginProviders,
-    ...explorerPluginProviders,
-    ...coreProviders,
-  ];
-  
-  return FileContentProviderRegistry(allProviders);
-});
+      // 3. Create the core, default providers.
+      final coreProviders = <FileContentProvider>[
+        ProjectFileContentProvider(repo),
+        VirtualFileContentProvider(),
+      ];
+
+      // 4. Combine them all into a single list.
+      final allProviders = <FileContentProvider>[
+        ...editorPluginProviders,
+        ...explorerPluginProviders,
+        ...coreProviders,
+      ];
+
+      return FileContentProviderRegistry(allProviders);
+    });

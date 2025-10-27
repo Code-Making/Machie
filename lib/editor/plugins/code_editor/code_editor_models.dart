@@ -2,10 +2,8 @@
 // FILE: lib/editor/plugins/code_editor/code_editor_models.dart
 // =========================================
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../plugin_models.dart';
-import '../../editor_tab_models.dart';
 import '../../editor_tab_models.dart';
 import 'code_editor_widgets.dart';
 
@@ -13,7 +11,7 @@ import 'code_editor_widgets.dart';
 class CodeEditorTab extends EditorTab {
   @override
   final GlobalKey<CodeEditorMachineState> editorKey;
-  
+
   final String initialContent;
   final String? cachedContent;
   final String? initialLanguageKey;
@@ -33,10 +31,10 @@ class CodeEditorTab extends EditorTab {
   void dispose() {}
 
   Map<String, dynamic> toJson() => {
-        'type': 'code',
-        'id': id,
-        'pluginType': plugin.runtimeType.toString(),
-      };
+    'type': 'code',
+    'id': id,
+    'pluginType': plugin.runtimeType.toString(),
+  };
 }
 
 // ... CodeEditorSettings is unchanged ...
