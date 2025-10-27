@@ -9,6 +9,17 @@ import 'package:machine/data/repositories/project_repository.dart';
 // THE FIX: Import the new generic widgets file.
 import 'package:machine/widgets/file_list_view.dart';
 import 'search_explorer_state.dart';
+// lib/explorer/plugins/search_explorer/search_explorer_view.dart
+import 'package:flutter/material.dart';
+import 'package.flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/project/project_models.dart';
+import 'package:machine/project/services/project_hierarchy_service.dart';
+import 'package:machine/data/repositories/project_repository.dart';
+import 'package:machine/widgets/file_list_view.dart';
+import 'search_explorer_state.dart';
+import '../../common/file_explorer_widgets.dart';
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -91,19 +102,25 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                       ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
                       : '.';
 
-                  // THE FIX: Replace the old `DirectoryItem` with the new, generic `FileItem`.
-                  return FileItem(
+                  // 1. Create the base, generic FileItem widget.
+                  final fileItemWidget = FileItem(
                     file: file,
                     depth: 1, // All search results are at the same "depth"
                     subtitle: subtitle,
                     onTapped: () async {
                       final navigator = Navigator.of(context);
-                      // Cast is safe because search only operates on project files.
                       final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
                       if (success && context.mounted) {
                         navigator.pop(); // Close the drawer
                       }
                     },
+                  );
+
+                  // 2. Wrap the generic widget with our feature decorator.
+                  //    This adds drag-and-drop and the context menu.
+                  return ProjectFileItemDecorator(
+                    item: file,
+                    child: fileItemWidget,
                   );
                 },
               );
