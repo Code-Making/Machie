@@ -24,15 +24,15 @@ class _DividerCommand extends FileContextCommand {
         sourcePlugin: '',
       );
   @override
-  bool canExecuteFor(WidgetRef ref, DocumentFile item) => true;
+  bool canExecuteFor(WidgetRef ref, ProjectDocumentFile item) => true;
   @override
-  Future<void> executeFor(WidgetRef ref, DocumentFile item) async {}
+  Future<void> executeFor(WidgetRef ref, ProjectDocumentFile item) async {}
 }
 
 void showFileContextMenu(
   BuildContext context,
   WidgetRef ref,
-  DocumentFile item,
+  ProjectDocumentFile item,
 ) {
   final compatiblePlugins =
       ref
@@ -106,7 +106,7 @@ void showFileContextMenu(
 class FileContextCommands {
   static List<FileContextCommand> getCommands(
     WidgetRef ref,
-    DocumentFile item,
+    ProjectDocumentFile item,
     List<EditorPlugin> compatiblePlugins,
   ) {
     final appNotifier = ref.read(appNotifierProvider.notifier);

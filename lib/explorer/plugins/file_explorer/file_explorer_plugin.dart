@@ -5,6 +5,7 @@ import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
 import 'file_explorer_state.dart'; // REFACTOR: Keep for the settings model
 import 'file_explorer_view.dart';
+import '../../../editor/services/file_content_provider.dart';
 
 class FileExplorerPlugin implements ExplorerPlugin {
   @override
