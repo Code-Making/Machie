@@ -1,11 +1,14 @@
-// lib/explorer/plugins/git_explorer/git_explorer_view.dart
+// =========================================
+// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_view.dart
+// =========================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dart_git/plumbing/git_hash.dart';
-import 'package:dart_git/plumbing/objects/commit.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/project/project_models.dart';
-import 'package:machine/widgets/file_list_view.dart' as generic;
+import 'package:dart_git/dart_git.dart';
+
+import '../../../app/app_notifier.dart';
+import '../../../project/project_models.dart';
+import '../../../widgets/file_list_view.dart' as generic;
 import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
@@ -16,22 +19,56 @@ class GitExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final gitRepo = ref.watch(gitRepositoryProvider);
+    // THE FIX: The top-level widget now watches the async repository provider.
+    final gitRepoAsync = ref.watch(gitRepositoryProvider);
 
-    if (gitRepo == null) {
-      return const Center(
-        child: Text('This project is not a Git repository.'),
-      );
-    }
-
-    return Column(
-      children: [
-        const _CommitSelector(),
-        const Divider(height: 1),
-        Expanded(
-          child: _GitDirectoryView(pathInRepo: ''),
+    // Use .when() to handle loading, error, and data states for the repo itself.
+    return gitRepoAsync.when(
+      loading: () => const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Scanning for Git repository...'),
+          ],
         ),
-      ],
+      ),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'Error loading Git repository:\n$err',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+      data: (gitRepo) {
+        // If the provider successfully returns null, it means this is not a git repo.
+        if (gitRepo == null) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'This project is not a Git repository.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+          );
+        }
+
+        // Only build the rest of the UI if the repository was successfully loaded.
+        return const Column(
+          children: [
+            _CommitSelector(),
+            Divider(height: 1),
+            Expanded(
+              child: _GitDirectoryView(pathInRepo: ''),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -46,43 +83,57 @@ class _CommitSelector extends ConsumerWidget {
 
     return commitsAsync.when(
       data: (commits) {
-        if (commits.isEmpty) return const SizedBox.shrink();
+        if (commits.isEmpty) {
+          return const ListTile(title: Text('No commits found in this repository.'));
+        }
+
+        // Handle the case where selectedHash might still be null briefly
+        if (selectedHash == null) {
+          return const SizedBox(height: 56, child: Center(child: LinearProgressIndicator()));
+        }
 
         final selectedCommit = commits.firstWhere((c) => c.hash == selectedHash, orElse: () => commits.first);
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: DropdownButton<GitHash>(
-            value: selectedCommit.hash,
-            onChanged: (newHash) {
-              if (newHash != null) {
-                ref.read(selectedGitCommitHashProvider.notifier).state = newHash;
-              }
-            },
-            isExpanded: true,
-            underline: const SizedBox.shrink(),
-            items: commits.map((commit) {
-              return DropdownMenuItem(
-                value: commit.hash,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(commit.hash.toOid(), style: const TextStyle(fontFamily: 'JetBrainsMono')),
-                    Text(
-                      commit.message.split('\n').first,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<GitHash>(
+              value: selectedCommit.hash,
+              onChanged: (newHash) {
+                if (newHash != null) {
+                  ref.read(selectedGitCommitHashProvider.notifier).state = newHash;
+                }
+              },
+              isExpanded: true,
+              itemHeight: 60, // Give more space for two lines of text
+              items: commits.map((commit) {
+                return DropdownMenuItem(
+                  value: commit.hash,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        commit.message.split('\n').first,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${commit.hash.toOid()} by ${commit.author.name}',
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'JetBrainsMono'),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         );
       },
-      loading: () => const Center(child: LinearProgressIndicator()),
-      error: (err, st) => Text('Error loading commits: $err'),
+      loading: () => const SizedBox(height: 56, child: Center(child: LinearProgressIndicator())),
+      error: (err, st) => ListTile(title: Text('Error loading commits: $err')),
     );
   }
 }
@@ -135,21 +186,25 @@ class _GitDirectoryView extends ConsumerWidget {
       data: (items) {
         return generic.FileListView(
           items: items,
-          expandedDirectoryUris: const {}, // This view is not expandable, we navigate instead
+          expandedDirectoryUris: const {},
           depth: depth,
-          onFileTapped: (file) {
-            ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+          onFileTapped: (file) async {
+            final navigator = Navigator.of(context);
+            final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+             if (success && context.mounted) {
+              navigator.pop(); // Close the drawer
+            }
           },
           onExpansionChanged: (dir, isExpanded) {
-            // Not used in this simple browser
+            // Not used, as clicking a directory opens a new view in this explorer type.
           },
           directoryChildrenBuilder: (directory) {
-            // This would be for a recursive view, but we'll keep it simple
-            // and re-render the whole tree on selection.
-            return _GitDirectoryView(pathInRepo: (directory as GitObjectDocumentFile).pathInRepo, depth: depth + 1);
+            // This explorer doesn't show nested items. Instead, clicking a folder
+            // would typically navigate to a new screen showing that folder's contents.
+            // For simplicity, this is not implemented here.
+            return const SizedBox.shrink();
           },
           itemBuilder: (context, item, depth, defaultItem) {
-            // Add the context menu here
             return InkWell(
               onLongPress: () {
                 if (item is GitObjectDocumentFile && !item.isDirectory) {
