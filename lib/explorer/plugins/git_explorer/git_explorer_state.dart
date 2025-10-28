@@ -4,7 +4,11 @@
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// THE FIX: Add missing imports from dart_git
 import 'package:dart_git/dart_git.dart';
+import 'package:dart_git/plumbing/commit_iterator.dart';
+import 'package:dart_git/utils/file_mode.dart';
 
 import 'git_provider.dart';
 import 'git_object_file.dart';
@@ -16,14 +20,16 @@ final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   // selected yet, this listener will default to selecting the first one (HEAD).
   ref.listen(gitCommitsProvider, (_, next) {
     if (next.hasValue && next.value!.isNotEmpty) {
-      final currentState = ref.read(selectedGitCommitHashProvider);
+      // THE FIX: To avoid a dependency cycle, we access the provider's
+      // current state via its controller instead of using ref.read().
+      final currentState = ref.controller.state;
       if (currentState == null) {
         ref.controller.state = next.value!.first.hash;
       }
     }
   });
 
-  return null;
+  return null; // Initial state is null until the listener populates it.
 });
 
 /// Fetches the list of the first 50 commits for the current branch.
@@ -55,7 +61,9 @@ final gitTreeProvider = FutureProvider.family<List<GitObjectDocumentFile>, Strin
   if (pathInRepo.isEmpty) {
     tree = await gitRepo.objStorage.readTree(commit.treeHash);
   } else {
-    final entry = await gitRepo.objStorage.refSpec(await gitRepo.objStorage.readTree(commit.treeHash), pathInRepo);
+    // We need to await the tree read before passing it to refSpec
+    final rootTree = await gitRepo.objStorage.readTree(commit.treeHash);
+    final entry = await gitRepo.objStorage.refSpec(rootTree, pathInRepo);
     tree = await gitRepo.objStorage.readTree(entry.hash);
   }
 
@@ -66,7 +74,6 @@ final gitTreeProvider = FutureProvider.family<List<GitObjectDocumentFile>, Strin
       commitHash: commitHash,
       objectHash: entry.hash,
       pathInRepo: fullPath,
-      // THE FIX: Compare with the static Dir instance instead of using a getter.
       isDirectory: entry.mode == GitFileMode.Dir,
     );
   }).toList()
