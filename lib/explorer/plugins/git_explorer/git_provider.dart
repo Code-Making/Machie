@@ -1,22 +1,26 @@
-// lib/explorer/plugins/git_explorer/git_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_name/dart_git.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/logs/logs_provider.dart';
+import 'package:dart_git/dart_git.dart';
+
+import '../../../app/app_notifier.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../logs/logs_provider.dart';
 import 'git_storage_provider.dart';
 
-/// A provider that attempts to load a dart_git GitRepository for the current project
-/// using the new provider-based architecture.
+/// A provider that attempts to load a dart_git GitRepository for the current project.
+///
+/// It's a `FutureProvider` because initializing the repository is now an asynchronous
+/// operation involving filesystem checks. It returns `null` if the current project
+/// is not a valid Git repository.
 final gitRepositoryProvider = FutureProvider<GitRepository?>((ref) async {
   final project = ref.watch(appNotifierProvider).value?.currentProject;
   final projectRepo = ref.watch(projectRepositoryProvider);
 
+  // If there's no open project, there's no repository to load.
   if (project == null || projectRepo == null) {
     return null;
   }
 
-  // 1. Instantiate our custom provider with the app's file handler.
+  // 1. Instantiate our custom AppStorageProvider, bridging dart_git to our app's FileHandler.
   final provider = AppStorageProvider(projectRepo.fileHandler);
   
   // 2. Create the root handle for the project's working tree.
@@ -24,26 +28,32 @@ final gitRepositoryProvider = FutureProvider<GitRepository?>((ref) async {
   if (workTreeFile == null) return null;
   final workTreeHandle = AppStorageHandle(workTreeFile);
   
-  // 3. Resolve the .git directory handle.
+  // 3. Resolve the .git directory handle relative to the working tree.
   final gitDirHandle = await provider.resolve(workTreeHandle, '.git');
   
-  // 4. Check if it's a valid repo by looking for the HEAD file.
+  // 4. Check if it's a valid repo by looking for a critical file like HEAD.
+  //    This is more reliable than just checking for the .git directory's existence.
   final headHandle = await provider.resolve(gitDirHandle, 'HEAD');
   if (!await provider.exists(headHandle)) {
     ref.read(talkerProvider).info("Project at ${project.rootUri} is not a Git repository.");
     return null;
   }
 
-  // 5. Create the GitRepository instance using the async factory.
+  // 5. Create the GitRepository instance using the new asynchronous, provider-based factory.
   try {
     final repo = await GitRepository.fromProviders(
       workTreeProvider: provider,
-      gitDirProvider: provider, // Using the same provider for both
+      gitDirProvider: provider, // For non-bare repos, these are the same.
       workTree: workTreeHandle,
       gitDir: gitDirHandle,
     );
+    
+    // Ensure resources are cleaned up if the provider is disposed.
     ref.onDispose(() => repo.close());
+    
+    // Load the repository's configuration.
     await repo.reloadConfig();
+    
     return repo;
   } catch (e, st) {
     ref.read(talkerProvider).handle(e, st, "Failed to load Git repository from providers at ${project.rootUri}");
