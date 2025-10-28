@@ -42,6 +42,7 @@ abstract class FileHandler {
 
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
+  Future<Uint8List> readFileAsBytesRange(String uri, int start, int end);
 
   Future<ProjectDocumentFile> writeFile(
     ProjectDocumentFile file,
