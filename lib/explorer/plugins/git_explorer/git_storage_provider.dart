@@ -69,7 +69,9 @@ class AppStorageProvider implements GitStorageProvider {
     // The implementation falls back to reading the entire file and taking a sublist.
     // This is a known performance limitation for large packfiles when using SAF.
     final allBytes = await _fileHandler.readFileAsBytes(handle.file.uri);
-    return allBytes.sublistView(start, end);
+    
+    // THE FIX: Use the static method Uint8List.sublistView
+    return Uint8List.sublistView(allBytes, start, end);
   }
 
   @override
