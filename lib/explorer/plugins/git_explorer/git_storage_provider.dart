@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package_name/dart_git.dart'; // Using package_name as a placeholder
+import 'package:dart_git:dart_git.dart'; // Using package_name as a placeholder
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/project/project_models.dart';
 
