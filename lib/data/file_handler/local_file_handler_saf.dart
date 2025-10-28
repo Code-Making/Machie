@@ -367,7 +367,7 @@ class SafFileHandler implements LocalFileHandler {
       final isLastSegment = i == segments.length - 1;
 
       try {
-        final children = await listDirectory(currentParent!.uri);
+        final children = await listDirectory(currentParent!.uri, includeHidden:true);
         final foundChild = children.firstWhereOrNull(
           (child) => child.name == segment,
         );
