@@ -1,49 +1,62 @@
-// lib/explorer/plugins/git_explorer/git_explorer_state.dart
+// =========================================
+// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_state.dart
+// =========================================
+
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dart_git/plumbing/commit_iterator.dart';
-import 'package:dart_git/plumbing/git_hash.dart';
-import 'package:dart_git/plumbing/objects/commit.dart';
-import 'package:dart_git/plumbing/objects/tree.dart';
-import 'package:dart_git/diff_commit.dart';
+import 'package:dart_git/dart_git.dart';
+
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
-// THE FIX #1: Import the extension methods and file mode definitions.
-import 'package:dart_git/storage/object_storage_extensions.dart';
-import 'package:dart_git/utils/file_mode.dart';
-
 /// Holds the currently selected commit hash for the Git Explorer view.
+/// It is initialized to null and is populated by a listener when the commits are loaded.
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  final gitRepo = ref.watch(gitRepositoryProvider);
-  return gitRepo?.headHash();
+  // When the list of commits is successfully fetched, if no commit has been
+  // selected yet, this listener will default to selecting the first one (HEAD).
+  ref.listen(gitCommitsProvider, (_, next) {
+    if (next.hasValue && next.value!.isNotEmpty) {
+      final currentState = ref.read(selectedGitCommitHashProvider);
+      if (currentState == null) {
+        ref.controller.state = next.value!.first.hash;
+      }
+    }
+  });
+
+  return null;
 });
 
-/// Fetches the list of commits for the dropdown.
+/// Fetches the list of the first 50 commits for the current branch.
 final gitCommitsProvider = FutureProvider<List<GitCommit>>((ref) async {
-  final gitRepo = ref.watch(gitRepositoryProvider);
+  // Await the result of the repository provider.
+  final gitRepo = await ref.watch(gitRepositoryProvider.future);
   if (gitRepo == null) return [];
 
-  final headHash = gitRepo.headHash();
+  // All API calls are now asynchronous.
+  final headHash = await gitRepo.headHash();
   final iterator = commitIteratorBFS(objStorage: gitRepo.objStorage, from: headHash);
   
-  return iterator.take(50).toList();
+  // The stream from the iterator must be awaited.
+  return await iterator.take(50).toList();
 });
 
 /// A family provider that fetches the tree entries for a given path at a specific commit.
 final gitTreeProvider = FutureProvider.family<List<GitObjectDocumentFile>, String>((ref, pathInRepo) async {
-  final gitRepo = ref.watch(gitRepositoryProvider);
+  // Await the repository and watch the selected commit hash.
+  final gitRepo = await ref.watch(gitRepositoryProvider.future);
   final commitHash = ref.watch(selectedGitCommitHashProvider);
+
+  // If dependencies aren't ready, return an empty list.
   if (gitRepo == null || commitHash == null) return [];
 
-  // These calls now work.
-  final commit = gitRepo.objStorage.readCommit(commitHash);
+  // All object storage operations are now async.
+  final commit = await gitRepo.objStorage.readCommit(commitHash);
   GitTree tree;
   if (pathInRepo.isEmpty) {
-    tree = gitRepo.objStorage.readTree(commit.treeHash);
+    tree = await gitRepo.objStorage.readTree(commit.treeHash);
   } else {
-    final entry = gitRepo.objStorage.refSpec(gitRepo.objStorage.readTree(commit.treeHash), pathInRepo);
-    tree = gitRepo.objStorage.readTree(entry.hash);
+    final entry = await gitRepo.objStorage.refSpec(await gitRepo.objStorage.readTree(commit.treeHash), pathInRepo);
+    tree = await gitRepo.objStorage.readTree(entry.hash);
   }
 
   return tree.entries.map((entry) {
@@ -53,7 +66,7 @@ final gitTreeProvider = FutureProvider.family<List<GitObjectDocumentFile>, Strin
       commitHash: commitHash,
       objectHash: entry.hash,
       pathInRepo: fullPath,
-      // THE FIX #2: Compare with the static Dir instance instead of using a getter.
+      // THE FIX: Compare with the static Dir instance instead of using a getter.
       isDirectory: entry.mode == GitFileMode.Dir,
     );
   }).toList()
@@ -65,20 +78,23 @@ final gitTreeProvider = FutureProvider.family<List<GitObjectDocumentFile>, Strin
 
 /// A family provider that finds the last 5 commits where a specific file was modified.
 final fileHistoryProvider = FutureProvider.family<List<GitCommit>, String>((ref, filePath) async {
-  final gitRepo = ref.watch(gitRepositoryProvider);
+  final gitRepo = await ref.watch(gitRepositoryProvider.future);
+  // Watch, don't await, the selected hash provider as it's synchronous state.
   final headHash = ref.watch(selectedGitCommitHashProvider);
+
   if (gitRepo == null || headHash == null) return [];
 
   final history = <GitCommit>[];
   final iterator = commitIteratorBFS(objStorage: gitRepo.objStorage, from: headHash);
 
-  for (final commit in iterator) {
+  // Use 'await for' to iterate over the async stream from the iterator.
+  await for (final commit in iterator) {
     if (history.length >= 5) break;
     if (commit.parents.isEmpty) continue;
 
-    // This call now works.
-    final parent = gitRepo.objStorage.readCommit(commit.parents.first);
-    final changes = diffCommits(fromCommit: parent, toCommit: commit, objStore: gitRepo.objStorage);
+    // All API calls are now async.
+    final parent = await gitRepo.objStorage.readCommit(commit.parents.first);
+    final changes = await diffCommits(fromCommit: parent, toCommit: commit, objStore: gitRepo.objStorage);
     
     if (changes.merged().any((change) => change.path == filePath)) {
       history.add(commit);
