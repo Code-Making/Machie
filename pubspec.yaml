@@ -38,8 +38,8 @@ dependencies:
   re_editor:
     path: ../re-editor
   dart_git:
-    git: https://github.com/hommes-doutant/dart-git.git
-    # path: ../gitjournal/dart-git
+    path: ../dart-git
+    # git: https://github.com/hommes-doutant/dart-git.git
   file_picker: ^10.1.9
   path_provider: ^2.1.5
   re_highlight: ^0.0.3
