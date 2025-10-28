@@ -49,8 +49,11 @@ final gitRepositoryProvider = FutureProvider<GitRepository?>((ref) async {
     );
     
     // Ensure resources are cleaned up if the provider is disposed.
-    ref.onDispose(() => repo.close());
-    
+    ref.onDispose(() {
+      repo.objStorage.close();
+      repo.refStorage.close();
+      repo.indexStorage.close();
+    });    
     // Load the repository's configuration.
     await repo.reloadConfig();
     
