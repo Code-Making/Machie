@@ -2,12 +2,16 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:dart_git:dart_git.dart'; // Using package_name as a placeholder
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/project/project_models.dart';
+// Imports from the dart_git package
+import 'package:dart_git/dart_git.dart';
+
+// Imports from the machine app
+import '../../../data/file_handler/file_handler.dart';
+import '../../../project/project_models.dart';
 
 /// A custom StorageHandle that wraps the application's native DocumentFile object.
-/// This is the "noun" or "pointer" that dart_git will pass around.
+/// This is the "noun" or "pointer" that dart_git will pass around when interacting
+/// with its storage provider.
 class AppStorageHandle extends StorageHandle {
   final DocumentFile file;
 
@@ -20,9 +24,9 @@ class AppStorageHandle extends StorageHandle {
   String get uri => file.uri;
 }
 
-/// The implementation of the storage provider that knows how to operate on AppStorageHandles.
-/// This is the "verb" or "engine" that translates dart_git's needs into
-/// calls to our app's FileHandler.
+/// The implementation of the storage provider that knows how to operate on
+/// AppStorageHandles. This is the "verb" or "engine" that translates dart_git's
+/// abstract requests into concrete calls to our app's existing FileHandler.
 class AppStorageProvider implements GitStorageProvider {
   final FileHandler _fileHandler;
 
@@ -39,19 +43,20 @@ class AppStorageProvider implements GitStorageProvider {
 
     // If the file doesn't exist, create a handle to where it *would* be.
     // We can use a VirtualDocumentFile for this, as it represents a non-physical path.
+    // This is necessary for operations like `write` which might create new files.
     final nonExistentFile = VirtualDocumentFile(
-      // This URI construction is a simplification. A robust solution might need
-      // a fileHandler.join(base.uri, relativePath) method.
-      uri: '${base.uri}/$relativePath',
-      name: relativePath.split('/').last,
+      // This URI construction is a simplification. A robust solution would use a
+      // fileHandler.join(base.uri, relativePath) method if available.
+      uri: '${base.uri}/${relativePath.replaceAll(r'\', '/')}',
+      name: relativePath.split(RegExp(r'[/\\]')).last,
     );
     return AppStorageHandle(nonExistentFile);
   }
-  
+
   @override
   Stream<List<int>> read(StorageHandle handle) async* {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    // Convert the Future<Uint8List> from our FileHandler into the required Stream.
+    // Convert the Future<Uint8List> from our FileHandler into the Stream that dart_git requires.
     final bytes = await _fileHandler.readFileAsBytes(handle.file.uri);
     yield bytes;
   }
@@ -59,10 +64,10 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<Uint8List> readRange(StorageHandle handle, int start, int end) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    
-    // Our FileHandler doesn't support efficient random access.
-    // We implement the less efficient "read all then sublist" method.
-    // This is a known limitation for large packfiles on SAF.
+
+    // Our FileHandler interface doesn't support efficient random access (range reads).
+    // The implementation falls back to reading the entire file and taking a sublist.
+    // This is a known performance limitation for large packfiles when using SAF.
     final allBytes = await _fileHandler.readFileAsBytes(handle.file.uri);
     return allBytes.sublistView(start, end);
   }
@@ -70,9 +75,8 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<void> write(StorageHandle handle, Stream<List<int>> data) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    
-    // The underlying SAF handler might not exist for this path yet, so we use
-    // createDirectoryAndFile which can create hierarchies.
+
+    // The file might not exist yet, so we use a method that can create hierarchies.
     final parentUri = _fileHandler.getParentUri(handle.file.uri);
     final fileName = _fileHandler.getFileName(handle.file.uri);
 
@@ -80,11 +84,7 @@ class AppStorageProvider implements GitStorageProvider {
     final bytes = await data.expand((b) => b).toList();
     final content = Uint8List.fromList(bytes);
 
-    // This is a placeholder for a more direct write method. Ideally, we'd have
-    // a method that can create and write in one step.
-    // For now, we assume a method that can handle non-existent files.
-    // A simplified `writeFileAsBytes` might need to be adapted to handle creation.
-    // Let's assume a robust `createDocumentFile` can handle this.
+    // Use a method that can create and write in one step.
     await _fileHandler.createDocumentFile(
       parentUri,
       fileName,
@@ -103,8 +103,8 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<StorageStat> stat(StorageHandle handle) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    
-    // getFileMetadata returns null if not found.
+
+    // getFileMetadata returns null if the file is not found.
     final metadata = await _fileHandler.getFileMetadata(handle.file.uri);
     if (metadata == null) {
       return StorageStat(
@@ -113,7 +113,7 @@ class AppStorageProvider implements GitStorageProvider {
         modificationTime: DateTime.fromMillisecondsSinceEpoch(0),
       );
     }
-    
+
     return StorageStat(
       type: metadata.isDirectory ? StorageEntryType.directory : StorageEntryType.file,
       size: metadata.size,
@@ -130,13 +130,18 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<void> delete(StorageHandle handle, {bool recursive = false}) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    // Our deleteDocumentFile already handles recursive deletion implicitly.
+    // Our deleteDocumentFile handles recursion implicitly (especially for SAF).
+    if (handle.file is! ProjectDocumentFile) {
+      // Cannot delete a virtual file, which shouldn't happen in a real git flow.
+      return;
+    }
     await _fileHandler.deleteDocumentFile(handle.file as ProjectDocumentFile);
   }
 
   @override
   Future<void> createDirectory(StorageHandle handle, {bool recursive = false}) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
+    // This assumes recursive creation is handled by the underlying createDocumentFile.
     final parentUri = _fileHandler.getParentUri(handle.file.uri);
     final dirName = _fileHandler.getFileName(handle.file.uri);
     await _fileHandler.createDocumentFile(parentUri, dirName, isDirectory: true);
@@ -144,13 +149,15 @@ class AppStorageProvider implements GitStorageProvider {
 
   @override
   Future<void> chmod(StorageHandle handle, int mode) async {
-    // SAF doesn't support POSIX permissions, so this is a no-op.
+    // Android's Storage Access Framework (SAF) doesn't support POSIX permissions.
+    // This is a safe no-op.
     return;
   }
-  
+
   @override
   Future<String> relativePath(StorageHandle base, StorageHandle child) async {
     if (base is! AppStorageHandle || child is! AppStorageHandle) throw 'Invalid handle type';
+    // Delegate to the FileHandler's display path logic.
     return _fileHandler.getPathForDisplay(child.file.uri, relativeTo: base.file.uri);
   }
 }
