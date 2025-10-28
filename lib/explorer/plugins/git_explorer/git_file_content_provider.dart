@@ -1,19 +1,26 @@
-// lib/explorer/plugins/git_explorer/git_file_content_provider.dart
-import 'package:dart_git/git.dart'; // IMPORT dart_git
-import 'package:machine/editor/editor_tab_models.dart';
-import 'package:machine/editor/plugins/plugin_models.dart';
-import 'package:machine/editor/services/file_content_provider.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/dto/project_dto.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
-import 'git_object_file.dart';
-import 'package:dart_git/storage/object_storage_extensions.dart';
+// =========================================
+// UPDATED: lib/explorer/plugins/git_explorer/git_file_content_provider.dart
+// =========================================
 
-// UPDATED: This class is now pure and has no knowledge of Riverpod.
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
+// Imports from dart_git
+import 'package:dart_git/dart_git.dart';
+
+// Imports from the machine app
+import '../../../editor/editor_tab_models.dart';
+import '../../../editor/plugins/plugin_models.dart';
+import '../../../editor/services/file_content_provider.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/dto/project_dto.dart';
+import 'git_object_file.dart';
+
+/// Provides the content for virtual files that represent objects in the Git database.
 class GitFileContentProvider implements FileContentProvider, IRehydratable {
-  // UPDATED: It now holds its direct dependency.
+  // It now holds its direct dependency instead of a Riverpod Ref.
   final GitRepository _gitRepo;
+
   GitFileContentProvider(this._gitRepo);
 
   @override
@@ -25,8 +32,8 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
       throw ArgumentError('GitFileContentProvider can only handle GitObjectDocumentFile');
     }
 
-    // UPDATED: Use the injected dependency directly.
-    final blob = _gitRepo.objStorage.readBlob(file.objectHash);
+    // Use the injected dependency directly. All calls are now async.
+    final blob = await _gitRepo.objStorage.readBlob(file.objectHash);
     final bytes = blob.blobData;
 
     final content = (requirement == PluginDataRequirement.bytes)
@@ -39,12 +46,16 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
     );
   }
   
-  // (saveContent and rehydrate are unchanged)
+  /// Saving is not supported for historical Git objects.
+  /// Throws RequiresSaveAsException to prompt the user to save it as a new file.
   @override
   Future<SaveResult> saveContent(DocumentFile file, EditorContent content) {
     throw RequiresSaveAsException(file);
   }
 
+  /// Rehydrating a historical Git file doesn't make sense as it's virtual and tied
+  /// to a specific commit hash which isn't persisted in the tab metadata.
+  /// We return null to indicate the tab for this file cannot be restored.
   @override
   Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
     return Future.value(null);

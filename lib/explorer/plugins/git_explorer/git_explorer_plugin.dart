@@ -25,15 +25,20 @@ class GitExplorerPlugin implements ExplorerPlugin {
   @override
   List<FileContentProvider Function(Ref ref)> get fileContentProviderFactories => [
         // This factory will be called by the central registry.
-        // It reads the gitRepositoryProvider and injects the GitRepository object.
         (ref) {
-          final gitRepo = ref.watch(gitRepositoryProvider);
-          // This factory must return a valid provider. We throw if the dependency is missing.
-          // The registry will handle this gracefully.
-          if (gitRepo == null) {
+          // It watches the async provider for the GitRepository.
+          final gitRepoAsyncValue = ref.watch(gitRepositoryProvider);
+
+          // It must return a valid provider. We throw if the dependency is not
+          // yet available or has failed to load. The registry is designed to
+          // handle this gracefully by simply not registering this provider.
+          final repo = gitRepoAsyncValue.valueOrNull;
+          if (repo == null) {
             throw StateError('GitRepository not available for GitFileContentProvider');
           }
-          return GitFileContentProvider(gitRepo);
+          
+          // Once the dependency is ready, we instantiate our plain Dart class.
+          return GitFileContentProvider(repo);
         }
       ];
 
