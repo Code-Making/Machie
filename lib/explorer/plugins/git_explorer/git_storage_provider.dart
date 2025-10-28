@@ -84,7 +84,7 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<List<StorageHandle>> list(StorageHandle handle) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    final children = await _fileHandler.listDirectory(handle.file.uri);
+    final children = await _fileHandler.listDirectory(handle.file.uri, includeHidden:true);
     return children.map((file) => AppStorageHandle(file)).toList();
   }
 
