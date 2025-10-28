@@ -149,6 +149,16 @@ class SafFileHandler implements LocalFileHandler {
   Future<Uint8List> readFileAsBytes(String uri) {
     return _safStream.readFileBytes(uri);
   }
+  
+  @override
+  Future<Uint8List> readFileAsBytesRange(String uri, int start, int end) {
+    if (start < 0 || end <= start) {
+      throw ArgumentError('Invalid range: start=$start, end=$end');
+    }
+    // Convert our 'end' offset to the 'count' parameter required by saf_stream.
+    final count = end - start;
+    return _safStream.readFileBytes(uri, start: start, count: count);
+  }
 
   @override
   Future<ProjectDocumentFile> writeFile(
