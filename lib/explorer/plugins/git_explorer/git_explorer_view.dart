@@ -15,7 +15,7 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
-// ... (GitExplorerView and _CurrentCommitDisplay are unchanged) ...
+// ... (GitExplorerView is unchanged) ...
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
@@ -59,6 +59,8 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
+
+// _CurrentCommitDisplay is unchanged
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
 
@@ -107,8 +109,7 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   }
 }
 
-
-// REFACTORED: The history sheet now includes the "Jump to HEAD" button and logic.
+// REFACTORED: The history sheet now contains the robust hash lookup logic.
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
   @override
@@ -122,38 +123,69 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   bool _didInitialScroll = false;
 
   @override
+  void initState() {
+    super.initState();
+    // THE FIX: Populate the text field with the full hash when the sheet opens.
+    final selectedHash = ref.read(selectedGitCommitHashProvider);
+    if (selectedHash != null) {
+      _textController.text = selectedHash.toString();
+    }
+  }
+
+  @override
   void dispose() {
     _textController.dispose();
     super.dispose();
   }
 
+  // THE FIX: Overhauled logic to handle short and full hashes.
   Future<void> _submitHash(String text) async {
-    if (text.trim().isEmpty) return;
+    final input = text.trim().toLowerCase();
+    if (input.isEmpty) return;
+
     final navigator = Navigator.of(context);
+    final gitRepo = await ref.read(gitRepositoryProvider.future);
+    if (gitRepo == null) return;
+    
+    final startHash = ref.read(gitHistoryStartHashProvider);
+    if (startHash == null) return;
 
+    // Step 1: Try to find a unique prefix match in the currently loaded commits.
+    final loadedCommits = ref.read(paginatedCommitsProvider(startHash)).valueOrNull?.commits ?? [];
+    final matches = loadedCommits.where((c) => c.hash.toString().startsWith(input)).toList();
+
+    if (matches.length == 1) {
+      final fullHash = matches.first.hash;
+      ref.read(gitHistoryStartHashProvider.notifier).state = fullHash;
+      ref.read(selectedGitCommitHashProvider.notifier).state = fullHash;
+      navigator.pop();
+      return;
+    }
+    if (matches.length > 1) {
+      MachineToast.error("Ambiguous short hash. Please provide more characters.");
+      return;
+    }
+
+    // Step 2: If no match in loaded commits, try to treat it as a full hash and validate against the DB.
     try {
-      final hash = GitHash(text.trim());
-      final gitRepo = await ref.read(gitRepositoryProvider.future);
-      await gitRepo?.objStorage.readCommit(hash);
+      final hash = GitHash(input);
+      await gitRepo.objStorage.readCommit(hash); // Throws if not a valid commit
 
+      // Success! It's a valid commit hash.
       ref.read(gitHistoryStartHashProvider.notifier).state = hash;
       ref.read(selectedGitCommitHashProvider.notifier).state = hash;
       navigator.pop();
     } catch (e) {
-      MachineToast.error("Invalid or unknown Git commit hash");
+      MachineToast.error("Invalid or unknown commit hash");
     }
   }
-
-  // NEW: Logic for the "Jump to HEAD" button.
+  
   Future<void> _jumpToHead() async {
     final navigator = Navigator.of(context);
     try {
       final gitRepo = await ref.read(gitRepositoryProvider.future);
       if (gitRepo == null) return;
-      
       final headHash = await gitRepo.headHash();
-      
-      // Update both providers to reset the view.
       ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
       ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
       navigator.pop();
@@ -164,6 +196,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   
   @override
   Widget build(BuildContext context) {
+    // ... (rest of the build method is unchanged) ...
     final startHash = ref.watch(gitHistoryStartHashProvider);
     if (startHash == null) {
       return const Center(child: CircularProgressIndicator());
@@ -204,7 +237,6 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
           primary: false, automaticallyImplyLeading: false,
           title: TextField(controller: _textController, decoration: const InputDecoration(hintText: 'Find commit by hash...'), onSubmitted: _submitHash, style: const TextStyle(fontFamily: 'JetBrainsMono')),
           actions: [
-            // NEW: Added "Jump to HEAD" button.
             IconButton(onPressed: _jumpToHead, icon: const Icon(Icons.vertical_align_top), tooltip: 'Jump to HEAD'),
             IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search)),
           ],
@@ -239,6 +271,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
     );
   }
 }
+
 
 // ... (_GitRecursiveDirectoryView is unchanged) ...
 class _GitRecursiveDirectoryView extends ConsumerWidget {
