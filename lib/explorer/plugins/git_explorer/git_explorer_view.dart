@@ -8,7 +8,7 @@ import 'package:dart_git/dart_git.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
-import '../../../widgets/file_list_view.dart' as generic; // Keep for FileTypeIcon
+import '../../../widgets/file_list_view.dart' as generic;
 import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
@@ -19,9 +19,9 @@ class GitExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Listen for commit changes to reset the path back to root
+    // Listen for commit changes to reset (collapse) the tree view.
     ref.listen(selectedGitCommitHashProvider, (_, __) {
-      ref.read(gitExplorerPathProvider.notifier).state = '';
+      ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
     });
 
     final gitRepoAsync = ref.watch(gitRepositoryProvider);
@@ -57,14 +57,15 @@ class GitExplorerView extends ConsumerWidget {
           );
         }
 
+        // REFACTORED: The main view now just contains the recursive tree.
         return const Column(
           children: [
             _CommitSelector(),
             Divider(height: 1),
-            // NEW: Path navigator bar
-            _GitPathNavigator(),
-            Divider(height: 1),
-            Expanded(child: _GitDirectoryView()),
+            Expanded(
+              // Start the recursion from the root path.
+              child: _GitRecursiveDirectoryView(pathInRepo: ''),
+            ),
           ],
         );
       },
@@ -72,51 +73,7 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-// NEW WIDGET: A bar to show the current path and allow navigating up.
-class _GitPathNavigator extends ConsumerWidget {
-  const _GitPathNavigator();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final path = ref.watch(gitExplorerPathProvider);
-    final pathNotifier = ref.read(gitExplorerPathProvider.notifier);
-
-    return Container(
-      height: 40,
-      color: Theme.of(context).colorScheme.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_upward),
-            iconSize: 20,
-            tooltip: 'Up one level',
-            onPressed: path.isEmpty
-                ? null
-                : () {
-                    final lastSlash = path.lastIndexOf('/');
-                    if (lastSlash == -1) {
-                      pathNotifier.state = '';
-                    } else {
-                      pathNotifier.state = path.substring(0, lastSlash);
-                    }
-                  },
-          ),
-          Expanded(
-            child: Text(
-              path.isEmpty ? '/' : '/$path',
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-// ... (_CommitSelector remains the same) ...
+// ... (_CommitSelector remains unchanged) ...
 class _CommitSelector extends ConsumerWidget {
   const _CommitSelector();
 
@@ -130,14 +87,10 @@ class _CommitSelector extends ConsumerWidget {
         if (commits.isEmpty) {
           return const ListTile(title: Text('No commits found in this repository.'));
         }
-
-        // Handle the case where selectedHash might still be null briefly
         if (selectedHash == null) {
           return const SizedBox(height: 56, child: Center(child: LinearProgressIndicator()));
         }
-
         final selectedCommit = commits.firstWhere((c) => c.hash == selectedHash, orElse: () => commits.first);
-
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: DropdownButtonHideUnderline(
@@ -149,7 +102,7 @@ class _CommitSelector extends ConsumerWidget {
                 }
               },
               isExpanded: true,
-              itemHeight: 60, // Give more space for two lines of text
+              itemHeight: 60,
               items: commits.map((commit) {
                 return DropdownMenuItem(
                   value: commit.hash,
@@ -157,17 +110,9 @@ class _CommitSelector extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        commit.message.split('\n').first,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      Text(
-                        '${commit.hash.toOid()} by ${commit.author.name}',
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'JetBrainsMono'),
-                      ),
+                      Text('${commit.hash.toOid()} by ${commit.author.name}', overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'JetBrainsMono')),
                     ],
                   ),
                 );
@@ -182,9 +127,12 @@ class _CommitSelector extends ConsumerWidget {
   }
 }
 
-// REFACTORED WIDGET: Now builds a simple list and handles navigation taps.
-class _GitDirectoryView extends ConsumerWidget {
-  const _GitDirectoryView();
+// NEW: This widget is now the core recursive part of the tree.
+class _GitRecursiveDirectoryView extends ConsumerWidget {
+  final String pathInRepo;
+  final int depth;
+
+  const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});
 
   void _showFileHistoryMenu(BuildContext context, WidgetRef ref, GitObjectDocumentFile file) {
     showModalBottomSheet(
@@ -220,48 +168,65 @@ class _GitDirectoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Read the current path from the new provider
-    final pathInRepo = ref.watch(gitExplorerPathProvider);
+    // Watch the data provider for the current directory level.
     final treeAsync = ref.watch(gitTreeProvider(pathInRepo));
+    // Watch the global state of all expanded folders.
+    final expandedPaths = ref.watch(gitExplorerExpandedFoldersProvider);
 
     return treeAsync.when(
       data: (items) {
-        if (items.isEmpty) {
-          return const Center(child: Text('This directory is empty.'));
+        if (items.isEmpty && depth > 1) {
+          return const generic.FileItem(
+            // Show a placeholder for empty directories
+            file: VirtualDocumentFile(uri: '', name: '(empty)'),
+            depth: depth,
+            onTapped: _dummyCallback,
+          );
         }
-
-        return ListView.builder(
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-
-            final tile = ListTile(
-              dense: true,
-              leading: generic.FileTypeIcon(file: item),
-              title: Text(item.name),
-              onTap: () async {
-                if (item.isDirectory) {
-                  // On directory tap, update the path provider to navigate "in"
-                  ref.read(gitExplorerPathProvider.notifier).state = item.pathInRepo;
-                } else {
-                  // On file tap, open it in the editor and close the drawer
-                  final navigator = Navigator.of(context);
-                  final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
-                  if (success && context.mounted) {
-                    navigator.pop();
-                  }
-                }
-              },
+        
+        // Use the generic, reusable FileListView.
+        return generic.FileListView(
+          items: items,
+          expandedDirectoryUris: expandedPaths, // Pass the global expanded set.
+          depth: depth,
+          onFileTapped: (file) async {
+            final navigator = Navigator.of(context);
+            final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+            if (success && context.mounted) {
+              navigator.pop(); // Close the drawer
+            }
+          },
+          onExpansionChanged: (directory, isExpanded) {
+            // This is the core logic for expansion.
+            final path = (directory as GitObjectDocumentFile).pathInRepo;
+            final notifier = ref.read(gitExplorerExpandedFoldersProvider.notifier);
+            final currentSet = notifier.state;
+            
+            // Create a new set and add or remove the path.
+            final newSet = Set<String>.from(currentSet);
+            if (isExpanded) {
+              newSet.add(path);
+            } else {
+              newSet.remove(path);
+            }
+            notifier.state = newSet;
+          },
+          directoryChildrenBuilder: (directory) {
+            // This is the recursion.
+            return _GitRecursiveDirectoryView(
+              pathInRepo: (directory as GitObjectDocumentFile).pathInRepo,
+              depth: depth + 1,
             );
-
-            // Wrap with InkWell for the long-press context menu
+          },
+          itemBuilder: (context, item, depth, defaultItem) {
+            // Wrap the default item to add the long-press context menu.
             return InkWell(
               onLongPress: () {
-                if (!item.isDirectory) {
+                if (item is GitObjectDocumentFile && !item.isDirectory) {
                   _showFileHistoryMenu(context, ref, item);
                 }
               },
-              child: tile,
+              child: defaultItem,
             );
           },
         );
@@ -271,3 +236,5 @@ class _GitDirectoryView extends ConsumerWidget {
     );
   }
 }
+
+void _dummyCallback() {}
