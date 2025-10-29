@@ -106,6 +106,16 @@ final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   return null; // Start as null, the listener will populate it.
 });
 
+final selectedCommitProvider = FutureProvider<GitCommit?>((ref) async {
+  final repo = await ref.watch(gitRepositoryProvider.future);
+  final hash = ref.watch(selectedGitCommitHashProvider);
+
+  if (repo == null || hash == null) {
+    return null;
+  }
+  return await repo.objStorage.readCommit(hash);
+});
+
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
 class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
   @override
