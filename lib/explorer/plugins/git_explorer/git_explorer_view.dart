@@ -14,6 +14,7 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
+// ... (GitExplorerView is unchanged) ...
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
@@ -39,7 +40,6 @@ class GitExplorerView extends ConsumerWidget {
           }
         });
         
-        // REFACTORED: The main view now contains the new commit browser.
         return const Column(
           children: [
             _CommitBrowser(),
@@ -52,7 +52,8 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-// REWRITTEN: This widget replaces _CommitSelector.
+
+// REWRITTEN: _CommitBrowserState now uses the correct initialization pattern.
 class _CommitBrowser extends ConsumerStatefulWidget {
   const _CommitBrowser();
 
@@ -68,7 +69,16 @@ class _CommitBrowserState extends ConsumerState<_CommitBrowser> {
     super.initState();
     _controller = TextEditingController();
 
-    // Sync the text field when the selected hash changes from outside
+    // THE FIX:
+    // 1. Synchronously read the current value. If the provider already has a
+    //    value (e.g., screen was rebuilt), this sets the initial text immediately.
+    final initialHash = ref.read(selectedGitCommitHashProvider);
+    if (initialHash != null) {
+      _controller.text = initialHash.toString();
+    }
+
+    // 2. Listen for all future changes. This will handle the first async
+    //    value and any subsequent selections from the history sheet.
     ref.listenManual(selectedGitCommitHashProvider, (prev, next) {
       if (next != null && _controller.text != next.toString()) {
         _controller.text = next.toString();
@@ -94,13 +104,7 @@ class _CommitBrowserState extends ConsumerState<_CommitBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    // One-time read to initialize the text field with the first available hash
-    ref.listenOnce(selectedGitCommitHashProvider, (prev, next) {
-      if (next != null) {
-        _controller.text = next.toString();
-      }
-    });
-
+    // THE FIX: The erroneous 'listenOnce' is removed from the build method.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
@@ -136,49 +140,41 @@ class _CommitBrowserState extends ConsumerState<_CommitBrowser> {
   }
 }
 
-// NEW: A widget for the paginated history modal sheet.
+
+// ... (_CommitHistorySheet and _GitRecursiveDirectoryView are unchanged) ...
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
-
   @override
   ConsumerState<_CommitHistorySheet> createState() => _CommitHistorySheetState();
 }
 
 class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   final _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
   }
-
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
-
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      // User is near the bottom, fetch the next page.
       ref.read(paginatedCommitsProvider.notifier).fetchNextPage();
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final stateAsync = ref.watch(paginatedCommitsProvider);
-
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.8,
       maxChildSize: 0.9,
       builder: (_, controller) {
-        // We use the passed controller to make the sheet scrollable.
-        _scrollController.hasClients; // Ensure it's attached.
-        
+        _scrollController.hasClients;
         return stateAsync.when(
           data: (state) {
             return ListView.builder(
@@ -186,12 +182,8 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
               itemCount: state.commits.length + (state.hasMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == state.commits.length) {
-                  return const Center(child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
-                  ));
+                  return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
                 }
-
                 final commit = state.commits[index];
                 return ListTile(
                   title: Text(commit.message.split('\n').first),
@@ -212,23 +204,17 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   }
 }
 
-
-// REFACTORED WIDGET: Long-press functionality removed.
 class _GitRecursiveDirectoryView extends ConsumerWidget {
   final String pathInRepo;
   final int depth;
-
   const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final directoryState = ref.watch(gitTreeCacheProvider)[pathInRepo];
     final expandedPaths = ref.watch(gitExplorerExpandedFoldersProvider);
-
     if (directoryState == null) {
       return const Center(child: CircularProgressIndicator());
     }
-
     return directoryState.when(
       data: (items) {
         return generic.FileListView(
@@ -251,12 +237,8 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
             }
           },
           directoryChildrenBuilder: (directory) {
-            return _GitRecursiveDirectoryView(
-              pathInRepo: (directory as GitObjectDocumentFile).pathInRepo,
-              depth: depth + 1,
-            );
+            return _GitRecursiveDirectoryView(pathInRepo: (directory as GitObjectDocumentFile).pathInRepo, depth: depth + 1);
           },
-          // REMOVED: The itemBuilder and InkWell for long-press are gone.
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
