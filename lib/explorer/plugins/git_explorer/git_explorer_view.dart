@@ -15,6 +15,7 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
+// ... (GitExplorerView and _CurrentCommitDisplay are unchanged) ...
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
@@ -35,12 +36,10 @@ class GitExplorerView extends ConsumerWidget {
           return const Center(child: Text('This project is not a Git repository.'));
         }
 
-        // Initialize the starting hash for the history view to HEAD.
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (context.mounted && ref.read(gitHistoryStartHashProvider) == null) {
             final headHash = await gitRepo.headHash();
             ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
-            // Also set the initial selected hash
             ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
           }
           if (context.mounted) {
@@ -108,6 +107,8 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   }
 }
 
+
+// REFACTORED: The history sheet now includes the "Jump to HEAD" button and logic.
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
   @override
@@ -132,11 +133,9 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
 
     try {
       final hash = GitHash(text.trim());
-      // THE FIX: Validate the hash against the object store, not the loaded list.
       final gitRepo = await ref.read(gitRepositoryProvider.future);
-      await gitRepo?.objStorage.readCommit(hash); // Throws if not found/not a commit
+      await gitRepo?.objStorage.readCommit(hash);
 
-      // It's a valid commit, so update both providers to "jump" the history view
       ref.read(gitHistoryStartHashProvider.notifier).state = hash;
       ref.read(selectedGitCommitHashProvider.notifier).state = hash;
       navigator.pop();
@@ -144,10 +143,27 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       MachineToast.error("Invalid or unknown Git commit hash");
     }
   }
+
+  // NEW: Logic for the "Jump to HEAD" button.
+  Future<void> _jumpToHead() async {
+    final navigator = Navigator.of(context);
+    try {
+      final gitRepo = await ref.read(gitRepositoryProvider.future);
+      if (gitRepo == null) return;
+      
+      final headHash = await gitRepo.headHash();
+      
+      // Update both providers to reset the view.
+      ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
+      ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
+      navigator.pop();
+    } catch (e) {
+      MachineToast.error("Could not find HEAD commit");
+    }
+  }
   
   @override
   Widget build(BuildContext context) {
-    // Watch the starting hash to determine which family of the provider to use.
     final startHash = ref.watch(gitHistoryStartHashProvider);
     if (startHash == null) {
       return const Center(child: CircularProgressIndicator());
@@ -162,7 +178,6 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       final lastVisible = positions.map((p) => p.index).reduce((max, p) => p > max ? p : max);
       final totalItems = stateAsync.valueOrNull?.commits.length ?? 0;
       if (lastVisible >= totalItems - 5) {
-         // Pass the startHash to the family notifier.
          ref.read(paginatedCommitsProvider(startHash).notifier).fetchNextPage();
       }
     });
@@ -188,7 +203,11 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
         appBar: AppBar(
           primary: false, automaticallyImplyLeading: false,
           title: TextField(controller: _textController, decoration: const InputDecoration(hintText: 'Find commit by hash...'), onSubmitted: _submitHash, style: const TextStyle(fontFamily: 'JetBrainsMono')),
-          actions: [ IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search)) ],
+          actions: [
+            // NEW: Added "Jump to HEAD" button.
+            IconButton(onPressed: _jumpToHead, icon: const Icon(Icons.vertical_align_top), tooltip: 'Jump to HEAD'),
+            IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search)),
+          ],
         ),
         body: stateAsync.when(
           data: (state) => ScrollablePositionedList.builder(
@@ -221,8 +240,8 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   }
 }
 
-// _GitRecursiveDirectoryView is unchanged.
-class _GitRecursiveDirectoryView extends ConsumerWidget { /* ... unchanged ... */
+// ... (_GitRecursiveDirectoryView is unchanged) ...
+class _GitRecursiveDirectoryView extends ConsumerWidget {
   final String pathInRepo;
   final int depth;
   const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});
