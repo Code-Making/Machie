@@ -12,13 +12,11 @@ import 'package:dart_git/utils/file_mode.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
+// These providers are unchanged and correct for the new design
 final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
-
-// === START: PAGINATION LOGIC ===
 
 const _commitsPerPage = 20;
 
-// A state class to hold the paginated data
 class PaginatedCommitsState extends Equatable {
   final List<GitCommit> commits;
   final bool isLoading;
@@ -30,11 +28,7 @@ class PaginatedCommitsState extends Equatable {
     this.hasMore = true,
   });
 
-  PaginatedCommitsState copyWith({
-    List<GitCommit>? commits,
-    bool? isLoading,
-    bool? hasMore,
-  }) {
+  PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) {
     return PaginatedCommitsState(
       commits: commits ?? this.commits,
       isLoading: isLoading ?? this.isLoading,
@@ -46,7 +40,6 @@ class PaginatedCommitsState extends Equatable {
   List<Object?> get props => [commits, isLoading, hasMore];
 }
 
-// The Notifier for handling pagination
 class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommitsState> {
   StreamIterator<GitCommit>? _iterator;
 
@@ -98,11 +91,19 @@ class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommits
 
 final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider<PaginatedCommitsNotifier, PaginatedCommitsState>(PaginatedCommitsNotifier.new);
 
-// === END: PAGINATION LOGIC ===
+final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
+  ref.listen(paginatedCommitsProvider, (_, next) {
+    final commits = next.valueOrNull?.commits;
+    if (commits != null && commits.isNotEmpty) {
+      final currentState = ref.controller.state;
+      if (currentState == null) {
+        ref.controller.state = commits.first.hash;
+      }
+    }
+  });
+  return null;
+});
 
-
-// The old gitCommitsProvider and fileHistoryProvider are REMOVED.
-// The gitTreeCacheProvider and its Notifier remain UNCHANGED.
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
 class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
   @override
@@ -139,17 +140,4 @@ class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<Li
   }
 }
 
-
-final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  // Listen to the new paginated provider to set the initial HEAD commit
-  ref.listen(paginatedCommitsProvider, (_, next) {
-    final commits = next.valueOrNull?.commits;
-    if (commits != null && commits.isNotEmpty) {
-      final currentState = ref.controller.state;
-      if (currentState == null) {
-        ref.controller.state = commits.first.hash;
-      }
-    }
-  });
-  return null;
-});
+// REMOVED: The fileHistoryProvider is no longer needed.
