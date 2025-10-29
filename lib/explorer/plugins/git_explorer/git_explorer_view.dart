@@ -15,15 +15,23 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
-// ... (GitExplorerView is unchanged) ...
+// REFACTORED: The build method is now safer and more declarative.
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(selectedGitCommitHashProvider, (_, __) {
+    // This listener correctly decouples the side effect (loading a directory)
+    // from the build method. It triggers whenever the selected commit hash changes.
+    ref.listen(selectedGitCommitHashProvider, (_, GitHash? nextHash) {
+      // Always clear the expanded folder state when the commit changes.
       ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
+      
+      // If we have a valid new commit, load its root directory tree.
+      if (nextHash != null) {
+        ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
+      }
     });
 
     final gitRepoAsync = ref.watch(gitRepositoryProvider);
@@ -35,17 +43,29 @@ class GitExplorerView extends ConsumerWidget {
         if (gitRepo == null) {
           return const Center(child: Text('This project is not a Git repository.'));
         }
-        if (ref.read(selectedGitCommitHashProvider) == null) {
+
+        // Watch the selected hash provider. This ensures the widget rebuilds when the hash is set.
+        final selectedHash = ref.watch(selectedGitCommitHashProvider);
+        if (selectedHash == null) {
+          // If no commit is selected yet, we need to initialize it to HEAD.
+          // This side-effect is performed in a post-frame callback to avoid modifying state during a build.
           WidgetsBinding.instance.addPostFrameCallback((_) async {
-            ref.read(selectedGitCommitHashProvider.notifier).state = await gitRepo.headHash();
+            // A mounted check and a re-read of the provider prevent race conditions.
+            if (context.mounted && ref.read(selectedGitCommitHashProvider) == null) {
+              final headHash = await gitRepo.headHash();
+              // Final mounted check after the async gap before setting state.
+              if (context.mounted) {
+                ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
+              }
+            }
           });
+
+          // While we wait for the head hash to be resolved, show a loading indicator.
+          // The listener above will automatically trigger the directory load once the hash is set.
+          return const Center(child: CircularProgressIndicator());
         }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
-            ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
-          }
-        });
-        
+
+        // Once the selected commit hash is available, render the main UI.
         return const Column(
           children: [
             _CurrentCommitDisplay(),
@@ -59,7 +79,7 @@ class GitExplorerView extends ConsumerWidget {
 }
 
 
-// REFACTORED: This widget is now much cleaner.
+// UNCHANGED: This widget is now much cleaner.
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
 
@@ -108,7 +128,7 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   }
 }
 
-// ... (_CommitHistorySheet and _GitRecursiveDirectoryView are unchanged) ...
+// UNCHANGED: (_CommitHistorySheet and _GitRecursiveDirectoryView are unchanged) ...
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
 
