@@ -13,28 +13,34 @@ import 'package:dart_git/storage/interfaces.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
-// NEW: A highly efficient iterator that only follows the first parent of each commit.
-// This mimics the behavior of `git log --first-parent`.
-Stream<GitCommit> firstParentCommitIterator({
-  required ObjectStorage objStorage,
-  required GitHash from,
-}) async* {
-  GitHash? currentHash = from;
+// This provider tracks the commit hash that serves as the starting point for the history view.
+// It's updated when the user "jumps to" a specific hash.
+final gitHistoryStartHashProvider = StateProvider<GitHash?>((ref) => null);
 
+// A provider to fetch the details of a single commit, used by the main display.
+final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((ref, hash) async {
+  final gitRepo = await ref.watch(gitRepositoryProvider.future);
+  if (gitRepo == null) return null;
+  try {
+    return await gitRepo.objStorage.readCommit(hash);
+  } catch (e) {
+    return null;
+  }
+});
+
+
+Stream<GitCommit> firstParentCommitIterator({ required ObjectStorage objStorage, required GitHash from }) async* {
+  GitHash? currentHash = from;
   while (currentHash != null) {
     try {
       final commit = await objStorage.readCommit(currentHash);
       yield commit;
-
-      // Move to the first parent, or stop if there are no parents.
       currentHash = commit.parents.isNotEmpty ? commit.parents.first : null;
     } catch (e) {
-      // If a commit object is missing or corrupt, stop the iteration.
       break;
     }
   }
 }
-
 
 const _commitsPerPage = 20;
 
@@ -42,13 +48,7 @@ class PaginatedCommitsState extends Equatable {
   final List<GitCommit> commits;
   final bool isLoading;
   final bool hasMore;
-
-  const PaginatedCommitsState({
-    this.commits = const [],
-    this.isLoading = true,
-    this.hasMore = true,
-  });
-
+  const PaginatedCommitsState({ this.commits = const [], this.isLoading = true, this.hasMore = true });
   PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) {
     return PaginatedCommitsState(
       commits: commits ?? this.commits,
@@ -56,25 +56,22 @@ class PaginatedCommitsState extends Equatable {
       hasMore: hasMore ?? this.hasMore,
     );
   }
-  
   @override
   List<Object?> get props => [commits, isLoading, hasMore];
 }
 
-class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommitsState> {
+// REFACTORED to a FamilyAsyncNotifier, parameterized by the starting commit hash.
+class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedCommitsState, GitHash> {
   StreamIterator<GitCommit>? _iterator;
 
   @override
-  Future<PaginatedCommitsState> build() async {
+  Future<PaginatedCommitsState> build(GitHash fromHash) async {
     final gitRepo = await ref.watch(gitRepositoryProvider.future);
     if (gitRepo == null) {
       return const PaginatedCommitsState(isLoading: false, hasMore: false);
     }
 
-    final headHash = await gitRepo.headHash();
-
-    // THE FIX: Use the new, fast, linear iterator.
-    final stream = firstParentCommitIterator(objStorage: gitRepo.objStorage, from: headHash);
+    final stream = firstParentCommitIterator(objStorage: gitRepo.objStorage, from: fromHash);
     _iterator = StreamIterator(stream);
     
     return _fetchNextPage(const PaginatedCommitsState(commits: []));
@@ -90,7 +87,6 @@ class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommits
 
   Future<PaginatedCommitsState> _fetchNextPage(PaginatedCommitsState currentState) async {
     if (_iterator == null) return currentState.copyWith(isLoading: false, hasMore: false);
-    
     final newCommits = <GitCommit>[];
     for (var i = 0; i < _commitsPerPage; i++) {
       if (await _iterator!.moveNext()) {
@@ -103,7 +99,6 @@ class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommits
         );
       }
     }
-    
     return currentState.copyWith(
       commits: [...currentState.commits, ...newCommits],
       isLoading: false,
@@ -112,14 +107,16 @@ class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommits
   }
 }
 
-final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider<PaginatedCommitsNotifier, PaginatedCommitsState>(PaginatedCommitsNotifier.new);
+final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<PaginatedCommitsNotifier, PaginatedCommitsState, GitHash>(PaginatedCommitsNotifier.new);
 
-// ... The rest of the file is unchanged ...
-
+// ... The rest of the file (selectedGitCommitHashProvider, etc.) is unchanged ...
 final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
 
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  ref.listen(paginatedCommitsProvider, (_, next) {
+  final startHash = ref.watch(gitHistoryStartHashProvider);
+  if (startHash == null) return null;
+
+  ref.listen(paginatedCommitsProvider(startHash), (_, next) {
     final commits = next.valueOrNull?.commits;
     if (commits != null && commits.isNotEmpty) {
       final currentState = ref.controller.state;
