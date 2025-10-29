@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dart_git/dart_git.dart';
 import 'package:dart_git/plumbing/commit_iterator.dart';
 import 'package:dart_git/utils/file_mode.dart';
+import 'package:dart_git/storage/interfaces.dart';
 
 import 'git_provider.dart';
 import 'git_object_file.dart';
