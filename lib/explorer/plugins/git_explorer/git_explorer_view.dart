@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dart_git/dart_git.dart';
+import 'package:machine/utils/toast.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
@@ -19,7 +20,6 @@ class GitExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Listen for commit changes to reset (collapse) the tree view.
     ref.listen(selectedGitCommitHashProvider, (_, __) {
       ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
     });
@@ -27,45 +27,24 @@ class GitExplorerView extends ConsumerWidget {
     final gitRepoAsync = ref.watch(gitRepositoryProvider);
 
     return gitRepoAsync.when(
-      loading: () => const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Scanning for Git repository...'),
-          ],
-        ),
-      ),
-      error: (err, stack) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Error loading Git repository:\n$err', textAlign: TextAlign.center),
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error loading Git repository:\n$err')),
       data: (gitRepo) {
         if (gitRepo == null) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'This project is not a Git repository.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ),
-          );
+          return const Center(child: Text('This project is not a Git repository.'));
         }
-
-        // REFACTORED: The main view now just contains the recursive tree.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
+          }
+        });
+        
+        // REFACTORED: The main view now contains the new commit browser.
         return const Column(
           children: [
-            _CommitSelector(),
+            _CommitBrowser(),
             Divider(height: 1),
-            Expanded(
-              // Start the recursion from the root path.
-              child: _GitRecursiveDirectoryView(pathInRepo: ''),
-            ),
+            Expanded(child: _GitRecursiveDirectoryView(pathInRepo: '')),
           ],
         );
       },
@@ -73,168 +52,215 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-// ... (_CommitSelector remains unchanged) ...
-class _CommitSelector extends ConsumerWidget {
-  const _CommitSelector();
+// REWRITTEN: This widget replaces _CommitSelector.
+class _CommitBrowser extends ConsumerStatefulWidget {
+  const _CommitBrowser();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final commitsAsync = ref.watch(gitCommitsProvider);
-    final selectedHash = ref.watch(selectedGitCommitHashProvider);
+  ConsumerState<_CommitBrowser> createState() => _CommitBrowserState();
+}
 
-    return commitsAsync.when(
-      data: (commits) {
-        if (commits.isEmpty) {
-          return const ListTile(title: Text('No commits found in this repository.'));
-        }
-        if (selectedHash == null) {
-          return const SizedBox(height: 56, child: Center(child: LinearProgressIndicator()));
-        }
-        final selectedCommit = commits.firstWhere((c) => c.hash == selectedHash, orElse: () => commits.first);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<GitHash>(
-              value: selectedCommit.hash,
-              onChanged: (newHash) {
-                if (newHash != null) {
-                  ref.read(selectedGitCommitHashProvider.notifier).state = newHash;
-                }
-              },
-              isExpanded: true,
-              itemHeight: 60,
-              items: commits.map((commit) {
-                return DropdownMenuItem(
-                  value: commit.hash,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 2),
-                      Text('${commit.hash.toOid()} by ${commit.author.name}', overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFamily: 'JetBrainsMono')),
-                    ],
-                  ),
-                );
-              }).toList(),
+class _CommitBrowserState extends ConsumerState<_CommitBrowser> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+
+    // Sync the text field when the selected hash changes from outside
+    ref.listenManual(selectedGitCommitHashProvider, (prev, next) {
+      if (next != null && _controller.text != next.toString()) {
+        _controller.text = next.toString();
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submitHash(String text) {
+    try {
+      final hash = GitHash(text);
+      ref.read(selectedGitCommitHashProvider.notifier).state = hash;
+      FocusScope.of(context).unfocus(); // Dismiss keyboard
+    } catch (e) {
+      MachineToast.error("Invalid Git hash format");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // One-time read to initialize the text field with the first available hash
+    ref.listenOnce(selectedGitCommitHashProvider, (prev, next) {
+      if (next != null) {
+        _controller.text = next.toString();
+      }
+    });
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Commit Hash',
+                isDense: true,
+                hintText: 'Enter a commit hash...',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: _submitHash,
+              style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 14),
             ),
           ),
-        );
-      },
-      loading: () => const SizedBox(height: 56, child: Center(child: LinearProgressIndicator())),
-      error: (err, st) => ListTile(title: Text('Error loading commits: $err')),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Browse History',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const _CommitHistorySheet(),
+              );
+            },
+          )
+        ],
+      ),
     );
   }
 }
 
-// NEW: This widget is now the core recursive part of the tree.
+// NEW: A widget for the paginated history modal sheet.
+class _CommitHistorySheet extends ConsumerStatefulWidget {
+  const _CommitHistorySheet();
+
+  @override
+  ConsumerState<_CommitHistorySheet> createState() => _CommitHistorySheetState();
+}
+
+class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      // User is near the bottom, fetch the next page.
+      ref.read(paginatedCommitsProvider.notifier).fetchNextPage();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stateAsync = ref.watch(paginatedCommitsProvider);
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.8,
+      maxChildSize: 0.9,
+      builder: (_, controller) {
+        // We use the passed controller to make the sheet scrollable.
+        _scrollController.hasClients; // Ensure it's attached.
+        
+        return stateAsync.when(
+          data: (state) {
+            return ListView.builder(
+              controller: _scrollController,
+              itemCount: state.commits.length + (state.hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == state.commits.length) {
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ));
+                }
+
+                final commit = state.commits[index];
+                return ListTile(
+                  title: Text(commit.message.split('\n').first),
+                  subtitle: Text('${commit.hash.toOid()} by ${commit.author.name}'),
+                  onTap: () {
+                    ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => Center(child: Text("Error: $e")),
+        );
+      },
+    );
+  }
+}
+
+
+// REFACTORED WIDGET: Long-press functionality removed.
 class _GitRecursiveDirectoryView extends ConsumerWidget {
   final String pathInRepo;
   final int depth;
 
   const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});
 
-  void _showFileHistoryMenu(BuildContext context, WidgetRef ref, GitObjectDocumentFile file) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Consumer(builder: (context, ref, _) {
-        final historyAsync = ref.watch(fileHistoryProvider(file.pathInRepo));
-        return historyAsync.when(
-          data: (commits) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Recent Changes to ${file.name}', style: Theme.of(context).textTheme.titleLarge),
-              ),
-              const Divider(height: 1),
-              if (commits.isEmpty) const ListTile(title: Text('No recent changes found in this branch.')),
-              ...commits.map((commit) => ListTile(
-                    title: Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(commit.hash.toOid(), style: const TextStyle(fontFamily: 'JetBrainsMono')),
-                    onTap: () {
-                      ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
-                      Navigator.pop(ctx);
-                    },
-                  )),
-            ],
-          ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, st) => ListTile(title: Text('Error: $e')),
-        );
-      }),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the data provider for the current directory level.
-    final treeAsync = ref.watch(gitTreeProvider(pathInRepo));
-    // Watch the global state of all expanded folders.
+    final directoryState = ref.watch(gitTreeCacheProvider)[pathInRepo];
     final expandedPaths = ref.watch(gitExplorerExpandedFoldersProvider);
 
-    return treeAsync.when(
+    if (directoryState == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return directoryState.when(
       data: (items) {
-        if (items.isEmpty && depth > 1) {
-          return generic.FileItem(
-            // Show a placeholder for empty directories
-            file: VirtualDocumentFile(uri: '', name: '(empty)'),
-            depth: depth,
-            onTapped: _dummyCallback,
-          );
-        }
-        
-        // Use the generic, reusable FileListView.
         return generic.FileListView(
           items: items,
-          expandedDirectoryUris: expandedPaths, // Pass the global expanded set.
+          expandedDirectoryUris: expandedPaths,
           depth: depth,
           onFileTapped: (file) async {
             final navigator = Navigator.of(context);
             final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
-            if (success && context.mounted) {
-              navigator.pop(); // Close the drawer
-            }
+            if (success && context.mounted) navigator.pop();
           },
           onExpansionChanged: (directory, isExpanded) {
-            // This is the core logic for expansion.
             final path = (directory as GitObjectDocumentFile).pathInRepo;
             final notifier = ref.read(gitExplorerExpandedFoldersProvider.notifier);
-            final currentSet = notifier.state;
-            
-            // Create a new set and add or remove the path.
-            final newSet = Set<String>.from(currentSet);
             if (isExpanded) {
-              newSet.add(path);
+              ref.read(gitTreeCacheProvider.notifier).loadDirectory(path);
+              notifier.update((state) => {...state, path});
             } else {
-              newSet.remove(path);
+              notifier.update((state) => state..remove(path));
             }
-            notifier.state = newSet;
           },
           directoryChildrenBuilder: (directory) {
-            // This is the recursion.
             return _GitRecursiveDirectoryView(
               pathInRepo: (directory as GitObjectDocumentFile).pathInRepo,
               depth: depth + 1,
             );
           },
-          itemBuilder: (context, item, depth, defaultItem) {
-            // Wrap the default item to add the long-press context menu.
-            return InkWell(
-              onLongPress: () {
-                if (item is GitObjectDocumentFile && !item.isDirectory) {
-                  _showFileHistoryMenu(context, ref, item);
-                }
-              },
-              child: defaultItem,
-            );
-          },
+          // REMOVED: The itemBuilder and InkWell for long-press are gone.
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, st) => Text('Error loading tree: $e'),
+      error: (err, stack) => Center(child: Text('Error: $err')),
     );
   }
 }
-
-void _dummyCallback() {}
