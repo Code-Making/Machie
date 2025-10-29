@@ -40,6 +40,8 @@ class GitExplorerView extends ConsumerWidget {
           if (context.mounted && ref.read(gitHistoryStartHashProvider) == null) {
             final headHash = await gitRepo.headHash();
             ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
+            // Also set the initial selected hash
+            ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
           }
           if (context.mounted) {
             ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
@@ -58,7 +60,6 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-// REFACTORED: This widget now fetches its own details using a dedicated provider.
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
 
@@ -69,7 +70,6 @@ class _CurrentCommitDisplay extends ConsumerWidget {
       return const SizedBox(height: 64, child: Center(child: LinearProgressIndicator()));
     }
     
-    // Watch the new provider to get details for the selected commit
     final commitDetailsAsync = ref.watch(gitCommitDetailsProvider(selectedHash));
 
     return commitDetailsAsync.when(
@@ -108,7 +108,6 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   }
 }
 
-// REWRITTEN WIDGET: Logic for submitting hash is much more robust.
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
   @override
@@ -129,13 +128,13 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
 
   Future<void> _submitHash(String text) async {
     if (text.trim().isEmpty) return;
-    final navigator = Navigator.of(context); // Capture navigator before async gap
+    final navigator = Navigator.of(context);
 
     try {
       final hash = GitHash(text.trim());
-      // Verify the commit exists before we change the state
+      // THE FIX: Validate the hash against the object store, not the loaded list.
       final gitRepo = await ref.read(gitRepositoryProvider.future);
-      await gitRepo?.objStorage.readCommit(hash);
+      await gitRepo?.objStorage.readCommit(hash); // Throws if not found/not a commit
 
       // It's a valid commit, so update both providers to "jump" the history view
       ref.read(gitHistoryStartHashProvider.notifier).state = hash;
@@ -148,6 +147,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   
   @override
   Widget build(BuildContext context) {
+    // Watch the starting hash to determine which family of the provider to use.
     final startHash = ref.watch(gitHistoryStartHashProvider);
     if (startHash == null) {
       return const Center(child: CircularProgressIndicator());
@@ -162,6 +162,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       final lastVisible = positions.map((p) => p.index).reduce((max, p) => p > max ? p : max);
       final totalItems = stateAsync.valueOrNull?.commits.length ?? 0;
       if (lastVisible >= totalItems - 5) {
+         // Pass the startHash to the family notifier.
          ref.read(paginatedCommitsProvider(startHash).notifier).fetchNextPage();
       }
     });
@@ -172,7 +173,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
         final index = state.commits.indexWhere((c) => c.hash == selectedHash);
         if (index != -1) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_itemScrollController.isAttached) {
+            if (mounted && _itemScrollController.isAttached) {
               _itemScrollController.jumpTo(index: index, alignment: 0.4);
               _didInitialScroll = true;
             }
@@ -220,9 +221,8 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   }
 }
 
-
-// _GitRecursiveDirectoryView is unchanged
-class _GitRecursiveDirectoryView extends ConsumerWidget {
+// _GitRecursiveDirectoryView is unchanged.
+class _GitRecursiveDirectoryView extends ConsumerWidget { /* ... unchanged ... */
   final String pathInRepo;
   final int depth;
   const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});

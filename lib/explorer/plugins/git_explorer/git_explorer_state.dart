@@ -13,22 +13,25 @@ import 'package:dart_git/storage/interfaces.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
-// This provider tracks the commit hash that serves as the starting point for the history view.
-// It's updated when the user "jumps to" a specific hash.
+// NEW: This provider tracks the commit hash that serves as the starting point for the history view.
+// When a user "jumps to" a hash, this provider's state is updated.
 final gitHistoryStartHashProvider = StateProvider<GitHash?>((ref) => null);
 
-// A provider to fetch the details of a single commit, used by the main display.
+// NEW: A provider to fetch the details of a single commit by its hash.
+// This decouples the main commit display from the paginated list.
 final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((ref, hash) async {
   final gitRepo = await ref.watch(gitRepositoryProvider.future);
   if (gitRepo == null) return null;
   try {
+    // Directly read the commit from the object store.
     return await gitRepo.objStorage.readCommit(hash);
   } catch (e) {
+    // If the hash is invalid or not a commit, return null.
     return null;
   }
 });
 
-
+// This efficient iterator remains the same.
 Stream<GitCommit> firstParentCommitIterator({ required ObjectStorage objStorage, required GitHash from }) async* {
   GitHash? currentHash = from;
   while (currentHash != null) {
@@ -36,31 +39,23 @@ Stream<GitCommit> firstParentCommitIterator({ required ObjectStorage objStorage,
       final commit = await objStorage.readCommit(currentHash);
       yield commit;
       currentHash = commit.parents.isNotEmpty ? commit.parents.first : null;
-    } catch (e) {
-      break;
-    }
+    } catch (e) { break; }
   }
 }
 
-const _commitsPerPage = 20;
+const _commitsPerPage = 10;
 
-class PaginatedCommitsState extends Equatable {
+class PaginatedCommitsState extends Equatable { /* ... unchanged ... */
   final List<GitCommit> commits;
   final bool isLoading;
   final bool hasMore;
   const PaginatedCommitsState({ this.commits = const [], this.isLoading = true, this.hasMore = true });
-  PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) {
-    return PaginatedCommitsState(
-      commits: commits ?? this.commits,
-      isLoading: isLoading ?? this.isLoading,
-      hasMore: hasMore ?? this.hasMore,
-    );
-  }
-  @override
-  List<Object?> get props => [commits, isLoading, hasMore];
+  PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) => PaginatedCommitsState(commits: commits ?? this.commits, isLoading: isLoading ?? this.isLoading, hasMore: hasMore ?? this.hasMore);
+  @override List<Object?> get props => [commits, isLoading, hasMore];
 }
 
-// REFACTORED to a FamilyAsyncNotifier, parameterized by the starting commit hash.
+// REFACTORED: This is now an AutoDisposeFamilyAsyncNotifier, parameterized by the starting commit hash.
+// When the start hash changes, Riverpod automatically creates a new instance and fetches a new history.
 class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedCommitsState, GitHash> {
   StreamIterator<GitCommit>? _iterator;
 
@@ -80,11 +75,10 @@ class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedC
   Future<void> fetchNextPage() async {
     if (state.value?.isLoading ?? true) return;
     if (!(state.value?.hasMore ?? false)) return;
-
     state = AsyncData(state.value!.copyWith(isLoading: true));
     state = AsyncData(await _fetchNextPage(state.value!));
   }
-
+  
   Future<PaginatedCommitsState> _fetchNextPage(PaginatedCommitsState currentState) async {
     if (_iterator == null) return currentState.copyWith(isLoading: false, hasMore: false);
     final newCommits = <GitCommit>[];
@@ -92,34 +86,29 @@ class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedC
       if (await _iterator!.moveNext()) {
         newCommits.add(_iterator!.current);
       } else {
-        return currentState.copyWith(
-          commits: [...currentState.commits, ...newCommits],
-          isLoading: false,
-          hasMore: false,
-        );
+        return currentState.copyWith(commits: [...currentState.commits, ...newCommits], isLoading: false, hasMore: false);
       }
     }
-    return currentState.copyWith(
-      commits: [...currentState.commits, ...newCommits],
-      isLoading: false,
-      hasMore: true,
-    );
+    return currentState.copyWith(commits: [...currentState.commits, ...newCommits], isLoading: false, hasMore: true);
   }
 }
 
 final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<PaginatedCommitsNotifier, PaginatedCommitsState, GitHash>(PaginatedCommitsNotifier.new);
 
-// ... The rest of the file (selectedGitCommitHashProvider, etc.) is unchanged ...
+// ... (The rest of the file is unchanged) ...
 final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
 
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
+  // We need to know which history we're listening to.
   final startHash = ref.watch(gitHistoryStartHashProvider);
   if (startHash == null) return null;
 
+  // Listen to the specific paginated provider for this history.
   ref.listen(paginatedCommitsProvider(startHash), (_, next) {
     final commits = next.valueOrNull?.commits;
     if (commits != null && commits.isNotEmpty) {
       final currentState = ref.controller.state;
+      // Set the initial selected commit only if one isn't already selected.
       if (currentState == null) {
         ref.controller.state = commits.first.hash;
       }
@@ -129,7 +118,6 @@ final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
 });
 
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
-
 class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
   @override
   Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
