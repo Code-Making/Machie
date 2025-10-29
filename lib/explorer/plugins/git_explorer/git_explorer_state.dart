@@ -12,144 +12,131 @@ import 'package:dart_git/utils/file_mode.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
-// === START: NEW COMMIT HISTORY NOTIFIER ===
+// NEW: A highly efficient iterator that only follows the first parent of each commit.
+// This mimics the behavior of `git log --first-parent`.
+Stream<GitCommit> firstParentCommitIterator({
+  required ObjectStorage objStorage,
+  required GitHash from,
+}) async* {
+  GitHash? currentHash = from;
 
-const _commitsPerPage = 30;
+  while (currentHash != null) {
+    try {
+      final commit = await objStorage.readCommit(currentHash);
+      yield commit;
 
-// The state class now holds all UI-relevant information for the history sheet.
-class CommitHistoryState extends Equatable {
-  final List<GitCommit> commits;
-  final bool hasMore;
-  final bool isLoadingMore;
-  final int? initialScrollIndex; // The index to scroll to on first load.
-  final bool initialScrollCompleted; // Flag to prevent re-scrolling.
-
-  const CommitHistoryState({
-    this.commits = const [],
-    this.hasMore = true,
-    this.isLoadingMore = false,
-    this.initialScrollIndex,
-    this.initialScrollCompleted = false,
-  });
-
-  CommitHistoryState copyWith({
-    List<GitCommit>? commits,
-    bool? hasMore,
-    bool? isLoadingMore,
-    int? initialScrollIndex,
-    bool? initialScrollCompleted,
-  }) {
-    return CommitHistoryState(
-      commits: commits ?? this.commits,
-      hasMore: hasMore ?? this.hasMore,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      initialScrollIndex: initialScrollIndex ?? this.initialScrollIndex,
-      initialScrollCompleted: initialScrollCompleted ?? this.initialScrollCompleted,
-    );
+      // Move to the first parent, or stop if there are no parents.
+      currentHash = commit.parents.isNotEmpty ? commit.parents.first : null;
+    } catch (e) {
+      // If a commit object is missing or corrupt, stop the iteration.
+      break;
+    }
   }
-
-  @override
-  List<Object?> get props => [commits, hasMore, isLoadingMore, initialScrollIndex, initialScrollCompleted];
 }
 
-// The new AsyncNotifier to manage the history sheet's state.
-class CommitHistoryNotifier extends AutoDisposeAsyncNotifier<CommitHistoryState> {
+
+const _commitsPerPage = 20;
+
+class PaginatedCommitsState extends Equatable {
+  final List<GitCommit> commits;
+  final bool isLoading;
+  final bool hasMore;
+
+  const PaginatedCommitsState({
+    this.commits = const [],
+    this.isLoading = true,
+    this.hasMore = true,
+  });
+
+  PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) {
+    return PaginatedCommitsState(
+      commits: commits ?? this.commits,
+      isLoading: isLoading ?? this.isLoading,
+      hasMore: hasMore ?? this.hasMore,
+    );
+  }
+  
+  @override
+  List<Object?> get props => [commits, isLoading, hasMore];
+}
+
+class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommitsState> {
   StreamIterator<GitCommit>? _iterator;
 
   @override
-  Future<CommitHistoryState> build() async {
+  Future<PaginatedCommitsState> build() async {
     final gitRepo = await ref.watch(gitRepositoryProvider.future);
     if (gitRepo == null) {
-      return const CommitHistoryState(hasMore: false);
+      return const PaginatedCommitsState(isLoading: false, hasMore: false);
     }
 
     final headHash = await gitRepo.headHash();
-    final stream = commitIteratorBFS(objStorage: gitRepo.objStorage, from: headHash);
-    _iterator = StreamIterator(stream);
 
-    final firstPage = await _fetchPage();
+    // THE FIX: Use the new, fast, linear iterator.
+    final stream = firstParentCommitIterator(objStorage: gitRepo.objStorage, from: headHash);
+    _iterator = StreamIterator(stream);
     
-    // Find the index of the currently selected commit to enable the initial scroll.
-    final selectedHash = ref.read(selectedGitCommitHashProvider);
-    int? scrollIndex;
-    if (selectedHash != null) {
-      scrollIndex = firstPage.indexWhere((c) => c.hash == selectedHash);
-      if (scrollIndex == -1) scrollIndex = null;
-    }
-    
-    return CommitHistoryState(
-      commits: firstPage,
-      hasMore: firstPage.length == _commitsPerPage,
-      initialScrollIndex: scrollIndex,
-    );
+    return _fetchNextPage(const PaginatedCommitsState(commits: []));
   }
 
   Future<void> fetchNextPage() async {
-    if (state.value?.isLoadingMore ?? true) return;
+    if (state.value?.isLoading ?? true) return;
     if (!(state.value?.hasMore ?? false)) return;
 
-    state = AsyncData(state.value!.copyWith(isLoadingMore: true));
-    
-    final newCommits = await _fetchPage();
-    final currentState = state.value!;
-
-    state = AsyncData(currentState.copyWith(
-      commits: [...currentState.commits, ...newCommits],
-      hasMore: newCommits.length == _commitsPerPage,
-      isLoadingMore: false,
-    ));
+    state = AsyncData(state.value!.copyWith(isLoading: true));
+    state = AsyncData(await _fetchNextPage(state.value!));
   }
 
-  Future<List<GitCommit>> _fetchPage() async {
-    if (_iterator == null) return [];
+  Future<PaginatedCommitsState> _fetchNextPage(PaginatedCommitsState currentState) async {
+    if (_iterator == null) return currentState.copyWith(isLoading: false, hasMore: false);
     
-    final pageCommits = <GitCommit>[];
+    final newCommits = <GitCommit>[];
     for (var i = 0; i < _commitsPerPage; i++) {
       if (await _iterator!.moveNext()) {
-        pageCommits.add(_iterator!.current);
+        newCommits.add(_iterator!.current);
       } else {
-        break;
+        return currentState.copyWith(
+          commits: [...currentState.commits, ...newCommits],
+          isLoading: false,
+          hasMore: false,
+        );
       }
     }
-    return pageCommits;
-  }
-  
-  // Method for the UI to call after it has performed the initial scroll.
-  void completeInitialScroll() {
-    if (state.value?.initialScrollCompleted == false) {
-      state = AsyncData(state.value!.copyWith(initialScrollCompleted: true));
-    }
+    
+    return currentState.copyWith(
+      commits: [...currentState.commits, ...newCommits],
+      isLoading: false,
+      hasMore: true,
+    );
   }
 }
 
-final commitHistoryProvider = AutoDisposeAsyncNotifierProvider<CommitHistoryNotifier, CommitHistoryState>(CommitHistoryNotifier.new);
+final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider<PaginatedCommitsNotifier, PaginatedCommitsState>(PaginatedCommitsNotifier.new);
 
-// === END: NEW COMMIT HISTORY NOTIFIER ===
+// ... The rest of the file is unchanged ...
 
+final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
 
-// The old paginated provider is removed.
-// The selectedGitCommitHashProvider is now simplified.
-final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) => null);
-
-final selectedCommitProvider = FutureProvider.autoDispose<GitCommit?>((ref) async {
-  final repo = await ref.watch(gitRepositoryProvider.future);
-  final selectedHash = ref.watch(selectedGitCommitHashProvider);
-
-  if (repo == null || selectedHash == null) {
-    return null;
-  }
-
-  // This provider now correctly handles the full async chain.
-  return repo.objStorage.readCommit(selectedHash);
+final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
+  ref.listen(paginatedCommitsProvider, (_, next) {
+    final commits = next.valueOrNull?.commits;
+    if (commits != null && commits.isNotEmpty) {
+      final currentState = ref.controller.state;
+      if (currentState == null) {
+        ref.controller.state = commits.first.hash;
+      }
+    }
+  });
+  return null;
 });
 
-// These providers remain unchanged.
-final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
+
 class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
   @override
   Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
-    ref.watch(selectedGitCommitHashProvider); return {};
+    ref.watch(selectedGitCommitHashProvider);
+    return {};
   }
   Future<void> loadDirectory(String pathInRepo) async {
     if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) return;
