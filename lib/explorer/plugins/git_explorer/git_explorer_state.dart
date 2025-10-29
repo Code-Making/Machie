@@ -1,155 +1,248 @@
 // =========================================
-// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_state.dart
+// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_view.dart
 // =========================================
 
-import 'dart:async';
-import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dart_git/dart_git.dart';
-import 'package:dart_git/plumbing/commit_iterator.dart';
-import 'package:dart_git/utils/file_mode.dart';
+import 'package:machine/utils/toast.dart';
 
+import '../../../app/app_notifier.dart';
+import '../../../project/project_models.dart';
+import '../../../widgets/file_list_view.dart' as generic;
 import 'git_provider.dart';
 import 'git_object_file.dart';
+import 'git_explorer_state.dart';
 
-final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
+// ... (GitExplorerView is unchanged) ...
+class GitExplorerView extends ConsumerWidget {
+  final Project project;
+  const GitExplorerView({super.key, required this.project});
 
-// === START: PAGINATION LOGIC ===
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(selectedGitCommitHashProvider, (_, __) {
+      ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
+    });
 
-const _commitsPerPage = 20;
+    final gitRepoAsync = ref.watch(gitRepositoryProvider);
 
-// A state class to hold the paginated data
-class PaginatedCommitsState extends Equatable {
-  final List<GitCommit> commits;
-  final bool isLoading;
-  final bool hasMore;
-
-  const PaginatedCommitsState({
-    this.commits = const [],
-    this.isLoading = true,
-    this.hasMore = true,
-  });
-
-  PaginatedCommitsState copyWith({
-    List<GitCommit>? commits,
-    bool? isLoading,
-    bool? hasMore,
-  }) {
-    return PaginatedCommitsState(
-      commits: commits ?? this.commits,
-      isLoading: isLoading ?? this.isLoading,
-      hasMore: hasMore ?? this.hasMore,
+    return gitRepoAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error loading Git repository:\n$err')),
+      data: (gitRepo) {
+        if (gitRepo == null) {
+          return const Center(child: Text('This project is not a Git repository.'));
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
+          }
+        });
+        
+        return const Column(
+          children: [
+            _CommitBrowser(),
+            Divider(height: 1),
+            Expanded(child: _GitRecursiveDirectoryView(pathInRepo: '')),
+          ],
+        );
+      },
     );
+  }
+}
+
+
+// REWRITTEN: _CommitBrowserState now uses the correct initialization pattern.
+class _CommitBrowser extends ConsumerStatefulWidget {
+  const _CommitBrowser();
+
+  @override
+  ConsumerState<_CommitBrowser> createState() => _CommitBrowserState();
+}
+
+class _CommitBrowserState extends ConsumerState<_CommitBrowser> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+
+    // THE FIX:
+    // 1. Synchronously read the current value. If the provider already has a
+    //    value (e.g., screen was rebuilt), this sets the initial text immediately.
+    final initialHash = ref.read(selectedGitCommitHashProvider);
+    if (initialHash != null) {
+      _controller.text = initialHash.toString();
+    }
+
+    // 2. Listen for all future changes. This will handle the first async
+    //    value and any subsequent selections from the history sheet.
+    ref.listenManual(selectedGitCommitHashProvider, (prev, next) {
+      if (next != null && _controller.text != next.toString()) {
+        _controller.text = next.toString();
+      }
+    });
   }
   
   @override
-  List<Object?> get props => [commits, isLoading, hasMore];
-}
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-// The Notifier for handling pagination
-class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommitsState> {
-  StreamIterator<GitCommit>? _iterator;
+  void _submitHash(String text) {
+    try {
+      final hash = GitHash(text);
+      ref.read(selectedGitCommitHashProvider.notifier).state = hash;
+      FocusScope.of(context).unfocus(); // Dismiss keyboard
+    } catch (e) {
+      MachineToast.error("Invalid Git hash format");
+    }
+  }
 
   @override
-  Future<PaginatedCommitsState> build() async {
-    final gitRepo = await ref.watch(gitRepositoryProvider.future);
-    if (gitRepo == null) {
-      return const PaginatedCommitsState(isLoading: false, hasMore: false);
-    }
-
-    final headHash = await gitRepo.headHash();
-    final stream = commitIteratorBFS(objStorage: gitRepo.objStorage, from: headHash);
-    _iterator = StreamIterator(stream);
-    
-    return _fetchNextPage(const PaginatedCommitsState(commits: []));
-  }
-
-  Future<void> fetchNextPage() async {
-    if (state.value?.isLoading ?? true) return;
-    if (!(state.value?.hasMore ?? false)) return;
-
-    state = AsyncData(state.value!.copyWith(isLoading: true));
-    state = AsyncData(await _fetchNextPage(state.value!));
-  }
-
-  Future<PaginatedCommitsState> _fetchNextPage(PaginatedCommitsState currentState) async {
-    if (_iterator == null) return currentState.copyWith(isLoading: false, hasMore: false);
-    
-    final newCommits = <GitCommit>[];
-    for (var i = 0; i < _commitsPerPage; i++) {
-      if (await _iterator!.moveNext()) {
-        newCommits.add(_iterator!.current);
-      } else {
-        return currentState.copyWith(
-          commits: [...currentState.commits, ...newCommits],
-          isLoading: false,
-          hasMore: false,
-        );
-      }
-    }
-    
-    return currentState.copyWith(
-      commits: [...currentState.commits, ...newCommits],
-      isLoading: false,
-      hasMore: true,
+  Widget build(BuildContext context) {
+    // THE FIX: The erroneous 'listenOnce' is removed from the build method.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Commit Hash',
+                isDense: true,
+                hintText: 'Enter a commit hash...',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: _submitHash,
+              style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Browse History',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const _CommitHistorySheet(),
+              );
+            },
+          )
+        ],
+      ),
     );
   }
 }
 
-final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider<PaginatedCommitsNotifier, PaginatedCommitsState>(PaginatedCommitsNotifier.new);
 
-// === END: PAGINATION LOGIC ===
-
-
-// The old gitCommitsProvider and fileHistoryProvider are REMOVED.
-// The gitTreeCacheProvider and its Notifier remain UNCHANGED.
-final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
-class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
+// ... (_CommitHistorySheet and _GitRecursiveDirectoryView are unchanged) ...
+class _CommitHistorySheet extends ConsumerStatefulWidget {
+  const _CommitHistorySheet();
   @override
-  Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
-    ref.watch(selectedGitCommitHashProvider);
-    return {};
+  ConsumerState<_CommitHistorySheet> createState() => _CommitHistorySheetState();
+}
+
+class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
+  final _scrollController = ScrollController();
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
   }
-  Future<void> loadDirectory(String pathInRepo) async {
-    if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) return;
-    state = {...state, pathInRepo: const AsyncLoading()};
-    try {
-      final gitRepo = await ref.read(gitRepositoryProvider.future);
-      final commitHash = ref.read(selectedGitCommitHashProvider);
-      if (gitRepo == null || commitHash == null) throw Exception("Git repository or commit not available");
-      final commit = await gitRepo.objStorage.readCommit(commitHash);
-      GitTree tree;
-      if (pathInRepo.isEmpty) { tree = await gitRepo.objStorage.readTree(commit.treeHash); }
-      else {
-        final rootTree = await gitRepo.objStorage.readTree(commit.treeHash);
-        final entry = await gitRepo.objStorage.refSpec(rootTree, pathInRepo);
-        tree = await gitRepo.objStorage.readTree(entry.hash);
-      }
-      final items = tree.entries.map((entry) {
-        final fullPath = pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
-        return GitObjectDocumentFile(name: entry.name, commitHash: commitHash, objectHash: entry.hash, pathInRepo: fullPath, isDirectory: entry.mode == GitFileMode.Dir);
-      }).toList()..sort((a, b) {
-        if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-        return a.name.compareTo(b.name);
-      });
-      state = {...state, pathInRepo: AsyncData(items)};
-    } catch (e, st) {
-      state = {...state, pathInRepo: AsyncError(e, st)};
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(paginatedCommitsProvider.notifier).fetchNextPage();
     }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final stateAsync = ref.watch(paginatedCommitsProvider);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.8,
+      maxChildSize: 0.9,
+      builder: (_, controller) {
+        _scrollController.hasClients;
+        return stateAsync.when(
+          data: (state) {
+            return ListView.builder(
+              controller: _scrollController,
+              itemCount: state.commits.length + (state.hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == state.commits.length) {
+                  return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
+                }
+                final commit = state.commits[index];
+                return ListTile(
+                  title: Text(commit.message.split('\n').first),
+                  subtitle: Text('${commit.hash.toOid()} by ${commit.author.name}'),
+                  onTap: () {
+                    ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => Center(child: Text("Error: $e")),
+        );
+      },
+    );
   }
 }
 
-
-final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  // Listen to the new paginated provider to set the initial HEAD commit
-  ref.listen(paginatedCommitsProvider, (_, next) {
-    final commits = next.valueOrNull?.commits;
-    if (commits != null && commits.isNotEmpty) {
-      final currentState = ref.controller.state;
-      if (currentState == null) {
-        ref.controller.state = commits.first.hash;
-      }
+class _GitRecursiveDirectoryView extends ConsumerWidget {
+  final String pathInRepo;
+  final int depth;
+  const _GitRecursiveDirectoryView({required this.pathInRepo, this.depth = 1});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final directoryState = ref.watch(gitTreeCacheProvider)[pathInRepo];
+    final expandedPaths = ref.watch(gitExplorerExpandedFoldersProvider);
+    if (directoryState == null) {
+      return const Center(child: CircularProgressIndicator());
     }
-  });
-  return null;
-});
+    return directoryState.when(
+      data: (items) {
+        return generic.FileListView(
+          items: items,
+          expandedDirectoryUris: expandedPaths,
+          depth: depth,
+          onFileTapped: (file) async {
+            final navigator = Navigator.of(context);
+            final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+            if (success && context.mounted) navigator.pop();
+          },
+          onExpansionChanged: (directory, isExpanded) {
+            final path = (directory as GitObjectDocumentFile).pathInRepo;
+            final notifier = ref.read(gitExplorerExpandedFoldersProvider.notifier);
+            if (isExpanded) {
+              ref.read(gitTreeCacheProvider.notifier).loadDirectory(path);
+              notifier.update((state) => {...state, path});
+            } else {
+              notifier.update((state) => state..remove(path));
+            }
+          },
+          directoryChildrenBuilder: (directory) {
+            return _GitRecursiveDirectoryView(pathInRepo: (directory as GitObjectDocumentFile).pathInRepo, depth: depth + 1);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error: $err')),
+    );
+  }
+}
