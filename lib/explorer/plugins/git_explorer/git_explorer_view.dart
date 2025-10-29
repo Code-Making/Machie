@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dart_git/dart_git.dart';
 import 'package:machine/utils/toast.dart';
+// NEW: Import the package for controlling the scroll position.
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../app/app_notifier.dart';
@@ -15,6 +16,7 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
+// ... (GitExplorerView and _CurrentCommitDisplay widgets are unchanged) ...
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
@@ -42,7 +44,7 @@ class GitExplorerView extends ConsumerWidget {
         
         return const Column(
           children: [
-            _CurrentCommitDisplay(), // REPLACED
+            _CurrentCommitDisplay(),
             Divider(height: 1),
             Expanded(child: _GitRecursiveDirectoryView(pathInRepo: '')),
           ],
@@ -52,7 +54,6 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-// NEW WIDGET: Replaces the old text field/dropdown with a display-only tile.
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
 
@@ -61,7 +62,6 @@ class _CurrentCommitDisplay extends ConsumerWidget {
     final selectedHash = ref.watch(selectedGitCommitHashProvider);
     final commitsState = ref.watch(paginatedCommitsProvider);
 
-    // Find the full commit object from the paginated list
     final selectedCommit = commitsState.valueOrNull?.commits.firstWhere(
       (c) => c.hash == selectedHash,
       orElse: () => commitsState.valueOrNull?.commits.first ?? GitCommit.create(author: GitAuthor(name: '', email: ''), committer: GitAuthor(name: '', email: ''), message: 'Loading...', treeHash: GitHash.zero(), parents: []),
@@ -97,7 +97,8 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   }
 }
 
-// REWRITTEN WIDGET: Now contains the text field and handles scrolling/highlighting.
+
+// REFACTORED: This widget now correctly handles the initial scroll.
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
 
@@ -109,6 +110,9 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   final _textController = TextEditingController();
   final _itemScrollController = ItemScrollController();
   final _itemPositionsListener = ItemPositionsListener.create();
+  
+  // THE FIX: State flag to track if the initial scroll has happened.
+  bool _didInitialScroll = false;
 
   @override
   void dispose() {
@@ -119,27 +123,11 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   void _submitHash(String text) {
     if (text.trim().isEmpty) return;
     try {
-      // Allow short or full hashes
       final hash = GitHash(text.trim());
       ref.read(selectedGitCommitHashProvider.notifier).state = hash;
       Navigator.pop(context);
     } catch (e) {
       MachineToast.error("Invalid or unknown Git hash");
-    }
-  }
-  
-  void _scrollToSelected(PaginatedCommitsState state) {
-    final selectedHash = ref.read(selectedGitCommitHashProvider);
-    if (selectedHash == null) return;
-
-    final index = state.commits.indexWhere((c) => c.hash == selectedHash);
-    if (index != -1) {
-      // Wait for the list to build before scrolling
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_itemScrollController.isAttached) {
-          _itemScrollController.jumpTo(index: index, alignment: 0.4);
-        }
-      });
     }
   }
 
@@ -148,15 +136,35 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
     final stateAsync = ref.watch(paginatedCommitsProvider);
     final selectedHash = ref.watch(selectedGitCommitHashProvider);
     
-    // Listen to scroll position to trigger pagination
     _itemPositionsListener.itemPositions.addListener(() {
       final positions = _itemPositionsListener.itemPositions.value;
       if (positions.isEmpty) return;
-      
       final lastVisible = positions.map((p) => p.index).reduce((max, p) => p > max ? p : max);
       final totalItems = stateAsync.valueOrNull?.commits.length ?? 0;
       if (lastVisible >= totalItems - 5) {
          ref.read(paginatedCommitsProvider.notifier).fetchNextPage();
+      }
+    });
+
+    // THE FIX: Use ref.listen to reactively perform the initial scroll.
+    // This logic runs whenever the paginated data changes.
+    ref.listen(paginatedCommitsProvider, (previous, next) {
+      // We only act if we haven't scrolled yet AND we have data.
+      if (!_didInitialScroll && next is AsyncData<PaginatedCommitsState>) {
+        final state = next.value!;
+        final index = state.commits.indexWhere((c) => c.hash == selectedHash);
+
+        // If the selected commit is now present in the loaded list...
+        if (index != -1) {
+          // ...schedule a scroll to it after the frame builds.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_itemScrollController.isAttached) {
+              _itemScrollController.jumpTo(index: index, alignment: 0.4);
+              // Set the flag so we don't do this ever again for this instance of the sheet.
+              _didInitialScroll = true;
+            }
+          });
+        }
       }
     });
 
@@ -175,13 +183,11 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
               onSubmitted: _submitHash,
               style: const TextStyle(fontFamily: 'JetBrainsMono'),
             ),
-            actions: [
-              IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search))
-            ],
+            actions: [ IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search)) ],
           ),
           body: stateAsync.when(
             data: (state) {
-              _scrollToSelected(state); // Trigger scroll after build
+              // The scroll logic is now handled by the listener above, not here.
               return ScrollablePositionedList.builder(
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
@@ -214,7 +220,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   }
 }
 
-// REFACTORED WIDGET: Long-press functionality removed.
+// ... (_GitRecursiveDirectoryView is unchanged) ...
 class _GitRecursiveDirectoryView extends ConsumerWidget {
   final String pathInRepo;
   final int depth;
@@ -257,7 +263,6 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
               depth: depth + 1,
             );
           },
-          // The itemBuilder and InkWell for long-press have been removed.
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
