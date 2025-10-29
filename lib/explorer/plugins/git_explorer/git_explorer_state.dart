@@ -92,28 +92,16 @@ class PaginatedCommitsNotifier extends AutoDisposeAsyncNotifier<PaginatedCommits
 final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider<PaginatedCommitsNotifier, PaginatedCommitsState>(PaginatedCommitsNotifier.new);
 
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  // When the git repository first becomes available, fetch the HEAD hash.
-  ref.listen(gitRepositoryProvider, (_, next) {
-    if (next is AsyncData && next.value != null) {
-      final repo = next.value!;
-      repo.headHash().then((hash) {
-        if (ref.controller.state == null) {
-          ref.controller.state = hash;
-        }
-      });
+  ref.listen(paginatedCommitsProvider, (_, next) {
+    final commits = next.valueOrNull?.commits;
+    if (commits != null && commits.isNotEmpty) {
+      final currentState = ref.controller.state;
+      if (currentState == null) {
+        ref.controller.state = commits.first.hash;
+      }
     }
   });
-  return null; // Start as null, the listener will populate it.
-});
-
-final selectedCommitProvider = FutureProvider<GitCommit?>((ref) async {
-  final repo = await ref.watch(gitRepositoryProvider.future);
-  final hash = ref.watch(selectedGitCommitHashProvider);
-
-  if (repo == null || hash == null) {
-    return null;
-  }
-  return await repo.objStorage.readCommit(hash);
+  return null;
 });
 
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
