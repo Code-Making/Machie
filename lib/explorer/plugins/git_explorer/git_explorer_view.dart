@@ -8,7 +8,7 @@ import 'package:dart_git/dart_git.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
-import '../../../widgets/file_list_view.dart' as generic;
+import '../../../widgets/file_list_view.dart' as generic; // Keep for FileTypeIcon
 import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
@@ -19,10 +19,13 @@ class GitExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // THE FIX: The top-level widget now watches the async repository provider.
+    // Listen for commit changes to reset the path back to root
+    ref.listen(selectedGitCommitHashProvider, (_, __) {
+      ref.read(gitExplorerPathProvider.notifier).state = '';
+    });
+
     final gitRepoAsync = ref.watch(gitRepositoryProvider);
 
-    // Use .when() to handle loading, error, and data states for the repo itself.
     return gitRepoAsync.when(
       loading: () => const Center(
         child: Column(
@@ -37,14 +40,10 @@ class GitExplorerView extends ConsumerWidget {
       error: (err, stack) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            'Error loading Git repository:\n$err',
-            textAlign: TextAlign.center,
-          ),
+          child: Text('Error loading Git repository:\n$err', textAlign: TextAlign.center),
         ),
       ),
       data: (gitRepo) {
-        // If the provider successfully returns null, it means this is not a git repo.
         if (gitRepo == null) {
           return const Center(
             child: Padding(
@@ -58,14 +57,14 @@ class GitExplorerView extends ConsumerWidget {
           );
         }
 
-        // Only build the rest of the UI if the repository was successfully loaded.
         return const Column(
           children: [
             _CommitSelector(),
             Divider(height: 1),
-            Expanded(
-              child: _GitDirectoryView(pathInRepo: ''),
-            ),
+            // NEW: Path navigator bar
+            _GitPathNavigator(),
+            Divider(height: 1),
+            Expanded(child: _GitDirectoryView()),
           ],
         );
       },
@@ -73,6 +72,51 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
+// NEW WIDGET: A bar to show the current path and allow navigating up.
+class _GitPathNavigator extends ConsumerWidget {
+  const _GitPathNavigator();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final path = ref.watch(gitExplorerPathProvider);
+    final pathNotifier = ref.read(gitExplorerPathProvider.notifier);
+
+    return Container(
+      height: 40,
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            iconSize: 20,
+            tooltip: 'Up one level',
+            onPressed: path.isEmpty
+                ? null
+                : () {
+                    final lastSlash = path.lastIndexOf('/');
+                    if (lastSlash == -1) {
+                      pathNotifier.state = '';
+                    } else {
+                      pathNotifier.state = path.substring(0, lastSlash);
+                    }
+                  },
+          ),
+          Expanded(
+            child: Text(
+              path.isEmpty ? '/' : '/$path',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ... (_CommitSelector remains the same) ...
 class _CommitSelector extends ConsumerWidget {
   const _CommitSelector();
 
@@ -138,80 +182,86 @@ class _CommitSelector extends ConsumerWidget {
   }
 }
 
+// REFACTORED WIDGET: Now builds a simple list and handles navigation taps.
 class _GitDirectoryView extends ConsumerWidget {
-  final String pathInRepo;
-  final int depth;
-
-  const _GitDirectoryView({required this.pathInRepo, this.depth = 1});
+  const _GitDirectoryView();
 
   void _showFileHistoryMenu(BuildContext context, WidgetRef ref, GitObjectDocumentFile file) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return Consumer(builder: (context, ref, _) {
-          final historyAsync = ref.watch(fileHistoryProvider(file.pathInRepo));
-          return historyAsync.when(
-            data: (commits) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('Recent Changes to ${file.name}', style: Theme.of(context).textTheme.titleLarge),
-                ),
-                const Divider(height: 1),
-                if (commits.isEmpty) const ListTile(title: Text('No recent changes found in this branch.')),
-                ...commits.map((commit) => ListTile(
-                      title: Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(commit.hash.toOid(), style: const TextStyle(fontFamily: 'JetBrainsMono')),
-                      onTap: () {
-                        ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
-                        Navigator.pop(ctx);
-                      },
-                    )),
-              ],
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, st) => ListTile(title: Text('Error: $e')),
-          );
-        });
-      },
+      builder: (ctx) => Consumer(builder: (context, ref, _) {
+        final historyAsync = ref.watch(fileHistoryProvider(file.pathInRepo));
+        return historyAsync.when(
+          data: (commits) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Recent Changes to ${file.name}', style: Theme.of(context).textTheme.titleLarge),
+              ),
+              const Divider(height: 1),
+              if (commits.isEmpty) const ListTile(title: Text('No recent changes found in this branch.')),
+              ...commits.map((commit) => ListTile(
+                    title: Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(commit.hash.toOid(), style: const TextStyle(fontFamily: 'JetBrainsMono')),
+                    onTap: () {
+                      ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
+                      Navigator.pop(ctx);
+                    },
+                  )),
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => ListTile(title: Text('Error: $e')),
+        );
+      }),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Read the current path from the new provider
+    final pathInRepo = ref.watch(gitExplorerPathProvider);
     final treeAsync = ref.watch(gitTreeProvider(pathInRepo));
 
     return treeAsync.when(
       data: (items) {
-        return generic.FileListView(
-          items: items,
-          expandedDirectoryUris: const {},
-          depth: depth,
-          onFileTapped: (file) async {
-            final navigator = Navigator.of(context);
-            final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
-             if (success && context.mounted) {
-              navigator.pop(); // Close the drawer
-            }
-          },
-          onExpansionChanged: (dir, isExpanded) {
-            // Not used, as clicking a directory opens a new view in this explorer type.
-          },
-          directoryChildrenBuilder: (directory) {
-            // This explorer doesn't show nested items. Instead, clicking a folder
-            // would typically navigate to a new screen showing that folder's contents.
-            // For simplicity, this is not implemented here.
-            return const SizedBox.shrink();
-          },
-          itemBuilder: (context, item, depth, defaultItem) {
+        if (items.isEmpty) {
+          return const Center(child: Text('This directory is empty.'));
+        }
+
+        return ListView.builder(
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+
+            final tile = ListTile(
+              dense: true,
+              leading: generic.FileTypeIcon(file: item),
+              title: Text(item.name),
+              onTap: () async {
+                if (item.isDirectory) {
+                  // On directory tap, update the path provider to navigate "in"
+                  ref.read(gitExplorerPathProvider.notifier).state = item.pathInRepo;
+                } else {
+                  // On file tap, open it in the editor and close the drawer
+                  final navigator = Navigator.of(context);
+                  final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(item);
+                  if (success && context.mounted) {
+                    navigator.pop();
+                  }
+                }
+              },
+            );
+
+            // Wrap with InkWell for the long-press context menu
             return InkWell(
               onLongPress: () {
-                if (item is GitObjectDocumentFile && !item.isDirectory) {
+                if (!item.isDirectory) {
                   _showFileHistoryMenu(context, ref, item);
                 }
               },
-              child: defaultItem,
+              child: tile,
             );
           },
         );
