@@ -131,6 +131,17 @@ final commitHistoryProvider = AutoDisposeAsyncNotifierProvider<CommitHistoryNoti
 // The selectedGitCommitHashProvider is now simplified.
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) => null);
 
+final selectedCommitProvider = FutureProvider.autoDispose<GitCommit?>((ref) async {
+  final repo = await ref.watch(gitRepositoryProvider.future);
+  final selectedHash = ref.watch(selectedGitCommitHashProvider);
+
+  if (repo == null || selectedHash == null) {
+    return null;
+  }
+
+  // This provider now correctly handles the full async chain.
+  return repo.objStorage.readCommit(selectedHash);
+});
 
 // These providers remain unchanged.
 final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});

@@ -15,6 +15,7 @@ import 'git_provider.dart';
 import 'git_object_file.dart';
 import 'git_explorer_state.dart';
 
+// ... (GitExplorerView is unchanged) ...
 class GitExplorerView extends ConsumerWidget {
   final Project project;
   const GitExplorerView({super.key, required this.project});
@@ -34,15 +35,11 @@ class GitExplorerView extends ConsumerWidget {
         if (gitRepo == null) {
           return const Center(child: Text('This project is not a Git repository.'));
         }
-
-        // Set the initial selected commit hash from HEAD.
-        // This only runs once when the repo is first loaded.
         if (ref.read(selectedGitCommitHashProvider) == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             ref.read(selectedGitCommitHashProvider.notifier).state = await gitRepo.headHash();
           });
         }
-        
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) {
             ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
@@ -61,42 +58,57 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
+
+// REFACTORED: This widget is now much cleaner.
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedHash = ref.watch(selectedGitCommitHashProvider);
-    if (selectedHash == null) {
-      return const SizedBox(height: 64, child: Center(child: LinearProgressIndicator()));
-    }
-    
-    // Instead of relying on the paginated list, we fetch the specific commit object.
-    // Riverpod's caching makes this efficient.
-    final commitFuture = ref.watch(gitRepositoryProvider).whenData(
-      (repo) => repo?.objStorage.readCommit(selectedHash)
-    );
+    // Watch the new provider that gives us the fully resolved commit object.
+    final selectedCommitAsync = ref.watch(selectedCommitProvider);
 
-    return commitFuture.when(
+    return selectedCommitAsync.when(
       data: (commit) {
-        if (commit == null) return const SizedBox(height: 64);
+        if (commit == null) {
+          return const SizedBox(height: 64, child: Center(child: LinearProgressIndicator()));
+        }
+        // Now 'commit' is a GitCommit object, not a Future.
         return ListTile(
-          title: Text(commit.message.split('\n').first, overflow: TextOverflow.ellipsis),
-          subtitle: Text('${selectedHash.toOid()} by ${commit.author.name}', style: const TextStyle(fontFamily: 'JetBrainsMono')),
+          title: Text(
+            commit.message.split('\n').first,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            '${commit.hash.toOid()} by ${commit.author.name}',
+            style: const TextStyle(fontFamily: 'JetBrainsMono'),
+          ),
           trailing: IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Browse History',
-            onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const _CommitHistorySheet()),
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => const _CommitHistorySheet(),
+            ),
           ),
         );
       },
       loading: () => const SizedBox(height: 64, child: Center(child: LinearProgressIndicator())),
-      error: (e, st) => ListTile(title: Text('Error loading commit ${selectedHash.toOid()}'), subtitle: Text('$e')),
+      error: (e, st) {
+        final hashStr = ref.read(selectedGitCommitHashProvider)?.toOid() ?? '...';
+        return ListTile(
+          title: Text('Error loading commit $hashStr'),
+          subtitle: Text('$e'),
+          trailing: const Icon(Icons.error, color: Colors.red),
+        );
+      },
     );
   }
 }
 
-
+// ... (_CommitHistorySheet and _GitRecursiveDirectoryView are unchanged) ...
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
 
@@ -108,6 +120,8 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   final _textController = TextEditingController();
   final _itemScrollController = ItemScrollController();
   final _itemPositionsListener = ItemPositionsListener.create();
+  
+  bool _didInitialScroll = false;
 
   @override
   void initState() {
@@ -150,16 +164,13 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
     final stateAsync = ref.watch(commitHistoryProvider);
     final selectedHash = ref.watch(selectedGitCommitHashProvider);
 
-    // This listener declaratively handles the one-time scroll.
     ref.listen(commitHistoryProvider, (_, next) {
       final state = next.valueOrNull;
       if (state == null) return;
-
       if (state.initialScrollIndex != null && !state.initialScrollCompleted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_itemScrollController.isAttached) {
             _itemScrollController.jumpTo(index: state.initialScrollIndex!, alignment: 0.4);
-            // Tell the notifier that the scroll is done.
             ref.read(commitHistoryProvider.notifier).completeInitialScroll();
           }
         });
@@ -205,7 +216,6 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
   }
 }
 
-// _GitRecursiveDirectoryView is now correct and unchanged.
 class _GitRecursiveDirectoryView extends ConsumerWidget {
   final String pathInRepo;
   final int depth;
@@ -216,9 +226,7 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final directoryState = ref.watch(gitTreeCacheProvider)[pathInRepo];
     final expandedPaths = ref.watch(gitExplorerExpandedFoldersProvider);
-
     if (directoryState == null) return const Center(child: CircularProgressIndicator());
-
     return directoryState.when(
       data: (items) => generic.FileListView(
         items: items,
