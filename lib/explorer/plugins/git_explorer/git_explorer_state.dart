@@ -11,8 +11,9 @@ import 'package:dart_git/utils/file_mode.dart';
 import 'git_provider.dart';
 import 'git_object_file.dart';
 
-// NEW: A provider to hold the current path being browsed in the Git tree.
-final gitExplorerPathProvider = StateProvider.autoDispose<String>((ref) => '');
+// REPLACED: The single path provider is gone.
+// NEW: A provider to hold the set of expanded folder paths for the tree view.
+final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
 
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   ref.listen(gitCommitsProvider, (_, next) {
