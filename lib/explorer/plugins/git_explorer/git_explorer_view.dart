@@ -176,7 +176,7 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
     return treeAsync.when(
       data: (items) {
         if (items.isEmpty && depth > 1) {
-          return const generic.FileItem(
+          return generic.FileItem(
             // Show a placeholder for empty directories
             file: VirtualDocumentFile(uri: '', name: '(empty)'),
             depth: depth,
