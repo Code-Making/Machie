@@ -1,18 +1,19 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/refactor_editor/refactor_editor_plugin.dart
+// CORRECTED: lib/editor/plugins/refactor_editor/refactor_editor_plugin.dart
 // =========================================
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_notifier.dart'; // <-- IMPORT AppNotifier
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/plugin_models.dart';
 import '../../../editor/services/editor_service.dart';
-import '../../../project/project_models.dart';
+import '../../../project/project_models.dart'; // <-- IMPORT for InternalAppFile
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'refactor_editor_widget.dart';
@@ -42,7 +43,8 @@ class RefactorEditorPlugin extends EditorPlugin {
   @override
   bool supportsFile(DocumentFile file) {
     // This plugin only supports the single virtual file for the session.
-    return file.uri == refactorSessionUri;
+    // We check both the type and the specific URI to be explicit.
+    return file is InternalAppFile && file.uri == refactorSessionUri;
   }
 
   @override
@@ -52,11 +54,25 @@ class RefactorEditorPlugin extends EditorPlugin {
         id: 'workspace_refactor',
         label: 'Workspace Refactor',
         icon: const Icon(Icons.find_replace),
-        defaultPositions: [AppCommandPositions.appBar], // Add to the app bar
-        sourcePlugin: 'App', // An app-level command
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: 'App',
         execute: (ref) async {
-          // This command opens the virtual file, which triggers this plugin.
-          ref.read(editorServiceProvider).openOrCreate(refactorSessionUri);
+          // --- THIS IS THE CORRECTED LOGIC ---
+
+          // 1. Create an instance of the virtual DocumentFile.
+          //    This object represents the session itself.
+          final refactorSessionFile = InternalAppFile(
+            uri: refactorSessionUri,
+            name: 'Workspace Refactor', // This name will appear in the tab title
+            modifiedDate: DateTime.now(),
+          );
+
+          // 2. Use the standard, universal method for opening any file.
+          //    The EditorService will correctly find this plugin because its
+          //    `supportsFile` method will return true for this object.
+          //    It will also use the existing `InternalFileContentProvider`
+          //    to handle content loading and saving behind the scenes.
+          ref.read(appNotifierProvider.notifier).openFileInEditor(refactorSessionFile);
         },
       ),
     ];
@@ -98,7 +114,7 @@ class RefactorEditorPlugin extends EditorPlugin {
     );
   }
 
-  // --- Hot State Caching Contract ---
+  // --- Hot State Caching Contract (remains unchanged) ---
   @override
   String? get hotStateDtoType => 'com.machine.refactor_editor_state';
   @override
