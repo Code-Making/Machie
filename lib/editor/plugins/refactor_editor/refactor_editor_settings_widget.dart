@@ -21,7 +21,7 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
   }
 
-  Future<void> _importFromGitignore(WidgetRef ref) {
+  Future<void> _importFromGitignore(WidgetRef ref) async {
     // ... (This method's logic remains the same, but now it operates on Sets)
     final repo = ref.read(projectRepositoryProvider);
     final project = ref.read(appNotifierProvider).value?.currentProject;
