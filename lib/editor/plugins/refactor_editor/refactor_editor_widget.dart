@@ -1,12 +1,20 @@
+// =========================================
+// REFACTORED: lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
+// =========================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/dto/tab_hot_state_dto.dart';
+import '../../../data/repositories/project_repository.dart';
 import '../../../editor/editor_tab_models.dart';
+import '../../../project/services/project_hierarchy_service.dart';
+import '../../../settings/settings_notifier.dart';
 import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
+import '../../../logs/logs_provider.dart';
 
 class RefactorEditorWidget extends EditorWidget {
   @override
@@ -21,7 +29,6 @@ class RefactorEditorWidget extends EditorWidget {
   RefactorEditorWidgetState createState() => RefactorEditorWidgetState();
 }
 
-// It's now a ConsumerStatefulWidget's State
 class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> {
   late final RefactorController _controller;
   late final TextEditingController _findController;
@@ -29,13 +36,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
 
   @override
   void init() {
-    // Create the controller, passing it the Riverpod ref and initial state
-    _controller = RefactorController(ref, initialState: widget.tab.initialState);
-
+    _controller = RefactorController(initialState: widget.tab.initialState);
     _findController = TextEditingController(text: _controller.searchTerm);
     _replaceController = TextEditingController(text: _controller.replaceTerm);
-
-    // Listen to text field changes to update the controller's mutable state
     _findController.addListener(() => _controller.updateSearchTerm(_findController.text));
     _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
   }
@@ -44,7 +47,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
   void dispose() {
     _findController.dispose();
     _replaceController.dispose();
-    _controller.dispose(); // Dispose the controller
+    _controller.dispose();
     super.dispose();
   }
 
@@ -55,14 +58,39 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
+  // This is the new orchestrator method
+  Future<void> _handleFindOccurrences() async {
+    _controller.startSearch();
+
+    try {
+      final repo = ref.read(projectRepositoryProvider);
+      final allFiles = ref.read(flatFileIndexProvider).valueOrNull ?? [];
+      final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings?;
+      if (repo == null || settings == null || allFiles.isEmpty) {
+        throw Exception('Project, settings, or file index not available');
+      }
+
+      final results = await _controller.findOccurrences(
+        allFiles: allFiles,
+        settings: settings,
+        fileReader: repo.readFile,
+        pathDisplayer: repo.fileHandler.getPathForDisplay,
+        projectRootUri: repo.fileHandler.getParentUri(allFiles.first.uri),
+      );
+      
+      _controller.completeSearch(results);
+    } catch (e, st) {
+      ref.read(talkerProvider).handle(e, st, '[Refactor] Search failed');
+      _controller.failSearch();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Use ListenableBuilder to rebuild when the controller notifies its listeners
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, child) {
         final allSelected = _controller.occurrences.isNotEmpty && _controller.selectedOccurrences.length == _controller.occurrences.length;
-
         return Column(
           children: [
             _buildInputPanel(),
@@ -75,7 +103,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
 
-  // Builder methods now directly access the controller's state
   Widget _buildInputPanel() {
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -87,12 +114,12 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
                 child: TextField(
                   controller: _findController,
                   decoration: const InputDecoration(labelText: 'Find', border: OutlineInputBorder()),
-                  onSubmitted: (_) => _controller.findOccurrences(),
+                  onSubmitted: (_) => _handleFindOccurrences(),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: _controller.searchStatus == SearchStatus.searching ? null : _controller.findOccurrences,
+                onPressed: _controller.searchStatus == SearchStatus.searching ? null : _handleFindOccurrences,
                 child: const Text('Find All'),
               ),
             ],
@@ -121,7 +148,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       ),
     );
   }
-
+  
+  // The rest of the build methods are identical to the previous step,
+  // as they already read directly from the controller's properties.
   Widget _buildResultsPanel(bool allSelected) {
     if (_controller.searchStatus == SearchStatus.idle) {
       return const Center(child: Text('Enter a search term and click "Find All"'));
@@ -190,12 +219,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
   
-  // These methods now read from the controller to serialize state
-  @override
-  Future<EditorContent> getContent() async {
-    return EditorContentString('{}');
-  }
-
   @override
   Future<TabHotStateDto?> serializeHotState() async {
     return RefactorEditorHotStateDto(
@@ -206,6 +229,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
 
+  // Other overrides
+  @override
+  Future<EditorContent> getContent() async => EditorContentString('{}');
   @override
   void redo() {}
   @override
@@ -220,17 +246,9 @@ class _OptionCheckbox extends StatelessWidget {
   final String label;
   final bool value;
   final ValueChanged<bool?> onChanged;
-
   const _OptionCheckbox({required this.label, required this.value, required this.onChanged});
-
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Checkbox(value: value, onChanged: onChanged),
-        Text(label),
-      ],
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: [Checkbox(value: value, onChanged: onChanged), Text(label)]);
   }
 }

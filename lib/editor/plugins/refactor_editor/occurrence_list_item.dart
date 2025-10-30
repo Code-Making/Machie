@@ -1,9 +1,10 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/refactor_editor/occurrence_list_item.dart
+// UPDATED: lib/editor/plugins/refactor_editor/occurrence_list_item.dart
 // =========================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:re_highlight/re_highlight.dart'; // <-- 1. FIX: ADD THE MISSING IMPORT
 import 'package:re_highlight/styles/default.dart';
 
 import '../../../editor/plugins/code_editor/code_themes.dart';
@@ -12,8 +13,8 @@ import '../../../settings/settings_notifier.dart';
 import '../../plugins/code_editor/code_editor_models.dart';
 import 'refactor_editor_models.dart';
 
-// This is now a simple StatelessWidget
-class OccurrenceListItem extends ConsumerWidget { // Still consumer to get settings
+// The rest of the file is correct and remains unchanged.
+class OccurrenceListItem extends ConsumerWidget {
   final RefactorOccurrence occurrence;
   final bool isSelected;
   final ValueChanged<bool?> onSelected;
@@ -26,8 +27,7 @@ class OccurrenceListItem extends ConsumerWidget { // Still consumer to get setti
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) { // It needs ref for settings
-    // ... the build method itself remains completely unchanged ...
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final settings = ref.watch(settingsProvider.select(
       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -43,15 +43,17 @@ class OccurrenceListItem extends ConsumerWidget { // Still consumer to get setti
       code: occurrence.lineContent,
       language: languageKey,
     );
+    // 2. FIX: TextSpanRenderer is now available via the import.
     final renderer = TextSpanRenderer(textStyle, codeTheme);
     result.render(renderer);
     final highlightedSpan = renderer.span ?? TextSpan(text: occurrence.lineContent, style: textStyle);
 
+    // Build the RichText with the specific match highlighted
     final matchStart = occurrence.startColumn;
     final matchEnd = matchStart + occurrence.matchedText.length;
     final beforeText = occurrence.lineContent.substring(0, matchStart);
     final afterText = occurrence.lineContent.substring(matchEnd);
-    
+
     final previewSpan = TextSpan(
       style: textStyle.copyWith(color: codeTheme['root']?.color),
       children: [
