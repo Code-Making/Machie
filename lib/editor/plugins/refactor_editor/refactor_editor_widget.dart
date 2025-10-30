@@ -11,7 +11,7 @@ import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
-
+ 
 class RefactorEditorWidget extends EditorWidget {
   @override
   final RefactorEditorTab tab;
