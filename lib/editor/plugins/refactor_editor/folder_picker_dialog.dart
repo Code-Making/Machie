@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../project/services/project_hierarchy_service.dart';
+import '../../../data/file_handler/file_handler.dart';
 
 class FolderPickerDialog extends ConsumerStatefulWidget {
   const FolderPickerDialog({super.key});
