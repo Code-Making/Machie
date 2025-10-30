@@ -1,5 +1,5 @@
 // =========================================
-// REFACTORED: lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
+// CORRECTED: lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 // =========================================
 
 import 'package:flutter/foundation.dart';
@@ -159,6 +159,8 @@ class _StringMatch implements Match {
   int get groupCount => 0;
   @override
   Pattern get pattern => throw UnimplementedError();
+  
+  // THIS IS THE FIX: It should call the 'group' method on the current instance.
   @override
-  String operator [](int group) => group(group)!;
+  String operator [](int group) => this.group(group)!;
 }
