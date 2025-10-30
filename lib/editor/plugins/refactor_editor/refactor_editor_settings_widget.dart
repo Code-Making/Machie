@@ -12,6 +12,7 @@ import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import 'folder_picker_dialog.dart';
 import 'refactor_editor_models.dart';
+import '../../../data/file_handler/file_handler.dart';
 
 class RefactorEditorSettingsUI extends ConsumerWidget {
   final RefactorSettings settings;
