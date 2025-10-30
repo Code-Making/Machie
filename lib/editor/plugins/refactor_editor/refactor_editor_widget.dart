@@ -15,6 +15,7 @@ import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
+import 'package:machine/data/repositories/project_repository.dart';
 
 class RefactorEditorWidget extends EditorWidget {
   @override
@@ -70,11 +71,11 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         throw Exception('Project, settings, or file index not available');
       }
 
+      // --- PASS THE UPDATED DEPENDENCIES ---
       final results = await _controller.findOccurrences(
         allFiles: allFiles,
         settings: settings,
-        fileReader: repo.readFile,
-        pathDisplayer: repo.fileHandler.getPathForDisplay,
+        repo: repo, // Pass the whole repo object
         projectRootUri: repo.fileHandler.getParentUri(allFiles.first.uri),
       );
       
