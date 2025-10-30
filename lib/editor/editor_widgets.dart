@@ -11,6 +11,7 @@ import '../app/app_notifier.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_manager.dart';
 import '../project/project_models.dart';
+import '../explorer/plugins/git_explorer/git_object_file.dart';
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
@@ -106,8 +107,12 @@ class TabWidget extends ConsumerWidget {
     final isDirty = metadata.isDirty;
     final title = metadata.title;
     final isVirtual = metadata.file is InternalAppFile;
+    final isGit = metadata.file is GitObjectDocumentFile;
+    
     final Color textColor;
-    if (isVirtual) {
+    if (isGit){
+      textColor = Colors.blue.shade300;
+    } else if (isVirtual) {
       // Virtual files get a special color (e.g., cyan) regardless of dirty state.
       textColor = Colors.lime.shade300;
     } else if (isDirty) {
