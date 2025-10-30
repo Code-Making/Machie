@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../editor/editor_tab_models.dart';
-import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
+import 'refactor_state_notifier.dart';
 import 'occurrence_list_item.dart';
 
 class RefactorEditorWidget extends EditorWidget {
@@ -25,30 +25,26 @@ class RefactorEditorWidget extends EditorWidget {
   RefactorEditorWidgetState createState() => RefactorEditorWidgetState();
 }
 
-// It's now a ConsumerStatefulWidget's State
 class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> {
-  late final RefactorController _controller;
   late final TextEditingController _findController;
   late final TextEditingController _replaceController;
 
   @override
   void init() {
-    // Create the controller, passing it the Riverpod ref and initial state
-    _controller = RefactorController(ref, initialState: widget.tab.initialState);
+    final notifier = ref.read(refactorStateProvider.notifier);
+    notifier.setInitialState(widget.tab.initialState);
 
-    _findController = TextEditingController(text: _controller.searchTerm);
-    _replaceController = TextEditingController(text: _controller.replaceTerm);
+    _findController = TextEditingController(text: widget.tab.initialState.searchTerm);
+    _replaceController = TextEditingController(text: widget.tab.initialState.replaceTerm);
 
-    // Listen to text field changes to update the controller's mutable state
-    _findController.addListener(() => _controller.updateSearchTerm(_findController.text));
-    _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
+    _findController.addListener(() => notifier.updateSearchTerm(_findController.text));
+    _replaceController.addListener(() => notifier.updateReplaceTerm(_replaceController.text));
   }
 
   @override
   void dispose() {
     _findController.dispose();
     _replaceController.dispose();
-    _controller.dispose(); // Dispose the controller
     super.dispose();
   }
 
@@ -61,26 +57,22 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
 
   @override
   Widget build(BuildContext context) {
-    // Use ListenableBuilder to rebuild when the controller notifies its listeners
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, child) {
-        final allSelected = _controller.occurrences.isNotEmpty && _controller.selectedOccurrences.length == _controller.occurrences.length;
+    final state = ref.watch(refactorStateProvider);
+    final notifier = ref.read(refactorStateProvider.notifier);
+    final bool allSelected = state.occurrences.isNotEmpty && state.selectedOccurrences.length == state.occurrences.length;
 
-        return Column(
-          children: [
-            _buildInputPanel(),
-            if (_controller.searchStatus == SearchStatus.searching) const LinearProgressIndicator(),
-            Expanded(child: _buildResultsPanel(allSelected)),
-            _buildActionPanel(),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        _buildInputPanel(state, notifier),
+        if (state.searchStatus == SearchStatus.searching)
+          const LinearProgressIndicator(),
+        Expanded(child: _buildResultsPanel(state, notifier, allSelected)),
+        _buildActionPanel(state, notifier),
+      ],
     );
   }
 
-  // Builder methods now directly access the controller's state
-  Widget _buildInputPanel() {
+  Widget _buildInputPanel(RefactorSessionState state, RefactorStateNotifier notifier) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
@@ -91,12 +83,11 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
                 child: TextField(
                   controller: _findController,
                   decoration: const InputDecoration(labelText: 'Find', border: OutlineInputBorder()),
-                  onSubmitted: (_) => _controller.findOccurrences(),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: _controller.searchStatus == SearchStatus.searching ? null : _controller.findOccurrences,
+                onPressed: state.searchStatus == SearchStatus.searching ? null : notifier.findOccurrences,
                 child: const Text('Find All'),
               ),
             ],
@@ -111,13 +102,13 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             children: [
               _OptionCheckbox(
                 label: 'Use Regex',
-                value: _controller.isRegex,
-                onChanged: (val) => _controller.toggleIsRegex(val ?? false),
+                value: state.isRegex,
+                onChanged: (val) => notifier.toggleIsRegex(val ?? false),
               ),
               _OptionCheckbox(
                 label: 'Case Sensitive',
-                value: _controller.isCaseSensitive,
-                onChanged: (val) => _controller.toggleCaseSensitive(val ?? false),
+                value: state.isCaseSensitive,
+                onChanged: (val) => notifier.toggleCaseSensitive(val ?? false),
               ),
             ],
           ),
@@ -126,15 +117,15 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
 
-  Widget _buildResultsPanel(bool allSelected) {
-    if (_controller.searchStatus == SearchStatus.idle) {
+  Widget _buildResultsPanel(RefactorSessionState state, RefactorStateNotifier notifier, bool allSelected) {
+    if (state.searchStatus == SearchStatus.idle) {
       return const Center(child: Text('Enter a search term and click "Find All"'));
     }
-    if (_controller.searchStatus == SearchStatus.error) {
+    if (state.searchStatus == SearchStatus.error) {
       return const Center(child: Text('An error occurred during search.', style: TextStyle(color: Colors.red)));
     }
-    if (_controller.searchStatus == SearchStatus.complete && _controller.occurrences.isEmpty) {
-      return Center(child: Text('No results found for "${_controller.searchTerm}"'));
+    if (state.searchStatus == SearchStatus.complete && state.occurrences.isEmpty) {
+      return Center(child: Text('No results found for "${state.searchTerm}"'));
     }
 
     return Column(
@@ -144,13 +135,13 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              Text('${_controller.occurrences.length} results found.'),
+              Text('${state.occurrences.length} results found.'),
               const Spacer(),
               const Text('Select All'),
               Checkbox(
                 value: allSelected,
-                tristate: !allSelected && _controller.selectedOccurrences.isNotEmpty,
-                onChanged: (val) => _controller.toggleSelectAll(val ?? false),
+                tristate: !allSelected && state.selectedOccurrences.isNotEmpty,
+                onChanged: (val) => notifier.toggleSelectAll(val ?? false),
               ),
             ],
           ),
@@ -158,14 +149,14 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         const Divider(height: 1),
         Expanded(
           child: ListView.builder(
-            itemCount: _controller.occurrences.length,
+            itemCount: state.occurrences.length,
             itemBuilder: (context, index) {
-              final occurrence = _controller.occurrences[index];
-              final isSelected = _controller.selectedOccurrences.contains(occurrence);
+              final occurrence = state.occurrences[index];
+              final isSelected = state.selectedOccurrences.contains(occurrence);
               return OccurrenceListItem(
                 occurrence: occurrence,
                 isSelected: isSelected,
-                onSelected: (_) => _controller.toggleOccurrenceSelection(occurrence),
+                onSelected: (_) => notifier.toggleOccurrenceSelection(occurrence),
               );
             },
           ),
@@ -174,8 +165,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
 
-  Widget _buildActionPanel() {
-    final canApply = _controller.selectedOccurrences.isNotEmpty;
+  Widget _buildActionPanel(RefactorSessionState state, RefactorStateNotifier notifier) {
+    final canApply = state.selectedOccurrences.isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
@@ -186,30 +177,31 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton(
-            onPressed: canApply ? _controller.applyChanges : null,
-            child: Text('Replace ${_controller.selectedOccurrences.length} selected'),
+            onPressed: canApply ? notifier.applyChanges : null,
+            child: Text('Replace ${state.selectedOccurrences.length} selected'),
           ),
         ],
       ),
     );
   }
-  
-  // These methods now read from the controller to serialize state
+
   @override
   Future<EditorContent> getContent() async {
-    return EditorContentString('{}');
+    return EditorContentString('{}'); // State is managed by the hot cache, not file content.
   }
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
+    final currentState = ref.read(refactorStateProvider);
     return RefactorEditorHotStateDto(
-      searchTerm: _controller.searchTerm,
-      replaceTerm: _controller.replaceTerm,
-      isRegex: _controller.isRegex,
-      isCaseSensitive: _controller.isCaseSensitive,
+      searchTerm: currentState.searchTerm,
+      replaceTerm: currentState.replaceTerm,
+      isRegex: currentState.isRegex,
+      isCaseSensitive: currentState.isCaseSensitive,
     );
   }
 
+  // Other overrides remain empty for now
   @override
   void redo() {}
   @override
