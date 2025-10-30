@@ -3,8 +3,10 @@
 // =========================================
 
 import 'package:flutter/foundation.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glob/glob.dart'; // <-- 1. IMPORT GLOB
 
+import 'package:machine/data/file_handler/file_handler.dart';
 import 'refactor_editor_models.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
@@ -91,17 +93,24 @@ class RefactorController extends ChangeNotifier {
 
     final foundOccurrences = <RefactorOccurrence>[];
 
+    // --- 2. PRE-COMPILE GLOB PATTERNS FOR EFFICIENCY ---
+    final List<Glob> ignoreGlobs =
+        settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+
     final filteredFiles = allFiles.where((file) {
-      final path = file.uri;
-      final hasValidExtension = settings.supportedExtensions.any((ext) => path.endsWith(ext));
-      final isIgnored = settings.ignoredFolders.any((folder) => path.contains('/$folder/'));
+      final relativePath = pathDisplayer(file.uri, relativeTo: projectRootUri);
+      final hasValidExtension = settings.supportedExtensions.any((ext) => relativePath.endsWith(ext));
+      
+      // --- 3. USE GLOB MATCHING ---
+      final isIgnored = ignoreGlobs.any((glob) => glob.matches(relativePath));
+
       return hasValidExtension && !isIgnored;
     }).toList();
 
+    // ... (The rest of the method for reading files and finding matches is unchanged)
     for (final file in filteredFiles) {
       final content = await fileReader(file.uri);
       final lines = content.split('\n');
-
       for (int i = 0; i < lines.length; i++) {
         final line = lines[i];
         final Iterable<Match> matches;
@@ -120,7 +129,6 @@ class RefactorController extends ChangeNotifier {
           }
           matches = tempMatches;
         }
-
         for (final match in matches) {
           foundOccurrences.add(RefactorOccurrence(
             fileUri: file.uri,

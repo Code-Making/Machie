@@ -1,5 +1,5 @@
 // =========================================
-// NEW FILE: lib/editor/plugins/refactor_editor/refactor_editor_settings_widget.dart
+// UPDATED: lib/editor/plugins/refactor_editor/refactor_editor_settings_widget.dart
 // =========================================
 
 import 'package:flutter/material.dart';
@@ -21,19 +21,20 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
   }
 
-  Future<void> _importFromGitignore(WidgetRef ref) async {
+  Future<void> _importFromGitignore(WidgetRef ref) {
+    // ... (This method's logic remains the same, but now it operates on Sets)
     final repo = ref.read(projectRepositoryProvider);
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (repo == null || project == null) {
       MachineToast.error('A project must be open to import from .gitignore');
-      return;
+      return Future.value();
     }
 
     try {
       final gitignoreFile = await repo.fileHandler.resolvePath(project.rootUri, '.gitignore');
       if (gitignoreFile == null) {
         MachineToast.error('.gitignore file not found in the project root.');
-        return;
+        return Future.value();
       }
 
       final content = await repo.readFile(gitignoreFile.uri);
@@ -41,18 +42,15 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           .split('\n')
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty && !line.startsWith('#'))
-          .toSet(); // Use a Set to avoid duplicates
+          .toSet();
 
-      final newIgnoredFolders = {...settings.ignoredFolders, ...patterns};
-      _updateSettings(ref, RefactorSettings(ignoredFolders: newIgnoredFolders.toList(), supportedExtensions: settings.supportedExtensions));
-      MachineToast.info('Imported ${patterns.length} patterns from .gitignore');
+      final newIgnoredPatterns = {...settings.ignoredGlobPatterns, ...patterns};
+      _updateSettings(ref, RefactorSettings(ignoredGlobPatterns: newIgnoredPatterns, supportedExtensions: settings.supportedExtensions));
+      MachineToast.info('Imported ${patterns.length} new patterns from .gitignore');
     } catch (e) {
       MachineToast.error('Failed to read .gitignore: $e');
     }
-  }
-
-  void _clearAll(WidgetRef ref) {
-    _updateSettings(ref, RefactorSettings(ignoredFolders: [], supportedExtensions: []));
+    return Future.value();
   }
 
   @override
@@ -60,23 +58,7 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Configuration', style: Theme.of(context).textTheme.titleMedium),
-            TextButton(
-              onPressed: () async {
-                final confirm = await showConfirmDialog(
-                  context,
-                  title: 'Clear All Settings?',
-                  content: 'This will remove all supported extensions and ignored folder patterns.',
-                );
-                if (confirm) _clearAll(ref);
-              },
-              child: Text('Clear All', style: TextStyle(color: Colors.red.shade300)),
-            ),
-          ],
-        ),
+        Text('Configuration', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 16),
         _buildEditableList(
           context,
@@ -84,17 +66,17 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(supportedExtensions: newItems, ignoredFolders: settings.ignoredFolders));
+            _updateSettings(ref, RefactorSettings(supportedExtensions: newItems, ignoredGlobPatterns: settings.ignoredGlobPatterns));
           },
         ),
         const SizedBox(height: 24),
         _buildEditableList(
           context,
           ref,
-          title: 'Ignored Folder Patterns',
-          items: settings.ignoredFolders,
+          title: 'Ignored Glob Patterns', // <-- RENAMED
+          items: settings.ignoredGlobPatterns,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(ignoredFolders: newItems, supportedExtensions: settings.supportedExtensions));
+            _updateSettings(ref, RefactorSettings(ignoredGlobPatterns: newItems, supportedExtensions: settings.supportedExtensions));
           },
         ),
         const SizedBox(height: 16),
@@ -113,8 +95,8 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required String title,
-    required List<String> items,
-    required ValueChanged<List<String>> onChanged,
+    required Set<String> items, // <-- CHANGED TO SET
+    required ValueChanged<Set<String>> onChanged, // <-- CHANGED TO SET
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,13 +105,20 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleSmall),
             const Spacer(),
+            // SEPARATE CLEAR BUTTON
+            if (items.isNotEmpty)
+              IconButton(
+                icon: Icon(Icons.clear_all, color: Colors.red.shade300),
+                tooltip: 'Clear all patterns',
+                onPressed: () => onChanged({}),
+              ),
             IconButton(
               icon: const Icon(Icons.add),
               tooltip: 'Add new pattern',
               onPressed: () async {
                 final newItem = await showTextInputDialog(context, title: 'Add New Pattern');
                 if (newItem != null && newItem.trim().isNotEmpty) {
-                  onChanged([...items, newItem.trim()]);
+                  onChanged({...items, newItem.trim()});
                 }
               },
             )
@@ -148,7 +137,7 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
             return Chip(
               label: Text(item),
               onDeleted: () {
-                final newItems = List<String>.from(items)..remove(item);
+                final newItems = Set<String>.from(items)..remove(item);
                 onChanged(newItems);
               },
             );
