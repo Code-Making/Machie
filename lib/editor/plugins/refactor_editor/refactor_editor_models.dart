@@ -12,27 +12,31 @@ import 'refactor_editor_widget.dart';
 /// Defines the settings for the Refactor Editor plugin.
 class RefactorSettings extends PluginSettings {
   /// File extensions to include in the search (e.g., '.dart', '.md').
-  List<String> supportedExtensions;
+  Set<String> supportedExtensions;
 
-  /// Folder names to exclude from the search (e.g., '.git', 'build').
-  List<String> ignoredFolders;
+  /// Glob patterns for files/folders to exclude from the search (e.g., '.git/**', '**.g.dart').
+  Set<String> ignoredGlobPatterns; // <-- RENAMED AND CHANGED TO SET
 
   RefactorSettings({
-    List<String>? supportedExtensions,
-    List<String>? ignoredFolders,
-  })  : supportedExtensions = supportedExtensions ?? ['.dart', '.yaml', '.md', '.txt', '.json'],
-        ignoredFolders = ignoredFolders ?? ['.git', '.idea', 'build', '.dart_tool'];
+    Set<String>? supportedExtensions,
+    Set<String>? ignoredGlobPatterns, // <-- RENAMED
+  })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
+        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'}; // <-- RENAMED
 
   @override
   void fromJson(Map<String, dynamic> json) {
-    supportedExtensions = List<String>.from(json['supportedExtensions'] ?? []);
-    ignoredFolders = List<String>.from(json['ignoredFolders'] ?? []);
+    // Read from legacy 'ignoredFolders' key for backward compatibility
+    final legacyIgnored = List<String>.from(json['ignoredFolders'] ?? []);
+    final currentIgnored = List<String>.from(json['ignoredGlobPatterns'] ?? []);
+    
+    supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
+    ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet(); // <-- RENAMED AND CONVERTED
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'supportedExtensions': supportedExtensions,
-        'ignoredFolders': ignoredFolders,
+        'supportedExtensions': supportedExtensions.toList(), // Convert to list for JSON
+        'ignoredGlobPatterns': ignoredGlobPatterns.toList(), // <-- RENAMED AND CONVERTED
       };
 }
 
