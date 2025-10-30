@@ -3,13 +3,14 @@
 // =========================================
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package.flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_notifier.dart';
-import '../../../data/repositories/project_repository.dart';
+// No longer need these imports for this UI widget
+// import '../../../app/app_notifier.dart';
+// import '../../../data/repositories/project_repository.dart';
 import '../../../explorer/common/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
-import '../../../utils/toast.dart';
+// import '../../../utils/toast.dart';
 import 'refactor_editor_models.dart';
 
 class RefactorEditorSettingsUI extends ConsumerWidget {
@@ -21,37 +22,7 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
   }
 
-  Future<void> _importFromGitignore(WidgetRef ref) async {
-    // ... (This method's logic remains the same, but now it operates on Sets)
-    final repo = ref.read(projectRepositoryProvider);
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (repo == null || project == null) {
-      MachineToast.error('A project must be open to import from .gitignore');
-      return Future.value();
-    }
-
-    try {
-      final gitignoreFile = await repo.fileHandler.resolvePath(project.rootUri, '.gitignore');
-      if (gitignoreFile == null) {
-        MachineToast.error('.gitignore file not found in the project root.');
-        return Future.value();
-      }
-
-      final content = await repo.readFile(gitignoreFile.uri);
-      final patterns = content
-          .split('\n')
-          .map((line) => line.trim())
-          .where((line) => line.isNotEmpty && !line.startsWith('#'))
-          .toSet();
-
-      final newIgnoredPatterns = {...settings.ignoredGlobPatterns, ...patterns};
-      _updateSettings(ref, RefactorSettings(ignoredGlobPatterns: newIgnoredPatterns, supportedExtensions: settings.supportedExtensions));
-      MachineToast.info('Imported ${patterns.length} new patterns from .gitignore');
-    } catch (e) {
-      MachineToast.error('Failed to read .gitignore: $e');
-    }
-    return Future.value();
-  }
+  // REMOVED: _importFromGitignore method is no longer needed in the UI.
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,37 +37,53 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(supportedExtensions: newItems, ignoredGlobPatterns: settings.ignoredGlobPatterns));
+            _updateSettings(ref, RefactorSettings(
+              supportedExtensions: newItems,
+              ignoredGlobPatterns: settings.ignoredGlobPatterns,
+              useProjectGitignore: settings.useProjectGitignore,
+            ));
           },
         ),
         const SizedBox(height: 24),
         _buildEditableList(
           context,
           ref,
-          title: 'Ignored Glob Patterns', // <-- RENAMED
+          title: 'Global Ignored Glob Patterns', // Clarify this is global
           items: settings.ignoredGlobPatterns,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(ignoredGlobPatterns: newItems, supportedExtensions: settings.supportedExtensions));
+            _updateSettings(ref, RefactorSettings(
+              ignoredGlobPatterns: newItems,
+              supportedExtensions: settings.supportedExtensions,
+              useProjectGitignore: settings.useProjectGitignore,
+            ));
           },
         ),
         const SizedBox(height: 16),
-        Center(
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.download_for_offline_outlined),
-            label: const Text('Import from .gitignore'),
-            onPressed: () => _importFromGitignore(ref),
-          ),
+        // --- REPLACED BUTTON WITH SWITCH ---
+        SwitchListTile(
+          title: const Text('Use Project .gitignore'),
+          subtitle: const Text('Automatically use patterns from the .gitignore file in the current project root, if it exists.'),
+          value: settings.useProjectGitignore,
+          onChanged: (newValue) {
+            _updateSettings(ref, RefactorSettings(
+              useProjectGitignore: newValue,
+              supportedExtensions: settings.supportedExtensions,
+              ignoredGlobPatterns: settings.ignoredGlobPatterns,
+            ));
+          },
         ),
+        // --- END REPLACEMENT ---
       ],
     );
   }
-
+  
+  // ... (_buildEditableList method remains unchanged)
   Widget _buildEditableList(
     BuildContext context,
     WidgetRef ref, {
     required String title,
-    required Set<String> items, // <-- CHANGED TO SET
-    required ValueChanged<Set<String>> onChanged, // <-- CHANGED TO SET
+    required Set<String> items,
+    required ValueChanged<Set<String>> onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,7 +92,6 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleSmall),
             const Spacer(),
-            // SEPARATE CLEAR BUTTON
             if (items.isNotEmpty)
               IconButton(
                 icon: Icon(Icons.clear_all, color: Colors.red.shade300),

@@ -4,9 +4,10 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:glob/glob.dart'; // <-- 1. IMPORT GLOB
+import 'package:glob/glob.dart';
 
 import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/data/repositories/project_repository.dart';
 import 'refactor_editor_models.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
@@ -85,31 +86,45 @@ class RefactorController extends ChangeNotifier {
   Future<List<RefactorOccurrence>> findOccurrences({
     required List<ProjectDocumentFile> allFiles,
     required RefactorSettings settings,
-    required Future<String> Function(String uri) fileReader,
-    required String Function(String uri, {String? relativeTo}) pathDisplayer,
+    required ProjectRepository repo, // Pass the whole repo
     required String projectRootUri,
   }) async {
     if (searchTerm.isEmpty) return [];
 
     final foundOccurrences = <RefactorOccurrence>[];
 
-    // --- 2. PRE-COMPILE GLOB PATTERNS FOR EFFICIENCY ---
-    final List<Glob> ignoreGlobs =
-        settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+    // --- DYNAMICALLY BUILD IGNORE PATTERNS ---
+    final Set<String> allIgnorePatterns = {...settings.ignoredGlobPatterns};
+
+    if (settings.useProjectGitignore) {
+      try {
+        final gitignoreFile = await repo.fileHandler.resolvePath(projectRootUri, '.gitignore');
+        if (gitignoreFile != null) {
+          final content = await repo.readFile(gitignoreFile.uri);
+          final gitignorePatterns = content
+              .split('\n')
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty && !line.startsWith('#'));
+          allIgnorePatterns.addAll(gitignorePatterns);
+        }
+      } catch (_) {
+        // Silently fail if .gitignore can't be read.
+      }
+    }
+
+    final List<Glob> ignoreGlobs = allIgnorePatterns.map((p) => Glob(p)).toList();
+    // --- END DYNAMIC BUILD ---
 
     final filteredFiles = allFiles.where((file) {
-      final relativePath = pathDisplayer(file.uri, relativeTo: projectRootUri);
+      final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
       final hasValidExtension = settings.supportedExtensions.any((ext) => relativePath.endsWith(ext));
-      
-      // --- 3. USE GLOB MATCHING ---
       final isIgnored = ignoreGlobs.any((glob) => glob.matches(relativePath));
-
       return hasValidExtension && !isIgnored;
     }).toList();
 
     // ... (The rest of the method for reading files and finding matches is unchanged)
     for (final file in filteredFiles) {
-      final content = await fileReader(file.uri);
+      final content = await repo.readFile(file.uri);
       final lines = content.split('\n');
       for (int i = 0; i < lines.length; i++) {
         final line = lines[i];
@@ -132,7 +147,7 @@ class RefactorController extends ChangeNotifier {
         for (final match in matches) {
           foundOccurrences.add(RefactorOccurrence(
             fileUri: file.uri,
-            displayPath: pathDisplayer(file.uri, relativeTo: projectRootUri),
+            displayPath: repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri),
             lineNumber: i + 1, startColumn: match.start, lineContent: line, matchedText: match.group(0)!,
           ));
         }

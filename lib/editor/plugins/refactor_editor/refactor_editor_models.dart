@@ -11,32 +11,32 @@ import 'refactor_editor_widget.dart';
 
 /// Defines the settings for the Refactor Editor plugin.
 class RefactorSettings extends PluginSettings {
-  /// File extensions to include in the search (e.g., '.dart', '.md').
   Set<String> supportedExtensions;
-
-  /// Glob patterns for files/folders to exclude from the search (e.g., '.git/**', '**.g.dart').
-  Set<String> ignoredGlobPatterns; // <-- RENAMED AND CHANGED TO SET
+  Set<String> ignoredGlobPatterns;
+  bool useProjectGitignore; // <-- ADDED
 
   RefactorSettings({
     Set<String>? supportedExtensions,
-    Set<String>? ignoredGlobPatterns, // <-- RENAMED
+    Set<String>? ignoredGlobPatterns,
+    this.useProjectGitignore = true, // <-- ADDED, default to true for convenience
   })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
-        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'}; // <-- RENAMED
+        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
   @override
   void fromJson(Map<String, dynamic> json) {
-    // Read from legacy 'ignoredFolders' key for backward compatibility
     final legacyIgnored = List<String>.from(json['ignoredFolders'] ?? []);
     final currentIgnored = List<String>.from(json['ignoredGlobPatterns'] ?? []);
     
     supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
-    ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet(); // <-- RENAMED AND CONVERTED
+    ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet();
+    useProjectGitignore = json['useProjectGitignore'] as bool? ?? true; // <-- ADDED
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'supportedExtensions': supportedExtensions.toList(), // Convert to list for JSON
-        'ignoredGlobPatterns': ignoredGlobPatterns.toList(), // <-- RENAMED AND CONVERTED
+        'supportedExtensions': supportedExtensions.toList(),
+        'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
+        'useProjectGitignore': useProjectGitignore, // <-- ADDED
       };
 }
 
