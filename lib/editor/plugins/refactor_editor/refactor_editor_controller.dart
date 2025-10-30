@@ -5,6 +5,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glob/glob.dart';
+import 'package:collection/collection.dart'; // For firstWhereOrNull
 
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project_repository.dart';
@@ -82,48 +83,83 @@ class RefactorController extends ChangeNotifier {
 
   // --- Core Business Logic (Pure Dart) ---
   
-  /// Performs the search logic and returns the results. Does not mutate state.
+  Future<Map<String, List<Glob>>> _loadAllGitignorePatterns({
+    required List<ProjectDocumentFile> allFiles,
+    required ProjectRepository repo,
+  }) async {
+    final Map<String, List<Glob>> gitignoreMap = {};
+    final gitignoreFiles = allFiles.where((f) => f.name == '.gitignore');
+
+    for (final file in gitignoreFiles) {
+      try {
+        final content = await repo.readFile(file.uri);
+        final patterns = content
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty && !line.startsWith('#'))
+            .map((p) => Glob(p)) // Compile globs immediately
+            .toList();
+        
+        // The key is the URI of the DIRECTORY containing the .gitignore file
+        final dirUri = repo.fileHandler.getParentUri(file.uri);
+        gitignoreMap[dirUri] = patterns;
+      } catch (_) {
+        // Ignore errors reading individual .gitignore files
+      }
+    }
+    return gitignoreMap;
+  }
+  
+  /// The core business logic for finding occurrences.
   Future<List<RefactorOccurrence>> findOccurrences({
     required List<ProjectDocumentFile> allFiles,
     required RefactorSettings settings,
-    required ProjectRepository repo, // Pass the whole repo
+    required ProjectRepository repo,
     required String projectRootUri,
   }) async {
     if (searchTerm.isEmpty) return [];
 
     final foundOccurrences = <RefactorOccurrence>[];
+    
+    // Pre-compile global ignore patterns
+    final List<Glob> globalIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+    
+    // Load all .gitignore patterns from the project at once.
+    final Map<String, List<Glob>> gitignoreMap = settings.useProjectGitignore
+      ? await _loadAllGitignorePatterns(allFiles: allFiles, repo: repo)
+      : {};
+    
+    final sortedGitignoreDirs = gitignoreMap.keys.sortedBy<num>((uri) => uri.length).reversed.toList();
 
-    // --- DYNAMICALLY BUILD IGNORE PATTERNS ---
-    final Set<String> allIgnorePatterns = {...settings.ignoredGlobPatterns};
-
-    if (settings.useProjectGitignore) {
-      try {
-        final gitignoreFile = await repo.fileHandler.resolvePath(projectRootUri, '.gitignore');
-        if (gitignoreFile != null) {
-          final content = await repo.readFile(gitignoreFile.uri);
-          final gitignorePatterns = content
-              .split('\n')
-              .map((line) => line.trim())
-              .where((line) => line.isNotEmpty && !line.startsWith('#'));
-          allIgnorePatterns.addAll(gitignorePatterns);
-        }
-      } catch (_) {
-        // Silently fail if .gitignore can't be read.
-      }
-    }
-
-    final List<Glob> ignoreGlobs = allIgnorePatterns.map((p) => Glob(p)).toList();
-    // --- END DYNAMIC BUILD ---
-
-    final filteredFiles = allFiles.where((file) {
+    // MAIN FILE FILTERING LOOP
+    for (final file in allFiles) {
+      // 1. Filter by supported extension first (fastest check)
       final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
-      final hasValidExtension = settings.supportedExtensions.any((ext) => relativePath.endsWith(ext));
-      final isIgnored = ignoreGlobs.any((glob) => glob.matches(relativePath));
-      return hasValidExtension && !isIgnored;
-    }).toList();
+      if (!settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
+        continue;
+      }
+      
+      // 2. Check against global ignore patterns
+      if (globalIgnoreGlobs.any((glob) => glob.matches(relativePath))) {
+        continue;
+      }
 
-    // ... (The rest of the method for reading files and finding matches is unchanged)
-    for (final file in filteredFiles) {
+      // 3. Check against hierarchical .gitignore patterns if enabled
+      if (settings.useProjectGitignore) {
+        // Find the deepest .gitignore directory that is an ancestor of the file
+        final relevantGitignoreDir = sortedGitignoreDirs.firstWhereOrNull((dirUri) => file.uri.startsWith(dirUri));
+        
+        if (relevantGitignoreDir != null) {
+          final pathRelativeToGitignore = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: relevantGitignoreDir);
+          final globs = gitignoreMap[relevantGitignoreDir] ?? [];
+          if (globs.any((glob) => glob.matches(pathRelativeToGitignore))) {
+            continue;
+          }
+        }
+      }
+
+      // If we reach here, the file is valid for searching.
+      // ... (The rest of the method for reading files and finding matches is unchanged)
       final content = await repo.readFile(file.uri);
       final lines = content.split('\n');
       for (int i = 0; i < lines.length; i++) {
@@ -147,7 +183,7 @@ class RefactorController extends ChangeNotifier {
         for (final match in matches) {
           foundOccurrences.add(RefactorOccurrence(
             fileUri: file.uri,
-            displayPath: repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri),
+            displayPath: relativePath, // Use already computed relative path
             lineNumber: i + 1, startColumn: match.start, lineContent: line, matchedText: match.group(0)!,
           ));
         }
