@@ -8,6 +8,7 @@ import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart';
 import 'recipe_tex/recipe_tex_plugin.dart';
 import 'llm_editor/llm_editor_plugin.dart';
+import 'refactor_editor/refactor_editor_plugin.dart'; // <-- 1. IMPORT THE NEW PLUGIN
 export 'plugin_models.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
@@ -16,10 +17,10 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     GlitchEditorPlugin(),
     RecipeTexPlugin(),
     LlmEditorPlugin(),
+    RefactorEditorPlugin(),
   },
 );
 
-// MODIFIED: This provider now returns a sorted list, not a set.
 final activePluginsProvider =
     StateNotifierProvider<PluginManager, List<EditorPlugin>>((ref) {
       final initialPlugins = ref.read(pluginRegistryProvider);
