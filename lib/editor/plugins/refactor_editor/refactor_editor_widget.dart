@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../editor/editor_tab_models.dart';
 import 'refactor_editor_models.dart';
+import 'refactor_editor_hot_state.dart';
 
 /// A stub for the main UI widget of the Refactor Editor.
 class RefactorEditorWidget extends EditorWidget {
