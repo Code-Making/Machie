@@ -2,73 +2,57 @@
 // NEW FILE: lib/editor/plugins/refactor_editor/refactor_editor_settings_widget.dart
 // =========================================
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project_repository.dart';
+import '../../../explorer/common/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
-import 'folder_picker_dialog.dart';
 import 'refactor_editor_models.dart';
-import '../../../data/file_handler/file_handler.dart';
 
 class RefactorEditorSettingsUI extends ConsumerWidget {
   final RefactorSettings settings;
+
   const RefactorEditorSettingsUI({super.key, required this.settings});
 
   void _updateSettings(WidgetRef ref, RefactorSettings newSettings) {
     ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
   }
 
-  Future<void> _importFromGitignore(BuildContext context, WidgetRef ref) async {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
+  Future<void> _importFromGitignore(WidgetRef ref) async {
     final repo = ref.read(projectRepositoryProvider);
-    if (project == null || repo == null) {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (repo == null || project == null) {
       MachineToast.error('A project must be open to import from .gitignore');
       return;
     }
 
-    final gitignoreFile = await repo.fileHandler.resolvePath(project.rootUri, '.gitignore');
-    if (gitignoreFile == null) {
-      MachineToast.error('.gitignore file not found in the project root.');
-      return;
-    }
-
     try {
+      final gitignoreFile = await repo.fileHandler.resolvePath(project.rootUri, '.gitignore');
+      if (gitignoreFile == null) {
+        MachineToast.error('.gitignore file not found in the project root.');
+        return;
+      }
+
       final content = await repo.readFile(gitignoreFile.uri);
-      final lines = content
+      final patterns = content
           .split('\n')
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty && !line.startsWith('#'))
-          .map((line) => line.endsWith('/') ? line.substring(0, line.length - 1) : line)
-          .toList();
+          .toSet(); // Use a Set to avoid duplicates
 
-      final newIgnoredFolders = {...settings.ignoredFolders, ...lines}.toList();
-      _updateSettings(ref, RefactorSettings(ignoredFolders: newIgnoredFolders, supportedExtensions: settings.supportedExtensions));
-      MachineToast.info('Imported ${lines.length} patterns from .gitignore');
+      final newIgnoredFolders = {...settings.ignoredFolders, ...patterns};
+      _updateSettings(ref, RefactorSettings(ignoredFolders: newIgnoredFolders.toList(), supportedExtensions: settings.supportedExtensions));
+      MachineToast.info('Imported ${patterns.length} patterns from .gitignore');
     } catch (e) {
       MachineToast.error('Failed to read .gitignore: $e');
     }
   }
 
-  Future<void> _addIgnoredFolder(BuildContext context, WidgetRef ref) async {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (project == null) {
-      MachineToast.error('A project must be open to select a folder.');
-      return;
-    }
-
-    final selectedPath = await showDialog<String>(
-      context: context,
-      builder: (_) => const FolderPickerDialog(),
-    );
-
-    if (selectedPath != null) {
-      final newIgnoredFolders = {...settings.ignoredFolders, selectedPath}.toList();
-      _updateSettings(ref, RefactorSettings(ignoredFolders: newIgnoredFolders, supportedExtensions: settings.supportedExtensions));
-    }
+  void _clearAll(WidgetRef ref) {
+    _updateSettings(ref, RefactorSettings(ignoredFolders: [], supportedExtensions: []));
   }
 
   @override
@@ -76,83 +60,100 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Configuration', style: Theme.of(context).textTheme.titleMedium),
+            TextButton(
+              onPressed: () async {
+                final confirm = await showConfirmDialog(
+                  context,
+                  title: 'Clear All Settings?',
+                  content: 'This will remove all supported extensions and ignored folder patterns.',
+                );
+                if (confirm) _clearAll(ref);
+              },
+              child: Text('Clear All', style: TextStyle(color: Colors.red.shade300)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _buildEditableList(
-          ref: ref,
+          context,
+          ref,
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
-          onUpdate: (newItems) => _updateSettings(ref, RefactorSettings(supportedExtensions: newItems, ignoredFolders: settings.ignoredFolders)),
+          onChanged: (newItems) {
+            _updateSettings(ref, RefactorSettings(supportedExtensions: newItems, ignoredFolders: settings.ignoredFolders));
+          },
         ),
         const SizedBox(height: 24),
         _buildEditableList(
-          ref: ref,
-          title: 'Ignored Folders & Patterns',
+          context,
+          ref,
+          title: 'Ignored Folder Patterns',
           items: settings.ignoredFolders,
-          onUpdate: (newItems) => _updateSettings(ref, RefactorSettings(ignoredFolders: newItems, supportedExtensions: settings.supportedExtensions)),
-          extraActions: [
-            TextButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add Folder'),
-              onPressed: () => _addIgnoredFolder(context, ref),
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.file_upload_outlined),
-              label: const Text('Import from .gitignore'),
-              onPressed: () => _importFromGitignore(context, ref),
-            ),
-          ],
+          onChanged: (newItems) {
+            _updateSettings(ref, RefactorSettings(ignoredFolders: newItems, supportedExtensions: settings.supportedExtensions));
+          },
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.download_for_offline_outlined),
+            label: const Text('Import from .gitignore'),
+            onPressed: () => _importFromGitignore(ref),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildEditableList({
-    required WidgetRef ref,
+  Widget _buildEditableList(
+    BuildContext context,
+    WidgetRef ref, {
     required String title,
     required List<String> items,
-    required ValueChanged<List<String>> onUpdate,
-    List<Widget>? extraActions,
+    required ValueChanged<List<String>> onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: Theme.of(ref.context).textTheme.titleMedium),
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            const Spacer(),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline),
+              icon: const Icon(Icons.add),
+              tooltip: 'Add new pattern',
               onPressed: () async {
-                final newItem = await showDialog<String>(
-                  context: ref.context,
-                  builder: (_) => _TextInputDialog(title: 'Add New Entry'),
-                );
-                if (newItem != null && newItem.isNotEmpty) {
-                  onUpdate([...items, newItem]);
+                final newItem = await showTextInputDialog(context, title: 'Add New Pattern');
+                if (newItem != null && newItem.trim().isNotEmpty) {
+                  onChanged([...items, newItem.trim()]);
                 }
               },
-            ),
+            )
           ],
         ),
+        const Divider(),
+        if (items.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text('No patterns configured.', style: TextStyle(fontStyle: FontStyle.italic)),
+          ),
         Wrap(
-          spacing: 8.0,
-          runSpacing: 4.0,
+          spacing: 8,
+          runSpacing: 4,
           children: items.map((item) {
             return Chip(
               label: Text(item),
               onDeleted: () {
                 final newItems = List<String>.from(items)..remove(item);
-                onUpdate(newItems);
+                onChanged(newItems);
               },
             );
           }).toList(),
         ),
-        if (extraActions != null) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8.0,
-            children: extraActions,
-          ),
-        ]
       ],
     );
   }
