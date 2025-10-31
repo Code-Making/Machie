@@ -31,15 +31,46 @@ class OccurrenceListItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    // ... (rest of the build logic is completely unchanged)
     final settings = ref.watch(settingsProvider.select(
       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
     )) ?? CodeEditorSettings();
     final codeTheme = CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
     final codeBgColor = codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
-    final previewSpan = /* ... same logic as before ... */ TextSpan();
-    
+
+    final languageKey = CodeThemes.inferLanguageKey(occurrence.displayPath);
+
+    LlmHighlightUtil.ensureLanguagesRegistered();
+    final result = LlmHighlightUtil.highlight.highlight(
+      code: occurrence.lineContent,
+      language: languageKey,
+    );
+    // 2. FIX: TextSpanRenderer is now available via the import.
+    final renderer = TextSpanRenderer(textStyle, codeTheme);
+    result.render(renderer);
+    final highlightedSpan = renderer.span ?? TextSpan(text: occurrence.lineContent, style: textStyle);
+
+    // Build the RichText with the specific match highlighted
+    final matchStart = occurrence.startColumn;
+    final matchEnd = matchStart + occurrence.matchedText.length;
+    final beforeText = occurrence.lineContent.substring(0, matchStart);
+    final afterText = occurrence.lineContent.substring(matchEnd);
+
+    final previewSpan = TextSpan(
+      style: textStyle.copyWith(color: codeTheme['root']?.color),
+      children: [
+        TextSpan(text: beforeText),
+        TextSpan(
+          text: occurrence.matchedText,
+          style: TextStyle(
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.5),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        TextSpan(text: afterText),
+      ],
+    );
+
     return Container(
       color: isSelected ? theme.colorScheme.primary.withOpacity(0.1) : null,
       child: Column(
