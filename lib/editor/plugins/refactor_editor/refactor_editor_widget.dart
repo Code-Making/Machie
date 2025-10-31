@@ -109,18 +109,23 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     required String projectRootUri,
     required List<RefactorOccurrence> results,
   }) async {
-    // --- CACHE INTEGRATION ---
-    // 1. Check if the directory is already in the cache.
-    var directoryState = ref.read(directoryContentsProvider(directoryUri));
+    // --- CACHE INTEGRATION (CORRECTED) ---
+    final hierarchyNotifier = ref.read(projectHierarchyServiceProvider.notifier);
+    
+    // 1. Read the current state from the map. It might be null.
+    AsyncValue<List<FileTreeNode>>? directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
 
-    // 2. If not, trigger a load and wait for it.
-    if (directoryState == null || directoryState is AsyncLoading) {
-      await ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(directoryUri);
-      directoryState = await ref.read(directoryContentsProvider(directoryUri)!.future);
+    // 2. If it's null or not a data state, we need to load it.
+    if (directoryState == null || directoryState is! AsyncData) {
+        // `loadDirectory` returns a Future<List<FileTreeNode>?>. We await it directly.
+        final loadedNodes = await hierarchyNotifier.loadDirectory(directoryUri);
+        // After loading, the provider's state is updated, so we re-read it to get the AsyncValue.
+        directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
     
-    final entries = directoryState.valueOrNull?.map((node) => node.file).toList() ?? [];
-    // --- END CACHE INTEGRATION ---
+    // 3. Now we can safely access valueOrNull because directoryState is guaranteed to be non-null.
+    final entries = directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
+    // --- END CORRECTION ---
 
     final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
     List<Glob> currentIgnoreGlobs = [];
@@ -157,7 +162,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         );
       } else {
         if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
-          // Delegate the actual content search to the controller
           final content = await repo.readFile(entry.uri);
           final occurrencesInFile = _controller.searchInContent(
             content: content,
