@@ -83,7 +83,7 @@ class OccurrenceListItem extends ConsumerWidget {
             onTap: onJumpTo, // <-- CALL THE PASSED-IN CALLBACK
             // --- END UPDATE ---
             title: Text(occurrence.displayPath, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Line ${occurrence.lineNumber}'),
+            subtitle: Text('Line ${occurrence.lineNumber+1}'),
           ),
           // Using an InkWell here to allow tapping on the code preview to also jump to the location.
           InkWell(
