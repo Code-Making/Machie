@@ -65,18 +65,18 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
 
     try {
       final repo = ref.read(projectRepositoryProvider);
-      final allFiles = ref.read(flatFileIndexProvider).valueOrNull ?? [];
       final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings?;
-      if (repo == null || settings == null || allFiles.isEmpty) {
-        throw Exception('Project, settings, or file index not available');
+      final project = ref.read(appNotifierProvider).value?.currentProject;
+      if (repo == null || settings == null || project == null) {
+        throw Exception('Project or settings not available');
       }
 
-      // --- PASS THE UPDATED DEPENDENCIES ---
+      // --- PASS THE HIERARCHY PROVIDER ---
       final results = await _controller.findOccurrences(
-        allFiles: allFiles,
         settings: settings,
-        repo: repo, // Pass the whole repo object
-        projectRootUri: repo.fileHandler.getParentUri(allFiles.first.uri),
+        repo: repo,
+        projectRootUri: project.rootUri,
+        hierarchyProvider: projectHierarchyServiceProvider, // Pass the provider itself
       );
       
       _controller.completeSearch(results);
