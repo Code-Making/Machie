@@ -65,8 +65,44 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
+  /// Recursively finds all .gitignore files and builds a single Set of rooted Globs.
+  Future<void> _loadGitignoreGlobsRecursive({
+    required String directoryUri,
+    required String relativePath,
+    required ProjectRepository repo,
+    required Set<Glob> collectedGlobs,
+  }) async {
+    final entries = await repo.listDirectory(directoryUri, includeHidden: true);
+    final gitignoreFile = entries.firstWhere((f) => f.name == '.gitignore', orElse: () => VirtualDocumentFile(uri: '', name: ''));
 
-  /// The main orchestration method, owned by the widget state.
+    if (gitignoreFile.uri.isNotEmpty) {
+      try {
+        final content = await repo.readFile(gitignoreFile.uri);
+        content.split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty && !line.startsWith('#'))
+            .forEach((pattern) {
+              // Root the pattern to the current directory path
+              final rootedPattern = (relativePath.isEmpty) ? pattern : '$relativePath/$pattern';
+              collectedGlobs.add(Glob(rootedPattern));
+            });
+      } catch (_) {}
+    }
+
+    for (final entry in entries) {
+      if (entry.isDirectory) {
+        final newRelativePath = (relativePath.isEmpty) ? entry.name : '$relativePath/${entry.name}';
+        await _loadGitignoreGlobsRecursive(
+          directoryUri: entry.uri,
+          relativePath: newRelativePath,
+          repo: repo,
+          collectedGlobs: collectedGlobs,
+        );
+      }
+    }
+  }
+
+  /// The main orchestration method.
   Future<void> _handleFindOccurrences() async {
     _controller.startSearch();
 
@@ -79,13 +115,23 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         throw Exception('Project, settings, or repository not available');
       }
 
-      final results = <RefactorOccurrence>[];
-      final globalIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+      // --- COMPILE ALL IGNORE PATTERNS ---
+      final Set<Glob> allIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toSet();
 
+      if (settings.useProjectGitignore) {
+        await _loadGitignoreGlobsRecursive(
+          directoryUri: project.rootUri,
+          relativePath: '',
+          repo: repo,
+          collectedGlobs: allIgnoreGlobs,
+        );
+      }
+      // --- END COMPILE ---
+
+      final results = <RefactorOccurrence>[];
       await _traverseAndSearch(
         directoryUri: project.rootUri,
-        parentIgnoreGlobs: [],
-        globalIgnoreGlobs: globalIgnoreGlobs,
+        allIgnoreGlobs: allIgnoreGlobs.toList(), // Pass as a list for efficiency
         settings: settings,
         repo: repo,
         projectRootUri: project.rootUri,
@@ -99,62 +145,35 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
-  /// The recursive traversal logic, now using the project hierarchy cache.
+  /// The recursive traversal logic, now much simpler.
   Future<void> _traverseAndSearch({
     required String directoryUri,
-    required List<Glob> parentIgnoreGlobs,
-    required List<Glob> globalIgnoreGlobs,
+    required List<Glob> allIgnoreGlobs, // The single master list of rooted globs
     required RefactorSettings settings,
     required ProjectRepository repo,
     required String projectRootUri,
     required List<RefactorOccurrence> results,
   }) async {
-    // --- CACHE INTEGRATION (CORRECTED) ---
-    final hierarchyNotifier = ref.read(projectHierarchyServiceProvider.notifier);
-    
-    // 1. Read the current state from the map. It might be null.
-    AsyncValue<List<FileTreeNode>>? directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
-
-    // 2. If it's null or not a data state, we need to load it.
+    var directoryState = ref.read(directoryContentsProvider(directoryUri));
     if (directoryState == null || directoryState is! AsyncData) {
-        // `loadDirectory` returns a Future<List<FileTreeNode>?>. We await it directly.
-        final loadedNodes = await hierarchyNotifier.loadDirectory(directoryUri);
-        // After loading, the provider's state is updated, so we re-read it to get the AsyncValue.
-        directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+      await ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(directoryUri);
+      directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
     
-    // 3. Now we can safely access valueOrNull because directoryState is guaranteed to be non-null.
     final entries = directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
-    // --- END CORRECTION ---
-
-    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
-    List<Glob> currentIgnoreGlobs = [];
-    if (gitignoreFile != null && settings.useProjectGitignore) {
-        try {
-            final content = await repo.readFile(gitignoreFile.uri);
-            currentIgnoreGlobs = content.split('\n')
-                .map((line) => line.trim())
-                .where((line) => line.isNotEmpty && !line.startsWith('#'))
-                .map((p) => Glob(p)).toList();
-        } catch (_) { /* ignore */ }
-    }
-    
-    final activeIgnoreGlobs = [...parentIgnoreGlobs, ...currentIgnoreGlobs];
 
     for (final entry in entries) {
       final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri);
-      final pathFromCurrentDir = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: directoryUri);
 
-      if (globalIgnoreGlobs.any((glob) => glob.matches(relativePath)) ||
-          activeIgnoreGlobs.any((glob) => glob.matches(pathFromCurrentDir))) {
-        continue;
+      // --- SIMPLIFIED AND CORRECT IGNORE LOGIC ---
+      if (allIgnoreGlobs.any((glob) => glob.matches(relativePath))) {
+        continue; // Prune this file or directory
       }
       
       if (entry.isDirectory) {
         await _traverseAndSearch(
           directoryUri: entry.uri,
-          parentIgnoreGlobs: activeIgnoreGlobs,
-          globalIgnoreGlobs: globalIgnoreGlobs,
+          allIgnoreGlobs: allIgnoreGlobs,
           settings: settings,
           repo: repo,
           projectRootUri: projectRootUri,
