@@ -20,6 +20,8 @@ import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../app/app_notifier.dart';
+import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/editor/services/text_editing_capability.dart';
 
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 
@@ -296,10 +298,28 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             itemBuilder: (context, index) {
               final occurrence = _controller.occurrences[index];
               final isSelected = _controller.selectedOccurrences.contains(occurrence);
+              
               return OccurrenceListItem(
                 occurrence: occurrence,
                 isSelected: isSelected,
                 onSelected: (_) => _controller.toggleOccurrenceSelection(occurrence),
+                // --- NEW LOGIC IS HERE ---
+                onJumpTo: () async {
+                  // The logic that was previously in the child is now here in the parent.
+                  final edit = RevealRangeEdit(
+                    range: TextRange(
+                      start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
+                      end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
+                    ),
+                  );
+                  
+                  // The parent is part of the drawer's widget tree, so it can pop the navigator.
+                  Navigator.of(context).pop(); 
+                  
+                  // The parent has access to 'ref' to call the service.
+                  await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
+                },
+                // --- END NEW LOGIC ---
               );
             },
           ),

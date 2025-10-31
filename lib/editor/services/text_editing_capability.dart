@@ -6,13 +6,6 @@ import '../plugins/editor_command_context.dart';
 import '../../command/command_models.dart';
 import '../../app/app_notifier.dart';
 
-/// An abstract base class for different types of text edits.
-/// This allows for an extensible API in the EditorService.
-@immutable
-sealed class TextEdit {
-  const TextEdit();
-}
-
 @immutable
 class TextPosition {
   final int line;
@@ -35,6 +28,13 @@ class TextSelectionDetails {
   final String content;
 
   const TextSelectionDetails({required this.range, required this.content});
+}
+
+/// An abstract base class for different types of text edits.
+/// This allows for an extensible API in the EditorService.
+@immutable
+sealed class TextEdit {
+  const TextEdit();
 }
 
 /// A text edit that replaces a range of lines.
@@ -63,6 +63,11 @@ class ReplaceAllOccurrencesEdit extends TextEdit {
   const ReplaceAllOccurrencesEdit({required this.find, required this.replace});
 }
 
+class RevealRangeEdit extends TextEdit {
+  final TextRange range;
+  const RevealRangeEdit({required this.range});
+}
+
 /// A marker mixin for editor plugins whose primary tabs implement [TextEditable].
 /// This allows the command system to display generic text-based commands
 /// when a tab from this plugin is active, without needing to inspect
@@ -72,7 +77,25 @@ mixin TextEditablePlugin on EditorPlugin {}
 /// An interface that can be implemented by an [EditorWidgetState] to expose
 /// advanced text editing capabilities. This allows services to perform
 /// text manipulations without depending on a concrete editor implementation.
-abstract class TextEditable {
+abstract mixin class TextEditable {
+  /// Applies a given [TextEdit] to the editor.
+  /// This method contains the dispatch logic and should not be overridden.
+  void applyEdit(TextEdit edit) {
+    switch (edit) {
+      case RevealRangeEdit():
+        _revealRange(edit.range);
+        break;
+      
+      case ReplaceLinesEdit():
+        _replaceLines(edit.startLine, edit.endLine, edit.newContent);
+        break;
+
+      case ReplaceAllOccurrencesEdit():
+        _replaceAllOccurrences(edit.find, edit.replace);
+        break;
+    }
+  }
+  
   /// Returns the details of the current text selection, including its range and content.
   /// If the selection is collapsed (a cursor), the `range` will be null, and `content` will be empty.
   Future<TextSelectionDetails> getSelectionDetails();
@@ -105,7 +128,12 @@ abstract class TextEditable {
   /// Replaces all substrings that match the given [pattern] with [replacement].
   /// The [pattern] can be a [String] or a [RegExp].
   void replaceAllPattern(Pattern pattern, String replacement);
+  
+  /// Scrolls the editor to the specified [range] and highlights it as the current selection.
+  void revealRange(TextRange range);
 }
+
+// Command-related classes
 
 abstract class TextEditableCommandContext extends CommandContext {
   final bool hasSelection;
