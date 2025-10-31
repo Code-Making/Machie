@@ -361,12 +361,14 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   /// Removes a project from the "known projects" list.
   Future<void> removeKnownProject(String projectId) async {
+    await ref.read(hotStateCacheServiceProvider).clearProjectCache(projectId);
+    await ref.read(cacheServiceManagerProvider).clearProjectCache(projectId);
+
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) {
-        // MODIFIED: Check the return value of closeProject.
         final bool didClose = await closeProject();
-        if (!didClose) return s; // Abort if user cancelled.
-        s = state.value!; // Refresh state after closing
+        if (!didClose) return s;
+        s = state.value!;
       }
       return s.copyWith(
         knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),

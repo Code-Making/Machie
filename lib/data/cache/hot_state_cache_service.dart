@@ -87,6 +87,12 @@ class HotStateCacheService {
     _talker.info(
       'HotStateCacheService: Clearing state for tab "$tabId" in project "$projectId".',
     );
+    
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer!.cancel();
+      _talker.verbose('Cancelled pending hot state update for tab "$tabId".');
+    }
+
     await _cacheRepository.delete(projectId, tabId);
     await _cacheServiceManager.clearTabState(projectId, tabId);
   }
