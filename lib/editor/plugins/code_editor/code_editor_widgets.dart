@@ -168,6 +168,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   
   @override
   void revealRange(TextRange range) {
+    // 1. Convert our abstract TextPosition to the concrete re_editor CodeLine model.
+    // Our TextPosition uses 1-based lines, which matches re_editor's CodeLine.
+    final startPosition = CodeLinePosition(
+      index: range.start.line ,  // re_editor CodeLinePosition is 0-based for line
+      extent: range.start.column,
+    );
     controller.selection = CodeLineSelection(
         baseIndex: range.start.line,
         baseOffset: range.start.column,
