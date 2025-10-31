@@ -75,9 +75,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     final entries = await repo.listDirectory(directoryUri, includeHidden: true);
     final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
 
-    if (gitignoreFile?.uri.isNotEmpty ?? false) {
+    if (gitignoreFile != null && gitignoreFile.uri.isNotEmpty) {
       try {
-        final content = await repo.readFile(gitignoreFile.uri);
+        final content = await repo.readFile(gitignoreFile!.uri);
         content.split('\n')
             .map((line) => line.trim())
             .where((line) => line.isNotEmpty && !line.startsWith('#'))
