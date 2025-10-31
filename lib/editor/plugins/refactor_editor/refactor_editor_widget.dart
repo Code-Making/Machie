@@ -48,8 +48,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
   }
   
-  // ... dispose and onFirstFrameReady are unchanged
-
   @override
   void dispose() {
     _findController.dispose();
@@ -65,44 +63,16 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
-  /// Recursively finds all .gitignore files and builds a single Set of rooted Globs.
-  Future<void> _loadGitignoreGlobsRecursive({
-    required String directoryUri,
-    required String relativePath,
-    required ProjectRepository repo,
-    required Set<Glob> collectedGlobs,
-  }) async {
-    final entries = await repo.listDirectory(directoryUri, includeHidden: true);
-    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
-
-    if (gitignoreFile != null && gitignoreFile.uri.isNotEmpty) {
-      try {
-        final content = await repo.readFile(gitignoreFile!.uri);
-        content.split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty && !line.startsWith('#'))
-            .forEach((pattern) {
-              // Root the pattern to the current directory path
-              final rootedPattern = (relativePath.isEmpty) ? pattern : '$relativePath/$pattern';
-              collectedGlobs.add(Glob(rootedPattern));
-            });
-      } catch (_) {}
-    }
-
-    for (final entry in entries) {
-      if (entry.isDirectory) {
-        final newRelativePath = (relativePath.isEmpty) ? entry.name : '$relativePath/${entry.name}';
-        await _loadGitignoreGlobsRecursive(
-          directoryUri: entry.uri,
-          relativePath: newRelativePath,
-          repo: repo,
-          collectedGlobs: collectedGlobs,
-        );
-      }
-    }
+    /// Compiles a set of string patterns into a list of structured Globs.
+  List<_CompiledGlob> _compileGlobs(Set<String> patterns) {
+    return patterns.map((p) {
+      final isDirOnly = p.endsWith('/');
+      // Remove trailing slash for the Glob constructor and normalize.
+      final cleanPattern = isDirOnly ? p.substring(0, p.length - 1) : p;
+      return (glob: Glob(cleanPattern), isDirectoryOnly: isDirOnly);
+    }).toList();
   }
 
-  /// The main orchestration method.
   Future<void> _handleFindOccurrences() async {
     _controller.startSearch();
 
@@ -115,23 +85,13 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         throw Exception('Project, settings, or repository not available');
       }
 
-      // --- COMPILE ALL IGNORE PATTERNS ---
-      final Set<Glob> allIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toSet();
-
-      if (settings.useProjectGitignore) {
-        await _loadGitignoreGlobsRecursive(
-          directoryUri: project.rootUri,
-          relativePath: '',
-          repo: repo,
-          collectedGlobs: allIgnoreGlobs,
-        );
-      }
-      // --- END COMPILE ---
-
       final results = <RefactorOccurrence>[];
+      final globalIgnoreGlobs = _compileGlobs(settings.ignoredGlobPatterns);
+
       await _traverseAndSearch(
         directoryUri: project.rootUri,
-        allIgnoreGlobs: allIgnoreGlobs.toList(), // Pass as a list for efficiency
+        parentIgnoreGlobs: [],
+        globalIgnoreGlobs: globalIgnoreGlobs,
         settings: settings,
         repo: repo,
         projectRootUri: project.rootUri,
@@ -145,35 +105,74 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
-  /// The recursive traversal logic, now much simpler.
   Future<void> _traverseAndSearch({
     required String directoryUri,
-    required List<Glob> allIgnoreGlobs, // The single master list of rooted globs
+    required List<_CompiledGlob> parentIgnoreGlobs,
+    required List<_CompiledGlob> globalIgnoreGlobs,
     required RefactorSettings settings,
     required ProjectRepository repo,
     required String projectRootUri,
     required List<RefactorOccurrence> results,
   }) async {
-    var directoryState = ref.read(directoryContentsProvider(directoryUri));
+    final hierarchyNotifier = ref.read(projectHierarchyServiceProvider.notifier);
+    var directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+
     if (directoryState == null || directoryState is! AsyncData) {
-      await ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(directoryUri);
-      directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+        await hierarchyNotifier.loadDirectory(directoryUri);
+        directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
     
     final entries = directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
 
-    for (final entry in entries) {
-      final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri);
+    List<_CompiledGlob> currentIgnoreGlobs = [];
+    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
+    if (gitignoreFile != null && settings.useProjectGitignore) {
+        try {
+            final content = await repo.readFile(gitignoreFile.uri);
+            final patterns = content.split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty && !line.startsWith('#'))
+                .toSet();
+            currentIgnoreGlobs = _compileGlobs(patterns);
+        } catch (_) { /* ignore unreadable file */ }
+    }
+    
+    final activeIgnoreGlobs = [...parentIgnoreGlobs, ...currentIgnoreGlobs];
 
-      // --- SIMPLIFIED AND CORRECT IGNORE LOGIC ---
-      if (allIgnoreGlobs.any((glob) => glob.matches(relativePath))) {
-        continue; // Prune this file or directory
+    for (final entry in entries) {
+      // --- NORMALIZATION AND MATCHING LOGIC ---
+      final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri)
+          .replaceAll(r'\', '/');
+      final pathFromCurrentDir = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: directoryUri)
+          .replaceAll(r'\', '/');
+
+      bool isIgnored = false;
+
+      // Check against global patterns
+      for (final compiledGlob in globalIgnoreGlobs) {
+        if (compiledGlob.isDirectoryOnly && !entry.isDirectory) continue;
+        if (compiledGlob.glob.matches(relativePath)) {
+          isIgnored = true;
+          break;
+        }
       }
+      if (isIgnored) continue;
+
+      // Check against hierarchical patterns
+      for (final compiledGlob in activeIgnoreGlobs) {
+        if (compiledGlob.isDirectoryOnly && !entry.isDirectory) continue;
+        if (compiledGlob.glob.matches(pathFromCurrentDir)) {
+          isIgnored = true;
+          break;
+        }
+      }
+      if (isIgnored) continue;
       
       if (entry.isDirectory) {
         await _traverseAndSearch(
           directoryUri: entry.uri,
-          allIgnoreGlobs: allIgnoreGlobs,
+          parentIgnoreGlobs: activeIgnoreGlobs,
+          globalIgnoreGlobs: globalIgnoreGlobs,
           settings: settings,
           repo: repo,
           projectRootUri: projectRootUri,
@@ -193,7 +192,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
   
-  // ... (build methods and other overrides are completely unchanged)
   // They just read from the controller, so they don't need to be modified.
   
   @override
