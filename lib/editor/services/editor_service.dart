@@ -341,7 +341,7 @@ class EditorService {
       // The service simply tells the editor to apply the edit.
       // It doesn't need to know what kind of edit it is.
       if (editorState is TextEditable) {
-        editorState.applyEdit(edit); // <-- UNIFIED CALL
+        (editorState as TextEditable).applyEdit(edit); // <-- UNIFIED CALL
         return true;
       } else {
         throw TypeError();

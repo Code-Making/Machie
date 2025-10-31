@@ -83,15 +83,15 @@ abstract mixin class TextEditable {
   void applyEdit(TextEdit edit) {
     switch (edit) {
       case RevealRangeEdit():
-        _revealRange(edit.range);
+        revealRange(edit.range);
         break;
       
       case ReplaceLinesEdit():
-        _replaceLines(edit.startLine, edit.endLine, edit.newContent);
+        replaceLines(edit.startLine, edit.endLine, edit.newContent);
         break;
 
       case ReplaceAllOccurrencesEdit():
-        _replaceAllOccurrences(edit.find, edit.replace);
+        replaceAllOccurrences(edit.find, edit.replace);
         break;
     }
   }
