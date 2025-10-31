@@ -168,27 +168,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   
   @override
   void revealRange(TextRange range) {
-    // 1. Convert our abstract TextPosition to the concrete re_editor CodeLine model.
-    // Our TextPosition uses 1-based lines, which matches re_editor's CodeLine.
-    final startPosition = CodeLinePosition(
-      line: range.start.line ,  // re_editor CodeLinePosition is 0-based for line
-      character: range.start.column,
-    );
-    final endPosition = CodeLinePosition(
-      line: range.end.line,    // re_editor CodeLinePosition is 0-based for line
-      character: range.end.column,
-    );
-    
-    // 2. Set the controller's selection directly.
-    // This will notify the editor widget to update the highlighted text.
     controller.selection = CodeLineSelection(
-      base: startPosition,
-      extent: endPosition,
+        baseIndex: range.start.line,
+        baseOffset: range.start.column,
+        extentIndex: range.end.line,
+        extentOffset: range.end.column,
     );
 
-    // 3. Programmatically scroll to make the new selection visible.
-    // Using makePositionCenterIfInvisible provides a better user experience
-    // by ensuring the revealed code is not tucked at the very top or bottom of the screen.
     controller.makePositionCenterIfInvisible(startPosition);
   }
 
