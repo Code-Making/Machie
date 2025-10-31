@@ -1,7 +1,6 @@
 // =========================================
 // CORRECTED: lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 // =========================================
-import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,110 +83,48 @@ class RefactorController extends ChangeNotifier {
 
   // --- Core Business Logic (Pure Dart) ---
   
-  Future<List<RefactorOccurrence>> findOccurrences({
-    required RefactorSettings settings,
-    required ProjectRepository repo,
-    required String projectRootUri,
-    required NotifierProvider<ProjectHierarchyService, Map<String, AsyncValue<List<FileTreeNode>>>> hierarchyProvider,
-  }) async {
+  List<RefactorOccurrence> searchInContent({
+    required String content,
+    required String fileUri,
+    required String displayPath,
+  }) {
     if (searchTerm.isEmpty) return [];
 
-    final foundOccurrences = <RefactorOccurrence>[];
-    
-    // 1. Pre-compile global ignore patterns
-    final List<Glob> globalIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+    final occurrencesInFile = <RefactorOccurrence>[];
+    final lines = content.split('\n');
 
-    // 2. Define the recursive traversal function
-    Future<void> traverse(String dirUri, List<Glob> inheritedGlobs) async {
-      // Get children for the current directory from the hierarchy service
-      final childrenResult = await _ref.read(hierarchyProvider.notifier).loadDirectory(dirUri);
-      if (childrenResult == null) return;
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final Iterable<Match> matches;
 
-      final List<FileTreeNode> children = childrenResult;
-      
-      // Check for a .gitignore in the current directory
-      List<Glob> currentGlobs = List.from(inheritedGlobs);
-      if (settings.useProjectGitignore) {
-        final gitignoreNode = children.firstWhere((node) => node.file.name == '.gitignore', orElse: () => FileTreeNode(VirtualDocumentFile(uri: '', name: '')));
-        if (gitignoreNode.file.name == '.gitignore') {
-          try {
-            final content = await repo.readFile(gitignoreNode.file.uri);
-            final patterns = content.split('\n')
-              .map((line) => line.trim())
-              .where((line) => line.isNotEmpty && !line.startsWith('#'));
-            currentGlobs.addAll(patterns.map((p) => Glob(p)));
-          } catch (_) {}
+      if (isRegex) {
+        matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
+      } else {
+        final tempMatches = <Match>[];
+        int startIndex = 0;
+        final query = isCaseSensitive ? searchTerm : searchTerm.toLowerCase();
+        final target = isCaseSensitive ? line : line.toLowerCase();
+        while (startIndex < target.length) {
+          final index = target.indexOf(query, startIndex);
+          if (index == -1) break;
+          tempMatches.add(_StringMatch(line, index, line.substring(index, index + searchTerm.length)));
+          startIndex = index + searchTerm.length;
         }
+        matches = tempMatches;
       }
 
-      // Process children
-      for (final node in children) {
-        final file = node.file;
-        final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
-        
-        // --- HIERARCHICAL IGNORE LOGIC ---
-        // Check against global ignores first
-        if (globalIgnoreGlobs.any((glob) => glob.matches(relativePath))) {
-          continue;
-        }
-        // Then check against inherited/current gitignore patterns
-        if (currentGlobs.any((glob) => glob.matches(file.name))) {
-          continue;
-        }
-
-        if (file.isDirectory) {
-          // If it's a directory and not ignored, traverse into it
-          await traverse(file.uri, currentGlobs);
-        } else {
-          // It's a file, check extension and then search content
-          if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
-            await _searchFileContent(file, relativePath, foundOccurrences, repo);
-          }
-        }
+      for (final match in matches) {
+        occurrencesInFile.add(RefactorOccurrence(
+          fileUri: fileUri,
+          displayPath: displayPath,
+          lineNumber: i + 1,
+          startColumn: match.start,
+          lineContent: line,
+          matchedText: match.group(0)!,
+        ));
       }
     }
-
-    // 3. Start the traversal from the project root
-    await traverse(projectRootUri, []);
-
-    return foundOccurrences;
-  }
-  
-  /// Helper function to search inside a single valid file.
-  Future<void> _searchFileContent(
-    ProjectDocumentFile file,
-    String relativePath,
-    List<RefactorOccurrence> foundOccurrences,
-    ProjectRepository repo
-  ) async {
-      final content = await repo.readFile(file.uri);
-      final lines = content.split('\n');
-      for (int i = 0; i < lines.length; i++) {
-        final line = lines[i];
-        final Iterable<Match> matches;
-        if (isRegex) {
-          matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
-        } else {
-          final tempMatches = <Match>[];
-          int startIndex = 0;
-          final query = isCaseSensitive ? searchTerm : searchTerm.toLowerCase();
-          final target = isCaseSensitive ? line : line.toLowerCase();
-          while (startIndex < target.length) {
-            final index = target.indexOf(query, startIndex);
-            if (index == -1) break;
-            tempMatches.add(_StringMatch(line, index, line.substring(index, index + searchTerm.length)));
-            startIndex = index + searchTerm.length;
-          }
-          matches = tempMatches;
-        }
-        for (final match in matches) {
-          foundOccurrences.add(RefactorOccurrence(
-            fileUri: file.uri,
-            displayPath: relativePath,
-            lineNumber: i + 1, startColumn: match.start, lineContent: line, matchedText: match.group(0)!,
-          ));
-        }
-      }
+    return occurrencesInFile;
   }
   
   // Placeholder for the apply logic
