@@ -312,10 +312,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
                       end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
                     ),
                   );
-                  
-                  // The parent is part of the drawer's widget tree, so it can pop the navigator.
-                  Navigator.of(context).pop(); 
-                  
+                                    
                   // The parent has access to 'ref' to call the service.
                   await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
                 },
