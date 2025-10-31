@@ -117,7 +117,7 @@ class RefactorController extends ChangeNotifier {
         occurrencesInFile.add(RefactorOccurrence(
           fileUri: fileUri,
           displayPath: displayPath,
-          lineNumber: i + 1,
+          lineNumber: i,
           startColumn: match.start,
           lineContent: line,
           matchedText: match.group(0)!,
