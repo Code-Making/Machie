@@ -84,11 +84,13 @@ abstract class FileHandler {
     String relativePath,
   );
 
-  Future<ProjectDocumentFile> createDirectoryAndFile(
+  Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
+      createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
   });
+
 
   String getParentUri(String uri);
   String getFileName(String uri);

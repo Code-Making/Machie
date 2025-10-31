@@ -47,15 +47,23 @@ class ExplorerService {
     String projectRootUri,
     String relativePath,
   ) async {
-    final newFile = await _repo.fileHandler.createDirectoryAndFile(
+    final result = await _repo.fileHandler.createDirectoryAndFile(
       projectRootUri,
       relativePath,
     );
-    _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: newFile));
+
+    final eventController = _ref.read(fileOperationControllerProvider);
+
+    // Fire events for all the newly created parent directories.
+    for (final dir in result.createdDirs) {
+      eventController.add(FileCreateEvent(createdFile: dir));
+    }
+
+    // Fire the event for the final file.
+    eventController.add(FileCreateEvent(createdFile: result.file));
+
     _talker.info('Created file with hierarchy: "$relativePath"');
-    return newFile;
+    return result.file;
   }
 
   Future<void> createFile(String parentUri, String name) async {
