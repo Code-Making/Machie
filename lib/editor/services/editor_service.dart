@@ -302,14 +302,17 @@ class EditorService {
     return false;
   }
 
-  Future<bool> openAndApplyEdit(
-    String projectRootUri,
-    String relativePath,
-    TextEdit edit,
-  ) async {
-    final fileHandler = _repo.fileHandler;
+  /// Opens a file if not already open, switches to its tab, and applies a generic [TextEdit].
+  Future<bool> openAndApplyEdit(String relativePath, TextEdit edit) async {
+    final project = _currentProject;
+    if (project == null) {
+      MachineToast.error("No project is open.");
+      return false;
+    }
+    
+    // Sanitize path just in case
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    final file = await fileHandler.resolvePath(projectRootUri, sanitizedPath);
+    final file = await _repo.fileHandler.resolvePath(project.rootUri, sanitizedPath);
 
     if (file == null) {
       MachineToast.error("File not found: $sanitizedPath");
@@ -317,64 +320,37 @@ class EditorService {
     }
 
     final appNotifier = _ref.read(appNotifierProvider.notifier);
-    final project = _ref.read(appNotifierProvider).value?.currentProject;
     final metadataMap = _ref.read(tabMetadataProvider);
-    final existingTabId =
-        metadataMap.entries
-            .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
-            ?.key;
-    EditorTab? tabToEdit =
-        (project != null && existingTabId != null)
-            ? project.session.tabs.firstWhereOrNull(
-              (t) => t.id == existingTabId,
-            )
-            : null;
+    final existingTabId = metadataMap.entries.firstWhereOrNull((entry) => entry.value.file.uri == file.uri)?.key;
+    EditorTab? tabToEdit = (project.session.tabs).firstWhereOrNull((t) => t.id == existingTabId);
 
     try {
       final EditorWidgetState editorState;
       if (tabToEdit == null) {
         final onReadyCompleter = Completer<EditorWidgetState>();
-        if (!await appNotifier.openFileInEditor(
-          file,
-          onReadyCompleter: onReadyCompleter,
-        )) {
+        if (!await appNotifier.openFileInEditor(file, onReadyCompleter: onReadyCompleter)) {
           return false;
         }
         editorState = await onReadyCompleter.future;
       } else {
-        final index = project!.session.tabs.indexOf(tabToEdit);
+        final index = project.session.tabs.indexOf(tabToEdit);
         appNotifier.switchTab(index);
         editorState = await tabToEdit.onReady.future;
       }
-      _applyEditToState(editorState, edit);
-      return true;
+
+      // The service simply tells the editor to apply the edit.
+      // It doesn't need to know what kind of edit it is.
+      if (editorState is TextEditable) {
+        editorState.applyEdit(edit); // <-- UNIFIED CALL
+        return true;
+      } else {
+        throw TypeError();
+      }
     } catch (e, st) {
-      final errorMessage =
-          e is TypeError
-              ? "Editor does not support programmatic edits."
-              : "Failed to apply edit: $e";
-      _ref
-          .read(talkerProvider)
-          .handle(e, st, 'Error applying programmatic edit');
+      final errorMessage = e is TypeError ? "The editor for this file does not support programmatic edits." : "Failed to apply edit: $e";
+      _ref.read(talkerProvider).handle(e, st, 'Error in openAndApplyEdit');
       MachineToast.error(errorMessage);
       return false;
-    }
-  }
-
-  void _applyEditToState(EditorWidgetState state, TextEdit edit) {
-    // Cast to the interface and apply the specific edit.
-    final editableState = state as TextEditable;
-    switch (edit) {
-      case ReplaceLinesEdit():
-        editableState.replaceLines(
-          edit.startLine,
-          edit.endLine,
-          edit.newContent,
-        );
-        break;
-      case ReplaceAllOccurrencesEdit():
-        editableState.replaceAllOccurrences(edit.find, edit.replace);
-        break;
     }
   }
 

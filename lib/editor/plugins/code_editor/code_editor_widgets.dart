@@ -67,7 +67,7 @@ class CodeEditorMachine extends EditorWidget {
 }
 
 class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
-    implements TextEditable {
+    with TextEditable {
   // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
