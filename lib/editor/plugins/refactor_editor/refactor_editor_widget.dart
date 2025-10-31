@@ -1,13 +1,17 @@
 // =========================================
-// REFACTORED: lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
+// FINAL REFACTORED: lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
 // =========================================
 
+import 'dart:async';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glob/glob.dart';
 
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../editor/editor_tab_models.dart';
+import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import 'refactor_editor_controller.dart';
@@ -15,7 +19,7 @@ import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
-import 'package:machine/data/repositories/project_repository.dart';
+import '../../../app/app_notifier.dart';
 
 class RefactorEditorWidget extends EditorWidget {
   @override
@@ -43,6 +47,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     _findController.addListener(() => _controller.updateSearchTerm(_findController.text));
     _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
   }
+  
+  // ... dispose and onFirstFrameReady are unchanged
 
   @override
   void dispose() {
@@ -59,7 +65,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
-  // This is the new orchestrator method
+
+  /// The main orchestration method, owned by the widget state.
   Future<void> _handleFindOccurrences() async {
     _controller.startSearch();
 
@@ -67,16 +74,22 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       final repo = ref.read(projectRepositoryProvider);
       final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings?;
       final project = ref.read(appNotifierProvider).value?.currentProject;
+
       if (repo == null || settings == null || project == null) {
-        throw Exception('Project or settings not available');
+        throw Exception('Project, settings, or repository not available');
       }
 
-      // --- PASS THE HIERARCHY PROVIDER ---
-      final results = await _controller.findOccurrences(
+      final results = <RefactorOccurrence>[];
+      final globalIgnoreGlobs = settings.ignoredGlobPatterns.map((p) => Glob(p)).toList();
+
+      await _traverseAndSearch(
+        directoryUri: project.rootUri,
+        parentIgnoreGlobs: [],
+        globalIgnoreGlobs: globalIgnoreGlobs,
         settings: settings,
         repo: repo,
         projectRootUri: project.rootUri,
-        hierarchyProvider: projectHierarchyServiceProvider, // Pass the provider itself
+        results: results,
       );
       
       _controller.completeSearch(results);
@@ -86,6 +99,80 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     }
   }
 
+  /// The recursive traversal logic, now using the project hierarchy cache.
+  Future<void> _traverseAndSearch({
+    required String directoryUri,
+    required List<Glob> parentIgnoreGlobs,
+    required List<Glob> globalIgnoreGlobs,
+    required RefactorSettings settings,
+    required ProjectRepository repo,
+    required String projectRootUri,
+    required List<RefactorOccurrence> results,
+  }) async {
+    // --- CACHE INTEGRATION ---
+    // 1. Check if the directory is already in the cache.
+    var directoryState = ref.read(directoryContentsProvider(directoryUri));
+
+    // 2. If not, trigger a load and wait for it.
+    if (directoryState == null || directoryState is AsyncLoading) {
+      await ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(directoryUri);
+      directoryState = await ref.read(directoryContentsProvider(directoryUri)!.future);
+    }
+    
+    final entries = directoryState.valueOrNull?.map((node) => node.file).toList() ?? [];
+    // --- END CACHE INTEGRATION ---
+
+    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
+    List<Glob> currentIgnoreGlobs = [];
+    if (gitignoreFile != null && settings.useProjectGitignore) {
+        try {
+            final content = await repo.readFile(gitignoreFile.uri);
+            currentIgnoreGlobs = content.split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty && !line.startsWith('#'))
+                .map((p) => Glob(p)).toList();
+        } catch (_) { /* ignore */ }
+    }
+    
+    final activeIgnoreGlobs = [...parentIgnoreGlobs, ...currentIgnoreGlobs];
+
+    for (final entry in entries) {
+      final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri);
+      final pathFromCurrentDir = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: directoryUri);
+
+      if (globalIgnoreGlobs.any((glob) => glob.matches(relativePath)) ||
+          activeIgnoreGlobs.any((glob) => glob.matches(pathFromCurrentDir))) {
+        continue;
+      }
+      
+      if (entry.isDirectory) {
+        await _traverseAndSearch(
+          directoryUri: entry.uri,
+          parentIgnoreGlobs: activeIgnoreGlobs,
+          globalIgnoreGlobs: globalIgnoreGlobs,
+          settings: settings,
+          repo: repo,
+          projectRootUri: projectRootUri,
+          results: results,
+        );
+      } else {
+        if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
+          // Delegate the actual content search to the controller
+          final content = await repo.readFile(entry.uri);
+          final occurrencesInFile = _controller.searchInContent(
+            content: content,
+            fileUri: entry.uri,
+            displayPath: relativePath,
+          );
+          results.addAll(occurrencesInFile);
+        }
+      }
+    }
+  }
+  
+  // ... (build methods and other overrides are completely unchanged)
+  // They just read from the controller, so they don't need to be modified.
+  
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -150,8 +237,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
   
-  // The rest of the build methods are identical to the previous step,
-  // as they already read directly from the controller's properties.
   Widget _buildResultsPanel(bool allSelected) {
     if (_controller.searchStatus == SearchStatus.idle) {
       return const Center(child: Text('Enter a search term and click "Find All"'));
@@ -230,7 +315,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
 
-  // Other overrides
   @override
   Future<EditorContent> getContent() async => EditorContentString('{}');
   @override
