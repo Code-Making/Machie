@@ -391,7 +391,8 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<ProjectDocumentFile> createDirectoryAndFile(
+  Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
+      createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
@@ -401,21 +402,42 @@ class SafFileHandler implements LocalFileHandler {
     if (segments.isEmpty) {
       throw ArgumentError('Relative path cannot be empty.');
     }
+
     final fileName = segments.last;
-    final directorySegments =
-        segments.length > 1
-            ? segments.sublist(0, segments.length - 1)
-            : <String>[];
-    String finalParentUri =
-        directorySegments.isNotEmpty
-            ? (await _safUtil.mkdirp(parentUri, directorySegments)).uri
-            : parentUri;
-    return createDocumentFile(
-      finalParentUri,
+    final directorySegments = segments.length > 1
+        ? segments.sublist(0, segments.length - 1)
+        : <String>[];
+
+    final List<ProjectDocumentFile> createdDirs = [];
+    String currentParentUri = parentUri;
+
+    // Manually create parent directories one by one to track them.
+    for (final segment in directorySegments) {
+      // Check if this segment already exists.
+      final existingDir = await resolvePath(currentParentUri, segment);
+      if (existingDir != null && existingDir.isDirectory) {
+        currentParentUri = existingDir.uri;
+      } else {
+        // If it doesn't exist, create it and add to our list.
+        final newDir = await createDocumentFile(
+          currentParentUri,
+          segment,
+          isDirectory: true,
+        );
+        createdDirs.add(newDir);
+        currentParentUri = newDir.uri;
+      }
+    }
+
+    // Now create the final file in the final parent directory.
+    final finalFile = await createDocumentFile(
+      currentParentUri,
       fileName,
       isDirectory: false,
       initialContent: initialContent ?? '',
     );
+
+    return (file: finalFile, createdDirs: createdDirs);
   }
 
   @override
