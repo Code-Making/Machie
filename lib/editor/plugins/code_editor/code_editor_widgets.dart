@@ -172,7 +172,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     // Our TextPosition uses 1-based lines, which matches re_editor's CodeLine.
     final startPosition = CodeLinePosition(
       index: range.start.line ,  // re_editor CodeLinePosition is 0-based for line
-      extent: range.start.column,
+      offset: range.start.column,
     );
     controller.selection = CodeLineSelection(
         baseIndex: range.start.line,
