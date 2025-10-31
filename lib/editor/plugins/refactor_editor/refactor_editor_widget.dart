@@ -73,9 +73,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     required Set<Glob> collectedGlobs,
   }) async {
     final entries = await repo.listDirectory(directoryUri, includeHidden: true);
-    final gitignoreFile = entries.firstWhere((f) => f.name == '.gitignore', orElse: () => VirtualDocumentFile(uri: '', name: ''));
+    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
 
-    if (gitignoreFile.uri.isNotEmpty) {
+    if (gitignoreFile?.uri.isNotEmpty ?? false) {
       try {
         final content = await repo.readFile(gitignoreFile.uri);
         content.split('\n')
