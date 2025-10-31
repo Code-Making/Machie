@@ -21,6 +21,8 @@ import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../app/app_notifier.dart';
 
+typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
+
 class RefactorEditorWidget extends EditorWidget {
   @override
   final RefactorEditorTab tab;
