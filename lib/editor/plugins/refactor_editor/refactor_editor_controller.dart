@@ -2,20 +2,20 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart'; 
+import 'package:collection/collection.dart';
 
 import 'refactor_editor_models.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
-/// It contains only pure Dart logic and is decoupled from Riverpod.
 class RefactorController extends ChangeNotifier {
   String searchTerm;
   String replaceTerm;
   bool isRegex;
   bool isCaseSensitive;
+  // NEW: State for the checkbox.
+  bool autoOpenFiles;
   SearchStatus searchStatus = SearchStatus.idle;
   
-  // UPDATED: The controller now manages a list of stateful items.
   final List<RefactorResultItem> resultItems = [];
   final Set<RefactorResultItem> selectedItems = {};
 
@@ -23,7 +23,9 @@ class RefactorController extends ChangeNotifier {
       : searchTerm = initialState.searchTerm,
         replaceTerm = initialState.replaceTerm,
         isRegex = initialState.isRegex,
-        isCaseSensitive = initialState.isCaseSensitive;
+        isCaseSensitive = initialState.isCaseSensitive,
+        // NEW: Initialize the new state.
+        autoOpenFiles = initialState.autoOpenFiles;
 
   // --- UI State Mutation Methods ---
   
@@ -40,10 +42,14 @@ class RefactorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleItemSelection(RefactorResultItem item) {
-    // Only selectable if pending
-    if (item.status != ResultStatus.pending) return;
+  // NEW: Method to update the auto-open flag.
+  void toggleAutoOpenFiles(bool value) {
+    autoOpenFiles = value;
+    notifyListeners();
+  }
 
+  void toggleItemSelection(RefactorResultItem item) {
+    if (item.status != ResultStatus.pending) return;
     if (selectedItems.contains(item)) {
       selectedItems.remove(item);
     } else {
@@ -55,7 +61,6 @@ class RefactorController extends ChangeNotifier {
   void toggleSelectAll(bool isSelected) {
     selectedItems.clear();
     if (isSelected) {
-      // Only select items that are still pending
       selectedItems.addAll(resultItems.where((item) => item.status == ResultStatus.pending));
     }
     notifyListeners();
@@ -69,7 +74,6 @@ class RefactorController extends ChangeNotifier {
   }
   
   void completeSearch(List<RefactorOccurrence> results) {
-    // Map the raw data into our new stateful wrapper class.
     resultItems.addAll(results.map((occ) => RefactorResultItem(occurrence: occ)));
     searchStatus = SearchStatus.complete;
     notifyListeners();
@@ -80,7 +84,6 @@ class RefactorController extends ChangeNotifier {
     notifyListeners();
   }
   
-  // NEW: A method to update the status of items after an operation.
   void updateItemsStatus({
     required Iterable<RefactorResultItem> processed,
     required Map<RefactorResultItem, String> failed,
@@ -107,7 +110,7 @@ class RefactorController extends ChangeNotifier {
     required String content,
     required String fileUri,
     required String displayPath,
-    required String fileContentHash, // Pass in the hash
+    required String fileContentHash,
   }) {
     if (searchTerm.isEmpty) return [];
 
@@ -142,7 +145,7 @@ class RefactorController extends ChangeNotifier {
           startColumn: match.start,
           lineContent: line,
           matchedText: match.group(0)!,
-          fileContentHash: fileContentHash, // Store the hash
+          fileContentHash: fileContentHash,
         ));
       }
     }

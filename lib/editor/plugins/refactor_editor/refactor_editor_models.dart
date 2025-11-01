@@ -11,12 +11,12 @@ import 'refactor_editor_widget.dart';
 class RefactorSettings extends PluginSettings {
   Set<String> supportedExtensions;
   Set<String> ignoredGlobPatterns;
-  bool useProjectGitignore; 
+  bool useProjectGitignore;
 
   RefactorSettings({
     Set<String>? supportedExtensions,
     Set<String>? ignoredGlobPatterns,
-    this.useProjectGitignore = true, 
+    this.useProjectGitignore = true,
   })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
         ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
@@ -47,7 +47,6 @@ class RefactorOccurrence {
   final int startColumn; // 0-based
   final String lineContent;
   final String matchedText;
-  // NEW: The hash of the file content when the search was performed.
   final String fileContentHash;
 
   const RefactorOccurrence({
@@ -61,10 +60,10 @@ class RefactorOccurrence {
   });
 }
 
-// NEW: An enum to track the state of a result item in the UI.
+/// An enum to track the state of a result item in the UI.
 enum ResultStatus { pending, applied, failed }
 
-// NEW: A wrapper class to hold an occurrence and its UI state.
+/// A wrapper class to hold an occurrence and its UI state.
 @immutable
 class RefactorResultItem {
   final RefactorOccurrence occurrence;
@@ -96,12 +95,15 @@ class RefactorSessionState {
   final String replaceTerm;
   final bool isRegex;
   final bool isCaseSensitive;
+  // NEW: A flag to control behavior for unopened files.
+  final bool autoOpenFiles;
 
   const RefactorSessionState({
     this.searchTerm = '',
     this.replaceTerm = '',
     this.isRegex = false,
     this.isCaseSensitive = false,
+    this.autoOpenFiles = true, // Default to true for convenience
   });
 }
 
