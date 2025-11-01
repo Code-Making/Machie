@@ -251,7 +251,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             replacement: _controller.replaceTerm,
           );
         }).toList();
-        final batchEdit = BatchReplaceRangesEdit(edits);
+        final batchEdit = BatchReplaceRangesEdit(edits: edits);
         editableState.applyEdit(batchEdit);
         ref.read(editorServiceProvider).markCurrentTabDirty();
         processedItems.addAll(itemsInFile);
