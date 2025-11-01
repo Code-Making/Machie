@@ -233,7 +233,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
           failedItems.addAll({for (var item in itemsInFile) item: "File has unsaved changes."});
           continue;
         }
-        final currentContent = await editorState.getTextContent();
+        final editableState = editorState as TextEditable;
+        final currentContent = await editableState.getTextContent();
         final currentHash = md5.convert(utf8.encode(currentContent)).toString();
         if (currentHash != originalHash) {
           failedItems.addAll({for (var item in itemsInFile) item: "File content has changed since search."});
@@ -251,7 +252,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
           );
         }).toList();
         
-        editorState.applyEdit(batchEdit);
+        editableState.applyEdit(batchEdit);
         ref.read(editorServiceProvider).markCurrentTabDirty();
         processedItems.addAll(itemsInFile);
 
