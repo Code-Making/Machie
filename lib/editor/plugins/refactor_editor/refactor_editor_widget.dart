@@ -1,6 +1,4 @@
-// =========================================
-// FINAL REFACTORED: lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
-// =========================================
+// lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
 
 import 'dart:async';
 import 'package:collection/collection.dart';
@@ -19,6 +17,7 @@ import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
+import '../../../utils/toast.dart';
 import '../../../app/app_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/editor/services/text_editing_capability.dart';
@@ -195,8 +194,68 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       }
     }
   }
-  
-  // They just read from the controller, so they don't need to be modified.
+
+  Future<void> _handleApplyChanges() async {
+    final repo = ref.read(projectRepositoryProvider);
+    if (repo == null) {
+      MachineToast.error("Project repository not available.");
+      return;
+    }
+
+    final selected = _controller.selectedOccurrences.toList();
+    if (selected.isEmpty) return;
+
+    final groupedOccurrences = selected.groupListsBy((occ) => occ.fileUri);
+    int successfulFiles = 0;
+    int failedFiles = 0;
+
+    // Process each file that has selected occurrences.
+    for (final entry in groupedOccurrences.entries) {
+      final fileUri = entry.key;
+      final occurrencesInFile = entry.value;
+
+      try {
+        // Read the file's current content.
+        final content = await repo.readFile(fileUri);
+        final lines = content.split('\n');
+
+        // Sort occurrences in reverse order (by line, then by column)
+        // to avoid invalidating character offsets during replacement.
+        occurrencesInFile.sort((a, b) {
+          final lineCompare = b.lineNumber.compareTo(a.lineNumber);
+          if (lineCompare != 0) return lineCompare;
+          return b.startColumn.compareTo(a.startColumn);
+        });
+
+        // Apply replacements line by line for this file.
+        for (final occ in occurrencesInFile) {
+          final line = lines[occ.lineNumber];
+          lines[occ.lineNumber] = line.replaceRange(
+            occ.startColumn,
+            occ.startColumn + occ.matchedText.length,
+            _controller.replaceTerm,
+          );
+        }
+
+        final newContent = lines.join('\n');
+
+        // Get the file's metadata and write the new content back.
+        final fileMeta = await repo.getFileMetadata(fileUri);
+        if (fileMeta == null) throw Exception("File metadata not found");
+        await repo.writeFile(fileMeta, newContent);
+        successfulFiles++;
+      } catch (e, st) {
+        ref.read(talkerProvider).handle(e, st, "Failed to apply refactor to $fileUri");
+        failedFiles++;
+      }
+    }
+
+    // Update the controller's state to remove the processed occurrences from the UI.
+    _controller.removeOccurrences(selected);
+
+    final message = "Replaced ${selected.length} occurrences in $successfulFiles file(s)." + (failedFiles > 0 ? " $failedFiles failed." : "");
+    failedFiles > 0 ? MachineToast.error(message) : MachineToast.info(message);
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -337,7 +396,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton(
-            onPressed: canApply ? _controller.applyChanges : null,
+            onPressed: canApply ? _handleApplyChanges : null,
             child: Text('Replace ${_controller.selectedOccurrences.length} selected'),
           ),
         ],
