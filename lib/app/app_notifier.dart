@@ -28,6 +28,7 @@ import '../utils/toast.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/services/file_content_provider.dart';
 import '../data/dto/project_dto.dart'; // Ensure this is imported
+import '../data/dto/app_state_dto.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -159,7 +160,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
           _talker.info("Permission re-granted. Retrying project open...");
           return await _openProjectWithRecovery(
             meta,
-            projectStateJson: projectStateJson,
+            simpleProjectStates: simpleProjectStates,
           );
         }
       }
