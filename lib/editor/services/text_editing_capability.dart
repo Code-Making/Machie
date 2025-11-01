@@ -68,6 +68,17 @@ class RevealRangeEdit extends TextEdit {
   const RevealRangeEdit({required this.range});
 }
 
+class ReplaceRangeEdit extends TextEdit {
+  final TextRange range;
+  final String replacement;
+  const ReplaceRangeEdit({required this.range, required this.replacement});
+}
+
+class BatchReplaceRangesEdit extends TextEdit {
+  final List<ReplaceRangeEdit> edits;
+  const BatchReplaceRangesEdit({required this.edits});
+}
+
 /// A marker mixin for editor plugins whose primary tabs implement [TextEditable].
 /// This allows the command system to display generic text-based commands
 /// when a tab from this plugin is active, without needing to inspect
@@ -85,13 +96,17 @@ abstract mixin class TextEditable {
       case RevealRangeEdit():
         revealRange(edit.range);
         break;
-      
       case ReplaceLinesEdit():
         replaceLines(edit.startLine, edit.endLine, edit.newContent);
         break;
-
       case ReplaceAllOccurrencesEdit():
         replaceAllOccurrences(edit.find, edit.replace);
+        break;
+      case ReplaceRangeEdit():
+        replaceSelection(edit.replacement, range: edit.range);
+        break;
+      case BatchReplaceRangesEdit():
+        applyBatchEdits(edit.edits);
         break;
     }
   }

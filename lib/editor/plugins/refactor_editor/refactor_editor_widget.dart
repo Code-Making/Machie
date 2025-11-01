@@ -11,6 +11,7 @@ import 'package:glob/glob.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../editor/editor_tab_models.dart';
+import '../../../editor/tab_state_manager.dart';
 import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
@@ -180,13 +181,12 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       } else {
         if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
           final content = await repo.readFile(entry.uri);
-          // Calculate hash here
           final fileContentHash = md5.convert(utf8.encode(content)).toString();
           final occurrencesInFile = _controller.searchInContent(
             content: content,
             fileUri: entry.uri,
             displayPath: relativePath,
-            fileContentHash: fileContentHash, // Pass the hash
+            fileContentHash: fileContentHash,
           );
           results.addAll(occurrencesInFile);
         }
@@ -196,74 +196,124 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
 
   Future<void> _handleApplyChanges() async {
     final repo = ref.read(projectRepositoryProvider);
+    final editorService = ref.read(editorServiceProvider);
     if (repo == null) {
       MachineToast.error("Project repository not available.");
       return;
     }
+
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final openTabs = project?.session.tabs ?? [];
+    final metadataMap = ref.read(tabMetadataProvider);
+    final openTabsByUri = { for (var tab in openTabs) metadataMap[tab.id]!.file.uri: tab };
 
     final selected = _controller.selectedItems.toList();
     if (selected.isEmpty) return;
 
     final List<RefactorResultItem> processedItems = [];
     final Map<RefactorResultItem, String> failedItems = {};
-
-    // Group by file URI to process one file at a time.
     final groupedByFile = selected.groupListsBy((item) => item.occurrence.fileUri);
 
     for (final entry in groupedByFile.entries) {
       final fileUri = entry.key;
       final itemsInFile = entry.value;
       final originalHash = itemsInFile.first.occurrence.fileContentHash;
+      final openTab = openTabsByUri[fileUri];
 
-      try {
-        final currentContent = await repo.readFile(fileUri);
+      if (openTab != null) {
+        // --- CASE 1: FILE IS ALREADY OPEN ---
+        final editorState = await openTab.onReady.future;
+        final metadata = metadataMap[openTab.id];
+
+        if (editorState is! TextEditable) {
+          failedItems.addAll({for (var item in itemsInFile) item: "Editor is not text-editable."});
+          continue;
+        }
+        if (metadata?.isDirty ?? true) {
+          failedItems.addAll({for (var item in itemsInFile) item: "File has unsaved changes."});
+          continue;
+        }
+        final currentContent = await editorState.getTextContent();
         final currentHash = md5.convert(utf8.encode(currentContent)).toString();
-
-        // THE HASH CHECK
         if (currentHash != originalHash) {
-          const reason = "File was modified externally.";
-          for (final item in itemsInFile) {
-            failedItems[item] = reason;
-          }
-          continue; // Skip to the next file
+          failedItems.addAll({for (var item in itemsInFile) item: "File content has changed since search."});
+          continue;
         }
 
-        final lines = currentContent.split('\n');
-        itemsInFile.sort((a, b) {
-          final lineCmp = b.occurrence.lineNumber.compareTo(a.occurrence.lineNumber);
-          if (lineCmp != 0) return lineCmp;
-          return b.occurrence.startColumn.compareTo(a.occurrence.startColumn);
-        });
-
-        for (final item in itemsInFile) {
+        final batchEdit = itemsInFile.map((item) {
           final occ = item.occurrence;
-          final line = lines[occ.lineNumber];
-          lines[occ.lineNumber] = line.replaceRange(
-            occ.startColumn,
-            occ.startColumn + occ.matchedText.length,
-            _controller.replaceTerm,
+          return ReplaceRangeEdit(
+            range: TextRange(
+              start: TextPosition(line: occ.lineNumber, column: occ.startColumn),
+              end: TextPosition(line: occ.lineNumber, column: occ.startColumn + occ.matchedText.length),
+            ),
+            replacement: _controller.replaceTerm,
           );
-        }
-
-        final newContent = lines.join('\n');
-        final fileMeta = await repo.getFileMetadata(fileUri);
-        if (fileMeta == null) throw Exception("File metadata not found");
-        await repo.writeFile(fileMeta, newContent);
+        }).toList();
         
+        editorState.applyBatchEdits(batchEdit);
+        ref.read(editorServiceProvider).markCurrentTabDirty();
         processedItems.addAll(itemsInFile);
 
-      } catch (e, st) {
-        ref.read(talkerProvider).handle(e, st, "Failed to apply refactor to $fileUri");
-        final reason = e.toString();
-        for (final item in itemsInFile) {
-            failedItems[item] = reason;
+      } else {
+        // --- CASE 2: FILE IS NOT OPEN ---
+        if (_controller.autoOpenFiles) {
+          // Sub-case 2.1: Auto-open and apply edits
+          final batchEdit = BatchReplaceRangesEdit(edits: itemsInFile.map((item) {
+            final occ = item.occurrence;
+            return ReplaceRangeEdit(
+              range: TextRange(
+                start: TextPosition(line: occ.lineNumber, column: occ.startColumn),
+                end: TextPosition(line: occ.lineNumber, column: occ.startColumn + occ.matchedText.length),
+              ),
+              replacement: _controller.replaceTerm,
+            );
+          }).toList());
+
+          final success = await editorService.openAndApplyEdit(itemsInFile.first.occurrence.displayPath, batchEdit);
+          if (success) {
+            processedItems.addAll(itemsInFile);
+          } else {
+            failedItems.addAll({for (var item in itemsInFile) item: "Failed to open and apply edits."});
+          }
+
+        } else {
+          // Sub-case 2.2: Direct read-modify-write (auto-open disabled)
+          try {
+            final currentContent = await repo.readFile(fileUri);
+            final currentHash = md5.convert(utf8.encode(currentContent)).toString();
+            if (currentHash != originalHash) {
+              failedItems.addAll({for (var item in itemsInFile) item: "File was modified externally."});
+              continue;
+            }
+
+            final lines = currentContent.split('\n');
+            itemsInFile.sort((a, b) {
+              final lineCmp = b.occurrence.lineNumber.compareTo(a.occurrence.lineNumber);
+              if (lineCmp != 0) return lineCmp;
+              return b.occurrence.startColumn.compareTo(a.occurrence.startColumn);
+            });
+
+            for (final item in itemsInFile) {
+              final occ = item.occurrence;
+              lines[occ.lineNumber] = lines[occ.lineNumber].replaceRange(
+                occ.startColumn, occ.startColumn + occ.matchedText.length, _controller.replaceTerm,
+              );
+            }
+            final newContent = lines.join('\n');
+            final fileMeta = await repo.getFileMetadata(fileUri);
+            if (fileMeta == null) throw Exception("File metadata not found");
+            await repo.writeFile(fileMeta, newContent);
+            processedItems.addAll(itemsInFile);
+          } catch (e, st) {
+            ref.read(talkerProvider).handle(e, st, "Failed to apply refactor to $fileUri");
+            failedItems.addAll({for (var item in itemsInFile) item: e.toString()});
+          }
         }
       }
     }
     
-    // Update the UI state via the controller.
     _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
-
     final message = "Replaced ${processedItems.length} occurrences." + (failedItems.isNotEmpty ? " ${failedItems.length} failed." : "");
     failedItems.isNotEmpty ? MachineToast.error(message) : MachineToast.info(message);
   }
@@ -325,6 +375,12 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
                 label: 'Case Sensitive',
                 value: _controller.isCaseSensitive,
                 onChanged: (val) => _controller.toggleCaseSensitive(val ?? false),
+              ),
+              // NEW CHECKBOX
+              _OptionCheckbox(
+                label: 'Auto-open files',
+                value: _controller.autoOpenFiles,
+                onChanged: (val) => _controller.toggleAutoOpenFiles(val ?? false),
               ),
             ],
           ),
