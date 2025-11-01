@@ -1,6 +1,4 @@
-// =========================================
-// CORRECTED: lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
-// =========================================
+// lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,13 +125,18 @@ class RefactorController extends ChangeNotifier {
     return occurrencesInFile;
   }
   
-  // Placeholder for the apply logic
-  Future<void> applyChanges() async {
-    // TODO: Implement apply logic
+  /// Removes a collection of occurrences from the state after they have
+  /// been successfully processed (e.g., after applying replacements).
+  void removeOccurrences(Iterable<RefactorOccurrence> toRemove) {
+    final toRemoveSet = toRemove.toSet();
+
+    // Filter the main list to keep only items that are NOT in the removal set.
+    occurrences.retainWhere((occ) => !toRemoveSet.contains(occ));
+    selectedOccurrences.clear();
+    notifyListeners();
   }
 }
 
-// CORRECTED: Fully implemented _StringMatch helper class.
 class _StringMatch implements Match {
   @override
   final String input;
@@ -154,7 +157,6 @@ class _StringMatch implements Match {
   @override
   Pattern get pattern => throw UnimplementedError();
   
-  // THIS IS THE FIX: It should call the 'group' method on the current instance.
   @override
   String operator [](int group) => this.group(group)!;
 }
