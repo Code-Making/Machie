@@ -345,9 +345,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
 
   Future<void> _processFileGroups({
     required Map<String, List<RefactorResultItem>> groupedByFile,
-    required Future<void> Function(TextEditable editor, List<RefactorResultItem> items) onProcessOpenTab,
-    required Future<void> Function(String content, ProjectDocumentFile file, List<RefactorResultItem> items) onProcessClosedFile,
-    required void Function(List<RefactorResultItem> items, String reason) onProcessFailure,
+    required List<ReplaceRangeEdit> Function(List<RefactorResultItem> itemsInFile) generateEdits,
+    required void Function(List<RefactorResultItem> items) onSuccess,
+    required void Function(List<RefactorResultItem> items, String reason) onFailure,
   }) async {
     final repo = ref.read(projectRepositoryProvider)!;
     final editorService = ref.read(editorServiceProvider);
