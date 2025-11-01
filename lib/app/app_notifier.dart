@@ -354,34 +354,31 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
   /// Removes a project from the "known projects" list.
   Future<void> removeKnownProject(String projectId) async {
+    // 1. Clear caches first. This is unchanged and correct.
     await ref.read(hotStateCacheServiceProvider).clearProjectCache(projectId);
     await ref.read(cacheServiceManagerProvider).clearProjectCache(projectId);
 
-    await _updateState((s) async {
-      if (s.currentProject?.id == projectId) {
+    // 2. Update the live state.
+    await _updateState((currentState) async {
+      AppState nextState = currentState;
+
+      // If the project to be removed is currently open, close it first.
+      if (nextState.currentProject?.id == projectId) {
         final bool didClose = await closeProject();
-        if (!didClose) return s;
-        s = state.value!;
+        if (!didClose) return nextState; // Abort if user cancels close.
+        nextState = state.value!; // Refresh state after closing.
       }
-      
-      // THE FIX: Also remove the project's state from the simple states map.
-      final currentDto = await _appStateRepository.loadAppStateDto();
-      final newSimpleStates = Map<String, ProjectDto>.from(currentDto.simpleProjectStates)
-        ..remove(projectId);
 
-      // We need to re-save the AppStateDto with the project removed.
-      await _appStateRepository.saveAppStateDto(
-        currentDto.copyWith(
-          simpleProjectStates: newSimpleStates,
-          knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),
-        ),
-      );
-
-      return s.copyWith(
-        knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),
+      // Return a new live state with the project removed from the list.
+      return nextState.copyWith(
+        knownProjects: nextState.knownProjects.where((p) => p.id != projectId).toList(),
       );
     });
-    // saveAppState is no longer needed here as we manually saved.
+
+    // 3. Persist the updated state.
+    // saveNonHotState will now correctly handle removing the project's
+    // simple state from the central map before saving.
+    await saveNonHotState();
   }
 
   /// Opens a file in a new editor tab.
@@ -497,32 +494,36 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     final currentProject = appState.currentProject;
 
-    // Load the most recent version of the AppState DTO from storage.
+    // 1. Load the most recent DTO from storage to use as a base.
     final oldDto = await _appStateRepository.loadAppStateDto();
     final newSimpleProjectStates = Map<String, ProjectDto>.from(oldDto.simpleProjectStates);
-    
-    // If a project is currently open...
-    if (currentProject != null) {
+
+    // 2. If a simple project is currently open, update its state in our map.
+    if (currentProject?.projectTypeId == 'simple_local') {
       final registry = ref.read(fileContentProviderRegistryProvider);
       final liveTabMetadata = ref.read(tabMetadataProvider);
+      final projectDto = currentProject!.toDto(liveTabMetadata, registry);
+      newSimpleProjectStates[currentProject.id] = projectDto;
+    }
 
-      if (currentProject.projectTypeId == 'local_persistent') {
-        // Persistent projects save their state to their own directory.
-        await _projectService.saveProject(currentProject);
-      } else if (currentProject.projectTypeId == 'simple_local') {
-        // Simple projects save their state into our central map.
-        final projectDto = currentProject.toDto(liveTabMetadata, registry);
-        newSimpleProjectStates[currentProject.id] = projectDto;
-      }
+    // 3. If a persistent project is open, save it to its own directory.
+    if (currentProject?.projectTypeId == 'local_persistent') {
+      await _projectService.saveProject(currentProject!);
     }
     
-    // Construct the final DTO to be saved.
+    // 4. Clean up the map: Remove states for simple projects that are no longer "known".
+    // This is the crucial step that fixes the bug in `removeKnownProject`.
+    final knownProjectIds = appState.knownProjects.map((p) => p.id).toSet();
+    newSimpleProjectStates.removeWhere((projectId, _) => !knownProjectIds.contains(projectId));
+
+    // 5. Construct the final DTO using the live state's known projects list and the cleaned map.
     final finalDto = AppStateDto(
       knownProjects: appState.knownProjects,
       lastOpenedProjectId: appState.lastOpenedProjectId,
       simpleProjectStates: newSimpleProjectStates,
     );
 
+    // 6. Save the final, correct DTO.
     await _appStateRepository.saveAppStateDto(finalDto);
   }
 
