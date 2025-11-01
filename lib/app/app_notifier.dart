@@ -27,6 +27,7 @@ import '../utils/clipboard.dart';
 import '../utils/toast.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/services/file_content_provider.dart';
+import '../data/dto/project_dto.dart'; // Ensure this is imported
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
