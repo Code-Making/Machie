@@ -42,7 +42,9 @@ class RefactorEditorWidget extends EditorWidget {
   RefactorEditorWidgetState createState() => RefactorEditorWidgetState();
 }
 
-class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> {
+class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
+    with FileOperationEventListener {
+
   late final RefactorController _controller;
   late final TextEditingController _findController;
   late final TextEditingController _replaceController;
@@ -56,33 +58,38 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     _replaceController = TextEditingController(text: _controller.replaceTerm);
     
     _controller.addListener(() {
-      if (_findController.text != _controller.searchTerm) {
-        _findController.text = _controller.searchTerm;
-      }
-      if (_replaceController.text != _controller.replaceTerm) {
-        _replaceController.text = _controller.replaceTerm;
-      }
+      if (_findController.text != _controller.searchTerm) _findController.text = _controller.searchTerm;
+      if (_replaceController.text != _controller.replaceTerm) _replaceController.text = _controller.replaceTerm;
     });
     
     _findController.addListener(() => _controller.updateSearchTerm(_findController.text));
     _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
 
-    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
-      next.whenData((event) {
-        if (event is FileRenameEvent) {
-          _promptForPathRefactor(event.oldFile, event.newFile);
-        }
-      });
-    });
+    // NEW: Register as a listener.
+    ref.read(explorerServiceProvider).addListener(this);
+
+    // REMOVED: The problematic direct ref.listen is gone.
   }
   
   @override
   void dispose() {
+    // NEW: Unregister the listener to prevent memory leaks.
+    ref.read(explorerServiceProvider).removeListener(this);
+    
     _findController.dispose();
     _replaceController.dispose();
     _controller.dispose();
     super.dispose();
   }
+  
+  @override
+  Future<void> onFileOperation(FileOperationEvent event) async {
+    // We only care about rename events when this editor is active.
+    if (event is FileRenameEvent) {
+      await _promptForPathRefactor(event.oldFile, event.newFile);
+    }
+  }
+
 
   @override
   void onFirstFrameReady() {
@@ -489,6 +496,11 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
                 value: isPathMode ? true : _controller.isCaseSensitive,
                 onChanged: isPathMode ? null : (val) => _controller.toggleCaseSensitive(val ?? false),
               ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
               _OptionCheckbox(
                 label: 'Auto-open files',
                 value: _controller.autoOpenFiles,
@@ -501,7 +513,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     );
   }
   
-  // ... (rest of the widget is unchanged)
   Widget _buildResultsPanel(bool allSelected) {
     if (_controller.searchStatus == SearchStatus.idle) {
       return const Center(child: Text('Enter a search term and click "Find All"'));

@@ -9,13 +9,50 @@ import '../../data/dto/project_dto.dart';
 import '../../logs/logs_provider.dart';
 import '../../utils/toast.dart';
 
+// Any class that wants to be notified of file events will implement this.
+mixin FileOperationEventListener {
+  Future<void> onFileOperation(FileOperationEvent event);
+}
+
+
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
 });
 
 class ExplorerService {
   final Ref _ref;
-  ExplorerService(this._ref);
+  final List<FileOperationEventListener> _listeners = [];
+
+  ExplorerService(this._ref) {
+    // The service itself becomes the single, persistent listener to the global stream.
+    _ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
+      next.whenData((event) {
+        _dispatchEvent(event);
+      });
+    });
+  }
+
+  // NEW: Method to allow other parts of the app to register for notifications.
+  void addListener(FileOperationEventListener listener) {
+    _listeners.add(listener);
+  }
+
+  // NEW: Method to allow listeners to clean up after themselves.
+  void removeListener(FileOperationEventListener listener) {
+    _listeners.remove(listener);
+  }
+
+  void _dispatchEvent(FileOperationEvent event) {
+    // Iterate over a copy of the list in case a listener modifies the original list during dispatch.
+    for (final listener in List.of(_listeners)) {
+      try {
+        // Notify each listener.
+        listener.onFileOperation(event);
+      } catch (e, st) {
+        _talker.handle(e, st, 'Error in a FileOperationEventListener');
+      }
+    }
+  }
 
   Talker get _talker => _ref.read(talkerProvider);
 
