@@ -103,10 +103,12 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final bool contentDidChange = _controller.consumeContentChangeFlag();
 
     if (contentDidChange) {
-      final project = ref.read(appNotifierProvider).value?.currentProject;
+    final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
-        ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
-        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+        ref.read(editorServiceProvider).markCurrentTabDirty();
+        ref
+            .read(editorServiceProvider)
+            .updateAndCacheDirtyTab(project, widget.tab);
       }
     }
   }
