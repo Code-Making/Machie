@@ -168,22 +168,17 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
   }
 
   Future<void> _applyTextChanges() async {
-    // This logic is mostly unchanged, but now uses the helper methods from the path refactor
-    final repo = ref.read(projectRepositoryProvider);
-    final editorService = ref.read(editorServiceProvider);
-    if (repo == null) { MachineToast.error("Repo not available."); return; }
-
+    final List<RefactorResultItem> processedItems = [];
+    final Map<RefactorResultItem, String> failedItems = {};
     final selected = _controller.selectedItems.toList();
     if (selected.isEmpty) return;
     
-    final List<RefactorResultItem> processedItems = [];
-    final Map<RefactorResultItem, String> failedItems = {};
     final groupedByFile = selected.groupListsBy((item) => item.occurrence.fileUri);
     
     await _processFileGroups(
       groupedByFile: groupedByFile,
-      onProcessOpenTab: (editor, items) {
-        final batchEdit = items.map((item) {
+      generateEdits: (itemsInFile) {
+        return itemsInFile.map((item) {
           final occ = item.occurrence;
           return ReplaceRangeEdit(
             range: TextRange(
@@ -193,25 +188,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             replacement: _controller.replaceTerm,
           );
         }).toList();
-        editor.batchReplaceRanges(batchEdit);
-        editorService.markCurrentTabDirty();
-        processedItems.addAll(items);
-        return Future.value();
       },
-      onProcessClosedFile: (content, file, items) async {
-        final lines = content.split('\n');
-        for (final item in items) {
-          final occ = item.occurrence;
-          lines[occ.lineNumber] = lines[occ.lineNumber].replaceRange(
-            occ.startColumn, occ.startColumn + occ.matchedText.length, _controller.replaceTerm,
-          );
-        }
-        await repo.writeFile(file, lines.join('\n'));
-        processedItems.addAll(items);
-      },
-      onProcessFailure: (items, reason) {
-        failedItems.addAll({for (var item in items) item: reason});
-      }
+      onSuccess: (items) => processedItems.addAll(items),
+      onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
     );
     
     _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
@@ -266,9 +245,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
   }
   
   Future<void> _applyPathChanges() async {
-    final repo = ref.read(projectRepositoryProvider);
-    if (repo == null) { MachineToast.error("Repo not available."); return; }
-
     final List<RefactorResultItem> processedItems = [];
     final Map<RefactorResultItem, String> failedItems = {};
     final selected = _controller.selectedItems.toList();
@@ -278,57 +254,26 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     
     await _processFileGroups(
       groupedByFile: groupedByFile,
-      onProcessOpenTab: (editor, items) async {
-        final newEdits = <ReplaceRangeEdit>[];
-        for (final item in items) {
+      generateEdits: (itemsInFile) {
+        return itemsInFile.map((item) {
           final containingDir = p.dirname(item.occurrence.displayPath);
           final newRelativePath = p.relative(_controller.replaceTerm, from: containingDir).replaceAll(r'\', '/');
-          
           final occ = item.occurrence;
-          final lineContent = (await editor.getTextContent()).split('\n')[occ.lineNumber];
-          final matchStart = lineContent.indexOf(occ.matchedText);
+          
+          final matchStartInLine = item.occurrence.lineContent.indexOf(occ.matchedText);
+          if (matchStartInLine == -1) return null;
 
-          if (matchStart != -1) {
-            newEdits.add(ReplaceRangeEdit(
-              range: TextRange(
-                start: TextPosition(line: occ.lineNumber, column: matchStart),
-                end: TextPosition(line: occ.lineNumber, column: matchStart + occ.matchedText.length),
-              ),
-              replacement: newRelativePath,
-            ));
-          } else {
-             failedItems[item] = "Original path string not found in open editor.";
-          }
-        }
-        if (newEdits.isNotEmpty) {
-           editor.batchReplaceRanges(newEdits);
-           ref.read(editorServiceProvider).markCurrentTabDirty();
-           processedItems.addAll(items.where((i) => !failedItems.containsKey(i)));
-        }
+          return ReplaceRangeEdit(
+            range: TextRange(
+              start: TextPosition(line: occ.lineNumber, column: matchStartInLine),
+              end: TextPosition(line: occ.lineNumber, column: matchStartInLine + occ.matchedText.length),
+            ),
+            replacement: newRelativePath,
+          );
+        }).whereNotNull().toList();
       },
-      onProcessClosedFile: (content, file, items) async {
-        final lines = content.split('\n');
-        for (final item in items) {
-          final containingDir = p.dirname(item.occurrence.displayPath);
-          final newRelativePath = p.relative(_controller.replaceTerm, from: containingDir).replaceAll(r'\', '/');
-          final occ = item.occurrence;
-          
-          final line = lines[occ.lineNumber];
-          final matchStart = line.indexOf(occ.matchedText);
-          if (matchStart != -1) {
-            lines[occ.lineNumber] = line.replaceRange(matchStart, matchStart + occ.matchedText.length, newRelativePath);
-            processedItems.add(item);
-          } else {
-            failedItems[item] = "Original path string not found on disk.";
-          }
-        }
-        if (processedItems.any((i) => items.contains(i))) {
-          await repo.writeFile(file, lines.join('\n'));
-        }
-      },
-      onProcessFailure: (items, reason) {
-        failedItems.addAll({for (var item in items) item: reason});
-      },
+      onSuccess: (items) => processedItems.addAll(items),
+      onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
     );
 
     _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
@@ -405,6 +350,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
     required void Function(List<RefactorResultItem> items, String reason) onProcessFailure,
   }) async {
     final repo = ref.read(projectRepositoryProvider)!;
+    final editorService = ref.read(editorServiceProvider);
     final project = ref.read(appNotifierProvider).value!.currentProject!;
     final metadataMap = ref.read(tabMetadataProvider);
     final openTabsByUri = { for (var tab in project.session.tabs) metadataMap[tab.id]!.file.uri: tab };
@@ -416,32 +362,62 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       final openTab = openTabsByUri[fileUri];
 
       if (openTab != null) {
+        // --- PROCESS OPEN TAB ---
         final editorState = await openTab.onReady.future;
         final metadata = metadataMap[openTab.id];
-        if (editorState is! TextEditable) { onProcessFailure(itemsInFile, "Editor not text-editable."); continue; }
-        if (metadata?.isDirty ?? true) { onProcessFailure(itemsInFile, "File has unsaved changes."); continue; }
-        final editableState = editorState as TextEditable;
-        final currentContent = await editableState.getTextContent();
-        if (md5.convert(utf8.encode(currentContent)).toString() != originalHash) { onProcessFailure(itemsInFile, "File content changed."); continue; }
+        if (editorState is! TextEditable) { onFailure(itemsInFile, "Editor not text-editable."); continue; }
+        if (metadata?.isDirty ?? true) { onFailure(itemsInFile, "File has unsaved changes."); continue; }
         
-        await onProcessOpenTab(editableState, itemsInFile);
-      } else {
-        if (!_controller.autoOpenFiles && _controller.mode == RefactorMode.text) {
-           try {
-            final file = await repo.getFileMetadata(fileUri);
-            final currentContent = await repo.readFile(fileUri);
-            if (md5.convert(utf8.encode(currentContent)).toString() != originalHash) { onProcessFailure(itemsInFile, "File modified externally."); continue; }
-            if (file == null) throw Exception("File not found");
+        final currentContent = await editorState.getTextContent();
+        if (md5.convert(utf8.encode(currentContent)).toString() != originalHash) { onFailure(itemsInFile, "File content changed."); continue; }
+        
+        final edits = generateEdits(itemsInFile);
+        if (edits.length != itemsInFile.length) { onFailure(itemsInFile, "Could not generate all edits."); continue; }
 
-            await onProcessClosedFile(currentContent, file, itemsInFile);
-          } catch(e) {
-             onProcessFailure(itemsInFile, e.toString());
+        editorState.applyBatchEdits(edits);
+        editorService.markCurrentTabDirty();
+        onSuccess(itemsInFile);
+      } else {
+        // --- PROCESS CLOSED TAB ---
+        try {
+          final currentContent = await repo.readFile(fileUri);
+          if (md5.convert(utf8.encode(currentContent)).toString() != originalHash) { onFailure(itemsInFile, "File modified externally."); continue; }
+
+          final edits = generateEdits(itemsInFile);
+          if (edits.length != itemsInFile.length) { onFailure(itemsInFile, "Could not generate all edits."); continue; }
+
+          if (_controller.autoOpenFiles) {
+            // Auto-open is enabled: use the service.
+            final success = await editorService.openAndApplyEdit(
+              itemsInFile.first.occurrence.displayPath,
+              BatchReplaceRangesEdit(edits: edits),
+            );
+            if (success) {
+              onSuccess(itemsInFile);
+            } else {
+              onFailure(itemsInFile, "Failed to open and apply edits.");
+            }
+          } else {
+            // Auto-open is disabled: direct write.
+            final lines = currentContent.split('\n');
+            // Sort edits in reverse to apply them without shifting indices
+            edits.sort((a, b) {
+              final lineCmp = b.range.start.line.compareTo(a.range.start.line);
+              if (lineCmp != 0) return lineCmp;
+              return b.range.start.column.compareTo(a.range.start.column);
+            });
+            for (final edit in edits) {
+              lines[edit.range.start.line] = lines[edit.range.start.line].replaceRange(
+                edit.range.start.column, edit.range.end.column, edit.replacement,
+              );
+            }
+            final fileMeta = await repo.getFileMetadata(fileUri);
+            if (fileMeta == null) throw Exception("File not found");
+            await repo.writeFile(fileMeta, lines.join('\n'));
+            onSuccess(itemsInFile);
           }
-        } else {
-           // This logic is simplified; openAndApplyEdit is complex here.
-           // For now, we fail if auto-open is required for path mode or enabled for text mode.
-           // A more robust solution would queue these up.
-           onProcessFailure(itemsInFile, "Auto-opening files is not yet fully supported in batch mode.");
+        } catch (e) {
+          onFailure(itemsInFile, e.toString());
         }
       }
     }
