@@ -245,6 +245,44 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (!mounted) return;
     controller.replaceAll(pattern, replacement);
   }
+  
+@override
+  void batchReplaceRanges(List<ReplaceRangeEdit> edits) {
+    // Sort edits in reverse order of their starting position. This is crucial
+    // to ensure that applying an edit does not shift the document offsets of
+    // subsequent edits in the list.
+    edits.sort((a, b) {
+      final startA = a.range.start;
+      final startB = b.range.start;
+      if (startB.line != startA.line) {
+        return startB.line.compareTo(startA.line);
+      }
+      return startB.column.compareTo(startA.column);
+    });
+
+    for (final edit in edits) {
+      replaceSelection(edit.replacement, edit.range);
+    }
+  }
+//   class TextRange {
+//   final TextPosition start;
+//   final TextPosition end;
+
+//   const TextRange({required this.start, required this.end});
+// }
+
+// class ReplaceRangeEdit extends TextEdit {
+//   final TextRange range;
+//   final String replacement;
+//   const ReplaceRangeEdit({required this.range, required this.replacement});
+// }
+// class TextPosition {
+//   final int line;
+//   final int column;
+
+//   const TextPosition({required this.line, required this.column});
+// }
+
 
   @override
   void undo() {
