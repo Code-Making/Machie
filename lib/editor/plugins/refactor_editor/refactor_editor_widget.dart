@@ -24,6 +24,7 @@ import 'occurrence_list_item.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../utils/toast.dart';
 import '../../../app/app_notifier.dart';
+import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/editor/services/text_editing_capability.dart';
 
