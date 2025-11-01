@@ -16,8 +16,11 @@ class AppState {
   final String? lastOpenedProjectId;
   final Project? currentProject;
 
+  // These are ephemeral and not part of the core data state.
   final Widget? bottomToolbarOverride;
   final bool isFullScreen;
+
+  // REMOVED: currentProjectState is no longer part of the live model.
 
   const AppState({
     this.knownProjects = const [],
@@ -29,20 +32,25 @@ class AppState {
 
   factory AppState.initial() => const AppState();
 
-  // REFACTORED: This method now requires the full map of simple project states
-  // to correctly build the DTO.
   AppStateDto toDto(
     Map<String, TabMetadata> liveTabMetadata,
     FileContentProviderRegistry registry,
-    Map<String, ProjectDto> allSimpleProjectStates,
   ) {
+    ProjectDto? simpleProjectDto;
+    if (currentProject?.projectTypeId == 'simple_local') {
+      simpleProjectDto = currentProject!.toDto(liveTabMetadata, registry);
+    }
+
     return AppStateDto(
       knownProjects: knownProjects,
       lastOpenedProjectId: lastOpenedProjectId,
-      simpleProjectStates: allSimpleProjectStates,
+      currentSimpleProjectDto: simpleProjectDto,
     );
   }
 
+  // REMOVED: toJson and fromJson are gone.
+
+  // copyWith is simplified.
   AppState copyWith({
     List<ProjectMetadata>? knownProjects,
     String? lastOpenedProjectId,
@@ -64,7 +72,8 @@ class AppState {
       isFullScreen: isFullScreen ?? this.isFullScreen,
     );
   }
-  
+
+  // ... (equality and hashCode updated to remove currentProjectState) ...
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

@@ -10,16 +10,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_state.dart';
 
-import '../data/cache/cache_service_manager.dart';
-import '../data/cache/hot_state_cache_service.dart';
-import '../data/file_handler/file_handler.dart';
 import '../data/persistence_service.dart';
+import '../data/file_handler/file_handler.dart';
 import '../data/repositories/project_repository.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../editor/services/editor_service.dart';
 import '../editor/tab_state_manager.dart';
-import '../explorer/common/file_explorer_dialogs.dart';
 import '../explorer/services/explorer_service.dart';
+import '../explorer/common/file_explorer_dialogs.dart';
 import '../logs/logs_provider.dart';
 import '../project/project_models.dart';
 import '../project/services/project_service.dart';
@@ -27,8 +25,6 @@ import '../utils/clipboard.dart';
 import '../utils/toast.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/services/file_content_provider.dart';
-import '../data/dto/project_dto.dart'; // Ensure this is imported
-import '../data/dto/app_state_dto.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -79,10 +75,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
       if (meta != null) {
         try {
-          // THE FIX: Pass the entire map of states to the recovery method.
+          // --- REFACTORED LOGIC ---
+          // The call to open the project is now wrapped in the recovery handler.
           final project = await _openProjectWithRecovery(
             meta,
-            simpleProjectStates: appStateDto.simpleProjectStates,
+            projectStateJson: appStateDto.currentSimpleProjectDto?.toJson(),
           );
 
           if (project != null) {
@@ -93,6 +90,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
               currentProject: project,
             );
           }
+          // If project is null, it means recovery failed or was cancelled.
+          // Fall through to the default state.
         } catch (e, st) {
           // Catch any non-permission final errors.
           ref
@@ -112,14 +111,15 @@ class AppNotifier extends AsyncNotifier<AppState> {
   // --- NEW PRIVATE HELPER METHOD for recovery logic ---
   Future<Project?> _openProjectWithRecovery(
     ProjectMetadata meta, {
-    required Map<String, ProjectDto> simpleProjectStates,
+    Map<String, dynamic>? projectStateJson,
   }) async {
     try {
+      // First attempt (unchanged)
       final projectDto = await _projectService.openProjectDto(
         meta,
-        // THE FIX: Look up the correct DTO from the map.
-        projectStateJson: simpleProjectStates[meta.id]?.toJson(),
+        projectStateJson: projectStateJson,
       );
+      // ... (rest of the success path is unchanged)
       final liveSession = await _editorService.rehydrateTabSession(
         projectDto,
         meta,
@@ -160,7 +160,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
           _talker.info("Permission re-granted. Retrying project open...");
           return await _openProjectWithRecovery(
             meta,
-            simpleProjectStates: simpleProjectStates,
+            projectStateJson: projectStateJson,
           );
         }
       }
@@ -297,18 +297,23 @@ class AppNotifier extends AsyncNotifier<AppState> {
     await _updateState((s) async {
       if (s.currentProject?.id == projectId) return s;
       if (s.currentProject != null) {
+        // MODIFIED: Check the return value of closeProject.
         final bool didClose = await closeProject();
-        if (!didClose) return s;
-        s = state.value!;
+        if (!didClose) return s; // Abort if user cancelled.
+        s = state.value!; // Refresh state after closing
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
 
-      // THE FIX: Load the DTO to get the map of all simple project states.
+      // We don't need the DTO here anymore, the recovery handler does.
       final appStateDto = await _appStateRepository.loadAppStateDto();
 
+      // --- REFACTORED LOGIC ---
       final finalProject = await _openProjectWithRecovery(
         meta,
-        simpleProjectStates: appStateDto.simpleProjectStates,
+        projectStateJson:
+            (appStateDto.lastOpenedProjectId == projectId)
+                ? appStateDto.currentSimpleProjectDto?.toJson()
+                : null,
       );
 
       if (finalProject != null) {
@@ -317,18 +322,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
           lastOpenedProjectId: finalProject.id,
         );
       } else {
+        // If recovery fails, return the original state (no project open).
         return s.copyWith(clearCurrentProject: true);
       }
     });
+    // This save is still correct, it persists the outcome.
     await saveAppState();
   }
 
   /// Closes the currently active project.
   Future<bool> closeProject() async {
     final projectToClose = state.value?.currentProject;
-    if (projectToClose == null) return true;
+    if (projectToClose == null) return true; // Already closed.
 
-    // --- Gatekeeper check is unchanged ---
+    // --- GATEKEEPER INTEGRATION ---
     final allTabs = projectToClose.session.tabs;
     final action = await _handleUnsavedChanges(allTabs);
 
@@ -337,60 +344,35 @@ class AppNotifier extends AsyncNotifier<AppState> {
         await _editorService.saveTabs(projectToClose, allTabs);
         break;
       case UnsavedChangesAction.discard:
+        // Proceed without saving.
         break;
       case UnsavedChangesAction.cancel:
+        // MODIFIED: Abort and signal cancellation.
         return false;
     }
-
-    // --- THE FIX: Explicitly save simple project state before closing ---
-    if (projectToClose.projectTypeId == 'simple_local') {
-      _talker.info("Saving session for simple project '${projectToClose.name}' before closing.");
-      final oldDto = await _appStateRepository.loadAppStateDto();
-      final newSimpleProjectStates = Map<String, ProjectDto>.from(oldDto.simpleProjectStates);
-      
-      final registry = ref.read(fileContentProviderRegistryProvider);
-      final liveTabMetadata = ref.read(tabMetadataProvider);
-      final projectDto = projectToClose.toDto(liveTabMetadata, registry);
-      newSimpleProjectStates[projectToClose.id] = projectDto;
-
-      await _appStateRepository.saveAppStateDto(
-        oldDto.copyWith(simpleProjectStates: newSimpleProjectStates),
-      );
-    }
-    // -----------------------------------------------------------------
+    // --- END INTEGRATION ---
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
+
+    // ADDED: Signal success.
     return true;
   }
 
   /// Removes a project from the "known projects" list.
   Future<void> removeKnownProject(String projectId) async {
-    // 1. Clear caches first. This is unchanged and correct.
-    await ref.read(hotStateCacheServiceProvider).clearProjectCache(projectId);
-    await ref.read(cacheServiceManagerProvider).clearProjectCache(projectId);
-
-    // 2. Update the live state.
-    await _updateState((currentState) async {
-      AppState nextState = currentState;
-
-      // If the project to be removed is currently open, close it first.
-      if (nextState.currentProject?.id == projectId) {
+    await _updateState((s) async {
+      if (s.currentProject?.id == projectId) {
+        // MODIFIED: Check the return value of closeProject.
         final bool didClose = await closeProject();
-        if (!didClose) return nextState; // Abort if user cancels close.
-        nextState = state.value!; // Refresh state after closing.
+        if (!didClose) return s; // Abort if user cancelled.
+        s = state.value!; // Refresh state after closing
       }
-
-      // Return a new live state with the project removed from the list.
-      return nextState.copyWith(
-        knownProjects: nextState.knownProjects.where((p) => p.id != projectId).toList(),
+      return s.copyWith(
+        knownProjects: s.knownProjects.where((p) => p.id != projectId).toList(),
       );
     });
-
-    // 3. Persist the updated state.
-    // saveNonHotState will now correctly handle removing the project's
-    // simple state from the central map before saving.
-    await saveNonHotState();
+    await saveAppState();
   }
 
   /// Opens a file in a new editor tab.
@@ -506,37 +488,13 @@ class AppNotifier extends AsyncNotifier<AppState> {
 
     final currentProject = appState.currentProject;
 
-    // 1. Load the most recent DTO from storage to use as a base.
-    final oldDto = await _appStateRepository.loadAppStateDto();
-    final newSimpleProjectStates = Map<String, ProjectDto>.from(oldDto.simpleProjectStates);
-
-    // 2. If a simple project is currently open, update its state in our map.
-    if (currentProject?.projectTypeId == 'simple_local') {
-      final registry = ref.read(fileContentProviderRegistryProvider);
-      final liveTabMetadata = ref.read(tabMetadataProvider);
-      final projectDto = currentProject!.toDto(liveTabMetadata, registry);
-      newSimpleProjectStates[currentProject.id] = projectDto;
-    }
-
-    // 3. If a persistent project is open, save it to its own directory.
     if (currentProject?.projectTypeId == 'local_persistent') {
       await _projectService.saveProject(currentProject!);
     }
-    
-    // 4. Clean up the map: Remove states for simple projects that are no longer "known".
-    // This is the crucial step that fixes the bug in `removeKnownProject`.
-    final knownProjectIds = appState.knownProjects.map((p) => p.id).toSet();
-    newSimpleProjectStates.removeWhere((projectId, _) => !knownProjectIds.contains(projectId));
-
-    // 5. Construct the final DTO using the live state's known projects list and the cleaned map.
-    final finalDto = AppStateDto(
-      knownProjects: appState.knownProjects,
-      lastOpenedProjectId: appState.lastOpenedProjectId,
-      simpleProjectStates: newSimpleProjectStates,
-    );
-
-    // 6. Save the final, correct DTO.
-    await _appStateRepository.saveAppStateDto(finalDto);
+    final registry = ref.read(fileContentProviderRegistryProvider);
+    final liveTabMetadata = ref.read(tabMetadataProvider);
+    final appStateDto = appState.toDto(liveTabMetadata, registry);
+    await _appStateRepository.saveAppStateDto(appStateDto);
   }
 
   void setBottomToolbarOverride(Widget? widget) =>
