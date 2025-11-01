@@ -2,25 +2,22 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:glob/glob.dart';
-import 'package:collection/collection.dart'; // For firstWhereOrNull
+import 'package:collection/collection.dart'; 
 
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project_repository.dart';
 import 'refactor_editor_models.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
 /// It contains only pure Dart logic and is decoupled from Riverpod.
 class RefactorController extends ChangeNotifier {
-  // State properties remain public and mutable.
   String searchTerm;
   String replaceTerm;
   bool isRegex;
   bool isCaseSensitive;
   SearchStatus searchStatus = SearchStatus.idle;
   
-  final List<RefactorOccurrence> occurrences = [];
-  final Set<RefactorOccurrence> selectedOccurrences = {};
+  // UPDATED: The controller now manages a list of stateful items.
+  final List<RefactorResultItem> resultItems = [];
+  final Set<RefactorResultItem> selectedItems = {};
 
   RefactorController({required RefactorSessionState initialState})
       : searchTerm = initialState.searchTerm,
@@ -43,39 +40,64 @@ class RefactorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleOccurrenceSelection(RefactorOccurrence occurrence) {
-    if (selectedOccurrences.contains(occurrence)) {
-      selectedOccurrences.remove(occurrence);
+  void toggleItemSelection(RefactorResultItem item) {
+    // Only selectable if pending
+    if (item.status != ResultStatus.pending) return;
+
+    if (selectedItems.contains(item)) {
+      selectedItems.remove(item);
     } else {
-      selectedOccurrences.add(occurrence);
+      selectedItems.add(item);
     }
     notifyListeners();
   }
 
   void toggleSelectAll(bool isSelected) {
+    selectedItems.clear();
     if (isSelected) {
-      selectedOccurrences.addAll(occurrences);
-    } else {
-      selectedOccurrences.clear();
+      // Only select items that are still pending
+      selectedItems.addAll(resultItems.where((item) => item.status == ResultStatus.pending));
     }
     notifyListeners();
   }
 
   void startSearch() {
     searchStatus = SearchStatus.searching;
-    occurrences.clear();
-    selectedOccurrences.clear();
+    resultItems.clear();
+    selectedItems.clear();
     notifyListeners();
   }
   
   void completeSearch(List<RefactorOccurrence> results) {
-    occurrences.addAll(results);
+    // Map the raw data into our new stateful wrapper class.
+    resultItems.addAll(results.map((occ) => RefactorResultItem(occurrence: occ)));
     searchStatus = SearchStatus.complete;
     notifyListeners();
   }
   
   void failSearch() {
     searchStatus = SearchStatus.error;
+    notifyListeners();
+  }
+  
+  // NEW: A method to update the status of items after an operation.
+  void updateItemsStatus({
+    required Iterable<RefactorResultItem> processed,
+    required Map<RefactorResultItem, String> failed,
+  }) {
+    final processedSet = processed.toSet();
+    for (int i = 0; i < resultItems.length; i++) {
+      final currentItem = resultItems[i];
+      if (processedSet.contains(currentItem)) {
+        resultItems[i] = currentItem.copyWith(status: ResultStatus.applied);
+      } else if (failed.containsKey(currentItem)) {
+        resultItems[i] = currentItem.copyWith(
+          status: ResultStatus.failed,
+          failureReason: failed[currentItem],
+        );
+      }
+    }
+    selectedItems.clear();
     notifyListeners();
   }
 
@@ -85,6 +107,7 @@ class RefactorController extends ChangeNotifier {
     required String content,
     required String fileUri,
     required String displayPath,
+    required String fileContentHash, // Pass in the hash
   }) {
     if (searchTerm.isEmpty) return [];
 
@@ -119,21 +142,11 @@ class RefactorController extends ChangeNotifier {
           startColumn: match.start,
           lineContent: line,
           matchedText: match.group(0)!,
+          fileContentHash: fileContentHash, // Store the hash
         ));
       }
     }
     return occurrencesInFile;
-  }
-  
-  /// Removes a collection of occurrences from the state after they have
-  /// been successfully processed (e.g., after applying replacements).
-  void removeOccurrences(Iterable<RefactorOccurrence> toRemove) {
-    final toRemoveSet = toRemove.toSet();
-
-    // Filter the main list to keep only items that are NOT in the removal set.
-    occurrences.retainWhere((occ) => !toRemoveSet.contains(occ));
-    selectedOccurrences.clear();
-    notifyListeners();
   }
 }
 
