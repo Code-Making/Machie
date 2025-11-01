@@ -420,10 +420,11 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         final metadata = metadataMap[openTab.id];
         if (editorState is! TextEditable) { onProcessFailure(itemsInFile, "Editor not text-editable."); continue; }
         if (metadata?.isDirty ?? true) { onProcessFailure(itemsInFile, "File has unsaved changes."); continue; }
-        final currentContent = await editorState.getTextContent();
+        final editableState = editorState as TextEditable;
+        final currentContent = await editableState.getTextContent();
         if (md5.convert(utf8.encode(currentContent)).toString() != originalHash) { onProcessFailure(itemsInFile, "File content changed."); continue; }
         
-        await onProcessOpenTab(editorState, itemsInFile);
+        await onProcessOpenTab(editableState, itemsInFile);
       } else {
         if (!_controller.autoOpenFiles && _controller.mode == RefactorMode.text) {
            try {
