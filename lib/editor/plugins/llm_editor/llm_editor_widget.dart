@@ -98,17 +98,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   void _onControllerUpdate() {
-    // This runs outside the build method.
-    _updateTotalTokenCount(); // This can now call setState as it's not frequent
+    _updateTotalTokenCount();
 
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (project != null) {
-      ref.read(editorServiceProvider).markCurrentTabDirty();
-      // The caching now happens centrally via the AppLifecycle, but we
-      // can still trigger it if we want. For now, just marking it dirty is enough.
-      ref
-          .read(editorServiceProvider)
-          .updateAndCacheDirtyTab(project, widget.tab);
+    final bool contentDidChange = _controller.consumeContentChangeFlag();
+
+    if (contentDidChange) {
+      final project = ref.read(appNotifierProvider).value?.currentProject;
+      if (project != null) {
+        ref.read(appNotifierProvider.notifier).markCurrentTabDirty();
+        ref.read(editorServiceProvider).updateAndCacheDirtyTab(project, widget.tab);
+      }
     }
   }
 

@@ -6,7 +6,11 @@ import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
 class LlmEditorController extends ChangeNotifier {
   final List<DisplayMessage> _displayMessages = [];
   bool _isLoading = false;
-  String? _editingMessageId; // NEW: To track which message is in edit mode.
+  String? _editingMessageId;
+
+  /// A flag that is set to true when a notification is caused by a change
+  /// to the actual savable message content.
+  bool _contentChanged = false;
 
   LlmEditorController({required List<ChatMessage> initialMessages}) {
     _displayMessages.addAll(
@@ -19,14 +23,33 @@ class LlmEditorController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get editingMessageId => _editingMessageId; // NEW: Public getter.
 
+// --- NEW ---
+  /// Consumes the content change flag, returning its value and resetting it.
+  bool consumeContentChangeFlag() {
+    if (_contentChanged) {
+      _contentChanged = false; // Reset after reading
+      return true;
+    }
+    return false;
+  }
+
+  // --- NEW HELPER ---
+  /// Internal method to notify listeners and optionally flag a content change.
+  void _notify({bool contentChanged = false}) {
+    if (contentChanged) {
+      _contentChanged = true;
+    }
+    notifyListeners();
+  }
+
   void startEditing(String messageId) {
     _editingMessageId = messageId;
-    notifyListeners();
+    _notify(); // UI change only
   }
 
   void cancelEditing() {
     _editingMessageId = null;
-    notifyListeners();
+    _notify(); // UI change only
   }
 
   void saveEdit(String messageId, ChatMessage newMessage) {
@@ -36,13 +59,13 @@ class LlmEditorController extends ChangeNotifier {
       // number of code blocks might have changed, requiring new GlobalKeys.
       _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
       _editingMessageId = null;
-      notifyListeners();
+      _notify(contentChanged: true); // Content changed
     }
   }
 
   void addMessage(ChatMessage message) {
     _displayMessages.add(DisplayMessage.fromChatMessage(message));
-    notifyListeners();
+      _notify(contentChanged: true); // Content changed
   }
 
   void startStreamingPlaceholder() {
@@ -52,7 +75,7 @@ class LlmEditorController extends ChangeNotifier {
         const ChatMessage(role: 'assistant', content: ''),
       ),
     );
-    notifyListeners();
+      _notify(contentChanged: true); // Content changed
   }
 
   void appendChunkToStreamingMessage(String chunk) {
@@ -74,7 +97,7 @@ class LlmEditorController extends ChangeNotifier {
       message: updatedMessage,
     );
 
-    notifyListeners();
+      _notify(contentChanged: true); // Content changed
   }
 
   void finalizeStreamingMessage(ChatMessage finalMessage) {
@@ -90,7 +113,7 @@ class LlmEditorController extends ChangeNotifier {
       message: finalMessage,
     );
 
-    notifyListeners();
+      _notify(contentChanged: true); // Content changed
   }
 
   void toggleMessageFold(String messageId) {
@@ -98,7 +121,7 @@ class LlmEditorController extends ChangeNotifier {
     if (index != -1) {
       final message = _displayMessages[index];
       _displayMessages[index] = message.copyWith(isFolded: !message.isFolded);
-      notifyListeners();
+      _notify(); // UI change only
     }
   }
 
@@ -109,7 +132,7 @@ class LlmEditorController extends ChangeNotifier {
       _displayMessages[index] = message.copyWith(
         isContextFolded: !message.isContextFolded,
       );
-      notifyListeners();
+      _notify(); // UI change only
     }
   }
 
@@ -117,7 +140,7 @@ class LlmEditorController extends ChangeNotifier {
     _isLoading = false;
     // We notify listeners to potentially change the UI (e.g., hide a progress indicator)
     // even if the content hasn't changed.
-    notifyListeners();
+      _notify(); // UI change only
   }
 
   void updateMessage(int index, ChatMessage newMessage) {
@@ -125,28 +148,28 @@ class LlmEditorController extends ChangeNotifier {
       // When editing a message, it's correct to create a new DisplayMessage
       // because the number of code blocks might have changed, requiring new keys.
       _displayMessages[index] = DisplayMessage.fromChatMessage(newMessage);
-      notifyListeners();
+      _notify(contentChanged: true); // Content changed
     }
   }
 
   void deleteMessage(int index) {
     if (index >= 0 && index < _displayMessages.length) {
       _displayMessages.removeAt(index);
-      notifyListeners();
+      _notify(contentChanged: true); // Content changed
     }
   }
 
   void removeLastMessage() {
     if (_displayMessages.isNotEmpty) {
       _displayMessages.removeLast();
-      notifyListeners();
+      _notify(contentChanged: true); // Content changed
     }
   }
 
   void deleteAfter(int index) {
     if (index >= 0 && index < _displayMessages.length) {
       _displayMessages.removeRange(index, _displayMessages.length);
-      notifyListeners();
+      _notify(contentChanged: true); // Content changed
     }
   }
 }
