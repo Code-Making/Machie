@@ -110,7 +110,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
   // --- NEW PRIVATE HELPER METHOD for recovery logic ---
   Future<Project?> _openProjectWithRecovery(
     ProjectMetadata meta, {
-    Map<String, dynamic>? projectStateJson,
+    required Map<String, ProjectDto> simpleProjectStates,
   }) async {
     try {
       final projectDto = await _projectService.openProjectDto(
