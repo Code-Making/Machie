@@ -110,6 +110,14 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
       _controller.updateReplaceTerm(result.replace);
     }
   }
+  
+  List<_CompiledGlob> _compileGlobs(Set<String> patterns) {
+    return patterns.map((p) {
+      final isDirOnly = p.endsWith('/');
+      final cleanPattern = isDirOnly ? p.substring(0, p.length - 1) : p;
+      return (glob: Glob(cleanPattern), isDirectoryOnly: isDirOnly);
+    }).toList();
+  }
 
   // --- DISPATCHER METHODS ---
 
@@ -185,7 +193,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             replacement: _controller.replaceTerm,
           );
         }).toList();
-        editor.applyBatchEdits(batchEdit);
+        editor.batchReplaceRanges(batchEdit);
         editorService.markCurrentTabDirty();
         processedItems.addAll(items);
         return Future.value();
@@ -293,7 +301,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
           }
         }
         if (newEdits.isNotEmpty) {
-           editor.applyBatchEdits(newEdits);
+           editor.batchReplaceRanges(newEdits);
            ref.read(editorServiceProvider).markCurrentTabDirty();
            processedItems.addAll(items.where((i) => !failedItems.containsKey(i)));
         }
