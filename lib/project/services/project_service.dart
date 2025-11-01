@@ -149,14 +149,14 @@ class ProjectService {
       tab.dispose();
     }
 
-    // if (await FlutterForegroundTask.isRunningService) {
-    //   FlutterForegroundTask.sendDataToTask({
-    //     'command': 'clear_project',
-    //     'projectId': project.id,
-    //   });
-    // }
+    if (await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask({
+        'command': 'clear_project',
+        'projectId': project.id,
+      });
+    }
 
-    // await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
+    await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
 
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
