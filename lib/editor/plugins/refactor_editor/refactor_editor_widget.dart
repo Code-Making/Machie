@@ -374,7 +374,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
         final edits = generateEdits(itemsInFile);
         if (edits.length != itemsInFile.length) { onFailure(itemsInFile, "Could not generate all edits."); continue; }
 
-        editorState.batchReplaceRanges(edits);
+        editableState.batchReplaceRanges(edits);
         editorService.markCurrentTabDirty();
         onSuccess(itemsInFile);
       } else {
