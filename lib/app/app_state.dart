@@ -34,12 +34,12 @@ class AppState {
   AppStateDto toDto(
     Map<String, TabMetadata> liveTabMetadata,
     FileContentProviderRegistry registry,
-    Map<String, ProjectDto> allSimpleProjectStates,
+    Map<String, ProjectDto> simpleProjectStates,
   ) {
     return AppStateDto(
       knownProjects: knownProjects,
       lastOpenedProjectId: lastOpenedProjectId,
-      simpleProjectStates: allSimpleProjectStates,
+      simpleProjectStates: simpleProjectStates,
     );
   }
 
