@@ -241,7 +241,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
           continue;
         }
 
-        final batchEdit = itemsInFile.map((item) {
+        final edits = itemsInFile.map((item) {
           final occ = item.occurrence;
           return ReplaceRangeEdit(
             range: TextRange(
@@ -251,7 +251,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget> 
             replacement: _controller.replaceTerm,
           );
         }).toList();
-        
+        final batchEdit = BatchReplaceRangesEdit(edits);
         editableState.applyEdit(batchEdit);
         ref.read(editorServiceProvider).markCurrentTabDirty();
         processedItems.addAll(itemsInFile);
