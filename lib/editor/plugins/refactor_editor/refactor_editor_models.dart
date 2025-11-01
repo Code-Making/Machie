@@ -88,6 +88,8 @@ class RefactorResultItem {
   }
 }
 
+enum RefactorMode { text, path }
+
 /// Represents the live state of a refactoring session.
 @immutable
 class RefactorSessionState {
@@ -95,15 +97,16 @@ class RefactorSessionState {
   final String replaceTerm;
   final bool isRegex;
   final bool isCaseSensitive;
-  // NEW: A flag to control behavior for unopened files.
   final bool autoOpenFiles;
+  final RefactorMode mode;
 
   const RefactorSessionState({
     this.searchTerm = '',
     this.replaceTerm = '',
     this.isRegex = false,
     this.isCaseSensitive = false,
-    this.autoOpenFiles = true, // Default to true for convenience
+    this.autoOpenFiles = true,
+    this.mode = RefactorMode.text,
   });
 }
 

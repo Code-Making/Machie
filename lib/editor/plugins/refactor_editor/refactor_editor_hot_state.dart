@@ -1,6 +1,4 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/refactor_editor/refactor_editor_hot_state.dart
-// =========================================
+// lib/editor/plugins/refactor_editor/refactor_editor_hot_state.dart
 
 import 'package:flutter/foundation.dart';
 
@@ -15,14 +13,16 @@ class RefactorEditorHotStateDto extends TabHotStateDto {
   final String replaceTerm;
   final bool isRegex;
   final bool isCaseSensitive;
+  final bool autoOpenFiles;
+  final RefactorMode mode;
 
-  // We only save the core search parameters, not the results,
-  // as the results can be regenerated on rehydration.
   const RefactorEditorHotStateDto({
     required this.searchTerm,
     required this.replaceTerm,
     required this.isRegex,
     required this.isCaseSensitive,
+    required this.autoOpenFiles,
+    required this.mode,
     super.baseContentHash,
   });
 }
@@ -36,6 +36,11 @@ class RefactorEditorHotStateAdapter implements TypeAdapter<RefactorEditorHotStat
       replaceTerm: json['replaceTerm'] as String? ?? '',
       isRegex: json['isRegex'] as bool? ?? false,
       isCaseSensitive: json['isCaseSensitive'] as bool? ?? false,
+      autoOpenFiles: json['autoOpenFiles'] as bool? ?? true,
+      mode: RefactorMode.values.firstWhere(
+        (e) => e.name == json['mode'],
+        orElse: () => RefactorMode.text,
+      ),
       baseContentHash: json['baseContentHash'] as String?,
     );
   }
@@ -47,6 +52,8 @@ class RefactorEditorHotStateAdapter implements TypeAdapter<RefactorEditorHotStat
       'replaceTerm': object.replaceTerm,
       'isRegex': object.isRegex,
       'isCaseSensitive': object.isCaseSensitive,
+      'autoOpenFiles': object.autoOpenFiles,
+      'mode': object.mode.name,
       'baseContentHash': object.baseContentHash,
     };
   }
