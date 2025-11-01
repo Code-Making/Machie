@@ -106,7 +106,7 @@ abstract mixin class TextEditable {
         replaceSelection(edit.replacement, range: edit.range);
         break;
       case BatchReplaceRangesEdit():
-        applyBatchEdits(edit.edits);
+        batchReplaceRanges(edit.edits);
         break;
     }
   }
@@ -146,6 +146,8 @@ abstract mixin class TextEditable {
   
   /// Scrolls the editor to the specified [range] and highlights it as the current selection.
   void revealRange(TextRange range);
+  
+  void batchReplaceRanges(List<ReplaceRangeEdit> edits);
 }
 
 // Command-related classes
