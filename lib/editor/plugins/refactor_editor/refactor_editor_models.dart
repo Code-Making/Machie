@@ -1,6 +1,4 @@
-// =========================================
-// NEW FILE: lib/editor/plugins/refactor_editor/refactor_editor_models.dart
-// =========================================
+// lib/editor/plugins/refactor_editor/refactor_editor_models.dart
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,12 +11,12 @@ import 'refactor_editor_widget.dart';
 class RefactorSettings extends PluginSettings {
   Set<String> supportedExtensions;
   Set<String> ignoredGlobPatterns;
-  bool useProjectGitignore; // <-- ADDED
+  bool useProjectGitignore; 
 
   RefactorSettings({
     Set<String>? supportedExtensions,
     Set<String>? ignoredGlobPatterns,
-    this.useProjectGitignore = true, // <-- ADDED, default to true for convenience
+    this.useProjectGitignore = true, 
   })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
         ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
@@ -29,14 +27,14 @@ class RefactorSettings extends PluginSettings {
     
     supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
     ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet();
-    useProjectGitignore = json['useProjectGitignore'] as bool? ?? true; // <-- ADDED
+    useProjectGitignore = json['useProjectGitignore'] as bool? ?? true;
   }
 
   @override
   Map<String, dynamic> toJson() => {
         'supportedExtensions': supportedExtensions.toList(),
         'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
-        'useProjectGitignore': useProjectGitignore, // <-- ADDED
+        'useProjectGitignore': useProjectGitignore,
       };
 }
 
@@ -45,10 +43,12 @@ class RefactorSettings extends PluginSettings {
 class RefactorOccurrence {
   final String fileUri;
   final String displayPath;
-  final int lineNumber; // 1-based
+  final int lineNumber; // 0-based
   final int startColumn; // 0-based
   final String lineContent;
   final String matchedText;
+  // NEW: The hash of the file content when the search was performed.
+  final String fileContentHash;
 
   const RefactorOccurrence({
     required this.fileUri,
@@ -57,7 +57,36 @@ class RefactorOccurrence {
     required this.startColumn,
     required this.lineContent,
     required this.matchedText,
+    required this.fileContentHash,
   });
+}
+
+// NEW: An enum to track the state of a result item in the UI.
+enum ResultStatus { pending, applied, failed }
+
+// NEW: A wrapper class to hold an occurrence and its UI state.
+@immutable
+class RefactorResultItem {
+  final RefactorOccurrence occurrence;
+  final ResultStatus status;
+  final String? failureReason;
+
+  const RefactorResultItem({
+    required this.occurrence,
+    this.status = ResultStatus.pending,
+    this.failureReason,
+  });
+
+  RefactorResultItem copyWith({
+    ResultStatus? status,
+    String? failureReason,
+  }) {
+    return RefactorResultItem(
+      occurrence: occurrence,
+      status: status ?? this.status,
+      failureReason: failureReason ?? this.failureReason,
+    );
+  }
 }
 
 /// Represents the live state of a refactoring session.
@@ -67,39 +96,13 @@ class RefactorSessionState {
   final String replaceTerm;
   final bool isRegex;
   final bool isCaseSensitive;
-  final SearchStatus searchStatus;
-  final List<RefactorOccurrence> occurrences;
-  final Set<RefactorOccurrence> selectedOccurrences;
 
   const RefactorSessionState({
     this.searchTerm = '',
     this.replaceTerm = '',
     this.isRegex = false,
     this.isCaseSensitive = false,
-    this.searchStatus = SearchStatus.idle,
-    this.occurrences = const [],
-    this.selectedOccurrences = const {},
   });
-
-  RefactorSessionState copyWith({
-    String? searchTerm,
-    String? replaceTerm,
-    bool? isRegex,
-    bool? isCaseSensitive,
-    SearchStatus? searchStatus,
-    List<RefactorOccurrence>? occurrences,
-    Set<RefactorOccurrence>? selectedOccurrences,
-  }) {
-    return RefactorSessionState(
-      searchTerm: searchTerm ?? this.searchTerm,
-      replaceTerm: replaceTerm ?? this.replaceTerm,
-      isRegex: isRegex ?? this.isRegex,
-      isCaseSensitive: isCaseSensitive ?? this.isCaseSensitive,
-      searchStatus: searchStatus ?? this.searchStatus,
-      occurrences: occurrences ?? this.occurrences,
-      selectedOccurrences: selectedOccurrences ?? this.selectedOccurrences,
-    );
-  }
 }
 
 enum SearchStatus { idle, searching, complete, error }
