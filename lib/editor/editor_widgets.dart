@@ -111,7 +111,7 @@ class TabWidget extends ConsumerWidget {
     
     final Color textColor;
     if (isGit){
-      textColor = Colors.blue.shade300;
+      textColor = Colors.lightBlue.shade300;
     } else if (isVirtual) {
       // Virtual files get a special color (e.g., cyan) regardless of dirty state.
       textColor = Colors.lime.shade300;

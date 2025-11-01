@@ -20,6 +20,19 @@ class AppStateDto {
     this.lastOpenedProjectId,
     this.simpleProjectStates = const {},
   });
+  
+    // ADDED: A pure copyWith method is acceptable for DTOs.
+  AppStateDto copyWith({
+    List<ProjectMetadata>? knownProjects,
+    String? lastOpenedProjectId,
+    Map<String, ProjectDto>? simpleProjectStates,
+  }) {
+    return AppStateDto(
+      knownProjects: knownProjects ?? this.knownProjects,
+      lastOpenedProjectId: lastOpenedProjectId ?? this.lastOpenedProjectId,
+      simpleProjectStates: simpleProjectStates ?? this.simpleProjectStates,
+    );
+  }
 
   factory AppStateDto.fromJson(Map<String, dynamic> json) {
     // Handle legacy data where 'currentProjectState' might still exist.
