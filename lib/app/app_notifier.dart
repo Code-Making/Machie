@@ -326,9 +326,9 @@ class AppNotifier extends AsyncNotifier<AppState> {
   /// Closes the currently active project.
   Future<bool> closeProject() async {
     final projectToClose = state.value?.currentProject;
-    if (projectToClose == null) return true; // Already closed.
+    if (projectToClose == null) return true;
 
-    // --- GATEKEEPER INTEGRATION ---
+    // --- Gatekeeper check is unchanged ---
     final allTabs = projectToClose.session.tabs;
     final action = await _handleUnsavedChanges(allTabs);
 
@@ -337,18 +337,30 @@ class AppNotifier extends AsyncNotifier<AppState> {
         await _editorService.saveTabs(projectToClose, allTabs);
         break;
       case UnsavedChangesAction.discard:
-        // Proceed without saving.
         break;
       case UnsavedChangesAction.cancel:
-        // MODIFIED: Abort and signal cancellation.
         return false;
     }
-    // --- END INTEGRATION ---
+
+    // --- THE FIX: Explicitly save simple project state before closing ---
+    if (projectToClose.projectTypeId == 'simple_local') {
+      _talker.info("Saving session for simple project '${projectToClose.name}' before closing.");
+      final oldDto = await _appStateRepository.loadAppStateDto();
+      final newSimpleProjectStates = Map<String, ProjectDto>.from(oldDto.simpleProjectStates);
+      
+      final registry = ref.read(fileContentProviderRegistryProvider);
+      final liveTabMetadata = ref.read(tabMetadataProvider);
+      final projectDto = projectToClose.toDto(liveTabMetadata, registry);
+      newSimpleProjectStates[projectToClose.id] = projectDto;
+
+      await _appStateRepository.saveAppStateDto(
+        oldDto.copyWith(simpleProjectStates: newSimpleProjectStates),
+      );
+    }
+    // -----------------------------------------------------------------
 
     await _projectService.closeProject(projectToClose);
     _updateStateSync((s) => s.copyWith(clearCurrentProject: true));
-
-    // ADDED: Signal success.
     return true;
   }
 
