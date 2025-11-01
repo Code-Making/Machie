@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
+import 'package:collection/collection.dart'; 
 
 import 'refactor_editor_models.dart';
 
@@ -12,8 +12,9 @@ class RefactorController extends ChangeNotifier {
   String replaceTerm;
   bool isRegex;
   bool isCaseSensitive;
-  // NEW: State for the checkbox.
   bool autoOpenFiles;
+  // NEW: Controller now holds the mode.
+  RefactorMode mode;
   SearchStatus searchStatus = SearchStatus.idle;
   
   final List<RefactorResultItem> resultItems = [];
@@ -24,13 +25,29 @@ class RefactorController extends ChangeNotifier {
         replaceTerm = initialState.replaceTerm,
         isRegex = initialState.isRegex,
         isCaseSensitive = initialState.isCaseSensitive,
-        // NEW: Initialize the new state.
-        autoOpenFiles = initialState.autoOpenFiles;
+        autoOpenFiles = initialState.autoOpenFiles,
+        mode = initialState.mode;
 
   // --- UI State Mutation Methods ---
   
-  void updateSearchTerm(String term) => searchTerm = term;
-  void updateReplaceTerm(String term) => replaceTerm = term;
+  void updateSearchTerm(String term) {
+    searchTerm = term;
+    notifyListeners();
+  }
+  void updateReplaceTerm(String term) {
+    replaceTerm = term;
+    notifyListeners();
+  }
+
+  // NEW: Method to set the mode.
+  void setMode(RefactorMode newMode) {
+    mode = newMode;
+    // When switching modes, clear previous results.
+    resultItems.clear();
+    selectedItems.clear();
+    searchStatus = SearchStatus.idle;
+    notifyListeners();
+  }
 
   void toggleIsRegex(bool value) {
     isRegex = value;
@@ -42,11 +59,12 @@ class RefactorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // NEW: Method to update the auto-open flag.
   void toggleAutoOpenFiles(bool value) {
     autoOpenFiles = value;
     notifyListeners();
   }
+  
+  // ... (the rest of the controller is unchanged)
 
   void toggleItemSelection(RefactorResultItem item) {
     if (item.status != ResultStatus.pending) return;
