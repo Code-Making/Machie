@@ -36,17 +36,6 @@ class OccurrenceListItem extends ConsumerWidget {
     final codeBgColor = codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
     final occurrence = item.occurrence;
 
-    final languageKey = CodeThemes.inferLanguageKey(occurrence.displayPath);
-
-    LlmHighlightUtil.ensureLanguagesRegistered();
-    final result = LlmHighlightUtil.highlight.highlight(
-      code: occurrence.lineContent,
-      language: languageKey,
-    );
-    final renderer = TextSpanRenderer(textStyle, codeTheme);
-    result.render(renderer);
-    final highlightedSpan = renderer.span ?? TextSpan(text: occurrence.lineContent, style: textStyle);
-
     final matchStart = occurrence.startColumn;
     final matchEnd = matchStart + occurrence.matchedText.length;
     final beforeText = occurrence.lineContent.substring(0, matchStart);
@@ -67,7 +56,6 @@ class OccurrenceListItem extends ConsumerWidget {
       ],
     );
 
-    // Build the leading icon based on the item's status
     final Widget leadingIcon;
     switch (item.status) {
       case ResultStatus.pending:
@@ -84,38 +72,47 @@ class OccurrenceListItem extends ConsumerWidget {
         break;
     }
 
-    return Container(
-      color: isSelected ? theme.colorScheme.primary.withOpacity(0.1) : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            dense: true,
-            leading: leadingIcon,
-            onTap: onJumpTo,
-            title: Text(occurrence.displayPath, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Line ${occurrence.lineNumber+1}'),
-          ),
-          InkWell(
-            onTap: onJumpTo,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: codeBgColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: RichText(text: previewSpan),
-                ),
+    return Material(
+      color: isSelected ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+      child: InkWell(
+        onTap: onJumpTo,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // SIMPLIFIED: No longer a ListTile, just the code preview
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sized box to align with checkbox in the header
+                  SizedBox(
+                    width: 40,
+                    child: Center(
+                      child: leadingIcon,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: codeBgColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: RichText(text: previewSpan),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const Divider(height: 1),
-        ],
+            const Divider(height: 1, indent: 16, endIndent: 16),
+          ],
+        ),
       ),
     );
   }

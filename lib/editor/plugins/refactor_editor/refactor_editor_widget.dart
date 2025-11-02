@@ -442,7 +442,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // LAYOUT CHANGE: The main layout is now a scrollable view with an action button.
         Expanded(
           child: ListenableBuilder(
             listenable: _controller,
@@ -450,7 +449,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
               final pendingItems = _controller.resultItems.where((i) => i.status == ResultStatus.pending);
               final allSelected = pendingItems.isNotEmpty && _controller.selectedItems.length == pendingItems.length;
 
-              // Use CustomScrollView for more flexibility than ListView
               return CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(child: _buildInputPanel()),
@@ -541,72 +539,42 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
     final groupedItems = _controller.resultItems.groupListsBy((item) => item.occurrence.fileUri);
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index == 0) {
-            // The global header row
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Text('${_controller.resultItems.length} results found.'),
-                  const Spacer(),
-                  const Text('Select All'),
-                  Checkbox(
-                    value: allSelected,
-                    tristate: !allSelected && _controller.selectedItems.isNotEmpty,
-                    onChanged: (val) => _controller.toggleSelectAll(val ?? false),
-                  ),
-                ],
-              ),
+    // NEW LAYOUT: Use SliverPadding for spacing around the list of cards.
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 12.0),
+                child: Row(
+                  children: [
+                    Text('${_controller.resultItems.length} results found in ${groupedItems.length} files.'),
+                    const Spacer(),
+                    const Text('Select All'),
+                    Checkbox(
+                      value: allSelected,
+                      tristate: !allSelected && _controller.selectedItems.isNotEmpty,
+                      onChanged: (val) => _controller.toggleSelectAll(val ?? false),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            final groupIndex = index - 1;
+            final fileUri = groupedItems.keys.elementAt(groupIndex);
+            final itemsInFile = groupedItems[fileUri]!;
+
+            return _FileResultCard(
+              key: ValueKey(fileUri), // Ensure state is kept on rebuild
+              itemsInFile: itemsInFile,
+              controller: _controller,
             );
-          }
-          
-          final groupIndex = index - 1;
-          final fileUri = groupedItems.keys.elementAt(groupIndex);
-          final itemsInFile = groupedItems[fileUri]!;
-          final displayPath = itemsInFile.first.occurrence.displayPath;
-
-          // Per-file checkbox state calculation
-          final pendingInFile = itemsInFile.where((i) => i.status == ResultStatus.pending).toList();
-          final selectedInFileCount = _controller.selectedItems.where((i) => i.occurrence.fileUri == fileUri).length;
-          final isFileChecked = pendingInFile.isNotEmpty && selectedInFileCount == pendingInFile.length;
-          final isFileTristate = selectedInFileCount > 0 && selectedInFileCount < pendingInFile.length;
-
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: ExpansionTile(
-              key: ValueKey(fileUri), // Important for state preservation
-              initiallyExpanded: true,
-              leading: Checkbox(
-                value: isFileChecked,
-                tristate: isFileTristate,
-                onChanged: (val) => _controller.toggleSelectAllForFile(fileUri, val ?? false),
-              ),
-              title: Text(displayPath, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('${itemsInFile.length} occurrences'),
-              children: itemsInFile.map((item) {
-                return OccurrenceListItem(
-                  item: item,
-                  isSelected: _controller.selectedItems.contains(item),
-                  onSelected: (_) => _controller.toggleItemSelection(item),
-                  onJumpTo: () async {
-                    final occurrence = item.occurrence;
-                    final edit = RevealRangeEdit(
-                      range: TextRange(
-                        start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
-                        end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
-                      ),
-                    );
-                    await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
-                  },
-                );
-              }).toList(),
-            ),
-          );
-        },
-        childCount: groupedItems.length + 1, // +1 for the header
+          },
+          childCount: groupedItems.length + 1,
+        ),
       ),
     );
   }
@@ -700,6 +668,109 @@ class _PathRefactorDialog extends StatelessWidget {
           child: const Text('Update References'),
         ),
       ],
+    );
+  }
+}
+
+class _FileResultCard extends ConsumerStatefulWidget {
+  final List<RefactorResultItem> itemsInFile;
+  final RefactorController controller;
+
+  const _FileResultCard({super.key, required this.itemsInFile, required this.controller});
+
+  @override
+  ConsumerState<_FileResultCard> createState() => _FileResultCardState();
+}
+
+class _FileResultCardState extends ConsumerState<_FileResultCard> {
+  bool _isFolded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fileUri = widget.itemsInFile.first.occurrence.fileUri;
+    final displayPath = widget.itemsInFile.first.occurrence.displayPath;
+
+    final pendingInFile = widget.itemsInFile.where((i) => i.status == ResultStatus.pending).toList();
+    final selectedInFileCount = widget.controller.selectedItems.where((i) => i.occurrence.fileUri == fileUri).length;
+    final isFileChecked = pendingInFile.isNotEmpty && selectedInFileCount == pendingInFile.length;
+    final isFileTristate = selectedInFileCount > 0 && selectedInFileCount < pendingInFile.length;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.only(left: 4.0),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.05),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8.0),
+                topRight: Radius.circular(8.0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: isFileChecked,
+                  tristate: isFileTristate,
+                  onChanged: (val) => widget.controller.toggleSelectAllForFile(fileUri, val ?? false),
+                ),
+                Expanded(
+                  child: Text(
+                    displayPath,
+                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text('(${widget.itemsInFile.length})', style: theme.textTheme.bodySmall),
+                IconButton(
+                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 18),
+                  tooltip: _isFolded ? 'Unfold Results' : 'Fold Results',
+                  onPressed: () => setState(() => _isFolded = !_isFolded),
+                ),
+              ],
+            ),
+          ),
+          // Body
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isFolded
+                ? const SizedBox(width: double.infinity)
+                : Container(
+                    width: double.infinity,
+                    // Use a Column instead of ListView for the children inside the card
+                    child: Column(
+                      children: widget.itemsInFile.map((item) {
+                        return OccurrenceListItem(
+                          item: item,
+                          isSelected: widget.controller.selectedItems.contains(item),
+                          onSelected: (_) => widget.controller.toggleItemSelection(item),
+                          onJumpTo: () async {
+                            final occurrence = item.occurrence;
+                            final edit = RevealRangeEdit(
+                              range: TextRange(
+                                start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
+                                end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
+                              ),
+                            );
+                            await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
