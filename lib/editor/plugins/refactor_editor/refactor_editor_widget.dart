@@ -685,6 +685,36 @@ class _FileResultCard extends ConsumerStatefulWidget {
 class _FileResultCardState extends ConsumerState<_FileResultCard> {
   bool _isFolded = false;
 
+  // NEW: Helper method to generate the styled path widgets.
+  List<Widget> _buildPathSegments(String path, BuildContext context) {
+    final theme = Theme.of(context);
+    final List<Widget> pathWidgets = [];
+    final segments = path.split('/');
+
+    final baseStyle = theme.textTheme.titleSmall;
+    final normalColor = baseStyle?.color?.withOpacity(0.9);
+    final darkerColor = normalColor != null ? Color.lerp(normalColor, Colors.black, 0.25) : null;
+    final separatorStyle = baseStyle?.copyWith(color: theme.dividerColor);
+
+    for (int i = 0; i < segments.length; i++) {
+      final segment = segments[i];
+      // Alternate color for path segments.
+      final color = i % 2 == 0 ? normalColor : darkerColor;
+
+      pathWidgets.add(
+        Text(segment, style: baseStyle?.copyWith(color: color, fontWeight: FontWeight.bold))
+      );
+
+      // Add a separator, but not after the last segment.
+      if (i < segments.length - 1) {
+        pathWidgets.add(
+          Text(' / ', style: separatorStyle)
+        );
+      }
+    }
+    return pathWidgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -708,7 +738,7 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.only(left: 4.0),
+            padding: const EdgeInsets.only(left: 4.0, right: 8.0, top: 4.0, bottom: 4.0),
             decoration: BoxDecoration(
               color: theme.colorScheme.onSurface.withOpacity(0.05),
               borderRadius: const BorderRadius.only(
@@ -716,32 +746,29 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
                 topRight: Radius.circular(8.0),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Checkbox(
-                      value: isFileChecked,
-                      tristate: isFileTristate,
-                      onChanged: (val) => widget.controller.toggleSelectAllForFile(fileUri, val ?? false),
-                    ),
-                    // No longer wrapping with Expanded, as the Column will handle layout.
-                    Flexible(
-                      child: Text(
-                        displayPath,
-                        // No more ellipsis, it will now wrap.
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8), // Give it some space
-                    Text('(${widget.itemsInFile.length})', style: theme.textTheme.bodySmall),
-                    IconButton(
-                      icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 18),
-                      tooltip: _isFolded ? 'Unfold Results' : 'Fold Results',
-                      onPressed: () => setState(() => _isFolded = !_isFolded),
-                    ),
-                  ],
+                Checkbox(
+                  visualDensity: VisualDensity.compact,
+                  value: isFileChecked,
+                  tristate: isFileTristate,
+                  onChanged: (val) => widget.controller.toggleSelectAllForFile(fileUri, val ?? false),
+                ),
+                // UPDATED: Use Flexible with a Wrap to display the segmented path.
+                Flexible(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: _buildPathSegments(displayPath, context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('(${widget.itemsInFile.length})', style: theme.textTheme.bodySmall),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 20),
+                  tooltip: _isFolded ? 'Unfold Results' : 'Fold Results',
+                  onPressed: () => setState(() => _isFolded = !_isFolded),
                 ),
               ],
             ),
@@ -752,28 +779,24 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
             curve: Curves.easeInOut,
             child: _isFolded
                 ? const SizedBox(width: double.infinity)
-                : Container(
-                    width: double.infinity,
-                    // Use a Column instead of ListView for the children inside the card
-                    child: Column(
-                      children: widget.itemsInFile.map((item) {
-                        return OccurrenceListItem(
-                          item: item,
-                          isSelected: widget.controller.selectedItems.contains(item),
-                          onSelected: (_) => widget.controller.toggleItemSelection(item),
-                          onJumpTo: () async {
-                            final occurrence = item.occurrence;
-                            final edit = RevealRangeEdit(
-                              range: TextRange(
-                                start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
-                                end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
-                              ),
-                            );
-                            await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
-                          },
-                        );
-                      }).toList(),
-                    ),
+                : Column(
+                    children: widget.itemsInFile.map((item) {
+                      return OccurrenceListItem(
+                        item: item,
+                        isSelected: widget.controller.selectedItems.contains(item),
+                        onSelected: (_) => widget.controller.toggleItemSelection(item),
+                        onJumpTo: () async {
+                          final occurrence = item.occurrence;
+                          final edit = RevealRangeEdit(
+                            range: TextRange(
+                              start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
+                              end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
+                            ),
+                          );
+                          await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
+                        },
+                      );
+                    }).toList(),
                   ),
           ),
         ],
