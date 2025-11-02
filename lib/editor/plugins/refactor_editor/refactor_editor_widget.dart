@@ -217,9 +217,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   // --- PATH REFACTOR LOGIC ---
 
   Future<void> _findPathOccurrences() async {
-    final repo = ref.read(projectRepositoryProvider);
     final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (repo == null || project == null) throw Exception('Prerequisites not met');
+    if (project == null) throw Exception('Project not available');
     
     final results = <RefactorOccurrence>[];
     final String searchTermAbsolute = p.normalize(_controller.searchTerm);
@@ -231,29 +230,28 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
         final containingDir = p.dirname(displayPath);
 
         for (final match in _pathRegex.allMatches(content)) {
-          final matchedPath = match.group(2) ?? match.group(4);
-          if (matchedPath == null || matchedPath.isEmpty) continue;
-
-          // Simple check to avoid resolving package: or dart: imports
-          if (matchedPath.contains(':')) continue;
+          final pathGroupIndex = match.group(2) != null ? 2 : 4;
+          final matchedPath = match.group(pathGroupIndex);
+          if (matchedPath == null || matchedPath.isEmpty || matchedPath.contains(':')) continue;
 
           try {
             final resolvedPath = p.normalize(p.join(containingDir, matchedPath));
             if (resolvedPath == searchTermAbsolute) {
-              final lineInfo = _getLineAndColumn(content, match.start);
+              // BUG FIX: Calculate offset based on the specific group's start.
+              final pathStartOffsetInContent = match.start + match.group(0)!.indexOf(matchedPath);
+              final lineInfo = _getLineAndColumn(content, pathStartOffsetInContent);
+              
               results.add(RefactorOccurrence(
                 fileUri: file.uri,
                 displayPath: displayPath,
                 lineNumber: lineInfo.line,
-                startColumn: lineInfo.column,
+                startColumn: lineInfo.column, // This is now correct
                 lineContent: content.split('\n')[lineInfo.line],
-                matchedText: matchedPath,
+                matchedText: matchedPath, // This is correct
                 fileContentHash: fileContentHash,
               ));
             }
-          } catch (e) {
-            // Ignore path resolution errors
-          }
+          } catch (e) { /* Ignore path resolution errors */ }
         }
       },
     );
@@ -276,17 +274,15 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           final newRelativePath = p.relative(_controller.replaceTerm, from: containingDir).replaceAll(r'\', '/');
           final occ = item.occurrence;
           
-          final matchStartInLine = item.occurrence.lineContent.indexOf(occ.matchedText);
-          if (matchStartInLine == -1) return null;
-
+          // BUG FIX: Use the accurate startColumn from the occurrence, don't recalculate with indexOf.
           return ReplaceRangeEdit(
             range: TextRange(
-              start: TextPosition(line: occ.lineNumber, column: matchStartInLine),
-              end: TextPosition(line: occ.lineNumber, column: matchStartInLine + occ.matchedText.length),
+              start: TextPosition(line: occ.lineNumber, column: occ.startColumn),
+              end: TextPosition(line: occ.lineNumber, column: occ.startColumn + occ.matchedText.length),
             ),
             replacement: newRelativePath,
           );
-        }).whereNotNull().toList();
+        }).toList();
       },
       onSuccess: (items) => processedItems.addAll(items),
       onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
@@ -444,20 +440,30 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, child) {
-        final pendingItems = _controller.resultItems.where((i) => i.status == ResultStatus.pending);
-        final allSelected = pendingItems.isNotEmpty && _controller.selectedItems.length == pendingItems.length;
-        return Column(
-          children: [
-            _buildInputPanel(),
-            if (_controller.searchStatus == SearchStatus.searching) const LinearProgressIndicator(),
-            Expanded(child: _buildResultsPanel(allSelected)),
-            _buildActionPanel(),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        // LAYOUT CHANGE: The main layout is now a scrollable view with an action button.
+        Expanded(
+          child: ListenableBuilder(
+            listenable: _controller,
+            builder: (context, child) {
+              final pendingItems = _controller.resultItems.where((i) => i.status == ResultStatus.pending);
+              final allSelected = pendingItems.isNotEmpty && _controller.selectedItems.length == pendingItems.length;
+
+              // Use CustomScrollView for more flexibility than ListView
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildInputPanel()),
+                  if (_controller.searchStatus == SearchStatus.searching)
+                    const SliverToBoxAdapter(child: LinearProgressIndicator()),
+                  _buildResultsSliver(allSelected),
+                ],
+              );
+            },
+          ),
+        ),
+        _buildActionPanel(),
+      ],
     );
   }
 
@@ -522,61 +528,86 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
   }
   
-  Widget _buildResultsPanel(bool allSelected) {
+  Widget _buildResultsSliver(bool allSelected) {
     if (_controller.searchStatus == SearchStatus.idle) {
-      return const Center(child: Text('Enter a search term and click "Find All"'));
+      return SliverFillRemaining(child: Center(child: Text(_controller.mode == RefactorMode.path ? 'Listening for file move/rename events...' : 'Enter a search term and click "Find All"')));
     }
     if (_controller.searchStatus == SearchStatus.error) {
-      return const Center(child: Text('An error occurred during search.', style: TextStyle(color: Colors.red)));
+      return const SliverFillRemaining(child: Center(child: Text('An error occurred during search.', style: TextStyle(color: Colors.red))));
     }
     if (_controller.searchStatus == SearchStatus.complete && _controller.resultItems.isEmpty) {
-      return Center(child: Text('No results found for "${_controller.searchTerm}"'));
+      return SliverFillRemaining(child: Center(child: Text('No results found for "${_controller.searchTerm}"')));
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            children: [
-              Text('${_controller.resultItems.length} results found.'),
-              const Spacer(),
-              const Text('Select All'),
-              Checkbox(
-                value: allSelected,
-                tristate: !allSelected && _controller.selectedItems.isNotEmpty,
-                onChanged: (val) => _controller.toggleSelectAll(val ?? false),
+
+    final groupedItems = _controller.resultItems.groupListsBy((item) => item.occurrence.fileUri);
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index == 0) {
+            // The global header row
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Text('${_controller.resultItems.length} results found.'),
+                  const Spacer(),
+                  const Text('Select All'),
+                  Checkbox(
+                    value: allSelected,
+                    tristate: !allSelected && _controller.selectedItems.isNotEmpty,
+                    onChanged: (val) => _controller.toggleSelectAll(val ?? false),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _controller.resultItems.length,
-            itemBuilder: (context, index) {
-              final resultItem = _controller.resultItems[index];
-              final isSelected = _controller.selectedItems.contains(resultItem);
-              
-              return OccurrenceListItem(
-                item: resultItem,
-                isSelected: isSelected,
-                onSelected: (_) => _controller.toggleItemSelection(resultItem),
-                onJumpTo: () async {
-                  final occurrence = resultItem.occurrence;
-                  final edit = RevealRangeEdit(
-                    range: TextRange(
-                      start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
-                      end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
-                    ),
-                  );
-                  await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
-                },
-              );
-            },
-          ),
-        ),
-      ],
+            );
+          }
+          
+          final groupIndex = index - 1;
+          final fileUri = groupedItems.keys.elementAt(groupIndex);
+          final itemsInFile = groupedItems[fileUri]!;
+          final displayPath = itemsInFile.first.occurrence.displayPath;
+
+          // Per-file checkbox state calculation
+          final pendingInFile = itemsInFile.where((i) => i.status == ResultStatus.pending).toList();
+          final selectedInFileCount = _controller.selectedItems.where((i) => i.occurrence.fileUri == fileUri).length;
+          final isFileChecked = pendingInFile.isNotEmpty && selectedInFileCount == pendingInFile.length;
+          final isFileTristate = selectedInFileCount > 0 && selectedInFileCount < pendingInFile.length;
+
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: ExpansionTile(
+              key: ValueKey(fileUri), // Important for state preservation
+              initiallyExpanded: true,
+              leading: Checkbox(
+                value: isFileChecked,
+                tristate: isFileTristate,
+                onChanged: (val) => _controller.toggleSelectAllForFile(fileUri, val ?? false),
+              ),
+              title: Text(displayPath, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${itemsInFile.length} occurrences'),
+              children: itemsInFile.map((item) {
+                return OccurrenceListItem(
+                  item: item,
+                  isSelected: _controller.selectedItems.contains(item),
+                  onSelected: (_) => _controller.toggleItemSelection(item),
+                  onJumpTo: () async {
+                    final occurrence = item.occurrence;
+                    final edit = RevealRangeEdit(
+                      range: TextRange(
+                        start: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn),
+                        end: TextPosition(line: occurrence.lineNumber, column: occurrence.startColumn + occurrence.matchedText.length),
+                      ),
+                    );
+                    await ref.read(editorServiceProvider).openAndApplyEdit(occurrence.displayPath, edit);
+                  },
+                );
+              }).toList(),
+            ),
+          );
+        },
+        childCount: groupedItems.length + 1, // +1 for the header
+      ),
     );
   }
 
