@@ -716,25 +716,32 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
                 topRight: Radius.circular(8.0),
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Checkbox(
-                  value: isFileChecked,
-                  tristate: isFileTristate,
-                  onChanged: (val) => widget.controller.toggleSelectAllForFile(fileUri, val ?? false),
-                ),
-                Expanded(
-                  child: Text(
-                    displayPath,
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text('(${widget.itemsInFile.length})', style: theme.textTheme.bodySmall),
-                IconButton(
-                  icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 18),
-                  tooltip: _isFolded ? 'Unfold Results' : 'Fold Results',
-                  onPressed: () => setState(() => _isFolded = !_isFolded),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isFileChecked,
+                      tristate: isFileTristate,
+                      onChanged: (val) => widget.controller.toggleSelectAllForFile(fileUri, val ?? false),
+                    ),
+                    // No longer wrapping with Expanded, as the Column will handle layout.
+                    Flexible(
+                      child: Text(
+                        displayPath,
+                        // No more ellipsis, it will now wrap.
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8), // Give it some space
+                    Text('(${widget.itemsInFile.length})', style: theme.textTheme.bodySmall),
+                    IconButton(
+                      icon: Icon(_isFolded ? Icons.unfold_more : Icons.unfold_less, size: 18),
+                      tooltip: _isFolded ? 'Unfold Results' : 'Fold Results',
+                      onPressed: () => setState(() => _isFolded = !_isFolded),
+                    ),
+                  ],
                 ),
               ],
             ),
