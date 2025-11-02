@@ -693,7 +693,7 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
 
     final baseStyle = theme.textTheme.titleSmall;
     final normalColor = baseStyle?.color?.withOpacity(0.9);
-    final darkerColor = normalColor != null ? Color.lerp(normalColor, Colors.black, 0.25) : null;
+    final darkerColor = normalColor != null ? Color.lerp(normalColor, Colors.black, 0.1) : null;
     final separatorStyle = baseStyle?.copyWith(color: theme.dividerColor);
 
     for (int i = 0; i < segments.length; i++) {
