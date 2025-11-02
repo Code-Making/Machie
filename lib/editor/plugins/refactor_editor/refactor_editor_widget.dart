@@ -85,6 +85,10 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   
   @override
   Future<void> onFileOperation(FileOperationEvent event) async {
+    if (!mounted) {
+      return;
+    }
+    
     // We only care about rename events when this editor is active.
     if (event is FileRenameEvent) {
       await _promptForPathRefactor(event.oldFile, event.newFile);
@@ -100,6 +104,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   }
 
   Future<void> _promptForPathRefactor(ProjectDocumentFile oldFile, ProjectDocumentFile newFile) async {
+    if (!mounted) return;
+
     final repo = ref.read(projectRepositoryProvider);
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (repo == null || project == null || !mounted) return;
@@ -111,6 +117,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       context: context,
       builder: (_) => _PathRefactorDialog(oldPath: oldPath, newPath: newPath),
     );
+
+    if (!mounted) return;
 
     if (result != null) {
       _controller.setMode(RefactorMode.path);
@@ -329,7 +337,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       
       if (entry.isDirectory) {
         // Recursive call should not be awaited to allow parallel traversal
-        unawaited(_traverseAndSearch(directoryUri: entry.uri, onFileContent: onFileContent));
+        await _traverseAndSearch(directoryUri: entry.uri, onFileContent: onFileContent);
       } else {
         if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
           final content = await repo.readFile(entry.uri);
