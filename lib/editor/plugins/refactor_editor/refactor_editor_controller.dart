@@ -13,7 +13,6 @@ class RefactorController extends ChangeNotifier {
   bool isRegex;
   bool isCaseSensitive;
   bool autoOpenFiles;
-  // NEW: Controller now holds the mode.
   RefactorMode mode;
   SearchStatus searchStatus = SearchStatus.idle;
   
@@ -64,8 +63,6 @@ class RefactorController extends ChangeNotifier {
     notifyListeners();
   }
   
-  // ... (the rest of the controller is unchanged)
-
   void toggleItemSelection(RefactorResultItem item) {
     if (item.status != ResultStatus.pending) return;
     if (selectedItems.contains(item)) {
@@ -80,6 +77,18 @@ class RefactorController extends ChangeNotifier {
     selectedItems.clear();
     if (isSelected) {
       selectedItems.addAll(resultItems.where((item) => item.status == ResultStatus.pending));
+    }
+    notifyListeners();
+  }
+  
+  void toggleSelectAllForFile(String fileUri, bool shouldSelect) {
+    final itemsForFile = resultItems
+        .where((i) => i.occurrence.fileUri == fileUri && i.status == ResultStatus.pending);
+    
+    if (shouldSelect) {
+      selectedItems.addAll(itemsForFile);
+    } else {
+      selectedItems.removeAll(itemsForFile);
     }
     notifyListeners();
   }
