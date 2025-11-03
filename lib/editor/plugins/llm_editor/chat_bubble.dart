@@ -46,7 +46,7 @@ class ChatBubble extends ConsumerWidget {
 
     final backgroundColor =
         isUser
-            ? theme.colorScheme.primaryContainer.withOpacity(0.5)
+            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
             : theme.colorScheme.surface;
 
     return Container(
@@ -54,7 +54,7 @@ class ChatBubble extends ConsumerWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,7 +63,7 @@ class ChatBubble extends ConsumerWidget {
             key: displayMessage.headerKey,
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.05),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8.0),
                 topRight: Radius.circular(8.0),

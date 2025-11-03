@@ -1074,7 +1074,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             style: (span.style ?? style).copyWith(
               //color: Colors.cyan[300],
               decoration: TextDecoration.underline,
-              //decorationColor: Colors.cyan[300]?.withOpacity(0.5),
+              //decorationColor: Colors.cyan[300]?.withValues(alpha: 0.5),
             ),
             recognizer:
                 TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
@@ -1293,7 +1293,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             TextSpan(
               text: text[i],
               style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withOpacity(0.3),
+                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1382,7 +1382,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           return CodeFindPanelView(
             controller: controller,
             iconSelectedColor: colorScheme.primary,
-            iconColor: colorScheme.onSurface.withOpacity(0.6),
+            iconColor: colorScheme.onSurface.withValues(alpha: 0.6),
             readOnly: readOnly,
           );
         },

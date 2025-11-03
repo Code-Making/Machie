@@ -59,7 +59,7 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
     // Use a simple, non-highlighted style for code blocks during streaming.
     final codeTextStyle = TextStyle(
       fontFamily: codeEditorSettings.fontFamily,
-      backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+      backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
     );
 
     return Container(
@@ -67,7 +67,7 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +75,7 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.05),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8.0),
                 topRight: Radius.circular(8.0),

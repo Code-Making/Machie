@@ -909,7 +909,7 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
     final segments = path.split('/');
 
     final baseStyle = theme.textTheme.titleSmall;
-    final normalColor = baseStyle?.color?.withOpacity(0.9);
+    final normalColor = baseStyle?.color?.withValues(alpha: 0.9);
     final darkerColor =
         normalColor != null ? Color.lerp(normalColor, Colors.black, 0.1) : null;
     final separatorStyle = baseStyle?.copyWith(color: theme.dividerColor);
@@ -956,7 +956,7 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -969,7 +969,7 @@ class _FileResultCardState extends ConsumerState<_FileResultCard> {
               bottom: 4.0,
             ),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.05),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8.0),
                 topRight: Radius.circular(8.0),
