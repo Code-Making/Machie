@@ -1,10 +1,16 @@
 // FILE: lib/editor/services/text_editing_capability.dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import '../plugins/plugin_models.dart';
-import '../plugins/editor_command_context.dart';
-import '../../command/command_models.dart';
+
+// Package imports:
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
 import '../../app/app_notifier.dart';
+import '../../command/command_models.dart';
+import '../plugins/editor_command_context.dart';
+import '../plugins/plugin_models.dart';
 
 @immutable
 class TextPosition {
@@ -110,7 +116,7 @@ abstract mixin class TextEditable {
         break;
     }
   }
-  
+
   /// Returns the details of the current text selection, including its range and content.
   /// If the selection is collapsed (a cursor), the `range` will be null, and `content` will be empty.
   Future<TextSelectionDetails> getSelectionDetails();
@@ -143,10 +149,10 @@ abstract mixin class TextEditable {
   /// Replaces all substrings that match the given [pattern] with [replacement].
   /// The [pattern] can be a [String] or a [RegExp].
   void replaceAllPattern(Pattern pattern, String replacement);
-  
+
   /// Scrolls the editor to the specified [range] and highlights it as the current selection.
   void revealRange(TextRange range);
-  
+
   void batchReplaceRanges(List<ReplaceRangeEdit> edits);
 }
 

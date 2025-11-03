@@ -1,8 +1,12 @@
 // =========================================
 // NEW FILE: lib/editor/plugins/recipe_tex/recipe_tex_command_context.dart
 // =========================================
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart';
+
+// Project imports:
+import '../editor_command_context.dart';
 
 @immutable
 class RecipeTexCommandContext extends CommandContext {

@@ -1,37 +1,44 @@
 // =========================================
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
+
+// Dart imports:
 import 'dart:async';
 import 'dart:math';
 
+// Flutter imports:
 import 'package:flutter/gestures.dart';
-// <-- FIX: ADD THIS IMPORT for ValueListenable
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import 'code_themes.dart';
-import 'code_editor_models.dart';
-import 'code_editor_logic.dart';
-import 'code_editor_state.dart';
-import 'code_editor_plugin.dart'; // ADDED: For type cast
-import 'code_find_panel_view.dart';
-import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
-
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../editor/services/editor_service.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
+import 'code_editor_logic.dart';
+import 'code_editor_models.dart';
+import 'code_editor_state.dart';
+import 'code_find_panel_view.dart';
+import 'code_themes.dart';
+
+// <-- FIX: ADD THIS IMPORT for ValueListenable
+
+import 'code_editor_plugin.dart'; // ADDED: For type cast
+import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
+
 import '../../../editor/plugins/editor_command_context.dart'; // ADDED: For CommandButton
-import '../../../editor/services/editor_service.dart';
 import '../../../editor/services/text_editing_capability.dart'; // <-- ADD THIS IMPORT
 
-import '../../../app/app_notifier.dart';
 // ADDED: For Command class
 import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
-import '../../../settings/settings_notifier.dart';
-
-import '../../../data/repositories/project_repository.dart';
-import '../../../utils/toast.dart';
 
 import 'code_editor_hot_state_dto.dart'; // For serializeHotState
 
@@ -165,20 +172,20 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   Future<String> getSelectedText() async {
     return controller.selectedText; // <-- The fix is here
   }
-  
+
   @override
   void revealRange(TextRange range) {
     // 1. Convert our abstract TextPosition to the concrete re_editor CodeLine model.
     // Our TextPosition uses 1-based lines, which matches re_editor's CodeLine.
     final startPosition = CodeLinePosition(
-      index: range.start.line ,  // re_editor CodeLinePosition is 0-based for line
+      index: range.start.line, // re_editor CodeLinePosition is 0-based for line
       offset: range.start.column,
     );
     controller.selection = CodeLineSelection(
-        baseIndex: range.start.line,
-        baseOffset: range.start.column,
-        extentIndex: range.end.line,
-        extentOffset: range.end.column,
+      baseIndex: range.start.line,
+      baseOffset: range.start.column,
+      extentIndex: range.end.line,
+      extentOffset: range.end.column,
     );
 
     controller.makePositionCenterIfInvisible(startPosition);
@@ -245,7 +252,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (!mounted) return;
     controller.replaceAll(pattern, replacement);
   }
-  
+
   @override
   void batchReplaceRanges(List<ReplaceRangeEdit> edits) {
     // Sort edits in reverse order of their starting position. This is crucial

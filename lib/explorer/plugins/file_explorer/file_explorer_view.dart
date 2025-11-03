@@ -1,10 +1,16 @@
 // lib/explorer/plugins/file_explorer/file_explorer_view.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/project/project_models.dart';
-import 'package:machine/explorer/common/file_operations_footer.dart';
-import 'package:machine/explorer/common/file_explorer_widgets.dart';
+
+// Project imports:
+import '../../../data/file_handler/file_handler.dart';
+import '../../common/file_explorer_widgets.dart';
+import '../../common/file_operations_footer.dart';
+import '../../../project/project_models.dart';
 
 class FileExplorerView extends ConsumerStatefulWidget {
   final Project project;

@@ -3,11 +3,18 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_models.dart
+
+// Dart imports:
 import 'dart:typed_data';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
-// import '../../../data/file_handler/file_handler.dart'; // REMOVED
+
+// Project imports:
 import '../../editor_tab_models.dart';
 import 'glitch_editor_widget.dart';
+
+// import '../../../data/file_handler/file_handler.dart'; // REMOVED
 
 @immutable
 class GlitchEditorTab extends EditorTab {

@@ -1,4 +1,6 @@
 // lib/plugins/glitch_editor/glitch_editor_math.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
 
 /// Transforms a point from the widget's local coordinate space to the

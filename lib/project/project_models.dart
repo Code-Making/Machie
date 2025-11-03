@@ -2,14 +2,18 @@
 // FILE: lib/project/project_models.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import '../editor/editor_tab_models.dart';
-// ADDED for EditorPlugin
-import '../explorer/explorer_workspace_state.dart';
+
+// Project imports:
 import '../data/file_handler/file_handler.dart';
-import '../editor/tab_state_manager.dart';
-import 'package:machine/data/dto/project_dto.dart'; // ADDED
+import '../editor/editor_tab_models.dart';
 import '../editor/services/file_content_provider.dart';
+import '../editor/tab_state_manager.dart';
+import '../explorer/explorer_workspace_state.dart';
+
+// ADDED for EditorPlugin
+import '../data/dto/project_dto.dart'; // ADDED
 
 // ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
 class IncompleteDocumentFile implements DocumentFile {

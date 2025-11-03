@@ -2,19 +2,24 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_file_content_provider.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 
-// Imports from dart_git
+// Package imports:
+import 'package:crypto/crypto.dart';
 import 'package:dart_git/dart_git.dart';
 
-// Imports from the machine app
+// Project imports:
+import '../../../data/dto/project_dto.dart';
+import '../../../data/file_handler/file_handler.dart';
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/plugin_models.dart';
 import '../../../editor/services/file_content_provider.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../data/dto/project_dto.dart';
 import 'git_object_file.dart';
+
+// Imports from dart_git
+
+// Imports from the machine app
 
 /// Provides the content for virtual files that represent objects in the Git database.
 class GitFileContentProvider implements FileContentProvider, IRehydratable {
@@ -27,25 +32,31 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
   Map<Type, String> get typeMappings => {GitObjectDocumentFile: 'git_object'};
 
   @override
-  Future<EditorContentResult> getContent(DocumentFile file, PluginDataRequirement requirement) async {
+  Future<EditorContentResult> getContent(
+    DocumentFile file,
+    PluginDataRequirement requirement,
+  ) async {
     if (file is! GitObjectDocumentFile) {
-      throw ArgumentError('GitFileContentProvider can only handle GitObjectDocumentFile');
+      throw ArgumentError(
+        'GitFileContentProvider can only handle GitObjectDocumentFile',
+      );
     }
 
     // Use the injected dependency directly. All calls are now async.
     final blob = await _gitRepo.objStorage.readBlob(file.objectHash);
     final bytes = blob.blobData;
 
-    final content = (requirement == PluginDataRequirement.bytes)
-        ? EditorContentBytes(bytes)
-        : EditorContentString(utf8.decode(bytes, allowMalformed: true));
+    final content =
+        (requirement == PluginDataRequirement.bytes)
+            ? EditorContentBytes(bytes)
+            : EditorContentString(utf8.decode(bytes, allowMalformed: true));
 
     return EditorContentResult(
       content: content,
       baseContentHash: md5.convert(bytes).toString(),
     );
   }
-  
+
   /// Saving is not supported for historical Git objects.
   /// Throws RequiresSaveAsException to prompt the user to save it as a new file.
   @override

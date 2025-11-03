@@ -1,28 +1,36 @@
 // FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
-import 'dart:convert';
+// Dart imports:
 import 'dart:async';
-import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/editor/editor_tab_models.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_controller.dart'; // NEW
-import 'package:machine/editor/plugins/llm_editor/llm_editor_hot_state.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/providers/llm_provider_factory.dart';
-import 'package:machine/editor/services/editor_service.dart';
-import 'package:machine/explorer/common/file_explorer_dialogs.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'package:machine/utils/toast.dart';
+import 'dart:convert';
 
-import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
-import 'package:machine/editor/plugins/llm_editor/chat_bubble.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_dialogs.dart';
-import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
-import 'package:machine/editor/plugins/llm_editor/streaming_chat_bubble.dart';
-import 'package:machine/editor/plugins/llm_editor/editing_chat_bubble.dart'; // NEW IMPORT
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
+
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../editor_tab_models.dart';
+import 'chat_bubble.dart';
+import 'context_widgets.dart';
+import 'llm_editor_dialogs.dart';
+import 'llm_editor_hot_state.dart';
+import 'llm_editor_models.dart';
+import 'llm_editor_types.dart';
+import 'providers/llm_provider_factory.dart';
+import 'streaming_chat_bubble.dart';
+import '../../services/editor_service.dart';
+import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+
+import 'llm_editor_controller.dart'; // NEW
+
+import 'editing_chat_bubble.dart'; // NEW IMPORT
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 
@@ -103,7 +111,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final bool contentDidChange = _controller.consumeContentChangeFlag();
 
     if (contentDidChange) {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
+      final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
         ref.read(editorServiceProvider).markCurrentTabDirty();
         ref
@@ -533,11 +541,11 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
       target ??= targets.last;
     }
 
-      _scrollController.animateTo(
-        target.offset,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+    _scrollController.animateTo(
+      target.offset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _scrollToBottom() {

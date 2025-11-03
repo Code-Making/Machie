@@ -2,10 +2,16 @@
 // UPDATED: lib/editor/plugins/llm_editor/providers/llm_provider.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
+
+// Package imports:
 import 'package:http/http.dart' as http;
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart'; // ADDED
+
+// Project imports:
+import '../llm_editor_models.dart';
+
+import '../llm_editor_types.dart'; // ADDED
 
 abstract class LlmProvider {
   String get id;

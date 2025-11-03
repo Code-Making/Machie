@@ -2,18 +2,22 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_explorer_view.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Package imports:
 import 'package:dart_git/dart_git.dart';
-import 'package:machine/utils/toast.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+// Project imports:
+import '../../../utils/toast.dart';
 import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
 import '../../../widgets/file_list_view.dart' as generic;
-import 'git_provider.dart';
-import 'git_object_file.dart';
 import 'git_explorer_state.dart';
+import 'git_object_file.dart';
+import 'git_provider.dart';
 
 // ... (GitExplorerView is unchanged) ...
 class GitExplorerView extends ConsumerWidget {
@@ -30,14 +34,19 @@ class GitExplorerView extends ConsumerWidget {
 
     return gitRepoAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error loading Git repository:\n$err')),
+      error:
+          (err, stack) =>
+              Center(child: Text('Error loading Git repository:\n$err')),
       data: (gitRepo) {
         if (gitRepo == null) {
-          return const Center(child: Text('This project is not a Git repository.'));
+          return const Center(
+            child: Text('This project is not a Git repository.'),
+          );
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (context.mounted && ref.read(gitHistoryStartHashProvider) == null) {
+          if (context.mounted &&
+              ref.read(gitHistoryStartHashProvider) == null) {
             final headHash = await gitRepo.headHash();
             ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
             ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
@@ -46,7 +55,7 @@ class GitExplorerView extends ConsumerWidget {
             ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
           }
         });
-        
+
         return const Column(
           children: [
             _CurrentCommitDisplay(),
@@ -59,7 +68,6 @@ class GitExplorerView extends ConsumerWidget {
   }
 }
 
-
 // _CurrentCommitDisplay is unchanged
 class _CurrentCommitDisplay extends ConsumerWidget {
   const _CurrentCommitDisplay();
@@ -68,28 +76,50 @@ class _CurrentCommitDisplay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedHash = ref.watch(selectedGitCommitHashProvider);
     if (selectedHash == null) {
-      return const SizedBox(height: 64, child: Center(child: LinearProgressIndicator()));
+      return const SizedBox(
+        height: 64,
+        child: Center(child: LinearProgressIndicator()),
+      );
     }
-    
-    final commitDetailsAsync = ref.watch(gitCommitDetailsProvider(selectedHash));
+
+    final commitDetailsAsync = ref.watch(
+      gitCommitDetailsProvider(selectedHash),
+    );
 
     return commitDetailsAsync.when(
       data: (selectedCommit) {
         if (selectedCommit == null) {
           return ListTile(
-            title: const Text('Commit not found', style: TextStyle(color: Colors.red)),
-            subtitle: Text(selectedHash.toString(), style: const TextStyle(fontFamily: 'JetBrainsMono')),
+            title: const Text(
+              'Commit not found',
+              style: TextStyle(color: Colors.red),
+            ),
+            subtitle: Text(
+              selectedHash.toString(),
+              style: const TextStyle(fontFamily: 'JetBrainsMono'),
+            ),
             trailing: _buildHistoryButton(context),
           );
         }
         return ListTile(
-          title: Text(selectedCommit.message.split('\n').first, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('${selectedHash.toOid()} by ${selectedCommit.author.name}', style: const TextStyle(fontFamily: 'JetBrainsMono')),
+          title: Text(
+            selectedCommit.message.split('\n').first,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            '${selectedHash.toOid()} by ${selectedCommit.author.name}',
+            style: const TextStyle(fontFamily: 'JetBrainsMono'),
+          ),
           trailing: _buildHistoryButton(context),
           isThreeLine: false,
         );
       },
-      loading: () => const SizedBox(height: 64, child: Center(child: LinearProgressIndicator())),
+      loading:
+          () => const SizedBox(
+            height: 64,
+            child: Center(child: LinearProgressIndicator()),
+          ),
       error: (e, st) => ListTile(title: Text('Error: $e')),
     );
   }
@@ -113,7 +143,8 @@ class _CurrentCommitDisplay extends ConsumerWidget {
 class _CommitHistorySheet extends ConsumerStatefulWidget {
   const _CommitHistorySheet();
   @override
-  ConsumerState<_CommitHistorySheet> createState() => _CommitHistorySheetState();
+  ConsumerState<_CommitHistorySheet> createState() =>
+      _CommitHistorySheetState();
 }
 
 class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
@@ -146,13 +177,18 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
     final navigator = Navigator.of(context);
     final gitRepo = await ref.read(gitRepositoryProvider.future);
     if (gitRepo == null) return;
-    
+
     final startHash = ref.read(gitHistoryStartHashProvider);
     if (startHash == null) return;
 
     // Step 1: Try to find a unique prefix match in the currently loaded commits.
-    final loadedCommits = ref.read(paginatedCommitsProvider(startHash)).valueOrNull?.commits ?? [];
-    final matches = loadedCommits.where((c) => c.hash.toString().startsWith(input)).toList();
+    final loadedCommits =
+        ref.read(paginatedCommitsProvider(startHash)).valueOrNull?.commits ??
+        [];
+    final matches =
+        loadedCommits
+            .where((c) => c.hash.toString().startsWith(input))
+            .toList();
 
     if (matches.length == 1) {
       final fullHash = matches.first.hash;
@@ -162,7 +198,9 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       return;
     }
     if (matches.length > 1) {
-      MachineToast.error("Ambiguous short hash. Please provide more characters.");
+      MachineToast.error(
+        "Ambiguous short hash. Please provide more characters.",
+      );
       return;
     }
 
@@ -179,7 +217,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       MachineToast.error("Invalid or unknown commit hash");
     }
   }
-  
+
   Future<void> _jumpToHead() async {
     final navigator = Navigator.of(context);
     try {
@@ -193,7 +231,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
       MachineToast.error("Could not find HEAD commit");
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     // ... (rest of the build method is unchanged) ...
@@ -204,14 +242,16 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
 
     final stateAsync = ref.watch(paginatedCommitsProvider(startHash));
     final selectedHash = ref.watch(selectedGitCommitHashProvider);
-    
+
     _itemPositionsListener.itemPositions.addListener(() {
       final positions = _itemPositionsListener.itemPositions.value;
       if (positions.isEmpty) return;
-      final lastVisible = positions.map((p) => p.index).reduce((max, p) => p > max ? p : max);
+      final lastVisible = positions
+          .map((p) => p.index)
+          .reduce((max, p) => p > max ? p : max);
       final totalItems = stateAsync.valueOrNull?.commits.length ?? 0;
       if (lastVisible >= totalItems - 5) {
-         ref.read(paginatedCommitsProvider(startHash).notifier).fetchNextPage();
+        ref.read(paginatedCommitsProvider(startHash).notifier).fetchNextPage();
       }
     });
 
@@ -231,47 +271,76 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
     });
 
     return DraggableScrollableSheet(
-      expand: false, initialChildSize: 0.8, maxChildSize: 0.9,
-      builder: (_, __) => Scaffold(
-        appBar: AppBar(
-          primary: false, automaticallyImplyLeading: false,
-          title: TextField(controller: _textController, decoration: const InputDecoration(hintText: 'Find commit by hash...'), onSubmitted: _submitHash, style: const TextStyle(fontFamily: 'JetBrainsMono')),
-          actions: [
-            IconButton(onPressed: _jumpToHead, icon: const Icon(Icons.vertical_align_top), tooltip: 'Jump to HEAD'),
-            IconButton(onPressed: () => _submitHash(_textController.text), icon: const Icon(Icons.search)),
-          ],
-        ),
-        body: stateAsync.when(
-          data: (state) => ScrollablePositionedList.builder(
-            itemScrollController: _itemScrollController,
-            itemPositionsListener: _itemPositionsListener,
-            itemCount: state.commits.length + (state.hasMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == state.commits.length) {
-                return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
-              }
-              final commit = state.commits[index];
-              final isSelected = commit.hash == selectedHash;
-              return ListTile(
-                selected: isSelected,
-                selectedTileColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                title: Text(commit.message.split('\n').first),
-                subtitle: Text('${commit.hash.toOid()} by ${commit.author.name}'),
-                onTap: () {
-                  ref.read(selectedGitCommitHashProvider.notifier).state = commit.hash;
-                  Navigator.pop(context);
-                },
-              );
-            },
+      expand: false,
+      initialChildSize: 0.8,
+      maxChildSize: 0.9,
+      builder:
+          (_, __) => Scaffold(
+            appBar: AppBar(
+              primary: false,
+              automaticallyImplyLeading: false,
+              title: TextField(
+                controller: _textController,
+                decoration: const InputDecoration(
+                  hintText: 'Find commit by hash...',
+                ),
+                onSubmitted: _submitHash,
+                style: const TextStyle(fontFamily: 'JetBrainsMono'),
+              ),
+              actions: [
+                IconButton(
+                  onPressed: _jumpToHead,
+                  icon: const Icon(Icons.vertical_align_top),
+                  tooltip: 'Jump to HEAD',
+                ),
+                IconButton(
+                  onPressed: () => _submitHash(_textController.text),
+                  icon: const Icon(Icons.search),
+                ),
+              ],
+            ),
+            body: stateAsync.when(
+              data:
+                  (state) => ScrollablePositionedList.builder(
+                    itemScrollController: _itemScrollController,
+                    itemPositionsListener: _itemPositionsListener,
+                    itemCount: state.commits.length + (state.hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == state.commits.length) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      final commit = state.commits[index];
+                      final isSelected = commit.hash == selectedHash;
+                      return ListTile(
+                        selected: isSelected,
+                        selectedTileColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.2),
+                        title: Text(commit.message.split('\n').first),
+                        subtitle: Text(
+                          '${commit.hash.toOid()} by ${commit.author.name}',
+                        ),
+                        onTap: () {
+                          ref
+                              .read(selectedGitCommitHashProvider.notifier)
+                              .state = commit.hash;
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, st) => Center(child: Text("Error: $e")),
+            ),
           ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, st) => Center(child: Text("Error: $e")),
-        ),
-      ),
     );
   }
 }
-
 
 // ... (_GitRecursiveDirectoryView is unchanged) ...
 class _GitRecursiveDirectoryView extends ConsumerWidget {
@@ -294,12 +363,16 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
           depth: depth,
           onFileTapped: (file) async {
             final navigator = Navigator.of(context);
-            final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+            final success = await ref
+                .read(appNotifierProvider.notifier)
+                .openFileInEditor(file);
             if (success && context.mounted) navigator.pop();
           },
           onExpansionChanged: (directory, isExpanded) {
             final path = (directory as GitObjectDocumentFile).pathInRepo;
-            final notifier = ref.read(gitExplorerExpandedFoldersProvider.notifier);
+            final notifier = ref.read(
+              gitExplorerExpandedFoldersProvider.notifier,
+            );
             if (isExpanded) {
               ref.read(gitTreeCacheProvider.notifier).loadDirectory(path);
               notifier.update((state) => {...state, path});
@@ -308,7 +381,10 @@ class _GitRecursiveDirectoryView extends ConsumerWidget {
             }
           },
           directoryChildrenBuilder: (directory) {
-            return _GitRecursiveDirectoryView(pathInRepo: (directory as GitObjectDocumentFile).pathInRepo, depth: depth + 1);
+            return _GitRecursiveDirectoryView(
+              pathInRepo: (directory as GitObjectDocumentFile).pathInRepo,
+              depth: depth + 1,
+            );
           },
         );
       },

@@ -3,9 +3,16 @@
 // =========================================
 
 // lib/editor/tab_state_manager.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
 import '../data/file_handler/file_handler.dart';
+
 import '../project/project_models.dart'; // ADDED
 
 @immutable

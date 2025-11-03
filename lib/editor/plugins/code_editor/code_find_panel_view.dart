@@ -1,8 +1,14 @@
 // =========================================
 // UPDATED: lib/editor/plugins/code_editor/code_find_panel_view.dart
 // =========================================
+
+// Dart imports:
 import 'dart:math';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:re_editor/re_editor.dart';
 
 class CodeFindAppBar extends StatelessWidget {

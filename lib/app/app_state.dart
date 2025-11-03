@@ -2,13 +2,19 @@
 // UPDATED: lib/app/app_state.dart
 // =========================================
 
-import 'package:collection/collection.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
+
+// Project imports:
+import '../editor/services/file_content_provider.dart';
 import '../project/project_models.dart';
+
 import '../data/dto/app_state_dto.dart'; // ADDED
 import '../data/dto/project_dto.dart'; // ADDED
 import '../editor/tab_state_manager.dart'; // ADDED
-import '../editor/services/file_content_provider.dart';
 
 @immutable
 class AppState {

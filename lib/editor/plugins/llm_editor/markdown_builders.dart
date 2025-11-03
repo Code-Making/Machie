@@ -1,17 +1,21 @@
+// Flutter imports:
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// Package imports:
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
-import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'package:machine/utils/toast.dart';
-import 'package:markdown/markdown.dart' as md;
 
-import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
+// Project imports:
+import '../code_editor/code_editor_models.dart';
+import '../code_editor/code_themes.dart';
+import 'llm_highlight_util.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
 import '../../services/editor_service.dart';
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
@@ -169,9 +173,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
         return PathLinkBuilder._createLinkedSpansForText(
           text: span.text ?? '',
           style: span.style!,
-          onTap:
-              (path) =>
-                  ref.read(editorServiceProvider).openOrCreate(path),
+          onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
           ref: ref,
         );
       }
@@ -382,9 +384,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     final spans = _createLinkedSpansForText(
       text: element.textContent,
       style: baseStyle,
-      onTap:
-          (path) =>
-              ref.read(editorServiceProvider).openOrCreate(path),
+      onTap: (path) => ref.read(editorServiceProvider).openOrCreate(path),
       ref: ref,
     );
 

@@ -1,5 +1,8 @@
-import 'package:fluttertoast/fluttertoast.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:fluttertoast/fluttertoast.dart';
 
 class MachineToast {
   static void info(String message) {

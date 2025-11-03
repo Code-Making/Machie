@@ -3,26 +3,33 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_plugin.dart
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:typed_data';
-import 'dart:async';
 
+// Dart imports:
+import 'dart:async';
+import 'dart:typed_data';
+
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../editor_command_context.dart';
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
+import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import '../plugin_models.dart';
-import 'glitch_editor_models.dart';
-import 'glitch_editor_widget.dart';
 import '../../tab_state_manager.dart';
-import '../../../data/cache/type_adapters.dart';
+import '../plugin_models.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart';
+import 'glitch_editor_models.dart';
 import 'glitch_editor_state.dart';
+import 'glitch_editor_widget.dart';
 
 class GlitchEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.glitch_editor';

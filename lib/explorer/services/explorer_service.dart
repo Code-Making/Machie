@@ -1,19 +1,20 @@
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
+import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../explorer/explorer_workspace_state.dart';
+import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../utils/clipboard.dart';
-import '../../data/dto/project_dto.dart';
-import '../../logs/logs_provider.dart';
 import '../../utils/toast.dart';
 
 // Any class that wants to be notified of file events will implement this.
 mixin FileOperationEventListener {
   Future<void> onFileOperation(FileOperationEvent event);
 }
-
 
 final explorerServiceProvider = Provider<ExplorerService>((ref) {
   return ExplorerService(ref);
@@ -25,7 +26,10 @@ class ExplorerService {
 
   ExplorerService(this._ref) {
     // The service itself becomes the single, persistent listener to the global stream.
-    _ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
+    _ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (
+      _,
+      next,
+    ) {
       next.whenData((event) {
         _dispatchEvent(event);
       });

@@ -1,9 +1,13 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../../settings/settings_notifier.dart';
-import 'code_themes.dart';
 import 'code_editor_models.dart';
+import 'code_themes.dart';
 
 class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   final CodeEditorSettings settings;

@@ -1,8 +1,10 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_models.dart
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+// Project imports:
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/plugin_models.dart';
 import 'refactor_editor_widget.dart';
@@ -17,14 +19,17 @@ class RefactorSettings extends PluginSettings {
     Set<String>? supportedExtensions,
     Set<String>? ignoredGlobPatterns,
     this.useProjectGitignore = true,
-  })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
-        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+  }) : supportedExtensions =
+           supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
+       ignoredGlobPatterns =
+           ignoredGlobPatterns ??
+           {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
   @override
   void fromJson(Map<String, dynamic> json) {
     final legacyIgnored = List<String>.from(json['ignoredFolders'] ?? []);
     final currentIgnored = List<String>.from(json['ignoredGlobPatterns'] ?? []);
-    
+
     supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
     ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet();
     useProjectGitignore = json['useProjectGitignore'] as bool? ?? true;
@@ -32,10 +37,10 @@ class RefactorSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'supportedExtensions': supportedExtensions.toList(),
-        'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
-        'useProjectGitignore': useProjectGitignore,
-      };
+    'supportedExtensions': supportedExtensions.toList(),
+    'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
+    'useProjectGitignore': useProjectGitignore,
+  };
 }
 
 /// Represents a single occurrence of a search term within a file.
@@ -76,10 +81,7 @@ class RefactorResultItem {
     this.failureReason,
   });
 
-  RefactorResultItem copyWith({
-    ResultStatus? status,
-    String? failureReason,
-  }) {
+  RefactorResultItem copyWith({ResultStatus? status, String? failureReason}) {
     return RefactorResultItem(
       occurrence: occurrence,
       status: status ?? this.status,

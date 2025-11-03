@@ -3,21 +3,28 @@
 // =========================================
 
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
-import 'dart:typed_data';
+
+// Dart imports:
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
+
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
-import 'package:machine/editor/services/editor_service.dart';
+
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../services/editor_service.dart';
+import '../../tab_state_manager.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
+
+import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
+import '../editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
 import 'glitch_editor_state.dart'; // <-- ADD STATE IMPORT
 import 'glitch_editor_hot_state_dto.dart'; // <-- ADD STATE IMPORT
 import '../../editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
-import '../../tab_state_manager.dart';
 
 class GlitchEditorWidget extends EditorWidget {
   @override

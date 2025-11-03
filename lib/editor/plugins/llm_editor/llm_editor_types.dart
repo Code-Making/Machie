@@ -1,6 +1,11 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
+
+// Package imports:
 import 'package:uuid/uuid.dart';
+
+// Project imports:
+import 'llm_editor_models.dart';
 
 class DisplayMessage {
   final String id;

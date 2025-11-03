@@ -1,7 +1,12 @@
+// Dart imports:
 import 'dart:collection';
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
+
+// Project imports:
+import 'llm_editor_models.dart';
+import 'llm_editor_types.dart';
 
 class LlmEditorController extends ChangeNotifier {
   final List<DisplayMessage> _displayMessages = [];
@@ -23,7 +28,7 @@ class LlmEditorController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get editingMessageId => _editingMessageId; // NEW: Public getter.
 
-// --- NEW ---
+  // --- NEW ---
   /// Consumes the content change flag, returning its value and resetting it.
   bool consumeContentChangeFlag() {
     if (_contentChanged) {
@@ -65,7 +70,7 @@ class LlmEditorController extends ChangeNotifier {
 
   void addMessage(ChatMessage message) {
     _displayMessages.add(DisplayMessage.fromChatMessage(message));
-      _notify(contentChanged: true); // Content changed
+    _notify(contentChanged: true); // Content changed
   }
 
   void startStreamingPlaceholder() {
@@ -75,7 +80,7 @@ class LlmEditorController extends ChangeNotifier {
         const ChatMessage(role: 'assistant', content: ''),
       ),
     );
-      _notify(contentChanged: true); // Content changed
+    _notify(contentChanged: true); // Content changed
   }
 
   void appendChunkToStreamingMessage(String chunk) {
@@ -97,7 +102,7 @@ class LlmEditorController extends ChangeNotifier {
       message: updatedMessage,
     );
 
-      _notify(contentChanged: true); // Content changed
+    _notify(contentChanged: true); // Content changed
   }
 
   void finalizeStreamingMessage(ChatMessage finalMessage) {
@@ -113,7 +118,7 @@ class LlmEditorController extends ChangeNotifier {
       message: finalMessage,
     );
 
-      _notify(contentChanged: true); // Content changed
+    _notify(contentChanged: true); // Content changed
   }
 
   void toggleMessageFold(String messageId) {
@@ -140,7 +145,7 @@ class LlmEditorController extends ChangeNotifier {
     _isLoading = false;
     // We notify listeners to potentially change the UI (e.g., hide a progress indicator)
     // even if the content hasn't changed.
-      _notify(); // UI change only
+    _notify(); // UI change only
   }
 
   void updateMessage(int index, ChatMessage newMessage) {

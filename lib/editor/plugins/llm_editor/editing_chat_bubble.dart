@@ -1,13 +1,18 @@
 // CREATE NEW FILE: lib/editor/plugins/llm_editor/editing_chat_bubble.dart
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_dialogs.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
+
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
+import 'context_widgets.dart';
+import 'llm_editor_dialogs.dart';
+import 'llm_editor_models.dart';
 
 class EditingChatBubble extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;

@@ -2,11 +2,14 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_storage_provider.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
 import 'dart:typed_data';
 
+// Package imports:
 import 'package:dart_git/dart_git.dart';
 
+// Project imports:
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/project_models.dart';
 
@@ -25,7 +28,6 @@ class AppStorageHandle extends StorageHandle {
   String get uri => file.uri;
 }
 
-
 class AppStorageProvider implements GitStorageProvider {
   final FileHandler _fileHandler;
 
@@ -33,9 +35,13 @@ class AppStorageProvider implements GitStorageProvider {
 
   @override
   Future<StorageHandle> resolve(StorageHandle base, String relativePath) async {
-    if (base is! AppStorageHandle) throw 'Invalid handle type for AppStorageProvider';
+    if (base is! AppStorageHandle)
+      throw 'Invalid handle type for AppStorageProvider';
 
-    final resolvedFile = await _fileHandler.resolvePath(base.file.uri, relativePath);
+    final resolvedFile = await _fileHandler.resolvePath(
+      base.file.uri,
+      relativePath,
+    );
     if (resolvedFile != null) {
       return AppStorageHandle(resolvedFile);
     }
@@ -62,7 +68,7 @@ class AppStorageProvider implements GitStorageProvider {
     // reading the whole file into memory.
     return _fileHandler.readFileAsBytesRange(handle.file.uri, start, end);
   }
-  
+
   @override
   Future<void> write(StorageHandle handle, Stream<List<int>> data) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
@@ -84,7 +90,10 @@ class AppStorageProvider implements GitStorageProvider {
   @override
   Future<List<StorageHandle>> list(StorageHandle handle) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
-    final children = await _fileHandler.listDirectory(handle.file.uri, includeHidden:true);
+    final children = await _fileHandler.listDirectory(
+      handle.file.uri,
+      includeHidden: true,
+    );
     return children.map((file) => AppStorageHandle(file)).toList();
   }
 
@@ -102,7 +111,10 @@ class AppStorageProvider implements GitStorageProvider {
     }
 
     return StorageStat(
-      type: metadata.isDirectory ? StorageEntryType.directory : StorageEntryType.file,
+      type:
+          metadata.isDirectory
+              ? StorageEntryType.directory
+              : StorageEntryType.file,
       size: metadata.size,
       modificationTime: metadata.modifiedDate,
     );
@@ -124,11 +136,18 @@ class AppStorageProvider implements GitStorageProvider {
   }
 
   @override
-  Future<void> createDirectory(StorageHandle handle, {bool recursive = false}) async {
+  Future<void> createDirectory(
+    StorageHandle handle, {
+    bool recursive = false,
+  }) async {
     if (handle is! AppStorageHandle) throw 'Invalid handle type';
     final parentUri = _fileHandler.getParentUri(handle.file.uri);
     final dirName = _fileHandler.getFileName(handle.file.uri);
-    await _fileHandler.createDocumentFile(parentUri, dirName, isDirectory: true);
+    await _fileHandler.createDocumentFile(
+      parentUri,
+      dirName,
+      isDirectory: true,
+    );
   }
 
   @override
@@ -138,7 +157,11 @@ class AppStorageProvider implements GitStorageProvider {
 
   @override
   Future<String> relativePath(StorageHandle base, StorageHandle child) async {
-    if (base is! AppStorageHandle || child is! AppStorageHandle) throw 'Invalid handle type';
-    return _fileHandler.getPathForDisplay(child.file.uri, relativeTo: base.file.uri);
+    if (base is! AppStorageHandle || child is! AppStorageHandle)
+      throw 'Invalid handle type';
+    return _fileHandler.getPathForDisplay(
+      child.file.uri,
+      relativeTo: base.file.uri,
+    );
   }
 }

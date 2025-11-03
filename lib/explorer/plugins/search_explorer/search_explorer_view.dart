@@ -1,25 +1,32 @@
 // lib/explorer/plugins/search_explorer/search_explorer_view.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/project/project_models.dart';
-import 'package:machine/project/services/project_hierarchy_service.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-// THE FIX: Import the new generic widgets file.
-import 'package:machine/widgets/file_list_view.dart';
-import 'search_explorer_state.dart';
-// lib/explorer/plugins/search_explorer/search_explorer_view.dart
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/project/project_models.dart';
-import 'package:machine/project/services/project_hierarchy_service.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/widgets/file_list_view.dart';
-import 'search_explorer_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../../app/app_notifier.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../project/project_models.dart';
+import '../../../project/project_models.dart';
+import '../../../project/services/project_hierarchy_service.dart';
+import '../../../project/services/project_hierarchy_service.dart';
+import '../../../widgets/file_list_view.dart';
+import '../../../widgets/file_list_view.dart';
 import '../../common/file_explorer_widgets.dart';
+import 'search_explorer_state.dart';
+import 'search_explorer_state.dart';
+
+// THE FIX: Import the new generic widgets file.
+// lib/explorer/plugins/search_explorer/search_explorer_view.dart
 
 class SearchExplorerView extends ConsumerStatefulWidget {
   final Project project;
@@ -98,9 +105,12 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                     relativeTo: projectRootUri,
                   );
                   final pathSegments = relativePath.split('/');
-                  final subtitle = pathSegments.length > 1
-                      ? pathSegments.sublist(0, pathSegments.length - 1).join('/')
-                      : '.';
+                  final subtitle =
+                      pathSegments.length > 1
+                          ? pathSegments
+                              .sublist(0, pathSegments.length - 1)
+                              .join('/')
+                          : '.';
 
                   // 1. Create the base, generic FileItem widget.
                   final fileItemWidget = FileItem(
@@ -109,7 +119,9 @@ class _SearchExplorerViewState extends ConsumerState<SearchExplorerView> {
                     subtitle: subtitle,
                     onTapped: () async {
                       final navigator = Navigator.of(context);
-                      final success = await ref.read(appNotifierProvider.notifier).openFileInEditor(file);
+                      final success = await ref
+                          .read(appNotifierProvider.notifier)
+                          .openFileInEditor(file);
                       if (success && context.mounted) {
                         navigator.pop(); // Close the drawer
                       }

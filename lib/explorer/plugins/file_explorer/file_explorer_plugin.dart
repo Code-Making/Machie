@@ -1,11 +1,18 @@
 // lib/explorer/plugins/file_explorer/file_explorer_plugin.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../../../editor/services/file_content_provider.dart';
 import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
-import 'file_explorer_state.dart'; // REFACTOR: Keep for the settings model
 import 'file_explorer_view.dart';
-import '../../../editor/services/file_content_provider.dart';
+
+import 'file_explorer_state.dart'; // REFACTOR: Keep for the settings model
 
 class FileExplorerPlugin implements ExplorerPlugin {
   @override
@@ -22,7 +29,8 @@ class FileExplorerPlugin implements ExplorerPlugin {
   final ExplorerPluginSettings? settings = FileExplorerSettings();
 
   @override
-  List<FileContentProvider Function(Ref ref)> get fileContentProviderFactories => [];
+  List<FileContentProvider Function(Ref ref)>
+  get fileContentProviderFactories => [];
 
   @override
   Widget build(WidgetRef ref, Project project) {

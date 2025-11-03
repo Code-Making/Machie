@@ -1,4 +1,7 @@
+// Dart imports:
 import 'dart:typed_data';
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
 
 class PermissionDeniedException implements Exception {
@@ -85,12 +88,11 @@ abstract class FileHandler {
   );
 
   Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
-      createDirectoryAndFile(
+  createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
   });
-
 
   String getParentUri(String uri);
   String getFileName(String uri);

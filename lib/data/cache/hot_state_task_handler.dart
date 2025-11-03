@@ -2,8 +2,13 @@
 // FINAL CORRECTED FILE: lib/data/cache/hot_state_task_handler.dart
 // =========================================
 import 'dart:async'; // Import for Timer
+
+// Package imports:
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:machine/data/cache/hive_cache_repository.dart';
+
+// Project imports:
+import 'hive_cache_repository.dart';
+
 import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
 
 // The service's private, in-memory copy of unsaved data.

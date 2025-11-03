@@ -1,16 +1,20 @@
 // FILE: lib/editor/plugins/llm_editor/llm_editor_dialogs.dart
 
-import 'package:collection/collection.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/project/services/project_hierarchy_service.dart';
 
-import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
+// Package imports:
+import 'package:collection/collection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../../../app/app_notifier.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../code_editor/code_themes.dart';
+import 'context_widgets.dart';
+import 'llm_editor_models.dart';
+import '../../../project/services/project_hierarchy_service.dart';
 
 // NEW: Provider to remember the last path within the current session.
 final filePickerLastPathProvider = StateProvider<String?>((ref) => null);

@@ -2,8 +2,13 @@
 // NEW FILE: lib/editor/tab_context_commands.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
 import '../app/app_notifier.dart';
 import '../command/command_models.dart';
 
@@ -23,7 +28,8 @@ class AppTabContextCommands {
         },
         executeFor: (ref, activeTab, targetTab) async {
           final notifier = ref.read(appNotifierProvider.notifier);
-          final tabs = ref.read(appNotifierProvider).value!.currentProject!.session.tabs;
+          final tabs =
+              ref.read(appNotifierProvider).value!.currentProject!.session.tabs;
           final targetIndex = tabs.indexOf(targetTab);
 
           final indicesToClose = <int>[];

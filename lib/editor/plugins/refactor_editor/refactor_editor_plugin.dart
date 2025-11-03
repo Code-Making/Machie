@@ -2,10 +2,16 @@
 // UPDATED: lib/editor/plugins/refactor_editor/refactor_editor_plugin.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
@@ -16,8 +22,9 @@ import '../../../editor/services/editor_service.dart';
 import '../../../project/project_models.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
-import 'refactor_editor_settings_widget.dart'; // <-- IMPORT THE NEW SETTINGS UI
 import 'refactor_editor_widget.dart';
+
+import 'refactor_editor_settings_widget.dart'; // <-- IMPORT THE NEW SETTINGS UI
 
 const String refactorSessionUri = 'internal://refactor_session.refactor';
 
@@ -39,7 +46,7 @@ class RefactorEditorPlugin extends EditorPlugin {
     // <-- CONNECT THE NEW UI WIDGET HERE
     return RefactorEditorSettingsUI(settings: settings as RefactorSettings);
   }
-  
+
   // ... rest of the file is unchanged ...
 
   @override
@@ -62,7 +69,9 @@ class RefactorEditorPlugin extends EditorPlugin {
             name: 'Workspace Refactor',
             modifiedDate: DateTime.now(),
           );
-          ref.read(appNotifierProvider.notifier).openFileInEditor(refactorSessionFile);
+          ref
+              .read(appNotifierProvider.notifier)
+              .openFileInEditor(refactorSessionFile);
         },
       ),
     ];
@@ -103,11 +112,12 @@ class RefactorEditorPlugin extends EditorPlugin {
       tab: tab as RefactorEditorTab,
     );
   }
-  
+
   @override
   String? get hotStateDtoType => 'com.machine.refactor_editor_state';
   @override
   Type? get hotStateDtoRuntimeType => RefactorEditorHotStateDto;
   @override
-  TypeAdapter<TabHotStateDto>? get hotStateAdapter => RefactorEditorHotStateAdapter();
+  TypeAdapter<TabHotStateDto>? get hotStateAdapter =>
+      RefactorEditorHotStateAdapter();
 }

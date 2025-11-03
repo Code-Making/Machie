@@ -1,19 +1,27 @@
 // =========================================
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_editor_widget.dart
 // =========================================
+
+// Dart imports:
 import 'dart:async';
-import 'package:collection/collection.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../app/app_notifier.dart'; // Needed for project access
+// Package imports:
+import 'package:collection/collection.dart';
+
+// Project imports:
 import '../../editor_tab_models.dart';
-import '../editor_command_context.dart';
 import '../../services/editor_service.dart';
+import '../editor_command_context.dart';
 import 'recipe_tex_command_context.dart';
 import 'recipe_tex_hot_state.dart';
 import 'recipe_tex_models.dart';
 import 'recipe_tex_plugin.dart';
+
+import '../../../app/app_notifier.dart'; // Needed for project access
 
 class RecipeEditorWidget extends EditorWidget {
   const RecipeEditorWidget({

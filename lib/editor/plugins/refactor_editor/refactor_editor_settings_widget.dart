@@ -2,16 +2,21 @@
 // UPDATED: lib/editor/plugins/refactor_editor/refactor_editor_settings_widget.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../settings/settings_notifier.dart';
+import 'refactor_editor_models.dart';
 
 // No longer need these imports for this UI widget
 // import '../../../app/app_notifier.dart';
 // import '../../../data/repositories/project_repository.dart';
-import '../../../explorer/common/file_explorer_dialogs.dart';
-import '../../../settings/settings_notifier.dart';
 // import '../../../utils/toast.dart';
-import 'refactor_editor_models.dart';
 
 class RefactorEditorSettingsUI extends ConsumerWidget {
   final RefactorSettings settings;
@@ -37,11 +42,14 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(
-              supportedExtensions: newItems,
-              ignoredGlobPatterns: settings.ignoredGlobPatterns,
-              useProjectGitignore: settings.useProjectGitignore,
-            ));
+            _updateSettings(
+              ref,
+              RefactorSettings(
+                supportedExtensions: newItems,
+                ignoredGlobPatterns: settings.ignoredGlobPatterns,
+                useProjectGitignore: settings.useProjectGitignore,
+              ),
+            );
           },
         ),
         const SizedBox(height: 24),
@@ -51,32 +59,40 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           title: 'Global Ignored Glob Patterns', // Clarify this is global
           items: settings.ignoredGlobPatterns,
           onChanged: (newItems) {
-            _updateSettings(ref, RefactorSettings(
-              ignoredGlobPatterns: newItems,
-              supportedExtensions: settings.supportedExtensions,
-              useProjectGitignore: settings.useProjectGitignore,
-            ));
+            _updateSettings(
+              ref,
+              RefactorSettings(
+                ignoredGlobPatterns: newItems,
+                supportedExtensions: settings.supportedExtensions,
+                useProjectGitignore: settings.useProjectGitignore,
+              ),
+            );
           },
         ),
         const SizedBox(height: 16),
         // --- REPLACED BUTTON WITH SWITCH ---
         SwitchListTile(
           title: const Text('Use Project .gitignore'),
-          subtitle: const Text('Automatically use patterns from the .gitignore file in the current project root, if it exists.'),
+          subtitle: const Text(
+            'Automatically use patterns from the .gitignore file in the current project root, if it exists.',
+          ),
           value: settings.useProjectGitignore,
           onChanged: (newValue) {
-            _updateSettings(ref, RefactorSettings(
-              useProjectGitignore: newValue,
-              supportedExtensions: settings.supportedExtensions,
-              ignoredGlobPatterns: settings.ignoredGlobPatterns,
-            ));
+            _updateSettings(
+              ref,
+              RefactorSettings(
+                useProjectGitignore: newValue,
+                supportedExtensions: settings.supportedExtensions,
+                ignoredGlobPatterns: settings.ignoredGlobPatterns,
+              ),
+            );
           },
         ),
         // --- END REPLACEMENT ---
       ],
     );
   }
-  
+
   // ... (_buildEditableList method remains unchanged)
   Widget _buildEditableList(
     BuildContext context,
@@ -102,32 +118,39 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
               icon: const Icon(Icons.add),
               tooltip: 'Add new pattern',
               onPressed: () async {
-                final newItem = await showTextInputDialog(context, title: 'Add New Pattern');
+                final newItem = await showTextInputDialog(
+                  context,
+                  title: 'Add New Pattern',
+                );
                 if (newItem != null && newItem.trim().isNotEmpty) {
                   onChanged({...items, newItem.trim()});
                 }
               },
-            )
+            ),
           ],
         ),
         const Divider(),
         if (items.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
-            child: Text('No patterns configured.', style: TextStyle(fontStyle: FontStyle.italic)),
+            child: Text(
+              'No patterns configured.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
           ),
         Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: items.map((item) {
-            return Chip(
-              label: Text(item),
-              onDeleted: () {
-                final newItems = Set<String>.from(items)..remove(item);
-                onChanged(newItems);
-              },
-            );
-          }).toList(),
+          children:
+              items.map((item) {
+                return Chip(
+                  label: Text(item),
+                  onDeleted: () {
+                    final newItems = Set<String>.from(items)..remove(item);
+                    onChanged(newItems);
+                  },
+                );
+              }).toList(),
         ),
       ],
     );
@@ -151,8 +174,14 @@ class _TextInputDialogState extends State<_TextInputDialog> {
       title: Text(widget.title),
       content: TextField(controller: _controller, autofocus: true),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        TextButton(onPressed: () => Navigator.of(context).pop(_controller.text.trim()), child: const Text('Add')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Add'),
+        ),
       ],
     );
   }

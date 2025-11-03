@@ -1,14 +1,17 @@
 // lib/explorer/explorer_plugin_registry.dart
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
+import '../app/app_notifier.dart';
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
 import 'plugins/file_explorer/file_explorer_state.dart';
-import 'plugins/git_explorer/git_explorer_plugin.dart'; // IMPORT THE NEW PLUGIN
 import 'plugins/search_explorer/search_explorer_plugin.dart';
 import 'services/explorer_service.dart';
 
-import '../app/app_notifier.dart';
+import 'plugins/git_explorer/git_explorer_plugin.dart'; // IMPORT THE NEW PLUGIN
 
 export 'explorer_plugin_models.dart';
 

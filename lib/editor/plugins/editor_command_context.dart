@@ -3,8 +3,12 @@
 // =========================================
 
 import 'package:flutter/material.dart'; // ADDED: For Widget
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
+
+// Project imports:
+import '../../app/app_notifier.dart';
 
 @immutable
 abstract class CommandContext {

@@ -1,34 +1,39 @@
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p; // <-- ADD PATH PACKAGE IMPORT
 
-import 'code_themes.dart';
-import 'code_editor_models.dart';
-import 'code_editor_widgets.dart';
-import 'code_editor_settings_widget.dart';
-import 'code_editor_state.dart';
-import 'code_editor_hot_state_adapter.dart';
-import 'code_editor_hot_state_dto.dart';
-
-import '../plugin_models.dart';
-import '../../editor_tab_models.dart';
-import '../../tab_state_manager.dart';
+// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
-import '../../../data/file_handler/file_handler.dart';
-
 import '../../../data/cache/type_adapters.dart';
-import '../../../project/project_models.dart';
+import '../../../data/file_handler/file_handler.dart';
+import '../../../data/repositories/project_repository.dart';
 import '../../../editor/plugins/editor_command_context.dart';
 import '../../../editor/services/editor_service.dart';
 import '../../../editor/services/text_editing_capability.dart';
-import '../../../data/repositories/project_repository.dart';
-import '../../../utils/toast.dart';
 import '../../../logs/logs_provider.dart';
+import '../../../project/project_models.dart';
+import '../../../utils/toast.dart';
+import '../../editor_tab_models.dart';
+import '../../tab_state_manager.dart';
+import '../plugin_models.dart';
+import 'code_editor_hot_state_adapter.dart';
+import 'code_editor_hot_state_dto.dart';
+import 'code_editor_models.dart';
+import 'code_editor_settings_widget.dart';
+import 'code_editor_state.dart';
+import 'code_editor_widgets.dart';
+import 'code_themes.dart';
+
+import 'package:path/path.dart' as p; // <-- ADD PATH PACKAGE IMPORT
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -170,8 +175,8 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       ),
     ];
   }
-  
-    @override
+
+  @override
   List<TabContextCommand> getTabContextMenuCommands() {
     return [
       BaseTabContextCommand(
@@ -181,7 +186,8 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         sourcePlugin: id,
         canExecuteFor: (ref, activeTab, targetTab) {
           // 1. The active tab must be a text-editable code editor tab.
-          if (activeTab.plugin.id != id || activeTab.editorKey.currentState is! TextEditable) {
+          if (activeTab.plugin.id != id ||
+              activeTab.editorKey.currentState is! TextEditable) {
             return false;
           }
           // 2. The target tab must also be a file supported by this plugin.
@@ -196,7 +202,8 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
           final targetFile = ref.read(tabMetadataProvider)[targetTab.id]!.file;
           final repo = ref.read(projectRepositoryProvider)!;
-          final activeEditorState = activeTab.editorKey.currentState as TextEditable;
+          final activeEditorState =
+              activeTab.editorKey.currentState as TextEditable;
 
           // Calculate the relative path for the import
           final relativePath = _calculateRelativePath(
@@ -223,7 +230,11 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
           }
 
           // Find the correct line to insert the new import
-          final importRegex = RegExp(r"^\s*import\s+['""].*?['""];");
+          final importRegex = RegExp(
+            r"^\s*import\s+['"
+            "].*?['"
+            "];",
+          );
           int lastImportLineIndex = -1;
           for (int i = 0; i < lines.length; i++) {
             if (importRegex.hasMatch(lines[i])) {
@@ -233,7 +244,10 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
           final insertionLine = lastImportLineIndex + 1;
 
           // Perform the insertion
-          activeEditorState.insertTextAtLine(insertionLine, "$importStatement\n");
+          activeEditorState.insertTextAtLine(
+            insertionLine,
+            "$importStatement\n",
+          );
           MachineToast.info("Added import: $importStatement");
         },
       ),
@@ -357,30 +371,32 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   List<Command> getAppCommands() => [
-BaseCommand(
-  id: 'open_scratchpad',
-  label: 'Open Scratchpad',
-  icon: const Icon(Icons.edit_note),
-  defaultPositions: [AppCommandPositions.appBar],
-  sourcePlugin: 'App',
-  // No need to check for a project, the scratchpad is global.
-  canExecute: (ref) => true,
-  execute: (ref) async {
-    // 1. Define the well-known scratchpad file.
-    //    We create a placeholder object; its content will be loaded by the provider.
-    final scratchpadFile = InternalAppFile(
-      uri: 'internal://scratchpad.dart',
-      name: 'Scratchpad',
-      modifiedDate: DateTime.now(), // Placeholder date
-    );
+    BaseCommand(
+      id: 'open_scratchpad',
+      label: 'Open Scratchpad',
+      icon: const Icon(Icons.edit_note),
+      defaultPositions: [AppCommandPositions.appBar],
+      sourcePlugin: 'App',
+      // No need to check for a project, the scratchpad is global.
+      canExecute: (ref) => true,
+      execute: (ref) async {
+        // 1. Define the well-known scratchpad file.
+        //    We create a placeholder object; its content will be loaded by the provider.
+        final scratchpadFile = InternalAppFile(
+          uri: 'internal://scratchpad.dart',
+          name: 'Scratchpad',
+          modifiedDate: DateTime.now(), // Placeholder date
+        );
 
-    // 2. Ask the app to open it.
-    //    The AppHandle/EditorService will do all the work of checking if it's
-    //    already open, finding the content provider, loading content,
-    //    and creating the tab.
-    await ref.read(appNotifierProvider.notifier).openFileInEditor(scratchpadFile, explicitPlugin: this);
-  },
-),
+        // 2. Ask the app to open it.
+        //    The AppHandle/EditorService will do all the work of checking if it's
+        //    already open, finding the content provider, loading content,
+        //    and creating the tab.
+        await ref
+            .read(appNotifierProvider.notifier)
+            .openFileInEditor(scratchpadFile, explicitPlugin: this);
+      },
+    ),
   ];
 
   // The command definitions are now correct. They find the active
