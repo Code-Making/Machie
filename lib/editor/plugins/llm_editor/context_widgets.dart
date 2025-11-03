@@ -58,7 +58,11 @@ class ContextItemCard extends StatelessWidget {
   final ContextItem item;
   final VoidCallback onRemove;
 
-  const ContextItemCard({super.key, required this.item, required this.onRemove});
+  const ContextItemCard({
+    super.key,
+    required this.item,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
