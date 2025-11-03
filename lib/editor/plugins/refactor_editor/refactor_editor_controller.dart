@@ -153,7 +153,7 @@ class RefactorController extends ChangeNotifier {
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      final Iterable<Match> matches;
+      Iterable<Match> matches;
 
       if (isRegex) {
         try {
