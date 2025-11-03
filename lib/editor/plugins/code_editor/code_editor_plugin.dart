@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p; // <-- ADD PATH PACKAGE IMPORT
 
 import 'code_themes.dart';
 import 'code_editor_models.dart';
@@ -165,6 +166,75 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
           // 5. Use the new, specific interface method to perform the insertion
           editableState.insertTextAtLine(insertionLine, "$importStatement\n");
+        },
+      ),
+    ];
+  }
+  
+    @override
+  List<TabContextCommand> getTabContextMenuCommands() {
+    return [
+      BaseTabContextCommand(
+        id: 'add_import_from_tab',
+        label: 'Add Import From Tab',
+        icon: const Icon(Icons.arrow_downward, size: 20),
+        sourcePlugin: id,
+        canExecuteFor: (ref, activeTab, targetTab) {
+          // 1. The active tab must be a text-editable code editor tab.
+          if (activeTab.plugin.id != id || activeTab.editorKey.currentState is! TextEditable) {
+            return false;
+          }
+          // 2. The target tab must also be a file supported by this plugin.
+          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]?.file;
+          if (targetFile == null || !supportsFile(targetFile)) {
+            return false;
+          }
+          // 3. The target tab cannot be the same as the active tab.
+          return activeTab.id != targetTab.id;
+        },
+        executeFor: (ref, activeTab, targetTab) async {
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
+          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]!.file;
+          final repo = ref.read(projectRepositoryProvider)!;
+          final activeEditorState = activeTab.editorKey.currentState as TextEditable;
+
+          // Calculate the relative path for the import
+          final relativePath = _calculateRelativePath(
+            from: activeFile.uri,
+            to: targetFile.uri,
+            fileHandler: repo.fileHandler,
+            ref: ref,
+          );
+
+          if (relativePath == null) {
+            MachineToast.error('Could not calculate relative path.');
+            return;
+          }
+
+          // Get the full text content
+          final currentContent = await activeEditorState.getTextContent();
+          final lines = currentContent.split('\n');
+
+          // Check if the import already exists
+          final importStatement = "import '$relativePath';";
+          if (lines.any((line) => line.trim() == importStatement)) {
+            MachineToast.info('Import already exists.');
+            return;
+          }
+
+          // Find the correct line to insert the new import
+          final importRegex = RegExp(r"^\s*import\s+['""].*?['""];");
+          int lastImportLineIndex = -1;
+          for (int i = 0; i < lines.length; i++) {
+            if (importRegex.hasMatch(lines[i])) {
+              lastImportLineIndex = i;
+            }
+          }
+          final insertionLine = lastImportLineIndex + 1;
+
+          // Perform the insertion
+          activeEditorState.insertTextAtLine(insertionLine, "$importStatement\n");
+          MachineToast.info("Added import: $importStatement");
         },
       ),
     ];
