@@ -184,34 +184,32 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     required RefactorOccurrence occurrence,
     required int trimOffset,
   }) {
-    // 1. Define all highlight regions.
+    // 1. Define all highlight regions with coordinates relative to the trimmed string.
     final regions = <({int start, int end, TextStyle style})>[];
 
-    // Add the main match highlight (semi-transparent).
+    // Add the main match highlight (lightly colored).
     regions.add((
-      start: occurrence.startColumn,
-      end: occurrence.startColumn + occurrence.matchedText.length,
+      start: occurrence.startColumn - trimOffset,
+      end: (occurrence.startColumn + occurrence.matchedText.length) - trimOffset,
       style: TextStyle(backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.3))
     ));
     
-    // Add highlights for each captured group.
+    // Add highlights for each captured group (more vibrantly colored).
     for (int i = 0; i < occurrence.capturedGroups.length; i++) {
       final group = occurrence.capturedGroups[i];
       regions.add((
-        start: group.startColumn,
-        end: group.startColumn + group.text.length,
+        start: group.startColumn - trimOffset,
+        end: (group.startColumn + group.text.length) - trimOffset,
         style: TextStyle(backgroundColor: _groupColors[i % _groupColors.length])
       ));
     }
     
-    // Sort regions by start position to process them correctly.
-    regions.sort((a, b) => a.start.compareTo(b.start));
-
     // 2. Traverse the source TextSpan tree and apply the highlights.
     final List<TextSpan> result = [];
-    int currentIndex = 0;
+    int globalOffset = 0;
 
     void processSpan(TextSpan span) {
+      // If it's a container span, recurse into its children.
       if (span.children != null && span.children!.isNotEmpty) {
         for (final child in span.children!) {
           if (child is TextSpan) processSpan(child);
@@ -219,44 +217,47 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         return;
       }
       
+      // If it's a leaf span with no text, ignore it.
       if (span.text == null || span.text!.isEmpty) return;
 
       final spanText = span.text!;
-      final spanStart = currentIndex - trimOffset;
+      final spanStart = globalOffset;
       final spanEnd = spanStart + spanText.length;
-      int currentSliceStart = 0;
-
+      
+      // Find all region boundaries that fall within this span.
+      final cutPoints = <int>{0, spanText.length};
       for (final region in regions) {
-        // Find intersection between the current span and the highlight region.
-        final int intersectionStart = (spanStart > region.start) ? spanStart : region.start;
-        final int intersectionEnd = (spanEnd < region.end) ? spanEnd : region.end;
-
-        if (intersectionStart < intersectionEnd) { // If there is an overlap
-          // Add the part of the span before the highlight.
-          if (intersectionStart > spanStart + currentSliceStart) {
-            result.add(TextSpan(
-              text: spanText.substring(currentSliceStart, intersectionStart - spanStart),
-              style: span.style,
-            ));
-          }
-          // Add the highlighted part.
-          result.add(TextSpan(
-            text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
-            style: (span.style ?? const TextStyle()).merge(region.style),
-          ));
-          currentSliceStart = intersectionEnd - spanStart;
+        if (region.start > spanStart && region.start < spanEnd) {
+          cutPoints.add(region.start - spanStart);
+        }
+        if (region.end > spanStart && region.end < spanEnd) {
+          cutPoints.add(region.end - spanStart);
         }
       }
+      
+      final sortedPoints = cutPoints.toList()..sort();
 
-      // Add any remaining part of the span after the last highlight.
-      if (currentSliceStart < spanText.length) {
-        result.add(TextSpan(
-          text: spanText.substring(currentSliceStart),
-          style: span.style,
-        ));
+      // Create segments for each part of the span between cut points.
+      for (int i = 0; i < sortedPoints.length - 1; i++) {
+        final start = sortedPoints[i];
+        final end = sortedPoints[i+1];
+        if (start >= end) continue;
+
+        final segmentText = spanText.substring(start, end);
+        final segmentMidpoint = spanStart + start + (segmentText.length / 2);
+
+        // Determine the style for this segment.
+        TextStyle finalStyle = span.style ?? const TextStyle();
+        for (final region in regions) {
+          if (segmentMidpoint >= region.start && segmentMidpoint < region.end) {
+            finalStyle = finalStyle.merge(region.style);
+          }
+        }
+        
+        result.add(TextSpan(text: segmentText, style: finalStyle));
       }
       
-      currentIndex += spanText.length;
+      globalOffset += spanText.length;
     }
 
     processSpan(source);

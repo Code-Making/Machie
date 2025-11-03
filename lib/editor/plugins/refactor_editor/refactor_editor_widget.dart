@@ -574,32 +574,28 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: ListenableBuilder(
-            listenable: _controller,
-            builder: (context, child) {
-              final pendingItems = _controller.resultItems.where(
-                (i) => i.status == ResultStatus.pending,
-              );
-              final allSelected =
-                  pendingItems.isNotEmpty &&
-                  _controller.selectedItems.length == pendingItems.length;
-
-              return CustomScrollView(
+    // Wrap the entire UI in a ListenableBuilder that listens to the controller.
+    // This ensures that any part of the UI, including the action panel,
+    // rebuilds when the controller's state changes.
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, child) {
+        return Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(child: _buildInputPanel()),
                   if (_controller.searchStatus == SearchStatus.searching)
                     const SliverToBoxAdapter(child: LinearProgressIndicator()),
-                  _buildResultsSliver(allSelected),
+                  _buildResultsSliver(), // No longer needs `allSelected` passed in.
                 ],
-              );
-            },
-          ),
-        ),
-        _buildActionPanel(),
-      ],
+              ),
+            ),
+            _buildActionPanel(), // This will now be rebuilt correctly.
+          ],
+        );
+      },
     );
   }
 
