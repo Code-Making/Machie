@@ -10,12 +10,10 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/app_notifier.dart';
-import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 import '../../../logs/logs_provider.dart';
-import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';

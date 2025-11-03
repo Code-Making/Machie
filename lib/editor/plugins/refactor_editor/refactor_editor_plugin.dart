@@ -14,7 +14,6 @@ import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/plugin_models.dart';
-import '../../../editor/services/editor_service.dart';
 import '../../../project/project_models.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';

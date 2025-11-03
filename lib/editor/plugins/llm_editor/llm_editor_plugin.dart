@@ -183,6 +183,7 @@ class LlmEditorPlugin extends EditorPlugin {
     return LlmEditorWidget(key: llmTab.editorKey, tab: llmTab);
   }
 
+  @override
   List<Command> getCommands() => [
     BaseCommand(
       id: 'save',

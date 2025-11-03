@@ -29,7 +29,7 @@ import 'code_editor_state.dart';
 import 'code_editor_widgets.dart';
 import 'code_themes.dart';
 
-import 'package:path/path.dart' as p; // <-- ADD PATH PACKAGE IMPORT
+// <-- ADD PATH PACKAGE IMPORT
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';

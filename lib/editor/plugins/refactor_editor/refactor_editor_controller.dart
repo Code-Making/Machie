@@ -1,8 +1,6 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'refactor_editor_models.dart';
 
