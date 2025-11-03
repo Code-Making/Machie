@@ -18,7 +18,15 @@ import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 // The final filtering based on context will happen in the UI layer.
 final allTabContextCommandsProvider = Provider<List<TabContextCommand>>((ref) {
   final allPlugins = ref.watch(activePluginsProvider);
-  return allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
+  
+  // 1. Start with the generic, app-level commands.
+  final genericCommands = AppTabContextCommands.getCommands();
+  
+  // 2. Get all commands from all plugins.
+  final pluginCommands = allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
+
+  // 3. Combine them into a single list.
+  return [...genericCommands, ...pluginCommands];
 });
 
 class CommandIcon {
