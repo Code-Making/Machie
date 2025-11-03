@@ -436,97 +436,61 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
   Future<void> _traverseAndSearch({
     required String directoryUri,
-    required Function(
-      String content,
-      ProjectDocumentFile file,
-      String displayPath,
-    )
-    onFileContent,
+    required Function(String content, ProjectDocumentFile file, String displayPath) onFileContent,
   }) async {
     final repo = ref.read(projectRepositoryProvider)!;
-    final projectRootUri =
-        ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-    final settings =
-        ref.read(settingsProvider).pluginSettings[RefactorSettings]
-            as RefactorSettings;
-
-    final hierarchyNotifier = ref.read(
-      projectHierarchyServiceProvider.notifier,
-    );
-    var directoryState =
-        ref.read(projectHierarchyServiceProvider)[directoryUri];
+    final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+    final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings;
+    
+    final hierarchyNotifier = ref.read(projectHierarchyServiceProvider.notifier);
+    var directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     if (directoryState == null || directoryState is! AsyncData) {
-      await hierarchyNotifier.loadDirectory(directoryUri);
-      directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+        await hierarchyNotifier.loadDirectory(directoryUri);
+        directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
-    final entries =
-        directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
+    final entries = directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
 
     final globalIgnoreGlobs = _compileGlobs(settings.ignoredGlobPatterns);
     List<_CompiledGlob> currentIgnoreGlobs = [];
-    final gitignoreFile = entries.firstWhereOrNull(
-      (f) => f.name == '.gitignore',
-    );
+    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
     if (gitignoreFile != null && settings.useProjectGitignore) {
-      try {
-        final content = await repo.readFile(gitignoreFile.uri);
-        final patterns =
-            content
-                .split('\n')
-                .map((l) => l.trim())
-                .where((l) => l.isNotEmpty && !l.startsWith('#'))
-                .toSet();
-        currentIgnoreGlobs = _compileGlobs(patterns);
-      } catch (_) {}
+        try {
+            final content = await repo.readFile(gitignoreFile.uri);
+            final patterns = content.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty && !l.startsWith('#')).toSet();
+            currentIgnoreGlobs = _compileGlobs(patterns);
+        } catch (_) {}
     }
+    
+    // A list to hold the futures of the recursive calls.
+    final List<Future<void>> subDirectoryFutures = [];
 
     for (final entry in entries) {
-      final relativePath = repo.fileHandler
-          .getPathForDisplay(entry.uri, relativeTo: projectRootUri)
-          .replaceAll(r'\', '/');
-      bool isIgnored = globalIgnoreGlobs.any(
-        (g) =>
-            !(g.isDirectoryOnly && !entry.isDirectory) &&
-            g.glob.matches(relativePath),
-      );
+      final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri).replaceAll(r'\', '/');
+      bool isIgnored = globalIgnoreGlobs.any((g) => !(g.isDirectoryOnly && !entry.isDirectory) && g.glob.matches(relativePath));
       if (isIgnored) continue;
-
-      final pathFromCurrentDir = repo.fileHandler
-          .getPathForDisplay(entry.uri, relativeTo: directoryUri)
-          .replaceAll(r'\', '/');
-      isIgnored = currentIgnoreGlobs.any(
-        (g) =>
-            !(g.isDirectoryOnly && !entry.isDirectory) &&
-            g.glob.matches(pathFromCurrentDir),
-      );
+      
+      final pathFromCurrentDir = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: directoryUri).replaceAll(r'\', '/');
+      isIgnored = currentIgnoreGlobs.any((g) => !(g.isDirectoryOnly && !entry.isDirectory) && g.glob.matches(pathFromCurrentDir));
       if (isIgnored) continue;
-
+      
       if (entry.isDirectory) {
-        await _traverseAndSearch(
-          directoryUri: entry.uri,
-          onFileContent: onFileContent,
-        );
+        // Launch the search for the subdirectory concurrently and add its Future to the list.
+        subDirectoryFutures.add(_traverseAndSearch(directoryUri: entry.uri, onFileContent: onFileContent));
       } else {
-        if (settings.supportedExtensions.any(
-          (ext) => relativePath.endsWith(ext),
-        )) {
-          final content = await repo.readFile(entry.uri);
-          onFileContent(content, entry, relativePath);
+        if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
+          // File processing can happen immediately.
+          try {
+            final content = await repo.readFile(entry.uri);
+            onFileContent(content, entry, relativePath);
+          } catch (e) {
+            // Ignore errors reading individual files (e.g., permission issues).
+          }
         }
       }
     }
-  }
 
-  ({int line, int column}) _getLineAndColumn(String content, int offset) {
-    int line = 0;
-    int lastLineStart = 0;
-    for (int i = 0; i < offset; i++) {
-      if (content[i] == '\n') {
-        line++;
-        lastLineStart = i + 1;
-      }
-    }
-    return (line: line, column: offset - lastLineStart);
+    // Wait for all the concurrent subdirectory searches to complete before this function returns.
+    await Future.wait(subDirectoryFutures);
   }
 
   Future<void> _processFileGroups({
