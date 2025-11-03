@@ -41,8 +41,6 @@ class RefactorSettings extends PluginSettings {
   };
 }
 
-typedef CapturedGroup = ({String text, int startColumn});
-
 /// Represents a single occurrence of a search term within a file.
 @immutable
 class RefactorOccurrence {
@@ -53,7 +51,6 @@ class RefactorOccurrence {
   final String lineContent;
   final String matchedText;
   final String fileContentHash;
-  final List<CapturedGroup> capturedGroups;
 
   const RefactorOccurrence({
     required this.fileUri,
@@ -63,7 +60,6 @@ class RefactorOccurrence {
     required this.lineContent,
     required this.matchedText,
     required this.fileContentHash,
-    this.capturedGroups = const [], // Default to an empty list.
   });
 }
 
