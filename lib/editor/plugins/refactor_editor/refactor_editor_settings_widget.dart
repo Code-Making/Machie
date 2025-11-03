@@ -39,53 +39,57 @@ class RefactorEditorSettingsUI extends ConsumerWidget {
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
           onChanged: (newItems) {
-            _updateSettings(
-              ref,
-              RefactorSettings(
-                supportedExtensions: newItems,
-                ignoredGlobPatterns: settings.ignoredGlobPatterns,
-                useProjectGitignore: settings.useProjectGitignore,
-              ),
-            );
+            _updateSettings(ref, RefactorSettings(
+              supportedExtensions: newItems,
+              ignoredGlobPatterns: settings.ignoredGlobPatterns,
+              useProjectGitignore: settings.useProjectGitignore,
+              updateInternalPathsAsDirty: settings.updateInternalPathsAsDirty,
+            ));
           },
         ),
         const SizedBox(height: 24),
         _buildEditableList(
           context,
           ref,
-          title: 'Global Ignored Glob Patterns', // Clarify this is global
+          title: 'Global Ignored Glob Patterns',
           items: settings.ignoredGlobPatterns,
           onChanged: (newItems) {
-            _updateSettings(
-              ref,
-              RefactorSettings(
-                ignoredGlobPatterns: newItems,
-                supportedExtensions: settings.supportedExtensions,
-                useProjectGitignore: settings.useProjectGitignore,
-              ),
-            );
+            _updateSettings(ref, RefactorSettings(
+              ignoredGlobPatterns: newItems,
+              supportedExtensions: settings.supportedExtensions,
+              useProjectGitignore: settings.useProjectGitignore,
+              updateInternalPathsAsDirty: settings.updateInternalPathsAsDirty,
+            ));
           },
         ),
         const SizedBox(height: 16),
-        // --- REPLACED BUTTON WITH SWITCH ---
         SwitchListTile(
           title: const Text('Use Project .gitignore'),
-          subtitle: const Text(
-            'Automatically use patterns from the .gitignore file in the current project root, if it exists.',
-          ),
+          subtitle: const Text('Automatically use patterns from the .gitignore file in the current project root, if it exists.'),
           value: settings.useProjectGitignore,
           onChanged: (newValue) {
-            _updateSettings(
-              ref,
-              RefactorSettings(
-                useProjectGitignore: newValue,
-                supportedExtensions: settings.supportedExtensions,
-                ignoredGlobPatterns: settings.ignoredGlobPatterns,
-              ),
-            );
+            _updateSettings(ref, RefactorSettings(
+              useProjectGitignore: newValue,
+              supportedExtensions: settings.supportedExtensions,
+              ignoredGlobPatterns: settings.ignoredGlobPatterns,
+              updateInternalPathsAsDirty: settings.updateInternalPathsAsDirty,
+            ));
           },
         ),
-        // --- END REPLACEMENT ---
+        const Divider(),
+        SwitchListTile(
+          title: const Text('Mark moved files as dirty instead of auto-saving'),
+          subtitle: const Text('When a file is moved, if this is on, its updated internal paths will be applied as unsaved changes. If off, the file will be saved directly to disk.'),
+          value: settings.updateInternalPathsAsDirty,
+          onChanged: (newValue) {
+            _updateSettings(ref, RefactorSettings(
+              updateInternalPathsAsDirty: newValue,
+              useProjectGitignore: settings.useProjectGitignore,
+              supportedExtensions: settings.supportedExtensions,
+              ignoredGlobPatterns: settings.ignoredGlobPatterns,
+            ));
+          },
+        ),
       ],
     );
   }

@@ -11,33 +11,35 @@ class RefactorSettings extends PluginSettings {
   Set<String> supportedExtensions;
   Set<String> ignoredGlobPatterns;
   bool useProjectGitignore;
+  // NEW: Setting to control how internal paths are updated.
+  bool updateInternalPathsAsDirty;
 
   RefactorSettings({
     Set<String>? supportedExtensions,
     Set<String>? ignoredGlobPatterns,
     this.useProjectGitignore = true,
-  }) : supportedExtensions =
-           supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
-       ignoredGlobPatterns =
-           ignoredGlobPatterns ??
-           {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+    this.updateInternalPathsAsDirty = true, // Default to the safer option.
+  })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
+        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
   @override
   void fromJson(Map<String, dynamic> json) {
     final legacyIgnored = List<String>.from(json['ignoredFolders'] ?? []);
     final currentIgnored = List<String>.from(json['ignoredGlobPatterns'] ?? []);
-
+    
     supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
     ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet();
     useProjectGitignore = json['useProjectGitignore'] as bool? ?? true;
+    updateInternalPathsAsDirty = json['updateInternalPathsAsDirty'] as bool? ?? true;
   }
 
   @override
   Map<String, dynamic> toJson() => {
-    'supportedExtensions': supportedExtensions.toList(),
-    'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
-    'useProjectGitignore': useProjectGitignore,
-  };
+        'supportedExtensions': supportedExtensions.toList(),
+        'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
+        'useProjectGitignore': useProjectGitignore,
+        'updateInternalPathsAsDirty': updateInternalPathsAsDirty,
+      };
 }
 
 /// Represents a single occurrence of a search term within a file.

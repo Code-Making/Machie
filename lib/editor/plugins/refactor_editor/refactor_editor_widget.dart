@@ -92,11 +92,12 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
   @override
   Future<void> onFileOperation(FileOperationEvent event) async {
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
+    
     if (event is FileRenameEvent) {
+      if (!event.newFile.isDirectory) {
+        await _updateInternalPathsOnMove(event.oldFile, event.newFile);
+      }
       await _promptForPathRefactor(event.oldFile, event.newFile);
     }
   }
@@ -105,6 +106,88 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   void onFirstFrameReady() {
     if (!widget.tab.onReady.isCompleted) {
       widget.tab.onReady.complete(this);
+    }
+  }
+  
+  Future<void> _updateInternalPathsOnMove(ProjectDocumentFile oldFile, ProjectDocumentFile newFile) async {
+    if (!mounted) return;
+    
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final repo = ref.read(projectRepositoryProvider);
+    // NEW: Get the settings and editor service
+    final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings?;
+    final editorService = ref.read(editorServiceProvider);
+
+    if (project == null || repo == null || settings == null) return;
+    
+    try {
+      String content = await repo.readFile(newFile.uri);
+      final oldPath = repo.fileHandler.getPathForDisplay(oldFile.uri, relativeTo: project.rootUri);
+      final newPath = repo.fileHandler.getPathForDisplay(newFile.uri, relativeTo: project.rootUri);
+      
+      final oldDir = p.dirname(oldPath);
+      final newDir = p.dirname(newPath);
+
+      if (oldDir == newDir) return;
+      
+      final List<({String original, String replacement})> replacements = [];
+      final List<ReplaceRangeEdit> edits = []; // For the openAndApplyEdit strategy
+
+      for (final match in _pathRegex.allMatches(content)) {
+        final matchedPath = match.group(2);
+        
+        if (matchedPath == null || matchedPath.isEmpty || p.isAbsolute(matchedPath) || matchedPath.contains(':')) {
+          continue;
+        }
+
+        final absolutePath = p.normalize(p.join(oldDir, matchedPath));
+        
+        // NEW: VALIDATION STEP - Check if the resolved file actually exists.
+        final targetFile = await repo.fileHandler.resolvePath(project.rootUri, absolutePath);
+        if (targetFile == null) {
+          continue; // Not a valid project path, so we skip it.
+        }
+
+        final newRelativePath = p.relative(absolutePath, from: newDir).replaceAll(r'\', '/');
+        
+        if (matchedPath != newRelativePath) {
+          // Prepare data for both replacement strategies.
+          replacements.add((original: matchedPath, replacement: newRelativePath));
+          
+          final lineInfo = _getLineAndColumn(content, match.start + 1); // +1 to be inside the quotes
+          edits.add(ReplaceRangeEdit(
+            range: TextRange(
+              start: TextPosition(line: lineInfo.line, column: lineInfo.column),
+              end: TextPosition(line: lineInfo.line, column: lineInfo.column + matchedPath.length),
+            ), 
+            replacement: newRelativePath
+          ));
+        }
+      }
+
+      if (replacements.isNotEmpty) {
+        // NEW: Conditional logic based on the setting.
+        if (settings.updateInternalPathsAsDirty) {
+          // STRATEGY 1: Open the file (or switch to it) and apply edits as dirty changes.
+          await editorService.openAndApplyEdit(
+            newPath, // Use the new path of the file
+            BatchReplaceRangesEdit(edits: edits),
+          );
+          ref.read(talkerProvider).info('Applied internal path updates as dirty changes for: ${newFile.name}');
+
+        } else {
+          // STRATEGY 2: Modify the content string and save directly to disk.
+          replacements.sort((a, b) => b.original.length.compareTo(a.original.length));
+          for (final change in replacements) {
+            content = content.replaceAll("'${change.original}'", "'${change.replacement}'");
+            content = content.replaceAll('"${change.original}"', '"${change.replacement}"');
+          }
+          await repo.writeFile(newFile, content);
+          ref.read(talkerProvider).info('Auto-saved internal path updates for moved file: ${newFile.name}');
+        }
+      }
+    } catch (e, st) {
+      ref.read(talkerProvider).handle(e, st, 'Failed to update internal paths for moved file: ${newFile.name}');
     }
   }
 
