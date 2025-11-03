@@ -105,7 +105,7 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
       margin: const EdgeInsets.symmetric(vertical: 4.0),
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(color: theme.colorScheme.primary),
       ),

@@ -87,7 +87,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         start: matchStartInTrimmed,
         end: matchEndInTrimmed,
         highlightStyle: TextStyle(
-          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -117,11 +117,11 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     )) ?? CodeEditorSettings();
     final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
-    final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+    final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withValues(alpha: 0.25);
     final occurrence = widget.item.occurrence;
 
     return Material(
-      color: widget.isSelected ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+      color: widget.isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
       child: InkWell(
         onTap: widget.onJumpTo,
         child: Column(

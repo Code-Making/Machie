@@ -317,7 +317,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
                         selected: isSelected,
                         selectedTileColor: Theme.of(
                           context,
-                        ).colorScheme.primary.withOpacity(0.2),
+                        ).colorScheme.primary.withValues(alpha: 0.2),
                         title: Text(commit.message.split('\n').first),
                         subtitle: Text(
                           '${commit.hash.toOid()} by ${commit.author.name}',

@@ -55,7 +55,7 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
           text: text,
           style: (parentStyle ?? theme.textTheme.bodyMedium)?.copyWith(
             fontFamily: settings.fontFamily,
-            backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+            backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
           ),
         ),
       );
@@ -192,7 +192,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
     final codeTheme =
         CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
     final codeBgColor =
-        codeTheme['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+        codeTheme['root']?.backgroundColor ?? Colors.black.withValues(alpha: 0.25);
     final theme = Theme.of(context);
 
     // Get the final, link-ified span.
@@ -210,7 +210,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             child: Row(
               children: [
                 Text(
@@ -374,7 +374,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
                     ?.fontFamily,
           ),
         ),
-        backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
       );
     }
 
