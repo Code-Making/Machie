@@ -5,7 +5,6 @@
 import 'dart:async';
 
 import 'package:dart_git/dart_git.dart';
-import 'package:dart_git/plumbing/commit_iterator.dart';
 import 'package:dart_git/storage/interfaces.dart';
 import 'package:dart_git/utils/file_mode.dart';
 import 'package:equatable/equatable.dart';

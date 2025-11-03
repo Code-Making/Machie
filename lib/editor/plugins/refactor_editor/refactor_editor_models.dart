@@ -1,6 +1,5 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_models.dart
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../editor/editor_tab_models.dart';

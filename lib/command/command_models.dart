@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/editor_tab_models.dart';
 
-import '../app/app_notifier.dart'; // <-- ADD THIS IMPORT
+// <-- ADD THIS IMPORT
 import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 import '../editor/tab_context_commands.dart'; // <-- IMPORT THE NEW FILE
 

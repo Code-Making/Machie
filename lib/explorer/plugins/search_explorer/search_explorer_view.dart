@@ -1,25 +1,15 @@
 // lib/explorer/plugins/search_explorer/search_explorer_view.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
-import '../../../app/app_notifier.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../project/project_models.dart';
-import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
-import '../../../project/services/project_hierarchy_service.dart';
-import '../../../widgets/file_list_view.dart';
 import '../../../widgets/file_list_view.dart';
 import '../../common/file_explorer_widgets.dart';
-import 'search_explorer_state.dart';
 import 'search_explorer_state.dart';
 
 // THE FIX: Import the new generic widgets file.
