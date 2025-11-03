@@ -12,6 +12,7 @@ import '../data/file_handler/file_handler.dart';
 import '../app/app_notifier.dart'; // <-- ADD THIS IMPORT
 import '../editor/editor_tab_models.dart';
 import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
+import '../editor/tab_context_commands.dart'; // <-- IMPORT THE NEW FILE
 
 
 // This provider simply aggregates all possible TabContextCommands from all active plugins.
