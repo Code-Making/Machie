@@ -15,7 +15,7 @@ import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 
 
 final tabContextCommandsProvider =
-    Provider.family<List<TabContextCommand>, EditorTab>((ref, targetTab) {
+    Provider.family<List<TabContextCommand>, EditorTab>((targetTab) {
   // Dependencies for command discovery
   final allPlugins = ref.watch(activePluginsProvider);
   final activeTab = ref.watch(
