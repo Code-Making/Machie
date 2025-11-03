@@ -59,6 +59,9 @@ abstract class EditorPlugin {
   /// Context menu commands for files. Defaults to an empty list.
   List<FileContextCommand> getFileContextMenuCommands(DocumentFile item) => [];
 
+  /// Context menu commands for editor tabs. Defaults to an empty list.
+  List<TabContextCommand> getTabContextMenuCommands() => [];
+
   /// Optional plugin-specific settings. Defaults to null.
   PluginSettings? get settings => null;
 

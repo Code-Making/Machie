@@ -9,7 +9,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 
-// ... (CommandIcon is unchanged) ...
+import '../editor/editor_tab_models.dart'; // <-- ADD THIS IMPORT
+
+
+final tabContextCommandsProvider =
+    Provider.family<List<TabContextCommand>, EditorTab>((ref, targetTab) {
+  // Dependencies for command discovery
+  final allPlugins = ref.watch(activePluginsProvider);
+  final activeTab = ref.watch(
+    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab),
+  );
+
+  // Guard clause: If there's no active tab, no context commands can be determined.
+  if (activeTab == null) {
+    return [];
+  }
+
+  // 1. Get all possible tab context commands from all registered plugins.
+  final allCommands = allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
+
+  // 2. Filter them down to only those that can be executed for the given context.
+  final executableCommands = allCommands
+      .where((cmd) => cmd.canExecuteFor(ref, activeTab, targetTab))
+      .toList();
+
+  return executableCommands;
+});
+
 class CommandIcon {
   static const Map<String, IconData> availableIcons = {
     'folder': Icons.folder_outlined,
@@ -213,6 +239,47 @@ class BaseFileContextCommand extends FileContextCommand {
   @override
   Future<void> executeFor(WidgetRef ref, ProjectDocumentFile item) =>
       _executeFor(ref, item);
+}
+
+// --- NEW COMMAND TYPE ---
+abstract class TabContextCommand {
+  final String id;
+  final String label;
+  final Widget icon;
+  final String sourcePlugin;
+
+  const TabContextCommand({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.sourcePlugin,
+  });
+
+  bool canExecuteFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab);
+  Future<void> executeFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab);
+}
+
+class BaseTabContextCommand extends TabContextCommand {
+  final bool Function(WidgetRef, EditorTab, EditorTab) _canExecuteFor;
+  final Future<void> Function(WidgetRef, EditorTab, EditorTab) _executeFor;
+
+  const BaseTabContextCommand({
+    required super.id,
+    required super.label,
+    required super.icon,
+    required super.sourcePlugin,
+    required bool Function(WidgetRef, EditorTab, EditorTab) canExecuteFor,
+    required Future<void> Function(WidgetRef, EditorTab, EditorTab) executeFor,
+  })  : _canExecuteFor = canExecuteFor,
+        _executeFor = executeFor;
+
+  @override
+  bool canExecuteFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab) =>
+      _canExecuteFor(ref, activeTab, targetTab);
+
+  @override
+  Future<void> executeFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab) =>
+      _executeFor(ref, activeTab, targetTab);
 }
 
 class CommandState {
