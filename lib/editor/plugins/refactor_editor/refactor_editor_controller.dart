@@ -153,7 +153,7 @@ class RefactorController extends ChangeNotifier {
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      final Iterable<Match> matches;
+      Iterable<Match> matches;
 
       if (isRegex) {
         try {
@@ -178,22 +178,26 @@ class RefactorController extends ChangeNotifier {
       for (final match in matches) {
         final List<CapturedGroup> capturedGroups = [];
         if (isRegex) {
+          // ====================== START OF FIX #1 ======================
+          // Cast the generic `Match` to a `RegExpMatch` to access group-specific methods.
+          final regExpMatch = match as RegExpMatch;
+          // ======================= END OF FIX #1 =======================
+
           // Start from 1 because group(0) is the full match.
-          for (int j = 1; j <= match.groupCount; j++) {
-            final groupText = match.group(j);
+          for (int j = 1; j <= regExpMatch.groupCount; j++) {
+            final groupText = regExpMatch.group(j);
             if (groupText != null) {
-              // ====================== START OF FIX ======================
-              // Use the correct API `match.start(j)` to get the absolute
-              // starting column of the capture group within the line.
               capturedGroups.add((
                 text: groupText,
-                startColumn: match.start(j) 
+                // ====================== START OF FIX #2 ======================
+                // Use the correct API on the cast object.
+                startColumn: regExpMatch.start(j) 
+                // ======================= END OF FIX #2 =======================
               ));
-              // ======================= END OF FIX =======================
             }
           }
         }
-        
+
         occurrencesInFile.add(RefactorOccurrence(
           fileUri: fileUri,
           displayPath: displayPath,
@@ -217,25 +221,22 @@ class _StringMatch implements Match {
   final int start;
   final String _text;
   _StringMatch(this.input, this.start, this._text);
-  @override
-  int get end => start + _text.length;
-  @override
-  String? group(int group) => group == 0 ? _text : null;
-  @override
-  List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
-  @override
-  int get groupCount => 0;
-  @override
-  Pattern get pattern => throw UnimplementedError();
-  @override
-  String operator [](int group) => this.group(group)!;
-  // Add stubs for the missing methods to satisfy the Match interface
-  int start_unused(int group) => group == 0 ? start : -1;
-  int end_unused(int group) => group == 0 ? end : -1;
 
   @override
-  int start_renamed(int group) => start_unused(group);
+  int get end => start + _text.length;
+
+  @override
+  String? group(int group) => group == 0 ? _text : null;
+
+  @override
+  List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
+
+  @override
+  int get groupCount => 0;
+
+  @override
+  Pattern get pattern => throw UnimplementedError();
   
   @override
-  int end_renamed(int group) => end_unused(group);
+  String operator [](int group) => this.group(group)!;
 }
