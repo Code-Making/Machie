@@ -2,26 +2,30 @@
 // NEW FILE: lib/editor/services/internal_file_content_provider.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
 import 'dart:io';
+
+// Package imports:
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
+// Project imports:
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
-import 'file_content_provider.dart';
 import '../editor_tab_models.dart';
 import '../plugins/plugin_models.dart';
+import 'file_content_provider.dart';
 
-class InternalFileContentProvider implements FileContentProvider, IRehydratable {
+class InternalFileContentProvider
+    implements FileContentProvider, IRehydratable {
   // Use a singleton future to avoid calling getApplicationDocumentsDirectory repeatedly.
-  static final Future<Directory> _appDocsDir = getApplicationDocumentsDirectory();
+  static final Future<Directory> _appDocsDir =
+      getApplicationDocumentsDirectory();
 
   @override
-  Map<Type, String> get typeMappings => {
-        InternalAppFile: 'internal_app_file',
-      };
+  Map<Type, String> get typeMappings => {InternalAppFile: 'internal_app_file'};
 
   /// Converts an "internal://" URI to a full file system path.
   Future<File> _getFileFromUri(String uri) async {
@@ -52,11 +56,16 @@ class InternalFileContentProvider implements FileContentProvider, IRehydratable 
   }
 
   @override
-  Future<SaveResult> saveContent(DocumentFile file, EditorContent content) async {
+  Future<SaveResult> saveContent(
+    DocumentFile file,
+    EditorContent content,
+  ) async {
     if (content is! EditorContentString) {
-      throw UnsupportedError('Internal files currently only support text content.');
+      throw UnsupportedError(
+        'Internal files currently only support text content.',
+      );
     }
-    
+
     final physicalFile = await _getFileFromUri(file.uri);
     await physicalFile.writeAsString(content.content);
 

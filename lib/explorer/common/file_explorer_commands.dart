@@ -2,18 +2,22 @@
 // UPDATED: lib/explorer/common/file_explorer_commands.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../../data/file_handler/file_handler.dart';
+import '../../data/repositories/project_repository.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import '../../utils/clipboard.dart';
-import 'file_explorer_dialogs.dart';
 import '../../utils/toast.dart';
-import '../../data/repositories/project_repository.dart';
 import '../services/explorer_service.dart';
+import 'file_explorer_dialogs.dart';
 
 class _DividerCommand extends FileContextCommand {
   const _DividerCommand()

@@ -1,6 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// Package imports:
 import 'package:dart_git/dart_git.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../logs/logs_provider.dart';
@@ -22,20 +24,24 @@ final gitRepositoryProvider = FutureProvider<GitRepository?>((ref) async {
 
   // 1. Instantiate our custom AppStorageProvider, bridging dart_git to our app's FileHandler.
   final provider = AppStorageProvider(projectRepo.fileHandler);
-  
+
   // 2. Create the root handle for the project's working tree.
-  final workTreeFile = await projectRepo.fileHandler.getFileMetadata(project.rootUri);
+  final workTreeFile = await projectRepo.fileHandler.getFileMetadata(
+    project.rootUri,
+  );
   if (workTreeFile == null) return null;
   final workTreeHandle = AppStorageHandle(workTreeFile);
-  
+
   // 3. Resolve the .git directory handle relative to the working tree.
   final gitDirHandle = await provider.resolve(workTreeHandle, '.git');
-  
+
   // 4. Check if it's a valid repo by looking for a critical file like HEAD.
   //    This is more reliable than just checking for the .git directory's existence.
   final headHandle = await provider.resolve(gitDirHandle, 'HEAD');
   if (!await provider.exists(headHandle)) {
-    ref.read(talkerProvider).info("Project at ${project.rootUri} is not a Git repository.");
+    ref
+        .read(talkerProvider)
+        .info("Project at ${project.rootUri} is not a Git repository.");
     return null;
   }
 
@@ -47,19 +53,25 @@ final gitRepositoryProvider = FutureProvider<GitRepository?>((ref) async {
       workTree: workTreeHandle,
       gitDir: gitDirHandle,
     );
-    
+
     // Ensure resources are cleaned up if the provider is disposed.
     ref.onDispose(() {
       repo.objStorage.close();
       repo.refStorage.close();
       repo.indexStorage.close();
-    });    
+    });
     // Load the repository's configuration.
     await repo.reloadConfig();
-    
+
     return repo;
   } catch (e, st) {
-    ref.read(talkerProvider).handle(e, st, "Failed to load Git repository from providers at ${project.rootUri}");
+    ref
+        .read(talkerProvider)
+        .handle(
+          e,
+          st,
+          "Failed to load Git repository from providers at ${project.rootUri}",
+        );
     return null;
   }
 });

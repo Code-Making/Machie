@@ -1,10 +1,14 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_types.dart';
 
-import 'package:machine/editor/plugins/llm_editor/markdown_builders.dart';
-import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
+// Project imports:
+import 'context_widgets.dart';
+import 'llm_editor_types.dart';
+import 'markdown_builders.dart';
 
 class ChatBubble extends ConsumerWidget {
   final DisplayMessage displayMessage;

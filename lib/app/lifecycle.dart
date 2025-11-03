@@ -1,10 +1,17 @@
 import 'dart:async'; // Import for Timer
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../data/cache/hot_state_cache_service.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
+
 import '../data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-import '../data/cache/hot_state_cache_service.dart';
 
 // Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {

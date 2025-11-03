@@ -1,18 +1,24 @@
 // FILE: lib/editor/plugins/llm_editor/context_widgets.dart
 
+// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_highlight/re_highlight.dart';
+
+// Project imports:
+import '../code_editor/code_editor_models.dart';
+import '../code_editor/code_themes.dart';
+import 'llm_editor_models.dart';
+import 'llm_highlight_util.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+
 import 'package:re_highlight/styles/default.dart'; // For defaultTheme if needed
-import 'package:machine/editor/plugins/code_editor/code_editor_models.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'package:machine/utils/toast.dart';
 
 // NEW IMPORT for split files
-import 'package:machine/editor/plugins/llm_editor/llm_highlight_util.dart';
 
 class ContextItemViewChip extends StatelessWidget {
   final ContextItem item;

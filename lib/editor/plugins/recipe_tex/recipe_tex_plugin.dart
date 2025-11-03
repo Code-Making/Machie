@@ -1,27 +1,34 @@
 // =========================================
 // UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_plugin.dart
 // =========================================
+
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
+import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
-import '../../tab_state_manager.dart';
 import '../../plugins/editor_command_context.dart';
 import '../../services/editor_service.dart';
+import '../../tab_state_manager.dart';
 import '../plugin_models.dart';
 import 'recipe_editor_widget.dart';
 import 'recipe_tex_command_context.dart';
 import 'recipe_tex_hot_state.dart';
 import 'recipe_tex_hot_state_adapter.dart';
 import 'recipe_tex_models.dart';
-import '../../../utils/toast.dart';
 
 class RecipeTexPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.recipe_tex';

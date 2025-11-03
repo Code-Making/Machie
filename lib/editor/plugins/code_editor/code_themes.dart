@@ -4,6 +4,24 @@ import 'package:flutter/material.dart'; // For TextStyle
 import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
 
 // IMPORTS FOR ALL THEMES
+
+// Package imports:
+import 'package:re_highlight/languages/bash.dart';
+import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/css.dart';
+import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/java.dart';
+import 'package:re_highlight/languages/javascript.dart';
+import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/kotlin.dart';
+import 'package:re_highlight/languages/latex.dart';
+import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/plaintext.dart';
+import 'package:re_highlight/languages/properties.dart';
+import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/typescript.dart';
+import 'package:re_highlight/languages/xml.dart';
+import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/styles/agate.dart';
 import 'package:re_highlight/styles/an-old-hope.dart';
 import 'package:re_highlight/styles/androidstudio.dart';
@@ -76,22 +94,6 @@ import 'package:re_highlight/styles/xcode.dart';
 import 'package:re_highlight/styles/xt256.dart';
 
 // IMPORTS FOR LANGUAGES (from previous step, still needed for languageNameToModeMap)
-import 'package:re_highlight/languages/bash.dart';
-import 'package:re_highlight/languages/cpp.dart';
-import 'package:re_highlight/languages/css.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/languages/java.dart';
-import 'package:re_highlight/languages/javascript.dart';
-import 'package:re_highlight/languages/json.dart';
-import 'package:re_highlight/languages/kotlin.dart';
-import 'package:re_highlight/languages/latex.dart';
-import 'package:re_highlight/languages/markdown.dart';
-import 'package:re_highlight/languages/plaintext.dart';
-import 'package:re_highlight/languages/properties.dart';
-import 'package:re_highlight/languages/python.dart';
-import 'package:re_highlight/languages/typescript.dart';
-import 'package:re_highlight/languages/xml.dart';
-import 'package:re_highlight/languages/yaml.dart';
 
 class CodeThemes {
   // Define available code themes as a map of theme names to their highlight maps

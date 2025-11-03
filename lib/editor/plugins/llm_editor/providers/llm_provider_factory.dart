@@ -2,10 +2,13 @@
 // UPDATED: lib/editor/plugins/llm_editor/providers/llm_provider_factory.dart
 // =========================================
 
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/editor/plugins/llm_editor/providers/llm_provider.dart';
-import 'package:machine/settings/settings_notifier.dart';
+
+// Project imports:
+import '../llm_editor_models.dart';
+import 'llm_provider.dart';
+import '../../../../settings/settings_notifier.dart';
 
 // A simple list of all available provider instances.
 final allLlmProviders = [DummyProvider(), GeminiProvider('')];

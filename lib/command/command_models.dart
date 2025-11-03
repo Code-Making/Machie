@@ -2,29 +2,34 @@
 // UPDATED: lib/command/command_models.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../data/file_handler/file_handler.dart';
+import '../editor/editor_tab_models.dart';
 
 import '../app/app_notifier.dart'; // <-- ADD THIS IMPORT
-import '../editor/editor_tab_models.dart';
 import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 import '../editor/tab_context_commands.dart'; // <-- IMPORT THE NEW FILE
-
 
 // This provider simply aggregates all possible TabContextCommands from all active plugins.
 // The final filtering based on context will happen in the UI layer.
 final allTabContextCommandsProvider = Provider<List<TabContextCommand>>((ref) {
   final allPlugins = ref.watch(activePluginsProvider);
-  
+
   // 1. Start with the generic, app-level commands.
   final genericCommands = AppTabContextCommands.getCommands();
-  
+
   // 2. Get all commands from all plugins.
-  final pluginCommands = allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
+  final pluginCommands =
+      allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
 
   // 3. Combine them into a single list.
   return [...genericCommands, ...pluginCommands];
@@ -250,7 +255,11 @@ abstract class TabContextCommand {
   });
 
   bool canExecuteFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab);
-  Future<void> executeFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab);
+  Future<void> executeFor(
+    WidgetRef ref,
+    EditorTab activeTab,
+    EditorTab targetTab,
+  );
 }
 
 class BaseTabContextCommand extends TabContextCommand {
@@ -264,16 +273,19 @@ class BaseTabContextCommand extends TabContextCommand {
     required super.sourcePlugin,
     required bool Function(WidgetRef, EditorTab, EditorTab) canExecuteFor,
     required Future<void> Function(WidgetRef, EditorTab, EditorTab) executeFor,
-  })  : _canExecuteFor = canExecuteFor,
-        _executeFor = executeFor;
+  }) : _canExecuteFor = canExecuteFor,
+       _executeFor = executeFor;
 
   @override
   bool canExecuteFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab) =>
       _canExecuteFor(ref, activeTab, targetTab);
 
   @override
-  Future<void> executeFor(WidgetRef ref, EditorTab activeTab, EditorTab targetTab) =>
-      _executeFor(ref, activeTab, targetTab);
+  Future<void> executeFor(
+    WidgetRef ref,
+    EditorTab activeTab,
+    EditorTab targetTab,
+  ) => _executeFor(ref, activeTab, targetTab);
 }
 
 class CommandState {

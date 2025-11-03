@@ -1,7 +1,11 @@
-import 'package:collection/collection.dart';
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../app/app_notifier.dart';
 import '../editor/services/text_editing_capability.dart';
 import 'command_notifier.dart';

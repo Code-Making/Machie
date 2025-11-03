@@ -1,20 +1,22 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
+// Flutter imports:
+import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../app/app_notifier.dart';
-import '../../data/repositories/project_repository.dart';
-import '../../data/file_handler/file_handler.dart'
-    show DocumentFile, ProjectDocumentFile;
-import '../../data/dto/project_dto.dart';
 import '../../data/cache/hot_state_cache_service.dart';
-import '../../explorer/common/save_as_dialog.dart';
+import '../../data/dto/project_dto.dart';
+import '../../data/repositories/project_repository.dart';
 import '../../explorer/common/file_explorer_dialogs.dart';
+import '../../explorer/common/save_as_dialog.dart';
 import '../../explorer/services/explorer_service.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
@@ -24,6 +26,9 @@ import '../plugins/plugin_registry.dart';
 import '../tab_state_manager.dart';
 import 'file_content_provider.dart';
 import 'text_editing_capability.dart';
+
+import '../../data/file_handler/file_handler.dart'
+    show DocumentFile, ProjectDocumentFile;
 
 final editorServiceProvider = Provider<EditorService>((ref) {
   return EditorService(ref);
@@ -276,8 +281,10 @@ class EditorService {
 
     // Sanitize path to use forward slashes, which our SAF handler expects.
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    DocumentFile? file =
-        await repo.fileHandler.resolvePath(project.rootUri, sanitizedPath);
+    DocumentFile? file = await repo.fileHandler.resolvePath(
+      project.rootUri,
+      sanitizedPath,
+    );
 
     if (file != null) {
       // File exists, open it directly.
@@ -291,10 +298,15 @@ class EditorService {
 
       if (shouldCreate) {
         try {
-          final newFile = await explorerService.createFileWithHierarchy(project.rootUri, sanitizedPath);
+          final newFile = await explorerService.createFileWithHierarchy(
+            project.rootUri,
+            sanitizedPath,
+          );
           return await appNotifier.openFileInEditor(newFile);
         } catch (e, st) {
-          _ref.read(talkerProvider).handle(e, st, 'Failed to create file at path: $sanitizedPath');
+          _ref
+              .read(talkerProvider)
+              .handle(e, st, 'Failed to create file at path: $sanitizedPath');
           MachineToast.error("Could not create file: $e");
         }
       }
@@ -309,10 +321,13 @@ class EditorService {
       MachineToast.error("No project is open.");
       return false;
     }
-    
+
     // Sanitize path just in case
     final sanitizedPath = relativePath.replaceAll(r'\', '/');
-    final file = await _repo.fileHandler.resolvePath(project.rootUri, sanitizedPath);
+    final file = await _repo.fileHandler.resolvePath(
+      project.rootUri,
+      sanitizedPath,
+    );
 
     if (file == null) {
       MachineToast.error("File not found: $sanitizedPath");
@@ -321,14 +336,22 @@ class EditorService {
 
     final appNotifier = _ref.read(appNotifierProvider.notifier);
     final metadataMap = _ref.read(tabMetadataProvider);
-    final existingTabId = metadataMap.entries.firstWhereOrNull((entry) => entry.value.file.uri == file.uri)?.key;
-    EditorTab? tabToEdit = (project.session.tabs).firstWhereOrNull((t) => t.id == existingTabId);
+    final existingTabId =
+        metadataMap.entries
+            .firstWhereOrNull((entry) => entry.value.file.uri == file.uri)
+            ?.key;
+    EditorTab? tabToEdit = (project.session.tabs).firstWhereOrNull(
+      (t) => t.id == existingTabId,
+    );
 
     try {
       final EditorWidgetState editorState;
       if (tabToEdit == null) {
         final onReadyCompleter = Completer<EditorWidgetState>();
-        if (!await appNotifier.openFileInEditor(file, onReadyCompleter: onReadyCompleter)) {
+        if (!await appNotifier.openFileInEditor(
+          file,
+          onReadyCompleter: onReadyCompleter,
+        )) {
           return false;
         }
         editorState = await onReadyCompleter.future;
@@ -347,14 +370,17 @@ class EditorService {
         throw TypeError();
       }
     } catch (e, st) {
-      final errorMessage = e is TypeError ? "The editor for this file does not support programmatic edits." : "Failed to apply edit: $e";
+      final errorMessage =
+          e is TypeError
+              ? "The editor for this file does not support programmatic edits."
+              : "Failed to apply edit: $e";
       _ref.read(talkerProvider).handle(e, st, 'Error in openAndApplyEdit');
       MachineToast.error(errorMessage);
       return false;
     }
   }
 
-Future<OpenFileResult> openFile(
+  Future<OpenFileResult> openFile(
     Project project,
     DocumentFile file, {
     EditorPlugin? explicitPlugin,
@@ -400,13 +426,18 @@ Future<OpenFileResult> openFile(
             file,
             PluginDataRequirement.string,
           );
-          final fileContent = (contentResult.content as EditorContentString).content;
-          
-          final contentMatchingPlugins = compatiblePlugins.where(
-            (p) => p.dataRequirement == PluginDataRequirement.string &&
-                   p.canOpenFileContent(fileContent, file),
-          ).toList();
-          
+          final fileContent =
+              (contentResult.content as EditorContentString).content;
+
+          final contentMatchingPlugins =
+              compatiblePlugins
+                  .where(
+                    (p) =>
+                        p.dataRequirement == PluginDataRequirement.string &&
+                        p.canOpenFileContent(fileContent, file),
+                  )
+                  .toList();
+
           if (contentMatchingPlugins.isEmpty) {
             chosenPlugin = compatiblePlugins.first;
           } else if (contentMatchingPlugins.length == 1) {
@@ -426,7 +457,8 @@ Future<OpenFileResult> openFile(
 
       // Step 3: Run content check (for string-based plugins)
       if (chosenPlugin.dataRequirement == PluginDataRequirement.string) {
-        final fileContent = (contentResult.content as EditorContentString).content;
+        final fileContent =
+            (contentResult.content as EditorContentString).content;
         if (!chosenPlugin.canOpenFileContent(fileContent, file)) {
           return OpenFileError(
             "${chosenPlugin.name} cannot open this file's content.",
@@ -445,7 +477,6 @@ Future<OpenFileResult> openFile(
         onReadyCompleter: onReadyCompleter,
       );
       return _constructOpenFileSuccess(project, newTab, file);
-
     } catch (e, st) {
       _ref
           .read(talkerProvider)
@@ -453,7 +484,7 @@ Future<OpenFileResult> openFile(
       return OpenFileError("Error opening file '${file.name}'.");
     }
   }
-  
+
   OpenFileSuccess _constructOpenFileSuccess(
     Project project,
     EditorTab newTab,

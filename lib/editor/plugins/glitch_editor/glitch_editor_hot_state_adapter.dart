@@ -2,10 +2,14 @@
 // UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_hot_state_adapter.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
-// ADDED
+
+// Project imports:
 import '../../../data/cache/type_adapters.dart';
 import 'glitch_editor_hot_state_dto.dart';
+
+// ADDED
 
 /// A type adapter for serializing and deserializing [GlitchEditorHotStateDto].
 class GlitchEditorHotStateAdapter

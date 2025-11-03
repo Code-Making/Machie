@@ -1,10 +1,14 @@
 // lib/editor/plugins/refactor_editor/occurrence_list_item.dart
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart' as default_theme;
 
+// Project imports:
 import '../../../editor/plugins/code_editor/code_themes.dart';
 import '../../../editor/plugins/llm_editor/llm_highlight_util.dart';
 import '../../../settings/settings_notifier.dart';
@@ -47,7 +51,8 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     super.didUpdateWidget(oldWidget);
     // Re-compute the render data ONLY if the inputs have actually changed.
     // This is the core of the optimization.
-    if (oldWidget.item != widget.item || oldWidget.isSelected != widget.isSelected) {
+    if (oldWidget.item != widget.item ||
+        oldWidget.isSelected != widget.isSelected) {
       _computeRenderData();
     }
   }
@@ -56,17 +61,25 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   /// This method is designed to be called only when necessary.
   void _computeRenderData() {
     final theme = Theme.of(context);
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
+    final settings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final codeThemeData =
+        CodeThemes.availableCodeThemes[settings.themeName] ??
+        default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
     final occurrence = widget.item.occurrence;
 
     // --- All the expensive logic is now contained here ---
 
     final leadingWhitespace = RegExp(r'^\s*');
-    final whitespaceMatch = leadingWhitespace.firstMatch(occurrence.lineContent);
+    final whitespaceMatch = leadingWhitespace.firstMatch(
+      occurrence.lineContent,
+    );
     final trimmedCode = occurrence.lineContent.trimLeft();
     final trimmedLength = whitespaceMatch?.group(0)?.length ?? 0;
 
@@ -78,10 +91,12 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
     final renderer = TextSpanRenderer(textStyle, codeThemeData);
     highlightResult.render(renderer);
-    final highlightedSpan = renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
+    final highlightedSpan =
+        renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
 
     final matchStartInTrimmed = occurrence.startColumn - trimmedLength;
-    final matchEndInTrimmed = matchStartInTrimmed + occurrence.matchedText.length;
+    final matchEndInTrimmed =
+        matchStartInTrimmed + occurrence.matchedText.length;
 
     _previewSpan = TextSpan(
       children: _overlayHighlight(
@@ -97,7 +112,10 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
 
     switch (widget.item.status) {
       case ResultStatus.pending:
-        _leadingIcon = Checkbox(value: widget.isSelected, onChanged: widget.onSelected);
+        _leadingIcon = Checkbox(
+          value: widget.isSelected,
+          onChanged: widget.onSelected,
+        );
         break;
       case ResultStatus.applied:
         _leadingIcon = const Icon(Icons.check_circle, color: Colors.green);
@@ -116,16 +134,27 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     // The build method is now very lightweight. It only reads pre-computed
     // values from the state and builds the layout. No heavy lifting happens here.
     final theme = Theme.of(context);
-    final settings = ref.watch(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
+    final settings =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final codeThemeData =
+        CodeThemes.availableCodeThemes[settings.themeName] ??
+        default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
-    final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
+    final codeBgColor =
+        codeThemeData['root']?.backgroundColor ??
+        Colors.black.withOpacity(0.25);
     final occurrence = widget.item.occurrence;
 
     return Material(
-      color: widget.isSelected ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+      color:
+          widget.isSelected
+              ? theme.colorScheme.primary.withOpacity(0.1)
+              : Colors.transparent,
       child: InkWell(
         onTap: widget.onJumpTo,
         child: Column(
@@ -144,7 +173,10 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: codeBgColor,
                         borderRadius: BorderRadius.circular(4),
@@ -158,7 +190,9 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                               padding: const EdgeInsets.only(right: 12.0),
                               child: Text(
                                 '${occurrence.lineNumber + 1}',
-                                style: textStyle.copyWith(color: Colors.grey.shade600),
+                                style: textStyle.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
                             ),
                             RichText(text: _previewSpan), // Use cached TextSpan
@@ -177,7 +211,6 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
   }
 
-  
   /// A robust recursive function to traverse a TextSpan tree, apply a highlight
   /// to a specific range, and return the new list of TextSpans.
   List<TextSpan> _overlayHighlight({
@@ -198,7 +231,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         }
         return;
       }
-      
+
       if (span.text == null || span.text!.isEmpty) {
         return;
       }
@@ -216,32 +249,43 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
       } else {
         // Case 2: The span intersects with the highlight range.
         // We may need to split it into up to three parts: before, highlighted, and after.
-        
+
         // Part 1: Text before the highlight starts.
         if (spanStart < highlightStart) {
-          result.add(TextSpan(
-            text: spanText.substring(0, highlightStart - spanStart),
-            style: span.style,
-          ));
+          result.add(
+            TextSpan(
+              text: spanText.substring(0, highlightStart - spanStart),
+              style: span.style,
+            ),
+          );
         }
 
         // Part 2: The highlighted text itself.
-        final int intersectionStart = (spanStart > highlightStart) ? spanStart : highlightStart;
-        final int intersectionEnd = (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
-        result.add(TextSpan(
-          text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
-          style: (span.style ?? const TextStyle()).merge(highlightStyle),
-        ));
+        final int intersectionStart =
+            (spanStart > highlightStart) ? spanStart : highlightStart;
+        final int intersectionEnd =
+            (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
+        result.add(
+          TextSpan(
+            text: spanText.substring(
+              intersectionStart - spanStart,
+              intersectionEnd - spanStart,
+            ),
+            style: (span.style ?? const TextStyle()).merge(highlightStyle),
+          ),
+        );
 
         // Part 3: Text after the highlight ends.
         if (spanEnd > highlightEnd) {
-          result.add(TextSpan(
-            text: spanText.substring(highlightEnd - spanStart),
-            style: span.style,
-          ));
+          result.add(
+            TextSpan(
+              text: spanText.substring(highlightEnd - spanStart),
+              style: span.style,
+            ),
+          );
         }
       }
-      
+
       currentIndex = spanEnd;
     }
 

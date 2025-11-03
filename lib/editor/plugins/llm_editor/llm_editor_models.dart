@@ -1,8 +1,13 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:machine/editor/editor_tab_models.dart';
-import 'package:machine/editor/plugins/plugin_models.dart';
-import 'llm_editor_widget.dart';
+
+// Package imports:
 import 'package:collection/collection.dart';
+
+// Project imports:
+import '../../editor_tab_models.dart';
+import '../plugin_models.dart';
+import 'llm_editor_widget.dart';
 
 @immutable
 class ChatMessage {

@@ -2,16 +2,20 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_explorer_state.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
-import 'package:equatable/equatable.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Package imports:
 import 'package:dart_git/dart_git.dart';
 import 'package:dart_git/plumbing/commit_iterator.dart';
-import 'package:dart_git/utils/file_mode.dart';
 import 'package:dart_git/storage/interfaces.dart';
+import 'package:dart_git/utils/file_mode.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'git_provider.dart';
+// Project imports:
 import 'git_object_file.dart';
+import 'git_provider.dart';
 
 // NEW: This provider tracks the commit hash that serves as the starting point for the history view.
 // When a user "jumps to" a hash, this provider's state is updated.
@@ -19,7 +23,10 @@ final gitHistoryStartHashProvider = StateProvider<GitHash?>((ref) => null);
 
 // NEW: A provider to fetch the details of a single commit by its hash.
 // This decouples the main commit display from the paginated list.
-final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((ref, hash) async {
+final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
+  ref,
+  hash,
+) async {
   final gitRepo = await ref.watch(gitRepositoryProvider.future);
   if (gitRepo == null) return null;
   try {
@@ -32,31 +39,51 @@ final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((ref
 });
 
 // This efficient iterator remains the same.
-Stream<GitCommit> firstParentCommitIterator({ required ObjectStorage objStorage, required GitHash from }) async* {
+Stream<GitCommit> firstParentCommitIterator({
+  required ObjectStorage objStorage,
+  required GitHash from,
+}) async* {
   GitHash? currentHash = from;
   while (currentHash != null) {
     try {
       final commit = await objStorage.readCommit(currentHash);
       yield commit;
       currentHash = commit.parents.isNotEmpty ? commit.parents.first : null;
-    } catch (e) { break; }
+    } catch (e) {
+      break;
+    }
   }
 }
 
 const _commitsPerPage = 10;
 
-class PaginatedCommitsState extends Equatable { /* ... unchanged ... */
+class PaginatedCommitsState extends Equatable {
+  /* ... unchanged ... */
   final List<GitCommit> commits;
   final bool isLoading;
   final bool hasMore;
-  const PaginatedCommitsState({ this.commits = const [], this.isLoading = true, this.hasMore = true });
-  PaginatedCommitsState copyWith({ List<GitCommit>? commits, bool? isLoading, bool? hasMore }) => PaginatedCommitsState(commits: commits ?? this.commits, isLoading: isLoading ?? this.isLoading, hasMore: hasMore ?? this.hasMore);
-  @override List<Object?> get props => [commits, isLoading, hasMore];
+  const PaginatedCommitsState({
+    this.commits = const [],
+    this.isLoading = true,
+    this.hasMore = true,
+  });
+  PaginatedCommitsState copyWith({
+    List<GitCommit>? commits,
+    bool? isLoading,
+    bool? hasMore,
+  }) => PaginatedCommitsState(
+    commits: commits ?? this.commits,
+    isLoading: isLoading ?? this.isLoading,
+    hasMore: hasMore ?? this.hasMore,
+  );
+  @override
+  List<Object?> get props => [commits, isLoading, hasMore];
 }
 
 // REFACTORED: This is now an AutoDisposeFamilyAsyncNotifier, parameterized by the starting commit hash.
 // When the start hash changes, Riverpod automatically creates a new instance and fetches a new history.
-class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedCommitsState, GitHash> {
+class PaginatedCommitsNotifier
+    extends AutoDisposeFamilyAsyncNotifier<PaginatedCommitsState, GitHash> {
   StreamIterator<GitCommit>? _iterator;
 
   @override
@@ -66,9 +93,12 @@ class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedC
       return const PaginatedCommitsState(isLoading: false, hasMore: false);
     }
 
-    final stream = firstParentCommitIterator(objStorage: gitRepo.objStorage, from: fromHash);
+    final stream = firstParentCommitIterator(
+      objStorage: gitRepo.objStorage,
+      from: fromHash,
+    );
     _iterator = StreamIterator(stream);
-    
+
     return _fetchNextPage(const PaginatedCommitsState(commits: []));
   }
 
@@ -78,25 +108,41 @@ class PaginatedCommitsNotifier extends AutoDisposeFamilyAsyncNotifier<PaginatedC
     state = AsyncData(state.value!.copyWith(isLoading: true));
     state = AsyncData(await _fetchNextPage(state.value!));
   }
-  
-  Future<PaginatedCommitsState> _fetchNextPage(PaginatedCommitsState currentState) async {
-    if (_iterator == null) return currentState.copyWith(isLoading: false, hasMore: false);
+
+  Future<PaginatedCommitsState> _fetchNextPage(
+    PaginatedCommitsState currentState,
+  ) async {
+    if (_iterator == null)
+      return currentState.copyWith(isLoading: false, hasMore: false);
     final newCommits = <GitCommit>[];
     for (var i = 0; i < _commitsPerPage; i++) {
       if (await _iterator!.moveNext()) {
         newCommits.add(_iterator!.current);
       } else {
-        return currentState.copyWith(commits: [...currentState.commits, ...newCommits], isLoading: false, hasMore: false);
+        return currentState.copyWith(
+          commits: [...currentState.commits, ...newCommits],
+          isLoading: false,
+          hasMore: false,
+        );
       }
     }
-    return currentState.copyWith(commits: [...currentState.commits, ...newCommits], isLoading: false, hasMore: true);
+    return currentState.copyWith(
+      commits: [...currentState.commits, ...newCommits],
+      isLoading: false,
+      hasMore: true,
+    );
   }
 }
 
-final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<PaginatedCommitsNotifier, PaginatedCommitsState, GitHash>(PaginatedCommitsNotifier.new);
+final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<
+  PaginatedCommitsNotifier,
+  PaginatedCommitsState,
+  GitHash
+>(PaginatedCommitsNotifier.new);
 
 // ... (The rest of the file is unchanged) ...
-final gitExplorerExpandedFoldersProvider = StateProvider.autoDispose<Set<String>>((ref) => {});
+final gitExplorerExpandedFoldersProvider =
+    StateProvider.autoDispose<Set<String>>((ref) => {});
 
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   // We need to know which history we're listening to.
@@ -117,35 +163,56 @@ final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   return null;
 });
 
-final gitTreeCacheProvider = AutoDisposeNotifierProvider<GitTreeCacheNotifier, Map<String, AsyncValue<List<GitObjectDocumentFile>>>>(GitTreeCacheNotifier.new);
-class GitTreeCacheNotifier extends AutoDisposeNotifier<Map<String, AsyncValue<List<GitObjectDocumentFile>>>> {
+final gitTreeCacheProvider = AutoDisposeNotifierProvider<
+  GitTreeCacheNotifier,
+  Map<String, AsyncValue<List<GitObjectDocumentFile>>>
+>(GitTreeCacheNotifier.new);
+
+class GitTreeCacheNotifier
+    extends
+        AutoDisposeNotifier<
+          Map<String, AsyncValue<List<GitObjectDocumentFile>>>
+        > {
   @override
   Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
     ref.watch(selectedGitCommitHashProvider);
     return {};
   }
+
   Future<void> loadDirectory(String pathInRepo) async {
-    if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) return;
+    if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData)
+      return;
     state = {...state, pathInRepo: const AsyncLoading()};
     try {
       final gitRepo = await ref.read(gitRepositoryProvider.future);
       final commitHash = ref.read(selectedGitCommitHashProvider);
-      if (gitRepo == null || commitHash == null) throw Exception("Git repository or commit not available");
+      if (gitRepo == null || commitHash == null)
+        throw Exception("Git repository or commit not available");
       final commit = await gitRepo.objStorage.readCommit(commitHash);
       GitTree tree;
-      if (pathInRepo.isEmpty) { tree = await gitRepo.objStorage.readTree(commit.treeHash); }
-      else {
+      if (pathInRepo.isEmpty) {
+        tree = await gitRepo.objStorage.readTree(commit.treeHash);
+      } else {
         final rootTree = await gitRepo.objStorage.readTree(commit.treeHash);
         final entry = await gitRepo.objStorage.refSpec(rootTree, pathInRepo);
         tree = await gitRepo.objStorage.readTree(entry.hash);
       }
-      final items = tree.entries.map((entry) {
-        final fullPath = pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
-        return GitObjectDocumentFile(name: entry.name, commitHash: commitHash, objectHash: entry.hash, pathInRepo: fullPath, isDirectory: entry.mode == GitFileMode.Dir);
-      }).toList()..sort((a, b) {
-        if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-        return a.name.compareTo(b.name);
-      });
+      final items =
+          tree.entries.map((entry) {
+              final fullPath =
+                  pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
+              return GitObjectDocumentFile(
+                name: entry.name,
+                commitHash: commitHash,
+                objectHash: entry.hash,
+                pathInRepo: fullPath,
+                isDirectory: entry.mode == GitFileMode.Dir,
+              );
+            }).toList()
+            ..sort((a, b) {
+              if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+              return a.name.compareTo(b.name);
+            });
       state = {...state, pathInRepo: AsyncData(items)};
     } catch (e, st) {
       state = {...state, pathInRepo: AsyncError(e, st)};

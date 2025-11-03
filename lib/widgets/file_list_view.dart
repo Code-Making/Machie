@@ -1,9 +1,15 @@
 // lib/widgets/file_list_view.dart
-import 'package:collection/collection.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/plugin_registry.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
+
+// Project imports:
+import '../data/file_handler/file_handler.dart';
+import '../editor/plugins/plugin_registry.dart';
 
 // (FileTypeIcon is unchanged)
 class FileTypeIcon extends ConsumerWidget {
@@ -21,12 +27,13 @@ class FileTypeIcon extends ConsumerWidget {
 }
 
 /// A typedef for the builder function that allows decorating list items.
-typedef FileListItemBuilder = Widget Function(
-  BuildContext context,
-  DocumentFile item,
-  int depth,
-  Widget defaultItem,
-);
+typedef FileListItemBuilder =
+    Widget Function(
+      BuildContext context,
+      DocumentFile item,
+      int depth,
+      Widget defaultItem,
+    );
 
 /// The core, stateless, reusable widget for displaying a list of files.
 class FileListView extends StatelessWidget {
@@ -34,7 +41,8 @@ class FileListView extends StatelessWidget {
   final Set<String> expandedDirectoryUris;
   final int depth;
   final void Function(DocumentFile file) onFileTapped;
-  final void Function(DocumentFile directory, bool isExpanded) onExpansionChanged;
+  final void Function(DocumentFile directory, bool isExpanded)
+  onExpansionChanged;
   final Widget Function(DocumentFile directory) directoryChildrenBuilder;
   // NEW: Optional builder for decoration
   final FileListItemBuilder? itemBuilder;
@@ -68,7 +76,8 @@ class FileListView extends StatelessWidget {
             directory: item,
             depth: depth,
             isExpanded: expandedDirectoryUris.contains(item.uri),
-            onExpansionChanged: (isExpanded) => onExpansionChanged(item, isExpanded),
+            onExpansionChanged:
+                (isExpanded) => onExpansionChanged(item, isExpanded),
             children: [directoryChildrenBuilder(item)],
           );
         } else {
@@ -112,7 +121,10 @@ class FileItem extends StatelessWidget {
     return ListTile(
       onTap: onTapped,
       dense: true,
-      contentPadding: EdgeInsets.only(left: depth * _kIndentPerLevel, right: 8.0),
+      contentPadding: EdgeInsets.only(
+        left: depth * _kIndentPerLevel,
+        right: 8.0,
+      ),
       leading: FileTypeIcon(file: file),
       title: Text(
         file.name,
@@ -120,13 +132,14 @@ class FileItem extends StatelessWidget {
         style: const TextStyle(fontSize: 14.0),
       ),
       // ADDED: Conditionally display the subtitle
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.0),
-            )
-          : null,
+      subtitle:
+          subtitle != null
+              ? Text(
+                subtitle!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.0),
+              )
+              : null,
     );
   }
 }
@@ -137,14 +150,23 @@ class _DirectoryItem extends StatelessWidget {
   final bool isExpanded;
   final ValueChanged<bool> onExpansionChanged;
   final List<Widget> children;
-  const _DirectoryItem({required this.directory, required this.depth, required this.isExpanded, required this.onExpansionChanged, required this.children});
+  const _DirectoryItem({
+    required this.directory,
+    required this.depth,
+    required this.isExpanded,
+    required this.onExpansionChanged,
+    required this.children,
+  });
   static const double _kIndentPerLevel = 16.0;
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
       key: PageStorageKey<String>(directory.uri),
       tilePadding: EdgeInsets.only(left: depth * _kIndentPerLevel, right: 8.0),
-      leading: Icon(isExpanded ? Icons.folder_open : Icons.folder, color: Colors.yellow.shade700),
+      leading: Icon(
+        isExpanded ? Icons.folder_open : Icons.folder,
+        color: Colors.yellow.shade700,
+      ),
       title: Text(directory.name, style: const TextStyle(fontSize: 14.0)),
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: isExpanded,

@@ -1,10 +1,15 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart'; 
 
+// Package imports:
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
 import 'refactor_editor_models.dart';
+
+import 'package:collection/collection.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
 class RefactorController extends ChangeNotifier {
@@ -15,24 +20,25 @@ class RefactorController extends ChangeNotifier {
   bool autoOpenFiles;
   RefactorMode mode;
   SearchStatus searchStatus = SearchStatus.idle;
-  
+
   final List<RefactorResultItem> resultItems = [];
   final Set<RefactorResultItem> selectedItems = {};
 
   RefactorController({required RefactorSessionState initialState})
-      : searchTerm = initialState.searchTerm,
-        replaceTerm = initialState.replaceTerm,
-        isRegex = initialState.isRegex,
-        isCaseSensitive = initialState.isCaseSensitive,
-        autoOpenFiles = initialState.autoOpenFiles,
-        mode = initialState.mode;
+    : searchTerm = initialState.searchTerm,
+      replaceTerm = initialState.replaceTerm,
+      isRegex = initialState.isRegex,
+      isCaseSensitive = initialState.isCaseSensitive,
+      autoOpenFiles = initialState.autoOpenFiles,
+      mode = initialState.mode;
 
   // --- UI State Mutation Methods ---
-  
+
   void updateSearchTerm(String term) {
     searchTerm = term;
     notifyListeners();
   }
+
   void updateReplaceTerm(String term) {
     replaceTerm = term;
     notifyListeners();
@@ -62,7 +68,7 @@ class RefactorController extends ChangeNotifier {
     autoOpenFiles = value;
     notifyListeners();
   }
-  
+
   void toggleItemSelection(RefactorResultItem item) {
     if (item.status != ResultStatus.pending) return;
     if (selectedItems.contains(item)) {
@@ -76,15 +82,19 @@ class RefactorController extends ChangeNotifier {
   void toggleSelectAll(bool isSelected) {
     selectedItems.clear();
     if (isSelected) {
-      selectedItems.addAll(resultItems.where((item) => item.status == ResultStatus.pending));
+      selectedItems.addAll(
+        resultItems.where((item) => item.status == ResultStatus.pending),
+      );
     }
     notifyListeners();
   }
-  
+
   void toggleSelectAllForFile(String fileUri, bool shouldSelect) {
-    final itemsForFile = resultItems
-        .where((i) => i.occurrence.fileUri == fileUri && i.status == ResultStatus.pending);
-    
+    final itemsForFile = resultItems.where(
+      (i) =>
+          i.occurrence.fileUri == fileUri && i.status == ResultStatus.pending,
+    );
+
     if (shouldSelect) {
       selectedItems.addAll(itemsForFile);
     } else {
@@ -99,18 +109,20 @@ class RefactorController extends ChangeNotifier {
     selectedItems.clear();
     notifyListeners();
   }
-  
+
   void completeSearch(List<RefactorOccurrence> results) {
-    resultItems.addAll(results.map((occ) => RefactorResultItem(occurrence: occ)));
+    resultItems.addAll(
+      results.map((occ) => RefactorResultItem(occurrence: occ)),
+    );
     searchStatus = SearchStatus.complete;
     notifyListeners();
   }
-  
+
   void failSearch() {
     searchStatus = SearchStatus.error;
     notifyListeners();
   }
-  
+
   void updateItemsStatus({
     required Iterable<RefactorResultItem> processed,
     required Map<RefactorResultItem, String> failed,
@@ -132,7 +144,7 @@ class RefactorController extends ChangeNotifier {
   }
 
   // --- Core Business Logic (Pure Dart) ---
-  
+
   List<RefactorOccurrence> searchInContent({
     required String content,
     required String fileUri,
@@ -149,7 +161,10 @@ class RefactorController extends ChangeNotifier {
       final Iterable<Match> matches;
 
       if (isRegex) {
-        matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
+        matches = RegExp(
+          searchTerm,
+          caseSensitive: isCaseSensitive,
+        ).allMatches(line);
       } else {
         final tempMatches = <Match>[];
         int startIndex = 0;
@@ -158,22 +173,30 @@ class RefactorController extends ChangeNotifier {
         while (startIndex < target.length) {
           final index = target.indexOf(query, startIndex);
           if (index == -1) break;
-          tempMatches.add(_StringMatch(line, index, line.substring(index, index + searchTerm.length)));
+          tempMatches.add(
+            _StringMatch(
+              line,
+              index,
+              line.substring(index, index + searchTerm.length),
+            ),
+          );
           startIndex = index + searchTerm.length;
         }
         matches = tempMatches;
       }
 
       for (final match in matches) {
-        occurrencesInFile.add(RefactorOccurrence(
-          fileUri: fileUri,
-          displayPath: displayPath,
-          lineNumber: i,
-          startColumn: match.start,
-          lineContent: line,
-          matchedText: match.group(0)!,
-          fileContentHash: fileContentHash,
-        ));
+        occurrencesInFile.add(
+          RefactorOccurrence(
+            fileUri: fileUri,
+            displayPath: displayPath,
+            lineNumber: i,
+            startColumn: match.start,
+            lineContent: line,
+            matchedText: match.group(0)!,
+            fileContentHash: fileContentHash,
+          ),
+        );
       }
     }
     return occurrencesInFile;
@@ -194,12 +217,13 @@ class _StringMatch implements Match {
   @override
   String? group(int group) => group == 0 ? _text : null;
   @override
-  List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
+  List<String?> groups(List<int> groupIndices) =>
+      groupIndices.map(group).toList();
   @override
   int get groupCount => 0;
   @override
   Pattern get pattern => throw UnimplementedError();
-  
+
   @override
   String operator [](int group) => this.group(group)!;
 }

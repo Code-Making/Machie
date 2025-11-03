@@ -1,9 +1,14 @@
 // =========================================
 // FINAL CORRECTED FILE: lib/editor/plugins/recipe_tex/recipe_tex_models.dart
 // =========================================
-import 'package:collection/collection.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
 
+// Package imports:
+import 'package:collection/collection.dart';
+
+// Project imports:
 import '../../editor_tab_models.dart';
 import 'recipe_editor_widget.dart';
 

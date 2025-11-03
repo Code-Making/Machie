@@ -2,8 +2,11 @@
 // UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_state.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
-import 'package:machine/editor/plugins/editor_command_context.dart';
+
+// Project imports:
+import '../editor_command_context.dart';
 
 @immutable
 class GlitchEditorCommandContext extends CommandContext {

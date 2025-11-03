@@ -2,8 +2,13 @@
 // UPDATED: lib/explorer/plugins/search_explorer/search_explorer_state.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 

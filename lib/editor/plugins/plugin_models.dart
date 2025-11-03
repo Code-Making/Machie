@@ -2,15 +2,21 @@
 // UPDATED: lib/editor/plugins/plugin_models.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
+import '../../command/command_models.dart';
 import '../../data/cache/type_adapters.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../command/command_models.dart';
-import '../editor_tab_models.dart';
 import '../../settings/settings_models.dart';
+import '../editor_tab_models.dart';
 import '../services/file_content_provider.dart';
 
 enum PluginDataRequirement { string, bytes }
@@ -93,7 +99,8 @@ abstract class EditorPlugin {
   /// A list of [FileContentProvider]s that this plugin introduces.
   /// This allows the explorer to define custom [DocumentFile] types and
   /// how their content should be fetched and saved.
-  List<FileContentProvider Function(Ref ref)> get fileContentProviderFactories => [];
+  List<FileContentProvider Function(Ref ref)>
+  get fileContentProviderFactories => [];
 
   /// A unique string identifying the type of the hot state DTO for this plugin.
   /// Must be implemented if the plugin supports caching.

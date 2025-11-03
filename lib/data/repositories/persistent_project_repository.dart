@@ -2,12 +2,17 @@
 // UPDATED: lib/data/repositories/persistent_project_repository.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
 import 'dart:typed_data';
+
+// Package imports:
 import 'package:collection/collection.dart';
+
+// Project imports:
+import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import 'project_repository.dart';
-import '../../data/dto/project_dto.dart';
 
 const _projectFileName = 'project.json';
 

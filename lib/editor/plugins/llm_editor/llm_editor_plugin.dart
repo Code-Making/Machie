@@ -2,12 +2,17 @@
 // NEW FILE: lib/editor/plugins/llm_editor/llm_editor_plugin.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
@@ -125,13 +130,13 @@ class LlmEditorPlugin extends EditorPlugin {
   }) async {
     List<ChatMessage> messagesToShow;
     LlmEditorHotStateDto? hotState;
-    if (initData.hotState !=null){
-     hotState = initData.hotState as LlmEditorHotStateDto;
+    if (initData.hotState != null) {
+      hotState = initData.hotState as LlmEditorHotStateDto;
     } else {
       hotState = null;
     }
 
-    if (hotState!=null && hotState.messages.isNotEmpty) {
+    if (hotState != null && hotState.messages.isNotEmpty) {
       // If cached state exists, it takes priority.
       messagesToShow = hotState.messages;
     } else {

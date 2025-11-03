@@ -33,6 +33,7 @@ flutter build apk 2> >(tee "$ERROR_LOG")
 # Check if the build was successful
 if [ $? -eq 0 ]; then
   echo "Build successful! APK generated at $APK_PATH"
+  cs clip write "$FILENAME"
   # Ask user if they want to upload
   read -p "Do you want to upload the file to bashupload.com? (y/n): " UPLOAD_CHOICE
   if [[ "$UPLOAD_CHOICE" == "y" || "$UPLOAD_CHOICE" == "Y" ]]; then

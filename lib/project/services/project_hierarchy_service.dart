@@ -1,14 +1,18 @@
 // lib/project/services/project_hierarchy_service.dart
+
+// Dart imports:
 import 'dart:async';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../settings/settings_notifier.dart';
-
 
 // (FileTreeNode class remains the same)
 class FileTreeNode {

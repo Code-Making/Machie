@@ -2,14 +2,18 @@
 // UPDATED: lib/command/command_notifier.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
+
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:collection/collection.dart';
 
-import '../editor/plugins/plugin_registry.dart';
+// Project imports:
 import '../app/app_commands.dart';
+import '../editor/plugins/plugin_registry.dart';
 import 'command_models.dart';
 
 export 'command_models.dart';

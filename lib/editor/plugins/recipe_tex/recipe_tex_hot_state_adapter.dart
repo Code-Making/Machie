@@ -1,6 +1,8 @@
 // =========================================
 // UPDATED: lib/editor/plugins/recipe_tex/recipe_tex_hot_state_adapter.dart
 // =========================================
+
+// Project imports:
 import '../../../data/cache/type_adapters.dart';
 import 'recipe_tex_hot_state.dart';
 import 'recipe_tex_models.dart';

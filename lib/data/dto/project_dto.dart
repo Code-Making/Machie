@@ -2,6 +2,7 @@
 // NEW FILE: lib/data/dto/project_dto.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
 
 // DTO for EditorTab metadata

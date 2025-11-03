@@ -1,8 +1,13 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:typed_data';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../file_handler/file_handler.dart';
+
+// Project imports:
 import '../dto/project_dto.dart';
+import '../file_handler/file_handler.dart';
 
 // ... (FileOperationEvent and related providers are unchanged) ...
 sealed class FileOperationEvent {

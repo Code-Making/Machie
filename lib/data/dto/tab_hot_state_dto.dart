@@ -2,6 +2,7 @@
 // UPDATED: lib/data/dto/tab_hot_state_dto.dart
 // =========================================
 
+// Flutter imports:
 import 'package:flutter/foundation.dart';
 
 /// An abstract base class for all Data Transfer Objects that represent the

@@ -2,11 +2,17 @@
 // UPDATED: lib/data/persistence_service.dart
 // =========================================
 
+// Dart imports:
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/dto/app_state_dto.dart'; // ADDED
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Project imports:
 import '../logs/logs_provider.dart';
+
+import '../data/dto/app_state_dto.dart'; // ADDED
 
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
   ref,

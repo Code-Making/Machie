@@ -1,14 +1,17 @@
+// Dart imports:
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
-
+// Flutter imports:
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
 
+// Project imports:
 import 'file_handler.dart';
 import 'local_file_handler.dart';
 
@@ -149,7 +152,7 @@ class SafFileHandler implements LocalFileHandler {
   Future<Uint8List> readFileAsBytes(String uri) {
     return _safStream.readFileBytes(uri);
   }
-  
+
   @override
   Future<Uint8List> readFileAsBytesRange(String uri, int start, int end) {
     if (start < 0 || end <= start) {
@@ -367,7 +370,10 @@ class SafFileHandler implements LocalFileHandler {
       final isLastSegment = i == segments.length - 1;
 
       try {
-        final children = await listDirectory(currentParent!.uri, includeHidden:true);
+        final children = await listDirectory(
+          currentParent!.uri,
+          includeHidden: true,
+        );
         final foundChild = children.firstWhereOrNull(
           (child) => child.name == segment,
         );
@@ -392,7 +398,7 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
-      createDirectoryAndFile(
+  createDirectoryAndFile(
     String parentUri,
     String relativePath, {
     String? initialContent,
@@ -404,9 +410,10 @@ class SafFileHandler implements LocalFileHandler {
     }
 
     final fileName = segments.last;
-    final directorySegments = segments.length > 1
-        ? segments.sublist(0, segments.length - 1)
-        : <String>[];
+    final directorySegments =
+        segments.length > 1
+            ? segments.sublist(0, segments.length - 1)
+            : <String>[];
 
     final List<ProjectDocumentFile> createdDirs = [];
     String currentParentUri = parentUri;

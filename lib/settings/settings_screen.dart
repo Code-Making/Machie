@@ -1,11 +1,16 @@
 // =========================================
 // UPDATED: lib/settings/settings_screen.dart
 // =========================================
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../editor/plugins/plugin_registry.dart';
+// Project imports:
 import '../command/command_notifier.dart';
+import '../editor/plugins/plugin_registry.dart';
 import 'settings_notifier.dart';
 
 // ... (kAccentColors and SettingsScreen are unchanged) ...

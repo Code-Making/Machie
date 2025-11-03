@@ -3,17 +3,21 @@
 // =========================================
 
 // lib/editor/editor_widgets.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
+// Project imports:
 import '../app/app_notifier.dart';
+import '../command/command_models.dart';
+import '../explorer/plugins/git_explorer/git_object_file.dart';
+import '../project/project_models.dart';
 import 'editor_tab_models.dart';
 import 'tab_state_manager.dart';
-import '../project/project_models.dart';
-import '../explorer/plugins/git_explorer/git_object_file.dart';
-
-import '../command/command_models.dart';
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
@@ -38,56 +42,63 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
     _scrollController.dispose();
     super.dispose();
   }
-  
-  void _showTabContextMenu(BuildContext context, WidgetRef ref, int targetIndex) {
+
+  void _showTabContextMenu(
+    BuildContext context,
+    WidgetRef ref,
+    int targetIndex,
+  ) {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final activeTab = project?.session.currentTab;
     if (project == null || activeTab == null) return;
-  
+
     final targetTab = project.session.tabs[targetIndex];
-    
+
     // 1. Get ALL possible commands from the new provider.
     final allCommands = ref.read(allTabContextCommandsProvider);
-  
+
     // 2. Filter them here in the UI, using the available WidgetRef.
     //    This resolves the type mismatch error.
-    final executableCommands = allCommands
-        .where((cmd) => cmd.canExecuteFor(ref, activeTab, targetTab))
-        .toList();
-  
+    final executableCommands =
+        allCommands
+            .where((cmd) => cmd.canExecuteFor(ref, activeTab, targetTab))
+            .toList();
+
     if (executableCommands.isEmpty) return;
-  
+
     // 3. The presentation logic remains the same.
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  ref.read(tabMetadataProvider)[targetTab.id]?.title ?? 'Tab Options',
-                  style: Theme.of(context).textTheme.titleLarge,
-                  overflow: TextOverflow.ellipsis,
-                ),
+      builder:
+          (ctx) => SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      ref.read(tabMetadataProvider)[targetTab.id]?.title ??
+                          'Tab Options',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ...executableCommands.map((command) {
+                    return ListTile(
+                      leading: command.icon,
+                      title: Text(command.label),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        command.executeFor(ref, activeTab, targetTab);
+                      },
+                    );
+                  }),
+                ],
               ),
-              const Divider(height: 1),
-              ...executableCommands.map((command) {
-                return ListTile(
-                  leading: command.icon,
-                  title: Text(command.label),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    command.executeFor(ref, activeTab, targetTab);
-                  },
-                );
-              }),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -172,9 +183,9 @@ class TabWidget extends ConsumerWidget {
     final title = metadata.title;
     final isVirtual = metadata.file is InternalAppFile;
     final isGit = metadata.file is GitObjectDocumentFile;
-    
+
     final Color textColor;
-    if (isGit){
+    if (isGit) {
       textColor = Colors.lightBlue.shade300;
     } else if (isVirtual) {
       // Virtual files get a special color (e.g., cyan) regardless of dirty state.

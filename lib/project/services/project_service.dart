@@ -2,11 +2,13 @@
 // lib/project/services/project_service.dart
 // =========================================
 
+// Package imports:
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+// Project imports:
 import '../../data/cache/hot_state_cache_service.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
@@ -14,9 +16,9 @@ import '../../data/file_handler/local_file_handler.dart';
 import '../../data/repositories/persistent_project_repository.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/simple_project_repository.dart';
+import '../../editor/services/file_content_provider.dart';
 import '../../editor/tab_state_manager.dart';
 import '../project_models.dart';
-import '../../editor/services/file_content_provider.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);

@@ -1,8 +1,14 @@
 // lib/explorer/explorer_plugin_models.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../project/project_models.dart';
+
+// Project imports:
 import '../editor/services/file_content_provider.dart';
+import '../project/project_models.dart';
 
 // REFACTOR: Add a base class for plugin-specific settings.
 abstract class ExplorerPluginSettings {
@@ -23,7 +29,8 @@ abstract class ExplorerPlugin {
   /// A list of [FileContentProvider]s that this plugin introduces.
   /// This allows the explorer to define custom [DocumentFile] types and
   /// how their content should be fetched and saved.
-  List<FileContentProvider Function(Ref ref)> get fileContentProviderFactories => [];
+  List<FileContentProvider Function(Ref ref)>
+  get fileContentProviderFactories => [];
 
   Widget build(WidgetRef ref, Project project);
 }

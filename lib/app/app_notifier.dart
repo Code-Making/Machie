@@ -2,29 +2,33 @@
 // lib/app/app_notifier.dart
 // =========================================
 
+// Dart imports:
 import 'dart:async';
-import 'package:collection/collection.dart';
 
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'app_state.dart';
-
-import '../data/persistence_service.dart';
+// Project imports:
 import '../data/file_handler/file_handler.dart';
+import '../data/persistence_service.dart';
 import '../data/repositories/project_repository.dart';
+import '../editor/editor_tab_models.dart';
 import '../editor/plugins/plugin_registry.dart';
 import '../editor/services/editor_service.dart';
+import '../editor/services/file_content_provider.dart';
 import '../editor/tab_state_manager.dart';
-import '../explorer/services/explorer_service.dart';
 import '../explorer/common/file_explorer_dialogs.dart';
+import '../explorer/services/explorer_service.dart';
 import '../logs/logs_provider.dart';
 import '../project/project_models.dart';
 import '../project/services/project_service.dart';
 import '../utils/clipboard.dart';
 import '../utils/toast.dart';
-import '../editor/editor_tab_models.dart';
-import '../editor/services/file_content_provider.dart';
+import 'app_state.dart';
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -462,20 +466,20 @@ class AppNotifier extends AsyncNotifier<AppState> {
       WidgetsBinding.instance.scheduleFrame();
     }
   }
-  
+
   void closeMultipleTabs(List<int> indicesToClose) async {
     final project = state.value?.currentProject;
     if (project == null || indicesToClose.isEmpty) return;
-  
+
     // Sort indices in descending order to avoid shifting issues.
     final sortedIndices = indicesToClose..sort((a, b) => b.compareTo(a));
-  
+
     var newProject = project;
     for (final index in sortedIndices) {
       // Pass the evolving project state to the service method.
       newProject = _editorService.closeTab(newProject, index);
     }
-  
+
     updateCurrentProject(newProject);
     WidgetsBinding.instance.scheduleFrame();
   }

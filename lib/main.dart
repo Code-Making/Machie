@@ -1,21 +1,30 @@
 // lib/main.dart
-import 'dart:async';
-import 'dart:io'; // ADDED: For platform check
 
+// Dart imports:
+import 'dart:async';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
+
+// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Project imports:
 import 'app/app_notifier.dart';
 import 'app/app_screen.dart';
 import 'app/lifecycle.dart';
-import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/persistence_service.dart';
 import 'logs/logs_provider.dart';
+import 'settings/settings_screen.dart';
+
+import 'dart:io'; // ADDED: For platform check
+
+import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
+
+import 'command/command_notifier.dart'; // NEW IMPORT
 import 'data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 import 'data/cache/hot_state_cache_service.dart'; // ADDED
 import 'settings/settings_notifier.dart'; // NEW IMPORT
-import 'settings/settings_screen.dart';
 // ADD THIS
 
 // --------------------

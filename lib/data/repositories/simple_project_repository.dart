@@ -2,7 +2,10 @@
 // UPDATED: lib/data/repositories/simple_project_repository.dart
 // =========================================
 
+// Dart imports:
 import 'dart:typed_data';
+
+// Project imports:
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import 'project_repository.dart';

@@ -2,6 +2,7 @@
 // UPDATED: lib/editor/plugins/code_editor/code_editor_hot_state_adapter.dart
 // =========================================
 
+// Project imports:
 import '../../../data/cache/type_adapters.dart';
 import 'code_editor_hot_state_dto.dart';
 
