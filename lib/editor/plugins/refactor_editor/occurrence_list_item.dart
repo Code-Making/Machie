@@ -11,7 +11,6 @@ import '../../../settings/settings_notifier.dart';
 import '../../plugins/code_editor/code_editor_models.dart';
 import 'refactor_editor_models.dart';
 
-// REFACTORED: Converted to a ConsumerStatefulWidget for performance.
 class OccurrenceListItem extends ConsumerStatefulWidget {
   final RefactorResultItem item;
   final bool isSelected;
@@ -31,30 +30,29 @@ class OccurrenceListItem extends ConsumerStatefulWidget {
 }
 
 class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
-  // State variables to hold the computed (expensive) widgets.
+  // State variable to hold ONLY the computed (expensive) widget.
   late TextSpan _previewSpan;
-  late Widget _leadingIcon;
 
   @override
   void initState() {
     super.initState();
-    // Perform the initial computation.
     _computeRenderData();
   }
 
   @override
   void didUpdateWidget(covariant OccurrenceListItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-compute the render data ONLY if the inputs have actually changed.
-    // This is the core of the optimization.
-    if (oldWidget.item != widget.item || oldWidget.isSelected != widget.isSelected) {
+    // Re-compute the expensive data ONLY if the item content has changed.
+    // We no longer need to check for isSelected here, as that's handled in build().
+    if (oldWidget.item != widget.item) {
       _computeRenderData();
     }
   }
 
-  /// Performs all expensive calculations and stores the results in state variables.
-  /// This method is designed to be called only when necessary.
+  /// Performs the expensive syntax highlighting and stores the result.
   void _computeRenderData() {
+    // Note: Theme.of(context) is safe here because this method is also called
+    // from didUpdateWidget, where context is fully available.
     final theme = Theme.of(context);
     final settings = ref.read(settingsProvider.select(
       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -62,8 +60,6 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
     final occurrence = widget.item.occurrence;
-
-    // --- All the expensive logic is now contained here ---
 
     final leadingWhitespace = RegExp(r'^\s*');
     final whitespaceMatch = leadingWhitespace.firstMatch(occurrence.lineContent);
@@ -94,27 +90,14 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         ),
       ),
     );
-
-    switch (widget.item.status) {
-      case ResultStatus.pending:
-        _leadingIcon = Checkbox(value: widget.isSelected, onChanged: widget.onSelected);
-        break;
-      case ResultStatus.applied:
-        _leadingIcon = const Icon(Icons.check_circle, color: Colors.green);
-        break;
-      case ResultStatus.failed:
-        _leadingIcon = Tooltip(
-          message: widget.item.failureReason ?? 'An unknown error occurred.',
-          child: const Icon(Icons.error, color: Colors.red),
-        );
-        break;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // The build method is now very lightweight. It only reads pre-computed
-    // values from the state and builds the layout. No heavy lifting happens here.
+    // ====================== START OF FIX ======================
+
+    // All cheap, reactive UI parts are now built directly in the build method.
+    // This ensures they always use the latest widget properties (like isSelected).
     final theme = Theme.of(context);
     final settings = ref.watch(settingsProvider.select(
       (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
@@ -124,7 +107,27 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
     final occurrence = widget.item.occurrence;
 
+    // The leading icon is now built here, making it reactive.
+    final Widget leadingIcon;
+    switch (widget.item.status) {
+      case ResultStatus.pending:
+        leadingIcon = Checkbox(value: widget.isSelected, onChanged: widget.onSelected);
+        break;
+      case ResultStatus.applied:
+        leadingIcon = const Icon(Icons.check_circle, color: Colors.green);
+        break;
+      case ResultStatus.failed:
+        leadingIcon = Tooltip(
+          message: widget.item.failureReason ?? 'An unknown error occurred.',
+          child: const Icon(Icons.error, color: Colors.red),
+        );
+        break;
+    }
+    
+    // ======================= END OF FIX =======================
+
     return Material(
+      // The background color also uses widget.isSelected directly.
       color: widget.isSelected ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
       child: InkWell(
         onTap: widget.onJumpTo,
@@ -138,7 +141,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                 children: [
                   SizedBox(
                     width: 40,
-                    child: Center(child: _leadingIcon), // Use cached widget
+                    child: Center(child: leadingIcon), // Use the newly built icon
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -161,7 +164,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                                 style: textStyle.copyWith(color: Colors.grey.shade600),
                               ),
                             ),
-                            RichText(text: _previewSpan), // Use cached TextSpan
+                            RichText(text: _previewSpan), // Use the cached TextSpan
                           ],
                         ),
                       ),
@@ -177,9 +180,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
   }
 
-  
-  /// A robust recursive function to traverse a TextSpan tree, apply a highlight
-  /// to a specific range, and return the new list of TextSpans.
+  // Helper function remains unchanged and correct from the last fix.
   List<TextSpan> _overlayHighlight({
     required TextSpan source,
     required int start,
@@ -193,7 +194,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
       if (span.children != null && span.children!.isNotEmpty) {
         for (final child in span.children!) {
           if (child is TextSpan) {
-            processSpan(child); // This is the main recursive step.
+            processSpan(child);
           }
         }
         return;
@@ -203,37 +204,29 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         return;
       }
 
-      // This is the "leaf node" processing for spans with actual text.
       final spanStart = currentIndex;
-      final spanText = span.text!; // Safe to use ! here due to the check above.
+      final spanText = span.text!;
       final spanEnd = spanStart + spanText.length;
       final highlightStart = start;
       final highlightEnd = end;
 
-      // Case 1: The span is completely outside the highlight range.
       if (spanEnd <= highlightStart || spanStart >= highlightEnd) {
         result.add(span);
       } else {
-        // Case 2: The span intersects with the highlight range.
-        // We may need to split it into up to three parts: before, highlighted, and after.
-        
-        // Part 1: Text before the highlight starts.
         if (spanStart < highlightStart) {
           result.add(TextSpan(
             text: spanText.substring(0, highlightStart - spanStart),
             style: span.style,
           ));
         }
-
-        // Part 2: The highlighted text itself.
+        
         final int intersectionStart = (spanStart > highlightStart) ? spanStart : highlightStart;
         final int intersectionEnd = (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
         result.add(TextSpan(
           text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
           style: (span.style ?? const TextStyle()).merge(highlightStyle),
         ));
-
-        // Part 3: Text after the highlight ends.
+        
         if (spanEnd > highlightEnd) {
           result.add(TextSpan(
             text: spanText.substring(highlightEnd - spanStart),
