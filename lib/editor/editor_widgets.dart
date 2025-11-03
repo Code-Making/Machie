@@ -41,16 +41,23 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   
   void _showTabContextMenu(BuildContext context, WidgetRef ref, int targetIndex) {
     final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (project == null) return;
+    final activeTab = project?.session.currentTab;
+    if (project == null || activeTab == null) return;
   
     final targetTab = project.session.tabs[targetIndex];
     
-    // The complex logic is gone. We just read the provider with the target tab.
-    final executableCommands = ref.read(tabContextCommandsProvider(targetTab));
+    // 1. Get ALL possible commands from the new provider.
+    final allCommands = ref.read(allTabContextCommandsProvider);
+  
+    // 2. Filter them here in the UI, using the available WidgetRef.
+    //    This resolves the type mismatch error.
+    final executableCommands = allCommands
+        .where((cmd) => cmd.canExecuteFor(ref, activeTab, targetTab))
+        .toList();
   
     if (executableCommands.isEmpty) return;
   
-    // The UI presentation logic remains the same.
+    // 3. The presentation logic remains the same.
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -68,8 +75,6 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
               ),
               const Divider(height: 1),
               ...executableCommands.map((command) {
-                // We need the activeTab for the execute call, get it here.
-                final activeTab = project.session.currentTab!;
                 return ListTile(
                   leading: command.icon,
                   title: Text(command.label),

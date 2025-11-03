@@ -14,28 +14,11 @@ import '../editor/editor_tab_models.dart';
 import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 
 
-final tabContextCommandsProvider =
-    Provider.family<List<TabContextCommand>, EditorTab>((targetTab) {
-  // Dependencies for command discovery
+// This provider simply aggregates all possible TabContextCommands from all active plugins.
+// The final filtering based on context will happen in the UI layer.
+final allTabContextCommandsProvider = Provider<List<TabContextCommand>>((ref) {
   final allPlugins = ref.watch(activePluginsProvider);
-  final activeTab = ref.watch(
-    appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab),
-  );
-
-  // Guard clause: If there's no active tab, no context commands can be determined.
-  if (activeTab == null) {
-    return [];
-  }
-
-  // 1. Get all possible tab context commands from all registered plugins.
-  final allCommands = allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
-
-  // 2. Filter them down to only those that can be executed for the given context.
-  final executableCommands = allCommands
-      .where((cmd) => cmd.canExecuteFor(ref, activeTab, targetTab))
-      .toList();
-
-  return executableCommands;
+  return allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
 });
 
 class CommandIcon {
