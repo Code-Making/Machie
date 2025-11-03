@@ -698,77 +698,58 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
   }
 
-  Widget _buildResultsSliver(bool allSelected) {
+  Widget _buildResultsSliver() {
     if (_controller.searchStatus == SearchStatus.idle) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Text(
-            _controller.mode == RefactorMode.path
-                ? 'Enter a project-relative path to find all its references.'
-                : 'Enter a search term and click "Find All"',
-          ),
-        ),
-      );
+      return SliverFillRemaining(child: Center(child: Text(_controller.mode == RefactorMode.path ? 'Enter a project-relative path to find all its references.' : 'Enter a search term and click "Find All"')));
     }
     if (_controller.searchStatus == SearchStatus.error) {
-      return const SliverFillRemaining(
-        child: Center(
-          child: Text(
-            'An error occurred during search.',
-            style: TextStyle(color: Colors.red),
-          ),
-        ),
-      );
+      return const SliverFillRemaining(child: Center(child: Text('An error occurred during search.', style: TextStyle(color: Colors.red))));
     }
-    if (_controller.searchStatus == SearchStatus.complete &&
-        _controller.resultItems.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Text('No results found for "${_controller.searchTerm}"'),
-        ),
-      );
+    if (_controller.searchStatus == SearchStatus.complete && _controller.resultItems.isEmpty) {
+      return SliverFillRemaining(child: Center(child: Text('No results found for "${_controller.searchTerm}"')));
     }
 
-    final groupedItems = _controller.resultItems.groupListsBy(
-      (item) => item.occurrence.fileUri,
-    );
+    final groupedItems = _controller.resultItems.groupListsBy((item) => item.occurrence.fileUri);
+    
+    // This logic is now inside the builder, so it always has the latest state.
+    final pendingItems = _controller.resultItems.where((i) => i.status == ResultStatus.pending);
+    final allSelected = pendingItems.isNotEmpty && _controller.selectedItems.length == pendingItems.length;
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate((context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 12.0),
-              child: Row(
-                children: [
-                  Text(
-                    '${_controller.resultItems.length} results found in ${groupedItems.length} files.',
-                  ),
-                  const Spacer(),
-                  const Text('Select All'),
-                  Checkbox(
-                    value: allSelected,
-                    tristate:
-                        !allSelected && _controller.selectedItems.isNotEmpty,
-                    onChanged:
-                        (val) => _controller.toggleSelectAll(val ?? false),
-                  ),
-                ],
-              ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 12.0),
+                child: Row(
+                  children: [
+                    Text('${_controller.resultItems.length} results found in ${groupedItems.length} files.'),
+                    const Spacer(),
+                    const Text('Select All'),
+                    Checkbox(
+                      value: allSelected,
+                      tristate: !allSelected && _controller.selectedItems.isNotEmpty,
+                      onChanged: (val) => _controller.toggleSelectAll(val ?? false),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            final groupIndex = index - 1;
+            final fileUri = groupedItems.keys.elementAt(groupIndex);
+            final itemsInFile = groupedItems[fileUri]!;
+
+            return _FileResultCard(
+              key: ValueKey(fileUri),
+              itemsInFile: itemsInFile,
+              controller: _controller,
             );
-          }
-
-          final groupIndex = index - 1;
-          final fileUri = groupedItems.keys.elementAt(groupIndex);
-          final itemsInFile = groupedItems[fileUri]!;
-
-          return _FileResultCard(
-            key: ValueKey(fileUri),
-            itemsInFile: itemsInFile,
-            controller: _controller,
-          );
-        }, childCount: groupedItems.length + 1),
+          },
+          childCount: groupedItems.length + 1,
+        ),
       ),
     );
   }
