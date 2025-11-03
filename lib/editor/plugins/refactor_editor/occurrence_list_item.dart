@@ -184,49 +184,51 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     required RefactorOccurrence occurrence,
     required int trimOffset,
   }) {
-    // 1. Define all highlight regions with coordinates relative to the trimmed string.
     final regions = <({int start, int end, TextStyle style})>[];
-
-    // Add the main match highlight (lightly colored).
+    // Add the main match highlight.
     regions.add((
-      start: occurrence.startColumn - trimOffset,
-      end: (occurrence.startColumn + occurrence.matchedText.length) - trimOffset,
+      start: occurrence.startColumn,
+      end: occurrence.startColumn + occurrence.matchedText.length,
       style: TextStyle(backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.3))
     ));
-    
-    // Add highlights for each captured group (more vibrantly colored).
+    // Add highlights for each captured group.
     for (int i = 0; i < occurrence.capturedGroups.length; i++) {
       final group = occurrence.capturedGroups[i];
       regions.add((
-        start: group.startColumn - trimOffset,
-        end: (group.startColumn + group.text.length) - trimOffset,
+        start: group.startColumn,
+        end: group.startColumn + group.text.length,
         style: TextStyle(backgroundColor: _groupColors[i % _groupColors.length])
       ));
     }
-    
-    // 2. Traverse the source TextSpan tree and apply the highlights.
+
     final List<TextSpan> result = [];
     int globalOffset = 0;
 
     void processSpan(TextSpan span) {
-      // If it's a container span, recurse into its children.
       if (span.children != null && span.children!.isNotEmpty) {
         for (final child in span.children!) {
           if (child is TextSpan) processSpan(child);
         }
         return;
       }
-      
-      // If it's a leaf span with no text, ignore it.
+
       if (span.text == null || span.text!.isEmpty) return;
 
       final spanText = span.text!;
+      // The span's coordinates are relative to the start of the trimmed string.
       final spanStart = globalOffset;
       final spanEnd = spanStart + spanText.length;
       
-      // Find all region boundaries that fall within this span.
+      // The highlight region coordinates are relative to the start of the full, untrimmed line.
+      // We must adjust them to be relative to the trimmed string.
+      final adjustedRegions = regions.map((r) => (
+        start: r.start - trimOffset,
+        end: r.end - trimOffset,
+        style: r.style
+      )).toList();
+
       final cutPoints = <int>{0, spanText.length};
-      for (final region in regions) {
+      for (final region in adjustedRegions) {
         if (region.start > spanStart && region.start < spanEnd) {
           cutPoints.add(region.start - spanStart);
         }
@@ -237,7 +239,6 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
       
       final sortedPoints = cutPoints.toList()..sort();
 
-      // Create segments for each part of the span between cut points.
       for (int i = 0; i < sortedPoints.length - 1; i++) {
         final start = sortedPoints[i];
         final end = sortedPoints[i+1];
@@ -246,9 +247,8 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         final segmentText = spanText.substring(start, end);
         final segmentMidpoint = spanStart + start + (segmentText.length / 2);
 
-        // Determine the style for this segment.
         TextStyle finalStyle = span.style ?? const TextStyle();
-        for (final region in regions) {
+        for (final region in adjustedRegions) {
           if (segmentMidpoint >= region.start && segmentMidpoint < region.end) {
             finalStyle = finalStyle.merge(region.style);
           }

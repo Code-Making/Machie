@@ -153,18 +153,14 @@ class RefactorController extends ChangeNotifier {
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      Iterable<Match> matches;
+      final Iterable<Match> matches;
 
       if (isRegex) {
-        // --- START OF REGEX CHANGE ---
         try {
           matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
         } catch (e) {
-          // If regex is invalid, treat it as finding no matches.
-          // A more advanced implementation could show an error in the UI.
           matches = [];
         }
-        // --- END OF REGEX CHANGE ---
       } else {
         final tempMatches = <Match>[];
         int startIndex = 0;
@@ -180,23 +176,24 @@ class RefactorController extends ChangeNotifier {
       }
 
       for (final match in matches) {
-        // --- START OF CAPTURE GROUP LOGIC ---
         final List<CapturedGroup> capturedGroups = [];
         if (isRegex) {
           // Start from 1 because group(0) is the full match.
           for (int j = 1; j <= match.groupCount; j++) {
             final groupText = match.group(j);
-            // Only add the group if it was actually captured (not null).
             if (groupText != null) {
+              // ====================== START OF FIX ======================
+              // Use the correct API `match.start(j)` to get the absolute
+              // starting column of the capture group within the line.
               capturedGroups.add((
                 text: groupText,
-                startColumn: match.start + match.group(0)!.indexOf(groupText)
+                startColumn: match.start(j) 
               ));
+              // ======================= END OF FIX =======================
             }
           }
         }
-        // --- END OF CAPTURE GROUP LOGIC ---
-
+        
         occurrencesInFile.add(RefactorOccurrence(
           fileUri: fileUri,
           displayPath: displayPath,
@@ -205,7 +202,7 @@ class RefactorController extends ChangeNotifier {
           lineContent: line,
           matchedText: match.group(0)!,
           fileContentHash: fileContentHash,
-          capturedGroups: capturedGroups, // Pass the captured groups.
+          capturedGroups: capturedGroups,
         ));
       }
     }
@@ -219,21 +216,26 @@ class _StringMatch implements Match {
   @override
   final int start;
   final String _text;
-
   _StringMatch(this.input, this.start, this._text);
-
   @override
   int get end => start + _text.length;
   @override
   String? group(int group) => group == 0 ? _text : null;
   @override
-  List<String?> groups(List<int> groupIndices) =>
-      groupIndices.map(group).toList();
+  List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
   @override
   int get groupCount => 0;
   @override
   Pattern get pattern => throw UnimplementedError();
-
   @override
   String operator [](int group) => this.group(group)!;
+  // Add stubs for the missing methods to satisfy the Match interface
+  int start_unused(int group) => group == 0 ? start : -1;
+  int end_unused(int group) => group == 0 ? end : -1;
+
+  @override
+  int start_renamed(int group) => start_unused(group);
+  
+  @override
+  int end_renamed(int group) => end_unused(group);
 }
