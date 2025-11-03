@@ -177,7 +177,9 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
   }
 
-  // Helper function remains unchanged
+  
+  /// A robust recursive function to traverse a TextSpan tree, apply a highlight
+  /// to a specific range, and return the new list of TextSpans.
   List<TextSpan> _overlayHighlight({
     required TextSpan source,
     required int start,
@@ -188,42 +190,61 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     int currentIndex = 0;
 
     void processSpan(TextSpan span) {
+      if (span.children != null && span.children!.isNotEmpty) {
+        for (final child in span.children!) {
+          if (child is TextSpan) {
+            processSpan(child); // This is the main recursive step.
+          }
+        }
+        return;
+      }
+      
+      if (span.text == null || span.text!.isEmpty) {
+        return;
+      }
+
+      // This is the "leaf node" processing for spans with actual text.
       final spanStart = currentIndex;
-      final spanEnd = spanStart + (span.text?.length ?? 0);
+      final spanText = span.text!; // Safe to use ! here due to the check above.
+      final spanEnd = spanStart + spanText.length;
       final highlightStart = start;
       final highlightEnd = end;
 
+      // Case 1: The span is completely outside the highlight range.
       if (spanEnd <= highlightStart || spanStart >= highlightEnd) {
         result.add(span);
       } else {
+        // Case 2: The span intersects with the highlight range.
+        // We may need to split it into up to three parts: before, highlighted, and after.
+        
+        // Part 1: Text before the highlight starts.
         if (spanStart < highlightStart) {
           result.add(TextSpan(
-            text: span.text!.substring(0, highlightStart - spanStart),
+            text: spanText.substring(0, highlightStart - spanStart),
             style: span.style,
           ));
         }
+
+        // Part 2: The highlighted text itself.
         final int intersectionStart = (spanStart > highlightStart) ? spanStart : highlightStart;
         final int intersectionEnd = (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
         result.add(TextSpan(
-          text: span.text!.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
+          text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
           style: (span.style ?? const TextStyle()).merge(highlightStyle),
         ));
+
+        // Part 3: Text after the highlight ends.
         if (spanEnd > highlightEnd) {
           result.add(TextSpan(
-            text: span.text!.substring(highlightEnd - spanStart),
+            text: spanText.substring(highlightEnd - spanStart),
             style: span.style,
           ));
         }
       }
+      
       currentIndex = spanEnd;
-      if (span.children != null) {
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child);
-          }
-        }
-      }
     }
+
     processSpan(source);
     return result;
   }

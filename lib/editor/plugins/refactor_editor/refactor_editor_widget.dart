@@ -66,15 +66,11 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     _findController.addListener(() => _controller.updateSearchTerm(_findController.text));
     _replaceController.addListener(() => _controller.updateReplaceTerm(_replaceController.text));
 
-    // NEW: Register as a listener.
     ref.read(explorerServiceProvider).addListener(this);
-
-    // REMOVED: The problematic direct ref.listen is gone.
   }
   
   @override
   void dispose() {
-    // NEW: Unregister the listener to prevent memory leaks.
     ref.read(explorerServiceProvider).removeListener(this);
     
     _findController.dispose();
@@ -89,7 +85,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       return;
     }
     
-    // We only care about rename events when this editor is active.
     if (event is FileRenameEvent) {
       await _promptForPathRefactor(event.oldFile, event.newFile);
     }
