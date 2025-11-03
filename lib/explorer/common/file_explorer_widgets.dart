@@ -288,7 +288,9 @@ class RootDropZone extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
         );
         final normalDecoration = BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(150),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withAlpha(150),
           border: Border.all(
             color: Theme.of(context).colorScheme.onSurface.withAlpha(100),
           ),

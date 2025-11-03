@@ -155,7 +155,10 @@ class RefactorController extends ChangeNotifier {
 
       if (isRegex) {
         try {
-          matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
+          matches = RegExp(
+            searchTerm,
+            caseSensitive: isCaseSensitive,
+          ).allMatches(line);
         } catch (e) {
           matches = [];
         }
@@ -167,7 +170,13 @@ class RefactorController extends ChangeNotifier {
         while (startIndex < target.length) {
           final index = target.indexOf(query, startIndex);
           if (index == -1) break;
-          tempMatches.add(_StringMatch(line, index, line.substring(index, index + searchTerm.length)));
+          tempMatches.add(
+            _StringMatch(
+              line,
+              index,
+              line.substring(index, index + searchTerm.length),
+            ),
+          );
           startIndex = index + searchTerm.length;
         }
         matches = tempMatches;
@@ -175,16 +184,18 @@ class RefactorController extends ChangeNotifier {
 
       for (final match in matches) {
         // REMOVED: All logic for calculating capture group positions is gone.
-        
-        occurrencesInFile.add(RefactorOccurrence(
-          fileUri: fileUri,
-          displayPath: displayPath,
-          lineNumber: i,
-          startColumn: match.start,
-          lineContent: line,
-          matchedText: match.group(0)!,
-          fileContentHash: fileContentHash,
-        ));
+
+        occurrencesInFile.add(
+          RefactorOccurrence(
+            fileUri: fileUri,
+            displayPath: displayPath,
+            lineNumber: i,
+            startColumn: match.start,
+            lineContent: line,
+            matchedText: match.group(0)!,
+            fileContentHash: fileContentHash,
+          ),
+        );
       }
     }
     return occurrencesInFile;
@@ -203,7 +214,8 @@ class _StringMatch implements Match {
   @override
   String? group(int group) => group == 0 ? _text : null;
   @override
-  List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
+  List<String?> groups(List<int> groupIndices) =>
+      groupIndices.map(group).toList();
   @override
   int get groupCount => 0;
   @override

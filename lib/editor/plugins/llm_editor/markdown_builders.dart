@@ -192,7 +192,8 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
     final codeTheme =
         CodeThemes.availableCodeThemes[settings.themeName] ?? defaultTheme;
     final codeBgColor =
-        codeTheme['root']?.backgroundColor ?? Colors.black.withValues(alpha: 0.25);
+        codeTheme['root']?.backgroundColor ??
+        Colors.black.withValues(alpha: 0.25);
     final theme = Theme.of(context);
 
     // Get the final, link-ified span.

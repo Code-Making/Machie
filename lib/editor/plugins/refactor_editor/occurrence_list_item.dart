@@ -57,14 +57,22 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   /// Performs all expensive calculations and stores the results in state variables.
   /// This method is designed to be called only when necessary.
   void _computeRenderData() {
-    final settings = ref.read(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
+    final settings =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final codeThemeData =
+        CodeThemes.availableCodeThemes[settings.themeName] ??
+        default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
     final occurrence = widget.item.occurrence;
     final leadingWhitespace = RegExp(r'^\s*');
-    final whitespaceMatch = leadingWhitespace.firstMatch(occurrence.lineContent);
+    final whitespaceMatch = leadingWhitespace.firstMatch(
+      occurrence.lineContent,
+    );
     final trimmedCode = occurrence.lineContent.trimLeft();
     final trimmedLength = whitespaceMatch?.group(0)?.length ?? 0;
     LlmHighlightUtil.ensureLanguagesRegistered();
@@ -75,11 +83,13 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
     final renderer = TextSpanRenderer(textStyle, codeThemeData);
     highlightResult.render(renderer);
-    final highlightedSpan = renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
+    final highlightedSpan =
+        renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
 
     // Revert to the simpler single-highlight logic
     final matchStartInTrimmed = occurrence.startColumn - trimmedLength;
-    final matchEndInTrimmed = matchStartInTrimmed + occurrence.matchedText.length;
+    final matchEndInTrimmed =
+        matchStartInTrimmed + occurrence.matchedText.length;
 
     _previewSpan = TextSpan(
       children: _overlayHighlight(
@@ -87,7 +97,9 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         start: matchStartInTrimmed,
         end: matchEndInTrimmed,
         highlightStyle: TextStyle(
-          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.5),
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -95,7 +107,10 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
 
     switch (widget.item.status) {
       case ResultStatus.pending:
-        _leadingIcon = Checkbox(value: widget.isSelected, onChanged: widget.onSelected);
+        _leadingIcon = Checkbox(
+          value: widget.isSelected,
+          onChanged: widget.onSelected,
+        );
         break;
       case ResultStatus.applied:
         _leadingIcon = const Icon(Icons.check_circle, color: Colors.green);
@@ -112,16 +127,27 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settings = ref.watch(settingsProvider.select(
-      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-    )) ?? CodeEditorSettings();
-    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
+    final settings =
+        ref.watch(
+          settingsProvider.select(
+            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+          ),
+        ) ??
+        CodeEditorSettings();
+    final codeThemeData =
+        CodeThemes.availableCodeThemes[settings.themeName] ??
+        default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
-    final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withValues(alpha: 0.25);
+    final codeBgColor =
+        codeThemeData['root']?.backgroundColor ??
+        Colors.black.withValues(alpha: 0.25);
     final occurrence = widget.item.occurrence;
 
     return Material(
-      color: widget.isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+      color:
+          widget.isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
       child: InkWell(
         onTap: widget.onJumpTo,
         child: Column(
@@ -132,15 +158,15 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 40,
-                    child: Center(child: _leadingIcon),
-                  ),
+                  SizedBox(width: 40, child: Center(child: _leadingIcon)),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: codeBgColor,
                         borderRadius: BorderRadius.circular(4),
@@ -154,7 +180,9 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                               padding: const EdgeInsets.only(right: 12.0),
                               child: Text(
                                 '${occurrence.lineNumber + 1}',
-                                style: textStyle.copyWith(color: Colors.grey.shade600),
+                                style: textStyle.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
                             ),
                             RichText(text: _previewSpan),
@@ -189,7 +217,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         }
         return;
       }
-      
+
       if (span.text == null || span.text!.isEmpty) return;
 
       final spanText = span.text!;
@@ -202,25 +230,36 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
         result.add(span);
       } else {
         if (spanStart < highlightStart) {
-          result.add(TextSpan(
-            text: spanText.substring(0, highlightStart - spanStart),
-            style: span.style,
-          ));
+          result.add(
+            TextSpan(
+              text: spanText.substring(0, highlightStart - spanStart),
+              style: span.style,
+            ),
+          );
         }
-        final int intersectionStart = (spanStart > highlightStart) ? spanStart : highlightStart;
-        final int intersectionEnd = (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
-        result.add(TextSpan(
-          text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
-          style: (span.style ?? const TextStyle()).merge(highlightStyle),
-        ));
+        final int intersectionStart =
+            (spanStart > highlightStart) ? spanStart : highlightStart;
+        final int intersectionEnd =
+            (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
+        result.add(
+          TextSpan(
+            text: spanText.substring(
+              intersectionStart - spanStart,
+              intersectionEnd - spanStart,
+            ),
+            style: (span.style ?? const TextStyle()).merge(highlightStyle),
+          ),
+        );
         if (spanEnd > highlightEnd) {
-          result.add(TextSpan(
-            text: spanText.substring(highlightEnd - spanStart),
-            style: span.style,
-          ));
+          result.add(
+            TextSpan(
+              text: spanText.substring(highlightEnd - spanStart),
+              style: span.style,
+            ),
+          );
         }
       }
-      
+
       currentIndex = spanEnd;
     }
 

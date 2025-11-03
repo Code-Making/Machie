@@ -2,7 +2,9 @@
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +14,6 @@ import 'package:path/path.dart' as p;
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
-import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 import '../../../logs/logs_provider.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
@@ -21,11 +22,13 @@ import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../services/text_editing_capability.dart';
 import '../../tab_state_manager.dart';
-
 import 'occurrence_list_item.dart';
 import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
+
+import '../../../explorer/services/explorer_service.dart'; // Import for the listener
+
 
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 
@@ -86,7 +89,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Future<void> onFileOperation(FileOperationEvent event) async {
     if (!mounted) {
@@ -199,17 +202,23 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
     _controller.completeSearch(results);
   }
-  
+
   String _getReplacementForMatch(Match match) {
     if (!_controller.replaceTerm.contains('\$')) {
       return _controller.replaceTerm;
     }
-    return _controller.replaceTerm.replaceAllMapped(RegExp(r'\$(\d+)'), (placeholder) {
+    return _controller.replaceTerm.replaceAllMapped(RegExp(r'\$(\d+)'), (
+      placeholder,
+    ) {
       final groupIndex = int.tryParse(placeholder.group(1) ?? '');
-      if (groupIndex != null && groupIndex > 0 && groupIndex <= match.groupCount) {
+      if (groupIndex != null &&
+          groupIndex > 0 &&
+          groupIndex <= match.groupCount) {
         return match.group(groupIndex) ?? '';
       }
-      return placeholder.group(0)!; // Return the original placeholder if index is invalid
+      return placeholder.group(
+        0,
+      )!; // Return the original placeholder if index is invalid
     });
   }
 
@@ -219,7 +228,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     final selected = _controller.selectedItems.toList();
     if (selected.isEmpty) return;
 
-    final groupedByFile = selected.groupListsBy((item) => item.occurrence.fileUri);
+    final groupedByFile = selected.groupListsBy(
+      (item) => item.occurrence.fileUri,
+    );
 
     await _processFileGroups(
       groupedByFile: groupedByFile,
@@ -227,19 +238,25 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
         final List<ReplaceRangeEdit> lineEdits = [];
 
         // Group the selected items for this file by their line number.
-        final groupedByLine = itemsInFile.groupListsBy((item) => item.occurrence.lineNumber);
+        final groupedByLine = itemsInFile.groupListsBy(
+          (item) => item.occurrence.lineNumber,
+        );
 
         for (final lineEntry in groupedByLine.entries) {
           final lineNumber = lineEntry.key;
           final itemsOnLine = lineEntry.value;
           final originalLine = itemsOnLine.first.occurrence.lineContent;
-          
+
           String newLineContent;
 
           if (_controller.isRegex) {
-            final regex = RegExp(_controller.searchTerm, caseSensitive: _controller.isCaseSensitive);
+            final regex = RegExp(
+              _controller.searchTerm,
+              caseSensitive: _controller.isCaseSensitive,
+            );
             // Get the start columns of all selected occurrences on this line for quick lookup.
-            final selectedColumns = itemsOnLine.map((item) => item.occurrence.startColumn).toSet();
+            final selectedColumns =
+                itemsOnLine.map((item) => item.occurrence.startColumn).toSet();
 
             // Use replaceAllMapped to process every match on the line.
             newLineContent = originalLine.replaceAllMapped(regex, (match) {
@@ -254,7 +271,10 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
             // For simple text replacement, build the new line manually from right to left
             // to avoid messing up indices.
             newLineContent = originalLine;
-            final sortedItems = itemsOnLine.sortedBy<num>((item) => item.occurrence.startColumn).reversed;
+            final sortedItems =
+                itemsOnLine
+                    .sortedBy<num>((item) => item.occurrence.startColumn)
+                    .reversed;
             for (final item in sortedItems) {
               final occ = item.occurrence;
               newLineContent = newLineContent.replaceRange(
@@ -266,23 +286,36 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           }
 
           // Create a single edit to replace the entire line.
-          lineEdits.add(ReplaceRangeEdit(
-            range: TextRange(
-              start: TextPosition(line: lineNumber, column: 0),
-              end: TextPosition(line: lineNumber, column: originalLine.length),
+          lineEdits.add(
+            ReplaceRangeEdit(
+              range: TextRange(
+                start: TextPosition(line: lineNumber, column: 0),
+                end: TextPosition(
+                  line: lineNumber,
+                  column: originalLine.length,
+                ),
+              ),
+              replacement: newLineContent,
             ),
-            replacement: newLineContent,
-          ));
+          );
         }
         return lineEdits;
       },
       onSuccess: (items) => processedItems.addAll(items),
-      onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
+      onFailure:
+          (items, reason) =>
+              failedItems.addAll({for (var item in items) item: reason}),
     );
-    
-    _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
-    final message = "Replaced ${processedItems.length} occurrences.${failedItems.isNotEmpty ? " ${failedItems.length} failed." : ""}";
-    failedItems.isNotEmpty ? MachineToast.error(message) : MachineToast.info(message);
+
+    _controller.updateItemsStatus(
+      processed: processedItems,
+      failed: failedItems,
+    );
+    final message =
+        "Replaced ${processedItems.length} occurrences.${failedItems.isNotEmpty ? " ${failedItems.length} failed." : ""}";
+    failedItems.isNotEmpty
+        ? MachineToast.error(message)
+        : MachineToast.info(message);
   }
 
   // --- PATH REFACTOR LOGIC ---
@@ -730,56 +763,83 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
   Widget _buildResultsSliver() {
     if (_controller.searchStatus == SearchStatus.idle) {
-      return SliverFillRemaining(child: Center(child: Text(_controller.mode == RefactorMode.path ? 'Enter a project-relative path to find all its references.' : 'Enter a search term and click "Find All"')));
+      return SliverFillRemaining(
+        child: Center(
+          child: Text(
+            _controller.mode == RefactorMode.path
+                ? 'Enter a project-relative path to find all its references.'
+                : 'Enter a search term and click "Find All"',
+          ),
+        ),
+      );
     }
     if (_controller.searchStatus == SearchStatus.error) {
-      return const SliverFillRemaining(child: Center(child: Text('An error occurred during search.', style: TextStyle(color: Colors.red))));
+      return const SliverFillRemaining(
+        child: Center(
+          child: Text(
+            'An error occurred during search.',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      );
     }
-    if (_controller.searchStatus == SearchStatus.complete && _controller.resultItems.isEmpty) {
-      return SliverFillRemaining(child: Center(child: Text('No results found for "${_controller.searchTerm}"')));
+    if (_controller.searchStatus == SearchStatus.complete &&
+        _controller.resultItems.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Text('No results found for "${_controller.searchTerm}"'),
+        ),
+      );
     }
 
-    final groupedItems = _controller.resultItems.groupListsBy((item) => item.occurrence.fileUri);
-    
+    final groupedItems = _controller.resultItems.groupListsBy(
+      (item) => item.occurrence.fileUri,
+    );
+
     // This logic is now inside the builder, so it always has the latest state.
-    final pendingItems = _controller.resultItems.where((i) => i.status == ResultStatus.pending);
-    final allSelected = pendingItems.isNotEmpty && _controller.selectedItems.length == pendingItems.length;
+    final pendingItems = _controller.resultItems.where(
+      (i) => i.status == ResultStatus.pending,
+    );
+    final allSelected =
+        pendingItems.isNotEmpty &&
+        _controller.selectedItems.length == pendingItems.length;
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 12.0),
-                child: Row(
-                  children: [
-                    Text('${_controller.resultItems.length} results found in ${groupedItems.length} files.'),
-                    const Spacer(),
-                    const Text('Select All'),
-                    Checkbox(
-                      value: allSelected,
-                      tristate: !allSelected && _controller.selectedItems.isNotEmpty,
-                      onChanged: (val) => _controller.toggleSelectAll(val ?? false),
-                    ),
-                  ],
-                ),
-              );
-            }
-            
-            final groupIndex = index - 1;
-            final fileUri = groupedItems.keys.elementAt(groupIndex);
-            final itemsInFile = groupedItems[fileUri]!;
-
-            return _FileResultCard(
-              key: ValueKey(fileUri),
-              itemsInFile: itemsInFile,
-              controller: _controller,
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 12.0),
+              child: Row(
+                children: [
+                  Text(
+                    '${_controller.resultItems.length} results found in ${groupedItems.length} files.',
+                  ),
+                  const Spacer(),
+                  const Text('Select All'),
+                  Checkbox(
+                    value: allSelected,
+                    tristate:
+                        !allSelected && _controller.selectedItems.isNotEmpty,
+                    onChanged:
+                        (val) => _controller.toggleSelectAll(val ?? false),
+                  ),
+                ],
+              ),
             );
-          },
-          childCount: groupedItems.length + 1,
-        ),
+          }
+
+          final groupIndex = index - 1;
+          final fileUri = groupedItems.keys.elementAt(groupIndex);
+          final itemsInFile = groupedItems[fileUri]!;
+
+          return _FileResultCard(
+            key: ValueKey(fileUri),
+            itemsInFile: itemsInFile,
+            controller: _controller,
+          );
+        }, childCount: groupedItems.length + 1),
       ),
     );
   }

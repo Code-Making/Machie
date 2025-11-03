@@ -694,7 +694,9 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: Theme.of(context).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
+      color: Theme.of(
+        context,
+      ).appBarTheme.backgroundColor?.withValues(alpha: 0.5),
       child: Row(
         children: [
           Text(
