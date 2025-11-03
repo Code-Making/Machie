@@ -15,18 +15,18 @@ import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import 'chat_bubble.dart';
-import 'context_widgets.dart';
-import 'llm_editor_dialogs.dart';
+import 'widgets/chat_bubble.dart';
+import 'widgets/context_widgets.dart';
+import 'widgets/llm_editor_dialogs.dart';
 import 'llm_editor_hot_state.dart';
 import 'llm_editor_models.dart';
 import 'llm_editor_types.dart';
 import 'providers/llm_provider_factory.dart';
-import 'streaming_chat_bubble.dart';
+import 'widgets/streaming_chat_bubble.dart';
 
 import 'llm_editor_controller.dart'; // NEW
 
-import 'editing_chat_bubble.dart'; // NEW IMPORT
+import 'widgets/editing_chat_bubble.dart'; // NEW IMPORT
 
 typedef _ScrollTarget = ({String id, GlobalKey key, double offset});
 

@@ -8,12 +8,12 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
 
-import '../../../settings/settings_notifier.dart';
-import '../../../utils/toast.dart';
-import '../../services/editor_service.dart';
-import '../code_editor/code_editor_models.dart';
-import '../code_editor/code_themes.dart';
-import 'llm_highlight_util.dart';
+import '../../../../settings/settings_notifier.dart';
+import '../../../../utils/toast.dart';
+import '../../../services/editor_service.dart';
+import '../../code_editor/code_editor_models.dart';
+import '../../code_editor/code_themes.dart';
+import '../llm_highlight_util.dart';
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;

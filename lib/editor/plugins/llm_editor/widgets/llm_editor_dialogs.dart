@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_notifier.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project_repository.dart';
-import '../../../project/services/project_hierarchy_service.dart';
-import '../code_editor/code_themes.dart';
+import '../../../../app/app_notifier.dart';
+import '../../../../data/file_handler/file_handler.dart';
+import '../../../../data/repositories/project_repository.dart';
+import '../../../../project/services/project_hierarchy_service.dart';
+import '../../code_editor/code_themes.dart';
 import 'context_widgets.dart';
-import 'llm_editor_models.dart';
+import '../llm_editor_models.dart';
 
 // NEW: Provider to remember the last path within the current session.
 final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
@@ -291,7 +291,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
               queue.add(child);
             }
           } else {
-            final extension = child.name.split('.').lastOrNull?.toLowerCase();
+            final extension = child.name.split('..').lastOrNull?.toLowerCase();
             if (extension != null &&
                 CodeThemes.languageExtToNameMap.containsKey(extension)) {
               gatheredFiles.add(child);
@@ -390,7 +390,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                                 if (node.file.isDirectory) return true;
                                 final extension =
                                     node.file.name
-                                        .split('.')
+                                        .split('..')
                                         .lastOrNull
                                         ?.toLowerCase();
                                 return extension != null &&

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../settings/settings_notifier.dart';
-import '../code_editor/code_editor_models.dart';
+import '../../../../settings/settings_notifier.dart';
+import '../../code_editor/code_editor_models.dart';
 
 class StreamingChatBubble extends ConsumerStatefulWidget {
   final String content;
