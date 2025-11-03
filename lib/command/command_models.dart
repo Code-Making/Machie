@@ -9,7 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
 
-import '../editor/editor_tab_models.dart'; // <-- ADD THIS IMPORT
+import '../app/app_notifier.dart'; // <-- ADD THIS IMPORT
+import '../editor/editor_tab_models.dart';
+import '../editor/plugins/plugin_registry.dart'; // <-- ADD THIS IMPORT
 
 
 final tabContextCommandsProvider =
