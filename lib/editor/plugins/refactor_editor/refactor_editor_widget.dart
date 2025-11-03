@@ -222,29 +222,82 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
     _controller.completeSearch(results);
   }
+  
+  String _getReplacementForMatch(Match match) {
+    if (!_controller.replaceTerm.contains('\$')) {
+      return _controller.replaceTerm;
+    }
+    return _controller.replaceTerm.replaceAllMapped(RegExp(r'\$(\d+)'), (placeholder) {
+      final groupIndex = int.tryParse(placeholder.group(1) ?? '');
+      if (groupIndex != null && groupIndex > 0 && groupIndex <= match.groupCount) {
+        return match.group(groupIndex) ?? '';
+      }
+      return placeholder.group(0)!; // Return the original placeholder if index is invalid
+    });
+  }
 
   Future<void> _applyTextChanges() async {
     final List<RefactorResultItem> processedItems = [];
     final Map<RefactorResultItem, String> failedItems = {};
     final selected = _controller.selectedItems.toList();
     if (selected.isEmpty) return;
-    
+
     final groupedByFile = selected.groupListsBy((item) => item.occurrence.fileUri);
-    
+
     await _processFileGroups(
       groupedByFile: groupedByFile,
       generateEdits: (itemsInFile) {
-        return itemsInFile.map((item) {
-          final occ = item.occurrence;
-          return ReplaceRangeEdit(
+        final List<ReplaceRangeEdit> lineEdits = [];
+
+        // Group the selected items for this file by their line number.
+        final groupedByLine = itemsInFile.groupListsBy((item) => item.occurrence.lineNumber);
+
+        for (final lineEntry in groupedByLine.entries) {
+          final lineNumber = lineEntry.key;
+          final itemsOnLine = lineEntry.value;
+          final originalLine = itemsOnLine.first.occurrence.lineContent;
+          
+          String newLineContent;
+
+          if (_controller.isRegex) {
+            final regex = RegExp(_controller.searchTerm, caseSensitive: _controller.isCaseSensitive);
+            // Get the start columns of all selected occurrences on this line for quick lookup.
+            final selectedColumns = itemsOnLine.map((item) => item.occurrence.startColumn).toSet();
+
+            // Use replaceAllMapped to process every match on the line.
+            newLineContent = originalLine.replaceAllMapped(regex, (match) {
+              // If this specific match was selected by the user, replace it.
+              if (selectedColumns.contains(match.start)) {
+                return _getReplacementForMatch(match);
+              }
+              // Otherwise, return the original matched text, leaving it unchanged.
+              return match.group(0)!;
+            });
+          } else {
+            // For simple text replacement, build the new line manually from right to left
+            // to avoid messing up indices.
+            newLineContent = originalLine;
+            final sortedItems = itemsOnLine.sortedBy<num>((item) => item.occurrence.startColumn).reversed;
+            for (final item in sortedItems) {
+              final occ = item.occurrence;
+              newLineContent = newLineContent.replaceRange(
+                occ.startColumn,
+                occ.startColumn + occ.matchedText.length,
+                _controller.replaceTerm,
+              );
+            }
+          }
+
+          // Create a single edit to replace the entire line.
+          lineEdits.add(ReplaceRangeEdit(
             range: TextRange(
-              start: TextPosition(line: occ.lineNumber, column: occ.startColumn),
-              end: TextPosition(line: occ.lineNumber, column: occ.startColumn + occ.matchedText.length),
+              start: TextPosition(line: lineNumber, column: 0),
+              end: TextPosition(line: lineNumber, column: originalLine.length),
             ),
-            // UPDATED: Use the new helper function to get the replacement text.
-            replacement: _getReplacementText(item),
-          );
-        }).toList();
+            replacement: newLineContent,
+          ));
+        }
+        return lineEdits;
       },
       onSuccess: (items) => processedItems.addAll(items),
       onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
