@@ -1,7 +1,6 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 
 import 'package:flutter/foundation.dart';
-
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -157,10 +156,15 @@ class RefactorController extends ChangeNotifier {
       final Iterable<Match> matches;
 
       if (isRegex) {
-        matches = RegExp(
-          searchTerm,
-          caseSensitive: isCaseSensitive,
-        ).allMatches(line);
+        // --- START OF REGEX CHANGE ---
+        try {
+          matches = RegExp(searchTerm, caseSensitive: isCaseSensitive).allMatches(line);
+        } catch (e) {
+          // If regex is invalid, treat it as finding no matches.
+          // A more advanced implementation could show an error in the UI.
+          matches = [];
+        }
+        // --- END OF REGEX CHANGE ---
       } else {
         final tempMatches = <Match>[];
         int startIndex = 0;
@@ -169,30 +173,40 @@ class RefactorController extends ChangeNotifier {
         while (startIndex < target.length) {
           final index = target.indexOf(query, startIndex);
           if (index == -1) break;
-          tempMatches.add(
-            _StringMatch(
-              line,
-              index,
-              line.substring(index, index + searchTerm.length),
-            ),
-          );
+          tempMatches.add(_StringMatch(line, index, line.substring(index, index + searchTerm.length)));
           startIndex = index + searchTerm.length;
         }
         matches = tempMatches;
       }
 
       for (final match in matches) {
-        occurrencesInFile.add(
-          RefactorOccurrence(
-            fileUri: fileUri,
-            displayPath: displayPath,
-            lineNumber: i,
-            startColumn: match.start,
-            lineContent: line,
-            matchedText: match.group(0)!,
-            fileContentHash: fileContentHash,
-          ),
-        );
+        // --- START OF CAPTURE GROUP LOGIC ---
+        final List<CapturedGroup> capturedGroups = [];
+        if (isRegex) {
+          // Start from 1 because group(0) is the full match.
+          for (int j = 1; j <= match.groupCount; j++) {
+            final groupText = match.group(j);
+            // Only add the group if it was actually captured (not null).
+            if (groupText != null) {
+              capturedGroups.add((
+                text: groupText,
+                startColumn: match.start + match.group(0)!.indexOf(groupText)
+              ));
+            }
+          }
+        }
+        // --- END OF CAPTURE GROUP LOGIC ---
+
+        occurrencesInFile.add(RefactorOccurrence(
+          fileUri: fileUri,
+          displayPath: displayPath,
+          lineNumber: i,
+          startColumn: match.start,
+          lineContent: line,
+          matchedText: match.group(0)!,
+          fileContentHash: fileContentHash,
+          capturedGroups: capturedGroups, // Pass the captured groups.
+        ));
       }
     }
     return occurrencesInFile;

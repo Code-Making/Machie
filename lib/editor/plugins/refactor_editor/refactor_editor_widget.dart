@@ -2,9 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,21 +13,21 @@ import '../../../app/app_notifier.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
-import '../../../editor/editor_tab_models.dart';
-import '../../../editor/tab_state_manager.dart';
+import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 import '../../../logs/logs_provider.dart';
 import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
+import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../services/text_editing_capability.dart';
+import '../../tab_state_manager.dart';
+
 import 'occurrence_list_item.dart';
 import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
-
-import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 
@@ -87,6 +85,30 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     _replaceController.dispose();
     _controller.dispose();
     super.dispose();
+  }
+  
+    /// Processes a replacement string, substituting $n with the corresponding captured group.
+  String _getReplacementText(RefactorResultItem item) {
+    // If not in regex mode, or if there are no captured groups, return the plain replacement term.
+    if (!_controller.isRegex || item.occurrence.capturedGroups.isEmpty) {
+      return _controller.replaceTerm;
+    }
+
+    // Use a regex to find all instances of $ followed by one or more digits.
+    return _controller.replaceTerm.replaceAllMapped(RegExp(r'\$(\d+)'), (match) {
+      // Parse the number after the $. E.g., for "$1", this is "1".
+      final groupIndex = int.tryParse(match.group(1) ?? '');
+      
+      // Check if the group index is valid.
+      // It must be > 0 and within the bounds of our captured groups list.
+      if (groupIndex != null && groupIndex > 0 && groupIndex <= item.occurrence.capturedGroups.length) {
+        // Return the text of the corresponding captured group.
+        return item.occurrence.capturedGroups[groupIndex - 1].text;
+      } else {
+        // If the group index is invalid (e.g., "$0" or "$99"), return the original text (e.g., "$0").
+        return match.group(0)!;
+      }
+    });
   }
 
   @override
@@ -206,11 +228,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     final Map<RefactorResultItem, String> failedItems = {};
     final selected = _controller.selectedItems.toList();
     if (selected.isEmpty) return;
-
-    final groupedByFile = selected.groupListsBy(
-      (item) => item.occurrence.fileUri,
-    );
-
+    
+    final groupedByFile = selected.groupListsBy((item) => item.occurrence.fileUri);
+    
     await _processFileGroups(
       groupedByFile: groupedByFile,
       generateEdits: (itemsInFile) {
@@ -218,35 +238,21 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           final occ = item.occurrence;
           return ReplaceRangeEdit(
             range: TextRange(
-              start: TextPosition(
-                line: occ.lineNumber,
-                column: occ.startColumn,
-              ),
-              end: TextPosition(
-                line: occ.lineNumber,
-                column: occ.startColumn + occ.matchedText.length,
-              ),
+              start: TextPosition(line: occ.lineNumber, column: occ.startColumn),
+              end: TextPosition(line: occ.lineNumber, column: occ.startColumn + occ.matchedText.length),
             ),
-            replacement: _controller.replaceTerm,
+            // UPDATED: Use the new helper function to get the replacement text.
+            replacement: _getReplacementText(item),
           );
         }).toList();
       },
       onSuccess: (items) => processedItems.addAll(items),
-      onFailure:
-          (items, reason) =>
-              failedItems.addAll({for (var item in items) item: reason}),
+      onFailure: (items, reason) => failedItems.addAll({for (var item in items) item: reason}),
     );
-
-    _controller.updateItemsStatus(
-      processed: processedItems,
-      failed: failedItems,
-    );
-    final message =
-        "Replaced ${processedItems.length} occurrences." +
-        (failedItems.isNotEmpty ? " ${failedItems.length} failed." : "");
-    failedItems.isNotEmpty
-        ? MachineToast.error(message)
-        : MachineToast.info(message);
+    
+    _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
+    final message = "Replaced ${processedItems.length} occurrences." + (failedItems.isNotEmpty ? " ${failedItems.length} failed." : "");
+    failedItems.isNotEmpty ? MachineToast.error(message) : MachineToast.info(message);
   }
 
   // --- PATH REFACTOR LOGIC ---

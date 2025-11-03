@@ -35,6 +35,15 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   // State variables to hold the computed (expensive) widgets.
   late TextSpan _previewSpan;
   late Widget _leadingIcon;
+  
+  static final List<Color> _groupColors = List.generate(10, (index) {
+    return HSLColor.fromAHSL(
+      0.5, // Alpha (opacity)
+      (index * 360 / 10) % 360, // Hue (spread across the color wheel)
+      0.8, // Saturation
+      0.5, // Lightness
+    ).toColor();
+  });
 
   @override
   void initState() {
@@ -57,26 +66,15 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   /// Performs all expensive calculations and stores the results in state variables.
   /// This method is designed to be called only when necessary.
   void _computeRenderData() {
-    final theme = Theme.of(context);
-    final settings =
-        ref.read(
-          settingsProvider.select(
-            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-          ),
-        ) ??
-        CodeEditorSettings();
-    final codeThemeData =
-        CodeThemes.availableCodeThemes[settings.themeName] ??
-        default_theme.defaultTheme;
+    final settings = ref.read(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
     final occurrence = widget.item.occurrence;
 
-    // --- All the expensive logic is now contained here ---
-
     final leadingWhitespace = RegExp(r'^\s*');
-    final whitespaceMatch = leadingWhitespace.firstMatch(
-      occurrence.lineContent,
-    );
+    final whitespaceMatch = leadingWhitespace.firstMatch(occurrence.lineContent);
     final trimmedCode = occurrence.lineContent.trimLeft();
     final trimmedLength = whitespaceMatch?.group(0)?.length ?? 0;
 
@@ -88,31 +86,20 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     );
     final renderer = TextSpanRenderer(textStyle, codeThemeData);
     highlightResult.render(renderer);
-    final highlightedSpan =
-        renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
+    final highlightedSpan = renderer.span ?? TextSpan(text: trimmedCode, style: textStyle);
 
-    final matchStartInTrimmed = occurrence.startColumn - trimmedLength;
-    final matchEndInTrimmed =
-        matchStartInTrimmed + occurrence.matchedText.length;
-
+    // UPDATED: Use the new build method for highlighting.
     _previewSpan = TextSpan(
-      children: _overlayHighlight(
+      children: _buildHighlightedSpan(
         source: highlightedSpan,
-        start: matchStartInTrimmed,
-        end: matchEndInTrimmed,
-        highlightStyle: TextStyle(
-          backgroundColor: theme.colorScheme.primary.withOpacity(0.5),
-          fontWeight: FontWeight.bold,
-        ),
+        occurrence: occurrence,
+        trimOffset: trimmedLength,
       ),
     );
 
     switch (widget.item.status) {
       case ResultStatus.pending:
-        _leadingIcon = Checkbox(
-          value: widget.isSelected,
-          onChanged: widget.onSelected,
-        );
+        _leadingIcon = Checkbox(value: widget.isSelected, onChanged: widget.onSelected);
         break;
       case ResultStatus.applied:
         _leadingIcon = const Icon(Icons.check_circle, color: Colors.green);
@@ -128,30 +115,17 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
 
   @override
   Widget build(BuildContext context) {
-    // The build method is now very lightweight. It only reads pre-computed
-    // values from the state and builds the layout. No heavy lifting happens here.
     final theme = Theme.of(context);
-    final settings =
-        ref.watch(
-          settingsProvider.select(
-            (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
-          ),
-        ) ??
-        CodeEditorSettings();
-    final codeThemeData =
-        CodeThemes.availableCodeThemes[settings.themeName] ??
-        default_theme.defaultTheme;
+    final settings = ref.watch(settingsProvider.select(
+      (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
+    )) ?? CodeEditorSettings();
+    final codeThemeData = CodeThemes.availableCodeThemes[settings.themeName] ?? default_theme.defaultTheme;
     final textStyle = TextStyle(fontFamily: settings.fontFamily, fontSize: 13);
-    final codeBgColor =
-        codeThemeData['root']?.backgroundColor ??
-        Colors.black.withOpacity(0.25);
+    final codeBgColor = codeThemeData['root']?.backgroundColor ?? Colors.black.withOpacity(0.25);
     final occurrence = widget.item.occurrence;
 
     return Material(
-      color:
-          widget.isSelected
-              ? theme.colorScheme.primary.withOpacity(0.1)
-              : Colors.transparent,
+      color: widget.isSelected ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
       child: InkWell(
         onTap: widget.onJumpTo,
         child: Column(
@@ -164,16 +138,13 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                 children: [
                   SizedBox(
                     width: 40,
-                    child: Center(child: _leadingIcon), // Use cached widget
+                    child: Center(child: _leadingIcon),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: codeBgColor,
                         borderRadius: BorderRadius.circular(4),
@@ -187,12 +158,10 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
                               padding: const EdgeInsets.only(right: 12.0),
                               child: Text(
                                 '${occurrence.lineNumber + 1}',
-                                style: textStyle.copyWith(
-                                  color: Colors.grey.shade600,
-                                ),
+                                style: textStyle.copyWith(color: Colors.grey.shade600),
                               ),
                             ),
-                            RichText(text: _previewSpan), // Use cached TextSpan
+                            RichText(text: _previewSpan),
                           ],
                         ),
                       ),
@@ -210,80 +179,84 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
 
   /// A robust recursive function to traverse a TextSpan tree, apply a highlight
   /// to a specific range, and return the new list of TextSpans.
-  List<TextSpan> _overlayHighlight({
+  List<TextSpan> _buildHighlightedSpan({
     required TextSpan source,
-    required int start,
-    required int end,
-    required TextStyle highlightStyle,
+    required RefactorOccurrence occurrence,
+    required int trimOffset,
   }) {
+    // 1. Define all highlight regions.
+    final regions = <({int start, int end, TextStyle style})>[];
+
+    // Add the main match highlight (semi-transparent).
+    regions.add((
+      start: occurrence.startColumn,
+      end: occurrence.startColumn + occurrence.matchedText.length,
+      style: TextStyle(backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.3))
+    ));
+    
+    // Add highlights for each captured group.
+    for (int i = 0; i < occurrence.capturedGroups.length; i++) {
+      final group = occurrence.capturedGroups[i];
+      regions.add((
+        start: group.startColumn,
+        end: group.startColumn + group.text.length,
+        style: TextStyle(backgroundColor: _groupColors[i % _groupColors.length])
+      ));
+    }
+    
+    // Sort regions by start position to process them correctly.
+    regions.sort((a, b) => a.start.compareTo(b.start));
+
+    // 2. Traverse the source TextSpan tree and apply the highlights.
     final List<TextSpan> result = [];
     int currentIndex = 0;
 
     void processSpan(TextSpan span) {
       if (span.children != null && span.children!.isNotEmpty) {
         for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child); // This is the main recursive step.
-          }
+          if (child is TextSpan) processSpan(child);
         }
         return;
       }
+      
+      if (span.text == null || span.text!.isEmpty) return;
 
-      if (span.text == null || span.text!.isEmpty) {
-        return;
-      }
-
-      // This is the "leaf node" processing for spans with actual text.
-      final spanStart = currentIndex;
-      final spanText = span.text!; // Safe to use ! here due to the check above.
+      final spanText = span.text!;
+      final spanStart = currentIndex - trimOffset;
       final spanEnd = spanStart + spanText.length;
-      final highlightStart = start;
-      final highlightEnd = end;
+      int currentSliceStart = 0;
 
-      // Case 1: The span is completely outside the highlight range.
-      if (spanEnd <= highlightStart || spanStart >= highlightEnd) {
-        result.add(span);
-      } else {
-        // Case 2: The span intersects with the highlight range.
-        // We may need to split it into up to three parts: before, highlighted, and after.
+      for (final region in regions) {
+        // Find intersection between the current span and the highlight region.
+        final int intersectionStart = (spanStart > region.start) ? spanStart : region.start;
+        final int intersectionEnd = (spanEnd < region.end) ? spanEnd : region.end;
 
-        // Part 1: Text before the highlight starts.
-        if (spanStart < highlightStart) {
-          result.add(
-            TextSpan(
-              text: spanText.substring(0, highlightStart - spanStart),
+        if (intersectionStart < intersectionEnd) { // If there is an overlap
+          // Add the part of the span before the highlight.
+          if (intersectionStart > spanStart + currentSliceStart) {
+            result.add(TextSpan(
+              text: spanText.substring(currentSliceStart, intersectionStart - spanStart),
               style: span.style,
-            ),
-          );
-        }
-
-        // Part 2: The highlighted text itself.
-        final int intersectionStart =
-            (spanStart > highlightStart) ? spanStart : highlightStart;
-        final int intersectionEnd =
-            (spanEnd < highlightEnd) ? spanEnd : highlightEnd;
-        result.add(
-          TextSpan(
-            text: spanText.substring(
-              intersectionStart - spanStart,
-              intersectionEnd - spanStart,
-            ),
-            style: (span.style ?? const TextStyle()).merge(highlightStyle),
-          ),
-        );
-
-        // Part 3: Text after the highlight ends.
-        if (spanEnd > highlightEnd) {
-          result.add(
-            TextSpan(
-              text: spanText.substring(highlightEnd - spanStart),
-              style: span.style,
-            ),
-          );
+            ));
+          }
+          // Add the highlighted part.
+          result.add(TextSpan(
+            text: spanText.substring(intersectionStart - spanStart, intersectionEnd - spanStart),
+            style: (span.style ?? const TextStyle()).merge(region.style),
+          ));
+          currentSliceStart = intersectionEnd - spanStart;
         }
       }
 
-      currentIndex = spanEnd;
+      // Add any remaining part of the span after the last highlight.
+      if (currentSliceStart < spanText.length) {
+        result.add(TextSpan(
+          text: spanText.substring(currentSliceStart),
+          style: span.style,
+        ));
+      }
+      
+      currentIndex += spanText.length;
     }
 
     processSpan(source);
