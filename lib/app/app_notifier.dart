@@ -141,7 +141,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         );
         return null;
       }
-      final bool? wantsToGrant = await showConfirmDialog(
+      final bool wantsToGrant = await showConfirmDialog(
         context,
         title: 'Permission Required',
         content:

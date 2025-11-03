@@ -47,7 +47,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   late final LlmEditorController _controller;
   // late List<DisplayMessage> _displayMessages;
   String? _baseContentHash;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   final _textController = TextEditingController();
   final _contextScrollController = ScrollController();
 
@@ -55,7 +55,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   final GlobalKey _listViewKey = GlobalKey();
 
   final Map<String, GlobalKey> _scrollTargetKeys = {};
-  List<String> _sortedScrollTargetIds = [];
+  final List<String> _sortedScrollTargetIds = [];
 
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
@@ -586,14 +586,16 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
                 onNotification: (notification) {
                   if (notification is ScrollStartNotification) {
                     _scrollEndTimer?.cancel();
-                    if (mounted && !_isScrolling)
+                    if (mounted && !_isScrolling) {
                       setState(() => _isScrolling = true);
+                    }
                   } else if (notification is ScrollEndNotification) {
                     _scrollEndTimer = Timer(
                       const Duration(milliseconds: 800),
                       () {
-                        if (mounted && _isScrolling)
+                        if (mounted && _isScrolling) {
                           setState(() => _isScrolling = false);
+                        }
                       },
                     );
                   }

@@ -155,11 +155,13 @@ class GeminiProvider implements LlmProvider {
         // Sort to have 'flash' models appear first as they are often preferred for chat.
         modelsList.sort((a, b) {
           if (a.displayName.contains('Flash') &&
-              !b.displayName.contains('Flash'))
+              !b.displayName.contains('Flash')) {
             return -1;
+          }
           if (!a.displayName.contains('Flash') &&
-              b.displayName.contains('Flash'))
+              b.displayName.contains('Flash')) {
             return 1;
+          }
           return a.displayName.compareTo(b.displayName);
         });
 

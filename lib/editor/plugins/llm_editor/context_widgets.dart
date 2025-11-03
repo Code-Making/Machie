@@ -19,7 +19,7 @@ import 'package:re_highlight/styles/default.dart'; // For defaultTheme if needed
 
 class ContextItemViewChip extends StatelessWidget {
   final ContextItem item;
-  const ContextItemViewChip({required this.item});
+  const ContextItemViewChip({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +58,7 @@ class ContextItemCard extends StatelessWidget {
   final ContextItem item;
   final VoidCallback onRemove;
 
-  const ContextItemCard({required this.item, required this.onRemove});
+  const ContextItemCard({super.key, required this.item, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +96,7 @@ class ContextItemCard extends StatelessWidget {
 
 class ContextPreviewContent extends ConsumerStatefulWidget {
   final ContextItem item;
-  const ContextPreviewContent({required this.item});
+  const ContextPreviewContent({super.key, required this.item});
 
   @override
   ConsumerState<ContextPreviewContent> createState() =>

@@ -32,8 +32,9 @@ class AppStorageProvider implements GitStorageProvider {
 
   @override
   Future<StorageHandle> resolve(StorageHandle base, String relativePath) async {
-    if (base is! AppStorageHandle)
+    if (base is! AppStorageHandle) {
       throw 'Invalid handle type for AppStorageProvider';
+    }
 
     final resolvedFile = await _fileHandler.resolvePath(
       base.file.uri,
@@ -154,8 +155,9 @@ class AppStorageProvider implements GitStorageProvider {
 
   @override
   Future<String> relativePath(StorageHandle base, StorageHandle child) async {
-    if (base is! AppStorageHandle || child is! AppStorageHandle)
+    if (base is! AppStorageHandle || child is! AppStorageHandle) {
       throw 'Invalid handle type';
+    }
     return _fileHandler.getPathForDisplay(
       child.file.uri,
       relativeTo: base.file.uri,

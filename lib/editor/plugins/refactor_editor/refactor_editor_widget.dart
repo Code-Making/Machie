@@ -59,10 +59,12 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     _replaceController = TextEditingController(text: _controller.replaceTerm);
 
     _controller.addListener(() {
-      if (_findController.text != _controller.searchTerm)
+      if (_findController.text != _controller.searchTerm) {
         _findController.text = _controller.searchTerm;
-      if (_replaceController.text != _controller.replaceTerm)
+      }
+      if (_replaceController.text != _controller.replaceTerm) {
         _replaceController.text = _controller.replaceTerm;
+      }
     });
 
     _findController.addListener(
@@ -176,8 +178,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
         ref.read(settingsProvider).pluginSettings[RefactorSettings]
             as RefactorSettings?;
     final project = ref.read(appNotifierProvider).value?.currentProject;
-    if (repo == null || settings == null || project == null)
+    if (repo == null || settings == null || project == null) {
       throw Exception('Prerequisites not met');
+    }
 
     final results = <RefactorOccurrence>[];
     await _traverseAndSearch(
@@ -278,7 +281,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
     
     _controller.updateItemsStatus(processed: processedItems, failed: failedItems);
-    final message = "Replaced ${processedItems.length} occurrences." + (failedItems.isNotEmpty ? " ${failedItems.length} failed." : "");
+    final message = "Replaced ${processedItems.length} occurrences.${failedItems.isNotEmpty ? " ${failedItems.length} failed." : ""}";
     failedItems.isNotEmpty ? MachineToast.error(message) : MachineToast.info(message);
   }
 
@@ -304,8 +307,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           // FIX 2: Add more robust filtering for path-like strings.
           if (matchedPath == null ||
               matchedPath.isEmpty ||
-              matchedPath.startsWith('dart:'))
+              matchedPath.startsWith('dart:')) {
             continue;
+          }
           if (Uri.tryParse(matchedPath)?.isAbsolute ?? false) continue;
 
           try {
@@ -389,8 +393,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       failed: failedItems,
     );
     final message =
-        "Updated ${processedItems.length} paths." +
-        (failedItems.isNotEmpty ? " ${failedItems.length} failed." : "");
+        "Updated ${processedItems.length} paths.${failedItems.isNotEmpty ? " ${failedItems.length} failed." : ""}";
     failedItems.isNotEmpty
         ? MachineToast.error(message)
         : MachineToast.info(message);

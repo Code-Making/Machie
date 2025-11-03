@@ -18,7 +18,7 @@ final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;
-  const EditMessageDialog({required this.initialMessage});
+  const EditMessageDialog({super.key, required this.initialMessage});
 
   @override
   ConsumerState<EditMessageDialog> createState() => _EditMessageDialogState();
@@ -186,7 +186,7 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
 // ENTIRELY REWRITTEN/REFACTORED WIDGET
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
-  const FilePickerLiteDialog({required this.projectRootUri});
+  const FilePickerLiteDialog({super.key, required this.projectRootUri});
 
   @override
   ConsumerState<FilePickerLiteDialog> createState() =>
@@ -377,8 +377,9 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                       : directoryState.when(
                         data: (nodes) {
                           final sortedNodes = List.of(nodes)..sort((a, b) {
-                            if (a.file.isDirectory != b.file.isDirectory)
+                            if (a.file.isDirectory != b.file.isDirectory) {
                               return a.file.isDirectory ? -1 : 1;
+                            }
                             return a.file.name.toLowerCase().compareTo(
                               b.file.name.toLowerCase(),
                             );

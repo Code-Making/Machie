@@ -33,8 +33,8 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
   // --- STATE ---
   late RecipeData _initialData;
   String? _baseContentHash;
-  List<RecipeData> _undoStack = [];
-  List<RecipeData> _redoStack = [];
+  final List<RecipeData> _undoStack = [];
+  final List<RecipeData> _redoStack = [];
 
   // --- CONTROLLERS & FOCUS NODES ---
   final _formKey = GlobalKey<FormState>();
@@ -118,10 +118,26 @@ class RecipeEditorWidgetState extends EditorWidgetState<RecipeEditorWidget> {
     _portionsFocusNode.dispose();
     _notesController.dispose();
     _notesFocusNode.dispose();
-    _ingredientControllers.forEach((list) => list.forEach((c) => c.dispose()));
-    _instructionControllers.forEach((list) => list.forEach((c) => c.dispose()));
-    _ingredientFocusNodes.forEach((list) => list.forEach((c) => c.dispose()));
-    _instructionFocusNodes.forEach((list) => list.forEach((c) => c.dispose()));
+    for (var list in _ingredientControllers) {
+      for (var c in list) {
+        c.dispose();
+      }
+    }
+    for (var list in _instructionControllers) {
+      for (var c in list) {
+        c.dispose();
+      }
+    }
+    for (var list in _ingredientFocusNodes) {
+      for (var c in list) {
+        c.dispose();
+      }
+    }
+    for (var list in _instructionFocusNodes) {
+      for (var c in list) {
+        c.dispose();
+      }
+    }
   }
 
   void _initializeControllersAndFocusNodes(RecipeData data) {

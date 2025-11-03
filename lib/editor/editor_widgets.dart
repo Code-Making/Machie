@@ -18,7 +18,7 @@ import 'tab_state_manager.dart';
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
-  TabBarWidget({super.key});
+  const TabBarWidget({super.key});
 
   @override
   ConsumerState<TabBarWidget> createState() => _TabBarWidgetState();

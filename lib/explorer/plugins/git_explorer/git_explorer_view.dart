@@ -254,7 +254,7 @@ class _CommitHistorySheetState extends ConsumerState<_CommitHistorySheet> {
 
     ref.listen(paginatedCommitsProvider(startHash), (previous, next) {
       if (!_didInitialScroll && next is AsyncData<PaginatedCommitsState>) {
-        final state = next.value!;
+        final state = next.value;
         final index = state.commits.indexWhere((c) => c.hash == selectedHash);
         if (index != -1) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
