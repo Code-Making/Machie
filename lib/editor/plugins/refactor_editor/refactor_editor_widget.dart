@@ -379,6 +379,18 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
     _controller.completeSearch(results);
   }
+  
+    ({int line, int column}) _getLineAndColumn(String content, int offset) {
+    int line = 0;
+    int lastLineStart = 0;
+    for (int i = 0; i < offset; i++) {
+      if (content[i] == '\n') {
+        line++;
+        lastLineStart = i + 1;
+      }
+    }
+    return (line: line, column: offset - lastLineStart);
+  }
 
   Future<void> _applyPathChanges() async {
     final List<RefactorResultItem> processedItems = [];
