@@ -2,10 +2,8 @@
 // NEW FILE: lib/editor/plugins/recipe_tex/recipe_tex_command_context.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../editor_command_context.dart';
 
 @immutable

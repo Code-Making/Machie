@@ -2,13 +2,10 @@
 // UPDATED: lib/explorer/common/file_explorer_commands.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../../data/file_handler/file_handler.dart';

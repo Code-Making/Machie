@@ -1,9 +1,7 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_hot_state.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import 'refactor_editor_models.dart';

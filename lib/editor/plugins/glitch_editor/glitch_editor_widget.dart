@@ -4,15 +4,12 @@
 
 // lib/plugins/glitch_editor/glitch_editor_widget.dart
 
-// Dart imports:
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';

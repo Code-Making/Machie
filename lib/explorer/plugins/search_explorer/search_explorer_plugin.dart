@@ -1,12 +1,9 @@
 // lib/explorer/plugins/search_explorer/search_explorer_plugin.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../editor/services/file_content_provider.dart';
 import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';

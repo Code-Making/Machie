@@ -3,10 +3,8 @@
 // =========================================
 import 'dart:async'; // Import for Timer
 
-// Package imports:
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-// Project imports:
 import 'hive_cache_repository.dart';
 
 import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates

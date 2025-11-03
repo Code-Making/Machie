@@ -1,9 +1,7 @@
 // lib/explorer/common/file_explorer_dialogs.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../../editor/plugins/plugin_models.dart';
 
 import '../../editor/tab_state_manager.dart'; // <-- ADD THIS IMPORT

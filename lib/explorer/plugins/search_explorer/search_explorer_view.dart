@@ -1,14 +1,11 @@
 // lib/explorer/plugins/search_explorer/search_explorer_view.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';

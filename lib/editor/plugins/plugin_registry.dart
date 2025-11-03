@@ -2,10 +2,8 @@
 // UPDATED: lib/editor/plugins/plugin_registry.dart
 // =========================================
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import 'code_editor/code_editor_plugin.dart';
 import 'glitch_editor/glitch_editor_plugin.dart';
 import 'llm_editor/llm_editor_plugin.dart';

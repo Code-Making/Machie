@@ -2,10 +2,8 @@
 // UPDATED: lib/data/cache/type_adapter_registry.dart
 // =========================================
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../data/dto/tab_hot_state_dto.dart';
 import '../../editor/plugins/plugin_registry.dart';
 import 'type_adapters.dart';

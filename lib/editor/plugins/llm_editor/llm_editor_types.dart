@@ -1,10 +1,7 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:uuid/uuid.dart';
 
-// Project imports:
 import 'llm_editor_models.dart';
 
 class DisplayMessage {

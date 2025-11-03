@@ -2,13 +2,10 @@
 // UPDATED: lib/app/app_state.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 
-// Project imports:
 import '../editor/services/file_content_provider.dart';
 import '../project/project_models.dart';
 

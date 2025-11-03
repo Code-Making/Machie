@@ -1,10 +1,7 @@
-// Dart imports:
 import 'dart:collection';
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import 'llm_editor_models.dart';
 import 'llm_editor_types.dart';
 

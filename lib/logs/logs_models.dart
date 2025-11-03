@@ -1,4 +1,3 @@
-// Package imports:
 import 'package:talker_flutter/talker_flutter.dart';
 
 /*class FileOperationEvent extends TalkerLog {

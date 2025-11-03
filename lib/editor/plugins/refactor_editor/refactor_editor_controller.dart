@@ -1,15 +1,11 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_controller.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Package imports:
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import 'refactor_editor_models.dart';
-
-import 'package:collection/collection.dart';
 
 /// A mutable state controller for a single Refactor Editor session.
 class RefactorController extends ChangeNotifier {

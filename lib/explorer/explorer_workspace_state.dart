@@ -1,6 +1,5 @@
 // lib/explorer/explorer_workspace_state.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
 import '../../data/dto/project_dto.dart'; // ADDED

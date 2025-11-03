@@ -1,10 +1,7 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 
-// Project imports:
 import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
 import 'llm_editor_widget.dart';

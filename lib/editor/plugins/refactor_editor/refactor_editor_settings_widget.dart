@@ -2,13 +2,10 @@
 // UPDATED: lib/editor/plugins/refactor_editor/refactor_editor_settings_widget.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../explorer/common/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import 'refactor_editor_models.dart';

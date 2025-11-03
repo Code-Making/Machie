@@ -2,10 +2,8 @@
 // NEW FILE: lib/data/dto/app_state_dto.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../../project/project_models.dart';
 import 'project_dto.dart';
 

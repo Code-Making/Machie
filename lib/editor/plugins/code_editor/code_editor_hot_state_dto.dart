@@ -2,10 +2,8 @@
 // UPDATED: lib/editor/plugins/code_editor/code_editor_hot_state_dto.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../../../data/dto/tab_hot_state_dto.dart';
 
 /// A DTO representing the unsaved state of the [CodeEditorPlugin].

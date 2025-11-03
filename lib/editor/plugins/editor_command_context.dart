@@ -4,10 +4,8 @@
 
 import 'package:flutter/material.dart'; // ADDED: For Widget
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../app/app_notifier.dart';
 
 @immutable

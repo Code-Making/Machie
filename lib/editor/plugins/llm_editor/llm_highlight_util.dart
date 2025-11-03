@@ -1,6 +1,5 @@
 // FILE: lib/editor/plugins/llm_editor/llm_highlight_util.dart
 
-// Package imports:
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
 

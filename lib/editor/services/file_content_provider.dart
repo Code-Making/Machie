@@ -2,16 +2,13 @@
 // NEW FILE: lib/editor/services/file_content_provider.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-// Package imports:
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../data/file_handler/file_handler.dart';
 import '../../data/file_handler/local_file_handler_saf.dart';
 import '../../data/repositories/project_repository.dart';

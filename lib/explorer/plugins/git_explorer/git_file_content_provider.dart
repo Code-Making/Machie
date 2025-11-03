@@ -2,14 +2,11 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_file_content_provider.dart
 // =========================================
 
-// Dart imports:
 import 'dart:convert';
 
-// Package imports:
 import 'package:crypto/crypto.dart';
 import 'package:dart_git/dart_git.dart';
 
-// Project imports:
 import '../../../data/dto/project_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../editor/editor_tab_models.dart';

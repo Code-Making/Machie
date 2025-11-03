@@ -4,13 +4,10 @@
 
 // lib/plugins/glitch_editor/glitch_editor_models.dart
 
-// Dart imports:
 import 'dart:typed_data';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../../editor_tab_models.dart';
 import 'glitch_editor_widget.dart';
 

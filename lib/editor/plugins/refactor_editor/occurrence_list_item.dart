@@ -1,14 +1,11 @@
 // lib/editor/plugins/refactor_editor/occurrence_list_item.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart' as default_theme;
 
-// Project imports:
 import '../../../editor/plugins/code_editor/code_themes.dart';
 import '../../../editor/plugins/llm_editor/llm_highlight_util.dart';
 import '../../../settings/settings_notifier.dart';

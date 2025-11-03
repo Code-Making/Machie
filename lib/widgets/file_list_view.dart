@@ -1,13 +1,10 @@
 // lib/widgets/file_list_view.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../data/file_handler/file_handler.dart';
 import '../editor/plugins/plugin_registry.dart';
 

@@ -2,15 +2,12 @@
 // UPDATED: lib/app/app_screen.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Package imports:
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../command/command_widgets.dart';
 import '../editor/editor_widgets.dart';
 import '../editor/plugins/editor_command_context.dart';

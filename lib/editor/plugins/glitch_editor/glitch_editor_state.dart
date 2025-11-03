@@ -2,10 +2,8 @@
 // UPDATED: lib/editor/plugins/glitch_editor/glitch_editor_state.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../editor_command_context.dart';
 
 @immutable

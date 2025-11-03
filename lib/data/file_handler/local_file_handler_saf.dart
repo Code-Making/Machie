@@ -1,17 +1,13 @@
-// Dart imports:
 import 'dart:convert';
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:saf_util/saf_util_platform_interface.dart';
 
-// Project imports:
 import 'file_handler.dart';
 import 'local_file_handler.dart';
 

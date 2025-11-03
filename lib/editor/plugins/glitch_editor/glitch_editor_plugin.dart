@@ -4,18 +4,13 @@
 
 // lib/plugins/glitch_editor/glitch_editor_plugin.dart
 
-// Dart imports:
 import 'dart:async';
 import 'dart:typed_data';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
-import '../editor_command_context.dart';
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
@@ -24,6 +19,7 @@ import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
+import '../editor_command_context.dart';
 import '../plugin_models.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';

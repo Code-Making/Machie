@@ -1,9 +1,7 @@
 // lib/project/file_handler/local_file_handler.dart
 
-// Dart imports:
 import 'dart:io';
 
-// Project imports:
 import 'file_handler.dart';
 
 import 'local_file_handler_saf.dart'; // Android implementation

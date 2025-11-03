@@ -1,10 +1,8 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_models.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/plugin_models.dart';
 import 'refactor_editor_widget.dart';

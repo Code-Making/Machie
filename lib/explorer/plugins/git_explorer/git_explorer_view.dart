@@ -2,18 +2,15 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_explorer_view.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:dart_git/dart_git.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-// Project imports:
-import '../../../utils/toast.dart';
 import '../../../app/app_notifier.dart';
 import '../../../project/project_models.dart';
+import '../../../utils/toast.dart';
 import '../../../widgets/file_list_view.dart' as generic;
 import 'git_explorer_state.dart';
 import 'git_object_file.dart';

@@ -1,13 +1,10 @@
 // lib/explorer/explorer_host_drawer.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../app/app_notifier.dart';
 import '../project/project_models.dart';
 import 'common/new_project_screen.dart';
