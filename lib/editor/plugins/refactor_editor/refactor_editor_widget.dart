@@ -87,30 +87,6 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     super.dispose();
   }
   
-    /// Processes a replacement string, substituting $n with the corresponding captured group.
-  String _getReplacementText(RefactorResultItem item) {
-    // If not in regex mode, or if there are no captured groups, return the plain replacement term.
-    if (!_controller.isRegex || item.occurrence.capturedGroups.isEmpty) {
-      return _controller.replaceTerm;
-    }
-
-    // Use a regex to find all instances of $ followed by one or more digits.
-    return _controller.replaceTerm.replaceAllMapped(RegExp(r'\$(\d+)'), (match) {
-      // Parse the number after the $. E.g., for "$1", this is "1".
-      final groupIndex = int.tryParse(match.group(1) ?? '');
-      
-      // Check if the group index is valid.
-      // It must be > 0 and within the bounds of our captured groups list.
-      if (groupIndex != null && groupIndex > 0 && groupIndex <= item.occurrence.capturedGroups.length) {
-        // Return the text of the corresponding captured group.
-        return item.occurrence.capturedGroups[groupIndex - 1].text;
-      } else {
-        // If the group index is invalid (e.g., "$0" or "$99"), return the original text (e.g., "$0").
-        return match.group(0)!;
-      }
-    });
-  }
-
   @override
   Future<void> onFileOperation(FileOperationEvent event) async {
     if (!mounted) {
