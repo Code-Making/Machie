@@ -229,8 +229,9 @@ class CodeFindPanelView extends StatelessWidget implements PreferredSizeWidget {
                         checked: value.option.regex,
                         onPressed: () {
                           if (value.option.regex) {
-                            if (value.option.multiLine)
+                            if (value.option.multiLine) {
                               controller.toggleMultiLine();
+                            }
                             if (value.option.dotAll) controller.toggleDotAll();
                           }
                           controller.toggleRegex();

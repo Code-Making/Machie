@@ -100,7 +100,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
       children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'LLM Provider'),
-          value: _currentSettings.selectedProviderId,
+          initialValue: _currentSettings.selectedProviderId,
           items:
               allLlmProviders
                   .map(
@@ -127,7 +127,7 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
         else if (_availableModels.isNotEmpty)
           DropdownButtonFormField<LlmModelInfo>(
             decoration: const InputDecoration(labelText: 'Model'),
-            value: selectedModelInfo,
+            initialValue: selectedModelInfo,
             items:
                 _availableModels
                     .map(

@@ -56,8 +56,9 @@ class ProjectHierarchyService
       // Get the current project ID each time an event occurs.
       final currentProjectId =
           ref.read(appNotifierProvider).value?.currentProject?.id;
-      if (currentProjectId == null)
+      if (currentProjectId == null) {
         return; // Ignore events if no project is open
+      }
 
       next.whenData((event) => _handleFileEvent(event));
     });

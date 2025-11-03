@@ -28,8 +28,9 @@ final sortedDirectoryContentsProvider = Provider.autoDispose
       return directoryState?.whenData((nodes) {
             final sortedNodes = List<FileTreeNode>.from(nodes);
             sortedNodes.sort((a, b) {
-              if (a.file.isDirectory != b.file.isDirectory)
+              if (a.file.isDirectory != b.file.isDirectory) {
                 return a.file.isDirectory ? -1 : 1;
+              }
               switch (sortMode) {
                 case FileExplorerViewMode.sortByNameDesc:
                   return b.file.name.toLowerCase().compareTo(
@@ -197,8 +198,9 @@ class DirectoryView extends ConsumerWidget {
     final settings =
         ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
 
-    if (settings == null)
+    if (settings == null) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     return sortedDirectoryState.when(
       data: (nodes) {
@@ -214,19 +216,21 @@ class DirectoryView extends ConsumerWidget {
             if (success && context.mounted) navigator.pop();
           },
           onExpansionChanged: (directory, isExpanded) {
-            if (isExpanded)
+            if (isExpanded) {
               ref
                   .read(projectHierarchyServiceProvider.notifier)
                   .loadDirectory(directory.uri);
+            }
             ref.read(activeExplorerNotifierProvider).updateSettings((s) {
               final currentSettings = s as FileExplorerSettings;
               final newExpanded = Set<String>.from(
                 currentSettings.expandedFolders,
               );
-              if (isExpanded)
+              if (isExpanded) {
                 newExpanded.add(directory.uri);
-              else
+              } else {
                 newExpanded.remove(directory.uri);
+              }
               return currentSettings.copyWith(expandedFolders: newExpanded);
             });
           },
@@ -284,7 +288,7 @@ class RootDropZone extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
         );
         final normalDecoration = BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withAlpha(150),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(150),
           border: Border.all(
             color: Theme.of(context).colorScheme.onSurface.withAlpha(100),
           ),

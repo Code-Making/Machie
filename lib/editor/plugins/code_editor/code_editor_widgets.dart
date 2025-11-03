@@ -1025,7 +1025,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     // This recursive helper walks the TextSpan tree, rebuilding it and replacing
     // only the part that matches our path indices.
-    List<TextSpan> _walkAndReplace(TextSpan span, int currentPos) {
+    List<TextSpan> walkAndReplace(TextSpan span, int currentPos) {
       // ... (This helper logic is the same as the previous correct version)
       final List<TextSpan> newChildren = [];
       final spanStart = currentPos;
@@ -1036,7 +1036,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         int childPos = currentPos;
         for (final child in span.children!) {
           if (child is TextSpan) {
-            newChildren.addAll(_walkAndReplace(child, childPos));
+            newChildren.addAll(walkAndReplace(child, childPos));
             childPos += child.toPlainText().length;
           }
         }
@@ -1065,8 +1065,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         (pathEndIndex - spanStart).clamp(0, spanText.length),
       );
 
-      if (beforeText.isNotEmpty)
+      if (beforeText.isNotEmpty) {
         newChildren.add(TextSpan(text: beforeText, style: span.style));
+      }
       if (linkText.isNotEmpty) {
         newChildren.add(
           TextSpan(
@@ -1081,13 +1082,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           ),
         );
       }
-      if (afterText.isNotEmpty)
+      if (afterText.isNotEmpty) {
         newChildren.add(TextSpan(text: afterText, style: span.style));
+      }
 
       return newChildren;
     }
 
-    return TextSpan(children: _walkAndReplace(textSpan, 0), style: style);
+    return TextSpan(children: walkAndReplace(textSpan, 0), style: style);
   }
 
   TextSpan _highlightColorCodes(
@@ -1127,10 +1129,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       final hex = m.group(1);
       if (hex != null) {
         final val = int.tryParse(hex.substring(2), radix: 16);
-        if (val != null)
+        if (val != null) {
           matches.add(
             _ColorMatch(start: m.start, end: m.end, color: Color(val)),
           );
+        }
       }
     });
     _fromARGBRegex.allMatches(text).forEach((m) {
@@ -1182,7 +1185,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (uniqueMatches.isEmpty) return textSpan;
 
     // --- New Tree-Walking Logic ---
-    List<TextSpan> _walkAndColor(TextSpan span, int currentPos) {
+    List<TextSpan> walkAndColor(TextSpan span, int currentPos) {
       final newChildren = <TextSpan>[];
       final spanStart = currentPos;
       final spanText = span.text ?? '';
@@ -1192,7 +1195,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         int childPos = currentPos;
         for (final child in span.children!) {
           if (child is TextSpan) {
-            newChildren.addAll(_walkAndColor(child, childPos));
+            newChildren.addAll(walkAndColor(child, childPos));
             childPos += child.toPlainText().length;
           }
         }
@@ -1254,7 +1257,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       return newChildren;
     }
 
-    return TextSpan(children: _walkAndColor(textSpan, 0), style: style);
+    return TextSpan(children: walkAndColor(textSpan, 0), style: style);
   }
 
   /// PIPELINE STEP 2: Adds a background color to matching brackets.

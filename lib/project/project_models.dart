@@ -52,7 +52,7 @@ class InternalAppFile implements DocumentFile {
   @override
   final String mimeType;
 
-  InternalAppFile({
+  const InternalAppFile({
     required this.uri,
     required this.name,
     this.size = 0,

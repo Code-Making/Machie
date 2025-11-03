@@ -216,8 +216,9 @@ class RecipeTexPlugin extends EditorPlugin {
     buffer.writeln('}{');
     buffer.writeln(' \\info{${data.notes}}');
     buffer.writeln('}');
-    if (data.rawImagesSection.isNotEmpty)
+    if (data.rawImagesSection.isNotEmpty) {
       buffer.writeln('\n${data.rawImagesSection}');
+    }
     return buffer.toString();
   }
 

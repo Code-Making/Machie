@@ -108,8 +108,9 @@ class PaginatedCommitsNotifier
   Future<PaginatedCommitsState> _fetchNextPage(
     PaginatedCommitsState currentState,
   ) async {
-    if (_iterator == null)
+    if (_iterator == null) {
       return currentState.copyWith(isLoading: false, hasMore: false);
+    }
     final newCommits = <GitCommit>[];
     for (var i = 0; i < _commitsPerPage; i++) {
       if (await _iterator!.moveNext()) {
@@ -176,14 +177,16 @@ class GitTreeCacheNotifier
   }
 
   Future<void> loadDirectory(String pathInRepo) async {
-    if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData)
+    if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) {
       return;
+    }
     state = {...state, pathInRepo: const AsyncLoading()};
     try {
       final gitRepo = await ref.read(gitRepositoryProvider.future);
       final commitHash = ref.read(selectedGitCommitHashProvider);
-      if (gitRepo == null || commitHash == null)
+      if (gitRepo == null || commitHash == null) {
         throw Exception("Git repository or commit not available");
+      }
       final commit = await gitRepo.objStorage.readCommit(commitHash);
       GitTree tree;
       if (pathInRepo.isEmpty) {
