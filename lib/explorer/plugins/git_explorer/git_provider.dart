@@ -1,8 +1,6 @@
-// Package imports:
 import 'package:dart_git/dart_git.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../logs/logs_provider.dart';

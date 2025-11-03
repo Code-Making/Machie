@@ -2,16 +2,12 @@
 // UPDATED: lib/command/command_models.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../data/file_handler/file_handler.dart';
 import '../editor/editor_tab_models.dart';
 

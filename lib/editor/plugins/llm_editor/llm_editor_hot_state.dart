@@ -1,9 +1,7 @@
 // FINAL CORRECTED FILE: lib/editor/plugins/llm_editor/llm_editor_hot_state.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import 'llm_editor_models.dart';

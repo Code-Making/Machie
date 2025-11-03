@@ -2,15 +2,12 @@
 // NEW FILE: lib/editor/services/internal_file_content_provider.dart
 // =========================================
 
-// Dart imports:
 import 'dart:convert';
 import 'dart:io';
 
-// Package imports:
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
-// Project imports:
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';

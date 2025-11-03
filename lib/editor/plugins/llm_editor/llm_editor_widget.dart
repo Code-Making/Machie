@@ -1,20 +1,20 @@
 // FILE: lib/editor/plugins/llm_editor/llm_editor_widget.dart
 
-// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
+import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
+import '../../services/editor_service.dart';
 import 'chat_bubble.dart';
 import 'context_widgets.dart';
 import 'llm_editor_dialogs.dart';
@@ -23,10 +23,6 @@ import 'llm_editor_models.dart';
 import 'llm_editor_types.dart';
 import 'providers/llm_provider_factory.dart';
 import 'streaming_chat_bubble.dart';
-import '../../services/editor_service.dart';
-import '../../../explorer/common/file_explorer_dialogs.dart';
-import '../../../settings/settings_notifier.dart';
-import '../../../utils/toast.dart';
 
 import 'llm_editor_controller.dart'; // NEW
 

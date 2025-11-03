@@ -2,20 +2,16 @@
 // FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 import 'dart:math';
 
-// Flutter imports:
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../editor/services/editor_service.dart';

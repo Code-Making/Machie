@@ -2,10 +2,8 @@
 // FILE: lib/project/project_models.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../data/file_handler/file_handler.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/services/file_content_provider.dart';

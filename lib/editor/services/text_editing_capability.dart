@@ -1,12 +1,9 @@
 // FILE: lib/editor/services/text_editing_capability.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../plugins/editor_command_context.dart';

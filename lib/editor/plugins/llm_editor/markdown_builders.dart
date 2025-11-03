@@ -1,22 +1,19 @@
-// Flutter imports:
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Package imports:
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart';
 
-// Project imports:
-import '../code_editor/code_editor_models.dart';
-import '../code_editor/code_themes.dart';
-import 'llm_highlight_util.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../services/editor_service.dart';
+import '../code_editor/code_editor_models.dart';
+import '../code_editor/code_themes.dart';
+import 'llm_highlight_util.dart';
 
 class CodeBlockBuilder extends MarkdownElementBuilder {
   final List<GlobalKey> keys;

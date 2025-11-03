@@ -1,6 +1,5 @@
 // lib/plugins/code_editor/code_editor_logic.dart
 
-// Package imports:
 import 'package:re_editor/re_editor.dart';
 
 // --- Logic Class ---

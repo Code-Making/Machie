@@ -2,10 +2,8 @@
 // NEW FILE: lib/editor/plugins/recipe_tex/recipe_tex_hot_state.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Project imports:
 import '../../../data/dto/tab_hot_state_dto.dart';
 import 'recipe_tex_models.dart';
 

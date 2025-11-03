@@ -2,14 +2,11 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_storage_provider.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 import 'dart:typed_data';
 
-// Package imports:
 import 'package:dart_git/dart_git.dart';
 
-// Project imports:
 import '../../../data/file_handler/file_handler.dart';
 import '../../../project/project_models.dart';
 

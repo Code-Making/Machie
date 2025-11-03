@@ -1,12 +1,9 @@
 // lib/project/services/project_hierarchy_service.dart
 
-// Dart imports:
 import 'dart:async';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';

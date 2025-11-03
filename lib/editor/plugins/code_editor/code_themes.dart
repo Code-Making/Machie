@@ -5,7 +5,6 @@ import 'package:re_editor/re_editor.dart'; // For CodeHighlightThemeMode
 
 // IMPORTS FOR ALL THEMES
 
-// Package imports:
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/css.dart';

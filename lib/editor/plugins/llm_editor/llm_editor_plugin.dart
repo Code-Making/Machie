@@ -2,17 +2,13 @@
 // NEW FILE: lib/editor/plugins/llm_editor/llm_editor_plugin.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';

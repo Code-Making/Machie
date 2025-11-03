@@ -2,16 +2,13 @@
 // UPDATED: lib/data/cache/hive_cache_repository.dart
 // =========================================
 
-// Dart imports:
 import 'dart:convert';
 
-// Package imports:
 import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
-// Project imports:
 import 'cache_repository.dart';
 
 class HiveCacheRepository implements CacheRepository {

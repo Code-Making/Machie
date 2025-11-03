@@ -1,12 +1,9 @@
 // CREATE NEW FILE: lib/editor/plugins/llm_editor/editing_chat_bubble.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';

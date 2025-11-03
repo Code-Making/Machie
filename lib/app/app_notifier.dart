@@ -2,17 +2,13 @@
 // lib/app/app_notifier.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../data/file_handler/file_handler.dart';
 import '../data/persistence_service.dart';
 import '../data/repositories/project_repository.dart';

@@ -1,17 +1,13 @@
 // FILE: lib/editor/editor_tab_models.dart
 
-// Dart imports:
 import 'dart:async';
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-// Project imports:
 import '../data/dto/project_dto.dart';
 import '../data/dto/tab_hot_state_dto.dart';
 import 'plugins/plugin_models.dart';

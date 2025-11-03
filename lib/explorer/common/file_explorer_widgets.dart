@@ -1,17 +1,14 @@
 // lib/explorer/common/file_explorer_widgets.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
-import '../../widgets/file_list_view.dart' as generic;
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../project/services/project_hierarchy_service.dart';
+import '../../widgets/file_list_view.dart' as generic;
 import '../explorer_plugin_registry.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import '../services/explorer_service.dart';

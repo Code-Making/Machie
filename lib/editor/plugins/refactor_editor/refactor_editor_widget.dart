@@ -1,22 +1,16 @@
 // lib/editor/plugins/refactor_editor/refactor_editor_widget.dart
 
-// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
-// Project imports:
-import '../../services/editor_service.dart';
-import '../../services/text_editing_capability.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
@@ -28,6 +22,8 @@ import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
+import '../../services/editor_service.dart';
+import '../../services/text_editing_capability.dart';
 import 'occurrence_list_item.dart';
 import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';

@@ -2,10 +2,8 @@
 // UPDATED: lib/app/app_commands.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../command/command_models.dart';
 import 'app_notifier.dart';
 

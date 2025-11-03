@@ -4,14 +4,11 @@
 
 // lib/editor/editor_widgets.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-// Project imports:
 import '../app/app_notifier.dart';
 import '../command/command_models.dart';
 import '../explorer/plugins/git_explorer/git_object_file.dart';

@@ -2,10 +2,8 @@
 // UPDATED: lib/explorer/plugins/git_explorer/git_explorer_state.dart
 // =========================================
 
-// Dart imports:
 import 'dart:async';
 
-// Package imports:
 import 'package:dart_git/dart_git.dart';
 import 'package:dart_git/plumbing/commit_iterator.dart';
 import 'package:dart_git/storage/interfaces.dart';
@@ -13,7 +11,6 @@ import 'package:dart_git/utils/file_mode.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import 'git_object_file.dart';
 import 'git_provider.dart';
 

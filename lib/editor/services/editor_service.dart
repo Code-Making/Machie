@@ -1,16 +1,12 @@
-// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../app/app_notifier.dart';
 import '../../data/cache/hot_state_cache_service.dart';
 import '../../data/dto/project_dto.dart';

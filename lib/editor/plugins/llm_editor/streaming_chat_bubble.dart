@@ -1,14 +1,11 @@
 // CREATE NEW FILE: lib/editor/plugins/llm_editor/streaming_chat_bubble.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
-import '../code_editor/code_editor_models.dart';
 import '../../../settings/settings_notifier.dart';
+import '../code_editor/code_editor_models.dart';
 
 class StreamingChatBubble extends ConsumerStatefulWidget {
   final String content;

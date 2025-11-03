@@ -1,12 +1,9 @@
 // lib/explorer/plugins/git_explorer/git_object_file.dart
 
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Package imports:
 import 'package:dart_git/plumbing/git_hash.dart';
 
-// Project imports:
 import '../../../data/file_handler/file_handler.dart';
 
 /// A virtual DocumentFile that represents a file (blob) inside the Git object database

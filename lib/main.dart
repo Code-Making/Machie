@@ -1,15 +1,11 @@
 // lib/main.dart
 
-// Dart imports:
 import 'dart:async';
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import 'app/app_notifier.dart';
 import 'app/app_screen.dart';
 import 'app/lifecycle.dart';

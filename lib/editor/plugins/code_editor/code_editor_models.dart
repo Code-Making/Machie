@@ -2,10 +2,8 @@
 // FILE: lib/editor/plugins/code_editor/code_editor_models.dart
 // =========================================
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Project imports:
 import '../../editor_tab_models.dart';
 import '../plugin_models.dart';
 import 'code_editor_widgets.dart';

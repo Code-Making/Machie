@@ -1,12 +1,9 @@
 // lib/plugins/glitch_editor/glitch_toolbar.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 

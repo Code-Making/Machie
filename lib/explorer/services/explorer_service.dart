@@ -1,7 +1,5 @@
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../data/repositories/project_repository.dart';

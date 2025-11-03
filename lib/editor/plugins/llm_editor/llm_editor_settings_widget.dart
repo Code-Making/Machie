@@ -1,15 +1,12 @@
 // import 'package:collection/collection.dart'; // Import for firstWhereOrNull
 
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Project imports:
+import '../../../settings/settings_notifier.dart';
 import 'llm_editor_models.dart';
 import 'providers/llm_provider_factory.dart';
-import '../../../settings/settings_notifier.dart';
 
 class LlmEditorSettingsUI extends ConsumerStatefulWidget {
   final LlmEditorSettings settings;

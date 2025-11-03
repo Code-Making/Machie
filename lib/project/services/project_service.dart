@@ -2,13 +2,11 @@
 // lib/project/services/project_service.dart
 // =========================================
 
-// Package imports:
 import 'package:collection/collection.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-// Project imports:
 import '../../data/cache/hot_state_cache_service.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
