@@ -153,7 +153,7 @@ class RefactorController extends ChangeNotifier {
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      Iterable<Match> matches;
+      final Iterable<Match> matches;
 
       if (isRegex) {
         try {
@@ -176,28 +176,8 @@ class RefactorController extends ChangeNotifier {
       }
 
       for (final match in matches) {
-        final List<CapturedGroup> capturedGroups = [];
-        if (isRegex) {
-          // ====================== START OF FIX #1 ======================
-          // Cast the generic `Match` to a `RegExpMatch` to access group-specific methods.
-          final regExpMatch = match as RegExpMatch;
-          // ======================= END OF FIX #1 =======================
-
-          // Start from 1 because group(0) is the full match.
-          for (int j = 1; j <= regExpMatch.groupCount; j++) {
-            final groupText = regExpMatch.group(j);
-            if (groupText != null) {
-              capturedGroups.add((
-                text: groupText,
-                // ====================== START OF FIX #2 ======================
-                // Use the correct API on the cast object.
-                startColumn: regExpMatch.start(j) 
-                // ======================= END OF FIX #2 =======================
-              ));
-            }
-          }
-        }
-
+        // REMOVED: All logic for calculating capture group positions is gone.
+        
         occurrencesInFile.add(RefactorOccurrence(
           fileUri: fileUri,
           displayPath: displayPath,
@@ -206,7 +186,6 @@ class RefactorController extends ChangeNotifier {
           lineContent: line,
           matchedText: match.group(0)!,
           fileContentHash: fileContentHash,
-          capturedGroups: capturedGroups,
         ));
       }
     }
@@ -221,22 +200,16 @@ class _StringMatch implements Match {
   final int start;
   final String _text;
   _StringMatch(this.input, this.start, this._text);
-
   @override
   int get end => start + _text.length;
-
   @override
   String? group(int group) => group == 0 ? _text : null;
-
   @override
   List<String?> groups(List<int> groupIndices) => groupIndices.map(group).toList();
-
   @override
   int get groupCount => 0;
-
   @override
   Pattern get pattern => throw UnimplementedError();
-  
   @override
   String operator [](int group) => this.group(group)!;
 }
