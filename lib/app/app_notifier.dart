@@ -462,6 +462,23 @@ class AppNotifier extends AsyncNotifier<AppState> {
       WidgetsBinding.instance.scheduleFrame();
     }
   }
+  
+  void closeMultipleTabs(List<int> indicesToClose) async {
+    final project = state.value?.currentProject;
+    if (project == null || indicesToClose.isEmpty) return;
+  
+    // Sort indices in descending order to avoid shifting issues.
+    final sortedIndices = indicesToClose..sort((a, b) => b.compareTo(a));
+  
+    var newProject = project;
+    for (final index in sortedIndices) {
+      // Pass the evolving project state to the service method.
+      newProject = _editorService.closeTab(newProject, index);
+    }
+  
+    updateCurrentProject(newProject);
+    WidgetsBinding.instance.scheduleFrame();
+  }
 
   void toggleFullScreen() {
     _updateStateSync((s) => s.copyWith(isFullScreen: !s.isFullScreen));

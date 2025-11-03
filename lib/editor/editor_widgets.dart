@@ -13,6 +13,8 @@ import 'tab_state_manager.dart';
 import '../project/project_models.dart';
 import '../explorer/plugins/git_explorer/git_object_file.dart';
 
+import '../command/command_models.dart';
+
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {
   TabBarWidget({super.key});
@@ -23,6 +25,7 @@ class TabBarWidget extends ConsumerStatefulWidget {
 
 class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   late final ScrollController _scrollController;
+  int? _dragStartIndex;
 
   @override
   void initState() {
@@ -34,6 +37,53 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+  
+  void _showTabContextMenu(BuildContext context, WidgetRef ref, int targetIndex) {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project == null) return;
+  
+    final targetTab = project.session.tabs[targetIndex];
+    
+    // The complex logic is gone. We just read the provider with the target tab.
+    final executableCommands = ref.read(tabContextCommandsProvider(targetTab));
+  
+    if (executableCommands.isEmpty) return;
+  
+    // The UI presentation logic remains the same.
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  ref.read(tabMetadataProvider)[targetTab.id]?.title ?? 'Tab Options',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(height: 1),
+              ...executableCommands.map((command) {
+                // We need the activeTab for the execute call, get it here.
+                final activeTab = project.session.currentTab!;
+                return ListTile(
+                  leading: command.icon,
+                  title: Text(command.label),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    command.executeFor(ref, activeTab, targetTab);
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -60,6 +110,15 @@ class _TabBarWidgetState extends ConsumerState<TabBarWidget> {
           key: const PageStorageKey<String>('tabBarScrollPosition'),
           scrollController: _scrollController,
           scrollDirection: Axis.horizontal,
+          onReorderStart: (index) {
+            setState(() => _dragStartIndex = index);
+          },
+          onReorderEnd: (index) {
+            if (_dragStartIndex == index) {
+              _showTabContextMenu(context, ref, index);
+            }
+            setState(() => _dragStartIndex = null);
+          },
           onReorder:
               (oldIndex, newIndex) => ref
                   .read(appNotifierProvider.notifier)
