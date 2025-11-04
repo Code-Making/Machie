@@ -1,5 +1,5 @@
 // =========================================
-// FILE: lib/editor/plugins/code_editor/code_editor_widgets.dart
+// UPDATED: lib/editor/plugins/code_editor/code_editor_widgets.dart
 // =========================================
 
 import 'dart:async';
@@ -33,6 +33,7 @@ import '../../../command/command_widgets.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'widgets/code_editor_ui.dart';
 import 'logic/code_editor_types.dart';
+import 'logic/code_editor_utils.dart'; // <-- ADDED IMPORT
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -61,29 +62,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   late String? _languageKey;
 
   late CodeEditorStyle _style;
-  // late List<PatternRecognizer> _patternRecognizers;
 
-  late String? _baseContentHash; // <-- ADDED
-
-  // static const List<Color> _rainbowBracketColors = [
-  //   Color(0xFFE06C75), // Red
-  //   Color(0xFF98C379), // Green
-  //   Color(0xFF61AFEF), // Blue
-  //   Color(0xFFC678DD), // Purple
-  //   Color(0xFFE5C07B), // Yellow
-  //   Color(0xFF56B6C2), // Cyan
-  // ];
-  static final _hexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
-  static final _shortHexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{3,4})\b');
-  static final _colorConstructorRegex = RegExp(
-    r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)',
-  );
-  static final _fromARGBRegex = RegExp(
-    r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
-  );
-  static final _fromRGBORegex = RegExp(
-    r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
-  );
+  late String? _baseContentHash;
 
   // --- TextEditable Interface Implementation ---
 
@@ -361,26 +341,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
     final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures =
-        enableLigatures
-            ? null
-            : const [
-              FontFeature.disable('liga'),
-              FontFeature.disable('clig'),
-              FontFeature.disable('calt'),
-            ];
-
-    //_patternRecognizers = _buildPatternRecognizers();
+    final List<FontFeature>? fontFeatures = enableLigatures
+        ? null
+        : const [
+            FontFeature.disable('liga'),
+            FontFeature.disable('clig'),
+            FontFeature.disable('calt'),
+          ];
 
     _style = CodeEditorStyle(
       fontHeight: codeEditorSettings?.fontHeight,
       fontSize: codeEditorSettings?.fontSize ?? 12.0,
       fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
       fontFeatures: fontFeatures,
-      //patternRecognizers: _patternRecognizers,
       codeTheme: CodeHighlightTheme(
-        theme:
-            CodeThemes.availableCodeThemes[selectedThemeName] ??
+        theme: CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
         languages: CodeThemes.getHighlightThemeMode(_languageKey),
       ),
@@ -395,92 +370,49 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   Future<void> showGoToLineDialog() async {
     if (!mounted) return;
-
-    // The total number of lines is the length of codeLines.
-    // The maximum valid line *number* for the user is this length.
     final int maxLines = controller.codeLines.length;
     final int currentLine = controller.selection.start.index;
-
     final int? targetLineIndex = await showDialog<int>(
       context: context,
       builder:
           (ctx) => GoToLineDialog(maxLine: maxLines, currentLine: currentLine),
     );
-
     if (targetLineIndex != null) {
-      // THE FIX:
-      // 1. Create a CodeLinePosition for the start of the target line.
-      final CodeLinePosition targetPosition = CodeLinePosition(
-        index: targetLineIndex,
-        offset: 0,
-      );
-
-      // 2. Move the cursor by setting the controller's selection.
-      controller.selection = CodeLineSelection.fromPosition(
-        position: targetPosition,
-      );
-
-      // 3. Ensure the new cursor position is visible.
+      final CodeLinePosition targetPosition =
+          CodeLinePosition(index: targetLineIndex, offset: 0);
+      controller.selection =
+          CodeLineSelection.fromPosition(position: targetPosition);
       controller.makePositionCenterIfInvisible(targetPosition);
     }
   }
 
   void selectOrExpandLines() {
     final CodeLineSelection currentSelection = controller.selection;
-
-    // THIS IS THE FIX: Convert the CodeLines iterable to a List.
     final List<CodeLine> lines = controller.codeLines.toList();
-
-    // A "full line" selection is defined as starting at offset 0 of one line
-    // and ending at offset 0 of a subsequent line. This is a robust check
-    // for selections created by triple-clicking or by this command itself.
-    final bool isAlreadyFullLineSelection =
-        currentSelection.start.offset == 0 &&
+    final bool isAlreadyFullLineSelection = currentSelection.start.offset == 0 &&
         currentSelection.end.offset == 0 &&
         currentSelection.end.index > currentSelection.start.index;
 
     if (isAlreadyFullLineSelection) {
-      // BEHAVIOR 2: The selection is already full lines, so expand to the next line.
-      // We can expand as long as the end of our selection is not at the very end of the document.
       if (currentSelection.end.index < lines.length) {
-        // Create a new selection that keeps the same start but moves the end
-        // to the beginning of the line *after* the next one.
         controller.selection = currentSelection.copyWith(
-          extentIndex: currentSelection.end.index + 1,
-          extentOffset: 0,
-        );
+            extentIndex: currentSelection.end.index + 1, extentOffset: 0);
       }
     } else {
-      // BEHAVIOR 1: The selection is a cursor or partial. Expand to full lines.
-      // The new selection starts at the beginning of the first selected line.
       final newStartIndex = currentSelection.start.index;
-
-      // The new selection ends at the beginning of the line AFTER the last selected line.
-      // We use clamp to prevent going past the end of the document.
-      final newEndIndex = (currentSelection.end.index + 1).clamp(
-        0,
-        lines.length,
-      );
-
+      final newEndIndex =
+          (currentSelection.end.index + 1).clamp(0, lines.length);
       controller.selection = CodeLineSelection(
-        baseIndex: newStartIndex,
-        baseOffset: 0,
-        extentIndex: newEndIndex,
-        extentOffset: 0,
-      );
+          baseIndex: newStartIndex,
+          baseOffset: 0,
+          extentIndex: newEndIndex,
+          extentOffset: 0);
     }
-
-    // This is crucial to update the UI (like the selection app bar).
     _onControllerChange();
   }
 
-  /// Expands the selection to the nearest code chunk (e.g., a foldable block).
   void selectCurrentChunk() {
-    // We must have a reference to the chunk controller, which is provided
-    // by the editor's indicatorBuilder.
     if (_chunkController == null) return;
-
-    // The controller method requires the list of available chunks.
     controller.selectChunk(_chunkController!.value);
     _onControllerChange();
   }
@@ -489,163 +421,23 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     final CodeLineSelection currentSelection = controller.selection;
     CodeLineSelection? newSelection;
 
-    // 1. Find the smallest block that contains the current selection.
-    final enclosingBlock = _findSmallestEnclosingBlock(currentSelection);
+    final enclosingBlock = CodeEditorUtils.findSmallestEnclosingBlock(
+      currentSelection,
+      controller,
+    );
 
     if (enclosingBlock != null) {
-      // 2. Decide what to select based on the hierarchy.
       if (currentSelection == enclosingBlock.contents) {
-        // If we already have the contents selected, expand to the full block (including delimiters).
         newSelection = enclosingBlock.full;
       } else {
-        // Otherwise (cursor is collapsed or selection is partial), select the contents.
         newSelection = enclosingBlock.contents;
       }
     }
 
-    // 3. Apply the new selection if it's different.
     if (newSelection != null && newSelection != currentSelection) {
       controller.selection = newSelection;
       _onControllerChange();
     }
-  }
-
-  /// Finds the smallest block that fully contains the [selection].
-  /// Returns a record containing the full block selection and the content-only selection.
-  ({CodeLineSelection full, CodeLineSelection contents})?
-  _findSmallestEnclosingBlock(CodeLineSelection selection) {
-    const List<String> openDelimiters = ['(', '[', '{', '"', "'"];
-
-    // Start our search scanning backwards from the beginning of the user's selection.
-    CodeLinePosition scanPos = selection.start;
-
-    while (true) {
-      final char = _getChar(scanPos);
-
-      // Is the character at our scan position an opening delimiter?
-      if (char != null && openDelimiters.contains(char)) {
-        final openDelimiterPos = scanPos;
-        final openChar = char;
-        final closeChar = _getMatchingDelimiterChar(openChar);
-
-        // We found a candidate. Now, verify it by finding its real partner.
-        final closeDelimiterPos = _findMatchingDelimiter(
-          openDelimiterPos,
-          openChar,
-          closeChar,
-        );
-
-        if (closeDelimiterPos != null) {
-          // We have a valid pair. Create a selection for the full block.
-          final fullBlockSelection = CodeLineSelection(
-            baseIndex: openDelimiterPos.index,
-            baseOffset: openDelimiterPos.offset,
-            extentIndex: closeDelimiterPos.index,
-            extentOffset: closeDelimiterPos.offset + 1,
-          );
-
-          // The final, critical check: Does this valid block contain our original selection?
-          if (fullBlockSelection.contains(selection)) {
-            // Success! This is the smallest valid block.
-            final contentSelection = CodeLineSelection(
-              baseIndex: openDelimiterPos.index,
-              baseOffset: openDelimiterPos.offset + 1,
-              extentIndex: closeDelimiterPos.index,
-              extentOffset: closeDelimiterPos.offset,
-            );
-            return (full: fullBlockSelection, contents: contentSelection);
-          }
-        }
-      }
-
-      // If we didn't find a valid block, move our scan position one character to the left.
-      final prevPos = _getPreviousPosition(scanPos);
-      if (prevPos == scanPos) {
-        break; // We've reached the beginning of the document.
-      }
-      scanPos = prevPos;
-    }
-
-    return null; // No enclosing block was found.
-  }
-
-  /// Finds the position of a matching closing delimiter, respecting nested pairs.
-  /// This is the same trusted function used for bracket highlighting.
-  CodeLinePosition? _findMatchingDelimiter(
-    CodeLinePosition start,
-    String open,
-    String close,
-  ) {
-    int stack = 1;
-    CodeLinePosition currentPos = _getNextPosition(start);
-
-    while (true) {
-      final char = _getChar(currentPos);
-      if (char != null) {
-        // For non-quote pairs, handle nesting.
-        if (char == open && open != close) {
-          stack++;
-        } else if (char == close) {
-          stack--;
-        }
-        if (stack == 0) {
-          return currentPos;
-        }
-      }
-
-      final nextPos = _getNextPosition(currentPos);
-      if (nextPos == currentPos) {
-        break; // Reached end of document
-      }
-      currentPos = nextPos;
-    }
-    return null; // No match found
-  }
-
-  // --- UTILITY HELPERS (Safe and Simple) ---
-
-  /// Given an opening delimiter, returns its closing counterpart.
-  String _getMatchingDelimiterChar(String openChar) {
-    const Map<String, String> pairs = {
-      '(': ')',
-      '[': ']',
-      '{': '}',
-      '"': '"',
-      "'": "'",
-    };
-    return pairs[openChar]!;
-  }
-
-  /// Gets the character at a given position, returning null on failure.
-  String? _getChar(CodeLinePosition pos) {
-    if (pos.index < 0 || pos.index >= controller.codeLines.length) return null;
-    final line = controller.codeLines[pos.index].text;
-    if (pos.offset < 0 || pos.offset >= line.length) return null;
-    return line[pos.offset];
-  }
-
-  /// Gets the character position immediately before the given one.
-  CodeLinePosition _getPreviousPosition(CodeLinePosition pos) {
-    if (pos.offset > 0) {
-      return CodeLinePosition(index: pos.index, offset: pos.offset - 1);
-    }
-    if (pos.index > 0) {
-      final prevLine = controller.codeLines[pos.index - 1].text;
-      return CodeLinePosition(index: pos.index - 1, offset: prevLine.length);
-    }
-    return pos; // At start of document
-  }
-
-  /// Gets the character position immediately after the given one.
-  CodeLinePosition _getNextPosition(CodeLinePosition pos) {
-    final line = controller.codeLines[pos.index].text;
-    if (pos.offset < line.length) {
-      return CodeLinePosition(index: pos.index, offset: pos.offset + 1);
-    }
-    if (pos.index < controller.codeLines.length - 1) {
-      return CodeLinePosition(index: pos.index + 1, offset: 0);
-    }
-    return pos; // At end of document
   }
 
   // --- NEW PUBLIC METHODS for Commands ---
@@ -657,7 +449,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     findController.replaceMode();
   }
 
-  // NEW: The handler for when a recognized import path is tapped.
   void _onImportTap(String relativePath) async {
     final appNotifier = ref.read(appNotifierProvider.notifier);
     final fileHandler = ref.read(projectRepositoryProvider)?.fileHandler;
@@ -666,12 +457,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (fileHandler == null || currentFileMetadata == null) return;
 
     try {
-      final currentDirectoryUri = fileHandler.getParentUri(
-        currentFileMetadata.file.uri,
-      );
+      final currentDirectoryUri =
+          fileHandler.getParentUri(currentFileMetadata.file.uri);
       final pathSegments = [
         ...currentDirectoryUri.split('%2F'),
-        ...relativePath.split('/'),
+        ...relativePath.split('/')
       ];
       final resolvedSegments = <String>[];
 
@@ -698,7 +488,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
   }
 
-  // NEW METHOD: Handles changes from controller.dirty
   void _onDirtyStateChange() {
     if (!mounted) return;
     final editorService = ref.read(editorServiceProvider);
@@ -712,15 +501,13 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void _onControllerChange() {
     if (!mounted) return;
 
-    // UI-specific updates that require setState
     setState(() {
-      _bracketHighlightState = _calculateBracketHighlights();
+      _bracketHighlightState =
+          CodeEditorUtils.calculateBracketHighlights(controller);
     });
 
-    // Central state synchronization
     syncCommandContext();
 
-    // Caching side-effect
     if (controller.dirty.value) {
       final project = ref.read(appNotifierProvider).value?.currentProject;
       if (project != null) {
@@ -731,12 +518,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
   }
 
-  /// Returns the current unsaved state of the editor for caching.
   Map<String, dynamic> getHotState() {
     return {
       'content': controller.text,
       'languageKey': _languageKey,
-      'baseContentHash': _baseContentHash, // <-- ADDED
+      'baseContentHash': _baseContentHash,
     };
   }
 
@@ -779,11 +565,11 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (_markPosition == null) return;
     final currentPosition = controller.selection.base;
     final start =
-        _comparePositions(_markPosition!, currentPosition) < 0
+        CodeEditorUtils.comparePositions(_markPosition!, currentPosition) < 0
             ? _markPosition!
             : currentPosition;
     final end =
-        _comparePositions(_markPosition!, currentPosition) < 0
+        CodeEditorUtils.comparePositions(_markPosition!, currentPosition) < 0
             ? currentPosition
             : _markPosition!;
     controller.selection = CodeLineSelection(
@@ -806,145 +592,32 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   Future<void> showLanguageSelectionDialog() async {
     final selectedLanguageKey = await showDialog<String>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Select Language'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: CodeThemes.languageNameToModeMap.keys.length,
-                itemBuilder: (context, index) {
-                  final langKey = CodeThemes.languageNameToModeMap.keys
-                      .elementAt(index);
-                  return ListTile(
-                    title: Text(CodeThemes.formatLanguageName(langKey)),
-                    onTap: () => Navigator.pop(ctx, langKey),
-                  );
-                },
-              ),
-            ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Language'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: CodeThemes.languageNameToModeMap.keys.length,
+            itemBuilder: (context, index) {
+              final langKey =
+                  CodeThemes.languageNameToModeMap.keys.elementAt(index);
+              return ListTile(
+                title: Text(CodeThemes.formatLanguageName(langKey)),
+                onTap: () => Navigator.pop(ctx, langKey),
+              );
+            },
           ),
+        ),
+      ),
     );
     if (selectedLanguageKey != null && selectedLanguageKey != _languageKey) {
       setState(() {
         _languageKey = selectedLanguageKey;
       });
       _updateStyleAndRecognizers();
-      // THE FIX: Mark the tab as dirty so the cache system will save this change.
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
-  }
-
-  // ... (bracket highlighting logic is unchanged) ...
-  BracketHighlightState _calculateBracketHighlights() {
-    final selection = controller.selection;
-    if (!selection.isCollapsed) {
-      return const BracketHighlightState();
-    }
-    final position = selection.base;
-    final brackets = {'(': ')', '[': ']', '{': '}'};
-    final line = controller.codeLines[position.index].text;
-    Set<CodeLinePosition> newPositions = {};
-    Set<int> newHighlightedLines = {};
-    for (int offset in [position.offset, position.offset - 1]) {
-      if (offset >= 0 && offset < line.length) {
-        final char = line[offset];
-        if (brackets.keys.contains(char) || brackets.values.contains(char)) {
-          final currentPosition = CodeLinePosition(
-            index: position.index,
-            offset: offset,
-          );
-          final matchPosition = _findMatchingBracket(
-            controller.codeLines,
-            currentPosition,
-            brackets,
-          );
-          if (matchPosition != null) {
-            newPositions.add(currentPosition);
-            newPositions.add(matchPosition);
-            newHighlightedLines.add(currentPosition.index);
-            newHighlightedLines.add(matchPosition.index);
-            break;
-          }
-        }
-      }
-    }
-    return BracketHighlightState(
-      bracketPositions: newPositions,
-      highlightedLines: newHighlightedLines,
-    );
-  }
-
-  int? _parseColorComponent(String? s) {
-    if (s == null) return null;
-    s = s.trim();
-    if (s.startsWith('0x')) {
-      return int.tryParse(s.substring(2), radix: 16);
-    }
-    return int.tryParse(s);
-  }
-
-  CodeLinePosition? _findMatchingBracket(
-    CodeLines codeLines,
-    CodeLinePosition position,
-    Map<String, String> brackets,
-  ) {
-    final line = codeLines[position.index].text;
-    final char = line[position.offset];
-    final isOpen = brackets.keys.contains(char);
-    final target =
-        isOpen
-            ? brackets[char]
-            : brackets.keys.firstWhere(
-              (k) => brackets[k] == char,
-              orElse: () => '',
-            );
-    if (target?.isEmpty ?? true) return null;
-
-    int stack = 1;
-    int index = position.index;
-    int offset = position.offset;
-    final direction = isOpen ? 1 : -1;
-
-    while (true) {
-      offset += direction;
-
-      // This inner loop robustly finds the next valid character position,
-      // correctly skipping over line breaks and empty lines.
-      while (offset < 0 || offset >= codeLines[index].text.length) {
-        if (direction > 0) {
-          // Searching forward
-          index++;
-          if (index >= codeLines.length) return null; // Reached end of document
-          offset = 0;
-        } else {
-          // Searching backward
-          index--;
-          if (index < 0) return null; // Reached start of document
-          offset = codeLines[index].text.length - 1;
-        }
-      }
-
-      // At this point, `index` and `offset` are guaranteed to be valid for the access below.
-      final currentChar = codeLines[index].text[offset];
-
-      if (currentChar == char) {
-        stack++;
-      } else if (currentChar == target) {
-        stack--;
-      }
-
-      if (stack == 0) {
-        return CodeLinePosition(index: index, offset: offset);
-      }
-    }
-  }
-
-  int _comparePositions(CodeLinePosition a, CodeLinePosition b) {
-    if (a.index < b.index) return -1;
-    if (a.index > b.index) return 1;
-    return a.offset.compareTo(b.offset);
   }
 
   TextSpan _buildHighlightingSpan({
@@ -954,357 +627,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     required TextSpan textSpan,
     required TextStyle style,
   }) {
-    // Pipeline Step 1: Add tappable links to import paths.
-    final linkedSpan = _linkifyImportPaths(codeLine, textSpan, style);
-    final rainbowSpan = _highlightColorCodes(codeLine, linkedSpan, style);
-    final finalSpan = _highlightBrackets(index, rainbowSpan, style);
-
-    return finalSpan;
-  }
-
-  /// PIPELINE STEP 1: Finds import paths using fast string manipulation and makes them tappable.
-  TextSpan _linkifyImportPaths(
-    CodeLine codeLine,
-    TextSpan textSpan,
-    TextStyle style,
-  ) {
-    final text = codeLine.text;
-
-    // Fast path: check for 'import' keyword first.
-    if (!(text.startsWith('import') ||
-        text.startsWith('export') ||
-        text.startsWith('part'))) {
-      return textSpan;
-    }
-    if (text.contains(':')) {
-      return textSpan;
-    }
-
-    // Find the first quote.
-    int quote1Index = text.indexOf("'");
-    String quoteChar = "'";
-    if (quote1Index == -1) {
-      quote1Index = text.indexOf('"');
-      quoteChar = '"';
-    }
-    if (quote1Index == -1) return textSpan; // No quotes found
-
-    // Find the matching closing quote.
-    final quote2Index = text.indexOf(quoteChar, quote1Index + 1);
-    if (quote2Index == -1) return textSpan; // No closing quote found
-
-    // Convert indices from `trimmedText` back to original `text` coordinates.
-    final pathStartIndex = quote1Index + 1;
-    final pathEndIndex = quote2Index;
-
-    // If path is empty, do nothing.
-    if (pathStartIndex >= pathEndIndex) return textSpan;
-
-    // This recursive helper walks the TextSpan tree, rebuilding it and replacing
-    // only the part that matches our path indices.
-    List<TextSpan> walkAndReplace(TextSpan span, int currentPos) {
-      // ... (This helper logic is the same as the previous correct version)
-      final List<TextSpan> newChildren = [];
-      final spanStart = currentPos;
-      final spanText = span.text ?? '';
-      final spanEnd = spanStart + spanText.length;
-
-      if (span.children?.isNotEmpty ?? false) {
-        int childPos = currentPos;
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            newChildren.addAll(walkAndReplace(child, childPos));
-            childPos += child.toPlainText().length;
-          }
-        }
-        return [
-          TextSpan(
-            style: span.style,
-            children: newChildren,
-            recognizer: span.recognizer,
-          ),
-        ];
-      }
-
-      if (spanEnd <= pathStartIndex || spanStart >= pathEndIndex) {
-        return [span];
-      }
-
-      final beforeText = spanText.substring(
-        0,
-        (pathStartIndex - spanStart).clamp(0, spanText.length),
-      );
-      final linkText = spanText.substring(
-        (pathStartIndex - spanStart).clamp(0, spanText.length),
-        (pathEndIndex - spanStart).clamp(0, spanText.length),
-      );
-      final afterText = spanText.substring(
-        (pathEndIndex - spanStart).clamp(0, spanText.length),
-      );
-
-      if (beforeText.isNotEmpty) {
-        newChildren.add(TextSpan(text: beforeText, style: span.style));
-      }
-      if (linkText.isNotEmpty) {
-        newChildren.add(
-          TextSpan(
-            text: linkText,
-            style: (span.style ?? style).copyWith(
-              //color: Colors.cyan[300],
-              decoration: TextDecoration.underline,
-              //decorationColor: Colors.cyan[300]?.withValues(alpha: 0.5),
-            ),
-            recognizer:
-                TapGestureRecognizer()..onTap = () => _onImportTap(linkText),
-          ),
-        );
-      }
-      if (afterText.isNotEmpty) {
-        newChildren.add(TextSpan(text: afterText, style: span.style));
-      }
-
-      return newChildren;
-    }
-
-    return TextSpan(children: walkAndReplace(textSpan, 0), style: style);
-  }
-
-  TextSpan _highlightColorCodes(
-    CodeLine codeLine,
-    TextSpan textSpan,
-    TextStyle style,
-  ) {
-    final text = codeLine.text;
-    final List<ColorMatch> matches = [];
-
-    // --- Parsing Logic (from your provided code, unchanged) ---
-    _hexColorRegex.allMatches(text).forEach((m) {
-      final hex = m.group(1);
-      if (hex != null) {
-        final val = int.tryParse(hex, radix: 16);
-        if (val != null) {
-          final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-          matches.add(ColorMatch(start: m.start, end: m.end, color: color));
-        }
-      }
-    });
-    _shortHexColorRegex.allMatches(text).forEach((m) {
-      String hex = m.group(1)!;
-      hex =
-          hex.length == 3
-              ? hex.split('').map((e) => e + e).join()
-              : hex[0] +
-                  hex[0] +
-                  hex.substring(1).split('').map((e) => e + e).join();
-      final val = int.tryParse(hex, radix: 16);
-      if (val != null) {
-        final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-        matches.add(ColorMatch(start: m.start, end: m.end, color: color));
-      }
-    });
-    _colorConstructorRegex.allMatches(text).forEach((m) {
-      final hex = m.group(1);
-      if (hex != null) {
-        final val = int.tryParse(hex.substring(2), radix: 16);
-        if (val != null) {
-          matches.add(
-            ColorMatch(start: m.start, end: m.end, color: Color(val)),
-          );
-        }
-      }
-    });
-    _fromARGBRegex.allMatches(text).forEach((m) {
-      final a = _parseColorComponent(m.group(1));
-      final r = _parseColorComponent(m.group(2));
-      final g = _parseColorComponent(m.group(3));
-      final b = _parseColorComponent(m.group(4));
-      if (a != null && r != null && g != null && b != null) {
-        matches.add(
-          ColorMatch(
-            start: m.start,
-            end: m.end,
-            color: Color.fromARGB(a, r, g, b),
-          ),
-        );
-      }
-    });
-    _fromRGBORegex.allMatches(text).forEach((m) {
-      final r = int.tryParse(m.group(1) ?? '');
-      final g = int.tryParse(m.group(2) ?? '');
-      final b = int.tryParse(m.group(3) ?? '');
-      final o = double.tryParse(m.group(4) ?? '');
-      if (r != null && g != null && b != null && o != null) {
-        matches.add(
-          ColorMatch(
-            start: m.start,
-            end: m.end,
-            color: Color.fromRGBO(r, g, b, o),
-          ),
-        );
-      }
-    });
-
-    // Fast path: no colors found on this line.
-    if (matches.isEmpty) {
-      return textSpan;
-    }
-
-    // Sort and filter out overlapping matches
-    matches.sort((a, b) => a.start.compareTo(b.start));
-    final uniqueMatches = <ColorMatch>[];
-    int lastEnd = -1;
-    for (final match in matches) {
-      if (match.start >= lastEnd) {
-        uniqueMatches.add(match);
-        lastEnd = match.end;
-      }
-    }
-    if (uniqueMatches.isEmpty) return textSpan;
-
-    // --- New Tree-Walking Logic ---
-    List<TextSpan> walkAndColor(TextSpan span, int currentPos) {
-      final newChildren = <TextSpan>[];
-      final spanStart = currentPos;
-      final spanText = span.text ?? '';
-      final spanEnd = spanStart + spanText.length;
-
-      if (span.children?.isNotEmpty ?? false) {
-        int childPos = currentPos;
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            newChildren.addAll(walkAndColor(child, childPos));
-            childPos += child.toPlainText().length;
-          }
-        }
-        return [
-          TextSpan(
-            style: span.style,
-            children: newChildren,
-            recognizer: span.recognizer,
-          ),
-        ];
-      }
-
-      int lastSplitEnd = 0;
-      for (final match in uniqueMatches) {
-        // Find intersection of the current span and the match
-        final int effectiveStart = max(spanStart, match.start);
-        final int effectiveEnd = min(spanEnd, match.end);
-
-        if (effectiveStart < effectiveEnd) {
-          // Part before the match (within this span)
-          if (effectiveStart > spanStart + lastSplitEnd) {
-            final beforeText = spanText.substring(
-              lastSplitEnd,
-              effectiveStart - spanStart,
-            );
-            newChildren.add(TextSpan(text: beforeText, style: span.style));
-          }
-
-          // The matched part
-          final matchText = spanText.substring(
-            effectiveStart - spanStart,
-            effectiveEnd - spanStart,
-          );
-
-          // --- CONTRAST LOGIC ---
-          final isDark = match.color.computeLuminance() < 0.5;
-          final textColor = isDark ? Colors.white : Colors.black;
-          // ----------------------
-
-          newChildren.add(
-            TextSpan(
-              text: matchText,
-              style: (span.style ?? style).copyWith(
-                backgroundColor: match.color,
-                color: textColor,
-              ),
-            ),
-          );
-          lastSplitEnd = effectiveEnd - spanStart;
-        }
-      }
-
-      // Remainder of the span after the last match
-      if (lastSplitEnd < spanText.length) {
-        final remainingText = spanText.substring(lastSplitEnd);
-        newChildren.add(TextSpan(text: remainingText, style: span.style));
-      }
-
-      return newChildren;
-    }
-
-    return TextSpan(children: walkAndColor(textSpan, 0), style: style);
-  }
-
-  TextSpan _highlightBrackets(int index, TextSpan textSpan, TextStyle style) {
-    final highlightState = _bracketHighlightState;
-    final highlightPositions =
-        highlightState.bracketPositions
-            .where((pos) => pos.index == index)
-            .map((pos) => pos.offset)
-            .toSet();
-
-    // Fast path: if no brackets to highlight on this line, return the span as is.
-    if (highlightPositions.isEmpty) {
-      return textSpan;
-    }
-
-    final builtSpans = <TextSpan>[];
-    int currentPosition = 0;
-
-    // Recursive helper to process the span tree.
-    void processSpan(TextSpan span) {
-      final text = span.text ?? '';
-      final spanStyle = span.style ?? style;
-      int lastSplit = 0;
-
-      for (int i = 0; i < text.length; i++) {
-        final absolutePosition = currentPosition + i;
-        if (highlightPositions.contains(absolutePosition)) {
-          if (i > lastSplit) {
-            builtSpans.add(
-              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
-            );
-          }
-          builtSpans.add(
-            TextSpan(
-              text: text[i],
-              style: spanStyle.copyWith(
-                backgroundColor: Colors.yellow.withValues(alpha: 0.3),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          );
-          lastSplit = i + 1;
-        }
-      }
-      if (lastSplit < text.length) {
-        builtSpans.add(
-          TextSpan(text: text.substring(lastSplit), style: spanStyle),
-        );
-      }
-      currentPosition += text.length;
-
-      if (span.children != null) {
-        for (final child in span.children!) {
-          if (child is TextSpan) {
-            processSpan(child);
-          }
-        }
-      }
-    }
-
-    processSpan(textSpan);
-    return TextSpan(children: builtSpans, style: style);
+    // This method now acts as a simple wrapper, collecting instance state
+    // and passing it to the pure utility function for processing.
+    return CodeEditorUtils.buildHighlightingSpan(
+      context: context,
+      index: index,
+      codeLine: codeLine,
+      textSpan: textSpan,
+      style: style,
+      bracketHighlightState: _bracketHighlightState,
+      onImportTap: _onImportTap,
+    );
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    // If our main editor focus node doesn't have the *primary* focus,
-    // then some other widget (like the find panel's text field) does.
-    // In that case, we must ignore the event and let the other widget handle it.
     if (!_focusNode.hasPrimaryFocus) return KeyEventResult.ignored;
-
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     final arrowKeyDirections = {
@@ -1329,17 +666,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   Widget build(BuildContext context) {
-    // The ref.listen is a side-effect, it's fine to keep it here.
-    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
-      previous,
-      next,
-    ) {
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri),
+        (previous, next) {
       if (previous != next && next != null) {
         setState(() {
           final newLanguageKey = CodeThemes.inferLanguageKey(next);
           if (newLanguageKey != _languageKey) {
             _languageKey = newLanguageKey;
-            _updateStyleAndRecognizers(); // Rebuild style for new language
+            _updateStyleAndRecognizers();
           }
           _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
         });
@@ -1355,7 +689,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         controller: controller,
         focusNode: _focusNode,
         findController: findController,
-        // The builders are lightweight functions, they are fine here.
         findBuilder: (context, controller, readOnly) {
           return CodeFindPanelView(
             controller: controller,
@@ -1373,12 +706,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             child: child,
           );
         },
-        indicatorBuilder: (
-          context,
-          editingController,
-          chunkController,
-          notifier,
-        ) {
+        indicatorBuilder:
+            (context, editingController, chunkController, notifier) {
           _chunkController = chunkController;
           return CustomEditorIndicator(
             controller: editingController,
@@ -1387,7 +716,6 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             bracketHighlightState: _bracketHighlightState,
           );
         },
-        // All expensive objects are now simple variable lookups.
         style: _style,
         wordWrap: ref.watch(
           settingsProvider.select(
