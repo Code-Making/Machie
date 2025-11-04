@@ -34,6 +34,7 @@ import 'code_editor_hot_state_dto.dart';
 import 'widgets/code_editor_ui.dart';
 import 'logic/code_editor_types.dart';
 import 'logic/code_editor_utils.dart'; // <-- ADDED IMPORT
+import 'logic/custom_code_chunk_analyzer.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -687,6 +688,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       autofocus: true,
       child: CodeEditor(
         controller: controller,
+        chunkAnalyzer: const CustomCodeChunkAnalyzer(),
         focusNode: _focusNode,
         findController: findController,
         findBuilder: (context, controller, readOnly) {
