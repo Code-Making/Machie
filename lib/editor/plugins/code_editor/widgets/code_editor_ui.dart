@@ -54,6 +54,7 @@ class CustomLineNumberWidget extends StatelessWidget {
   final Set<int> highlightedLines;
 
   const CustomLineNumberWidget({
+    super.key,
     required this.controller,
     required this.notifier,
     required this.highlightedLines,
@@ -63,28 +64,28 @@ class CustomLineNumberWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ValueListenableBuilder<CodeIndicatorValue?>(
-      valueListenable: notifier,
-      builder: (context, value, child) {
-        return DefaultCodeLineNumber(
-          controller: controller,
-          notifier: notifier,
-          textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-            fontSize: 12,
-          ),
-          focusedTextStyle: TextStyle(
-            color: theme.colorScheme.secondary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          customLineIndex2Text: (index) {
-            final lineNumber = (index + 1).toString();
-            return highlightedLines.contains(index)
-                ? '➤$lineNumber'
-                : lineNumber;
-          },
-        );
+    // THE FIX: The ValueListenableBuilder was redundant and prevented updates.
+    // DefaultCodeLineNumber already listens to the notifier internally for scrolling.
+    // By removing the builder, this widget now correctly rebuilds when its
+    // parent rebuilds (e.g., when bracketHighlightState changes), passing the
+    // new `customLineIndex2Text` function to the child.
+    return DefaultCodeLineNumber(
+      controller: controller,
+      notifier: notifier,
+      textStyle: TextStyle(
+        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+        fontSize: 12,
+      ),
+      focusedTextStyle: TextStyle(
+        color: theme.colorScheme.secondary,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+      customLineIndex2Text: (index) {
+        final lineNumber = (index + 1).toString();
+        return highlightedLines.contains(index)
+            ? '➤$lineNumber'
+            : lineNumber;
       },
     );
   }
