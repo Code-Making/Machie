@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/app_notifier.dart';
 import '../command/command_notifier.dart';
 import '../editor/plugins/plugin_registry.dart';
 import 'settings_notifier.dart';
 
-// ... (kAccentColors and SettingsScreen are unchanged) ...
 const Map<String, Color> kAccentColors = {
   'Orange': Colors.orange,
   'Red': Colors.red,
@@ -32,10 +32,26 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
-    final plugins = ref.watch(activePluginsProvider);
+    final allPlugins = ref.watch(activePluginsProvider);
     final settings = ref.watch(settingsProvider);
     final generalSettings =
         settings.pluginSettings[GeneralSettings] as GeneralSettings?;
+        
+    // --- NEW SORTING LOGIC ---
+    // 1. Get the currently active plugin, if any.
+    final activePlugin = ref.watch(appNotifierProvider.select(
+      (s) => s.value?.currentProject?.session.currentTab?.plugin,
+    ));
+
+    // 2. Create a mutable copy of the plugins that have settings.
+    final pluginsWithSettings = allPlugins.where((p) => p.settings != null).toList();
+
+    // 3. If there's an active plugin with settings, move it to the top.
+    if (activePlugin != null && pluginsWithSettings.contains(activePlugin)) {
+      pluginsWithSettings.remove(activePlugin);
+      pluginsWithSettings.insert(0, activePlugin);
+    }
+    // --- END NEW SORTING LOGIC ---
 
     return ListView(
       children: [
@@ -47,8 +63,8 @@ class SettingsScreen extends ConsumerWidget {
         ),
         if (generalSettings != null)
           _GeneralSettingsCard(settings: generalSettings),
-        ...plugins
-            .where((p) => p.settings != null)
+        // 4. Use the newly sorted list to build the cards.
+        ...pluginsWithSettings
             .map(
               (plugin) => _PluginSettingsCard(
                 plugin: plugin,
