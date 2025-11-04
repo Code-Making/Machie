@@ -766,7 +766,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           const SizedBox(height: 8),
           TextField(
             controller: _replaceController,
-            decoration: const InputDecoration(labelText: 'Replace (use $1, $2 for groups)', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'Replace (use \$1, \$2 for groups)', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
           SegmentedButton<RefactorMode>(
