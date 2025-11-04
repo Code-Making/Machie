@@ -59,20 +59,35 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
   Color _highlightColor;
   late final Paint _highlightPaint;
 
+  // THE FIX: Keep a local reference to the notifier, as the superclass property is not readable.
+  CodeIndicatorValueNotifier _notifier;
+
   CustomCodeLineNumberRenderObject({
     required super.controller,
-    required super.notifier,
+    required CodeIndicatorValueNotifier notifier, // Receive as a normal parameter
     required super.textStyle,
     required super.focusedTextStyle,
-    required super.minNumberCount, // <-- ADDED required param
+    required super.minNumberCount,
     required Set<int> highlightedLines,
     required Color highlightColor,
   })  : _highlightedLines = highlightedLines,
-        _highlightColor = highlightColor {
+        _highlightColor = highlightColor,
+        _notifier = notifier, // Initialize our local reference
+        super(notifier: notifier) // Also pass it to the superclass constructor
+  {
     _highlightPaint = Paint()..color = _highlightColor;
   }
 
-  // Getter/setter for highlightedLines to trigger repaint
+  // THE FIX: Override the notifier setter to update both our local reference and the superclass.
+  @override
+  set notifier(CodeIndicatorValueNotifier value) {
+    if (_notifier == value) {
+      return;
+    }
+    _notifier = value;
+    super.notifier = value; // The superclass handles adding/removing listeners.
+  }
+
   Set<int> get highlightedLines => _highlightedLines;
   set highlightedLines(Set<int> value) {
     if (_highlightedLines == value) {
@@ -82,7 +97,6 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
     markNeedsPaint();
   }
 
-  // Getter/setter for highlightColor to trigger repaint
   Color get highlightColor => _highlightColor;
   set highlightColor(Color value) {
     if (_highlightColor == value) {
@@ -95,8 +109,8 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    // Access the notifier from the superclass property
-    final CodeIndicatorValue? value = super.notifier.value;
+    // THE FIX: Use our local `_notifier` reference to get the current value.
+    final CodeIndicatorValue? value = _notifier.value;
     if (value == null) {
       return;
     }
@@ -104,7 +118,6 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
     // Step 1: Paint the background highlights for the specified lines.
     if (_highlightedLines.isNotEmpty) {
       for (final CodeLineRenderParagraph paragraph in value.paragraphs) {
-        // Use the correct property: `index` instead of `lineIndex`
         if (_highlightedLines.contains(paragraph.index)) {
           final Rect rect = Rect.fromLTWH(
             offset.dx,
