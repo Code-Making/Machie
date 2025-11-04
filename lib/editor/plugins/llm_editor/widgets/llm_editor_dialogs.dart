@@ -5,19 +5,19 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project_repository.dart';
-import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
-import 'package:machine/project/services/project_hierarchy_service.dart';
-import 'package:machine/editor/plugins/code_editor/code_themes.dart';
+import '../../../../app/app_notifier.dart';
+import '../../../../data/file_handler/file_handler.dart';
+import '../../../../data/repositories/project_repository.dart';
+import '../llm_editor_models.dart';
+import '../../../../project/services/project_hierarchy_service.dart';
+import '../../code_editor/code_themes.dart';
 import 'context_widgets.dart';
 
 final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;
-  const EditMessageDialog({required this.initialMessage});
+  const EditMessageDialog({super.key, required this.initialMessage});
 
   @override
   ConsumerState<EditMessageDialog> createState() => _EditMessageDialogState();
@@ -180,7 +180,7 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
 
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
-  const FilePickerLiteDialog({required this.projectRootUri});
+  const FilePickerLiteDialog({super.key, required this.projectRootUri});
 
   @override
   ConsumerState<FilePickerLiteDialog> createState() =>
@@ -369,8 +369,9 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                       : directoryState.when(
                         data: (nodes) {
                           final sortedNodes = List.of(nodes)..sort((a, b) {
-                            if (a.file.isDirectory != b.file.isDirectory)
+                            if (a.file.isDirectory != b.file.isDirectory) {
                               return a.file.isDirectory ? -1 : 1;
+                            }
                             return a.file.name.toLowerCase().compareTo(
                               b.file.name.toLowerCase(),
                             );
