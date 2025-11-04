@@ -56,7 +56,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   CodeChunkController? _chunkController;
   CodeLinePosition? _markPosition;
 
-  BracketHighlightState _bracketHighlightState = const BracketHighlightState();
+  late final ValueNotifier<BracketHighlightState> _bracketHighlightNotifier;
 
   late CodeCommentFormatter _commentFormatter;
   late String? _languageKey;
@@ -262,6 +262,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void init() {
     _focusNode = FocusNode();
     _baseContentHash = widget.tab.initialBaseContentHash;
+    _bracketHighlightNotifier = ValueNotifier(const BracketHighlightState());
 
     final fileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
     if (fileUri == null) {
@@ -323,6 +324,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   void dispose() {
+    _bracketHighlightNotifier.dispose();
     findController.removeListener(syncCommandContext);
     controller.removeListener(syncCommandContext);
     controller.dirty.removeListener(_onDirtyStateChange);
@@ -501,10 +503,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void _onControllerChange() {
     if (!mounted) return;
 
-    setState(() {
-      _bracketHighlightState =
-          CodeEditorUtils.calculateBracketHighlights(controller);
-    });
+    _bracketHighlightNotifier.value =
+        CodeEditorUtils.calculateBracketHighlights(controller);
 
     syncCommandContext();
 
@@ -635,7 +635,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       codeLine: codeLine,
       textSpan: textSpan,
       style: style,
-      bracketHighlightState: _bracketHighlightState,
+      bracketHighlightState: _bracketHighlightNotifier.value,
       onImportTap: _onImportTap,
     );
   }
@@ -713,7 +713,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             controller: editingController,
             chunkController: chunkController,
             notifier: notifier,
-            bracketHighlightState: _bracketHighlightState,
+            bracketHighlightNotifier: _bracketHighlightNotifier,
           );
         },
         style: _style,
