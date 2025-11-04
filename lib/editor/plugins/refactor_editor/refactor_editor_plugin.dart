@@ -55,7 +55,7 @@ class RefactorEditorPlugin extends EditorPlugin {
       BaseCommand(
         id: 'workspace_refactor',
         label: 'Workspace Refactor',
-        icon: const Icon(Icons.find_replace),
+        icon: const Icon(Icons.manage_search),
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: 'App',
         execute: (ref) async {
