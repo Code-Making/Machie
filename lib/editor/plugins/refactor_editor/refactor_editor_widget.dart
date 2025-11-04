@@ -732,19 +732,32 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
               Expanded(
                 child: TextField(
                   controller: _findController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Find',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    // NEW: Add the suffix icon button for path mode.
+                    suffixIcon: isPathMode 
+                      ? IconButton(
+                          icon: const Icon(Icons.folder_open_outlined),
+                          tooltip: 'Select File or Folder',
+                          onPressed: () async {
+                            final selectedPath = await showDialog<String>(
+                              context: context,
+                              builder: (_) => const FileOrFolderPickerDialog(),
+                            );
+                            if (selectedPath != null) {
+                              _controller.updateSearchTerm(selectedPath);
+                            }
+                          },
+                        ) 
+                      : null,
                   ),
                   onSubmitted: (_) => _handleFindOccurrences(),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed:
-                    _controller.searchStatus == SearchStatus.searching
-                        ? null
-                        : _handleFindOccurrences,
+                onPressed: _controller.searchStatus == SearchStatus.searching ? null : _handleFindOccurrences,
                 child: const Text('Find All'),
               ),
             ],
@@ -752,14 +765,9 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           const SizedBox(height: 8),
           TextField(
             controller: _replaceController,
-            decoration: const InputDecoration(
-              labelText: 'Replace',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Replace (use $1, $2 for groups)', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
-
-          // FIX 1: Add the mode switcher UI
           SegmentedButton<RefactorMode>(
             segments: const [
               ButtonSegment(
@@ -779,28 +787,18 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
             },
           ),
           const SizedBox(height: 4),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _OptionCheckbox(
                 label: 'Use Regex',
                 value: isPathMode ? false : _controller.isRegex,
-                // Disable checkbox in path mode
-                onChanged:
-                    isPathMode
-                        ? null
-                        : (val) => _controller.toggleIsRegex(val ?? false),
+                onChanged: isPathMode ? null : (val) => _controller.toggleIsRegex(val ?? false),
               ),
               _OptionCheckbox(
                 label: 'Case Sensitive',
                 value: isPathMode ? true : _controller.isCaseSensitive,
-                // Disable checkbox in path mode (paths are effectively case-sensitive)
-                onChanged:
-                    isPathMode
-                        ? null
-                        : (val) =>
-                            _controller.toggleCaseSensitive(val ?? false),
+                onChanged: isPathMode ? null : (val) => _controller.toggleCaseSensitive(val ?? false),
               ),
             ],
           ),
@@ -810,8 +808,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
               _OptionCheckbox(
                 label: 'Auto-open files',
                 value: _controller.autoOpenFiles,
-                onChanged:
-                    (val) => _controller.toggleAutoOpenFiles(val ?? false),
+                onChanged: (val) => _controller.toggleAutoOpenFiles(val ?? false),
               ),
             ],
           ),
