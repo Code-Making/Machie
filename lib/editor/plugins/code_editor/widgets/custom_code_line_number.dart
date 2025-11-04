@@ -2,8 +2,8 @@
 // NEW: lib/editor/plugins/code_editor/widgets/custom_code_line_number.dart
 // =========================================
 
-import 'package_flutter/material.dart';
-import 'package_re_editor/re_editor.dart';
+import 'package:flutter/material.dart';
+import 'package:re_editor/re_editor.dart';
 
 /// A custom line number widget that supports highlighting the background of specific lines.
 class CustomCodeLineNumber extends LeafRenderObjectWidget {
