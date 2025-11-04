@@ -10,6 +10,7 @@ import 'package:re_editor/re_editor.dart';
 import '../logic/code_editor_types.dart';
 import '../../../../command/command_widgets.dart';
 import '../code_editor_plugin.dart';
+import 'custom_code_line_number.dart';
 
 class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
@@ -73,13 +74,13 @@ class CustomLineNumberWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return DefaultCodeLineNumber(
-      // THE FIX: Provide a ValueKey that changes when highlightedLines changes.
-      // This forces DefaultCodeLineNumber to be entirely recreated, which
-      // re-initializes its RenderObject with the new customLineIndex2Text.
-      key: ValueKey(highlightedLines.hashCode),
+    // THE FIX: We now use our new CustomCodeLineNumber widget.
+    // Instead of manipulating text, we pass the highlighted lines and a color.
+    return CustomCodeLineNumber(
       controller: controller,
       notifier: notifier,
+      highlightedLines: highlightedLines,
+      highlightColor: theme.colorScheme.secondary.withOpacity(0.2),
       textStyle: TextStyle(
         color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
         fontSize: 12,
@@ -89,12 +90,6 @@ class CustomLineNumberWidget extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.bold,
       ),
-      customLineIndex2Text: (index) {
-        final lineNumber = (index + 1).toString();
-        return highlightedLines.contains(index)
-            ? '➤$lineNumber'
-            : lineNumber;
-      },
     );
   }
 }
