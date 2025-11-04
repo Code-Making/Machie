@@ -130,10 +130,10 @@ class GrabbableScrollbar extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_GrabbableScrollbar> createState() => _GrabbableScrollbarState();
+  State<GrabbableScrollbar> createState() => _GrabbableScrollbarState();
 }
 
-class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
+class _GrabbableScrollbarState extends State<GrabbableScrollbar> {
   bool _isScrolling = false;
 
   @override
