@@ -718,7 +718,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         },
         sperator: Container(
           width: 1,
-          color: colorSchemesurfaceContainerLow,
+          color: colorScheme.surfaceContainerLow,
         ),
         style: _style,
         wordWrap: ref.watch(
