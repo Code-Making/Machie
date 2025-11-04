@@ -385,7 +385,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
 
-    final files = await showDialog<List<DocumentFile>>(
+    final files = await showDialog<List<ProjectDocumentFile>>(
       context: context,
       builder:
           (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
@@ -421,13 +421,13 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   Future<void> _gatherRecursiveImports(
-    DocumentFile initialFile,
+    ProjectDocumentFile initialFile,
     String projectRootUri,
   ) async {
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return;
 
-    final filesToProcess = <DocumentFile>[initialFile];
+    final filesToProcess = <ProjectDocumentFile>[initialFile];
     final processedUris = <String>{};
     final gatheredContext = <ContextItem>[];
 
