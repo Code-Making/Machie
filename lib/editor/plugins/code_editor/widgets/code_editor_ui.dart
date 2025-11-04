@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 import '../logic/code_editor_types.dart';
 import '../../../../command/command_widgets.dart';
+import '../code_editor_plugin.dart';
 
 class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
