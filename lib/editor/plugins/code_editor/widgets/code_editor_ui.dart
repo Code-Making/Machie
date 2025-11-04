@@ -74,6 +74,10 @@ class CustomLineNumberWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     return DefaultCodeLineNumber(
+      // THE FIX: Provide a ValueKey that changes when highlightedLines changes.
+      // This forces DefaultCodeLineNumber to be entirely recreated, which
+      // re-initializes its RenderObject with the new customLineIndex2Text.
+      key: ValueKey(highlightedLines.hashCode),
       controller: controller,
       notifier: notifier,
       textStyle: TextStyle(
