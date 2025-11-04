@@ -15,35 +15,44 @@ class CustomEditorIndicator extends StatelessWidget {
   final CodeLineEditingController controller;
   final CodeChunkController chunkController;
   final CodeIndicatorValueNotifier notifier;
-  final BracketHighlightState bracketHighlightState;
+  final ValueNotifier<BracketHighlightState> bracketHighlightNotifier;
 
   const CustomEditorIndicator({
     super.key,
     required this.controller,
     required this.chunkController,
     required this.notifier,
-    required this.bracketHighlightState,
+    required this.bracketHighlightNotifier,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {},
-      child: Row(
-        children: [
-          CustomLineNumberWidget(
-            controller: controller,
-            notifier: notifier,
-            highlightedLines: bracketHighlightState.highlightedLines,
+    // THE FIX: Use a ValueListenableBuilder to listen to our custom notifier.
+    // This ensures this part of the widget tree rebuilds when bracket state changes,
+    // without needing the entire editor to rebuild.
+    return ValueListenableBuilder<BracketHighlightState>(
+      valueListenable: bracketHighlightNotifier,
+      builder: (context, bracketHighlightState, child) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: Row(
+            children: [
+              CustomLineNumberWidget(
+                controller: controller,
+                notifier: notifier,
+                // Pass the live, updated state down to the child.
+                highlightedLines: bracketHighlightState.highlightedLines,
+              ),
+              DefaultCodeChunkIndicator(
+                width: 20,
+                controller: chunkController,
+                notifier: notifier,
+              ),
+            ],
           ),
-          DefaultCodeChunkIndicator(
-            width: 20,
-            controller: chunkController,
-            notifier: notifier,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -64,11 +73,6 @@ class CustomLineNumberWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // THE FIX: The ValueListenableBuilder was redundant and prevented updates.
-    // DefaultCodeLineNumber already listens to the notifier internally for scrolling.
-    // By removing the builder, this widget now correctly rebuilds when its
-    // parent rebuilds (e.g., when bracketHighlightState changes), passing the
-    // new `customLineIndex2Text` function to the child.
     return DefaultCodeLineNumber(
       controller: controller,
       notifier: notifier,
