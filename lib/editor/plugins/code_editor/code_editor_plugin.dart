@@ -25,7 +25,6 @@ import 'code_editor_hot_state_adapter.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'code_editor_models.dart';
 import 'code_editor_settings_widget.dart';
-import 'code_editor_state.dart';
 import 'code_editor_widgets.dart';
 import 'logic/code_themes.dart';
 
