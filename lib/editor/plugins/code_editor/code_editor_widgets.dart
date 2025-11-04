@@ -1237,9 +1237,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     return TextSpan(children: walkAndColor(textSpan, 0), style: style);
   }
 
-  /// PIPELINE STEP 2: Adds a background color to matching brackets.
   TextSpan _highlightBrackets(int index, TextSpan textSpan, TextStyle style) {
-    // This logic is extracted from the old _buildHighlightingSpan method.
     final highlightState = _bracketHighlightState;
     final highlightPositions =
         highlightState.bracketPositions
