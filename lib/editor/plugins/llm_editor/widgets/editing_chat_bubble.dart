@@ -68,7 +68,7 @@ class _EditingChatBubbleState extends ConsumerState<EditingChatBubble> {
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return;
 
-    final files = await showDialog<List<DocumentFile>>(
+    final files = await showDialog<List<ProjectDocumentFile>>(
       context: context,
       builder:
           (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
