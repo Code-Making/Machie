@@ -2,7 +2,7 @@ class ColorMatch {
   final int start;
   final int end;
   final Color color;
-  _ColorMatch({required this.start, required this.end, required this.color});
+  ColorMatch({required this.start, required this.end, required this.color});
 }
 
 class BracketHighlightState {

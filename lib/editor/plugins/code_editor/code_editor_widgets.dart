@@ -21,7 +21,6 @@ import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
 import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
-import 'code_editor_state.dart';
 import 'widgets/code_find_panel_view.dart';
 import 'logic/code_themes.dart';
 import 'code_editor_plugin.dart';
