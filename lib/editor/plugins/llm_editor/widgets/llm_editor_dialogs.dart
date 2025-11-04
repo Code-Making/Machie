@@ -1,24 +1,24 @@
-// FILE: lib/editor/plugins/llm_editor/llm_editor_dialogs.dart
-
-import 'package:flutter/material.dart';
+// =========================================
+// UPDATED: lib/editor/plugins/llm_editor/llm_editor_dialogs.dart
+// =========================================
 
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/data/repositories/project_repository.dart';
+import 'package:machine/editor/plugins/llm_editor/llm_editor_models.dart';
+import 'package:machine/project/services/project_hierarchy_service.dart';
 
-import '../../../../app/app_notifier.dart';
-import '../../../../data/file_handler/file_handler.dart';
-import '../../../../data/repositories/project_repository.dart';
-import '../../../../project/services/project_hierarchy_service.dart';
-import '../../code_editor/code_themes.dart';
-import 'context_widgets.dart';
-import '../llm_editor_models.dart';
+import 'package:machine/editor/plugins/llm_editor/context_widgets.dart';
+import 'package:machine/editor/plugins/code_editor/code_themes.dart';
 
-// NEW: Provider to remember the last path within the current session.
 final filePickerLastPathProvider = StateProvider<String?>((ref) => null);
 
 class EditMessageDialog extends ConsumerStatefulWidget {
   final ChatMessage initialMessage;
-  const EditMessageDialog({super.key, required this.initialMessage});
+  const EditMessageDialog({required this.initialMessage});
 
   @override
   ConsumerState<EditMessageDialog> createState() => _EditMessageDialogState();
@@ -57,7 +57,6 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
     }
   }
 
-  // MODIFIED: This function now handles a list of files.
   Future<void> _addContext() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null) return;
@@ -71,7 +70,6 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
     if (files != null && files.isNotEmpty) {
       final repo = ref.read(projectRepositoryProvider)!;
       for (final file in files) {
-        // Avoid adding duplicates
         if (_contextItems.any((item) => item.source == file.name)) continue;
 
         final content = await repo.readFile(file.uri);
@@ -79,8 +77,6 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
           file.uri,
           relativeTo: project.rootUri,
         );
-
-        // No need for setState in loop, add all then setState once.
         _contextItems.add(ContextItem(source: relativePath, content: content));
       }
       setState(() {
@@ -100,7 +96,6 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // ... rest of the EditMessageDialog build method is unchanged ...
     return AlertDialog(
       title: const Text('Edit Message'),
       content: SizedBox(
@@ -183,10 +178,10 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
   }
 }
 
-// ENTIRELY REWRITTEN/REFACTORED WIDGET
+
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
-  const FilePickerLiteDialog({super.key, required this.projectRootUri});
+  const FilePickerLiteDialog({required this.projectRootUri});
 
   @override
   ConsumerState<FilePickerLiteDialog> createState() =>
@@ -201,7 +196,6 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
   @override
   void initState() {
     super.initState();
-    // NEW: Use the provider to get the last path, or default to the root.
     _currentPathUri =
         ref.read(filePickerLastPathProvider) ?? widget.projectRootUri;
 
@@ -214,7 +208,6 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     });
   }
 
-  // NEW: Helper function to change directories and update the session provider
   void _setCurrentPath(String newPath) {
     ref.read(projectHierarchyServiceProvider.notifier).loadDirectory(newPath);
     ref.read(filePickerLastPathProvider.notifier).state = newPath;
@@ -291,7 +284,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
               queue.add(child);
             }
           } else {
-            final extension = child.name.split('..').lastOrNull?.toLowerCase();
+            final extension = child.name.split('.').lastOrNull?.toLowerCase();
             if (extension != null &&
                 CodeThemes.languageExtToNameMap.containsKey(extension)) {
               gatheredFiles.add(child);
@@ -347,7 +340,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                               final newPath = fileHandler.getParentUri(
                                 _currentPathUri,
                               );
-                              _setCurrentPath(newPath); // MODIFIED
+                              _setCurrentPath(newPath);
                             },
                   ),
                   Expanded(
@@ -377,20 +370,23 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                       : directoryState.when(
                         data: (nodes) {
                           final sortedNodes = List.of(nodes)..sort((a, b) {
-                            if (a.file.isDirectory != b.file.isDirectory) {
+                            if (a.file.isDirectory != b.file.isDirectory)
                               return a.file.isDirectory ? -1 : 1;
-                            }
                             return a.file.name.toLowerCase().compareTo(
                               b.file.name.toLowerCase(),
                             );
                           });
 
+                          // --- THIS IS THE FIX ---
                           final filteredNodes =
                               sortedNodes.where((node) {
+                                // Always show directories.
                                 if (node.file.isDirectory) return true;
+                                
+                                // For files, check if the extension is recognized.
                                 final extension =
                                     node.file.name
-                                        .split('..')
+                                        .split('.')
                                         .lastOrNull
                                         ?.toLowerCase();
                                 return extension != null &&
@@ -398,6 +394,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                                       extension,
                                     );
                               }).toList();
+                          // -------------------------
 
                           return ListView.builder(
                             itemCount: filteredNodes.length,
@@ -414,13 +411,12 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                                   onTap:
                                       () => _setCurrentPath(
                                         node.file.uri,
-                                      ), // MODIFIED
+                                      ),
                                   onLongPress:
                                       () =>
-                                          _onLongPressFolder(node.file), // NEW
+                                          _onLongPressFolder(node.file),
                                 );
                               } else {
-                                // It's a file
                                 return ListTile(
                                   leading:
                                       _isMultiSelectMode
