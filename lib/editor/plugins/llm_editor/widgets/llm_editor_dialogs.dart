@@ -62,7 +62,7 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null) return;
 
-    final files = await showDialog<List<DocumentFile>>(
+    final files = await showDialog<List<ProjectDocumentFile>>(
       context: context,
       builder:
           (context) => FilePickerLiteDialog(projectRootUri: project.rootUri),
@@ -196,7 +196,7 @@ class FilePickerLiteDialog extends ConsumerStatefulWidget {
 class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
   late String _currentPathUri;
   bool _isMultiSelectMode = false;
-  final Set<DocumentFile> _selectedFiles = {};
+  final Set<ProjectDocumentFile> _selectedFiles = {};
 
   @override
   void initState() {
@@ -221,7 +221,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     setState(() => _currentPathUri = newPath);
   }
 
-  void _toggleMultiSelectMode(DocumentFile? initialFile) {
+  void _toggleMultiSelectMode(ProjectDocumentFile? initialFile) {
     setState(() {
       _isMultiSelectMode = !_isMultiSelectMode;
       _selectedFiles.clear();
@@ -231,7 +231,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     });
   }
 
-  void _toggleFileSelection(DocumentFile file) {
+  void _toggleFileSelection(ProjectDocumentFile file) {
     setState(() {
       if (_selectedFiles.contains(file)) {
         _selectedFiles.remove(file);
@@ -241,7 +241,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     });
   }
 
-  Future<void> _onLongPressFolder(DocumentFile folder) async {
+  Future<void> _onLongPressFolder(ProjectDocumentFile folder) async {
     final result = await showDialog<bool?>(
       context: context,
       builder:
@@ -264,18 +264,18 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     );
 
     if (result != null) {
-      final List<DocumentFile> filesToAdd = await _gatherFiles(folder, result);
+      final List<ProjectDocumentFile> filesToAdd = await _gatherFiles(folder, result);
       if (mounted) {
         Navigator.of(context).pop(filesToAdd);
       }
     }
   }
 
-  Future<List<DocumentFile>> _gatherFiles(
-    DocumentFile startFolder,
+  Future<List<ProjectDocumentFile>> _gatherFiles(
+    ProjectDocumentFile startFolder,
     bool recursive,
   ) async {
-    final List<DocumentFile> gatheredFiles = [];
+    final List<ProjectDocumentFile> gatheredFiles = [];
     final repo = ref.read(projectRepositoryProvider);
     if (repo == null) return [];
 
