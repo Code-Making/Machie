@@ -716,6 +716,10 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             bracketHighlightNotifier: _bracketHighlightNotifier,
           );
         },
+        sperator: Container(
+          width: 1,
+          color: colorSchemesurfaceContainerLow,
+        ),
         style: _style,
         wordWrap: ref.watch(
           settingsProvider.select(

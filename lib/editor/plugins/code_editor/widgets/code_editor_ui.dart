@@ -46,7 +46,7 @@ class CustomEditorIndicator extends StatelessWidget {
                 highlightedLines: bracketHighlightState.highlightedLines,
               ),
               DefaultCodeChunkIndicator(
-                width: 20,
+                width: 16,
                 controller: chunkController,
                 notifier: notifier,
               ),
@@ -74,13 +74,11 @@ class CustomLineNumberWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // THE FIX: We now use our new CustomCodeLineNumber widget.
-    // Instead of manipulating text, we pass the highlighted lines and a color.
     return CustomCodeLineNumber(
       controller: controller,
       notifier: notifier,
       highlightedLines: highlightedLines,
-      highlightColor: theme.colorScheme.secondary.withOpacity(0.2),
+      highlightColor: theme.colorScheme.secondary.withValues(alpha: 0.2),
       textStyle: TextStyle(
         color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
         fontSize: 12,
@@ -93,6 +91,8 @@ class CustomLineNumberWidget extends StatelessWidget {
     );
   }
 }
+
+
 
 // in lib/editor/plugins/code_editor/code_editor_widgets.dart
 
