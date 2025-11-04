@@ -27,7 +27,7 @@ import 'code_editor_models.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_state.dart';
 import 'code_editor_widgets.dart';
-import 'code_themes.dart';
+import 'logic/code_themes.dart';
 
 // <-- ADD PATH PACKAGE IMPORT
 

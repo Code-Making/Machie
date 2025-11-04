@@ -19,47 +19,26 @@ import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
-import 'code_editor_logic.dart';
+import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
 import 'code_editor_state.dart';
-import 'code_find_panel_view.dart';
-import 'code_themes.dart';
+import 'widgets/code_find_panel_view.dart';
+import 'logic/code_themes.dart';
+import 'code_editor_plugin.dart';
+import 'widgets/goto_line_dialog.dart';
 
-// <-- FIX: ADD THIS IMPORT for ValueListenable
+import '../../../editor/plugins/editor_command_context.dart';
+import '../../../editor/services/text_editing_capability.dart';
+import '../../../command/command_widgets.dart';
 
-import 'code_editor_plugin.dart'; // ADDED: For type cast
-import 'goto_line_dialog.dart'; // <-- ADD THIS IMPORT
-
-import '../../../editor/plugins/editor_command_context.dart'; // ADDED: For CommandButton
-import '../../../editor/services/text_editing_capability.dart'; // <-- ADD THIS IMPORT
-
-// ADDED: For Command class
-import '../../../command/command_widgets.dart'; // ADDED: For CommandButton
-
-import 'code_editor_hot_state_dto.dart'; // For serializeHotState
-
-class _ColorMatch {
-  final int start;
-  final int end;
-  final Color color;
-  _ColorMatch({required this.start, required this.end, required this.color});
-}
-
-// ... (BracketHighlightState is unchanged) ...
-class BracketHighlightState {
-  final Set<CodeLinePosition> bracketPositions;
-  final Set<int> highlightedLines;
-  const BracketHighlightState({
-    this.bracketPositions = const {},
-    this.highlightedLines = const {},
-  });
-}
+import 'code_editor_hot_state_dto.dart';
+import 'widgets/code_editor_ui.dart';
+import 'logic/code_editor_types.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
   final CodeEditorTab tab;
 
-  // --- FIX: Add the required super constructor call ---
   const CodeEditorMachine({
     required GlobalKey<CodeEditorMachineState> key,
     required this.tab,
@@ -71,7 +50,6 @@ class CodeEditorMachine extends EditorWidget {
 
 class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     with TextEditable {
-  // --- STATE ---
   late final CodeLineEditingController controller;
   late final FocusNode _focusNode;
   late final CodeFindController findController;
@@ -1098,7 +1076,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     TextStyle style,
   ) {
     final text = codeLine.text;
-    final List<_ColorMatch> matches = [];
+    final List<ColorMatch> matches = [];
 
     // --- Parsing Logic (from your provided code, unchanged) ---
     _hexColorRegex.allMatches(text).forEach((m) {
@@ -1107,7 +1085,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         final val = int.tryParse(hex, radix: 16);
         if (val != null) {
           final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-          matches.add(_ColorMatch(start: m.start, end: m.end, color: color));
+          matches.add(ColorMatch(start: m.start, end: m.end, color: color));
         }
       }
     });
@@ -1122,7 +1100,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
         final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-        matches.add(_ColorMatch(start: m.start, end: m.end, color: color));
+        matches.add(ColorMatch(start: m.start, end: m.end, color: color));
       }
     });
     _colorConstructorRegex.allMatches(text).forEach((m) {
@@ -1131,7 +1109,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         final val = int.tryParse(hex.substring(2), radix: 16);
         if (val != null) {
           matches.add(
-            _ColorMatch(start: m.start, end: m.end, color: Color(val)),
+            ColorMatch(start: m.start, end: m.end, color: Color(val)),
           );
         }
       }
@@ -1143,7 +1121,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       final b = _parseColorComponent(m.group(4));
       if (a != null && r != null && g != null && b != null) {
         matches.add(
-          _ColorMatch(
+          ColorMatch(
             start: m.start,
             end: m.end,
             color: Color.fromARGB(a, r, g, b),
@@ -1158,7 +1136,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       final o = double.tryParse(m.group(4) ?? '');
       if (r != null && g != null && b != null && o != null) {
         matches.add(
-          _ColorMatch(
+          ColorMatch(
             start: m.start,
             end: m.end,
             color: Color.fromRGBO(r, g, b, o),
@@ -1174,7 +1152,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
     // Sort and filter out overlapping matches
     matches.sort((a, b) => a.start.compareTo(b.start));
-    final uniqueMatches = <_ColorMatch>[];
+    final uniqueMatches = <ColorMatch>[];
     int lastEnd = -1;
     for (final match in matches) {
       if (match.start >= lastEnd) {
@@ -1392,7 +1370,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         commentFormatter: _commentFormatter,
         verticalScrollbarWidth: 16.0,
         scrollbarBuilder: (context, child, details) {
-          return _GrabbableScrollbar(
+          return GrabbableScrollbar(
             details: details,
             thickness: 16.0,
             child: child,
@@ -1426,204 +1404,3 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     );
   }
 }
-
-// ... (CustomEditorIndicator and _CustomLineNumberWidget are unchanged) ...
-class CustomEditorIndicator extends StatelessWidget {
-  final CodeLineEditingController controller;
-  final CodeChunkController chunkController;
-  final CodeIndicatorValueNotifier notifier;
-  final BracketHighlightState bracketHighlightState;
-
-  const CustomEditorIndicator({
-    super.key,
-    required this.controller,
-    required this.chunkController,
-    required this.notifier,
-    required this.bracketHighlightState,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {},
-      child: Row(
-        children: [
-          _CustomLineNumberWidget(
-            controller: controller,
-            notifier: notifier,
-            highlightedLines: bracketHighlightState.highlightedLines,
-          ),
-          DefaultCodeChunkIndicator(
-            width: 20,
-            controller: chunkController,
-            notifier: notifier,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CustomLineNumberWidget extends StatelessWidget {
-  final CodeLineEditingController controller;
-  final CodeIndicatorValueNotifier notifier;
-  final Set<int> highlightedLines;
-
-  const _CustomLineNumberWidget({
-    required this.controller,
-    required this.notifier,
-    required this.highlightedLines,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ValueListenableBuilder<CodeIndicatorValue?>(
-      valueListenable: notifier,
-      builder: (context, value, child) {
-        return DefaultCodeLineNumber(
-          controller: controller,
-          notifier: notifier,
-          textStyle: TextStyle(
-            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-            fontSize: 12,
-          ),
-          focusedTextStyle: TextStyle(
-            color: theme.colorScheme.secondary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          customLineIndex2Text: (index) {
-            final lineNumber = (index + 1).toString();
-            return highlightedLines.contains(index)
-                ? '➤$lineNumber'
-                : lineNumber;
-          },
-        );
-      },
-    );
-  }
-}
-
-// in lib/editor/plugins/code_editor/code_editor_widgets.dart
-
-class CodeEditorSelectionAppBar extends ConsumerWidget {
-  const CodeEditorSelectionAppBar({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final toolbar = CommandToolbar(
-      position: CodeEditorPlugin.selectionToolbar,
-      direction: Axis.horizontal,
-    );
-
-    return Material(
-      elevation: 4.0,
-      color: Theme.of(context).appBarTheme.backgroundColor,
-      child: SafeArea(
-        child: Container(
-          height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          // THE FIX: Wrap the command toolbar in a scrollable widget.
-          // Using `reverse: true` keeps the content anchored to the right side.
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            child: CodeEditorTapRegion(child: toolbar),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// You can place this helper widget at the bottom of your file.
-class _GrabbableScrollbar extends StatefulWidget {
-  const _GrabbableScrollbar({
-    required this.details,
-    required this.thickness,
-    required this.child,
-  });
-
-  final ScrollableDetails details;
-  final double thickness;
-  final Widget child;
-
-  @override
-  State<_GrabbableScrollbar> createState() => _GrabbableScrollbarState();
-}
-
-class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
-  // This state variable will control the scrollbar's visibility.
-  bool _isScrolling = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // Listen for scroll notifications bubbling up from the editor.
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification is ScrollStartNotification) {
-          // A scroll has started, so make the scrollbar visible.
-          setState(() {
-            _isScrolling = true;
-          });
-        } else if (notification is ScrollEndNotification) {
-          // The scroll has ended, so hide the scrollbar after a short delay.
-          // The delay prevents it from disappearing instantly if the user flings.
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) {
-              setState(() {
-                _isScrolling = false;
-              });
-            }
-          });
-        }
-        // Allow the notification to continue bubbling up.
-        return false;
-      },
-      child: RawScrollbar(
-        controller: widget.details.controller,
-
-        // --- The Key Change ---
-        // The visibility is now controlled by our state variable.
-        thumbVisibility: _isScrolling,
-
-        // ----------------------
-        thickness: widget.thickness,
-        interactive: true,
-        radius: Radius.circular(widget.thickness / 2),
-
-        // Let the editor's scroll behavior handle the physics.
-        // We are only concerned with the UI here.
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-// class _ColorSwatch extends StatelessWidget {
-//   final Color color;
-//   final double size;
-//   const _ColorSwatch({required this.color, required this.size});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: size,
-//       height: size,
-//       margin: const EdgeInsets.only(right: 6.0, left: 2.0),
-//       decoration: BoxDecoration(
-//         color: color,
-//         borderRadius: BorderRadius.circular(2.0),
-//         border: Border.all(
-//           // Add a border that contrasts with the swatch color for visibility.
-//           color:
-//               color.computeLuminance() > 0.5 ? Colors.black45 : Colors.white54,
-//           width: 1.0,
-//         ),
-//       ),
-//     );
-//   }
-// }

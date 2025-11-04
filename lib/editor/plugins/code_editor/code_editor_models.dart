@@ -3,8 +3,10 @@
 // =========================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../editor_tab_models.dart';
+import '../../services/text_editing_capability.dart';
 import '../plugin_models.dart';
 import 'code_editor_widgets.dart';
 
@@ -94,4 +96,33 @@ class CodeEditorSettings extends PluginSettings {
       fontLigatures: fontLigatures ?? this.fontLigatures, // <-- ADDED
     );
   }
+}
+
+@immutable
+class CodeEditorCommandContext extends TextEditableCommandContext {
+  final bool canUndo;
+  final bool canRedo;
+  final bool hasMark;
+
+  const CodeEditorCommandContext({
+    this.canUndo = false,
+    this.canRedo = false,
+    this.hasMark = false,
+    required super.hasSelection,
+    super.appBarOverride,
+    super.appBarOverrideKey,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CodeEditorCommandContext &&
+        other.canUndo == canUndo &&
+        other.canRedo == canRedo &&
+        other.hasMark == hasMark &&
+        super == other;
+  }
+
+  @override
+  int get hashCode => Object.hash(super.hashCode, canUndo, canRedo, hasMark);
 }

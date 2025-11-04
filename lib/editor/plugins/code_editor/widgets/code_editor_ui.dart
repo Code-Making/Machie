@@ -1,0 +1,168 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:re_editor/re_editor.dart';
+import '../logic/code_editor_types.dart';
+
+class CustomEditorIndicator extends StatelessWidget {
+  final CodeLineEditingController controller;
+  final CodeChunkController chunkController;
+  final CodeIndicatorValueNotifier notifier;
+  final BracketHighlightState bracketHighlightState;
+
+  const CustomEditorIndicator({
+    super.key,
+    required this.controller,
+    required this.chunkController,
+    required this.notifier,
+    required this.bracketHighlightState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: Row(
+        children: [
+          _CustomLineNumberWidget(
+            controller: controller,
+            notifier: notifier,
+            highlightedLines: bracketHighlightState.highlightedLines,
+          ),
+          DefaultCodeChunkIndicator(
+            width: 20,
+            controller: chunkController,
+            notifier: notifier,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CustomLineNumberWidget extends StatelessWidget {
+  final CodeLineEditingController controller;
+  final CodeIndicatorValueNotifier notifier;
+  final Set<int> highlightedLines;
+
+  const _CustomLineNumberWidget({
+    required this.controller,
+    required this.notifier,
+    required this.highlightedLines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ValueListenableBuilder<CodeIndicatorValue?>(
+      valueListenable: notifier,
+      builder: (context, value, child) {
+        return DefaultCodeLineNumber(
+          controller: controller,
+          notifier: notifier,
+          textStyle: TextStyle(
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+            fontSize: 12,
+          ),
+          focusedTextStyle: TextStyle(
+            color: theme.colorScheme.secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          customLineIndex2Text: (index) {
+            final lineNumber = (index + 1).toString();
+            return highlightedLines.contains(index)
+                ? '➤$lineNumber'
+                : lineNumber;
+          },
+        );
+      },
+    );
+  }
+}
+
+// in lib/editor/plugins/code_editor/code_editor_widgets.dart
+
+class CodeEditorSelectionAppBar extends ConsumerWidget {
+  const CodeEditorSelectionAppBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final toolbar = CommandToolbar(
+      position: CodeEditorPlugin.selectionToolbar,
+      direction: Axis.horizontal,
+    );
+
+    return Material(
+      elevation: 4.0,
+      color: Theme.of(context).appBarTheme.backgroundColor,
+      child: SafeArea(
+        child: Container(
+          height: Theme.of(context).appBarTheme.toolbarHeight ?? kToolbarHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: CodeEditorTapRegion(child: toolbar),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class GrabbableScrollbar extends StatefulWidget {
+  const _GrabbableScrollbar({
+    required this.details,
+    required this.thickness,
+    required this.child,
+  });
+
+  final ScrollableDetails details;
+  final double thickness;
+  final Widget child;
+
+  @override
+  State<_GrabbableScrollbar> createState() => _GrabbableScrollbarState();
+}
+
+class _GrabbableScrollbarState extends State<_GrabbableScrollbar> {
+  bool _isScrolling = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollStartNotification) {
+          setState(() {
+            _isScrolling = true;
+          });
+        } else if (notification is ScrollEndNotification) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              setState(() {
+                _isScrolling = false;
+              });
+            }
+          });
+        }
+        return false;
+      },
+      child: RawScrollbar(
+        controller: widget.details.controller,
+        thumbVisibility: _isScrolling,
+        thickness: widget.thickness,
+        interactive: true,
+        radius: Radius.circular(widget.thickness / 2),
+        child: widget.child,
+      ),
+    );
+  }
+}
