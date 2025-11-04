@@ -28,6 +28,7 @@ import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 
 import '../../../explorer/services/explorer_service.dart'; // Import for the listener
+import 'folder_picker_dialog.dart';
 
 
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
