@@ -30,7 +30,7 @@ class CustomEditorIndicator extends StatelessWidget {
       onTap: () {},
       child: Row(
         children: [
-          _CustomLineNumberWidget(
+          CustomLineNumberWidget(
             controller: controller,
             notifier: notifier,
             highlightedLines: bracketHighlightState.highlightedLines,
@@ -51,7 +51,7 @@ class CustomLineNumberWidget extends StatelessWidget {
   final CodeIndicatorValueNotifier notifier;
   final Set<int> highlightedLines;
 
-  const _CustomLineNumberWidget({
+  const CustomLineNumberWidget({
     required this.controller,
     required this.notifier,
     required this.highlightedLines,
