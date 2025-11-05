@@ -6,7 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
-import '../editor/plugins/plugin_registry.dart';
+import '../editor/plugins/editor_plugin_registry.dart';
 
 // (FileTypeIcon is unchanged)
 class FileTypeIcon extends ConsumerWidget {

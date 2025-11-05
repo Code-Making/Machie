@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
 import '../command/command_notifier.dart';
-import '../editor/plugins/plugin_registry.dart';
+import '../editor/plugins/editor_plugin_registry.dart';
 import 'settings_notifier.dart';
 
 const Map<String, Color> kAccentColors = {

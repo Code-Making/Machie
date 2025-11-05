@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_notifier.dart';
-import '../../../data/repositories/project_repository.dart';
-import '../../../project/services/project_hierarchy_service.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../widgets/file_list_view.dart'; // Import for FileTypeIcon
+import '../../app/app_notifier.dart';
+import '../../data/repositories/project_repository.dart';
+import '../../project/services/project_hierarchy_service.dart';
+import '../../data/file_handler/file_handler.dart';
+import '../file_list_view.dart'; // Import for FileTypeIcon
 
 // RENAMED: The dialog is now more generic.
 class FileOrFolderPickerDialog extends ConsumerStatefulWidget {

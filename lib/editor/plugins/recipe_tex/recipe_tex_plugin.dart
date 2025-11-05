@@ -19,7 +19,7 @@ import '../../editor_tab_models.dart';
 import '../../plugins/editor_command_context.dart';
 import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
-import '../plugin_models.dart';
+import '../editor_plugin_models.dart';
 import 'recipe_editor_widget.dart';
 import 'recipe_tex_command_context.dart';
 import 'recipe_tex_hot_state.dart';

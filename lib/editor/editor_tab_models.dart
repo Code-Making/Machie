@@ -10,7 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/dto/project_dto.dart';
 import '../data/dto/tab_hot_state_dto.dart';
-import 'plugins/plugin_models.dart';
+import 'plugins/editor_plugin_models.dart';
 import 'tab_state_manager.dart';
 
 import 'services/file_content_provider.dart'; // NEW IMPORT

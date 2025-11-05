@@ -12,7 +12,7 @@ import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../project/project_models.dart';
 import '../editor_tab_models.dart';
-import '../plugins/plugin_models.dart';
+import '../plugins/editor_plugin_models.dart';
 import 'file_content_provider.dart';
 
 class InternalFileContentProvider

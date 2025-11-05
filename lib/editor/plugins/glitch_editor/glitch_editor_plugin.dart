@@ -20,7 +20,7 @@ import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_state_manager.dart';
 import '../editor_command_context.dart';
-import '../plugin_models.dart';
+import '../editor_plugin_models.dart';
 import 'glitch_editor_hot_state_adapter.dart';
 import 'glitch_editor_hot_state_dto.dart';
 import 'glitch_editor_models.dart';

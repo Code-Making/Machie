@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'context_widgets.dart';
 import '../llm_editor_types.dart';
-import 'markdown_builders.dart';
+import '../../../../widgets/markdown_builders.dart';
 
 class ChatBubble extends ConsumerWidget {
   final DisplayMessage displayMessage;

@@ -22,7 +22,7 @@ import '../../tab_state_manager.dart';
 import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
 import 'widgets/code_find_panel_view.dart';
-import 'logic/code_themes.dart';
+import '../../../utils/code_themes.dart';
 import 'code_editor_plugin.dart';
 import 'widgets/goto_line_dialog.dart';
 

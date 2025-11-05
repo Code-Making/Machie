@@ -5,7 +5,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/dto/tab_hot_state_dto.dart';
-import '../../editor/plugins/plugin_registry.dart';
+import '../../editor/plugins/editor_plugin_registry.dart';
 import 'type_adapters.dart';
 
 // REMOVED: No longer need direct imports to DTO implementations.

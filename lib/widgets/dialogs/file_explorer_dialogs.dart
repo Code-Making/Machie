@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../editor/plugins/plugin_models.dart';
+import '../../editor/plugins/editor_plugin_models.dart';
 
 import '../../editor/tab_state_manager.dart'; // <-- ADD THIS IMPORT
 
