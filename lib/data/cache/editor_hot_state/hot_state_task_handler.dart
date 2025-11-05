@@ -5,9 +5,8 @@ import 'dart:async'; // Import for Timer
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-import 'hive_cache_repository.dart';
-
 import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
+import '../../repositories/cache/hive_cache_repository.dart';
 
 // The service's private, in-memory copy of unsaved data.
 // Key: Project ID, Value: Map<Tab ID, Serialized DTO Payload>
