@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../plugins/editor_command_context.dart';
-import '../plugins/plugin_models.dart';
+import '../plugins/editor_plugin_models.dart';
 
 @immutable
 class TextPosition {

@@ -9,9 +9,9 @@ import 'package:re_highlight/re_highlight.dart';
 import '../../../../settings/settings_notifier.dart';
 import '../../../../utils/toast.dart';
 import '../../code_editor/code_editor_models.dart';
-import '../../code_editor/logic/code_themes.dart';
+import '../../../../utils/code_themes.dart';
 import '../llm_editor_models.dart';
-import '../llm_highlight_util.dart';
+import '../../../../utils/llm_highlight_util.dart';
 
 import 'package:re_highlight/styles/default.dart'; // For defaultTheme if needed
 

@@ -11,7 +11,7 @@ import '../../utils/clipboard.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import '../services/explorer_service.dart';
 import 'file_explorer_commands.dart';
-import 'file_explorer_dialogs.dart';
+import '../../widgets/dialogs/file_explorer_dialogs.dart';
 import 'file_explorer_widgets.dart';
 
 import '../explorer_plugin_registry.dart'; // REFACTOR: Import registry

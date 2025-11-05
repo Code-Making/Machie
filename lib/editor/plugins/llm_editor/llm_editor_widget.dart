@@ -10,7 +10,7 @@ import 'package:collection/collection.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project_repository.dart';
-import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';

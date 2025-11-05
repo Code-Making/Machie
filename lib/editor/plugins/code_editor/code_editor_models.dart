@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../editor_tab_models.dart';
 import '../../services/text_editing_capability.dart';
-import '../plugin_models.dart';
+import '../editor_plugin_models.dart';
 import 'code_editor_widgets.dart';
 
 @immutable

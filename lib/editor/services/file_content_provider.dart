@@ -16,7 +16,7 @@ import '../../editor/editor_tab_models.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
-import '../plugins/plugin_registry.dart';
+import '../plugins/editor_plugin_registry.dart';
 import 'internal_file_content_provider.dart';
 
 import '../../data/dto/project_dto.dart'; // NEW IMPORT

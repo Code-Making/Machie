@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../settings/settings_notifier.dart';
 import 'code_editor_models.dart';
-import 'logic/code_themes.dart';
+import '../../../utils/code_themes.dart';
 
 class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   final CodeEditorSettings settings;

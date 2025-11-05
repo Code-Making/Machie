@@ -10,7 +10,7 @@ import '../../../../data/file_handler/file_handler.dart';
 import '../../../../data/repositories/project_repository.dart';
 import '../llm_editor_models.dart';
 import '../../../../project/services/project_hierarchy_service.dart';
-import '../../code_editor/logic/code_themes.dart';
+import '../../../../utils/code_themes.dart';
 import 'context_widgets.dart';
 
 final filePickerLastPathProvider = StateProvider<String?>((ref) => null);

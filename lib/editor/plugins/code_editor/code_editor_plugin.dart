@@ -20,13 +20,13 @@ import '../../../project/project_models.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
 import '../../tab_state_manager.dart';
-import '../plugin_models.dart';
+import '../editor_plugin_models.dart';
 import 'code_editor_hot_state_adapter.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'code_editor_models.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_widgets.dart';
-import 'logic/code_themes.dart';
+import '../../../utils/code_themes.dart';
 
 // <-- ADD PATH PACKAGE IMPORT
 

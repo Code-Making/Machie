@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../explorer/common/file_explorer_dialogs.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import 'refactor_editor_models.dart';
 

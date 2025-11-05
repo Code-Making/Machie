@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/app_commands.dart';
-import '../editor/plugins/plugin_registry.dart';
+import '../editor/plugins/editor_plugin_registry.dart';
 import 'command_models.dart';
 
 export 'command_models.dart';
