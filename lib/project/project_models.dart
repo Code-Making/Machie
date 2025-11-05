@@ -5,7 +5,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/file_handler/file_handler.dart';
-import '../editor/editor_tab_models.dart';
+import '../editor/models/editor_tab_models.dart';
 import '../data/content_provider/file_content_provider.dart';
 import '../editor/tab_metadata_notifier.dart';
 import '../explorer/explorer_workspace_state.dart';

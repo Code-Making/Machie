@@ -13,7 +13,7 @@ import '../../../data/repositories/project/project_repository.dart';
 import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
-import '../../editor_tab_models.dart';
+import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/context_widgets.dart';

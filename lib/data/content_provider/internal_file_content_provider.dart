@@ -11,8 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import '../dto/project_dto.dart';
 import '../file_handler/file_handler.dart';
 import '../../project/project_models.dart';
-import '../../editor/editor_tab_models.dart';
-import '../../editor/plugins/editor_plugin_models.dart';
+import '../../editor/models/editor_tab_models.dart';
+import '../../editor/models/editor_plugin_models.dart';
 import 'file_content_provider.dart';
 
 class InternalFileContentProvider

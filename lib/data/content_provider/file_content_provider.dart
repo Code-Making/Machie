@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../file_handler/file_handler.dart';
 import '../file_handler/local_file_handler_saf.dart';
 import '../repositories/project/project_repository.dart';
-import '../../editor/editor_tab_models.dart';
+import '../../editor/models/editor_tab_models.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';

@@ -17,11 +17,11 @@ import '../../explorer/services/explorer_service.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../utils/toast.dart';
-import '../editor_tab_models.dart';
+import '../models/editor_tab_models.dart';
 import '../plugins/editor_plugin_registry.dart';
 import '../tab_metadata_notifier.dart';
 import '../../data/content_provider/file_content_provider.dart';
-import '../text_editing_capability.dart';
+import '../models/text_editing_capability.dart';
 
 import '../../data/file_handler/file_handler.dart'
     show DocumentFile, ProjectDocumentFile;

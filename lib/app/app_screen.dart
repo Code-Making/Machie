@@ -9,12 +9,12 @@ import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../command/command_widgets.dart';
-import '../editor/editor_widgets.dart';
-import '../editor/plugins/editor_command_context.dart';
-import '../editor/plugins/editor_plugin_models.dart';
+import '../editor/widgets/editor_widgets.dart';
+import '../editor/models/editor_command_context.dart';
+import '../editor/models/editor_plugin_models.dart';
 import '../editor/tab_metadata_notifier.dart';
 import '../widgets/dialogs/file_explorer_dialogs.dart';
-import '../explorer/explorer_host_drawer.dart';
+import '../explorer/widgets/explorer_host_drawer.dart';
 import '../settings/settings_notifier.dart';
 import 'app_notifier.dart';
 

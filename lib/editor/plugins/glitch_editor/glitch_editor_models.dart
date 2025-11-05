@@ -8,7 +8,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../editor_tab_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'glitch_editor_widget.dart';
 
 // import '../../../data/file_handler/file_handler.dart'; // REMOVED

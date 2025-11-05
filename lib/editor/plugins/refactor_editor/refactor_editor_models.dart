@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../editor/editor_tab_models.dart';
-import '../editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
+import '../../models/editor_plugin_models.dart';
 import 'refactor_editor_widget.dart';
 
 /// Defines the settings for the Refactor Editor plugin.

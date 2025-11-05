@@ -13,7 +13,7 @@ import '../data/file_handler/file_handler.dart';
 import '../data/shared_preferences.dart';
 import '../data/repositories/app_state_repository.dart';
 import '../data/repositories/project/project_repository.dart';
-import '../editor/editor_tab_models.dart';
+import '../editor/models/editor_tab_models.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../editor/services/editor_service.dart';
 import '../data/content_provider/file_content_provider.dart';
