@@ -3,7 +3,7 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../logs/logs_provider.dart';
+import '../../../logs/logs_provider.dart';
 import 'hot_state_task_handler.dart';
 
 /// A facade that consolidates all client-side interactions with the

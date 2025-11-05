@@ -13,15 +13,15 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project/project_repository.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import '../../services/text_editing_capability.dart';
-import '../../tab_state_manager.dart';
+import '../../text_editing_capability.dart';
+import '../../tab_metadata_notifier.dart';
 import 'occurrence_list_item.dart';
 import 'refactor_editor_controller.dart';
 import 'refactor_editor_hot_state.dart';

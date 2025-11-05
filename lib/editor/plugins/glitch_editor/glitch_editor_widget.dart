@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../services/editor_service.dart';
-import '../../tab_state_manager.dart';
+import '../../tab_metadata_notifier.dart';
 import 'glitch_editor_models.dart';
 import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';

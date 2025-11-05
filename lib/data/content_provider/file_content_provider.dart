@@ -9,17 +9,17 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/file_handler/file_handler.dart';
-import '../../data/file_handler/local_file_handler_saf.dart';
-import '../../data/repositories/project_repository.dart';
+import '../file_handler/file_handler.dart';
+import '../file_handler/local_file_handler_saf.dart';
+import '../repositories/project/project_repository.dart';
 import '../../editor/editor_tab_models.dart';
 import '../../explorer/explorer_plugin_registry.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
-import '../plugins/editor_plugin_registry.dart';
+import '../../editor/plugins/editor_plugin_registry.dart';
 import 'internal_file_content_provider.dart';
 
-import '../../data/dto/project_dto.dart'; // NEW IMPORT
+import '../dto/project_dto.dart'; // NEW IMPORT
 
 /// A result class that encapsulates the content of a file and its MD5 hash.
 class EditorContentResult {

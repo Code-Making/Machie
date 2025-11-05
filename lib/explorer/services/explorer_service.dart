@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../data/repositories/project_repository.dart';
+import '../../data/repositories/project/project_repository.dart';
 import '../../explorer/explorer_workspace_state.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';

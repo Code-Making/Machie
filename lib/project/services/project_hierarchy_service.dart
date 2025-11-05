@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../data/repositories/project_repository.dart';
+import '../../data/repositories/project/project_repository.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../settings/settings_notifier.dart';

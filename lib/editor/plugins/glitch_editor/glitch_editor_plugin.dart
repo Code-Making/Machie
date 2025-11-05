@@ -18,7 +18,7 @@ import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import '../../tab_state_manager.dart';
+import '../../tab_metadata_notifier.dart';
 import '../editor_command_context.dart';
 import '../editor_plugin_models.dart';
 import 'glitch_editor_hot_state_adapter.dart';

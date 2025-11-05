@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_notifier.dart';
 import '../../command/command_models.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../data/repositories/project_repository.dart';
+import '../../data/repositories/project/project_repository.dart';
 import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../utils/clipboard.dart';
 import '../../utils/toast.dart';

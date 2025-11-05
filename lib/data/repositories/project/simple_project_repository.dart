@@ -1,54 +1,25 @@
 // =========================================
-// UPDATED: lib/data/repositories/persistent_project_repository.dart
+// UPDATED: lib/data/repositories/simple_project_repository.dart
 // =========================================
 
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:collection/collection.dart';
-
-import '../../data/dto/project_dto.dart';
-import '../../data/file_handler/file_handler.dart';
+import '../../dto/project_dto.dart';
+import '../../file_handler/file_handler.dart';
 import 'project_repository.dart';
 
-const _projectFileName = 'project.json';
-
-class PersistentProjectRepository implements ProjectRepository {
+class SimpleProjectRepository implements ProjectRepository {
   @override
   final FileHandler fileHandler;
-  final String _projectDataPath;
+  final Map<String, dynamic>? _projectStateJson;
 
-  PersistentProjectRepository(this.fileHandler, this._projectDataPath);
+  SimpleProjectRepository(this.fileHandler, this._projectStateJson);
 
   // ... (loadProjectDto and saveProjectDto are unchanged) ...
   @override
   Future<ProjectDto> loadProjectDto() async {
-    final files = await fileHandler.listDirectory(
-      _projectDataPath,
-      includeHidden: true,
-    );
-    final projectFile = files.firstWhereOrNull(
-      (f) => f.name == _projectFileName,
-    );
-
-    if (projectFile != null) {
-      try {
-        final content = await fileHandler.readFile(projectFile.uri);
-        final json = jsonDecode(content);
-        return ProjectDto.fromJson(json);
-      } catch (e) {
-        return const ProjectDto(
-          session: TabSessionStateDto(
-            tabs: [],
-            currentTabIndex: 0,
-            tabMetadata: {},
-          ),
-          workspace: ExplorerWorkspaceStateDto(
-            activeExplorerPluginId: 'com.machine.file_explorer',
-            pluginStates: {},
-          ),
-        );
-      }
+    if (_projectStateJson != null) {
+      return ProjectDto.fromJson(_projectStateJson);
     } else {
       return const ProjectDto(
         session: TabSessionStateDto(
@@ -66,13 +37,7 @@ class PersistentProjectRepository implements ProjectRepository {
 
   @override
   Future<void> saveProjectDto(ProjectDto projectDto) async {
-    final content = jsonEncode(projectDto.toJson());
-    await fileHandler.createDocumentFile(
-      _projectDataPath,
-      _projectFileName,
-      initialContent: content,
-      overwrite: true,
-    );
+    return;
   }
 
   // ... (createDocumentFile and deleteDocumentFile are unchanged) ...
@@ -85,7 +50,7 @@ class PersistentProjectRepository implements ProjectRepository {
     Uint8List? initialBytes,
     bool overwrite = false,
   }) async {
-    final newFile = await fileHandler.createDocumentFile(
+    return fileHandler.createDocumentFile(
       parentUri,
       name,
       isDirectory: isDirectory,
@@ -93,7 +58,6 @@ class PersistentProjectRepository implements ProjectRepository {
       initialBytes: initialBytes,
       overwrite: overwrite,
     );
-    return newFile;
   }
 
   @override

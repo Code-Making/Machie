@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../dto/project_dto.dart';
-import '../file_handler/file_handler.dart';
+import '../../dto/project_dto.dart';
+import '../../file_handler/file_handler.dart';
 
 // ... (FileOperationEvent and related providers are unchanged) ...
 sealed class FileOperationEvent {

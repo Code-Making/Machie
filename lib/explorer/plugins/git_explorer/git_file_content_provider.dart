@@ -11,7 +11,7 @@ import '../../../data/dto/project_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../editor/editor_tab_models.dart';
 import '../../../editor/plugins/editor_plugin_models.dart';
-import '../../../editor/services/file_content_provider.dart';
+import '../../../data/content_provider/file_content_provider.dart';
 import 'git_object_file.dart';
 
 // Imports from dart_git

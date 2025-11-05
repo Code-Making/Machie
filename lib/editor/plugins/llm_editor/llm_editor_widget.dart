@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project/project_repository.dart';
 import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
