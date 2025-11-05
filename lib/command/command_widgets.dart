@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_notifier.dart';
-import '../editor/text_editing_capability.dart';
+import '../editor/models/text_editing_capability.dart';
 import 'command_notifier.dart';
 
 final commandsForPositionProvider = Provider.family<List<dynamic>, String>((

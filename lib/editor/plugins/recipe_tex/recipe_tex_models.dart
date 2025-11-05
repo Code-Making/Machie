@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
 
-import '../../editor_tab_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'recipe_editor_widget.dart';
 
 // RecipeTexTab is unchanged and correct.

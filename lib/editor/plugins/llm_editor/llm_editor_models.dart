@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
 
-import '../../editor_tab_models.dart';
-import '../editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
+import '../../models/editor_plugin_models.dart';
 import 'llm_editor_widget.dart';
 
 @immutable

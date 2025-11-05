@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/app_notifier.dart';
-import '../project/project_models.dart';
-import 'common/new_project_screen.dart';
-import 'explorer_plugin_registry.dart';
-import 'services/explorer_service.dart';
+import '../../app/app_notifier.dart';
+import '../../project/project_models.dart';
+import 'new_project_screen.dart';
+import '../explorer_plugin_registry.dart';
+import '../services/explorer_service.dart';
 
 // ... (ExplorerHostDrawer, ExplorerHostView, and _ExplorerHostViewState are unchanged) ...
 class ExplorerHostDrawer extends ConsumerWidget {

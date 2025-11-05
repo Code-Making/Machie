@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
-import '../editor/editor_tab_models.dart';
+import '../editor/models/editor_tab_models.dart';
 
 // <-- ADD THIS IMPORT
 import '../editor/plugins/editor_plugin_registry.dart'; // <-- ADD THIS IMPORT

@@ -4,7 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 
-import '../editor_command_context.dart';
+import '../../models/editor_command_context.dart';
 
 @immutable
 class RecipeTexCommandContext extends CommandContext {

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../editor/plugins/editor_plugin_models.dart';
+import '../../editor/models/editor_plugin_models.dart';
 
 import '../../editor/tab_metadata_notifier.dart'; // <-- ADD THIS IMPORT
 

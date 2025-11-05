@@ -17,7 +17,7 @@ import '../../../data/repositories/project/project_repository.dart';
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
-import '../../editor_tab_models.dart';
+import '../../models/editor_tab_models.dart';
 import '../../tab_metadata_notifier.dart';
 import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
@@ -26,8 +26,8 @@ import '../../../utils/code_themes.dart';
 import 'code_editor_plugin.dart';
 import 'widgets/goto_line_dialog.dart';
 
-import '../../../editor/plugins/editor_command_context.dart';
-import '../../text_editing_capability.dart';
+import '../../models/editor_command_context.dart';
+import '../../models/text_editing_capability.dart';
 import '../../../command/command_widgets.dart';
 
 import 'code_editor_hot_state_dto.dart';

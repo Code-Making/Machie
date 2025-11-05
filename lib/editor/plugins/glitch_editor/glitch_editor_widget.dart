@@ -18,10 +18,10 @@ import 'glitch_editor_plugin.dart';
 import 'glitch_toolbar.dart';
 
 import 'package:flutter/foundation.dart'; // <-- ADD FOR VALUENOTIFIABLE
-import '../editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
+import '../../models/editor_command_context.dart'; // <-- ADD CONTEXT IMPORT
 import 'glitch_editor_state.dart'; // <-- ADD STATE IMPORT
 import 'glitch_editor_hot_state_dto.dart'; // <-- ADD STATE IMPORT
-import '../../editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
+import '../../models/editor_tab_models.dart'; // <-- ADD TAB MODELS IMPORT
 
 class GlitchEditorWidget extends EditorWidget {
   @override

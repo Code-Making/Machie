@@ -5,9 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../editor_tab_models.dart';
-import '../../text_editing_capability.dart';
-import '../editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
+import '../../models/text_editing_capability.dart';
+import '../../models/editor_plugin_models.dart';
 import 'code_editor_widgets.dart';
 
 @immutable

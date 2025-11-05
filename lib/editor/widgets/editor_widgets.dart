@@ -9,12 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../app/app_notifier.dart';
-import '../command/command_models.dart';
-import '../explorer/plugins/git_explorer/git_object_file.dart';
-import '../project/project_models.dart';
-import 'editor_tab_models.dart';
-import 'tab_metadata_notifier.dart';
+import '../../app/app_notifier.dart';
+import '../../command/command_models.dart';
+import '../../explorer/plugins/git_explorer/git_object_file.dart';
+import '../../project/project_models.dart';
+import '../models/editor_tab_models.dart';
+import '../tab_metadata_notifier.dart';
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {

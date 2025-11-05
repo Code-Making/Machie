@@ -8,14 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../data/dto/project_dto.dart';
-import '../data/dto/tab_hot_state_dto.dart';
-import 'plugins/editor_plugin_models.dart';
-import 'tab_metadata_notifier.dart';
+import '../../data/dto/project_dto.dart';
+import '../../data/dto/tab_hot_state_dto.dart';
+import 'editor_plugin_models.dart';
+import '../tab_metadata_notifier.dart';
 
-import '../data/content_provider/file_content_provider.dart'; // NEW IMPORT
+import '../../data/content_provider/file_content_provider.dart'; // NEW IMPORT
 
-export '../data/dto/tab_hot_state_dto.dart';
+export '../../data/dto/tab_hot_state_dto.dart';
 
 @immutable
 class TabSessionState {
