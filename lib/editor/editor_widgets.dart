@@ -14,7 +14,7 @@ import '../command/command_models.dart';
 import '../explorer/plugins/git_explorer/git_object_file.dart';
 import '../project/project_models.dart';
 import 'editor_tab_models.dart';
-import 'tab_state_manager.dart';
+import 'tab_metadata_notifier.dart';
 
 // ... TabBarWidget is unchanged ...
 class TabBarWidget extends ConsumerStatefulWidget {

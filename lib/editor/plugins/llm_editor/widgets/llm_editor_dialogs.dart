@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/app_notifier.dart';
 import '../../../../data/file_handler/file_handler.dart';
-import '../../../../data/repositories/project_repository.dart';
+import '../../../../data/repositories/project/project_repository.dart';
 import '../llm_editor_models.dart';
 import '../../../../project/services/project_hierarchy_service.dart';
 import '../../../../utils/code_themes.dart';

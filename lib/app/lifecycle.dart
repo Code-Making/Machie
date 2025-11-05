@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/cache/hot_state_cache_service.dart';
+import '../data/cache/editor_hot_state/hot_state_cache_service.dart';
 import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
 
-import '../data/cache/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
+import '../data/cache/editor_hot_state/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 
 // Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {

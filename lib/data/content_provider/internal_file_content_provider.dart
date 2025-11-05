@@ -8,11 +8,11 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../data/dto/project_dto.dart';
-import '../../data/file_handler/file_handler.dart';
+import '../dto/project_dto.dart';
+import '../file_handler/file_handler.dart';
 import '../../project/project_models.dart';
-import '../editor_tab_models.dart';
-import '../plugins/editor_plugin_models.dart';
+import '../../editor/editor_tab_models.dart';
+import '../../editor/plugins/editor_plugin_models.dart';
 import 'file_content_provider.dart';
 
 class InternalFileContentProvider

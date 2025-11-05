@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_notifier.dart';
 import '../../../../data/file_handler/file_handler.dart';
-import '../../../../data/repositories/project_repository.dart';
+import '../../../../data/repositories/project/project_repository.dart';
 import 'context_widgets.dart';
 import 'llm_editor_dialogs.dart';
 import '../llm_editor_models.dart';

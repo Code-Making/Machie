@@ -6,11 +6,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/cache/cache_repository.dart';
+import '../../repositories/cache/cache_repository.dart';
 import '../../data/cache/hive_cache_repository.dart';
-import '../../data/cache/type_adapter_registry.dart';
-import '../../data/dto/tab_hot_state_dto.dart';
-import '../../logs/logs_provider.dart';
+import '../type_adapter_registry.dart';
+import '../../dto/tab_hot_state_dto.dart';
+import '../../../logs/logs_provider.dart';
 
 import 'cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
 

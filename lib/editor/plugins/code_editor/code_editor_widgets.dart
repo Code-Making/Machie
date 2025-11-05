@@ -13,12 +13,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
 import '../../../app/app_notifier.dart';
-import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project/project_repository.dart';
 import '../../../editor/services/editor_service.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
 import '../../editor_tab_models.dart';
-import '../../tab_state_manager.dart';
+import '../../tab_metadata_notifier.dart';
 import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
 import 'widgets/code_find_panel_view.dart';
@@ -27,7 +27,7 @@ import 'code_editor_plugin.dart';
 import 'widgets/goto_line_dialog.dart';
 
 import '../../../editor/plugins/editor_command_context.dart';
-import '../../../editor/services/text_editing_capability.dart';
+import '../../text_editing_capability.dart';
 import '../../../command/command_widgets.dart';
 
 import 'code_editor_hot_state_dto.dart';

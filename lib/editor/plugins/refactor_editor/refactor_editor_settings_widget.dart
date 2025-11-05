@@ -12,7 +12,7 @@ import 'refactor_editor_models.dart';
 
 // No longer need these imports for this UI widget
 // import '../../../app/app_notifier.dart';
-// import '../../../data/repositories/project_repository.dart';
+// import '../../../data/repositories/project/project_repository.dart';
 // import '../../../utils/toast.dart';
 
 class RefactorEditorSettingsUI extends ConsumerWidget {

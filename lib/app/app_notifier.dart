@@ -10,13 +10,14 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/file_handler/file_handler.dart';
-import '../data/persistence_service.dart';
-import '../data/repositories/project_repository.dart';
+import '../data/shared_preferences.dart';
+import '../data/repositories/app_state_repository.dart';
+import '../data/repositories/project/project_repository.dart';
 import '../editor/editor_tab_models.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../editor/services/editor_service.dart';
-import '../editor/services/file_content_provider.dart';
-import '../editor/tab_state_manager.dart';
+import '../data/content_provider/file_content_provider.dart';
+import '../editor/tab_metadata_notifier.dart';
 import '../widgets/dialogs/file_explorer_dialogs.dart';
 import '../explorer/services/explorer_service.dart';
 import '../logs/logs_provider.dart';

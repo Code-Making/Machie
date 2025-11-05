@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
-import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project/project_repository.dart';
 import '../../../project/project_models.dart';
 import '../../../project/services/project_hierarchy_service.dart';
 import '../../../widgets/file_list_view.dart';

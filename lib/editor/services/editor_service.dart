@@ -8,9 +8,9 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
-import '../../data/cache/hot_state_cache_service.dart';
+import '../../data/cache/editor_hot_state/hot_state_cache_service.dart';
 import '../../data/dto/project_dto.dart';
-import '../../data/repositories/project_repository.dart';
+import '../../data/repositories/project/project_repository.dart';
 import '../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../widgets/dialogs/save_as_dialog.dart';
 import '../../explorer/services/explorer_service.dart';
@@ -19,9 +19,9 @@ import '../../project/project_models.dart';
 import '../../utils/toast.dart';
 import '../editor_tab_models.dart';
 import '../plugins/editor_plugin_registry.dart';
-import '../tab_state_manager.dart';
-import 'file_content_provider.dart';
-import 'text_editing_capability.dart';
+import '../tab_metadata_notifier.dart';
+import '../../data/content_provider/file_content_provider.dart';
+import '../text_editing_capability.dart';
 
 import '../../data/file_handler/file_handler.dart'
     show DocumentFile, ProjectDocumentFile;
