@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/command/command_models.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,24 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/models/editor_tab_models.dart';
 
-// <-- ADD THIS IMPORT
-import '../editor/plugins/editor_plugin_registry.dart'; // <-- ADD THIS IMPORT
-import '../editor/tab_context_commands.dart'; // <-- IMPORT THE NEW FILE
+import '../editor/plugins/editor_plugin_registry.dart'; 
+import '../editor/tab_context_commands.dart'; 
 
-// This provider simply aggregates all possible TabContextCommands from all active plugins.
-// The final filtering based on context will happen in the UI layer.
 final allTabContextCommandsProvider = Provider<List<TabContextCommand>>((ref) {
   final allPlugins = ref.watch(activePluginsProvider);
 
-  // 1. Start with the generic, app-level commands.
-  final genericCommands = AppTabContextCommands.getCommands();
+    final genericCommands = AppTabContextCommands.getCommands();
 
-  // 2. Get all commands from all plugins.
-  final pluginCommands =
+    final pluginCommands =
       allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
 
-  // 3. Combine them into a single list.
-  return [...genericCommands, ...pluginCommands];
+    return [...genericCommands, ...pluginCommands];
 });
 
 class CommandIcon {
@@ -57,11 +47,14 @@ class CommandPosition {
   final String id;
   final String label;
   final IconData icon;
+  final List<String> mandatoryCommands;
+
 
   const CommandPosition({
     required this.id,
     required this.label,
     required this.icon,
+    this.mandatoryCommands = const [],
   });
 
   @override
@@ -104,8 +97,7 @@ abstract class Command {
   final String id;
   final String label;
   final Widget icon;
-  // THE FIX: Changed from a single object to a List.
-  final List<CommandPosition> defaultPositions;
+    final List<CommandPosition> defaultPositions;
   final String sourcePlugin;
 
   const Command({
@@ -149,50 +141,68 @@ class CommandGroup {
   final String id;
   final String label;
   final String iconName;
+  final Widget? icon;
   final List<String> commandIds;
-  final bool showLabels; // <-- ADDED
+  final bool showLabels;
+  final String sourcePlugin;
+  final bool isDeletable;
+  final List<CommandPosition> defaultPositions; // <-- ADD THIS
 
   const CommandGroup({
     required this.id,
     required this.label,
-    required this.iconName,
+    this.iconName = 'folder',
+    this.icon,
     this.commandIds = const [],
-    this.showLabels =
-        true, // <-- ADDED (default to true for backward compatibility)
+    this.showLabels = true,
+    this.sourcePlugin = 'User',
+    this.isDeletable = true,
+    this.defaultPositions = const [], // <-- ADD THIS
   });
 
-  Widget get icon => CommandIcon.getIcon(iconName);
+  Widget get finalIcon => icon ?? CommandIcon.getIcon(iconName);
 
   CommandGroup copyWith({
     String? label,
     String? iconName,
+    Widget? icon,
     List<String>? commandIds,
-    bool? showLabels, // <-- ADDED
+    bool? showLabels,
+    String? sourcePlugin,
+    bool? isDeletable,
+    List<CommandPosition>? defaultPositions, // <-- ADD THIS
   }) {
     return CommandGroup(
       id: id,
       label: label ?? this.label,
       iconName: iconName ?? this.iconName,
+      icon: icon ?? this.icon,
       commandIds: commandIds ?? this.commandIds,
-      showLabels: showLabels ?? this.showLabels, // <-- ADDED
+      showLabels: showLabels ?? this.showLabels,
+      sourcePlugin: sourcePlugin ?? this.sourcePlugin,
+      isDeletable: isDeletable ?? this.isDeletable,
+      defaultPositions: defaultPositions ?? this.defaultPositions, // <-- ADD THIS
     );
   }
 
+  // Serialization and Deserialization remain unchanged as defaultPositions
+  // are defined at runtime by plugins, not stored in user preferences.
   Map<String, dynamic> toJson() => {
     'id': id,
     'label': label,
     'iconName': iconName,
     'commandIds': commandIds,
-    'showLabels': showLabels, // <-- ADDED
+    'showLabels': showLabels,
   };
 
   factory CommandGroup.fromJson(Map<String, dynamic> json) => CommandGroup(
     id: json['id'],
     label: json['label'],
-    iconName: json['iconName'],
+    iconName: json['iconName'] ?? 'folder',
     commandIds: List<String>.from(json['commandIds']),
-    // Use a null-aware default for old data that won't have this field.
-    showLabels: json['showLabels'] ?? true, // <-- ADDED
+    showLabels: json['showLabels'] ?? true,
+    sourcePlugin: 'User',
+    isDeletable: true,
   );
 }
 
@@ -236,7 +246,6 @@ class BaseFileContextCommand extends FileContextCommand {
       _executeFor(ref, item);
 }
 
-// --- NEW COMMAND TYPE ---
 abstract class TabContextCommand {
   final String id;
   final String label;

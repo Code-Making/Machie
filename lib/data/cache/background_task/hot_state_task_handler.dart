@@ -26,6 +26,7 @@ class HotStateTaskHandler extends TaskHandler {
   // single database isolate managed by the `hive_ce` package.
   late HiveCacheRepository _hiveRepo;
   Timer? _shutdownTimer; // <-- ADDED: The inactivity timer
+  bool _isShutdownScheduled = false; // <-- ADD THIS FLAG
 
   /// Called when the foreground service is started.
   /// This is where we initialize resources needed for the background task.
@@ -52,24 +53,21 @@ class HotStateTaskHandler extends TaskHandler {
     switch (command) {
       // --- NEW HEARTBEAT/LIFECYCLE COMMANDS ---
       case 'heartbeat':
-        // If we receive a heartbeat, it means the UI is active.
-        // We must cancel any pending shutdown timer.
-        if (_shutdownTimer?.isActive ?? false) {
-          // print('[Background Service] Heartbeat received. Shutdown cancelled.');
-          _shutdownTimer!.cancel();
+        // Only cancel the timer if we are not expecting to shut down.
+        if (!_isShutdownScheduled) { // <-- MODIFY THIS BLOCK
+          _shutdownTimer?.cancel();
         }
         break;
 
+      case 'ui_resumed': // <-- ADD THIS NEW CASE
+        _isShutdownScheduled = false;
+        _shutdownTimer?.cancel();
+        break;
+
       case 'ui_paused':
-        // The UI has gone into the background. Start the shutdown timer.
-        // print(
-        //   '[Background Service] UI is paused. Starting 5-minute shutdown timer.',
-        // );
-        _shutdownTimer?.cancel(); // Cancel any existing timer
+        _shutdownTimer?.cancel();
+        _isShutdownScheduled = true; // <-- SET THE FLAG
         _shutdownTimer = Timer(const Duration(minutes: 5), () {
-          // print(
-          //   '[Background Service] Inactivity timeout reached. Stopping service.',
-          // );
           FlutterForegroundTask.stopService();
         });
         break;

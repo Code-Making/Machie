@@ -1,0 +1,189 @@
+import 'package:flutter/material.dart';
+import 'package:tiled/tiled.dart' hide Image;
+
+// Base class for any editable property.
+@immutable
+abstract class PropertyDescriptor {
+  final String name; // The programmatic name (e.g., "tileWidth")
+  final String label; // The user-friendly label (e.g., "Tile Width")
+  final Object? target; // The object being edited (e.g., TiledMap, Layer)
+  final bool isReadOnly;
+
+  const PropertyDescriptor({
+    required this.name,
+    required this.label,
+    this.target,
+    this.isReadOnly = false,
+  });
+
+  dynamic get currentValue;
+  void updateValue(dynamic newValue);
+}
+
+// === Concrete Descriptor Types ===
+
+class IntPropertyDescriptor extends PropertyDescriptor {
+  final int Function() getter;
+  final void Function(int) setter;
+
+  const IntPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  int get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) => setter(int.tryParse(newValue.toString()) ?? currentValue);
+}
+
+class DoublePropertyDescriptor extends PropertyDescriptor {
+  final double Function() getter;
+  final void Function(double) setter;
+
+  const DoublePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  double get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) => setter(double.tryParse(newValue.toString()) ?? currentValue);
+}
+
+class StringPropertyDescriptor extends PropertyDescriptor {
+  final String Function() getter;
+  final void Function(String) setter;
+
+  const StringPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  String get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) => setter(newValue.toString());
+}
+
+class BoolPropertyDescriptor extends PropertyDescriptor {
+  final bool Function() getter;
+  final void Function(bool) setter;
+
+  const BoolPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  bool get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) => setter(newValue as bool);
+}
+
+class ColorPropertyDescriptor extends PropertyDescriptor {
+  final String? Function() getter; // Stored as #AARRGGBB hex string
+  final void Function(String) setter;
+
+  const ColorPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  String? get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) => setter(newValue as String);
+}
+
+// Special descriptor for image paths that can be fixed.
+class ImagePathPropertyDescriptor extends StringPropertyDescriptor {
+  const ImagePathPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+    super.isReadOnly,
+  });
+}
+
+// Descriptor for a nested object, which will lead to another section.
+class ObjectPropertyDescriptor extends PropertyDescriptor {
+  final Object? Function() getter;
+
+  const ObjectPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    super.target,
+  }) : super(isReadOnly: true);
+
+  @override
+  Object? get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) {} // Read-only
+}
+
+class EnumPropertyDescriptor<T extends Enum> extends PropertyDescriptor {
+  final T Function() getter;
+  final void Function(T) setter;
+  final List<T> allValues;
+
+  const EnumPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    required this.allValues,
+    super.isReadOnly,
+  });
+
+  @override
+  T get currentValue => getter();
+  
+  @override
+  void updateValue(dynamic newValue) {
+    if (newValue is T) {
+      setter(newValue);
+    }
+  }
+}
+
+class CustomPropertiesDescriptor extends PropertyDescriptor {
+  final CustomProperties Function() getter;
+  final void Function(CustomProperties) setter;
+
+  const CustomPropertiesDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  CustomProperties get currentValue => getter();
+
+  @override
+  void updateValue(dynamic newValue) {
+    if (newValue is CustomProperties) {
+      setter(newValue);
+    }
+  }
+}

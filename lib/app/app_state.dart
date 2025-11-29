@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/app/app_state.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
@@ -9,9 +5,9 @@ import 'package:collection/collection.dart';
 import '../data/content_provider/file_content_provider.dart';
 import '../project/project_models.dart';
 
-import '../data/dto/app_state_dto.dart'; // ADDED
-import '../data/dto/project_dto.dart'; // ADDED
-import '../editor/tab_metadata_notifier.dart'; // ADDED
+import '../data/dto/app_state_dto.dart';
+import '../data/dto/project_dto.dart';
+import '../editor/tab_metadata_notifier.dart';
 
 @immutable
 class AppState {
@@ -19,11 +15,8 @@ class AppState {
   final String? lastOpenedProjectId;
   final Project? currentProject;
 
-  // These are ephemeral and not part of the core data state.
   final Widget? bottomToolbarOverride;
   final bool isFullScreen;
-
-  // REMOVED: currentProjectState is no longer part of the live model.
 
   const AppState({
     this.knownProjects = const [],
@@ -39,21 +32,16 @@ class AppState {
     Map<String, TabMetadata> liveTabMetadata,
     FileContentProviderRegistry registry,
   ) {
-    ProjectDto? simpleProjectDto;
-    if (currentProject?.projectTypeId == 'simple_local') {
-      simpleProjectDto = currentProject!.toDto(liveTabMetadata, registry);
-    }
-
+    final ProjectDto? projectDto =
+        currentProject?.toDto(liveTabMetadata, registry);
+    
     return AppStateDto(
       knownProjects: knownProjects,
       lastOpenedProjectId: lastOpenedProjectId,
-      currentSimpleProjectDto: simpleProjectDto,
+      currentProjectDto: projectDto,
     );
   }
 
-  // REMOVED: toJson and fromJson are gone.
-
-  // copyWith is simplified.
   AppState copyWith({
     List<ProjectMetadata>? knownProjects,
     String? lastOpenedProjectId,
@@ -76,7 +64,6 @@ class AppState {
     );
   }
 
-  // ... (equality and hashCode updated to remove currentProjectState) ...
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

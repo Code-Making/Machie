@@ -44,7 +44,10 @@ class RecipeTexPlugin extends EditorPlugin {
   @override
   final PluginSettings? settings = null;
   @override
-  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
+    Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) => const SizedBox.shrink();
 
   @override
   bool supportsFile(DocumentFile file) => file.name.endsWith('.tex');

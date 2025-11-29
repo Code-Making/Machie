@@ -65,7 +65,7 @@ class ProjectHierarchyService
 
     // 3. Listen for hidden file setting changes.
     ref.listen<bool>(
-      settingsProvider.select((s) {
+      effectiveSettingsProvider.select((s) {
         final generalSettings =
             s.pluginSettings[GeneralSettings] as GeneralSettings?;
         return generalSettings?.showHiddenFiles ?? false;
@@ -235,7 +235,7 @@ class ProjectHierarchyService
 
     try {
       final showHidden = ref.read(
-        settingsProvider.select((s) {
+        effectiveSettingsProvider.select((s) {
           final generalSettings =
               s.pluginSettings[GeneralSettings] as GeneralSettings?;
           return generalSettings?.showHiddenFiles ?? false;

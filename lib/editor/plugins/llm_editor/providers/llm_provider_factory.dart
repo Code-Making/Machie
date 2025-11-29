@@ -14,7 +14,7 @@ final allLlmProviders = [DummyProvider(), GeminiProvider('')];
 // The main service provider that the UI will use.
 final llmServiceProvider = Provider.autoDispose<LlmProvider>((ref) {
   final providerConfig = ref.watch(
-    settingsProvider.select((s) {
+    effectiveSettingsProvider.select((s) {
       final settings =
           s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?;
       final id = settings?.selectedProviderId ?? 'dummy';

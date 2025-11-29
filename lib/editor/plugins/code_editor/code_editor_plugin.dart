@@ -11,6 +11,7 @@ import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
+import '../../../settings/settings_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../models/editor_command_context.dart';
 import '../../../editor/services/editor_service.dart';
@@ -28,7 +29,8 @@ import 'code_editor_settings_widget.dart';
 import 'code_editor_widgets.dart';
 import '../../../utils/code_themes.dart';
 
-// <-- ADD PATH PACKAGE IMPORT
+import 'package:machine/editor/services/language/language_models.dart';
+import 'package:machine/editor/services/language/language_registry.dart';
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -47,8 +49,11 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   @override
   final PluginSettings? settings = CodeEditorSettings();
   @override
-  Widget buildSettingsUI(PluginSettings settings) =>
-      CodeEditorSettingsUI(settings: settings as CodeEditorSettings);
+  Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) =>
+      CodeEditorSettingsUI(settings: settings as CodeEditorSettings, onChanged: onChanged);
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
@@ -57,7 +62,6 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   Widget wrapCommandToolbar(Widget toolbar) {
-    // This plugin needs to wrap toolbars to handle editor focus correctly.
     return CodeEditorTapRegion(child: toolbar);
   }
 
@@ -71,12 +75,9 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   bool supportsFile(DocumentFile file) {
-    final ext = file.name.split('.').lastOrNull?.toLowerCase();
-    if (ext == null) return false;
-
-    // Check against the map of known language extensions.
-    return CodeThemes.languageExtToNameMap.containsKey(ext);
+    return Languages.isSupported(file.name);
   }
+
 
   /// As the fallback editor for text files, this should always return true.
   /// If no specialized plugin claims the content, this one will.
@@ -94,78 +95,19 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         icon: const Icon(Icons.arrow_downward),
         sourcePlugin: id,
         canExecuteFor: (ref, item) {
-          // ... (canExecuteFor logic is unchanged)
-          if (!supportsFile(item)) {
-            return false;
-          }
-          final activeTab =
-              ref
-                  .read(appNotifierProvider)
-                  .value
-                  ?.currentProject
-                  ?.session
-                  .currentTab;
-          if (activeTab is! CodeEditorTab) {
-            return false;
-          }
+          // 1. Must be in Code Editor
+          final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+          if (activeTab is! CodeEditorTab) return false;
+
+          // 2. Active file must support import formatting
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
-          return activeFile != null && supportsFile(activeFile);
+          if (activeFile == null) return false;
+
+          final config = Languages.getForFile(activeFile.name);
+          return config.importFormatter != null;
         },
-        // v-- THIS is the updated logic --v
         executeFor: (ref, item) async {
-          final activeTab =
-              ref
-                  .read(appNotifierProvider)
-                  .value!
-                  .currentProject!
-                  .session
-                  .currentTab!;
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-          final repo = ref.read(projectRepositoryProvider)!;
-          final activeEditorState = activeTab.editorKey.currentState;
-
-          if (activeEditorState == null || activeEditorState is! TextEditable) {
-            MachineToast.error('Active editor does not support text edits.');
-            return;
-          }
-          final editableState = activeEditorState as TextEditable;
-
-          // 1. Get the full text content using the new interface method
-          final currentContent = await editableState.getTextContent();
-          final lines = currentContent.split('\n');
-
-          // 2. Calculate the relative path for the import
-          final relativePath = _calculateRelativePath(
-            from: activeFile.uri,
-            to: item.uri,
-            fileHandler: repo.fileHandler,
-            ref: ref,
-          );
-
-          if (relativePath == null) {
-            MachineToast.error('Could not calculate relative path.');
-            return;
-          }
-
-          // 3. Check if the import already exists
-          final importStatement = "import '$relativePath';";
-          if (lines.any((line) => line.trim() == importStatement)) {
-            MachineToast.info('Import already exists.');
-            return;
-          }
-
-          // 4. Find the correct line to insert the new import
-          final importRegex = RegExp(r"^\s*import\s+['].*?['];");
-          int lastImportLineIndex = -1;
-          for (int i = 0; i < lines.length; i++) {
-            if (importRegex.hasMatch(lines[i])) {
-              lastImportLineIndex = i;
-            }
-          }
-          final insertionLine = lastImportLineIndex + 1;
-
-          // 5. Use the new, specific interface method to perform the insertion
-          editableState.insertTextAtLine(insertionLine, "$importStatement\n");
+          await _executeAddImport(ref, item);
         },
       ),
     ];
@@ -180,73 +122,102 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         icon: const Icon(Icons.arrow_downward, size: 20),
         sourcePlugin: id,
         canExecuteFor: (ref, activeTab, targetTab) {
-          // 1. The active tab must be a text-editable code editor tab.
-          if (activeTab.plugin.id != id ||
-              activeTab.editorKey.currentState is! TextEditable) {
-            return false;
-          }
-          // 2. The target tab must also be a file supported by this plugin.
-          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]?.file;
-          if (targetFile == null || !supportsFile(targetFile)) {
-            return false;
-          }
-          // 3. The target tab cannot be the same as the active tab.
-          return activeTab.id != targetTab.id;
+          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id) return false;
+
+          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
+          if (activeFile == null) return false;
+
+          final config = Languages.getForFile(activeFile.name);
+          return config.importFormatter != null;
         },
         executeFor: (ref, activeTab, targetTab) async {
-          final activeFile = ref.read(tabMetadataProvider)[activeTab.id]!.file;
-          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]!.file;
-          final repo = ref.read(projectRepositoryProvider)!;
-          final activeEditorState =
-              activeTab.editorKey.currentState as TextEditable;
-
-          // Calculate the relative path for the import
-          final relativePath = _calculateRelativePath(
-            from: activeFile.uri,
-            to: targetFile.uri,
-            fileHandler: repo.fileHandler,
-            ref: ref,
-          );
-
-          if (relativePath == null) {
-            MachineToast.error('Could not calculate relative path.');
-            return;
+          final targetFile = ref.read(tabMetadataProvider)[targetTab.id]?.file;
+          if (targetFile != null) {
+            await _executeAddImport(ref, targetFile);
           }
-
-          // Get the full text content
-          final currentContent = await activeEditorState.getTextContent();
-          final lines = currentContent.split('\n');
-
-          // Check if the import already exists
-          final importStatement = "import '$relativePath';";
-          if (lines.any((line) => line.trim() == importStatement)) {
-            MachineToast.info('Import already exists.');
-            return;
-          }
-
-          // Find the correct line to insert the new import
-          final importRegex = RegExp(
-            r"^\s*import\s+['"
-            "].*?['"
-            "];",
-          );
-          int lastImportLineIndex = -1;
-          for (int i = 0; i < lines.length; i++) {
-            if (importRegex.hasMatch(lines[i])) {
-              lastImportLineIndex = i;
-            }
-          }
-          final insertionLine = lastImportLineIndex + 1;
-
-          // Perform the insertion
-          activeEditorState.insertTextAtLine(
-            insertionLine,
-            "$importStatement\n",
-          );
-          MachineToast.info("Added import: $importStatement");
         },
       ),
     ];
+  }
+  
+  Future<void> _executeAddImport(WidgetRef ref, DocumentFile targetFile) async {
+    final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    if (activeTab == null) return;
+
+    final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
+    final repo = ref.read(projectRepositoryProvider);
+    
+    // Get the TextEditable interface
+    final editorState = activeTab.editorKey.currentState;
+    if (activeFile == null || repo == null || editorState is! TextEditable) {
+      return;
+    }
+    final editable = editorState as TextEditable;
+
+    // 1. Get Configuration
+    final config = Languages.getForFile(activeFile.name);
+    final formatter = config.importFormatter;
+    
+    if (formatter == null) {
+      MachineToast.error("Imports are not supported for ${config.name}");
+      return;
+    }
+
+    // 2. Calculate Relative Path
+    final relativePath = _calculateRelativePath(
+      from: activeFile.uri,
+      to: targetFile.uri,
+      fileHandler: repo.fileHandler,
+      ref: ref,
+    );
+
+    if (relativePath == null) {
+      MachineToast.error('Could not calculate relative path.');
+      return;
+    }
+
+    // 3. Check for Duplicates & Find Insertion Point
+    final currentContent = await editable.getTextContent();
+    final lines = currentContent.split('\n');
+    
+    int lastImportIndex = -1;
+    bool alreadyExists = false;
+
+    // Iterate lines to find import block and check duplicates
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      
+      // Check patterns defined in the language config
+      for (final pattern in config.importPatterns) {
+        final match = pattern.firstMatch(line);
+        if (match != null) {
+          lastImportIndex = i; // Track the last known import line
+          
+          // Check if this import matches our target path
+          // Note: This is a simplified string check. 
+          // 'group(1)' is assumed to be the path based on our Regex convention.
+          if (match.groupCount >= 1) {
+            final existingPath = match.group(1);
+            if (existingPath == relativePath) {
+              alreadyExists = true;
+            }
+          }
+        }
+      }
+      if (alreadyExists) break;
+    }
+
+    if (alreadyExists) {
+      MachineToast.info('Import already exists.');
+      return;
+    }
+
+    // 4. Insert
+    final importStatement = formatter(relativePath);
+    final insertionLine = lastImportIndex + 1;
+    
+    editable.insertTextAtLine(insertionLine, "$importStatement\n");
+    MachineToast.info("Added: $importStatement");
   }
 
   // v-- REPLACED with FileHandler-only implementation --v
@@ -319,19 +290,19 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     final initialContent = stringContent.content;
     final initialBaseContentHash = initData.baseContentHash;
     String? cachedContent;
-    String? initialLanguageKey;
+    String? initialLanguageId;
 
     if (initData.hotState is CodeEditorHotStateDto) {
       final hotState = initData.hotState as CodeEditorHotStateDto;
       cachedContent = hotState.content;
-      initialLanguageKey = hotState.languageKey;
-    }
+      initialLanguageId = hotState.languageId;
+    } 
 
     return CodeEditorTab(
       plugin: this,
       initialContent: initialContent,
       cachedContent: cachedContent,
-      initialLanguageKey: initialLanguageKey,
+      initialLanguageId: initialLanguageId,
       initialBaseContentHash: initialBaseContentHash,
       id: id,
       onReadyCompleter: onReadyCompleter,
@@ -366,32 +337,68 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   List<Command> getAppCommands() => [
-    BaseCommand(
-      id: 'open_scratchpad',
-      label: 'Open Scratchpad',
-      icon: const Icon(Icons.edit_note),
-      defaultPositions: [AppCommandPositions.appBar],
-      sourcePlugin: 'App',
-      // No need to check for a project, the scratchpad is global.
-      canExecute: (ref) => true,
-      execute: (ref) async {
-        // 1. Define the well-known scratchpad file.
-        //    We create a placeholder object; its content will be loaded by the provider.
-        final scratchpadFile = InternalAppFile(
-          uri: 'internal://scratchpad.dart',
-          name: 'Scratchpad',
-          modifiedDate: DateTime.now(), // Placeholder date
-        );
+        BaseCommand(
+          id: 'open_scratchpad',
+          label: 'Open Scratchpad',
+          icon: const Icon(Icons.edit_note),
+          defaultPositions: [AppCommandPositions.appBar],
+          sourcePlugin: 'App',
+          // No need to check for a project, the scratchpad is global.
+          canExecute: (ref) => true,
+          execute: (ref) async {
+            // Read settings to determine which scratchpad to open
+            final settings = ref
+                .read(effectiveSettingsProvider)
+                .pluginSettings[CodeEditorSettings] as CodeEditorSettings?;
 
-        // 2. Ask the app to open it.
-        //    The AppHandle/EditorService will do all the work of checking if it's
-        //    already open, finding the content provider, loading content,
-        //    and creating the tab.
-        await ref
-            .read(appNotifierProvider.notifier)
-            .openFileInEditor(scratchpadFile, explicitPlugin: this);
-      },
-    ),
+            final localPath = settings?.scratchpadLocalPath;
+
+            if (localPath != null && localPath.trim().isNotEmpty) {
+              // A local file path is configured, try to open it.
+              final repo = ref.read(projectRepositoryProvider);
+              if (repo == null) {
+                MachineToast.error(
+                    "A project must be open to use a local scratchpad file.");
+                return;
+              }
+
+              try {
+                // FileHandler works with URIs. Convert the file path to a URI string.
+                // Uri.file() correctly handles platform-specific path formats.
+                final fileUri = Uri.file(localPath.trim()).toString();
+                final file = await repo.fileHandler.getFileMetadata(fileUri);
+
+                if (file != null) {
+                  await ref
+                      .read(appNotifierProvider.notifier)
+                      .openFileInEditor(file, explicitPlugin: this);
+                } else {
+                  MachineToast.error(
+                      'Could not find local scratchpad file at: $localPath');
+                }
+              } catch (e) {
+                MachineToast.error('Error opening local scratchpad file: $e');
+                ref.read(talkerProvider).error(
+                    'Error opening local scratchpad file at path "$localPath"',
+                    e);
+              }
+            } else {
+              // No local file, use the internal scratchpad.
+              final filename =
+                  settings?.scratchpadFilename ?? 'scratchpad.dart';
+
+              final scratchpadFile = InternalAppFile(
+                uri: 'internal://$filename',
+                name: 'Scratchpad',
+                modifiedDate: DateTime.now(), // Placeholder date
+              );
+
+              await ref
+                  .read(appNotifierProvider.notifier)
+                  .openFileInEditor(scratchpadFile, explicitPlugin: this);
+            }
+          },
+        ),
   ];
 
   // The command definitions are now correct. They find the active
@@ -522,14 +529,14 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       label: 'Indent',
       icon: Icons.format_indent_increase,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.applyIndent(true),
+      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.applyIndent(true);},
     ),
     _createCommand(
       id: 'outdent',
       label: 'Outdent',
       icon: Icons.format_indent_decrease,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.applyOutdent(),
+      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.applyOutdent();},
     ),
     _createCommand(
       id: 'toggle_comment',
@@ -537,6 +544,13 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       icon: Icons.comment,
       defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
       execute: (ref, editor) => editor?.toggleComments(),
+    ),
+    _createCommand(
+      id: 'delete_comment_text',
+      label: 'Delete Comment Text',
+      icon: Icons.delete_sweep_outlined,
+      defaultPositions: [AppCommandPositions.pluginToolbar, selectionToolbar],
+      execute: (ref, editor) => editor?.deleteCommentText(),
     ),
     _createCommand(
       id: 'select_all',
@@ -550,14 +564,14 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       label: 'Move Line Up',
       icon: Icons.arrow_upward,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.moveSelectionLinesUp(),
+      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.moveSelectionLinesUp();},
     ),
     _createCommand(
       id: 'move_line_down',
       label: 'Move Line Down',
       icon: Icons.arrow_downward,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) => editor?.controller.moveSelectionLinesDown(),
+      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.moveSelectionLinesDown();},
     ),
     BaseCommand(
       id: 'undo',

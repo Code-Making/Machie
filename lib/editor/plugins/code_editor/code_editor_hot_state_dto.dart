@@ -14,11 +14,11 @@ class CodeEditorHotStateDto extends TabHotStateDto {
 
   /// The user-overridden language key for syntax highlighting (e.g., 'dart', 'python').
   /// This is null if the language is just inferred from the file extension.
-  final String? languageKey;
+  final String? languageId;
 
   const CodeEditorHotStateDto({
     required this.content,
-    this.languageKey,
-    super.baseContentHash, // <-- ADDED
+    this.languageId,
+    super.baseContentHash,
   });
 }

@@ -177,7 +177,6 @@ class _EditMessageDialogState extends ConsumerState<EditMessageDialog> {
   }
 }
 
-
 class FilePickerLiteDialog extends ConsumerStatefulWidget {
   final String projectRootUri;
   const FilePickerLiteDialog({super.key, required this.projectRootUri});
@@ -256,7 +255,10 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
     );
 
     if (result != null) {
-      final List<ProjectDocumentFile> filesToAdd = await _gatherFiles(folder, result);
+      final List<ProjectDocumentFile> filesToAdd = await _gatherFiles(
+        folder,
+        result,
+      );
       if (mounted) {
         Navigator.of(context).pop(filesToAdd);
       }
@@ -382,7 +384,7 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                               sortedNodes.where((node) {
                                 // Always show directories.
                                 if (node.file.isDirectory) return true;
-                                
+
                                 // For files, check if the extension is recognized.
                                 final extension =
                                     node.file.name
@@ -408,13 +410,9 @@ class _FilePickerLiteDialogState extends ConsumerState<FilePickerLiteDialog> {
                                 return ListTile(
                                   leading: const Icon(Icons.folder_outlined),
                                   title: Text(node.file.name),
-                                  onTap:
-                                      () => _setCurrentPath(
-                                        node.file.uri,
-                                      ),
+                                  onTap: () => _setCurrentPath(node.file.uri),
                                   onLongPress:
-                                      () =>
-                                          _onLongPressFolder(node.file),
+                                      () => _onLongPressFolder(node.file),
                                 );
                               } else {
                                 return ListTile(

@@ -1,16 +1,13 @@
-import 'dart:async'; // Import for Timer
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/cache/editor_hot_state/hot_state_cache_service.dart';
-import '../logs/logs_provider.dart';
 import 'app_notifier.dart';
+import '../logs/logs_provider.dart';
+import '../data/cache/hot_state_cache_service.dart';
 
-import '../data/cache/editor_hot_state/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-
-// Handles app lifecycle events, primarily for saving state.
+/// Handles app lifecycle events, primarily for saving state.
 class LifecycleHandler extends ConsumerStatefulWidget {
   final Widget child;
   final Talker talker;
@@ -47,11 +44,9 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
   void _startHeartbeat() {
     _stopHeartbeat();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      // Use the manager
-      ref.read(cacheServiceManagerProvider).sendHeartbeat();
+      ref.read(hotStateCacheServiceProvider).sendHeartbeat();
     });
-    // Use the manager
-    ref.read(cacheServiceManagerProvider).sendHeartbeat();
+    ref.read(hotStateCacheServiceProvider).sendHeartbeat();
     ref.read(talkerProvider).info('[Lifecycle] Heartbeat started.');
   }
 
@@ -65,10 +60,11 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
 
-    final cacheServiceManager = ref.read(cacheServiceManagerProvider);
+    final hotStateCacheService = ref.read(hotStateCacheServiceProvider);
 
     if (state == AppLifecycleState.resumed) {
       _startHeartbeat();
+      await hotStateCacheService.notifyUiResumed();
     } else {
       _stopHeartbeat();
     }
@@ -79,20 +75,17 @@ class _LifecycleHandlerState extends ConsumerState<LifecycleHandler>
           .info(
             '[Lifecycle] App paused. Flushing state and notifying service.',
           );
-      await ref.read(hotStateCacheServiceProvider).flush();
+      await hotStateCacheService.flush();
       await ref.read(appNotifierProvider.notifier).saveNonHotState();
-      // Use the manager
-      await cacheServiceManager.notifyUiPaused();
+      await hotStateCacheService.notifyUiPaused();
     }
 
     if (state == AppLifecycleState.detached) {
       ref
           .read(talkerProvider)
           .info('[Lifecycle] App detached. Stopping service immediately.');
-      await ref.read(hotStateCacheServiceProvider).flush();
+      await hotStateCacheService.flush();
       await ref.read(appNotifierProvider.notifier).saveNonHotState();
-      // Use the manager
-      //await cacheServiceManager.stop();
     }
   }
 

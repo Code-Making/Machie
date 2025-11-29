@@ -11,6 +11,8 @@ import '../models/editor_plugin_models.dart';
 import 'recipe_tex/recipe_tex_plugin.dart';
 
 import 'refactor_editor/refactor_editor_plugin.dart'; // <-- 1. IMPORT THE NEW PLUGIN
+import 'tiled_editor/tiled_editor_plugin.dart';
+
 export '../models/editor_plugin_models.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
@@ -20,6 +22,7 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     RecipeTexPlugin(),
     LlmEditorPlugin(),
     RefactorEditorPlugin(),
+    TiledEditorPlugin(),
   },
 );
 

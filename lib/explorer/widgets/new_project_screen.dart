@@ -1,46 +1,20 @@
-// lib/explorer/new_project_screen.dart
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app_notifier.dart';
-import '../../data/file_handler/local_file_handler.dart';
-
-// REFACTOR: This screen now needs to show the different project "types".
-// Let's create a simple model for that.
-class ProjectTypeInfo {
-  final String id;
-  final String name;
-  final String description;
-  const ProjectTypeInfo(this.id, this.name, this.description);
-}
-
-final projectTypesProvider = Provider<List<ProjectTypeInfo>>((ref) {
-  return const [
-    ProjectTypeInfo(
-      'local_persistent',
-      'Persistent Project',
-      'Saves session data and settings in a hidden ".machine" folder within your project directory.',
-    ),
-    ProjectTypeInfo(
-      'simple_local',
-      'Simple Project',
-      'A temporary project. No files are created in the project folder. Session is discarded when another project is opened.',
-    ),
-  ];
-});
+import '../../project/project_type_handler_registry.dart';
+import 'persistence_selection_screen.dart';
 
 class NewProjectScreen extends ConsumerWidget {
   const NewProjectScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final projectTypes = ref.watch(projectTypesProvider);
+    // Watch the registry to get the list of available handlers.
+    final handlers = ref.watch(projectTypeHandlerRegistryProvider).values.toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create or Open Project'),
+        title: const Text('Step 1: Choose Project Type'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -50,27 +24,21 @@ class NewProjectScreen extends ConsumerWidget {
         ],
       ),
       body: ListView.builder(
-        itemCount: projectTypes.length,
+        itemCount: handlers.length,
         itemBuilder: (context, index) {
-          final projectType = projectTypes[index];
+          final handler = handlers[index];
           return ListTile(
-            leading: const Icon(Icons.create_new_folder_outlined),
-            title: Text(projectType.name),
-            subtitle: Text(projectType.description),
-            onTap: () async {
-              final fileHandler = LocalFileHandlerFactory.create();
-              final pickedDir = await fileHandler.pickDirectory();
-
-              if (pickedDir != null && context.mounted) {
-                await ref
-                    .read(appNotifierProvider.notifier)
-                    .openProjectFromFolder(
-                      folder: pickedDir,
-                      projectTypeId: projectType.id,
-                    );
-                if (!context.mounted) return;
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
+            leading: Icon(handler.icon),
+            title: Text(handler.name),
+            subtitle: Text(handler.description),
+            onTap: () {
+              // When a project type is tapped, navigate to the second step,
+              // passing the selected handler along.
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => PersistenceSelectionScreen(handler: handler),
+                ),
+              );
             },
           );
         },

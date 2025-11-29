@@ -1,6 +1,5 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/git_explorer/git_explorer_state.dart
-// =========================================
+// FILE: lib/explorer/plugins/git_explorer/git_explorer_state.dart
+
 
 import 'dart:async';
 
@@ -13,12 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'git_object_file.dart';
 import 'git_provider.dart';
 
-// NEW: This provider tracks the commit hash that serves as the starting point for the history view.
-// When a user "jumps to" a hash, this provider's state is updated.
 final gitHistoryStartHashProvider = StateProvider<GitHash?>((ref) => null);
 
-// NEW: A provider to fetch the details of a single commit by its hash.
-// This decouples the main commit display from the paginated list.
 final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
   ref,
   hash,
@@ -26,15 +21,12 @@ final gitCommitDetailsProvider = FutureProvider.family<GitCommit?, GitHash>((
   final gitRepo = await ref.watch(gitRepositoryProvider.future);
   if (gitRepo == null) return null;
   try {
-    // Directly read the commit from the object store.
     return await gitRepo.objStorage.readCommit(hash);
   } catch (e) {
-    // If the hash is invalid or not a commit, return null.
     return null;
   }
 });
 
-// This efficient iterator remains the same.
 Stream<GitCommit> firstParentCommitIterator({
   required ObjectStorage objStorage,
   required GitHash from,
@@ -54,7 +46,6 @@ Stream<GitCommit> firstParentCommitIterator({
 const _commitsPerPage = 10;
 
 class PaginatedCommitsState extends Equatable {
-  /* ... unchanged ... */
   final List<GitCommit> commits;
   final bool isLoading;
   final bool hasMore;
@@ -76,8 +67,6 @@ class PaginatedCommitsState extends Equatable {
   List<Object?> get props => [commits, isLoading, hasMore];
 }
 
-// REFACTORED: This is now an AutoDisposeFamilyAsyncNotifier, parameterized by the starting commit hash.
-// When the start hash changes, Riverpod automatically creates a new instance and fetches a new history.
 class PaginatedCommitsNotifier
     extends AutoDisposeFamilyAsyncNotifier<PaginatedCommitsState, GitHash> {
   StreamIterator<GitCommit>? _iterator;
@@ -141,24 +130,11 @@ final paginatedCommitsProvider = AutoDisposeAsyncNotifierProvider.family<
 final gitExplorerExpandedFoldersProvider =
     StateProvider.autoDispose<Set<String>>((ref) => {});
 
+// SIMPLIFIED: The selected hash now defaults to whatever the history start hash is.
 final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
-  // We need to know which history we're listening to.
-  final startHash = ref.watch(gitHistoryStartHashProvider);
-  if (startHash == null) return null;
-
-  // Listen to the specific paginated provider for this history.
-  ref.listen(paginatedCommitsProvider(startHash), (_, next) {
-    final commits = next.valueOrNull?.commits;
-    if (commits != null && commits.isNotEmpty) {
-      final currentState = ref.controller.state;
-      // Set the initial selected commit only if one isn't already selected.
-      if (currentState == null) {
-        ref.controller.state = commits.first.hash;
-      }
-    }
-  });
-  return null;
+  return ref.watch(gitHistoryStartHashProvider);
 });
+
 
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<
   GitTreeCacheNotifier,
@@ -172,22 +148,44 @@ class GitTreeCacheNotifier
         > {
   @override
   Map<String, AsyncValue<List<GitObjectDocumentFile>>> build() {
-    ref.watch(selectedGitCommitHashProvider);
+    ref.listen<GitHash?>(selectedGitCommitHashProvider, (previous, next) {
+      if (previous != next && next != null) {
+        state = {};
+        ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
+        loadDirectory('');
+      }
+    });
+
+    final currentHash = ref.watch(selectedGitCommitHashProvider);
+    if (currentHash != null) {
+      Future.microtask(() => loadDirectory(''));
+    }
+
     return {};
   }
 
   Future<void> loadDirectory(String pathInRepo) async {
+    // We keep this guard to prevent redundant fetches.
     if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) {
       return;
     }
+    
+    final initialCommitHash = ref.read(selectedGitCommitHashProvider);
+    if (initialCommitHash == null) return;
+
     state = {...state, pathInRepo: const AsyncLoading()};
+    
     try {
       final gitRepo = await ref.read(gitRepositoryProvider.future);
-      final commitHash = ref.read(selectedGitCommitHashProvider);
-      if (gitRepo == null || commitHash == null) {
-        throw Exception("Git repository or commit not available");
+
+      // After an await, re-read the latest state. If the user changed the commit
+      // while we were loading the repo, we should abort this load.
+      final currentCommitHash = ref.read(selectedGitCommitHashProvider);
+      if (gitRepo == null || currentCommitHash == null || currentCommitHash != initialCommitHash) {
+        return; // Abort if repo isn't available or commit has changed.
       }
-      final commit = await gitRepo.objStorage.readCommit(commitHash);
+      
+      final commit = await gitRepo.objStorage.readCommit(currentCommitHash);
       GitTree tree;
       if (pathInRepo.isEmpty) {
         tree = await gitRepo.objStorage.readTree(commit.treeHash);
@@ -202,7 +200,7 @@ class GitTreeCacheNotifier
                   pathInRepo.isEmpty ? entry.name : '$pathInRepo/${entry.name}';
               return GitObjectDocumentFile(
                 name: entry.name,
-                commitHash: commitHash,
+                commitHash: currentCommitHash,
                 objectHash: entry.hash,
                 pathInRepo: fullPath,
                 isDirectory: entry.mode == GitFileMode.Dir,
@@ -212,9 +210,17 @@ class GitTreeCacheNotifier
               if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
               return a.name.compareTo(b.name);
             });
-      state = {...state, pathInRepo: AsyncData(items)};
+      
+      // Update state only if the provider has not been disposed and the commit hasn't changed.
+      if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
+        state = {...state, pathInRepo: AsyncData(items)};
+      }
     } catch (e, st) {
-      state = {...state, pathInRepo: AsyncError(e, st)};
+      // If the provider has been disposed, trying to update state will throw.
+      // We can safely catch this and do nothing. The check here is mostly for safety.
+      if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
+         state = {...state, pathInRepo: AsyncError(e, st)};
+      }
     }
   }
 }

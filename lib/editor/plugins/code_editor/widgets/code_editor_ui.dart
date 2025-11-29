@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:math';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
@@ -91,8 +88,6 @@ class CustomLineNumberWidget extends StatelessWidget {
     );
   }
 }
-
-
 
 // in lib/editor/plugins/code_editor/code_editor_widgets.dart
 

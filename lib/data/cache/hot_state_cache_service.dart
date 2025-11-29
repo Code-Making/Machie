@@ -6,41 +6,63 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../repositories/cache/cache_repository.dart';
-import '../../repositories/cache/hive_cache_repository.dart';
-import '../type_adapter_registry.dart';
-import '../../dto/tab_hot_state_dto.dart';
-import '../../../logs/logs_provider.dart';
+import '../repositories/cache/cache_repository.dart';
+import '../repositories/cache/hive_cache_repository.dart';
+import 'type_adapter_registry.dart';
+import '../dto/tab_hot_state_dto.dart';
+import '../../logs/logs_provider.dart';
 
-import 'cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-
-final cacheRepositoryProvider = Provider<CacheRepository>((ref) {
-  final talker = ref.read(talkerProvider);
-  return HiveCacheRepository(talker);
-});
+import 'background_task/background_cache_service.dart'; // <-- Add import
 
 final hotStateCacheServiceProvider = Provider<HotStateCacheService>((ref) {
   return HotStateCacheService(
     ref.watch(cacheRepositoryProvider),
     ref.watch(typeAdapterRegistryProvider),
     ref.watch(talkerProvider),
-    ref.watch(cacheServiceManagerProvider), // <-- INJECT THE MANAGER
+    ref.watch(backgroundCacheServiceProvider), // <-- New provider
   );
+});
+
+final cacheRepositoryProvider = Provider<CacheRepository>((ref) {
+  final talker = ref.read(talkerProvider);
+  return HiveCacheRepository(talker);
 });
 
 class HotStateCacheService {
   final CacheRepository _cacheRepository;
   final TypeAdapterRegistry _adapterRegistry;
   final Talker _talker;
-  final CacheServiceManager _cacheServiceManager; // <-- STORE THE MANAGER
+  final BackgroundCacheService _backgroundTaskService; // <-- STORE THE MANAGER
   Timer? _debounceTimer;
 
   HotStateCacheService(
     this._cacheRepository,
     this._adapterRegistry,
     this._talker,
-    this._cacheServiceManager, // <-- ADD TO CONSTRUCTOR
+    this._backgroundTaskService, // <-- ADD TO CONSTRUCTOR
   );
+  
+  /// Initializes and starts the background caching service.
+  /// This should be called once during app startup.
+  Future<void> initializeAndStart() async {
+    await _backgroundTaskService.initialize();
+    await _backgroundTaskService.start();
+  }
+
+  /// Sends a keep-alive signal to the background service.
+  Future<void> sendHeartbeat() async {
+    await _backgroundTaskService.sendHeartbeat();
+  }
+
+  /// Notifies the service that the UI is visible and active again.
+  Future<void> notifyUiResumed() async {
+    await _backgroundTaskService.notifyUiResumed();
+  }
+
+  /// Notifies the service that the UI is paused (e.g., app is backgrounded).
+  Future<void> notifyUiPaused() async {
+    await _backgroundTaskService.notifyUiPaused();
+  }
 
   void updateTabState(String projectId, String tabId, TabHotStateDto dto) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
@@ -56,12 +78,12 @@ class HotStateCacheService {
       payload['__type__'] = type;
 
       // Use the manager to send the data
-      await _cacheServiceManager.updateHotState(projectId, tabId, payload);
+      await _backgroundTaskService.updateHotState(projectId, tabId, payload);
     });
   }
 
   Future<void> flush() async {
-    await _cacheServiceManager.flushHotState();
+    await _backgroundTaskService.flushHotState();
   }
 
   Future<TabHotStateDto?> getTabState(String projectId, String tabId) async {
@@ -97,13 +119,15 @@ class HotStateCacheService {
     }
 
     await _cacheRepository.delete(projectId, tabId);
-    await _cacheServiceManager.clearTabState(projectId, tabId);
+    await _backgroundTaskService.clearTabState(projectId, tabId);
   }
 
   Future<void> clearProjectCache(String projectId) async {
     _talker.info(
       'HotStateCacheService: Clearing all cache for project "$projectId".',
     );
+    // Clear from both persistent and in-memory cache
     await _cacheRepository.clearBox(projectId);
+    await _backgroundTaskService.clearProjectCache(projectId);
   }
 }

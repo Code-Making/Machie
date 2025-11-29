@@ -1,22 +1,20 @@
-// =========================================
-// lib/project/services/project_service.dart
-// =========================================
-
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../data/cache/editor_hot_state/hot_state_cache_service.dart';
+import '../../data/cache/hot_state_cache_service.dart';
+import '../../data/content_provider/file_content_provider.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/file_handler/file_handler.dart';
-import '../../data/file_handler/local_file_handler.dart';
-import '../../data/repositories/project/persistent_project_repository.dart';
 import '../../data/repositories/project/project_repository.dart';
-import '../../data/repositories/project/simple_project_repository.dart';
-import '../../data/content_provider/file_content_provider.dart';
+import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../editor/tab_metadata_notifier.dart';
+import '../../explorer/explorer_plugin_registry.dart';
+import '../../settings/settings_notifier.dart';
 import '../project_models.dart';
+import '../project_settings_models.dart';
+import '../project_type_handler_registry.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
@@ -52,80 +50,116 @@ class ProjectService {
   final Ref _ref;
   ProjectService(this._ref);
 
-  Future<OpenProjectResult> openFromFolder({
-    required DocumentFile folder,
-    required String projectTypeId,
-    required List<ProjectMetadata> knownProjects,
-  }) async {
-    ProjectMetadata? meta = knownProjects.firstWhereOrNull(
-      (p) => p.rootUri == folder.uri && p.projectTypeId == projectTypeId,
-    );
-    final bool isNew = meta == null;
-    meta ??= _createNewProjectMetadata(
-      rootUri: folder.uri,
-      name: folder.name,
-      projectTypeId: projectTypeId,
-    );
 
-    final projectDto = await openProjectDto(meta);
-    return OpenProjectResult(
-      projectDto: projectDto,
-      metadata: meta,
-      isNew: isNew,
-    );
-  }
-
+  
   Future<ProjectDto> openProjectDto(
     ProjectMetadata metadata, {
     Map<String, dynamic>? projectStateJson,
   }) async {
-    final fileHandler = LocalFileHandlerFactory.create();
-    final ProjectRepository repo;
+    final handlers = _ref.read(projectTypeHandlerRegistryProvider);
+    final handler = handlers[metadata.projectTypeId];
 
-    if (!await fileHandler.hasPermission(metadata.rootUri)) {
-      // If we don't have permission, we immediately throw our custom exception.
-      // This bypasses the silent failure of `listDirectory` and triggers
-      // the recovery flow in the AppNotifier.
+    if (handler == null) {
+      throw StateError(
+        'No ProjectTypeHandler found for project type: "${metadata.projectTypeId}"',
+      );
+    }
+
+    // --- SOLUTION: Restore the Permission Pre-Check ---
+    // Check for permission BEFORE trying to create the repository or load data.
+    if (!await handler.hasPersistedPermission(metadata)) {
+      // If permission is missing, throw the specific exception that the
+      // AppNotifier knows how to handle to trigger the recovery flow.
       throw ProjectPermissionDeniedException(
         metadata: metadata,
         deniedUri: metadata.rootUri,
       );
     }
+    // --- END SOLUTION ---
 
-    if (metadata.projectTypeId == 'local_persistent') {
-      // We still need to handle a potential permission error here,
-      // as creating the .machine folder is a file operation.
-      try {
-        final projectDataPath = await _ensureProjectDataFolder(
-          fileHandler,
-          metadata.rootUri,
-        );
-        repo = PersistentProjectRepository(fileHandler, projectDataPath);
-      } on PermissionDeniedException catch (e) {
-        // Re-throw with more context if this specific operation fails.
-        throw ProjectPermissionDeniedException(
-          metadata: metadata,
-          deniedUri: e.uri,
-        );
-      }
-    } else {
-      // 'simple_local'
-      repo = SimpleProjectRepository(fileHandler, projectStateJson);
-    }
+    // This code now only runs if we are sure we have permission.
+    final repo = handler.createRepository(
+      metadata,
+      projectStateJson: projectStateJson,
+    );
 
     _ref.read(projectRepositoryProvider.notifier).state = repo;
 
+    // The try/catch here is now a secondary safety net, but the primary
+    // check above will handle most rehydration failures.
     try {
-      // Attempt to load the project state.
       return await repo.loadProjectDto();
     } on PermissionDeniedException catch (e) {
-      // If loading fails due to permissions, catch the low-level exception
-      // and re-throw our new, high-level exception with all the context.
       throw ProjectPermissionDeniedException(
         metadata: metadata,
         deniedUri: e.uri,
       );
     }
+  }
+  
+  ProjectSettingsState rehydrateProjectSettings(
+    ProjectSettingsDto? dto,
+    ProjectMetadata metadata,
+  ) {
+    if (dto == null) {
+      return const ProjectSettingsState();
+    }
+
+    // 1. Rehydrate Plugin Setting Overrides
+    final editorPlugins = _ref.read(activePluginsProvider);
+    final allKnownAppSettings = [
+      GeneralSettings(),
+      ...editorPlugins.map((p) => p.settings).whereNotNull(),
+    ];
+    final Map<Type, MachineSettings> pluginOverrides = {};
+    for (final entry in dto.pluginSettingsOverrides.entries) {
+      final typeString = entry.key;
+      final settingsJson = entry.value;
+      final settingTemplate = allKnownAppSettings.firstWhereOrNull(
+        (s) => s.runtimeType.toString() == typeString,
+      );
+
+      if (settingTemplate != null) {
+        // *** THE CRITICAL FIX IS HERE ***
+        // 1. Clone the template to get a fresh, clean instance.
+        final newInstance = settingTemplate.clone();
+        // 2. Hydrate the NEW instance, leaving the original template untouched.
+        newInstance.fromJson(settingsJson);
+        pluginOverrides[newInstance.runtimeType] = newInstance;
+      }
+    }
+
+    // 2. Rehydrate Explorer Plugin Setting Overrides
+    final explorerPlugins = _ref.read(explorerRegistryProvider);
+    final Map<String, ExplorerPluginSettings> explorerOverrides = {};
+    for (final entry in dto.explorerPluginSettingsOverrides.entries) {
+      final pluginId = entry.key;
+      final settingsJson = entry.value;
+      final plugin = explorerPlugins.firstWhereOrNull((p) => p.id == pluginId);
+      if (plugin?.settings != null) {
+        // *** APPLY THE SAME FIX HERE ***
+        final newInstance = plugin!.settings!.clone() as ExplorerPluginSettings;
+        newInstance.fromJson(settingsJson);
+        explorerOverrides[pluginId] = newInstance;
+      }
+    }
+
+    // 3. Rehydrate Project-Type-Specific Settings
+    final handlers = _ref.read(projectTypeHandlerRegistryProvider);
+    final handler = handlers[metadata.projectTypeId];
+    ProjectSettings? typeSpecificSettings;
+    if (handler?.projectTypeSettings != null &&
+        dto.typeSpecificSettings != null) {
+      // *** AND APPLY THE FIX HERE AS WELL ***
+      typeSpecificSettings = handler!.projectTypeSettings!.clone() as ProjectSettings;
+      typeSpecificSettings.fromJson(dto.typeSpecificSettings!);
+    }
+
+    return ProjectSettingsState(
+      pluginSettingsOverrides: pluginOverrides,
+      explorerPluginSettingsOverrides: explorerOverrides,
+      typeSpecificSettings: typeSpecificSettings,
+    );
   }
 
   Future<void> saveProject(Project project) async {
@@ -133,7 +167,6 @@ class ProjectService {
     if (repo == null) return;
 
     final liveMetadata = _ref.read(tabMetadataProvider);
-    // THE FIX: The registry is now read from the ref and passed to toDto.
     final registry = _ref.read(fileContentProviderRegistryProvider);
     final projectDto = project.toDto(liveMetadata, registry);
 
@@ -157,58 +190,20 @@ class ProjectService {
     }
 
     await _ref.read(hotStateCacheServiceProvider).clearProjectCache(project.id);
-
     _ref.read(projectRepositoryProvider.notifier).state = null;
     _ref.read(tabMetadataProvider.notifier).clear();
-
-    // FIX: Removed the call to _stopCacheService(). It is now handled globally.
   }
 
-  Future<bool> reGrantPermissionForProject(ProjectMetadata metadata) async {
-    // This service knows that "local" projects use a LocalFileHandler.
-    // Future project types (e.g., 'git_project') could have different logic here.
-    if (metadata.projectTypeId == 'local_persistent' ||
-        metadata.projectTypeId == 'simple_local') {
-      final handler = LocalFileHandlerFactory.create();
-      return await handler.reRequestPermission(metadata.rootUri);
-    }
-
-    // For unknown or unsupported project types, we cannot re-grant.
-    return false;
-  }
-
-  ProjectMetadata _createNewProjectMetadata({
-    required String rootUri,
-    required String name,
-    required String projectTypeId,
-  }) {
-    return ProjectMetadata(
-      id: const Uuid().v4(),
-      name: name,
-      rootUri: rootUri,
-      projectTypeId: projectTypeId,
-      lastOpenedDateTime: DateTime.now(),
-    );
-  }
-
-  Future<String> _ensureProjectDataFolder(
-    FileHandler handler,
-    String projectRootUri,
+  Future<bool> recoverPermissionForProject(
+    ProjectMetadata metadata,
+    BuildContext context,
   ) async {
-    final files = await handler.listDirectory(
-      projectRootUri,
-      includeHidden: true,
-    );
-    final machineDir = files.firstWhereOrNull(
-      (f) => f.name == '.machine' && f.isDirectory,
-    );
-    final dir =
-        machineDir ??
-        await handler.createDocumentFile(
-          projectRootUri,
-          '.machine',
-          isDirectory: true,
-        );
-    return dir.uri;
+    final handlers = _ref.read(projectTypeHandlerRegistryProvider);
+    final handler = handlers[metadata.projectTypeId];
+    if (handler == null) {
+      return false;
+    }
+    // Delegate the entire recovery flow to the specific handler.
+    return handler.recoverPermission(metadata, context);
   }
 }

@@ -1,9 +1,3 @@
-// =========================================
-// FILE: lib/editor/plugins/glitch_editor/glitch_editor_plugin.dart
-// =========================================
-
-// lib/plugins/glitch_editor/glitch_editor_plugin.dart
-
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -46,7 +40,11 @@ class GlitchEditorPlugin extends EditorPlugin {
   @override
   final PluginSettings? settings = null;
   @override
-  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
+    Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) => const SizedBox.shrink();
+  
   @override
   Type? get hotStateDtoRuntimeType => GlitchEditorHotStateDto;
 
@@ -108,20 +106,6 @@ class GlitchEditorPlugin extends EditorPlugin {
       onReadyCompleter: onReadyCompleter,
     );
   }
-
-  // @override
-  // Future<EditorTab> createTabFromSerialization(
-  //   Map<String, dynamic> tabJson,
-  //   FileHandler fileHandler,
-  // ) async {
-  //   final fileUri = tabJson['fileUri'];
-  //   if (fileUri == null) throw Exception('File URI not found in serialization');
-  //   final file = await fileHandler.getFileMetadata(fileUri);
-  //   if (file == null) throw Exception('File not found: $fileUri');
-  //   final fileBytes = await fileHandler.readFileAsBytes(file.uri);
-  //   final initData = EditorInitData(byteData: fileBytes);
-  //   return createTab(file, initData);
-  // }
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {

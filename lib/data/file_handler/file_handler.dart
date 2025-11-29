@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-
+//TODO: CHANGE LOCATION maybe ?
 class PermissionDeniedException implements Exception {
   /// The URI for which permission was denied.
   final String uri;
@@ -31,16 +31,10 @@ abstract class ProjectDocumentFile extends DocumentFile {}
 /// The contract for handling file system operations.
 /// It now explicitly produces and consumes [ProjectDocumentFile] instances.
 abstract class FileHandler {
-  Future<bool> hasPermission(String uri);
-  Future<bool> reRequestPermission(String uri);
-  Future<ProjectDocumentFile?> pickDirectory();
   Future<List<ProjectDocumentFile>> listDirectory(
     String uri, {
     bool includeHidden = false,
   });
-  Future<ProjectDocumentFile?> pickFile();
-  Future<List<ProjectDocumentFile>> pickFiles();
-
   Future<String> readFile(String uri);
   Future<Uint8List> readFileAsBytes(String uri);
   Future<Uint8List> readFileAsBytesRange(String uri, int start, int end);

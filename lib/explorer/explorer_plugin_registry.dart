@@ -1,15 +1,13 @@
-// lib/explorer/explorer_plugin_registry.dart
+// FILE: lib/explorer/explorer_plugin_registry.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/app_notifier.dart';
+import '../app/app_notifier.dart'; // Keep for other logic if needed
+import '../settings/settings_notifier.dart'; // Import settings
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
-import 'plugins/file_explorer/file_explorer_state.dart';
 import 'plugins/search_explorer/search_explorer_plugin.dart';
-import 'services/explorer_service.dart';
-
-import 'plugins/git_explorer/git_explorer_plugin.dart'; // IMPORT THE NEW PLUGIN
+import 'plugins/git_explorer/git_explorer_plugin.dart';
 
 export 'explorer_plugin_models.dart';
 
@@ -17,7 +15,7 @@ final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
   return [
     FileExplorerPlugin(),
     SearchExplorerPlugin(),
-    GitExplorerPlugin(), // REGISTER THE PLUGIN
+    GitExplorerPlugin(),
   ];
 });
 
@@ -25,19 +23,16 @@ final activeExplorerProvider = StateProvider<ExplorerPlugin>((ref) {
   return ref.watch(explorerRegistryProvider).first;
 });
 
+// FIX: Read settings from the global settingsProvider
 final activeExplorerSettingsProvider = Provider<ExplorerPluginSettings?>((ref) {
-  final project = ref.watch(appNotifierProvider).value?.currentProject;
   final activePlugin = ref.watch(activeExplorerProvider);
-  if (project == null || activePlugin.settings == null) {
-    return null;
+  final appSettings = ref.watch(settingsProvider);
+
+  if (appSettings.explorerPluginSettings.containsKey(activePlugin.id)) {
+    return appSettings.explorerPluginSettings[activePlugin.id]
+        as ExplorerPluginSettings;
   }
 
-  final pluginStateJson = project.workspace.pluginStates[activePlugin.id];
-  if (pluginStateJson != null && pluginStateJson is Map<String, dynamic>) {
-    if (activePlugin.id == 'com.machine.file_explorer') {
-      return FileExplorerSettings.fromJson(pluginStateJson);
-    }
-  }
   return activePlugin.settings;
 });
 
@@ -52,23 +47,21 @@ class ActiveExplorerNotifier {
   Future<void> updateSettings(
     ExplorerPluginSettings Function(ExplorerPluginSettings?) updater,
   ) async {
-    final project = _ref.read(appNotifierProvider).value?.currentProject;
     final activePlugin = _ref.read(activeExplorerProvider);
-    final explorerService = _ref.read(explorerServiceProvider);
-    final appNotifier = _ref.read(appNotifierProvider.notifier);
-
-    if (project == null || activePlugin.settings == null) return;
-
+    
+    // FIX: Forward updates to the global SettingsNotifier
+    // This maintains backward compatibility if other code uses this notifier
     final currentSettings = _ref.read(activeExplorerSettingsProvider);
     final newSettings = updater(currentSettings);
+    
+    if (newSettings is! MachineSettings) {
+        // Should theoretically not happen if types align
+        return; 
+    }
 
-    final newProject = explorerService.updateWorkspace(project, (w) {
-      final newPluginStates = Map<String, dynamic>.from(w.pluginStates);
-      newPluginStates[activePlugin.id] = newSettings.toJson();
-      return w.copyWith(pluginStates: newPluginStates);
-    });
-
-    // REFACTOR: Call the new, generic update method.
-    appNotifier.updateCurrentProject(newProject);
+    _ref.read(settingsProvider.notifier).updateExplorerPluginSettings(
+      activePlugin.id, 
+      newSettings as MachineSettings
+    );
   }
 }

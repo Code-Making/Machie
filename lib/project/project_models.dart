@@ -10,10 +10,10 @@ import '../data/content_provider/file_content_provider.dart';
 import '../editor/tab_metadata_notifier.dart';
 import '../explorer/explorer_workspace_state.dart';
 
-// ADDED for EditorPlugin
 import '../data/dto/project_dto.dart'; // ADDED
+import 'project_settings_models.dart';
 
-// ... (IncompleteDocumentFile and ProjectMetadata are unchanged) ...
+//TODO: Move this into documentFile definition file
 class IncompleteDocumentFile implements DocumentFile {
   @override
   final String uri;
@@ -67,6 +67,7 @@ class ProjectMetadata {
   final String name;
   final String rootUri;
   final String projectTypeId;
+  final String persistenceTypeId;
   final DateTime lastOpenedDateTime;
 
   const ProjectMetadata({
@@ -74,25 +75,52 @@ class ProjectMetadata {
     required this.name,
     required this.rootUri,
     required this.projectTypeId,
+    required this.persistenceTypeId,
     required this.lastOpenedDateTime,
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'rootUri': rootUri,
-    'projectTypeId': projectTypeId,
-    'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
-  };
+        'id': id,
+        'name': name,
+        'rootUri': rootUri,
+        'projectTypeId': projectTypeId,
+        'persistenceTypeId': persistenceTypeId, // NEW
+        'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
+      };
 
-  factory ProjectMetadata.fromJson(Map<String, dynamic> json) =>
-      ProjectMetadata(
-        id: json['id'],
-        name: json['name'],
-        rootUri: json['rootUri'],
-        projectTypeId: json['projectTypeId'],
-        lastOpenedDateTime: DateTime.parse(json['lastOpenedDateTime']),
-      );
+  factory ProjectMetadata.fromJson(Map<String, dynamic> json) {
+    // Backward Compatibility Layer ---
+
+    String projectTypeId = json['projectTypeId'];
+    String? persistenceTypeId = json['persistenceTypeId'];
+
+    // If persistenceTypeId is null, we are dealing with legacy data.
+    if (persistenceTypeId == null) {
+      switch (projectTypeId) {
+        case 'local_persistent':
+          projectTypeId = 'local';
+          persistenceTypeId = 'local_folder';
+          break;
+        case 'simple_local':
+          projectTypeId = 'local';
+          persistenceTypeId = 'simple_state';
+          break;
+        default:
+          projectTypeId = 'local';
+          persistenceTypeId = 'simple_state';
+          break;
+      }
+    }
+
+    return ProjectMetadata(
+      id: json['id'],
+      name: json['name'],
+      rootUri: json['rootUri'],
+      projectTypeId: projectTypeId, // Use the (potentially migrated) projectTypeId
+      persistenceTypeId: persistenceTypeId, // Use the (potentially migrated) persistenceTypeId
+      lastOpenedDateTime: DateTime.parse(json['lastOpenedDateTime']),
+    );
+  }
 }
 
 @immutable
@@ -100,11 +128,13 @@ class Project {
   final ProjectMetadata metadata;
   final TabSessionState session;
   final ExplorerWorkspaceState workspace;
+  final ProjectSettingsState? settings;
 
   const Project({
     required this.metadata,
     required this.session,
     required this.workspace,
+    this.settings,
   });
 
   String get id => metadata.id;
@@ -112,7 +142,6 @@ class Project {
   String get rootUri => metadata.rootUri;
   String get projectTypeId => metadata.projectTypeId;
 
-  /// Creates a new, empty project state from its metadata.
   factory Project.fresh(ProjectMetadata metadata) {
     return Project(
       metadata: metadata,
@@ -120,6 +149,7 @@ class Project {
       workspace: const ExplorerWorkspaceState(
         activeExplorerPluginId: 'com.machine.file_explorer',
       ),
+      settings: const ProjectSettingsState(),
     );
   }
 
@@ -127,16 +157,16 @@ class Project {
     ProjectMetadata? metadata,
     TabSessionState? session,
     ExplorerWorkspaceState? workspace,
+    ProjectSettingsState? settings,
   }) {
     return Project(
       metadata: metadata ?? this.metadata,
       session: session ?? this.session,
       workspace: workspace ?? this.workspace,
+      settings: settings ?? this.settings,
     );
   }
 
-  /// Converts the live project state into a serializable Data Transfer Object (DTO).
-  /// Requires the [FileContentProviderRegistry] to correctly identify the
   /// type of each open file for persistence.
   ProjectDto toDto(
     Map<String, TabMetadata> liveMetadata,
@@ -145,6 +175,7 @@ class Project {
     return ProjectDto(
       session: session.toDto(liveMetadata, registry),
       workspace: workspace.toDto(),
+      settings: settings?.toDto(),
     );
   }
 }

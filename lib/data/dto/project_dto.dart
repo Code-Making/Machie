@@ -1,7 +1,3 @@
-// =========================================
-// NEW FILE: lib/data/dto/project_dto.dart
-// =========================================
-
 import 'package:flutter/foundation.dart';
 
 // DTO for EditorTab metadata
@@ -113,23 +109,65 @@ class ExplorerWorkspaceStateDto {
   };
 }
 
-// UPDATED: ProjectDto now includes the workspace DTO.
 @immutable
 class ProjectDto {
   final TabSessionStateDto session;
   final ExplorerWorkspaceStateDto workspace;
+  final ProjectSettingsDto? settings;
 
-  const ProjectDto({required this.session, required this.workspace});
+  const ProjectDto({
+    required this.session,
+    required this.workspace,
+    this.settings,
+  });
 
   factory ProjectDto.fromJson(Map<String, dynamic> json) {
     return ProjectDto(
       session: TabSessionStateDto.fromJson(json['session'] ?? {}),
       workspace: ExplorerWorkspaceStateDto.fromJson(json['workspace'] ?? {}),
+      settings: json['settings'] != null
+          ? ProjectSettingsDto.fromJson(
+              json['settings'] as Map<String, dynamic>)
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'session': session.toJson(),
-    'workspace': workspace.toJson(),
-  };
+        'session': session.toJson(),
+        'workspace': workspace.toJson(),
+        if (settings != null) 'settings': settings!.toJson(),
+      };
+}
+
+@immutable
+class ProjectSettingsDto {
+  final Map<String, dynamic> pluginSettingsOverrides;
+  final Map<String, dynamic> explorerPluginSettingsOverrides;
+  final Map<String, dynamic>? typeSpecificSettings;
+
+  const ProjectSettingsDto({
+    this.pluginSettingsOverrides = const {},
+    this.explorerPluginSettingsOverrides = const {},
+    this.typeSpecificSettings,
+  });
+
+  factory ProjectSettingsDto.fromJson(Map<String, dynamic> json) {
+    return ProjectSettingsDto(
+      pluginSettingsOverrides:
+          Map<String, dynamic>.from(json['pluginSettingsOverrides'] ?? {}),
+      explorerPluginSettingsOverrides: Map<String, dynamic>.from(
+        json['explorerPluginSettingsOverrides'] ?? {},
+      ),
+      typeSpecificSettings: json['typeSpecificSettings'] != null
+          ? Map<String, dynamic>.from(json['typeSpecificSettings'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'pluginSettingsOverrides': pluginSettingsOverrides,
+        'explorerPluginSettingsOverrides': explorerPluginSettingsOverrides,
+        if (typeSpecificSettings != null)
+          'typeSpecificSettings': typeSpecificSettings,
+      };
 }

@@ -44,7 +44,7 @@ class CodeBlockBuilder extends MarkdownElementBuilder {
       final theme = Theme.of(context);
       final settings =
           ProviderScope.containerOf(context).read(
-            settingsProvider.select(
+            effectiveSettingsProvider.select(
               (s) =>
                   s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
             ),
@@ -113,7 +113,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   void _highlightCode() {
     final settings =
         ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??
@@ -138,7 +138,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   TextSpan? _addLinksToBaseSpan(TextSpan? baseSpan) {
     final codeSettings =
         ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??
@@ -184,7 +184,7 @@ class _CodeBlockWrapperState extends ConsumerState<CodeBlockWrapper> {
   Widget build(BuildContext context) {
     final settings =
         ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??
@@ -369,7 +369,7 @@ class PathLinkBuilder extends MarkdownElementBuilder {
     if (isInlineCode) {
       baseStyle = baseStyle.copyWith(
         fontFamily: ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) =>
                 (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)
                     ?.fontFamily,

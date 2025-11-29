@@ -59,7 +59,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
   void _computeRenderData() {
     final settings =
         ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??
@@ -129,7 +129,7 @@ class _OccurrenceListItemState extends ConsumerState<OccurrenceListItem> {
     final theme = Theme.of(context);
     final settings =
         ref.watch(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??

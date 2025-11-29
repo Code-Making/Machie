@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -13,15 +11,15 @@ import 'data/shared_preferences.dart';
 import 'logs/logs_provider.dart';
 import 'settings/settings_screen.dart';
 
-import 'dart:io'; // ADDED: For platform check
+import 'dart:io';
 
-import 'package:flutter/services.dart'; // <-- 1. IMPORT THIS
+import 'package:flutter/services.dart';
 
-import 'command/command_notifier.dart'; // NEW IMPORT
-import 'data/cache/editor_hot_state/cache_service_manager.dart'; // <-- IMPORT NEW MANAGER
-import 'data/cache/editor_hot_state/hot_state_cache_service.dart'; // ADDED
-import 'settings/settings_notifier.dart'; // NEW IMPORT
-// ADD THIS
+import 'command/command_notifier.dart'; 
+import 'data/cache/background_task/background_cache_service.dart'; 
+import 'data/cache/hot_state_cache_service.dart'; 
+import 'settings/settings_notifier.dart'; 
+import 'project/project_settings_notifier.dart'; 
 
 // --------------------
 //   Global Providers
@@ -33,10 +31,9 @@ final appStartupProvider = FutureProvider<void>((ref) async {
   talker.info('appStartupProvider: Starting async initialization...');
 
   // These are all async tasks that can run while the splash screen is visible.
+
   await ref.read(cacheRepositoryProvider).init();
-  if (Platform.isAndroid) {
-    await ref.read(cacheServiceManagerProvider).start();
-  }
+  await ref.read(hotStateCacheServiceProvider).initializeAndStart();
   await ref.read(sharedPreferencesProvider.future);
 
   // Eagerly initialize providers that need to be ready on app start.
@@ -91,11 +88,10 @@ ThemeData _createThemeData(Color seedColor, Brightness brightness) {
   );
 }
 
-//iii
-// NEW: A provider that builds and returns the theme configuration.
+/// A provider that builds and returns the theme configuration.
 final themeConfigProvider = Provider((ref) {
   // Watch the settings provider for changes.
-  final settings = ref.watch(settingsProvider);
+  final settings = ref.watch(effectiveSettingsProvider);
   final generalSettings =
       settings.pluginSettings[GeneralSettings] as GeneralSettings;
 
@@ -130,7 +126,7 @@ void main() {
       printStateFullData: false, // Truncate long state objects
     ),
   );
-  CacheServiceManager.Init();
+  // CacheServiceManager.Init();
   WidgetsFlutterBinding.ensureInitialized(); // <-- 2. ENSURE BINDING IS INITIALIZED
   // --- 3. SET THE SYSTEM UI STYLE ---
   SystemChrome.setSystemUIOverlayStyle(
@@ -224,7 +220,6 @@ class AppStartupWidget extends ConsumerWidget {
   }
 }
 
-// ... (AppStartupLoadingWidget and AppStartupErrorWidget are unchanged)
 class AppStartupLoadingWidget extends StatelessWidget {
   const AppStartupLoadingWidget({super.key});
 

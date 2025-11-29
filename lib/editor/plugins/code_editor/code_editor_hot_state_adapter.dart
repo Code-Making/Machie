@@ -7,17 +7,16 @@ import 'code_editor_hot_state_dto.dart';
 
 /// A type adapter for serializing and deserializing [CodeEditorHotStateDto].
 class CodeEditorHotStateAdapter implements TypeAdapter<CodeEditorHotStateDto> {
-  // Define constant keys to avoid magic strings.
   static const String _contentKey = 'content';
-  static const String _languageKey = 'languageKey';
-  static const String _hashKey = 'baseContentHash'; // <-- ADDED
+  static const String _languageIdKey = 'languageId';
+  static const String _hashKey = 'baseContentHash';
 
   @override
   CodeEditorHotStateDto fromJson(Map<String, dynamic> json) {
     return CodeEditorHotStateDto(
       content: json[_contentKey] as String? ?? '',
-      languageKey: json[_languageKey] as String?,
-      baseContentHash: json[_hashKey] as String?, // <-- ADDED
+      languageId: json[_languageIdKey] as String?,
+      baseContentHash: json[_hashKey] as String?,
     );
   }
 
@@ -25,8 +24,8 @@ class CodeEditorHotStateAdapter implements TypeAdapter<CodeEditorHotStateDto> {
   Map<String, dynamic> toJson(CodeEditorHotStateDto object) {
     return {
       _contentKey: object.content,
-      _languageKey: object.languageKey,
-      _hashKey: object.baseContentHash, // <-- ADDED
+      _languageIdKey: object.languageId,
+      _hashKey: object.baseContentHash,
     };
   }
 }

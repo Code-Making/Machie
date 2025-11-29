@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:dart_git/dart_git.dart';
+import 'package:dart_git/utils/file_mode.dart';
 
 import '../../../data/dto/project_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
@@ -20,10 +21,8 @@ import 'git_object_file.dart';
 
 /// Provides the content for virtual files that represent objects in the Git database.
 class GitFileContentProvider implements FileContentProvider, IRehydratable {
-  // It now holds its direct dependency instead of a Riverpod Ref.
-  final GitRepository _gitRepo;
-
-  GitFileContentProvider(this._gitRepo);
+  final Future<GitRepository?> _gitRepoFuture;
+  GitFileContentProvider(this._gitRepoFuture);
 
   @override
   Map<Type, String> get typeMappings => {GitObjectDocumentFile: 'git_object'};
@@ -38,9 +37,13 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
         'GitFileContentProvider can only handle GitObjectDocumentFile',
       );
     }
+    final gitRepo = await _gitRepoFuture;
+        if (gitRepo == null) {
+      throw StateError('Git repository is not available or failed to load.');
+    }
 
     // Use the injected dependency directly. All calls are now async.
-    final blob = await _gitRepo.objStorage.readBlob(file.objectHash);
+    final blob = await gitRepo.objStorage.readBlob(file.objectHash);
     final bytes = blob.blobData;
 
     final content =
@@ -65,7 +68,43 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
   /// to a specific commit hash which isn't persisted in the tab metadata.
   /// We return null to indicate the tab for this file cannot be restored.
   @override
-  Future<DocumentFile?> rehydrate(TabMetadataDto dto) {
-    return Future.value(null);
+  Future<DocumentFile?> rehydrate(TabMetadataDto dto) async {
+    if (!dto.fileUri.startsWith('git://')) {
+      return null;
+    }
+
+    try {
+      final gitRepo = await _gitRepoFuture;
+      if (gitRepo == null) return null; // Git repo not available for this project.
+
+      // Parse the virtual URI: "git://<commitHash>/<pathInRepo>"
+      final uriContent = dto.fileUri.substring('git://'.length);
+      final firstSlashIndex = uriContent.indexOf('/');
+      if (firstSlashIndex == -1) return null; // Invalid URI format.
+
+      final commitHashString = uriContent.substring(0, firstSlashIndex);
+      final pathInRepo = uriContent.substring(firstSlashIndex + 1);
+      final fileName = pathInRepo.split('/').last;
+
+      final commitHash = GitHash(commitHashString);
+
+      // Verify that the commit and the file within it still exist.
+      final commit = await gitRepo.objStorage.readCommit(commitHash);
+      final rootTree = await gitRepo.objStorage.readTree(commit.treeHash);
+      final entry = await gitRepo.objStorage.refSpec(rootTree, pathInRepo);
+
+      // If we got this far, the object exists. Reconstruct the file model.
+      return GitObjectDocumentFile(
+        name: fileName,
+        commitHash: commitHash,
+        objectHash: entry.hash,
+        pathInRepo: pathInRepo,
+        isDirectory: entry.mode == GitFileMode.Dir,
+      );
+    } catch (e) {
+      // This can happen if the commit or file path no longer exists (e.g., after a rebase).
+      // In this case, we cannot restore the tab, so we return null.
+      return null;
+    }
   }
 }

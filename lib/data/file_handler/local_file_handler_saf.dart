@@ -43,76 +43,15 @@ class CustomSAFDocumentFile extends ProjectDocumentFile {
 }
 
 class SafFileHandler implements LocalFileHandler {
-  final SafUtil _safUtil = SafUtil();
-  final SafStream _safStream = SafStream();
-  // THE FIX: Implement the new interface methods with SAF-specific logic.
   static const String _separator = '%2F';
 
-  @override
-  Future<bool> hasPermission(String uri) async {
-    // getPersistedUriPermissions returns a list of all URIs the app
-    // currently has permission to access.
-    final permissions = await _safUtil.hasPersistedPermission(
-      uri,
-      checkRead: true,
-      checkWrite: true,
-    );
-    if (permissions == false) {
-      return false;
-    }
+  final String rootUri;
+  
+  final SafUtil _safUtil = SafUtil();
+  final SafStream _safStream = SafStream();
 
-    try {
-      // We don't care about the result, only that it doesn't throw.
-      final stat = await _safUtil.stat(
-        uri,
-        true,
-      ); // `true` because we are checking a directory.
-      if (stat != null) {
-        return true;
-      } else {
-        return false;
-      }
-    } on PlatformException catch (e) {
-      if (e.code == 'PERMISSION_DENIED') {
-        // The permission is stale or not honored by the provider.
-        return false;
-      }
-      // Another error occurred (e.g., URI not found), but it's not a
-      // permission issue from our perspective. For the purpose of this check,
-      // we can consider it as if we don't have effective permission.
-      return false;
-    } catch (_) {
-      // Catch any other unexpected errors.
-      return false;
-    }
-  }
+  SafFileHandler(this.rootUri);
 
-  @override
-  Future<bool> reRequestPermission(String uri) async {
-    // Re-trigger the directory picker. The user must manually navigate to and
-    // select the same folder again.
-    final dir = await _safUtil.pickDirectory(
-      persistablePermission: true,
-      writePermission: true,
-    );
-
-    // Check if the user selected a directory and if it matches the one we need.
-    if (dir != null && dir.uri == uri) {
-      // Permission was successfully granted for the correct directory.
-      return true;
-    }
-    // The user cancelled or selected the wrong directory.
-    return false;
-  }
-
-  @override
-  Future<ProjectDocumentFile?> pickDirectory() async {
-    final dir = await _safUtil.pickDirectory(
-      persistablePermission: true,
-      writePermission: true,
-    );
-    return dir != null ? CustomSAFDocumentFile(dir) : null;
-  }
 
   @override
   Future<List<ProjectDocumentFile>> listDirectory(
@@ -345,51 +284,49 @@ class SafFileHandler implements LocalFileHandler {
     String parentUri,
     String relativePath,
   ) async {
+    // Sanitize path to use forward slashes and filter out empty segments.
     final segments =
-        relativePath.split('/').where((s) => s.isNotEmpty).toList();
+        relativePath
+            .replaceAll(r'\', '/')
+            .split('/')
+            .where((s) => s.isNotEmpty)
+            .toList();
     if (segments.isEmpty) {
       return getFileMetadata(parentUri);
     }
 
-    ProjectDocumentFile? currentParent;
-    try {
-      // Ensure the starting parent directory exists.
-      final stat = await _safUtil.stat(parentUri, true);
-      if (stat == null) return null;
-      currentParent = CustomSAFDocumentFile(stat);
-    } catch (_) {
-      return null;
-    }
+    String currentUri = parentUri;
 
-    for (int i = 0; i < segments.length; i++) {
-      final segment = segments[i];
-      final isLastSegment = i == segments.length - 1;
+    for (final segment in segments) {
+      if (segment == '.') {
+        continue; // Stay in the current directory.
+      } else if (segment == '..') {
+        currentUri = getParentUri(currentUri); // Go up one level.
+      } else {
+        // Go down one level by finding the child with the matching name.
+        try {
+          // This part is inefficient but necessary for SAF. We must list children to find the next URI.
+          final children = await listDirectory(currentUri, includeHidden: true);
+          final foundChild = children.firstWhereOrNull(
+            (child) => child.name == segment,
+          );
 
-      try {
-        final children = await listDirectory(
-          currentParent!.uri,
-          includeHidden: true,
-        );
-        final foundChild = children.firstWhereOrNull(
-          (child) => child.name == segment,
-        );
-
-        if (foundChild == null) {
-          return null; // Path segment not found
+          if (foundChild != null) {
+            currentUri = foundChild.uri;
+          } else {
+            // If any segment in the path is not found, the path is invalid.
+            return null;
+          }
+        } catch (_) {
+          // An error during listDirectory (e.g., permission) means the path is invalid.
+          return null;
         }
-
-        if (isLastSegment) {
-          return foundChild; // Success: Found the final file/folder
-        } else if (foundChild.isDirectory) {
-          currentParent = foundChild; // Continue traversal
-        } else {
-          return null; // A file was found in the middle of the path, which is invalid.
-        }
-      } catch (_) {
-        return null;
       }
     }
-    return null;
+
+    // After resolving all segments, the final `currentUri` points to the target.
+    // Use getFileMetadata as a final check to ensure it exists and to get its full info.
+    return getFileMetadata(currentUri);
   }
 
   @override
@@ -457,18 +394,6 @@ class SafFileHandler implements LocalFileHandler {
   }
 
   @override
-  Future<ProjectDocumentFile?> pickFile() async {
-    final file = await _safUtil.pickFile();
-    return file != null ? CustomSAFDocumentFile(file) : null;
-  }
-
-  @override
-  Future<List<ProjectDocumentFile>> pickFiles() async {
-    final files = await _safUtil.pickFiles();
-    return files?.map((f) => CustomSAFDocumentFile(f)).toList() ?? [];
-  }
-
-  @override
   String getParentUri(String uri) {
     final lastIndex = uri.lastIndexOf(_separator);
     // If there's no separator or it's a root URI, there's no parent to return.
@@ -486,9 +411,10 @@ class SafFileHandler implements LocalFileHandler {
 
   @override
   String getPathForDisplay(String uri, {String? relativeTo}) {
+    final effectiveRelativeTo = relativeTo ?? rootUri;
     String path = uri;
-    if (relativeTo != null && path.startsWith(relativeTo)) {
-      path = path.substring(relativeTo.length);
+    if (path.startsWith(effectiveRelativeTo)) {
+      path = path.substring(effectiveRelativeTo.length);
       if (path.startsWith(_separator)) {
         path = path.substring(_separator.length);
       }
