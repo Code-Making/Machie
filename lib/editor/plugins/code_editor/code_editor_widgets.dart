@@ -3,30 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:re_editor/re_editor.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
+import 'package:re_editor/re_editor.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
 import '../../../editor/services/editor_service.dart';
+import '../../../project/project_settings_notifier.dart';
 import '../../../settings/settings_notifier.dart';
-import '../../../utils/toast.dart';
-import '../../models/editor_tab_models.dart';
-import '../../tab_metadata_notifier.dart';
-import 'logic/code_editor_logic.dart';
-import 'code_editor_models.dart';
-import 'widgets/code_find_panel_view.dart';
 import '../../../utils/code_themes.dart';
-import 'widgets/goto_line_dialog.dart';
+import '../../../utils/toast.dart';
 import '../../models/editor_command_context.dart';
+import '../../models/editor_tab_models.dart';
 import '../../models/text_editing_capability.dart';
-import 'package:machine/editor/services/language/language_models.dart';
-import 'package:machine/editor/services/language/language_registry.dart';
+import '../../services/language/language_models.dart';
+import '../../services/language/language_registry.dart';
+import '../../tab_metadata_notifier.dart';
 import 'code_editor_hot_state_dto.dart';
-import 'widgets/code_editor_ui.dart';
+import 'code_editor_models.dart';
 import 'logic/code_editor_types.dart';
 import 'logic/code_editor_utils.dart';
-import '../../../project/project_settings_notifier.dart';
+import 'widgets/code_editor_ui.dart';
+import 'widgets/code_find_panel_view.dart';
+import 'widgets/goto_line_dialog.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -53,7 +52,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late LanguageConfig _languageConfig;
   late CodeCommentFormatter _commentFormatter;
-  
+
   late CodeEditorStyle _style;
 
   late String? _baseContentHash;
@@ -267,9 +266,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     } else {
       _languageConfig = Languages.getForFile(fileUri);
     }
-        
-    _updateCommentFormatter();
 
+    _updateCommentFormatter();
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
@@ -305,7 +303,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri =
+        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
@@ -351,7 +350,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     final Map<String, CodeHighlightThemeMode> languageMap = {};
     if (_languageConfig.highlightMode != null) {
       languageMap[_languageConfig.id] = CodeHighlightThemeMode(
-        mode: _languageConfig.highlightMode!
+        mode: _languageConfig.highlightMode!,
       );
     }
 
@@ -361,13 +360,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       fontFamily: codeEditorSettings?.fontFamily ?? 'JetBrainsMono',
       fontFeatures: fontFeatures,
       codeTheme: CodeHighlightTheme(
-        theme: CodeThemes.availableCodeThemes[selectedThemeName] ??
+        theme:
+            CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
         languages: languageMap,
       ),
     );
   }
-  
+
   void _updateCommentFormatter() {
     if (_languageConfig.comments != null) {
       _commentFormatter = DefaultCodeCommentFormatter(
@@ -407,51 +407,51 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     }
   }
 
-void selectOrExpandLines() {
-  final CodeLineSelection currentSelection = controller.selection;
-  final List<CodeLine> lines = controller.codeLines.toList();
-  final bool isAlreadyFullLineSelection =
-      currentSelection.start.offset == 0 &&
-      currentSelection.end.offset == 0 &&
-      currentSelection.end.index > currentSelection.start.index;
+  void selectOrExpandLines() {
+    final CodeLineSelection currentSelection = controller.selection;
+    final List<CodeLine> lines = controller.codeLines.toList();
+    final bool isAlreadyFullLineSelection =
+        currentSelection.start.offset == 0 &&
+        currentSelection.end.offset == 0 &&
+        currentSelection.end.index > currentSelection.start.index;
 
-  if (isAlreadyFullLineSelection) {
-    // For expanding selection, we can only expand if there's a next line
-    if (currentSelection.end.index < lines.length - 1) {
-      controller.selection = currentSelection.copyWith(
-        extentIndex: currentSelection.end.index + 1,
-        extentOffset: 0,
-      );
-    } else if (currentSelection.end.index == lines.length - 1) {
-      controller.selection = currentSelection.copyWith(
-        extentIndex: lines.length - 1, // Stay on last line
-        extentOffset: lines.last.length, // Set to end of the last line
-      );
-    }
-  } else {
-    final newStartIndex = currentSelection.start.index;
-    
-    // Special case: if we're on the last line, select just this line
-    if (currentSelection.end.index == lines.length - 1) {
-      controller.selection = CodeLineSelection(
-        baseIndex: newStartIndex,
-        baseOffset: 0,
-        extentIndex: lines.length - 1, // Stay on last line
-        extentOffset: lines.last.length, // Set to end of the last line
-      );
+    if (isAlreadyFullLineSelection) {
+      // For expanding selection, we can only expand if there's a next line
+      if (currentSelection.end.index < lines.length - 1) {
+        controller.selection = currentSelection.copyWith(
+          extentIndex: currentSelection.end.index + 1,
+          extentOffset: 0,
+        );
+      } else if (currentSelection.end.index == lines.length - 1) {
+        controller.selection = currentSelection.copyWith(
+          extentIndex: lines.length - 1, // Stay on last line
+          extentOffset: lines.last.length, // Set to end of the last line
+        );
+      }
     } else {
-      // Normal case: select from current line to next line
-      final newEndIndex = currentSelection.end.index + 1;
-      controller.selection = CodeLineSelection(
-        baseIndex: newStartIndex,
-        baseOffset: 0,
-        extentIndex: newEndIndex,
-        extentOffset: 0,
-      );
+      final newStartIndex = currentSelection.start.index;
+
+      // Special case: if we're on the last line, select just this line
+      if (currentSelection.end.index == lines.length - 1) {
+        controller.selection = CodeLineSelection(
+          baseIndex: newStartIndex,
+          baseOffset: 0,
+          extentIndex: lines.length - 1, // Stay on last line
+          extentOffset: lines.last.length, // Set to end of the last line
+        );
+      } else {
+        // Normal case: select from current line to next line
+        final newEndIndex = currentSelection.end.index + 1;
+        controller.selection = CodeLineSelection(
+          baseIndex: newStartIndex,
+          baseOffset: 0,
+          extentIndex: newEndIndex,
+          extentOffset: 0,
+        );
+      }
     }
+    _onControllerChange();
   }
-  _onControllerChange();
-}
 
   void selectCurrentChunk() {
     if (_chunkController == null) return;
@@ -481,16 +481,16 @@ void selectOrExpandLines() {
       _onControllerChange();
     }
   }
-  
+
   void adjustSelectionIfNeeded() {
     final CodeLineSelection currentSelection = controller.selection;
     final List<CodeLine> lines = controller.codeLines.toList();
-    
+
     // Check if we have a multiline selection that ends at offset 0
-    final bool isMultilineWithZeroEnd = 
+    final bool isMultilineWithZeroEnd =
         currentSelection.end.index > currentSelection.start.index &&
         currentSelection.end.offset == 0;
-    
+
     if (isMultilineWithZeroEnd) {
       // Move selection end to the previous line, at the end of that line
       final previousLineIndex = currentSelection.end.index - 1;
@@ -553,7 +553,7 @@ void selectOrExpandLines() {
       MachineToast.error('Could not open file: $e');
     }
   }
-  
+
   Future<void> _onColorCodeTap(int lineIndex, ColorMatch match) async {
     if (!mounted) return;
 
@@ -608,24 +608,34 @@ void selectOrExpandLines() {
 
       if (originalText.startsWith('#')) {
         // Respect original length to preserve alpha/no-alpha format
-        if (originalText.length == 7 || originalText.length == 4) { // #RRGGBB or #RGB
-            newColorString = '#${(result.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
-        } else { // #AARRGGBB or #RGBA
-            newColorString = '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        if (originalText.length == 7 || originalText.length == 4) {
+          // #RRGGBB or #RGB
+          newColorString =
+              '#${(result.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+        } else {
+          // #AARRGGBB or #RGBA
+          newColorString =
+              '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
         }
       } else if (originalText.startsWith('Color.fromARGB')) {
-          newColorString = 'Color.fromARGB(${result.alpha}, ${result.red}, ${result.green}, ${result.blue})';
+        newColorString =
+            'Color.fromARGB(${result.alpha}, ${result.red}, ${result.green}, ${result.blue})';
       } else if (originalText.startsWith('Color.fromRGBO')) {
-          // Convert alpha to opacity. Format to avoid excessive decimals.
-          String opacity = (result.alpha / 255.0).toStringAsPrecision(2);
-          if (opacity.endsWith('.0')) opacity = opacity.substring(0, opacity.length - 2);
-          newColorString = 'Color.fromRGBO(${result.red}, ${result.green}, ${result.blue}, $opacity)';
+        // Convert alpha to opacity. Format to avoid excessive decimals.
+        String opacity = (result.alpha / 255.0).toStringAsPrecision(2);
+        if (opacity.endsWith('.0')) {
+          opacity = opacity.substring(0, opacity.length - 2);
+        }
+        newColorString =
+            'Color.fromRGBO(${result.red}, ${result.green}, ${result.blue}, $opacity)';
       } else if (originalText.startsWith('Color(')) {
-          // Canonical Dart format with an ARGB hex value.
-          newColorString = 'Color(0x${result.value.toRadixString(16).toUpperCase()})';
+        // Canonical Dart format with an ARGB hex value.
+        newColorString =
+            'Color(0x${result.value.toRadixString(16).toUpperCase()})';
       } else {
-          // Fallback, should not be reached.
-          newColorString = '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        // Fallback, should not be reached.
+        newColorString =
+            '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
       }
       // --- FIX END ---
 
@@ -737,7 +747,7 @@ void selectOrExpandLines() {
     );
     controller.runRevocableOp(() => controller.value = formatted);
   }
-  
+
   void deleteCommentText() {
     adjustSelectionIfNeeded();
     final selection = controller.selection;
@@ -778,7 +788,8 @@ void selectOrExpandLines() {
       baseIndex: startLine,
       baseOffset: 0, // from the beginning of the first line
       extentIndex: endLine,
-      extentOffset: controller.codeLines[endLine].length, // to the end of the last line
+      extentOffset:
+          controller.codeLines[endLine].length, // to the end of the last line
     );
 
     // 3. Perform the replacement in a single, undoable operation.
@@ -789,31 +800,33 @@ void selectOrExpandLines() {
 
   Future<void> showLanguageSelectionDialog() async {
     final allLanguages = Languages.all; // Use the public list from registry
-    
+
     final selectedLanguageId = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Select Language'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: allLanguages.length,
-            itemBuilder: (context, index) {
-              final lang = allLanguages[index];
-              return ListTile(
-                title: Text(lang.name),
-                // Highlight current selection
-                selected: lang.id == _languageConfig.id,
-                onTap: () => Navigator.pop(ctx, lang.id),
-              );
-            },
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Select Language'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: allLanguages.length,
+                itemBuilder: (context, index) {
+                  final lang = allLanguages[index];
+                  return ListTile(
+                    title: Text(lang.name),
+                    // Highlight current selection
+                    selected: lang.id == _languageConfig.id,
+                    onTap: () => Navigator.pop(ctx, lang.id),
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
     );
 
-    if (selectedLanguageId != null && selectedLanguageId != _languageConfig.id) {
+    if (selectedLanguageId != null &&
+        selectedLanguageId != _languageConfig.id) {
       setState(() {
         // Update config by looking up the new ID
         _languageConfig = Languages.getById(selectedLanguageId);

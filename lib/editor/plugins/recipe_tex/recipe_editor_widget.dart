@@ -9,9 +9,9 @@ import 'package:flutter/services.dart';
 
 import 'package:collection/collection.dart';
 
+import '../../models/editor_command_context.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import '../../models/editor_command_context.dart';
 import 'recipe_tex_command_context.dart';
 import 'recipe_tex_hot_state.dart';
 import 'recipe_tex_models.dart';

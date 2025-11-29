@@ -1,14 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/file_handler/local_file_handler.dart';
-import '../../data/repositories/project/persistence/persistence_strategy_factory.dart';
 import '../../data/repositories/project/persistence/persistence_strategy_registry.dart';
 import '../../data/repositories/project/project_repository.dart';
-import '../../data/shared_preferences.dart'; // NEW
 import '../../platform/platform_file_service.dart';
 import '../project_models.dart';
 import '../project_settings_models.dart';
@@ -16,6 +13,7 @@ import '../project_type_handler.dart';
 import 'local_project_settings.dart';
 import 'local_project_settings_ui.dart';
 
+import '../../data/shared_preferences.dart'; // NEW
 
 class LocalProjectTypeHandler implements ProjectTypeHandler {
   final Ref _ref;
@@ -37,10 +35,10 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
 
   @override
   List<String> get supportedPersistenceTypeIds => [
-        'local_folder',
-        'simple_state',
-      ];
-      
+    'local_folder',
+    'simple_state',
+  ];
+
   @override
   ProjectSettings? get projectTypeSettings => LocalProjectSettings();
 
@@ -55,7 +53,6 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
     );
   }
 
-      
   @override
   Future<bool> hasPersistedPermission(ProjectMetadata metadata) {
     // For a local project, this simply delegates to the PlatformFileService.
@@ -63,7 +60,6 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
     final platformService = _ref.read(platformFileServiceProvider);
     return platformService.hasPermission(metadata.rootUri);
   }
-
 
   @override
   Future<ProjectMetadata?> initiateNewProject(
@@ -106,7 +102,9 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
       );
     }
     if (sharedPrefs == null) {
-      throw StateError('SharedPreferences not available for repository creation.');
+      throw StateError(
+        'SharedPreferences not available for repository creation.',
+      );
     }
 
     final persistenceStrategy = persistenceFactory.create(

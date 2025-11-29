@@ -1,46 +1,46 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:tiled/tiled.dart' hide Text;
-import 'package:tiled/tiled.dart' as tiled show Text;
+import 'dart:ui' as ui;
 
-import 'package:xml/xml.dart';
+import 'package:flutter/material.dart';
+
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
+import 'package:tiled/tiled.dart' as tiled show Text;
+import 'package:tiled/tiled.dart' hide Text;
+import 'package:xml/xml.dart';
 
 import '../../../app/app_notifier.dart';
-import '../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../../../command/command_widgets.dart';
 import '../../../data/repositories/project/project_repository.dart';
+import '../../../logs/logs_provider.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
+import '../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../../models/editor_command_context.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
-import '../../../logs/logs_provider.dart';
-import '../../../utils/toast.dart';
-
+import 'image_load_result.dart';
+import 'project_tsx_provider.dart';
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
 import 'tiled_editor_plugin.dart';
+import 'tiled_editor_settings_model.dart';
 import 'tiled_map_notifier.dart';
-import 'tmx_writer.dart';
-import '../../../command/command_widgets.dart';
-import '../../models/editor_command_context.dart';
-import 'widgets/layers_panel.dart';
-import 'widgets/tile_palette.dart';
+import 'tiled_map_painter.dart';
 import 'tiled_paint_tools.dart';
-import '../../../widgets/dialogs/file_explorer_dialogs.dart';
+import 'tmx_writer.dart';
+import 'widgets/layers_panel.dart';
 import 'widgets/map_properties_dialog.dart';
 import 'widgets/new_layer_dialog.dart';
 import 'widgets/new_tileset_dialog.dart';
-import 'project_tsx_provider.dart';
-
-import 'tiled_map_painter.dart';
-import 'image_load_result.dart';
-import 'inspector/inspector_dialog.dart'; // ADDED
 import 'widgets/object_editor_app_bar.dart';
 import 'widgets/paint_editor_app_bar.dart';
-import 'package:machine/settings/settings_notifier.dart';
-import 'tiled_editor_settings_model.dart';
+import 'widgets/tile_palette.dart';
+
+import 'inspector/inspector_dialog.dart'; // ADDED
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -70,13 +70,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   bool _isPaletteVisible = false;
   bool _isLayersPanelVisible = false;
   TiledEditorMode _mode = TiledEditorMode.panZoom;
-  
+
   bool get isZoomMode => (_mode == TiledEditorMode.panZoom);
   // Paint mode state
   TiledPaintMode _paintMode = TiledPaintMode.paint;
   Rect? _tileMarqueeSelection;
   Offset? _dragStartOffsetInSelection;
-  
+
   // Object mode state
   ObjectTool _activeObjectTool = ObjectTool.select;
   bool _isSnapToGridEnabled = true;
@@ -84,7 +84,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   Map<int, Point>? _initialObjectPositions;
 
   // Temporary drawing state
-  List<Point> _inProgressPoints = [];
+  final List<Point> _inProgressPoints = [];
   Rect? _previewShape;
   Rect? _marqueeSelection; // NEW: Specific state for marquee selection
 
@@ -112,9 +112,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       );
     });
   }
-  
+
   TiledEditorMode getMode() => _mode;
-  
+
   void setMode(TiledEditorMode newMode) {
     if (_mode == newMode) {
       // If tapping the active mode, toggle back to Pan/Zoom
@@ -143,7 +143,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     setState(() => _isLayersPanelVisible = !_isLayersPanelVisible);
     syncCommandContext();
   }
-  
+
   void setActiveObjectTool(ObjectTool tool) {
     setState(() => _activeObjectTool = tool);
     syncCommandContext();
@@ -156,7 +156,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   @override
   void syncCommandContext() {
-    final isPolyToolActive = _activeObjectTool == ObjectTool.addPolygon ||
+    final isPolyToolActive =
+        _activeObjectTool == ObjectTool.addPolygon ||
         _activeObjectTool == ObjectTool.addPolyline;
 
     Widget? appBarOverride;
@@ -175,7 +176,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           isObjectSelected: _notifier?.selectedObjects.isNotEmpty ?? false,
           onInspectObject: _inspectSelectedObject,
           onDeleteObject: _deleteSelectedObject,
-          showFinishShapeButton: isPolyToolActive && _inProgressPoints.isNotEmpty,
+          showFinishShapeButton:
+              isPolyToolActive && _inProgressPoints.isNotEmpty,
           onFinishShape: _finalizePolygon,
         );
         break;
@@ -184,8 +186,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         break;
     }
 
-    ref.read(commandContextProvider(widget.tab.id).notifier).state =
-        TiledEditorCommandContext(
+    ref
+        .read(commandContextProvider(widget.tab.id).notifier)
+        .state = TiledEditorCommandContext(
       mode: _mode,
       isGridVisible: _showGrid,
       canUndo: _notifier?.canUndo ?? false,
@@ -246,53 +249,79 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         widget.tab.initialTmxContent,
         tsxList: tsxProviders,
       );
-      
+
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final tilesetImages = <String, ImageLoadResult>{};
       final allImagesToLoad = map.tiledImages();
-      final imageLayerSources = map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
+      final imageLayerSources =
+          map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
 
-      final imageFutures = allImagesToLoad.map((tiledImage) async {
-        final imageSourcePath = tiledImage.source;
-        if (imageSourcePath == null) return;
+      final imageFutures =
+          allImagesToLoad.map((tiledImage) async {
+            final imageSourcePath = tiledImage.source;
+            if (imageSourcePath == null) return;
 
-        try { // <--- START TRY-CATCH BLOCK
-          String baseUri = tmxParentUri;
-          
-          if (!imageLayerSources.contains(imageSourcePath)) {
-            final tileset = map.tilesets.firstWhereOrNull(
-              (ts) => ts.image?.source == imageSourcePath || ts.tiles.any((t) => t.image?.source == imageSourcePath),
-            );
-            if (tileset != null && tileset.source != null) {
-              final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
-              if (tsxFile != null) {
-                baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
+            try {
+              // <--- START TRY-CATCH BLOCK
+              String baseUri = tmxParentUri;
+
+              if (!imageLayerSources.contains(imageSourcePath)) {
+                final tileset = map.tilesets.firstWhereOrNull(
+                  (ts) =>
+                      ts.image?.source == imageSourcePath ||
+                      ts.tiles.any((t) => t.image?.source == imageSourcePath),
+                );
+                if (tileset != null && tileset.source != null) {
+                  final tsxFile = await repo.fileHandler.resolvePath(
+                    tmxParentUri,
+                    tileset.source!,
+                  );
+                  if (tsxFile != null) {
+                    baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
+                  }
+                }
+              }
+
+              final imageFile = await repo.fileHandler.resolvePath(
+                baseUri,
+                imageSourcePath,
+              );
+
+              if (imageFile == null) {
+                throw Exception(
+                  'File not found at path: $imageSourcePath (relative to $baseUri)',
+                );
+              }
+
+              final bytes = await repo.readFileAsBytes(imageFile.uri);
+              final codec = await ui.instantiateImageCodec(bytes);
+              final frame = await codec.getNextFrame();
+
+              if (mounted) {
+                tilesetImages[imageSourcePath] = ImageLoadResult(
+                  image: frame.image,
+                  path: imageSourcePath,
+                );
+              }
+            } catch (e, st) {
+              // <--- CATCH THE ERROR
+              // If loading fails, log it and store the error state.
+              ref
+                  .read(talkerProvider)
+                  .handle(
+                    e,
+                    st,
+                    'Failed to load TMX image source: $imageSourcePath',
+                  );
+              if (mounted) {
+                tilesetImages[imageSourcePath] = ImageLoadResult(
+                  error: e.toString(),
+                  path: imageSourcePath,
+                );
               }
             }
-          }
-
-          final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
-
-          if (imageFile == null) {
-            throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
-          }
-
-          final bytes = await repo.readFileAsBytes(imageFile.uri);
-          final codec = await ui.instantiateImageCodec(bytes);
-          final frame = await codec.getNextFrame();
-          
-          if (mounted) {
-            tilesetImages[imageSourcePath] = ImageLoadResult(image: frame.image, path: imageSourcePath);
-          }
-        } catch (e, st) { // <--- CATCH THE ERROR
-          // If loading fails, log it and store the error state.
-          ref.read(talkerProvider).handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
-          if (mounted) {
-            tilesetImages[imageSourcePath] = ImageLoadResult(error: e.toString(), path: imageSourcePath);
-          }
-        }
-      }).toList();
+          }).toList();
 
       // Future.wait will now always succeed because we are catching errors inside.
       await Future.wait(imageFutures);
@@ -320,72 +349,83 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
   }
-  
-Future<void> reloadImageSource({
-  required Object parentObject, // The Tileset or ImageLayer being edited
-  required String oldSourcePath,
-  required String newProjectPath,
-}) async {
-  if (_notifier == null) return;
-  
-  try {
-    final repo = ref.read(projectRepositoryProvider)!;
-    final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-    final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-    final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-    final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-      tmxParentUri,
-      relativeTo: projectRootUri,
-    );
-    final newTmxRelativePath = p.relative(newProjectPath, from: tmxParentDisplayPath);
+  Future<void> reloadImageSource({
+    required Object parentObject, // The Tileset or ImageLayer being edited
+    required String oldSourcePath,
+    required String newProjectPath,
+  }) async {
+    if (_notifier == null) return;
 
-    final imageFile = await repo.fileHandler.resolvePath(
-      projectRootUri,
-      newProjectPath,
-    );
+    try {
+      final repo = ref.read(projectRepositoryProvider)!;
+      final projectRootUri =
+          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
+      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-    if (imageFile == null) {
-      throw Exception('New image not found: $newProjectPath');
+      final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
+        tmxParentUri,
+        relativeTo: projectRootUri,
+      );
+      final newTmxRelativePath = p.relative(
+        newProjectPath,
+        from: tmxParentDisplayPath,
+      );
+
+      final imageFile = await repo.fileHandler.resolvePath(
+        projectRootUri,
+        newProjectPath,
+      );
+
+      if (imageFile == null) {
+        throw Exception('New image not found: $newProjectPath');
+      }
+
+      final bytes = await repo.readFileAsBytes(imageFile.uri);
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+
+      // Call the notifier's public method with the parent object.
+      _notifier!.updateImageSource(
+        parentObject: parentObject, // Pass the parent
+        oldSourcePath: oldSourcePath,
+        newSourcePath: newTmxRelativePath,
+        newImage: frame.image,
+      );
+      MachineToast.info('Image source updated successfully.');
+    } catch (e, st) {
+      ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
+      MachineToast.error('Failed to reload image: $e');
     }
-
-    final bytes = await repo.readFileAsBytes(imageFile.uri);
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    
-    // Call the notifier's public method with the parent object.
-    _notifier!.updateImageSource(
-      parentObject: parentObject, // Pass the parent
-      oldSourcePath: oldSourcePath,
-      newSourcePath: newTmxRelativePath,
-      newImage: frame.image,
-    );
-    MachineToast.info('Image source updated successfully.');
-
-  } catch (e, st) {
-    ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
-    MachineToast.error('Failed to reload image: $e');
   }
-}
 
   // --- NEW: Helper method to fix parsing issues from the `tiled` package ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
-    final objectGroupElements = xmlDocument.rootElement.findAllElements('objectgroup');
+    final objectGroupElements = xmlDocument.rootElement.findAllElements(
+      'objectgroup',
+    );
 
     // FIX 1: Handle un-encoded tile layer data.
     for (final layerElement in layerElements) {
       final layerId = int.tryParse(layerElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
-      
-      final layer = map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
-      if (layer != null && (layer.tileData == null || layer.tileData!.isEmpty)) {
+
+      final layer =
+          map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+      if (layer != null &&
+          (layer.tileData == null || layer.tileData!.isEmpty)) {
         final dataElement = layerElement.findElements('data').firstOrNull;
-        if (dataElement != null && dataElement.getAttribute('encoding') == null) {
+        if (dataElement != null &&
+            dataElement.getAttribute('encoding') == null) {
           final tileElements = dataElement.findElements('tile');
-          final gids = tileElements.map((t) => int.tryParse(t.getAttribute('gid') ?? '0') ?? 0).toList();
-          if(gids.isNotEmpty) {
+          final gids =
+              tileElements
+                  .map((t) => int.tryParse(t.getAttribute('gid') ?? '0') ?? 0)
+                  .toList();
+          if (gids.isNotEmpty) {
             layer.tileData = Gid.generate(gids, layer.width, layer.height);
           }
         }
@@ -397,7 +437,8 @@ Future<void> reloadImageSource({
       final layerId = int.tryParse(objectGroupElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
 
-      final objectGroup = map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
+      final objectGroup =
+          map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
       if (objectGroup == null) continue;
 
       final objectElements = objectGroupElement.findAllElements('object');
@@ -405,11 +446,13 @@ Future<void> reloadImageSource({
         final objectId = int.tryParse(objectElement.getAttribute('id') ?? '');
         if (objectId == null) continue;
 
-        final tiledObject = objectGroup.objects.firstWhereOrNull((o) => o.id == objectId);
+        final tiledObject = objectGroup.objects.firstWhereOrNull(
+          (o) => o.id == objectId,
+        );
         if (tiledObject != null) {
           final hasEllipse = objectElement.findElements('ellipse').isNotEmpty;
           final hasPoint = objectElement.findElements('point').isNotEmpty;
-          
+
           if (hasEllipse) {
             tiledObject.ellipse = true;
             tiledObject.rectangle = false;
@@ -460,12 +503,15 @@ Future<void> reloadImageSource({
     }
 
     assignIds(map.layers);
-    
+
     // Update the map object so new layers created in the UI get a valid ID.
     map.nextLayerId = nextAvailableId;
   }
-  
-  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, ImageLoadResult> tilesetImages) {
+
+  void _fixupTilesetsAfterImageLoad(
+    TiledMap map,
+    Map<String, ImageLoadResult> tilesetImages,
+  ) {
     for (final tileset in map.tilesets) {
       // If the tiles are empty and there is an image, the `tiled` package likely failed to generate them.
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
@@ -474,12 +520,20 @@ Future<void> reloadImageSource({
         final tileWidth = tileset.tileWidth;
         final tileHeight = tileset.tileHeight;
 
-        if (image != null && tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
+        if (image != null &&
+            tileWidth != null &&
+            tileHeight != null &&
+            tileWidth > 0 &&
+            tileHeight > 0) {
           // Manually calculate columns and tileCount
-          final columns = (image.width - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
-          final rows = (image.height - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
+          final columns =
+              (image.width - tileset.margin * 2 + tileset.spacing) ~/
+              (tileWidth + tileset.spacing);
+          final rows =
+              (image.height - tileset.margin * 2 + tileset.spacing) ~/
+              (tileHeight + tileset.spacing);
           final tileCount = columns * rows;
-          
+
           tileset.columns = columns;
           tileset.tileCount = tileCount;
 
@@ -514,17 +568,18 @@ Future<void> reloadImageSource({
       );
     }
   }
-  
+
   void inspectMapProperties() {
     if (_notifier == null) return;
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: _notifier!.map,
-        title: 'Map Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: _notifier!.map,
+            title: 'Map Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+          ),
     );
   }
 
@@ -532,7 +587,8 @@ Future<void> reloadImageSource({
     final relativeImagePath = await showDialog<String>(
       context: context,
       // Pass the last used URI to the dialog
-      builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
+      builder:
+          (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
     );
     if (relativeImagePath == null || !mounted) return;
 
@@ -610,7 +666,7 @@ Future<void> reloadImageSource({
       ref.read(talkerProvider).handle(e, st, 'Failed to add tileset');
     }
   }
-  
+
   void _deleteSelectedTileset() async {
     if (_notifier == null || _selectedTileset == null) return;
 
@@ -630,10 +686,10 @@ Future<void> reloadImageSource({
       });
     }
   }
-  
-    void _clearUnusedTilesets() async {
+
+  void _clearUnusedTilesets() async {
     if (_notifier == null) return;
-    
+
     final unused = _notifier!.findUnusedTilesets();
 
     if (unused.isEmpty) {
@@ -650,10 +706,12 @@ Future<void> reloadImageSource({
 
     if (confirm) {
       // Check if the currently selected tileset is among those to be removed
-      final selectedIsUnused = unused.any((ts) => ts.name == _selectedTileset?.name);
-      
+      final selectedIsUnused = unused.any(
+        (ts) => ts.name == _selectedTileset?.name,
+      );
+
       _notifier!.removeTilesets(unused);
-      
+
       if (selectedIsUnused) {
         setState(() {
           _selectedTileset = null;
@@ -664,17 +722,18 @@ Future<void> reloadImageSource({
       MachineToast.info("Removed ${unused.length} tileset(s).");
     }
   }
-  
+
   void _inspectSelectedTileset() {
     if (_notifier == null || _selectedTileset == null) return;
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: _selectedTileset!,
-        title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: _selectedTileset!,
+            title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+          ),
     );
   }
 
@@ -687,32 +746,38 @@ Future<void> reloadImageSource({
       _notifier!.addLayer(name: result['name'], type: result['type']);
     }
   }
-  
 
   void _deleteLayer(int layerId) async {
     if (_notifier == null) return;
-    final layerToDelete =
-        _notifier!.map.layers.firstWhereOrNull((l) => l.id == layerId);
+    final layerToDelete = _notifier!.map.layers.firstWhereOrNull(
+      (l) => l.id == layerId,
+    );
     if (layerToDelete == null) return;
 
     final confirm = await showConfirmDialog(
       context,
       title: 'Delete Layer "${layerToDelete.name}"?',
-      content: 'Are you sure you want to delete this layer? This can be undone.',
+      content:
+          'Are you sure you want to delete this layer? This can be undone.',
     );
 
     if (confirm) {
       final oldIndex = _notifier!.map.layers.indexWhere((l) => l.id == layerId);
       _notifier!.deleteLayer(layerId);
       if (_selectedLayerId == layerId) {
-        final newIndex = (oldIndex - 1).clamp(0, _notifier!.map.layers.length - 1);
+        final newIndex = (oldIndex - 1).clamp(
+          0,
+          _notifier!.map.layers.length - 1,
+        );
         final newSelectedLayer =
-            _notifier!.map.layers.isEmpty ? null : _notifier!.map.layers[newIndex];
+            _notifier!.map.layers.isEmpty
+                ? null
+                : _notifier!.map.layers[newIndex];
         _onLayerSelect(newSelectedLayer?.id ?? -1);
       }
     }
   }
-  
+
   void _onLayerSelect(int id) {
     final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == id);
     if (layer == null) return;
@@ -722,10 +787,14 @@ Future<void> reloadImageSource({
     // revert to the default Pan/Zoom mode.
     if (_mode == TiledEditorMode.paint && layer is! TileLayer) {
       newMode = TiledEditorMode.panZoom;
-      MachineToast.info("Switched to Pan/Zoom mode. Selected layer is not a Tile Layer.");
+      MachineToast.info(
+        "Switched to Pan/Zoom mode. Selected layer is not a Tile Layer.",
+      );
     } else if (_mode == TiledEditorMode.object && layer is! ObjectGroup) {
       newMode = TiledEditorMode.panZoom;
-      MachineToast.info("Switched to Pan/Zoom mode. Selected layer is not an Object Layer.");
+      MachineToast.info(
+        "Switched to Pan/Zoom mode. Selected layer is not an Object Layer.",
+      );
     }
 
     setState(() {
@@ -735,19 +804,19 @@ Future<void> reloadImageSource({
     syncCommandContext();
   }
 
-  
   void _showLayerInspector(Layer layer) {
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: layer,
-        title: '${layer.name} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: layer,
+            title: '${layer.name} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+          ),
     );
   }
-  
+
   void _inspectSelectedObject() {
     if (_notifier == null) return;
     final selection = _notifier!.selectedObjects;
@@ -756,16 +825,18 @@ Future<void> reloadImageSource({
     final target = selection.first;
     showDialog(
       context: context,
-      builder: (_) => InspectorDialog(
-        target: target,
-        title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
-        notifier: _notifier!,
-        editorKey: widget.tab.editorKey,
-      ),
+      builder:
+          (_) => InspectorDialog(
+            target: target,
+            title:
+                '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
+            notifier: _notifier!,
+            editorKey: widget.tab.editorKey,
+          ),
     );
   }
-  
-    void _deleteSelectedObject() async {
+
+  void _deleteSelectedObject() async {
     if (_notifier == null || _notifier!.selectedObjects.isEmpty) return;
 
     final count = _notifier!.selectedObjects.length;
@@ -780,7 +851,7 @@ Future<void> reloadImageSource({
       _notifier!.deleteSelectedObjects(_selectedLayerId);
     }
   }
-  
+
   void _onInteractionUpdate(Offset localPosition, {bool isStart = false}) {
     switch (_mode) {
       case TiledEditorMode.paint:
@@ -795,7 +866,6 @@ Future<void> reloadImageSource({
         break;
     }
   }
-  
 
   void _onInteractionCancel() {
     switch (_mode) {
@@ -819,7 +889,9 @@ Future<void> reloadImageSource({
               obj.y = initialPos.y;
             }
           }
-          notifier!.endObjectChange(_selectedLayerId); // End it to revert visuals
+          notifier!.endObjectChange(
+            _selectedLayerId,
+          ); // End it to revert visuals
           _initialObjectPositions = null;
         }
 
@@ -867,9 +939,11 @@ Future<void> reloadImageSource({
 
   void _handlePaintInteraction(Offset localPosition, {bool isStart = false}) {
     if (isZoomMode || _selectedLayerId == -1) return;
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! TileLayer) {
-      if(isStart) {
+      if (isStart) {
         MachineToast.info("Select a Tile Layer.");
       }
       return;
@@ -930,13 +1004,14 @@ Future<void> reloadImageSource({
         break;
     }
   }
-  
+
   void _paintStamp(Offset localPosition) {
     if (isZoomMode ||
         _selectedTileset == null ||
         _selectedTileRect == null ||
-        _selectedLayerId == -1)
+        _selectedLayerId == -1) {
       return;
+    }
 
     final inverseMatrix = _transformationController.value.clone()..invert();
     final mapPosition = MatrixUtils.transformPoint(
@@ -957,20 +1032,26 @@ Future<void> reloadImageSource({
       _selectedTileRect!,
     );
   }
-  
+
   void _handleTileSelect(Offset localPosition, {required bool isStart}) {
     final mapPosition = _getMapPosition(localPosition);
     if (isStart) {
       _dragStartMapPosition = mapPosition;
-      notifier?.setTileSelection(null, _selectedLayerId); // Clear previous selection
+      notifier?.setTileSelection(
+        null,
+        _selectedLayerId,
+      ); // Clear previous selection
     } else {
       if (_dragStartMapPosition == null) return;
       setState(() {
-        _tileMarqueeSelection = Rect.fromPoints(_dragStartMapPosition!, mapPosition);
+        _tileMarqueeSelection = Rect.fromPoints(
+          _dragStartMapPosition!,
+          mapPosition,
+        );
       });
     }
   }
-  
+
   void _handleTileMove(Offset localPosition, {required bool isStart}) {
     if (notifier?.hasFloatingSelection != true) return;
     final mapPosition = _getMapPosition(localPosition);
@@ -986,7 +1067,9 @@ Future<void> reloadImageSource({
       );
     } else {
       // Drag is in progress.
-      if (_dragStartOffsetInSelection == null) return; // Should not happen if isStart was called
+      if (_dragStartOffsetInSelection == null) {
+        return; // Should not happen if isStart was called
+      }
 
       // Calculate the new top-left corner of the selection by subtracting the initial offset.
       final newTopLeftPixelX = mapPosition.dx - _dragStartOffsetInSelection!.dx;
@@ -996,11 +1079,13 @@ Future<void> reloadImageSource({
       final tileX = (newTopLeftPixelX / notifier!.map.tileWidth).floor();
       final tileY = (newTopLeftPixelY / notifier!.map.tileHeight).floor();
 
-      notifier!.updateFloatingSelectionPosition(Point(x: tileX.toDouble(), y: tileY.toDouble()));
+      notifier!.updateFloatingSelectionPosition(
+        Point(x: tileX.toDouble(), y: tileY.toDouble()),
+      );
     }
   }
-  
-// Inside TiledEditorWidgetState
+
+  // Inside TiledEditorWidgetState
 
   void _handlePaintInteractionEnd() {
     if (_paintMode == TiledPaintMode.select && _tileMarqueeSelection != null) {
@@ -1020,10 +1105,11 @@ Future<void> reloadImageSource({
         (startTileX - endTileX).abs() + 1,
         (startTileY - endTileY).abs() + 1,
       );
-      
+
       notifier?.setTileSelection(selection, _selectedLayerId);
-      notifier?.cutSelection(_selectedLayerId);      
-    } else if (notifier?.hasFloatingSelection == true && _paintMode != TiledPaintMode.move) {
+      notifier?.cutSelection(_selectedLayerId);
+    } else if (notifier?.hasFloatingSelection == true &&
+        _paintMode != TiledPaintMode.move) {
       notifier?.stampFloatingSelection(_selectedLayerId);
     }
     notifier?.endTileStroke(_selectedLayerId);
@@ -1032,7 +1118,7 @@ Future<void> reloadImageSource({
       _tileMarqueeSelection = null;
       _dragStartOffsetInSelection = null; // Add this line to clear the offset
     });
-    
+
     // syncCommandContext() is called in the parent _onInteractionEnd, which is correct.
   }
 
@@ -1052,9 +1138,11 @@ Future<void> reloadImageSource({
   }
 
   void _handleObjectInteraction(Offset localPosition, {bool isStart = false}) {
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup) {
-      if(isStart) {
+      if (isStart) {
         MachineToast.info("Select an Object Layer to edit objects.");
       }
       return;
@@ -1077,7 +1165,7 @@ Future<void> reloadImageSource({
         break;
       case ObjectTool.addPolygon:
       case ObjectTool.addPolyline:
-          _handlePolygonTool(mapPosition, isStart: isStart);
+        _handlePolygonTool(mapPosition, isStart: isStart);
         break;
     }
   }
@@ -1085,7 +1173,8 @@ Future<void> reloadImageSource({
   void _handleObjectInteractionEnd() {
     // A small drag distance threshold to differentiate a tap from a drag.
     final dragThreshold = 4.0;
-    final didDrag = _dragStartMapPosition != null &&
+    final didDrag =
+        _dragStartMapPosition != null &&
         (_getMapPosition(Offset.zero) - _dragStartMapPosition!).distance >
             dragThreshold;
 
@@ -1131,8 +1220,7 @@ Future<void> reloadImageSource({
   }
 
   TiledObject? _getObjectAt(Offset mapPosition, int layerId) {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == layerId);
+    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is! ObjectGroup) return null;
 
     // Iterate backwards to hit top-most objects first
@@ -1161,15 +1249,20 @@ Future<void> reloadImageSource({
       if (_dragStartMapPosition == null) return;
       setState(() {
         // Use the new marqueeSelection state variable
-        _marqueeSelection = Rect.fromPoints(_dragStartMapPosition!, mapPosition);
+        _marqueeSelection = Rect.fromPoints(
+          _dragStartMapPosition!,
+          mapPosition,
+        );
       });
     }
   }
-  
-    void _selectObjectsInMarquee() {
-    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+
+  void _selectObjectsInMarquee() {
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _marqueeSelection == null) return;
-    
+
     final selectionRect = _marqueeSelection!;
     final selected = <TiledObject>[];
     for (final obj in layer.objects) {
@@ -1178,7 +1271,7 @@ Future<void> reloadImageSource({
         selected.add(obj);
       }
     }
-    
+
     if (selected.isNotEmpty) {
       notifier?.selectObject(selected.first); // Select first
       for (var i = 1; i < selected.length; i++) {
@@ -1194,18 +1287,20 @@ Future<void> reloadImageSource({
       // if (hitObject == null || !notifier!.selectedObjects.contains(hitObject)) {
       //   return;
       // }
-      
+
       notifier?.beginObjectChange(_selectedLayerId);
       setState(() {
         _dragStartMapPosition = mapPosition;
         _initialObjectPositions = {
           for (var obj in notifier!.selectedObjects)
-            obj.id: Point(x:obj.x, y:obj.y)
+            obj.id: Point(x: obj.x, y: obj.y),
         };
       });
     } else {
-      if (_dragStartMapPosition == null || _initialObjectPositions == null) return;
-      
+      if (_dragStartMapPosition == null || _initialObjectPositions == null) {
+        return;
+      }
+
       var delta = mapPosition - _dragStartMapPosition!;
       if (_isSnapToGridEnabled) {
         delta = _snapOffsetToGrid(delta) - _snapOffsetToGrid(Offset.zero);
@@ -1229,22 +1324,29 @@ Future<void> reloadImageSource({
       setState(() => _dragStartMapPosition = snappedPos);
     } else {
       if (_dragStartMapPosition == null) return;
-      setState(() => _previewShape = Rect.fromPoints(_dragStartMapPosition!, snappedPos));
+      setState(
+        () =>
+            _previewShape = Rect.fromPoints(_dragStartMapPosition!, snappedPos),
+      );
     }
   }
 
   void _createShapeFromTap() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _dragStartMapPosition == null) return;
 
     notifier?.beginObjectChange(_selectedLayerId);
 
-    final defaultSize = _isSnapToGridEnabled
-        ? Size(notifier!.map.tileWidth.toDouble(),
-            notifier!.map.tileHeight.toDouble())
-        : const Size(16, 16);
-    
+    final defaultSize =
+        _isSnapToGridEnabled
+            ? Size(
+              notifier!.map.tileWidth.toDouble(),
+              notifier!.map.tileHeight.toDouble(),
+            )
+            : const Size(16, 16);
+
     final newId = notifier!.map.nextObjectId ?? 1;
 
     final newObject = TiledObject(
@@ -1256,22 +1358,23 @@ Future<void> reloadImageSource({
     );
 
     _configureObjectShape(newObject);
-    
+
     layer.objects.add(newObject);
     notifier!.map.nextObjectId = newId + 1;
     notifier!.endObjectChange(_selectedLayerId);
     notifier!.selectObject(newObject);
-    
+
     setState(() {});
   }
-  
+
   void _createShapeFromPreview() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _previewShape == null) return;
 
     // beginObjectChange was already called in _handleCreateTool
-    
+
     final rect = _previewShape!;
     final newId = notifier!.map.nextObjectId ?? 1;
 
@@ -1284,17 +1387,17 @@ Future<void> reloadImageSource({
     );
 
     _configureObjectShape(newObject);
-    
+
     layer.objects.add(newObject);
     notifier!.map.nextObjectId = newId + 1;
     notifier!.endObjectChange(_selectedLayerId);
     notifier!.selectObject(newObject);
-    
+
     setState(() {});
   }
 
   void _configureObjectShape(TiledObject newObject) {
-     switch (_activeObjectTool) {
+    switch (_activeObjectTool) {
       case ObjectTool.addRectangle:
         newObject.rectangle = true;
         break;
@@ -1318,7 +1421,7 @@ Future<void> reloadImageSource({
   void _handlePolygonTool(Offset mapPosition, {required bool isStart}) {
     final snappedPos = _snapOffsetToGrid(mapPosition);
     final point = Point(x: snappedPos.dx, y: snappedPos.dy);
-    
+
     if (isStart) {
       if (_inProgressPoints.isEmpty) {
         // This is the very first point of a new shape
@@ -1340,8 +1443,9 @@ Future<void> reloadImageSource({
   }
 
   void _finalizePolygon() {
-    final layer =
-        notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    final layer = notifier?.map.layers.firstWhereOrNull(
+      (l) => l.id == _selectedLayerId,
+    );
     if (layer is! ObjectGroup || _inProgressPoints.length < 2) {
       // Clear any stray points and exit
       setState(() {
@@ -1362,9 +1466,10 @@ Future<void> reloadImageSource({
     final maxX = _inProgressPoints.map((p) => p.x).reduce(max);
     final maxY = _inProgressPoints.map((p) => p.y).reduce(max);
 
-    final relativePoints = _inProgressPoints
-        .map((p) => Point(x: p.x - minX, y: p.y - minY))
-        .toList();
+    final relativePoints =
+        _inProgressPoints
+            .map((p) => Point(x: p.x - minX, y: p.y - minY))
+            .toList();
 
     // CORRECTED: Set the object's position to the top-left of the AABB,
     // and set its width and height.
@@ -1394,21 +1499,32 @@ Future<void> reloadImageSource({
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_loadingError != null)
+    if (_loadingError != null) {
       return Center(child: Text('Error loading map: $_loadingError'));
-    if (notifier == null)
+    }
+    if (notifier == null) {
       return const Center(child: Text('Could not load map.'));
-    final tiledSettings = ref.watch(effectiveSettingsProvider.select((s) => s.pluginSettings[TiledEditorSettings] as TiledEditorSettings?)) ?? TiledEditorSettings();
+    }
+    final tiledSettings =
+        ref.watch(
+          effectiveSettingsProvider.select(
+            (s) =>
+                s.pluginSettings[TiledEditorSettings] as TiledEditorSettings?,
+          ),
+        ) ??
+        TiledEditorSettings();
 
     final map = notifier!.map;
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
     final editorContent = GestureDetector(
-      onTapDown: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
-      onPanStart: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
+      onTapDown:
+          (details) =>
+              _onInteractionUpdate(details.localPosition, isStart: true),
+      onPanStart:
+          (details) =>
+              _onInteractionUpdate(details.localPosition, isStart: true),
       onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
       onPanEnd: (details) => _onInteractionEnd(),
       onTapUp: (details) => _onInteractionEnd(),
@@ -1431,7 +1547,10 @@ Future<void> reloadImageSource({
             selectedObjects: notifier!.selectedObjects,
             previewShape: _previewShape,
             inProgressPoints: _inProgressPoints,
-            marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
+            marqueeSelection:
+                _mode == TiledEditorMode.paint
+                    ? _tileMarqueeSelection
+                    : _marqueeSelection,
             settings: tiledSettings,
             floatingSelection: notifier!.floatingSelection,
             floatingSelectionPosition: notifier!.floatingSelectionPosition,
@@ -1482,7 +1601,8 @@ Future<void> reloadImageSource({
               onResize: _handlePaletteResize, // Pass the callback
               onInspectSelectedTileset: _inspectSelectedTileset,
               onDeleteSelectedTileset: _deleteSelectedTileset,
-              onClearUnusedTilesets: _clearUnusedTilesets, // Pass the new method
+              onClearUnusedTilesets:
+                  _clearUnusedTilesets, // Pass the new method
             ),
           ),
         ),

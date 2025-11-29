@@ -1,6 +1,8 @@
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_editor_settings_model.dart';
+
+import 'package:flex_color_picker/flex_color_picker.dart';
+
+import '../tiled_editor_settings_model.dart';
 
 class TiledEditorSettingsWidget extends StatelessWidget {
   final TiledEditorSettings settings;
@@ -21,9 +23,7 @@ class TiledEditorSettingsWidget extends StatelessWidget {
     );
 
     // When the dialog closes, use the result to call the onChanged callback.
-    onChanged(
-      settings.copyWith(gridColorValue: newColor.value),
-    );
+    onChanged(settings.copyWith(gridColorValue: newColor.value));
   }
 
   @override
@@ -50,9 +50,7 @@ class TiledEditorSettingsWidget extends StatelessWidget {
           label: settings.gridThickness.toStringAsFixed(1),
           onChanged: (value) {
             // Call the onChanged callback with the updated settings object.
-            onChanged(
-              settings.copyWith(gridThickness: value),
-            );
+            onChanged(settings.copyWith(gridThickness: value));
           },
         ),
       ],

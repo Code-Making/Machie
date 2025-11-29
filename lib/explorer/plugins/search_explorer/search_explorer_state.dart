@@ -1,14 +1,16 @@
 // FILE: lib/explorer/plugins/search_explorer/search_explorer_state.dart
 
 import 'dart:async';
-import 'package:flutter/foundation.dart'; // For compute
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../utils/file_traversal_util.dart';
 import '../../../settings/settings_notifier.dart';
+import '../../../utils/file_traversal_util.dart';
 import 'search_explorer_settings.dart';
+
+import 'package:flutter/foundation.dart'; // For compute
 
 class SearchResult {
   final ProjectDocumentFile file;
@@ -22,9 +24,17 @@ class SearchState {
   final List<SearchResult> results;
   final bool isSearching;
 
-  SearchState({this.query = '', this.results = const [], this.isSearching = false});
+  SearchState({
+    this.query = '',
+    this.results = const [],
+    this.isSearching = false,
+  });
 
-  SearchState copyWith({String? query, List<SearchResult>? results, bool? isSearching}) {
+  SearchState copyWith({
+    String? query,
+    List<SearchResult>? results,
+    bool? isSearching,
+  }) {
     return SearchState(
       query: query ?? this.query,
       results: results ?? this.results,
@@ -33,17 +43,20 @@ class SearchState {
   }
 }
 
-final searchableFilesProvider =
-    FutureProvider.autoDispose<List<ProjectDocumentFile>>((ref) async {
+final searchableFilesProvider = FutureProvider.autoDispose<
+  List<ProjectDocumentFile>
+>((ref) async {
   final project = ref.watch(appNotifierProvider).value?.currentProject;
-  
+
   // FIX: STRICTLY select only the search settings.
   // We use 'select' to ensure we don't rebuild if other plugins update settings.
-  final settings = ref.watch(effectiveSettingsProvider.select((s) {
-    final config = s.explorerPluginSettings['com.machine.search_explorer'];
-    // Ensure we return a comparable object (SearchExplorerSettings) or null
-    return config is SearchExplorerSettings ? config : null;
-  }));
+  final settings = ref.watch(
+    effectiveSettingsProvider.select((s) {
+      final config = s.explorerPluginSettings['com.machine.search_explorer'];
+      // Ensure we return a comparable object (SearchExplorerSettings) or null
+      return config is SearchExplorerSettings ? config : null;
+    }),
+  );
 
   final effectiveSettings = settings ?? SearchExplorerSettings();
 
@@ -52,7 +65,7 @@ final searchableFilesProvider =
   }
 
   final List<ProjectDocumentFile> allFiles = [];
-  
+
   await FileTraversalUtil.traverseProject(
     ref: ref,
     startDirectoryUri: project.rootUri,
@@ -96,8 +109,11 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
       allFilesAsync.when(
         data: (allFiles) async {
           // PERFORMANCE FIX: Run heavy search logic in a background isolate
-          final results = await compute(_performFuzzySearch, _SearchArgs(allFiles, query));
-          
+          final results = await compute(
+            _performFuzzySearch,
+            _SearchArgs(allFiles, query),
+          );
+
           if (mounted) {
             state = state.copyWith(results: results, isSearching: false);
           }
@@ -133,10 +149,7 @@ List<SearchResult> _performFuzzySearch(_SearchArgs args) {
   final List<SearchResult> scoredResults = [];
 
   for (final file in args.files) {
-    final score = _calculateFuzzyScore(
-      file.name.toLowerCase(),
-      lowerCaseQuery,
-    );
+    final score = _calculateFuzzyScore(file.name.toLowerCase(), lowerCaseQuery);
     if (score > 0) {
       scoredResults.add(SearchResult(file: file, score: score));
     }

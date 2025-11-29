@@ -3,13 +3,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:collection/collection.dart';
 
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../explorer/explorer_plugin_registry.dart';
-import 'settings_models.dart';
 
 export 'settings_models.dart';
 export '../project/project_settings_notifier.dart';
@@ -27,12 +26,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     required List<EditorPlugin> plugins,
     required List<ExplorerPlugin> explorerPlugins,
   }) : super(
-          AppSettings(
-            pluginSettings: _getDefaultSettings(plugins),
-            explorerPluginSettings:
-                _getDefaultExplorerSettings(explorerPlugins),
-          ),
-        ) {
+         AppSettings(
+           pluginSettings: _getDefaultSettings(plugins),
+           explorerPluginSettings: _getDefaultExplorerSettings(explorerPlugins),
+         ),
+       ) {
     loadSettings();
   }
 
@@ -58,7 +56,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     for (final plugin in explorerPlugins) {
       if (plugin.settings != null) {
         // Assuming ExplorerPluginSettings implements MachineSettings
-        defaultSettings[plugin.id] = plugin.settings as MachineSettings; 
+        defaultSettings[plugin.id] = plugin.settings as MachineSettings;
       }
     }
     return defaultSettings;
@@ -74,7 +72,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   // CHANGED: Signature uses MachineSettings
   void updateExplorerPluginSettings(
-      String pluginId, MachineSettings newSettings) {
+    String pluginId,
+    MachineSettings newSettings,
+  ) {
     final updatedSettings = Map<String, MachineSettings>.from(
       state.explorerPluginSettings,
     )..[pluginId] = newSettings;
@@ -122,7 +122,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       final decoded = jsonDecode(explorerSettingsJson) as Map<String, dynamic>;
       // CHANGED: Map<String, MachineSettings>
       final newExplorerSettings = Map<String, MachineSettings>.from(
-          state.explorerPluginSettings);
+        state.explorerPluginSettings,
+      );
 
       for (final entry in decoded.entries) {
         final pluginId = entry.key;

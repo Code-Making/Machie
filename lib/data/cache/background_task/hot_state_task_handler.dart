@@ -5,8 +5,9 @@ import 'dart:async'; // Import for Timer
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
 import '../../repositories/cache/hive_cache_repository.dart';
+
+import 'package:talker/talker.dart'; // Use the core, non-Flutter talker for isolates
 
 // The service's private, in-memory copy of unsaved data.
 // Key: Project ID, Value: Map<Tab ID, Serialized DTO Payload>
@@ -54,7 +55,8 @@ class HotStateTaskHandler extends TaskHandler {
       // --- NEW HEARTBEAT/LIFECYCLE COMMANDS ---
       case 'heartbeat':
         // Only cancel the timer if we are not expecting to shut down.
-        if (!_isShutdownScheduled) { // <-- MODIFY THIS BLOCK
+        if (!_isShutdownScheduled) {
+          // <-- MODIFY THIS BLOCK
           _shutdownTimer?.cancel();
         }
         break;

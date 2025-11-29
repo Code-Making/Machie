@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/content_provider/file_content_provider.dart';
 import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
+import 'search_explorer_settings.dart';
 import 'search_explorer_settings_widget.dart';
 import 'search_explorer_view.dart';
-import 'search_explorer_settings.dart';
 
 class SearchExplorerPlugin implements ExplorerPlugin {
   @override
@@ -34,7 +34,6 @@ class SearchExplorerPlugin implements ExplorerPlugin {
       onChanged: onChanged,
     );
   }
-
 
   @override
   List<FileContentProvider Function(Ref ref)>

@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/default.dart' as default_theme;
 
+import '../../../settings/settings_notifier.dart';
 import '../../../utils/code_themes.dart';
 import '../../../utils/llm_highlight_util.dart';
-import '../../../settings/settings_notifier.dart';
 import '../../plugins/code_editor/code_editor_models.dart';
 import 'refactor_editor_models.dart';
 

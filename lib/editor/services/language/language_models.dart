@@ -27,9 +27,5 @@ class CommentConfig {
   final String? blockBegin;
   final String? blockEnd;
 
-  const CommentConfig({
-    this.singleLine = '',
-    this.blockBegin,
-    this.blockEnd,
-  });
+  const CommentConfig({this.singleLine = '', this.blockBegin, this.blockEnd});
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
 import '../../models/text_editing_capability.dart';
-import '../../models/editor_plugin_models.dart';
 import 'code_editor_widgets.dart';
 
 @immutable
@@ -12,7 +12,7 @@ class CodeEditorTab extends EditorTab {
 
   final String initialContent;
   final String? cachedContent;
-  final String? initialLanguageId; 
+  final String? initialLanguageId;
   final String? initialBaseContentHash;
 
   CodeEditorTab({
@@ -58,15 +58,15 @@ class CodeEditorSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'wordWrap': wordWrap,
-        'fontSize': fontSize,
-        'fontFamily': fontFamily,
-        'themeName': themeName,
-        'fontHeight': fontHeight,
-        'fontLigatures': fontLigatures,
-        'scratchpadFilename': scratchpadFilename,
-        'scratchpadLocalPath': scratchpadLocalPath,
-      };
+    'wordWrap': wordWrap,
+    'fontSize': fontSize,
+    'fontFamily': fontFamily,
+    'themeName': themeName,
+    'fontHeight': fontHeight,
+    'fontLigatures': fontLigatures,
+    'scratchpadFilename': scratchpadFilename,
+    'scratchpadLocalPath': scratchpadLocalPath,
+  };
 
   @override
   void fromJson(Map<String, dynamic> json) {
@@ -100,9 +100,10 @@ class CodeEditorSettings extends PluginSettings {
       fontHeight: setFontHeightToNull ? null : (fontHeight ?? this.fontHeight),
       fontLigatures: fontLigatures ?? this.fontLigatures,
       scratchpadFilename: scratchpadFilename ?? this.scratchpadFilename,
-      scratchpadLocalPath: setScratchpadLocalPathToNull
-          ? null
-          : (scratchpadLocalPath ?? this.scratchpadLocalPath),
+      scratchpadLocalPath:
+          setScratchpadLocalPathToNull
+              ? null
+              : (scratchpadLocalPath ?? this.scratchpadLocalPath),
     );
   }
 

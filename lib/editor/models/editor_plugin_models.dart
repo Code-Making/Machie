@@ -10,10 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../command/command_models.dart';
 import '../../data/cache/type_adapters.dart';
+import '../../data/content_provider/file_content_provider.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
-import '../../data/content_provider/file_content_provider.dart';
 
 export '../../settings/settings_models.dart';
 
@@ -59,7 +59,7 @@ abstract class EditorPlugin {
 
   /// Plugin-specific command groups. Defaults to an empty list.
   List<CommandGroup> getCommandGroups() => [];
-  
+
   /// App-wide commands provided by the plugin. Defaults to an empty list.
   List<Command> getAppCommands() => [];
 
@@ -76,8 +76,8 @@ abstract class EditorPlugin {
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-      const SizedBox.shrink();
+  ) => const SizedBox.shrink();
+
   /// A way for plugins to wrap toolbars (e.g., to handle focus).
   /// Defaults to returning the toolbar unmodified.
   Widget wrapCommandToolbar(Widget toolbar) => toolbar;

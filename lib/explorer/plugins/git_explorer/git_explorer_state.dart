@@ -1,6 +1,5 @@
 // FILE: lib/explorer/plugins/git_explorer/git_explorer_state.dart
 
-
 import 'dart:async';
 
 import 'package:dart_git/dart_git.dart';
@@ -135,7 +134,6 @@ final selectedGitCommitHashProvider = StateProvider<GitHash?>((ref) {
   return ref.watch(gitHistoryStartHashProvider);
 });
 
-
 final gitTreeCacheProvider = AutoDisposeNotifierProvider<
   GitTreeCacheNotifier,
   Map<String, AsyncValue<List<GitObjectDocumentFile>>>
@@ -169,22 +167,24 @@ class GitTreeCacheNotifier
     if (state[pathInRepo] is AsyncLoading || state[pathInRepo] is AsyncData) {
       return;
     }
-    
+
     final initialCommitHash = ref.read(selectedGitCommitHashProvider);
     if (initialCommitHash == null) return;
 
     state = {...state, pathInRepo: const AsyncLoading()};
-    
+
     try {
       final gitRepo = await ref.read(gitRepositoryProvider.future);
 
       // After an await, re-read the latest state. If the user changed the commit
       // while we were loading the repo, we should abort this load.
       final currentCommitHash = ref.read(selectedGitCommitHashProvider);
-      if (gitRepo == null || currentCommitHash == null || currentCommitHash != initialCommitHash) {
+      if (gitRepo == null ||
+          currentCommitHash == null ||
+          currentCommitHash != initialCommitHash) {
         return; // Abort if repo isn't available or commit has changed.
       }
-      
+
       final commit = await gitRepo.objStorage.readCommit(currentCommitHash);
       GitTree tree;
       if (pathInRepo.isEmpty) {
@@ -210,7 +210,7 @@ class GitTreeCacheNotifier
               if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
               return a.name.compareTo(b.name);
             });
-      
+
       // Update state only if the provider has not been disposed and the commit hasn't changed.
       if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
         state = {...state, pathInRepo: AsyncData(items)};
@@ -219,7 +219,7 @@ class GitTreeCacheNotifier
       // If the provider has been disposed, trying to update state will throw.
       // We can safely catch this and do nothing. The check here is mostly for safety.
       if (ref.read(selectedGitCommitHashProvider) == initialCommitHash) {
-         state = {...state, pathInRepo: AsyncError(e, st)};
+        state = {...state, pathInRepo: AsyncError(e, st)};
       }
     }
   }

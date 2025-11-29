@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
-import '../logic/code_editor_types.dart';
+
 import '../../../../command/command_widgets.dart';
 import '../code_editor_plugin.dart';
+import '../logic/code_editor_types.dart';
 import 'custom_code_line_number.dart';
 
 class CustomEditorIndicator extends StatelessWidget {
@@ -120,7 +121,7 @@ class CodeEditorSelectionAppBar extends ConsumerWidget {
 }
 
 class GrabbableScrollbar extends StatefulWidget {
-  const GrabbableScrollbar({
+  const GrabbableScrollbar({super.key, 
     required this.details,
     required this.thickness,
     required this.child,

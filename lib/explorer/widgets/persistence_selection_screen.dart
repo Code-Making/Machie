@@ -1,6 +1,7 @@
 // NEW FILE: lib/explorer/widgets/persistence_selection_screen.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
@@ -17,15 +18,14 @@ class PersistenceSelectionScreen extends ConsumerWidget {
     final persistenceRegistry = ref.watch(persistenceStrategyRegistryProvider);
 
     // Filter the registry to get only the strategies supported by the current handler.
-    final supportedStrategies = handler.supportedPersistenceTypeIds
-        .map((id) => persistenceRegistry[id]?.strategyInfo)
-        .where((info) => info != null)
-        .toList();
+    final supportedStrategies =
+        handler.supportedPersistenceTypeIds
+            .map((id) => persistenceRegistry[id]?.strategyInfo)
+            .where((info) => info != null)
+            .toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Select Storage for ${handler.name}'),
-      ),
+      appBar: AppBar(title: Text('Select Storage for ${handler.name}')),
       body: ListView.builder(
         itemCount: supportedStrategies.length,
         itemBuilder: (context, index) {

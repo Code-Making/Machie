@@ -1,11 +1,12 @@
 // lib/editor/plugins/tiled_editor/widgets/object_editor_app_bar.dart
 
 import 'package:flutter/material.dart';
+
 import '../../../../command/command_widgets.dart';
 import '../tiled_editor_plugin.dart';
-import '../tiled_paint_tools.dart';
 
-class ObjectEditorAppBar extends StatelessWidget implements PreferredSizeWidget {
+class ObjectEditorAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
   final VoidCallback onExit;
   final bool isSnapToGridEnabled;
   final VoidCallback onToggleSnapToGrid;
@@ -37,21 +38,22 @@ class ObjectEditorAppBar extends StatelessWidget implements PreferredSizeWidget 
         tooltip: 'Exit Object Mode (Pan/Zoom)',
         onPressed: onExit,
       ),
-      title: 
-        showFinishShapeButton ?
-          TextButton.icon(
-            icon: const Icon(Icons.check),
-            label: const Text('Finish'),
-            onPressed: onFinishShape,
-            style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary),
-          ) :
-      const SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: CommandToolbar(
-          position: TiledEditorPlugin.objectToolsToolbar,
-        ),
-      ),
+      title:
+          showFinishShapeButton
+              ? TextButton.icon(
+                icon: const Icon(Icons.check),
+                label: const Text('Finish'),
+                onPressed: onFinishShape,
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                ),
+              )
+              : const SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: CommandToolbar(
+                  position: TiledEditorPlugin.objectToolsToolbar,
+                ),
+              ),
       actions: [
         IconButton(
           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),

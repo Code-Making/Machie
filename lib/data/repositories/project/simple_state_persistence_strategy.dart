@@ -10,14 +10,19 @@ import 'project_state_persistence_strategy.dart';
 /// It loads its state from a JSON map provided at initialization (typically
 /// from the global app state). The `save` operation is a no-op, as the
 /// state is expected to be persisted elsewhere when the entire app state is saved.
-class SimpleStatePersistenceStrategy implements ProjectStatePersistenceStrategy {
+class SimpleStatePersistenceStrategy
+    implements ProjectStatePersistenceStrategy {
   // A JSON map used ONLY for initial rehydration on app start.
   // For all other loads, we use SharedPreferences.
   final Map<String, dynamic>? _rehydrationJson;
   final SharedPreferences _prefs;
   final String _projectId;
 
-  SimpleStatePersistenceStrategy(this._rehydrationJson, this._prefs, this._projectId);
+  SimpleStatePersistenceStrategy(
+    this._rehydrationJson,
+    this._prefs,
+    this._projectId,
+  );
 
   // The key for this project's long-term state in SharedPreferences.
   String get _storageKey => 'project_state_$_projectId';
@@ -36,7 +41,7 @@ class SimpleStatePersistenceStrategy implements ProjectStatePersistenceStrategy 
   Future<ProjectDto> load() async {
     // Prioritize the rehydration JSON if it exists (for hot starts).
     if (_rehydrationJson != null) {
-      return ProjectDto.fromJson(_rehydrationJson!);
+      return ProjectDto.fromJson(_rehydrationJson);
     }
 
     // Otherwise, load from long-term SharedPreferences storage.

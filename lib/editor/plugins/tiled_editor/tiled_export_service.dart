@@ -1,27 +1,25 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:math';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_editor_plugin.dart';
-import 'package:machine/editor/plugins/tiled_editor/tmj_writer.dart';
-import 'package:machine/editor/plugins/tiled_editor/tmx_writer.dart';
-import 'package:machine/editor/tab_metadata_notifier.dart';
-import 'package:machine/logs/logs_provider.dart';
-import 'package:tiled/tiled.dart';
-import 'package:machine/editor/plugins/tiled_editor/image_load_result.dart'; // Add this import
 
-import 'tiled_map_notifier.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tiled/tiled.dart';
+
+import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
+import '../../../logs/logs_provider.dart';
+import '../../tab_metadata_notifier.dart';
+import 'tmj_writer.dart';
+import 'tmx_writer.dart';
+
+import 'image_load_result.dart'; // Add this import
 
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);
 });
-
 
 class _TileSourceInfo {
   final int oldGid;
@@ -45,8 +43,8 @@ class TiledExportService {
     required TiledMap map,
     required Map<String, ImageLoadResult> imageCache,
     required String destinationFolderUri,
-    required String mapFileName,       // NEW
-    required String atlasFileName,     // NEW
+    required String mapFileName, // NEW
+    required String atlasFileName, // NEW
     required bool removeUnused,
     required bool asJson,
     required bool packInAtlas,
@@ -74,7 +72,7 @@ class TiledExportService {
         return !isUsed;
       });
     }
-    
+
     if (packInAtlas) {
       final result = await _packAtlas(mapToExport, imageCache, atlasFileName);
       mapToExport = result.modifiedMap;
@@ -82,7 +80,16 @@ class TiledExportService {
       finalAtlasImageName = result.atlasImageName;
     }
 
-    final sourceMapFile = _ref.read(tabMetadataProvider)[_ref.read(appNotifierProvider).value!.currentProject!.session.currentTab!.id]!.file;
+    final sourceMapFile =
+        _ref
+            .read(tabMetadataProvider)[_ref
+                .read(appNotifierProvider)
+                .value!
+                .currentProject!
+                .session
+                .currentTab!
+                .id]!
+            .file;
     final sourceMapFolderUri = repo.fileHandler.getParentUri(sourceMapFile.uri);
 
     final assetsToCopy = <String>{};
@@ -93,7 +100,8 @@ class TiledExportService {
           assetsToCopy.add(layer.image.source!);
         }
       }
-    } else { // Otherwise, copy all used tileset images
+    } else {
+      // Otherwise, copy all used tileset images
       for (final tileset in mapToExport.tilesets) {
         if (tileset.image?.source != null) {
           assetsToCopy.add(tileset.image!.source!);
@@ -105,15 +113,18 @@ class TiledExportService {
         }
       }
     }
-    
+
     talker.info('Found ${assetsToCopy.length} external assets to copy.');
 
     for (final relativeAssetPath in assetsToCopy) {
       try {
         // Resolve the asset's original location. This is tricky because the path
         // in the TMX is relative to the TMX file itself.
-        final assetFile = await repo.fileHandler.resolvePath(sourceMapFolderUri, relativeAssetPath);
-        
+        final assetFile = await repo.fileHandler.resolvePath(
+          sourceMapFolderUri,
+          relativeAssetPath,
+        );
+
         if (assetFile != null) {
           talker.info('Copying asset: ${assetFile.name}');
           await repo.copyDocumentFile(assetFile, destinationFolderUri);
@@ -138,40 +149,42 @@ class TiledExportService {
       fileContent = TmxWriter(mapToExport).toTmx();
       fileExtension = 'tmx';
     }
-    
+
     final finalMapFileName = '$mapFileName.$fileExtension';
 
     // Save the new atlas image if it was created
     if (atlasImageBytes != null && finalAtlasImageName != null) {
       final atlasFile = await repo.createDocumentFile(
         destinationFolderUri,
-        finalAtlasImageName!,
+        finalAtlasImageName,
         initialBytes: atlasImageBytes,
         overwrite: true,
       );
-      
-        _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: atlasFile));
 
+      _ref
+          .read(fileOperationControllerProvider)
+          .add(FileCreateEvent(createdFile: atlasFile));
     }
-    
+
     final mapFile = await repo.createDocumentFile(
       destinationFolderUri,
       finalMapFileName,
       initialContent: fileContent,
       overwrite: true,
     );
-    
-        _ref
+
+    _ref
         .read(fileOperationControllerProvider)
         .add(FileCreateEvent(createdFile: mapFile));
-
 
     talker.info('Export complete: $mapFileName');
   }
 
-  Future<_PackAtlasResult> _packAtlas(TiledMap map, Map<String, ImageLoadResult> imageCache, String atlasBaseName) async {
+  Future<_PackAtlasResult> _packAtlas(
+    TiledMap map,
+    Map<String, ImageLoadResult> imageCache,
+    String atlasBaseName,
+  ) async {
     _ref.read(talkerProvider).info('Starting atlas packing...');
     final usedGids = _findUsedGids(map);
     final uniqueTileSources = <int, _TileSourceInfo>{};
@@ -203,20 +216,25 @@ class TiledExportService {
         maxYinRow = 0;
       }
       packedLayout[source.oldGid] = ui.Rect.fromLTWH(
-          currentX.toDouble(), currentY.toDouble(), tileWidth.toDouble(), tileHeight.toDouble());
+        currentX.toDouble(),
+        currentY.toDouble(),
+        tileWidth.toDouble(),
+        tileHeight.toDouble(),
+      );
 
       currentX += tileWidth;
       maxYinRow = max(maxYinRow, tileHeight);
     }
     final int atlasHeight = currentY + maxYinRow;
-    
+
     // 3. Render the new atlas image
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
-    final allSourceImages = sortedTiles.map((e) => e.tileset.image?.source).toSet();
-    
+    final allSourceImages =
+        sortedTiles.map((e) => e.tileset.image?.source).toSet();
+
     for (final source in sortedTiles) {
       final destRect = packedLayout[source.oldGid]!;
       final tiledRect = source.tileset.computeDrawRect(source.tile);
@@ -232,7 +250,7 @@ class TiledExportService {
         canvas.drawImageRect(sourceImage, sourceRect, destRect, paint);
       }
     }
-    
+
     final picture = recorder.endRecording();
     final image = await picture.toImage(atlasWidth, atlasHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -251,7 +269,11 @@ class TiledExportService {
       tileHeight: map.tileHeight,
       tileCount: sortedTiles.length,
       columns: atlasWidth ~/ map.tileWidth,
-      image: TiledImage(source: atlasFileName, width: atlasWidth, height: atlasHeight),
+      image: TiledImage(
+        source: atlasFileName,
+        width: atlasWidth,
+        height: atlasHeight,
+      ),
     );
 
     for (final source in sortedTiles) {
@@ -284,9 +306,11 @@ class TiledExportService {
         }
       }
     }
-    
+
     // 6. Finalize the map object
-    map.tilesets..clear()..add(atlasTileset);
+    map.tilesets
+      ..clear()
+      ..add(atlasTileset);
 
     _ref.read(talkerProvider).info('Atlas packing complete.');
     return _PackAtlasResult(map, atlasImageBytes, atlasFileName);
@@ -309,14 +333,13 @@ class TiledExportService {
     }
     return usedGids;
   }
-  
+
   TiledMap _deepCopyMap(TiledMap original) {
     final writer = TmxWriter(original);
     final tmxString = writer.toTmx();
     return TileMapParser.parseTmx(tmxString);
   }
 }
-
 
 // Placeholder for the name property that doesn't exist on the TiledMap object
 extension TiledMapNameExtension on TiledMap {

@@ -14,15 +14,15 @@ import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project/project_repository.dart';
-import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../project/project_models.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
-import '../../models/editor_tab_models.dart';
-import '../../services/editor_service.dart';
-import '../../models/text_editing_capability.dart';
-import '../../tab_metadata_notifier.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
+import '../../models/text_editing_capability.dart';
+import '../../services/editor_service.dart';
+import '../../tab_metadata_notifier.dart';
 import 'llm_editor_hot_state.dart';
 import 'llm_editor_models.dart';
 import 'llm_editor_settings_widget.dart';
@@ -52,11 +52,13 @@ class LlmEditorPlugin extends EditorPlugin {
   PluginSettings? get settings => LlmEditorSettings();
 
   @override
-    Widget buildSettingsUI(
+  Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-       LlmEditorSettingsUI(settings: settings as LlmEditorSettings, onChanged: onChanged);
+  ) => LlmEditorSettingsUI(
+    settings: settings as LlmEditorSettings,
+    onChanged: onChanged,
+  );
 
   // *** FIX: This function no longer accepts a WidgetRef. ***
   // It now receives the dependencies it needs directly, making it safer to call
@@ -262,7 +264,9 @@ class LlmEditorPlugin extends EditorPlugin {
         final context = ref.read(navigatorKeyProvider).currentContext;
         // *** FIX: Get dependencies from ref BEFORE the first await ***
         final settings =
-            ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
+            ref
+                    .read(effectiveSettingsProvider)
+                    .pluginSettings[LlmEditorSettings]
                 as LlmEditorSettings?;
         final provider = ref.read(llmServiceProvider);
         final project = ref.read(appNotifierProvider).value!.currentProject!;

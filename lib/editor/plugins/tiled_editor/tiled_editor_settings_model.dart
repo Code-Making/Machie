@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:machine/editor/plugins/editor_plugin_registry.dart';
+import '../editor_plugin_registry.dart';
 
 class TiledEditorSettings extends PluginSettings {
   int gridColorValue;
@@ -18,14 +17,11 @@ class TiledEditorSettings extends PluginSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'gridColorValue': gridColorValue,
-        'gridThickness': gridThickness,
-      };
+    'gridColorValue': gridColorValue,
+    'gridThickness': gridThickness,
+  };
 
-  TiledEditorSettings copyWith({
-    int? gridColorValue,
-    double? gridThickness,
-  }) {
+  TiledEditorSettings copyWith({int? gridColorValue, double? gridThickness}) {
     return TiledEditorSettings(
       gridColorValue: gridColorValue ?? this.gridColorValue,
       gridThickness: gridThickness ?? this.gridThickness,

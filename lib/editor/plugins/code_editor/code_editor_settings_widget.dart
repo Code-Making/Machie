@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../settings/settings_notifier.dart';
+import '../../../app/app_notifier.dart';
 import '../../../utils/code_themes.dart';
 import '../../../widgets/dialogs/folder_picker_dialog.dart';
 import 'code_editor_models.dart';
-import '../../../app/app_notifier.dart';
 
 class CodeEditorSettingsUI extends ConsumerStatefulWidget {
   final CodeEditorSettings settings;
@@ -30,10 +30,12 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
   @override
   void initState() {
     super.initState();
-    _filenameController =
-        TextEditingController(text: widget.settings.scratchpadFilename);
-    _localPathController =
-        TextEditingController(text: widget.settings.scratchpadLocalPath ?? '');
+    _filenameController = TextEditingController(
+      text: widget.settings.scratchpadFilename,
+    );
+    _localPathController = TextEditingController(
+      text: widget.settings.scratchpadLocalPath ?? '',
+    );
   }
 
   @override
@@ -75,9 +77,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
       final fullPath = fullUri.toFilePath();
 
       _localPathController.text = fullPath;
-      widget.onChanged(
-        widget.settings.copyWith(scratchpadLocalPath: fullPath),
-      );
+      widget.onChanged(widget.settings.copyWith(scratchpadLocalPath: fullPath));
       setState(() {}); // Rebuild to update the button icon
     }
   }
@@ -101,8 +101,9 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
         SwitchListTile(
           title: const Text('Word Wrap'),
           value: currentSettings.wordWrap,
-          onChanged: (value) =>
-              widget.onChanged(currentSettings.copyWith(wordWrap: value)),
+          onChanged:
+              (value) =>
+                  widget.onChanged(currentSettings.copyWith(wordWrap: value)),
         ),
         const Divider(),
 
@@ -120,8 +121,10 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
             'Displays special characters like "=>" as a single symbol',
           ),
           value: currentSettings.fontLigatures,
-          onChanged: (value) =>
-              widget.onChanged(currentSettings.copyWith(fontLigatures: value)),
+          onChanged:
+              (value) => widget.onChanged(
+                currentSettings.copyWith(fontLigatures: value),
+              ),
         ),
 
         // Font Family
@@ -129,7 +132,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Font Family'),
-            value: currentSettings.fontFamily,
+            initialValue: currentSettings.fontFamily,
             items: const [
               DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
               DropdownMenuItem(
@@ -138,8 +141,10 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
               ),
               DropdownMenuItem(value: 'RobotoMono', child: Text('Roboto Mono')),
             ],
-            onChanged: (value) =>
-                widget.onChanged(currentSettings.copyWith(fontFamily: value)),
+            onChanged:
+                (value) => widget.onChanged(
+                  currentSettings.copyWith(fontFamily: value),
+                ),
           ),
         ),
         const SizedBox(height: 16),
@@ -155,8 +160,9 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           max: 24,
           divisions: 16,
           label: currentSettings.fontSize.round().toString(),
-          onChanged: (value) =>
-              widget.onChanged(currentSettings.copyWith(fontSize: value)),
+          onChanged:
+              (value) =>
+                  widget.onChanged(currentSettings.copyWith(fontSize: value)),
         ),
 
         // Line Height
@@ -171,9 +177,10 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           min: 0.9,
           max: 2.0,
           divisions: 11,
-          label: currentFontHeightValue < 1.0
-              ? "Default"
-              : currentFontHeightValue.toStringAsFixed(2),
+          label:
+              currentFontHeightValue < 1.0
+                  ? "Default"
+                  : currentFontHeightValue.toStringAsFixed(2),
           onChanged: (value) {
             if (value < 1.0) {
               widget.onChanged(
@@ -191,13 +198,14 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Editor Theme'),
-            value: currentSettings.themeName,
-            items: CodeThemes.availableCodeThemes.keys.map((themeName) {
-              return DropdownMenuItem(
-                value: themeName,
-                child: Text(themeName),
-              );
-            }).toList(),
+            initialValue: currentSettings.themeName,
+            items:
+                CodeThemes.availableCodeThemes.keys.map((themeName) {
+                  return DropdownMenuItem(
+                    value: themeName,
+                    child: Text(themeName),
+                  );
+                }).toList(),
             onChanged: (value) {
               if (value != null) {
                 widget.onChanged(currentSettings.copyWith(themeName: value));
@@ -238,17 +246,18 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
               labelText: 'Local Scratchpad File (Optional)',
               hintText: 'Overrides internal scratchpad if set',
               helperText: 'Select a local file to use as the scratchpad',
-              suffixIcon: _localPathController.text.trim().isEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.folder_open),
-                      tooltip: 'Pick Local File',
-                      onPressed: _pickLocalFile,
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.close),
-                      tooltip: 'Clear Path',
-                      onPressed: _clearLocalFile,
-                    ),
+              suffixIcon:
+                  _localPathController.text.trim().isEmpty
+                      ? IconButton(
+                        icon: const Icon(Icons.folder_open),
+                        tooltip: 'Pick Local File',
+                        onPressed: _pickLocalFile,
+                      )
+                      : IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear Path',
+                        onPressed: _clearLocalFile,
+                      ),
             ),
             onChanged: (value) {
               final trimmedValue = value.trim();

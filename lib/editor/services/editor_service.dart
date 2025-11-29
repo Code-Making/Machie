@@ -8,20 +8,20 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
+import '../../data/cache/hot_state_cache_service.dart';
+import '../../data/content_provider/file_content_provider.dart';
 import '../../data/dto/project_dto.dart';
 import '../../data/repositories/project/project_repository.dart';
-import '../../widgets/dialogs/file_explorer_dialogs.dart';
-import '../../widgets/dialogs/save_as_dialog.dart';
 import '../../explorer/services/explorer_service.dart';
 import '../../logs/logs_provider.dart';
 import '../../project/project_models.dart';
 import '../../utils/toast.dart';
+import '../../widgets/dialogs/file_explorer_dialogs.dart';
+import '../../widgets/dialogs/save_as_dialog.dart';
 import '../models/editor_tab_models.dart';
+import '../models/text_editing_capability.dart';
 import '../plugins/editor_plugin_registry.dart';
 import '../tab_metadata_notifier.dart';
-import '../../data/content_provider/file_content_provider.dart';
-import '../models/text_editing_capability.dart';
-import '../../data/cache/hot_state_cache_service.dart';
 
 import '../../data/file_handler/file_handler.dart'
     show DocumentFile, ProjectDocumentFile;

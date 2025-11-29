@@ -7,7 +7,6 @@ import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
 import 'git_explorer_view.dart';
 import 'git_file_content_provider.dart';
-
 import 'git_provider.dart';
 
 class GitExplorerPlugin implements ExplorerPlugin {
@@ -27,8 +26,7 @@ class GitExplorerPlugin implements ExplorerPlugin {
   Widget buildSettingsUI(
     ExplorerPluginSettings settings,
     void Function(ExplorerPluginSettings) onChanged,
-  ) =>
-      const SizedBox.shrink();
+  ) => const SizedBox.shrink();
 
   @override
   List<FileContentProvider Function(Ref ref)>

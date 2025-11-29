@@ -2,6 +2,7 @@
 
 import 'package:tiled/tiled.dart';
 import 'package:xml/xml.dart';
+
 import 'tmx_writer_extensions.dart'; // Import the new extensions file
 
 class TmxWriter {

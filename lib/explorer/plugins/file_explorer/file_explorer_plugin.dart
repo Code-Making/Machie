@@ -23,13 +23,12 @@ class FileExplorerPlugin implements ExplorerPlugin {
 
   @override
   final ExplorerPluginSettings? settings = FileExplorerSettings();
-  
+
   @override
   Widget buildSettingsUI(
     ExplorerPluginSettings settings,
     void Function(ExplorerPluginSettings) onChanged,
-  ) =>
-      const SizedBox.shrink();
+  ) => const SizedBox.shrink();
 
   @override
   List<FileContentProvider Function(Ref ref)>

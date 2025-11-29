@@ -10,18 +10,18 @@ import 'package:collection/collection.dart';
 import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/repositories/project/project_repository.dart';
-import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
+import '../../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import 'widgets/chat_bubble.dart';
-import 'widgets/context_widgets.dart';
-import 'widgets/llm_editor_dialogs.dart';
 import 'llm_editor_hot_state.dart';
 import 'llm_editor_models.dart';
 import 'llm_editor_types.dart';
 import 'providers/llm_provider_factory.dart';
+import 'widgets/chat_bubble.dart';
+import 'widgets/context_widgets.dart';
+import 'widgets/llm_editor_dialogs.dart';
 import 'widgets/streaming_chat_bubble.dart';
 
 import 'llm_editor_controller.dart'; // NEW

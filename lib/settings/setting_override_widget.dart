@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/explorer/explorer_plugin_models.dart';
-import 'package:machine/project/project_settings_notifier.dart';
-import 'package:machine/settings/settings_models.dart';
-import 'package:machine/settings/settings_notifier.dart';
+
+import '../explorer/explorer_plugin_models.dart';
+import 'settings_notifier.dart';
 
 class SettingOverrideWidget extends ConsumerWidget {
   final MachineSettings globalSetting;
@@ -11,7 +11,8 @@ class SettingOverrideWidget extends ConsumerWidget {
     BuildContext context,
     MachineSettings effectiveSetting,
     void Function(MachineSettings) onChanged,
-  ) childBuilder;
+  )
+  childBuilder;
 
   const SettingOverrideWidget({
     super.key,
@@ -26,66 +27,69 @@ class SettingOverrideWidget extends ConsumerWidget {
 
     // This part remains the same, handling the "no project open" case.
     if (projectSettingsState == null) {
-      return childBuilder(
-        context,
-        globalSetting,
-        (newSettings) {
-          if (newSettings is ExplorerPluginSettings) {
-            final pluginId = globalAppSettings.explorerPluginSettings.entries
-                .firstWhere(
-                    (e) => e.value.runtimeType == newSettings.runtimeType)
-                .key;
-            ref
-                .read(settingsProvider.notifier)
-                .updateExplorerPluginSettings(pluginId, newSettings);
-          } else {
-            ref
-                .read(settingsProvider.notifier)
-                .updatePluginSettings(newSettings);
-          }
-        },
-      );
+      return childBuilder(context, globalSetting, (newSettings) {
+        if (newSettings is ExplorerPluginSettings) {
+          final pluginId =
+              globalAppSettings.explorerPluginSettings.entries
+                  .firstWhere(
+                    (e) => e.value.runtimeType == newSettings.runtimeType,
+                  )
+                  .key;
+          ref
+              .read(settingsProvider.notifier)
+              .updateExplorerPluginSettings(pluginId, newSettings);
+        } else {
+          ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
+        }
+      });
     }
 
     final projectSettingsNotifier = ref.read(projectSettingsProvider.notifier);
-    
+
     // This logic to determine the state and callbacks is also unchanged and correct.
     bool isOverridden = false;
     MachineSettings? projectOverrideSetting;
 
     if (globalSetting is ExplorerPluginSettings) {
-      final pluginId = globalAppSettings.explorerPluginSettings.entries
-          .firstWhere((e) => e.value.runtimeType == globalSetting.runtimeType)
-          .key;
+      final pluginId =
+          globalAppSettings.explorerPluginSettings.entries
+              .firstWhere(
+                (e) => e.value.runtimeType == globalSetting.runtimeType,
+              )
+              .key;
       projectOverrideSetting =
           projectSettingsState.explorerPluginSettingsOverrides[pluginId];
       isOverridden = projectOverrideSetting != null;
     } else {
       projectOverrideSetting =
-          projectSettingsState.pluginSettingsOverrides[globalSetting.runtimeType];
+          projectSettingsState.pluginSettingsOverrides[globalSetting
+              .runtimeType];
       isOverridden = projectOverrideSetting != null;
     }
 
     final MachineSettings effectiveSetting =
         isOverridden ? projectOverrideSetting! : globalSetting;
 
-    final void Function(MachineSettings) onChanged = isOverridden
-        ? projectSettingsNotifier.updateOverride
-        : (newSettings) {
-            if (newSettings is ExplorerPluginSettings) {
-              final pluginId = globalAppSettings.explorerPluginSettings.entries
-                  .firstWhere(
-                      (e) => e.value.runtimeType == newSettings.runtimeType)
-                  .key;
-              ref
-                  .read(settingsProvider.notifier)
-                  .updateExplorerPluginSettings(pluginId, newSettings);
-            } else {
-              ref
-                  .read(settingsProvider.notifier)
-                  .updatePluginSettings(newSettings);
-            }
-          };
+    final void Function(MachineSettings) onChanged =
+        isOverridden
+            ? projectSettingsNotifier.updateOverride
+            : (newSettings) {
+              if (newSettings is ExplorerPluginSettings) {
+                final pluginId =
+                    globalAppSettings.explorerPluginSettings.entries
+                        .firstWhere(
+                          (e) => e.value.runtimeType == newSettings.runtimeType,
+                        )
+                        .key;
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateExplorerPluginSettings(pluginId, newSettings);
+              } else {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updatePluginSettings(newSettings);
+              }
+            };
 
     return Column(
       mainAxisSize: MainAxisSize.min,

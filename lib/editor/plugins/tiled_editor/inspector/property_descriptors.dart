@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Image;
 
 // Base class for any editable property.
@@ -37,7 +38,8 @@ class IntPropertyDescriptor extends PropertyDescriptor {
   @override
   int get currentValue => getter();
   @override
-  void updateValue(dynamic newValue) => setter(int.tryParse(newValue.toString()) ?? currentValue);
+  void updateValue(dynamic newValue) =>
+      setter(int.tryParse(newValue.toString()) ?? currentValue);
 }
 
 class DoublePropertyDescriptor extends PropertyDescriptor {
@@ -55,7 +57,8 @@ class DoublePropertyDescriptor extends PropertyDescriptor {
   @override
   double get currentValue => getter();
   @override
-  void updateValue(dynamic newValue) => setter(double.tryParse(newValue.toString()) ?? currentValue);
+  void updateValue(dynamic newValue) =>
+      setter(double.tryParse(newValue.toString()) ?? currentValue);
 }
 
 class StringPropertyDescriptor extends PropertyDescriptor {
@@ -156,7 +159,7 @@ class EnumPropertyDescriptor<T extends Enum> extends PropertyDescriptor {
 
   @override
   T get currentValue => getter();
-  
+
   @override
   void updateValue(dynamic newValue) {
     if (newValue is T) {

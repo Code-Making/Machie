@@ -1,6 +1,7 @@
 // lib/editor/plugins/tiled_editor/widgets/layers_panel.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Text;
 
 class LayersPanel extends StatelessWidget {
@@ -72,7 +73,7 @@ class LayersPanel extends StatelessWidget {
                   // Now, with the corrected visual indices, convert them to data model indices.
                   final int oldDataIndex = itemCount - 1 - oldVisualIndex;
                   final int newDataIndex = itemCount - 1 - newVisualIndex;
-                  
+
                   // Pass the final, correct data indices to the callback.
                   onLayerReorder(oldDataIndex, newDataIndex);
                 },
@@ -123,9 +124,16 @@ class LayersPanel extends StatelessWidget {
                             onPressed: () => onVisibilityChanged(layer.id!),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: Colors.redAccent,
+                            ),
                             tooltip: 'Delete Layer',
-                            onPressed: layers.length > 1 ? () => onLayerDelete(layer.id!) : null,
+                            onPressed:
+                                layers.length > 1
+                                    ? () => onLayerDelete(layer.id!)
+                                    : null,
                           ),
                         ],
                       ),

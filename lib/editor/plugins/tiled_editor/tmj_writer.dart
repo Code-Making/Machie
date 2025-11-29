@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:tiled/tiled.dart';
 
 // Helper extensions to convert Tiled enums and objects to JSON-compatible strings
@@ -32,7 +33,10 @@ class TmjWriter {
       'version': map.version,
       if (map.tiledVersion != null) 'tiledversion': map.tiledVersion,
       'orientation': map.orientation?.toJson() ?? 'orthogonal',
-      'renderorder': map.renderOrder.toJson().replaceAllMapped(RegExp(r'([A-Z])'), (m) => '-${m.group(1)!.toLowerCase()}'),
+      'renderorder': map.renderOrder.toJson().replaceAllMapped(
+        RegExp(r'([A-Z])'),
+        (m) => '-${m.group(1)!.toLowerCase()}',
+      ),
       'width': map.width,
       'height': map.height,
       'tilewidth': map.tileWidth,
@@ -40,8 +44,10 @@ class TmjWriter {
       'infinite': map.infinite,
       if (map.nextLayerId != null) 'nextlayerid': map.nextLayerId,
       if (map.nextObjectId != null) 'nextobjectid': map.nextObjectId,
-      if (map.backgroundColorHex != null) 'backgroundcolor': map.backgroundColorHex,
-      if (map.properties.isNotEmpty) 'properties': _buildPropertiesJson(map.properties),
+      if (map.backgroundColorHex != null)
+        'backgroundcolor': map.backgroundColorHex,
+      if (map.properties.isNotEmpty)
+        'properties': _buildPropertiesJson(map.properties),
       'tilesets': map.tilesets.map((ts) => _buildTilesetJson(ts)).toList(),
       'layers': map.layers.map((l) => _buildLayerJson(l)).toList(),
     };
@@ -81,8 +87,10 @@ class TmjWriter {
         if (tileset.image != null) 'image': tileset.image!.source,
         if (tileset.image != null) 'imagewidth': tileset.image!.width,
         if (tileset.image != null) 'imageheight': tileset.image!.height,
-        if (tileset.objectAlignment != ObjectAlignment.unspecified) 'objectalignment': tileset.objectAlignment.toJson(),
-        if (tileset.properties.isNotEmpty) 'properties': _buildPropertiesJson(tileset.properties),
+        if (tileset.objectAlignment != ObjectAlignment.unspecified)
+          'objectalignment': tileset.objectAlignment.toJson(),
+        if (tileset.properties.isNotEmpty)
+          'properties': _buildPropertiesJson(tileset.properties),
       });
     }
 
@@ -99,30 +107,36 @@ class TmjWriter {
       'height': layer is TileLayer ? layer.height : 0,
       'opacity': layer.opacity,
       'visible': layer.visible,
-      if (layer.class_ != null && layer.class_!.isNotEmpty) 'class': layer.class_,
+      if (layer.class_ != null && layer.class_!.isNotEmpty)
+        'class': layer.class_,
       if (layer.tintColorHex != null) 'tintcolor': layer.tintColorHex,
-      if (layer.properties.isNotEmpty) 'properties': _buildPropertiesJson(layer.properties),
+      if (layer.properties.isNotEmpty)
+        'properties': _buildPropertiesJson(layer.properties),
     };
 
     if (layer is TileLayer) {
       common['type'] = 'tilelayer';
-      final gids = layer.tileData?.expand((row) => row).map((gid) {
-        int outputGid = gid.tile;
-        if (gid.flips.horizontally) outputGid |= Gid.flippedHorizontallyFlag;
-        if (gid.flips.vertically) outputGid |= Gid.flippedVerticallyFlag;
-        if (gid.flips.diagonally) outputGid |= Gid.flippedDiagonallyFlag;
-        return outputGid;
-      }).toList();
+      final gids =
+          layer.tileData?.expand((row) => row).map((gid) {
+            int outputGid = gid.tile;
+            if (gid.flips.horizontally) {
+              outputGid |= Gid.flippedHorizontallyFlag;
+            }
+            if (gid.flips.vertically) outputGid |= Gid.flippedVerticallyFlag;
+            if (gid.flips.diagonally) outputGid |= Gid.flippedDiagonallyFlag;
+            return outputGid;
+          }).toList();
       common['data'] = gids ?? [];
     } else if (layer is ObjectGroup) {
       common['type'] = 'objectgroup';
-      common['draworder'] = layer.drawOrder?.toJson() ?? 'topdown';
-      common['objects'] = layer.objects.map((o) => _buildObjectJson(o)).toList();
+      common['draworder'] = layer.drawOrder.toJson() ?? 'topdown';
+      common['objects'] =
+          layer.objects.map((o) => _buildObjectJson(o)).toList();
     } else if (layer is ImageLayer) {
       common['type'] = 'imagelayer';
       common['image'] = layer.image.source;
-      if(layer.repeatX) common['repeatx'] = true;
-      if(layer.repeatY) common['repeaty'] = true;
+      if (layer.repeatX) common['repeatx'] = true;
+      if (layer.repeatY) common['repeaty'] = true;
     } else if (layer is Group) {
       common['type'] = 'group';
       common['layers'] = layer.layers.map((l) => _buildLayerJson(l)).toList();
@@ -135,7 +149,8 @@ class TmjWriter {
       'id': obj.id,
       'name': obj.name,
       'type': obj.type, // This is the primary editable field
-      if (obj.type.isNotEmpty) 'class': obj.type, // Also write to 'class' if 'type' is set
+      if (obj.type.isNotEmpty)
+        'class': obj.type, // Also write to 'class' if 'type' is set
       'x': obj.x,
       'y': obj.y,
       'width': obj.width,
@@ -145,9 +160,12 @@ class TmjWriter {
       if (obj.gid != null) 'gid': obj.gid,
       if (obj.isEllipse) 'ellipse': true,
       if (obj.isPoint) 'point': true,
-      if (obj.isPolygon) 'polygon': obj.polygon.map((p) => {'x': p.x, 'y': p.y}).toList(),
-      if (obj.isPolyline) 'polyline': obj.polyline.map((p) => {'x': p.x, 'y': p.y}).toList(),
-      if (obj.properties.isNotEmpty) 'properties': _buildPropertiesJson(obj.properties),
+      if (obj.isPolygon)
+        'polygon': obj.polygon.map((p) => {'x': p.x, 'y': p.y}).toList(),
+      if (obj.isPolyline)
+        'polyline': obj.polyline.map((p) => {'x': p.x, 'y': p.y}).toList(),
+      if (obj.properties.isNotEmpty)
+        'properties': _buildPropertiesJson(obj.properties),
       if (obj.text != null) 'text': _buildTextJson(obj.text!),
     };
   }

@@ -4,14 +4,14 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../data/content_provider/file_content_provider.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/models/editor_tab_models.dart';
-import '../data/content_provider/file_content_provider.dart';
 import '../editor/tab_metadata_notifier.dart';
 import '../explorer/explorer_workspace_state.dart';
+import 'project_settings_models.dart';
 
 import '../data/dto/project_dto.dart'; // ADDED
-import 'project_settings_models.dart';
 
 //TODO: Move this into documentFile definition file
 class IncompleteDocumentFile implements DocumentFile {
@@ -80,13 +80,13 @@ class ProjectMetadata {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'rootUri': rootUri,
-        'projectTypeId': projectTypeId,
-        'persistenceTypeId': persistenceTypeId, // NEW
-        'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'rootUri': rootUri,
+    'projectTypeId': projectTypeId,
+    'persistenceTypeId': persistenceTypeId, // NEW
+    'lastOpenedDateTime': lastOpenedDateTime.toIso8601String(),
+  };
 
   factory ProjectMetadata.fromJson(Map<String, dynamic> json) {
     // Backward Compatibility Layer ---
@@ -116,8 +116,10 @@ class ProjectMetadata {
       id: json['id'],
       name: json['name'],
       rootUri: json['rootUri'],
-      projectTypeId: projectTypeId, // Use the (potentially migrated) projectTypeId
-      persistenceTypeId: persistenceTypeId, // Use the (potentially migrated) persistenceTypeId
+      projectTypeId:
+          projectTypeId, // Use the (potentially migrated) projectTypeId
+      persistenceTypeId:
+          persistenceTypeId, // Use the (potentially migrated) persistenceTypeId
       lastOpenedDateTime: DateTime.parse(json['lastOpenedDateTime']),
     );
   }

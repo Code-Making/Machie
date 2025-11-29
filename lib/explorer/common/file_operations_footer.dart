@@ -4,17 +4,16 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../logs/logs_provider.dart';
+import '../../platform/platform_file_service.dart';
 import '../../utils/clipboard.dart';
+import '../../widgets/dialogs/file_explorer_dialogs.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
 import '../services/explorer_service.dart';
 import 'file_explorer_commands.dart';
-import '../../widgets/dialogs/file_explorer_dialogs.dart';
 import 'file_explorer_widgets.dart';
 
 import '../explorer_plugin_registry.dart'; // REFACTOR: Import registry
 import '../plugins/file_explorer/file_explorer_plugin.dart'; // REFACTOR: Import for type check
-
-import '../../platform/platform_file_service.dart';
 
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
@@ -87,7 +86,7 @@ class FileOperationsFooter extends ConsumerWidget {
             onPressed: () async {
               final platformService = ref.read(platformFileServiceProvider);
               final pickedFile = await platformService.pickFileForImport();
-              
+
               if (pickedFile != null) {
                 try {
                   await explorerService.importFile(pickedFile, projectRootUri);

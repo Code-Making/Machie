@@ -21,7 +21,8 @@ final commandProvider = StateNotifierProvider<CommandNotifier, CommandState>((
 class CommandNotifier extends StateNotifier<CommandState> {
   final Ref ref;
   final List<Command> _allRegisteredCommands = [];
-  final Map<String, CommandGroup> _pluginDefinedGroups = {}; // Add this to store plugin groups
+  final Map<String, CommandGroup> _pluginDefinedGroups =
+      {}; // Add this to store plugin groups
 
   List<Command> get allRegisteredCommands => _allRegisteredCommands;
   Map<String, CommandGroup> get pluginDefinedGroups => _pluginDefinedGroups;
@@ -48,7 +49,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
   void _initializeCommands(List<EditorPlugin> plugins) async {
     _allRegisteredCommands.clear();
     _pluginDefinedGroups.clear();
-    
+
     final commandSources = <String, Set<String>>{};
     final allAppCommands = AppCommands.getCommands();
     final allPluginEditorCommands = plugins.expand((p) => p.getCommands());
@@ -61,7 +62,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
         );
       }
     }
-    
+
     final combinedCommands = [
       ...allAppCommands,
       ...allPluginEditorCommands,
@@ -118,7 +119,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final newGroup = oldGroup.copyWith(
       label: newName,
       iconName: newIconName,
-      showLabels: newShowLabels, 
+      showLabels: newShowLabels,
     );
     final newGroups = {...state.commandGroups, groupId: newGroup};
     state = state.copyWith(commandGroups: newGroups);
@@ -211,7 +212,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
       // The parent is a plugin-defined group.
       // Look up its original definition from when the plugin was loaded.
       final originalPluginGroup = _pluginDefinedGroups[fromPositionId];
-      
+
       // If the item we're trying to remove was part of that original definition, block the removal.
       if (originalPluginGroup?.commandIds.contains(itemId) ?? false) {
         return; // Silently ignore removal of a default/mandatory command from a plugin group.
@@ -267,21 +268,24 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final prefs = await SharedPreferences.getInstance();
     final allKnownCommandIds = _allRegisteredCommands.map((c) => c.id).toSet();
 
-    final Map<String, CommandGroup> loadedGroups =
-        Map.from(_pluginDefinedGroups);
+    final Map<String, CommandGroup> loadedGroups = Map.from(
+      _pluginDefinedGroups,
+    );
     final groupsJsonString = prefs.getString('command_groups');
     if (groupsJsonString != null) {
       final Map<String, dynamic> decoded = jsonDecode(groupsJsonString);
       decoded.forEach((key, value) {
-        final savedGroupData =
-            CommandGroup.fromJson(
-                jsonDecode(value as String) as Map<String, dynamic>);
+        final savedGroupData = CommandGroup.fromJson(
+          jsonDecode(value as String) as Map<String, dynamic>,
+        );
 
         // If a plugin group has saved state, merge it. Otherwise, it's a user group.
         if (loadedGroups.containsKey(key)) {
           final pluginGroup = loadedGroups[key]!;
           final cleanCommandIds =
-              savedGroupData.commandIds.where(allKnownCommandIds.contains).toList();
+              savedGroupData.commandIds
+                  .where(allKnownCommandIds.contains)
+                  .toList();
           loadedGroups[key] = pluginGroup.copyWith(
             commandIds: cleanCommandIds,
             showLabels: savedGroupData.showLabels,
@@ -289,8 +293,12 @@ class CommandNotifier extends StateNotifier<CommandState> {
         } else {
           // This is a user-created group.
           final cleanCommandIds =
-              savedGroupData.commandIds.where(allKnownCommandIds.contains).toList();
-          loadedGroups[key] = savedGroupData.copyWith(commandIds: cleanCommandIds);
+              savedGroupData.commandIds
+                  .where(allKnownCommandIds.contains)
+                  .toList();
+          loadedGroups[key] = savedGroupData.copyWith(
+            commandIds: cleanCommandIds,
+          );
         }
       });
     }
@@ -323,7 +331,9 @@ class CommandNotifier extends StateNotifier<CommandState> {
     newPositions.addAll(loadedPositions);
 
     final allPlacedItemIds = {
-      ...newPositions.values.expand((ids) => ids), // This covers both commands and groups
+      ...newPositions.values.expand(
+        (ids) => ids,
+      ), // This covers both commands and groups
       ...cleanHidden,
       ...loadedGroups.values.expand((g) => g.commandIds),
     };
@@ -331,7 +341,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
     final orphanedCommandIds = allKnownCommandIds.where(
       (id) => !allPlacedItemIds.contains(id),
     );
-    
+
     final orphanedGroupIds = _pluginDefinedGroups.keys.where(
       (id) => !allPlacedItemIds.contains(id),
     );
@@ -353,7 +363,7 @@ class CommandNotifier extends StateNotifier<CommandState> {
         }
       }
     }
-    
+
     for (final groupId in orphanedGroupIds) {
       final group = _pluginDefinedGroups[groupId];
       if (group != null) {
@@ -369,21 +379,18 @@ class CommandNotifier extends StateNotifier<CommandState> {
         // and won't appear anywhere. This is reasonable behavior.
       }
     }
-    
+
     for (final position in state.availablePositions) {
       if (position.mandatoryCommands.isNotEmpty) {
         final positionList = newPositions[position.id]!;
         for (final mandatoryId in position.mandatoryCommands) {
-          
           if (!positionList.contains(mandatoryId)) {
-            
-            
             newPositions.forEach((key, value) {
               value.remove(mandatoryId);
             });
-            
+
             cleanHidden.remove(mandatoryId);
-            
+
             positionList.insert(0, mandatoryId);
           }
         }

@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart' hide ColorProperty;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flex_color_picker/flex_color_picker.dart'; // <-- IMPORT THE PACKAGE
 
-import 'property_descriptors.dart';
-import '../tiled_editor_widget.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../utils/toast.dart';
 import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../image_load_result.dart';
-import '../../../../utils/toast.dart';
+import '../tiled_editor_widget.dart';
+import 'property_descriptors.dart';
+
+import 'package:flex_color_picker/flex_color_picker.dart'; // <-- IMPORT THE PACKAGE
+
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 
 class PropertyIntInput extends StatelessWidget {
   final IntPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyIntInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyIntInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +39,11 @@ class PropertyIntInput extends StatelessWidget {
 class PropertyDoubleInput extends StatelessWidget {
   final DoublePropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyDoubleInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyDoubleInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +63,11 @@ class PropertyDoubleInput extends StatelessWidget {
 class PropertyStringInput extends StatelessWidget {
   final StringPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyStringInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyStringInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -71,17 +86,24 @@ class PropertyStringInput extends StatelessWidget {
 class PropertyBoolSwitch extends StatelessWidget {
   final BoolPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  const PropertyBoolSwitch({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyBoolSwitch({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
       title: Text(descriptor.label),
       value: descriptor.currentValue,
-      onChanged: descriptor.isReadOnly ? null : (value) {
-        descriptor.updateValue(value);
-        onUpdate();
-      },
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (value) {
+                descriptor.updateValue(value);
+                onUpdate();
+              },
     );
   }
 }
@@ -115,7 +137,9 @@ class PropertyImagePathInput extends ConsumerWidget {
         style: TextStyle(color: hasError ? theme.colorScheme.error : null),
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: Icon(hasError ? Icons.error_outline : Icons.folder_open_outlined),
+      trailing: Icon(
+        hasError ? Icons.error_outline : Icons.folder_open_outlined,
+      ),
       onTap: () async {
         final newPath = await showDialog<String>(
           context: context,
@@ -140,7 +164,11 @@ class PropertyColorInput extends StatelessWidget {
   final ColorPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
 
-  const PropertyColorInput({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyColorInput({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   Color _parseColor(String? hex) {
     if (hex == null || hex.isEmpty) {
@@ -225,7 +253,8 @@ class PropertyColorInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentColor = _parseColor(descriptor.currentValue);
-    final isNotSet = currentColor.alpha == 0 && descriptor.currentValue != '#00000000';
+    final isNotSet =
+        currentColor.alpha == 0 && descriptor.currentValue != '#00000000';
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -235,15 +264,26 @@ class PropertyColorInput extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isNotSet ? Theme.of(context).scaffoldBackgroundColor : currentColor,
+          color:
+              isNotSet
+                  ? Theme.of(context).scaffoldBackgroundColor
+                  : currentColor,
           shape: BoxShape.circle,
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: isNotSet 
-            ? Center(child: Icon(Icons.close, size: 20, color: Theme.of(context).disabledColor))
-            : null,
+        child:
+            isNotSet
+                ? Center(
+                  child: Icon(
+                    Icons.close,
+                    size: 20,
+                    color: Theme.of(context).disabledColor,
+                  ),
+                )
+                : null,
       ),
-      onTap: descriptor.isReadOnly ? null : () => _showColorPickerDialog(context),
+      onTap:
+          descriptor.isReadOnly ? null : () => _showColorPickerDialog(context),
     );
   }
 }
@@ -252,25 +292,30 @@ class PropertyEnumDropdown<T extends Enum> extends StatelessWidget {
   final EnumPropertyDescriptor<T> descriptor;
   final VoidCallback onUpdate;
 
-  const PropertyEnumDropdown({super.key, required this.descriptor, required this.onUpdate});
+  const PropertyEnumDropdown({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
       decoration: InputDecoration(labelText: descriptor.label),
-      value: descriptor.currentValue,
-      items: descriptor.allValues.map((T value) {
-        return DropdownMenuItem<T>(
-          value: value,
-          child: Text(value.name),
-        );
-      }).toList(),
-      onChanged: descriptor.isReadOnly ? null : (T? newValue) {
-        if (newValue != null) {
-          descriptor.updateValue(newValue);
-          onUpdate();
-        }
-      },
+      initialValue: descriptor.currentValue,
+      items:
+          descriptor.allValues.map((T value) {
+            return DropdownMenuItem<T>(value: value, child: Text(value.name));
+          }).toList(),
+      onChanged:
+          descriptor.isReadOnly
+              ? null
+              : (T? newValue) {
+                if (newValue != null) {
+                  descriptor.updateValue(newValue);
+                  onUpdate();
+                }
+              },
     );
   }
 }
@@ -320,12 +365,14 @@ class _CustomPropertiesEditorState extends State<CustomPropertiesEditor> {
         break;
     }
 
-    final newPropertiesMap = Map<String, Property<Object>>.from(widget.descriptor.currentValue.byName);
+    final newPropertiesMap = Map<String, Property<Object>>.from(
+      widget.descriptor.currentValue.byName,
+    );
     newPropertiesMap[name] = newProperty; // This works for both add and edit
     widget.descriptor.updateValue(CustomProperties(newPropertiesMap));
     widget.onUpdate();
   }
-  
+
   void _addProperty() async {
     // Open the dialog in "add mode"
     final result = await showDialog<Map<String, dynamic>>(
@@ -358,7 +405,9 @@ class _CustomPropertiesEditorState extends State<CustomPropertiesEditor> {
   }
 
   void _removeProperty(String name) {
-    final newPropertiesMap = Map<String, Property<Object>>.from(widget.descriptor.currentValue.byName);
+    final newPropertiesMap = Map<String, Property<Object>>.from(
+      widget.descriptor.currentValue.byName,
+    );
     newPropertiesMap.remove(name);
     widget.descriptor.updateValue(CustomProperties(newPropertiesMap));
     widget.onUpdate();
@@ -452,26 +501,42 @@ class _AddPropertyDialogState extends State<_AddPropertyDialog> {
                 initialValue: _name, // Use initialValue to support edit mode
                 decoration: const InputDecoration(labelText: 'Name'),
                 autofocus: !_isEditMode,
-                readOnly: _isEditMode, // Name is the key, so it shouldn't be changed
-                validator: (value) => value == null || value.isEmpty ? 'Name cannot be empty' : null,
+                readOnly:
+                    _isEditMode, // Name is the key, so it shouldn't be changed
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Name cannot be empty'
+                            : null,
                 onSaved: (value) => _name = value!,
               ),
               DropdownButtonFormField<PropertyType>(
-                value: _type,
+                initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
-                items: PropertyType.values
-                    .where((t) => t != PropertyType.file && t != PropertyType.object)
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
-                    .toList(),
+                items:
+                    PropertyType.values
+                        .where(
+                          (t) =>
+                              t != PropertyType.file &&
+                              t != PropertyType.object,
+                        )
+                        .map(
+                          (t) =>
+                              DropdownMenuItem(value: t, child: Text(t.name)),
+                        )
+                        .toList(),
                 // Disable type changes in edit mode to avoid complex value conversions
-                onChanged: _isEditMode ? null : (value) {
-                  if (value != null) {
-                    setState(() {
-                      _type = value;
-                      _value = _getDefaultValueForType(value);
-                    });
-                  }
-                },
+                onChanged:
+                    _isEditMode
+                        ? null
+                        : (value) {
+                          if (value != null) {
+                            setState(() {
+                              _type = value;
+                              _value = _getDefaultValueForType(value);
+                            });
+                          }
+                        },
               ),
               _buildValueEditor(),
             ],
@@ -479,12 +544,19 @@ class _AddPropertyDialogState extends State<_AddPropertyDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               _formKey.currentState!.save();
-              Navigator.pop(context, {'name': _name, 'type': _type, 'value': _value});
+              Navigator.pop(context, {
+                'name': _name,
+                'type': _type,
+                'value': _value,
+              });
             }
           },
           child: const Text('Add'),

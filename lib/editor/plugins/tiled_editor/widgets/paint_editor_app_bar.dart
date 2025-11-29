@@ -1,16 +1,14 @@
 // lib/editor/plugins/tiled_editor/widgets/paint_editor_app_bar.dart
 
 import 'package:flutter/material.dart';
+
 import '../../../../command/command_widgets.dart';
 import '../tiled_editor_plugin.dart';
 
 class PaintEditorAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onExit;
 
-  const PaintEditorAppBar({
-    super.key,
-    required this.onExit,
-  });
+  const PaintEditorAppBar({super.key, required this.onExit});
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +20,7 @@ class PaintEditorAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       title: const SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: CommandToolbar(
-          position: TiledEditorPlugin.paintToolsToolbar,
-        ),
+        child: CommandToolbar(position: TiledEditorPlugin.paintToolsToolbar),
       ),
       actions: const [
         // Actions can be added here via command system if needed later

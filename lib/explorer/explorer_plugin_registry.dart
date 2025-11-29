@@ -2,21 +2,18 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/app_notifier.dart'; // Keep for other logic if needed
-import '../settings/settings_notifier.dart'; // Import settings
 import 'explorer_plugin_models.dart';
 import 'plugins/file_explorer/file_explorer_plugin.dart';
-import 'plugins/search_explorer/search_explorer_plugin.dart';
 import 'plugins/git_explorer/git_explorer_plugin.dart';
+import 'plugins/search_explorer/search_explorer_plugin.dart';
+
+// Keep for other logic if needed
+import '../settings/settings_notifier.dart'; // Import settings
 
 export 'explorer_plugin_models.dart';
 
 final explorerRegistryProvider = Provider<List<ExplorerPlugin>>((ref) {
-  return [
-    FileExplorerPlugin(),
-    SearchExplorerPlugin(),
-    GitExplorerPlugin(),
-  ];
+  return [FileExplorerPlugin(), SearchExplorerPlugin(), GitExplorerPlugin()];
 });
 
 final activeExplorerProvider = StateProvider<ExplorerPlugin>((ref) {
@@ -48,20 +45,17 @@ class ActiveExplorerNotifier {
     ExplorerPluginSettings Function(ExplorerPluginSettings?) updater,
   ) async {
     final activePlugin = _ref.read(activeExplorerProvider);
-    
+
     // FIX: Forward updates to the global SettingsNotifier
     // This maintains backward compatibility if other code uses this notifier
     final currentSettings = _ref.read(activeExplorerSettingsProvider);
     final newSettings = updater(currentSettings);
-    
-    if (newSettings is! MachineSettings) {
-        // Should theoretically not happen if types align
-        return; 
-    }
 
-    _ref.read(settingsProvider.notifier).updateExplorerPluginSettings(
-      activePlugin.id, 
-      newSettings as MachineSettings
-    );
+    _ref
+        .read(settingsProvider.notifier)
+        .updateExplorerPluginSettings(
+          activePlugin.id,
+          newSettings as MachineSettings,
+        );
   }
 }

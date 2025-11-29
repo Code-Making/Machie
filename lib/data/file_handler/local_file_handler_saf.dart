@@ -46,12 +46,11 @@ class SafFileHandler implements LocalFileHandler {
   static const String _separator = '%2F';
 
   final String rootUri;
-  
+
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
   SafFileHandler(this.rootUri);
-
 
   @override
   Future<List<ProjectDocumentFile>> listDirectory(

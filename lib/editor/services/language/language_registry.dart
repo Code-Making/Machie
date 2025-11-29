@@ -1,6 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/editor/plugins/editor_plugin_registry.dart';
-import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/cpp.dart';
 import 'package:re_highlight/languages/css.dart';
@@ -19,7 +16,6 @@ import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 
 import 'language_models.dart';
-import 'package:re_highlight/languages/all.dart';
 
 class Languages {
   // Private constructor to prevent instantiation
@@ -32,8 +28,8 @@ class Languages {
     final ext = filename.split('.').last.toLowerCase();
     return _byExtension[ext] ?? _plaintext;
   }
-  
-    /// Returns the config for a specific Language ID (e.g., 'cpp', 'dart').
+
+  /// Returns the config for a specific Language ID (e.g., 'cpp', 'dart').
   static LanguageConfig getById(String id) {
     return _byId[id] ?? _plaintext;
   }
@@ -43,21 +39,20 @@ class Languages {
     final ext = filename.split('.').last.toLowerCase();
     return _byExtension.containsKey(ext);
   }
-  
+
   /// Returns all registered languages (for UI selection).
   static List<LanguageConfig> get all => List.unmodifiable(_allLanguages);
 
-
   // --- Internal Maps (Lazily initialized if needed, or just static const if possible) ---
   // Since Mode objects are not const, we use a static final map.
-  
+
   static final Map<String, LanguageConfig> _byExtension = {
     for (var lang in _allLanguages)
-      for (var ext in lang.extensions) ext: lang
+      for (var ext in lang.extensions) ext: lang,
   };
-  
+
   static final Map<String, LanguageConfig> _byId = {
-    for (var lang in _allLanguages) lang.id: lang
+    for (var lang in _allLanguages) lang.id: lang,
   };
 
   static final LanguageConfig _plaintext = LanguageConfig(
@@ -65,7 +60,9 @@ class Languages {
     name: 'Plain Text',
     extensions: {'txt', 'text', 'gitignore', 'env', 'LICENSE', ''},
     highlightMode: langPlaintext,
-    comments: const CommentConfig(singleLine: '#'), // Common default for config files
+    comments: const CommentConfig(
+      singleLine: '#',
+    ), // Common default for config files
   );
 
   // --- The Data Definitions ---
@@ -78,7 +75,11 @@ class Languages {
       name: 'Dart',
       extensions: {'dart'},
       highlightMode: langDart,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       importFormatter: (path) => "import '$path';",
       importIgnoredPrefixes: ['dart:', 'package:', 'http:', 'https:'],
       importPatterns: [
@@ -94,7 +95,11 @@ class Languages {
       name: 'JavaScript',
       extensions: {'js', 'jsx', 'mjs', 'cjs'},
       highlightMode: langJavascript,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       importFormatter: (path) => "import '$path';",
       importIgnoredPrefixes: ['http:', 'https:', 'node:'],
       importPatterns: [
@@ -113,7 +118,11 @@ class Languages {
       name: 'TypeScript',
       extensions: {'ts', 'tsx'},
       highlightMode: langTypescript,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       importFormatter: (path) => "import '$path';",
       importIgnoredPrefixes: ['http:', 'https:', 'node:'],
       importPatterns: [
@@ -143,7 +152,14 @@ class Languages {
       extensions: {'html', 'htm', 'xhtml'},
       highlightMode: langXml,
       comments: const CommentConfig(blockBegin: '<!--', blockEnd: '-->'),
-      importIgnoredPrefixes: ['http:', 'https:', '//', 'mailto:', 'tel:', 'javascript:'],
+      importIgnoredPrefixes: [
+        'http:',
+        'https:',
+        '//',
+        'mailto:',
+        'tel:',
+        'javascript:',
+      ],
       importPatterns: [
         RegExp(r'''src=["']([^"']+)["']'''),
         RegExp(r'''href=["']([^"']+)["']'''),
@@ -171,11 +187,13 @@ class Languages {
       name: 'C++',
       extensions: {'cpp', 'c', 'cc', 'h', 'hpp'},
       highlightMode: langCpp,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
       importFormatter: (path) => '#include "$path"',
-      importPatterns: [
-        RegExp(r'''#include\s+["']([^"']+)["']'''),
-      ],
+      importPatterns: [RegExp(r'''#include\s+["']([^"']+)["']''')],
     ),
 
     // --- JAVA ---
@@ -184,7 +202,11 @@ class Languages {
       name: 'Java',
       extensions: {'java'},
       highlightMode: langJava,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
     ),
 
     // --- KOTLIN ---
@@ -193,7 +215,11 @@ class Languages {
       name: 'Kotlin',
       extensions: {'kt', 'kts'},
       highlightMode: langKotlin,
-      comments: const CommentConfig(singleLine: '//', blockBegin: '/*', blockEnd: '*/'),
+      comments: const CommentConfig(
+        singleLine: '//',
+        blockBegin: '/*',
+        blockEnd: '*/',
+      ),
     ),
 
     // --- BASH / SHELL ---

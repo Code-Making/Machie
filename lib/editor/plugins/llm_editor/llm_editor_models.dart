@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
 
-import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'llm_editor_widget.dart';
 
 @immutable
@@ -215,12 +215,9 @@ class LlmEditorSettings extends PluginSettings {
     return LlmEditorSettings(
       selectedProviderId: selectedProviderId,
       apiKeys: Map.from(apiKeys),
-      selectedModels: Map.from(selectedModels.map(
-        (key, value) => MapEntry(
-          key,
-          value?.clone(),
-        ),
-      )),
+      selectedModels: Map.from(
+        selectedModels.map((key, value) => MapEntry(key, value?.clone())),
+      ),
     );
   }
 }

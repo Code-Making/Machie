@@ -8,9 +8,9 @@ import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../models/editor_tab_models.dart';
-import '../../models/editor_plugin_models.dart';
 import '../../../project/project_models.dart';
+import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
 import 'refactor_editor_hot_state.dart';
 import 'refactor_editor_models.dart';
 import 'refactor_editor_widget.dart';
@@ -36,7 +36,10 @@ class RefactorEditorPlugin extends EditorPlugin {
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) => RefactorEditorSettingsUI(settings: settings as RefactorSettings, onChanged: onChanged);
+  ) => RefactorEditorSettingsUI(
+    settings: settings as RefactorSettings,
+    onChanged: onChanged,
+  );
 
   @override
   bool supportsFile(DocumentFile file) {

@@ -1,5 +1,6 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+
+import 'package:collection/collection.dart';
 
 import '../data/dto/project_dto.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
@@ -51,11 +52,13 @@ class ProjectSettingsState {
     return ProjectSettingsState(
       pluginSettingsOverrides:
           pluginSettingsOverrides ?? this.pluginSettingsOverrides,
-      explorerPluginSettingsOverrides: explorerPluginSettingsOverrides ??
+      explorerPluginSettingsOverrides:
+          explorerPluginSettingsOverrides ??
           this.explorerPluginSettingsOverrides,
-      typeSpecificSettings: clearTypeSpecificSettings
-          ? null
-          : typeSpecificSettings ?? this.typeSpecificSettings,
+      typeSpecificSettings:
+          clearTypeSpecificSettings
+              ? null
+              : typeSpecificSettings ?? this.typeSpecificSettings,
     );
   }
 
@@ -65,10 +68,7 @@ class ProjectSettingsState {
     final mapEquals = const DeepCollectionEquality().equals;
 
     return other is ProjectSettingsState &&
-        mapEquals(
-          other.pluginSettingsOverrides,
-          pluginSettingsOverrides,
-        ) &&
+        mapEquals(other.pluginSettingsOverrides, pluginSettingsOverrides) &&
         mapEquals(
           other.explorerPluginSettingsOverrides,
           explorerPluginSettingsOverrides,
@@ -78,8 +78,8 @@ class ProjectSettingsState {
 
   @override
   int get hashCode => Object.hash(
-        const DeepCollectionEquality().hash(pluginSettingsOverrides),
-        const DeepCollectionEquality().hash(explorerPluginSettingsOverrides),
-        typeSpecificSettings,
-      );
+    const DeepCollectionEquality().hash(pluginSettingsOverrides),
+    const DeepCollectionEquality().hash(explorerPluginSettingsOverrides),
+    typeSpecificSettings,
+  );
 }

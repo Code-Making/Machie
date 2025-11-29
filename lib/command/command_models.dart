@@ -7,18 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/file_handler/file_handler.dart';
 import '../editor/models/editor_tab_models.dart';
 
-import '../editor/plugins/editor_plugin_registry.dart'; 
-import '../editor/tab_context_commands.dart'; 
+import '../editor/plugins/editor_plugin_registry.dart';
+import '../editor/tab_context_commands.dart';
 
 final allTabContextCommandsProvider = Provider<List<TabContextCommand>>((ref) {
   final allPlugins = ref.watch(activePluginsProvider);
 
-    final genericCommands = AppTabContextCommands.getCommands();
+  final genericCommands = AppTabContextCommands.getCommands();
 
-    final pluginCommands =
+  final pluginCommands =
       allPlugins.expand((p) => p.getTabContextMenuCommands()).toList();
 
-    return [...genericCommands, ...pluginCommands];
+  return [...genericCommands, ...pluginCommands];
 });
 
 class CommandIcon {
@@ -48,7 +48,6 @@ class CommandPosition {
   final String label;
   final IconData icon;
   final List<String> mandatoryCommands;
-
 
   const CommandPosition({
     required this.id,
@@ -97,7 +96,7 @@ abstract class Command {
   final String id;
   final String label;
   final Widget icon;
-    final List<CommandPosition> defaultPositions;
+  final List<CommandPosition> defaultPositions;
   final String sourcePlugin;
 
   const Command({
@@ -181,7 +180,8 @@ class CommandGroup {
       showLabels: showLabels ?? this.showLabels,
       sourcePlugin: sourcePlugin ?? this.sourcePlugin,
       isDeletable: isDeletable ?? this.isDeletable,
-      defaultPositions: defaultPositions ?? this.defaultPositions, // <-- ADD THIS
+      defaultPositions:
+          defaultPositions ?? this.defaultPositions, // <-- ADD THIS
     );
   }
 

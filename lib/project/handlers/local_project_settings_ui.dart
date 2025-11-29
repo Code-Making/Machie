@@ -20,12 +20,11 @@ class LocalProjectSettingsUI extends StatelessWidget {
         SwitchListTile(
           title: const Text('Enable Experimental Feature'),
           subtitle: const Text(
-              'This is a setting specific to Local Folder projects.'),
+            'This is a setting specific to Local Folder projects.',
+          ),
           value: settings.enableExperimentalFeature,
           onChanged: (newValue) {
-            onChanged(
-              settings.copyWith(enableExperimentalFeature: newValue),
-            );
+            onChanged(settings.copyWith(enableExperimentalFeature: newValue));
           },
         ),
       ],

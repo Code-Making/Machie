@@ -8,11 +8,11 @@ import 'package:crypto/crypto.dart';
 import 'package:dart_git/dart_git.dart';
 import 'package:dart_git/utils/file_mode.dart';
 
+import '../../../data/content_provider/file_content_provider.dart';
 import '../../../data/dto/project_dto.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../editor/models/editor_tab_models.dart';
 import '../../../editor/models/editor_plugin_models.dart';
-import '../../../data/content_provider/file_content_provider.dart';
+import '../../../editor/models/editor_tab_models.dart';
 import 'git_object_file.dart';
 
 // Imports from dart_git
@@ -38,7 +38,7 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
       );
     }
     final gitRepo = await _gitRepoFuture;
-        if (gitRepo == null) {
+    if (gitRepo == null) {
       throw StateError('Git repository is not available or failed to load.');
     }
 
@@ -75,7 +75,9 @@ class GitFileContentProvider implements FileContentProvider, IRehydratable {
 
     try {
       final gitRepo = await _gitRepoFuture;
-      if (gitRepo == null) return null; // Git repo not available for this project.
+      if (gitRepo == null) {
+        return null; // Git repo not available for this project.
+      }
 
       // Parse the virtual URI: "git://<commitHash>/<pathInRepo>"
       final uriContent = dto.fileUri.substring('git://'.length);

@@ -40,11 +40,9 @@ final fileOperationStreamProvider =
       return ref.watch(fileOperationControllerProvider).stream;
     });
 
-
 final projectRepositoryProvider = StateProvider<ProjectRepository?>(
   (ref) => null,
 );
-
 
 /// The primary public interface and concrete implementation for all data
 /// operations related to an active project.

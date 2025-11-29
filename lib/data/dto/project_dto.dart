@@ -125,18 +125,20 @@ class ProjectDto {
     return ProjectDto(
       session: TabSessionStateDto.fromJson(json['session'] ?? {}),
       workspace: ExplorerWorkspaceStateDto.fromJson(json['workspace'] ?? {}),
-      settings: json['settings'] != null
-          ? ProjectSettingsDto.fromJson(
-              json['settings'] as Map<String, dynamic>)
-          : null,
+      settings:
+          json['settings'] != null
+              ? ProjectSettingsDto.fromJson(
+                json['settings'] as Map<String, dynamic>,
+              )
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'session': session.toJson(),
-        'workspace': workspace.toJson(),
-        if (settings != null) 'settings': settings!.toJson(),
-      };
+    'session': session.toJson(),
+    'workspace': workspace.toJson(),
+    if (settings != null) 'settings': settings!.toJson(),
+  };
 }
 
 @immutable
@@ -153,21 +155,23 @@ class ProjectSettingsDto {
 
   factory ProjectSettingsDto.fromJson(Map<String, dynamic> json) {
     return ProjectSettingsDto(
-      pluginSettingsOverrides:
-          Map<String, dynamic>.from(json['pluginSettingsOverrides'] ?? {}),
+      pluginSettingsOverrides: Map<String, dynamic>.from(
+        json['pluginSettingsOverrides'] ?? {},
+      ),
       explorerPluginSettingsOverrides: Map<String, dynamic>.from(
         json['explorerPluginSettingsOverrides'] ?? {},
       ),
-      typeSpecificSettings: json['typeSpecificSettings'] != null
-          ? Map<String, dynamic>.from(json['typeSpecificSettings'])
-          : null,
+      typeSpecificSettings:
+          json['typeSpecificSettings'] != null
+              ? Map<String, dynamic>.from(json['typeSpecificSettings'])
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'pluginSettingsOverrides': pluginSettingsOverrides,
-        'explorerPluginSettingsOverrides': explorerPluginSettingsOverrides,
-        if (typeSpecificSettings != null)
-          'typeSpecificSettings': typeSpecificSettings,
-      };
+    'pluginSettingsOverrides': pluginSettingsOverrides,
+    'explorerPluginSettingsOverrides': explorerPluginSettingsOverrides,
+    if (typeSpecificSettings != null)
+      'typeSpecificSettings': typeSpecificSettings,
+  };
 }

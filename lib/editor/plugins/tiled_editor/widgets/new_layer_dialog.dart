@@ -1,6 +1,7 @@
 // lib/editor/plugins/tiled_editor/widgets/new_layer_dialog.dart
 
 import 'package:flutter/material.dart';
+
 import 'package:tiled/tiled.dart' hide Text;
 
 class NewLayerDialog extends StatefulWidget {
@@ -20,32 +21,32 @@ class _NewLayerDialogState extends State<NewLayerDialog> {
     _nameController = TextEditingController();
     _updateDefaultName();
   }
-  
+
   void _updateDefaultName() {
-      String newDefaultName = '';
-      switch(_selectedType) {
-        case LayerType.tileLayer:
-          newDefaultName = 'New Tile Layer';
-          break;
-        case LayerType.objectGroup:
-          newDefaultName = 'New Object Layer';
-          break;
-        case LayerType.imageLayer:
-          newDefaultName = 'New Image Layer';
-          break;
-        case LayerType.group:
-        default:
-          newDefaultName = 'New Layer';
-          break;
-        // ------------------------
-      }
-      if (_nameController.text == 'New Tile Layer' ||
-          _nameController.text == 'New Object Layer' ||
-          _nameController.text == 'New Image Layer' ||
-          _nameController.text == 'New Layer') {
-        _nameController.text = newDefaultName;
-      }
+    String newDefaultName = '';
+    switch (_selectedType) {
+      case LayerType.tileLayer:
+        newDefaultName = 'New Tile Layer';
+        break;
+      case LayerType.objectGroup:
+        newDefaultName = 'New Object Layer';
+        break;
+      case LayerType.imageLayer:
+        newDefaultName = 'New Image Layer';
+        break;
+      case LayerType.group:
+      default:
+        newDefaultName = 'New Layer';
+        break;
+      // ------------------------
     }
+    if (_nameController.text == 'New Tile Layer' ||
+        _nameController.text == 'New Object Layer' ||
+        _nameController.text == 'New Image Layer' ||
+        _nameController.text == 'New Layer') {
+      _nameController.text = newDefaultName;
+    }
+  }
 
   @override
   void dispose() {
@@ -64,15 +65,17 @@ class _NewLayerDialogState extends State<NewLayerDialog> {
             controller: _nameController,
             decoration: const InputDecoration(labelText: 'Layer Name'),
             autofocus: true,
-            onTap: () => _nameController.selection = TextSelection(
-              baseOffset: 0,
-              extentOffset: _nameController.text.length,
-            ),
+            onTap:
+                () =>
+                    _nameController.selection = TextSelection(
+                      baseOffset: 0,
+                      extentOffset: _nameController.text.length,
+                    ),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<LayerType>(
             decoration: const InputDecoration(labelText: 'Layer Type'),
-            value: _selectedType,
+            initialValue: _selectedType,
             items: [
               const DropdownMenuItem(
                 value: LayerType.tileLayer,

@@ -1,6 +1,7 @@
 // FILE: lib/explorer/plugins/file_explorer/file_explorer_state.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../explorer_plugin_models.dart';
 
 enum FileExplorerViewMode { sortByNameAsc, sortByNameDesc, sortByDateModified }
@@ -10,16 +11,10 @@ class FileExplorerSettings implements ExplorerPluginSettings {
   final FileExplorerViewMode viewMode;
   // REMOVED: expandedFolders (This is state, not a setting)
 
-  FileExplorerSettings({
-    this.viewMode = FileExplorerViewMode.sortByNameAsc,
-  });
+  FileExplorerSettings({this.viewMode = FileExplorerViewMode.sortByNameAsc});
 
-  FileExplorerSettings copyWith({
-    FileExplorerViewMode? viewMode,
-  }) {
-    return FileExplorerSettings(
-      viewMode: viewMode ?? this.viewMode,
-    );
+  FileExplorerSettings copyWith({FileExplorerViewMode? viewMode}) {
+    return FileExplorerSettings(viewMode: viewMode ?? this.viewMode);
   }
 
   factory FileExplorerSettings.fromJson(Map<String, dynamic> json) {
@@ -37,15 +32,11 @@ class FileExplorerSettings implements ExplorerPluginSettings {
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-        'viewMode': viewMode.name,
-      };
+  Map<String, dynamic> toJson() => {'viewMode': viewMode.name};
 
   @override
   FileExplorerSettings clone() {
-    return FileExplorerSettings(
-      viewMode: this.viewMode,
-    );
+    return FileExplorerSettings(viewMode: viewMode);
   }
 }
 
@@ -60,15 +51,17 @@ class FileExplorerExpansionNotifier extends StateNotifier<Set<String>> {
       state = {...state}..remove(uri);
     }
   }
-  
+
   void collapseAll() {
     state = {};
   }
 }
 
-// A dedicated provider for expansion state. 
+// A dedicated provider for expansion state.
 // Lightweight, in-memory, does NOT trigger disk writes.
-final fileExplorerExpandedFoldersProvider =
-    StateNotifierProvider.autoDispose<FileExplorerExpansionNotifier, Set<String>>((ref) {
+final fileExplorerExpandedFoldersProvider = StateNotifierProvider.autoDispose<
+  FileExplorerExpansionNotifier,
+  Set<String>
+>((ref) {
   return FileExplorerExpansionNotifier();
 });

@@ -83,7 +83,7 @@ class AndroidForegroundCacheService implements BackgroundCacheService {
     await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
   }
-  
+
   @override
   Future<void> notifyUiResumed() async {
     await _ensureRunning();

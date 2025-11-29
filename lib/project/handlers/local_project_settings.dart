@@ -1,13 +1,11 @@
-import 'package:machine/project/project_settings_models.dart';
 import '../../settings/settings_models.dart';
+import '../project_settings_models.dart';
 
 class LocalProjectSettings extends ProjectSettings {
   /// A dummy setting to demonstrate project-specific configuration.
   bool enableExperimentalFeature;
 
-  LocalProjectSettings({
-    this.enableExperimentalFeature = false,
-  });
+  LocalProjectSettings({this.enableExperimentalFeature = false});
 
   @override
   void fromJson(Map<String, dynamic> json) {
@@ -16,12 +14,10 @@ class LocalProjectSettings extends ProjectSettings {
 
   @override
   Map<String, dynamic> toJson() => {
-        'enableExperimentalFeature': enableExperimentalFeature,
-      };
+    'enableExperimentalFeature': enableExperimentalFeature,
+  };
 
-  LocalProjectSettings copyWith({
-    bool? enableExperimentalFeature,
-  }) {
+  LocalProjectSettings copyWith({bool? enableExperimentalFeature}) {
     return LocalProjectSettings(
       enableExperimentalFeature:
           enableExperimentalFeature ?? this.enableExperimentalFeature,

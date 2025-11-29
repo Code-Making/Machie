@@ -25,9 +25,7 @@ class RefactorEditorSettingsUI extends StatelessWidget {
           title: 'Supported File Extensions',
           items: settings.supportedExtensions,
           onListChanged: (newItems) {
-            onChanged(
-              settings.copyWith(supportedExtensions: newItems),
-            );
+            onChanged(settings.copyWith(supportedExtensions: newItems));
           },
         ),
         const SizedBox(height: 24),
@@ -36,9 +34,7 @@ class RefactorEditorSettingsUI extends StatelessWidget {
           title: 'Global Ignored Glob Patterns',
           items: settings.ignoredGlobPatterns,
           onListChanged: (newItems) {
-            onChanged(
-              settings.copyWith(ignoredGlobPatterns: newItems),
-            );
+            onChanged(settings.copyWith(ignoredGlobPatterns: newItems));
           },
         ),
         const SizedBox(height: 16),
@@ -49,9 +45,7 @@ class RefactorEditorSettingsUI extends StatelessWidget {
           ),
           value: settings.useProjectGitignore,
           onChanged: (newValue) {
-            onChanged(
-              settings.copyWith(useProjectGitignore: newValue),
-            );
+            onChanged(settings.copyWith(useProjectGitignore: newValue));
           },
         ),
         const Divider(),
@@ -62,9 +56,7 @@ class RefactorEditorSettingsUI extends StatelessWidget {
           ),
           value: settings.updateInternalPathsAsDirty,
           onChanged: (newValue) {
-            onChanged(
-              settings.copyWith(updateInternalPathsAsDirty: newValue),
-            );
+            onChanged(settings.copyWith(updateInternalPathsAsDirty: newValue));
           },
         ),
       ],
@@ -117,15 +109,16 @@ class RefactorEditorSettingsUI extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: items.map((item) {
-            return Chip(
-              label: Text(item),
-              onDeleted: () {
-                final newItems = Set<String>.from(items)..remove(item);
-                onListChanged(newItems);
-              },
-            );
-          }).toList(),
+          children:
+              items.map((item) {
+                return Chip(
+                  label: Text(item),
+                  onDeleted: () {
+                    final newItems = Set<String>.from(items)..remove(item);
+                    onListChanged(newItems);
+                  },
+                );
+              }).toList(),
         ),
       ],
     );

@@ -9,24 +9,25 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/content_provider/file_content_provider.dart';
 import '../data/file_handler/file_handler.dart';
-import '../data/shared_preferences.dart';
-import '../project/project_type_handler_registry.dart'; // NEW
 import '../data/repositories/app_state_repository.dart';
 import '../data/repositories/project/project_repository.dart';
+import '../data/shared_preferences.dart';
 import '../editor/models/editor_tab_models.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../editor/services/editor_service.dart';
-import '../data/content_provider/file_content_provider.dart';
 import '../editor/tab_metadata_notifier.dart';
-import '../widgets/dialogs/file_explorer_dialogs.dart';
 import '../explorer/services/explorer_service.dart';
 import '../logs/logs_provider.dart';
 import '../project/project_models.dart';
 import '../project/services/project_service.dart';
 import '../utils/clipboard.dart';
 import '../utils/toast.dart';
+import '../widgets/dialogs/file_explorer_dialogs.dart';
 import 'app_state.dart';
+
+// NEW
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,
@@ -101,7 +102,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
     );
   }
 
-
   Future<Project?> _openProjectWithRecovery(
     ProjectMetadata meta, {
     Map<String, dynamic>? projectStateJson,
@@ -146,8 +146,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
       );
 
       if (wantsToGrant == true) {
-        final bool permissionGranted =
-            await _projectService.recoverPermissionForProject(e.metadata, context);
+        final bool permissionGranted = await _projectService
+            .recoverPermissionForProject(e.metadata, context);
 
         if (permissionGranted) {
           _talker.info("Permission re-granted. Retrying project open...");
@@ -156,10 +156,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
             projectStateJson: projectStateJson,
           );
         } else {
-           _talker.warning(
+          _talker.warning(
             "User attempted to re-grant permission for project ${e.metadata.name}, but failed.",
           );
-           MachineToast.error("Permission not granted.");
+          MachineToast.error("Permission not granted.");
         }
       } else {
         _talker.warning(
@@ -167,11 +167,11 @@ class AppNotifier extends AsyncNotifier<AppState> {
         );
         MachineToast.error("Could not open project: Permission not granted.");
       }
-      
+
       return null;
     }
   }
-  
+
   /// Handles events published by the ProjectRepository to keep the UI in sync.
   void _handleFileOperationEvent(FileOperationEvent event) {
     final project = state.value?.currentProject;
@@ -245,7 +245,6 @@ class AppNotifier extends AsyncNotifier<AppState> {
         UnsavedChangesAction.cancel;
   }
 
-
   /// Opens a project from the list of previously known projects.
   Future<void> openKnownProject(String projectId) async {
     await _updateState((s) async {
@@ -256,7 +255,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
         s = state.value!;
       }
       final meta = s.knownProjects.firstWhere((p) => p.id == projectId);
-      
+
       final finalProject = await _openProjectWithRecovery(
         meta,
         projectStateJson: null,
@@ -302,7 +301,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
     // ADDED: Signal success.
     return true;
   }
-  
+
   Future<void> createNewProject(ProjectMetadata newMetadata) async {
     await _updateState((s) async {
       if (s.currentProject != null) {
@@ -332,7 +331,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
         settings: liveSettings,
       );
 
-      final knownProjects = s.knownProjects.where((p) => p.id != newMetadata.id).toList();
+      final knownProjects =
+          s.knownProjects.where((p) => p.id != newMetadata.id).toList();
 
       return s.copyWith(
         currentProject: finalProject,
@@ -352,13 +352,18 @@ class AppNotifier extends AsyncNotifier<AppState> {
         s = state.value!;
       }
 
-      final projectToRemove = s.knownProjects.firstWhereOrNull((p) => p.id == projectId);
-      
-      if (projectToRemove != null && projectToRemove.persistenceTypeId == 'simple_state') {
+      final projectToRemove = s.knownProjects.firstWhereOrNull(
+        (p) => p.id == projectId,
+      );
+
+      if (projectToRemove != null &&
+          projectToRemove.persistenceTypeId == 'simple_state') {
         final prefs = await ref.read(sharedPreferencesProvider.future);
         final storageKey = 'project_state_${projectToRemove.id}';
         await prefs.remove(storageKey);
-        _talker.info('Cleared long-term state for removed simple project: ${projectToRemove.name}');
+        _talker.info(
+          'Cleared long-term state for removed simple project: ${projectToRemove.name}',
+        );
       }
 
       return s.copyWith(
@@ -501,10 +506,10 @@ class AppNotifier extends AsyncNotifier<AppState> {
     if (currentProject != null) {
       await _projectService.saveProject(currentProject);
     }
-    
+
     final registry = ref.read(fileContentProviderRegistryProvider);
     final liveTabMetadata = ref.read(tabMetadataProvider);
-    
+
     final appStateDto = appState.toDto(liveTabMetadata, registry);
     await _appStateRepository.saveAppStateDto(appStateDto);
   }

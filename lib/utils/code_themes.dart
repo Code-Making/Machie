@@ -173,7 +173,6 @@ class CodeThemes {
     'XT256': xt256Theme,
   };
 
-
   // TODO: sort and remove rest of file as legacy code
   // Map of language keys to their highlight modes (as before)
   static final Map<String, dynamic> languageNameToModeMap = {

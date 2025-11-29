@@ -1,6 +1,5 @@
 // FILE: lib/data/file_handler/local_file_handler.dart
 
-
 import 'dart:io';
 
 import 'file_handler.dart';

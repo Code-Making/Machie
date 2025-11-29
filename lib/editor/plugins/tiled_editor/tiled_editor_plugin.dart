@@ -1,25 +1,27 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
+import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
+import '../../../logs/logs_provider.dart';
 import '../../models/editor_command_context.dart';
 import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
-
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
-import 'tiled_editor_widget.dart';
-import '../../../command/command_widgets.dart';
-import 'tiled_paint_tools.dart';
-import 'widgets/tiled_editor_settings_widget.dart';
 import 'tiled_editor_settings_model.dart';
+import 'tiled_editor_widget.dart';
+import 'tiled_paint_tools.dart';
 import 'widgets/export_dialog.dart';
-import '../../../logs/logs_provider.dart';
+import 'widgets/tiled_editor_settings_widget.dart';
 
 class TiledEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.tiled_editor';
@@ -42,7 +44,7 @@ class TiledEditorPlugin extends EditorPlugin {
     icon: Icons.category_outlined,
     // mandatoryCommands: ['tiled_object_tools_group'],
   );
-  
+
   @override
   String get id => pluginId;
 
@@ -62,7 +64,7 @@ class TiledEditorPlugin extends EditorPlugin {
   bool supportsFile(DocumentFile file) {
     return file.name.toLowerCase().endsWith('.tmx');
   }
-  
+
   @override
   PluginSettings? get settings => TiledEditorSettings();
 
@@ -70,8 +72,10 @@ class TiledEditorPlugin extends EditorPlugin {
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-      TiledEditorSettingsWidget(settings: settings as TiledEditorSettings, onChanged: onChanged);
+  ) => TiledEditorSettingsWidget(
+    settings: settings as TiledEditorSettings,
+    onChanged: onChanged,
+  );
 
   @override
   Future<EditorTab> createTab(
@@ -114,19 +118,23 @@ class TiledEditorPlugin extends EditorPlugin {
   }
 
   @override
-  List<CommandPosition> getCommandPositions() =>
-      [tiledFloatingToolbar, paintToolsToolbar, objectToolsToolbar];
+  List<CommandPosition> getCommandPositions() => [
+    tiledFloatingToolbar,
+    paintToolsToolbar,
+    objectToolsToolbar,
+  ];
 
   TiledEditorWidgetState? _getEditorState(WidgetRef ref) {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (tab is TiledEditorTab) {
-      return tab.editorKey.currentState as TiledEditorWidgetState?;
+      return tab.editorKey.currentState;
     }
     return null;
   }
-  
-    List<CommandGroup> getCommandGroups() {
+
+  @override
+  List<CommandGroup> getCommandGroups() {
     // This map is needed for the dynamic icon
     const objectToolIcons = {
       ObjectTool.select: Icons.touch_app_outlined,
@@ -144,29 +152,32 @@ class TiledEditorPlugin extends EditorPlugin {
         id: 'tiled_object_tools_group',
         label: 'Object Tools',
         // The commands will be displayed as icons only in the dropdown
-        showLabels: false, 
-        defaultPositions: [objectToolsToolbar], 
+        showLabels: false,
+        defaultPositions: [objectToolsToolbar],
         // The icon is a Consumer that rebuilds when the active tool changes
         icon: Consumer(
           builder: (context, ref, _) {
             final ctx = ref.watch(activeCommandContextProvider);
-            
+
             // Default icon if the Tiled editor isn't active
             var activeToolIcon = objectToolIcons[ObjectTool.select]!;
 
-            if (ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.object) {
-              activeToolIcon = objectToolIcons[ctx.activeObjectTool] ?? activeToolIcon;
+            if (ctx is TiledEditorCommandContext &&
+                ctx.mode == TiledEditorMode.object) {
+              activeToolIcon =
+                  objectToolIcons[ctx.activeObjectTool] ?? activeToolIcon;
             }
-            
+
             return Icon(activeToolIcon);
           },
         ),
         // This group will be placed in the toolbar by default
-commandIds: ObjectTool.values
-            .where((e) => e != ObjectTool.select)
-            .where((e) => e != ObjectTool.move)
-            .map((tool) => 'tiled_object_tool_${tool.name}')
-            .toList(),
+        commandIds:
+            ObjectTool.values
+                .where((e) => e != ObjectTool.select)
+                .where((e) => e != ObjectTool.move)
+                .map((tool) => 'tiled_object_tool_${tool.name}')
+                .toList(),
         isDeletable: false, // This is a plugin-defined group
         sourcePlugin: id,
       ),
@@ -174,7 +185,7 @@ commandIds: ObjectTool.values
   }
 
   @override
-  List<Command> getCommands(){
+  List<Command> getCommands() {
     const objectToolIcons = {
       ObjectTool.select: Icons.touch_app_outlined,
       ObjectTool.move: Icons.open_with_outlined,
@@ -185,7 +196,7 @@ commandIds: ObjectTool.values
       ObjectTool.addPolyline: Icons.polyline_outlined,
       ObjectTool.addText: Icons.text_fields_outlined,
     };
-    
+
     const objectToolLabels = {
       ObjectTool.select: 'Select',
       ObjectTool.move: 'Move',
@@ -197,349 +208,393 @@ commandIds: ObjectTool.values
       ObjectTool.addText: 'Add Text',
     };
 
-
-    final objectToolCommands = ObjectTool.values.map((tool) {
-      return BaseCommand(
-        id: 'tiled_object_tool_${tool.name}',
-        label: objectToolLabels[tool] ?? tool.name,
-        icon: Consumer(builder: (context, ref, _) {
-          final ctx = ref.watch(activeCommandContextProvider);
-          final isActive =
-              ctx is TiledEditorCommandContext && ctx.activeObjectTool == tool;
-          return Icon(objectToolIcons[tool],
-              color: isActive ? Theme.of(context).colorScheme.primary : null);
-        }),
-        defaultPositions: [objectToolsToolbar],
-        sourcePlugin: id,
-        execute: (ref) async => _getEditorState(ref)?.setActiveObjectTool(tool),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.object;
-          },
-      );
-    }).toList();
+    final objectToolCommands =
+        ObjectTool.values.map((tool) {
+          return BaseCommand(
+            id: 'tiled_object_tool_${tool.name}',
+            label: objectToolLabels[tool] ?? tool.name,
+            icon: Consumer(
+              builder: (context, ref, _) {
+                final ctx = ref.watch(activeCommandContextProvider);
+                final isActive =
+                    ctx is TiledEditorCommandContext &&
+                    ctx.activeObjectTool == tool;
+                return Icon(
+                  objectToolIcons[tool],
+                  color:
+                      isActive ? Theme.of(context).colorScheme.primary : null,
+                );
+              },
+            ),
+            defaultPositions: [objectToolsToolbar],
+            sourcePlugin: id,
+            execute:
+                (ref) async => _getEditorState(ref)?.setActiveObjectTool(tool),
+            canExecute: (ref) {
+              final ctx = ref.watch(activeCommandContextProvider);
+              return ctx is TiledEditorCommandContext &&
+                  ctx.mode == TiledEditorMode.object;
+            },
+          );
+        }).toList();
 
     return [
       ...objectToolCommands,
-        BaseCommand(
-          id: 'tiled_toggle_pan_zoom_mode',
-          label: 'Pan/Zoom',
-          icon: Consumer(builder: (context, ref, _) {
+      BaseCommand(
+        id: 'tiled_toggle_pan_zoom_mode',
+        label: 'Pan/Zoom',
+        icon: Consumer(
+          builder: (context, ref, _) {
             final ctx = ref.watch(activeCommandContextProvider);
-            final isActive = ctx is TiledEditorCommandContext &&
+            final isActive =
+                ctx is TiledEditorCommandContext &&
                 ctx.mode == TiledEditorMode.panZoom;
-            return Icon(Icons.pan_tool_outlined,
-                color:
-                    isActive ? Theme.of(context).colorScheme.primary : null);
-          }),
-          defaultPositions: [tiledFloatingToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setMode(TiledEditorMode.panZoom),
-        ),
-        BaseCommand(
-          id: 'tiled_toggle_paint_mode',
-          label: 'Paint Mode',
-          icon: Consumer(builder: (context, ref, _) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            final isActive = ctx is TiledEditorCommandContext &&
-                ctx.mode == TiledEditorMode.paint;
-            return Icon(Icons.brush,
-                color:
-                    isActive ? Theme.of(context).colorScheme.primary : null);
-          }),
-          defaultPositions: [tiledFloatingToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setMode(TiledEditorMode.paint),
-        ),
-        BaseCommand(
-          id: 'tiled_toggle_object_mode',
-          label: 'Object Mode',
-          icon: Consumer(builder: (context, ref, _) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            final isActive = ctx is TiledEditorCommandContext &&
-                ctx.mode == TiledEditorMode.object;
-            return Icon(Icons.category_outlined,
-                color:
-                    isActive ? Theme.of(context).colorScheme.primary : null);
-          }),
-          defaultPositions: [tiledFloatingToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setMode(TiledEditorMode.object),
-        ),
-        BaseCommand(
-          id: 'tiled_undo',
-          label: 'Undo',
-          icon: const Icon(Icons.undo),
-          defaultPositions: [AppCommandPositions.pluginToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.undo(),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.canUndo;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_redo',
-          label: 'Redo',
-          icon: const Icon(Icons.redo),
-          defaultPositions: [AppCommandPositions.pluginToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.redo(),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.canRedo;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_map_properties',
-          label: 'Map Properties',
-          icon: const Icon(Icons.settings_overscan),
-          defaultPositions: [AppCommandPositions.pluginToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.inspectMapProperties(),
-        ),
-        BaseCommand(
-          id: 'tiled_toggle_layers_panel',
-          label: 'Toggle Layers',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive =
-                  ctx is TiledEditorCommandContext && ctx.isLayersPanelVisible;
-              return Icon(
-                Icons.layers_outlined,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [AppCommandPositions.pluginToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.toggleLayersPanel(),
-        ),
-        BaseCommand(
-          id: 'tiled_toggle_grid',
-          label: 'Toggle Grid',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive =
-                  ctx is TiledEditorCommandContext && ctx.isGridVisible;
-              return Icon(
-                Icons.grid_on,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [tiledFloatingToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.toggleGrid(),
-        ),
-        BaseCommand(
-          id: 'tiled_subtool_paint',
-          label: 'Paint Brush',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive = ctx is TiledEditorCommandContext &&
-                  ctx.paintMode == TiledPaintMode.paint;
-              return Icon(
-                Icons.brush,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setPaintMode(TiledPaintMode.paint),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.paint;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_subtool_fill',
-          label: 'Bucket Fill',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive = ctx is TiledEditorCommandContext &&
-                  ctx.paintMode == TiledPaintMode.fill;
-              return Icon(
-                Icons.format_color_fill,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setPaintMode(TiledPaintMode.fill),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.paint;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_subtool_erase',
-          label: 'Erase',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive = ctx is TiledEditorCommandContext &&
-                  ctx.paintMode == TiledPaintMode.erase;
-              return Icon(
-                Icons.rectangle_outlined,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setPaintMode(TiledPaintMode.erase),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.paint;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_subtool_select',
-          label: 'Select Tiles',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive = ctx is TiledEditorCommandContext &&
-                  ctx.paintMode == TiledPaintMode.select;
-              return Icon(
-                Icons.select_all,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setPaintMode(TiledPaintMode.select),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.mode == TiledEditorMode.paint;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_subtool_move_selection',
-          label: 'Move Selection',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive = ctx is TiledEditorCommandContext &&
-                  ctx.paintMode == TiledPaintMode.move;
-              return Icon(
-                Icons.open_with,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              _getEditorState(ref)?.setPaintMode(TiledPaintMode.move),
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext &&
-                ctx.mode == TiledEditorMode.paint &&
-                ctx.hasFloatingTileSelection;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_delete_selection',
-          label: 'Delete Selection',
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          defaultPositions: [paintToolsToolbar],
-          sourcePlugin: id,
-          execute: (ref) async {
-            _getEditorState(ref)?.notifier?.deleteFloatingSelection();
-          },
-          canExecute: (ref) {
-            final ctx = ref.watch(activeCommandContextProvider);
-            return ctx is TiledEditorCommandContext && ctx.hasFloatingTileSelection;
-          },
-        ),
-        BaseCommand(
-          id: 'tiled_reset_view',
-          label: 'Reset View',
-          icon: const Icon(Icons.filter_center_focus),
-          defaultPositions: [tiledFloatingToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.resetView(),
-        ),
-        BaseCommand(
-          id: 'tiled_toggle_palette',
-          label: 'Toggle Palette',
-          icon: Consumer(
-            builder: (context, ref, _) {
-              final ctx = ref.watch(activeCommandContextProvider);
-              final isActive =
-                  ctx is TiledEditorCommandContext && ctx.isPaletteVisible;
-              return Icon(
-                Icons.palette_outlined,
-                color: isActive ? Theme.of(context).colorScheme.primary : null,
-              );
-            },
-          ),
-          defaultPositions: [AppCommandPositions.pluginToolbar],
-          sourcePlugin: id,
-          execute: (ref) async => _getEditorState(ref)?.togglePalette(),
-        ),
-        BaseCommand(
-          id: 'save_tmx',
-          label: 'Save Map',
-          icon: const Icon(Icons.save),
-          defaultPositions: [AppCommandPositions.appBar],
-          sourcePlugin: id,
-          execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
-          canExecute: (ref) {
-            final tabId = ref.watch(
-              appNotifierProvider.select(
-                (s) => s.value?.currentProject?.session.currentTab?.id,
-              ),
+            return Icon(
+              Icons.pan_tool_outlined,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
             );
-            if (tabId == null) return false;
-            return ref
-                    .watch(tabMetadataProvider.select((m) => m[tabId]))
-                    ?.isDirty ??
-                false;
           },
         ),
-        BaseCommand(
-          id: 'save_tmx_as',
-          label: 'Save As...',
-          icon: const Icon(Icons.save_as),
-          defaultPositions: [AppCommandPositions.appBar],
-          sourcePlugin: id,
-          execute: (ref) async =>
-              ref.read(editorServiceProvider).saveCurrentTabAs(),
-        ),
-        BaseCommand(
-          id: 'export_map',
-          label: 'Export Map...',
-          icon: const Icon(Icons.output_outlined),
-          defaultPositions: [AppCommandPositions.appBar],
-          sourcePlugin: id,
-          execute: (ref) async {
-            final editor = _getEditorState(ref); // _getEditorState is the correct way
-            if (editor?.notifier != null) {
-              showDialog(
-                context: ref.context,
-                builder: (_) => ExportDialog(notifier: editor!.notifier!, talker: ref.read(talkerProvider)),
-              );
-            }
+        defaultPositions: [tiledFloatingToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setMode(TiledEditorMode.panZoom),
+      ),
+      BaseCommand(
+        id: 'tiled_toggle_paint_mode',
+        label: 'Paint Mode',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.mode == TiledEditorMode.paint;
+            return Icon(
+              Icons.brush,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
           },
         ),
-      ];
+        defaultPositions: [tiledFloatingToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async => _getEditorState(ref)?.setMode(TiledEditorMode.paint),
+      ),
+      BaseCommand(
+        id: 'tiled_toggle_object_mode',
+        label: 'Object Mode',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.mode == TiledEditorMode.object;
+            return Icon(
+              Icons.category_outlined,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [tiledFloatingToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setMode(TiledEditorMode.object),
+      ),
+      BaseCommand(
+        id: 'tiled_undo',
+        label: 'Undo',
+        icon: const Icon(Icons.undo),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.undo(),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext && ctx.canUndo;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_redo',
+        label: 'Redo',
+        icon: const Icon(Icons.redo),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.redo(),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext && ctx.canRedo;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_map_properties',
+        label: 'Map Properties',
+        icon: const Icon(Icons.settings_overscan),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.inspectMapProperties(),
+      ),
+      BaseCommand(
+        id: 'tiled_toggle_layers_panel',
+        label: 'Toggle Layers',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext && ctx.isLayersPanelVisible;
+            return Icon(
+              Icons.layers_outlined,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.toggleLayersPanel(),
+      ),
+      BaseCommand(
+        id: 'tiled_toggle_grid',
+        label: 'Toggle Grid',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext && ctx.isGridVisible;
+            return Icon(
+              Icons.grid_on,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [tiledFloatingToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.toggleGrid(),
+      ),
+      BaseCommand(
+        id: 'tiled_subtool_paint',
+        label: 'Paint Brush',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.paintMode == TiledPaintMode.paint;
+            return Icon(
+              Icons.brush,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setPaintMode(TiledPaintMode.paint),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.mode == TiledEditorMode.paint;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_subtool_fill',
+        label: 'Bucket Fill',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.paintMode == TiledPaintMode.fill;
+            return Icon(
+              Icons.format_color_fill,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setPaintMode(TiledPaintMode.fill),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.mode == TiledEditorMode.paint;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_subtool_erase',
+        label: 'Erase',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.paintMode == TiledPaintMode.erase;
+            return Icon(
+              Icons.rectangle_outlined,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setPaintMode(TiledPaintMode.erase),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.mode == TiledEditorMode.paint;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_subtool_select',
+        label: 'Select Tiles',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.paintMode == TiledPaintMode.select;
+            return Icon(
+              Icons.select_all,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setPaintMode(TiledPaintMode.select),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.mode == TiledEditorMode.paint;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_subtool_move_selection',
+        label: 'Move Selection',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext &&
+                ctx.paintMode == TiledPaintMode.move;
+            return Icon(
+              Icons.open_with,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute:
+            (ref) async =>
+                _getEditorState(ref)?.setPaintMode(TiledPaintMode.move),
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.mode == TiledEditorMode.paint &&
+              ctx.hasFloatingTileSelection;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_delete_selection',
+        label: 'Delete Selection',
+        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+        defaultPositions: [paintToolsToolbar],
+        sourcePlugin: id,
+        execute: (ref) async {
+          _getEditorState(ref)?.notifier?.deleteFloatingSelection();
+        },
+        canExecute: (ref) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          return ctx is TiledEditorCommandContext &&
+              ctx.hasFloatingTileSelection;
+        },
+      ),
+      BaseCommand(
+        id: 'tiled_reset_view',
+        label: 'Reset View',
+        icon: const Icon(Icons.filter_center_focus),
+        defaultPositions: [tiledFloatingToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.resetView(),
+      ),
+      BaseCommand(
+        id: 'tiled_toggle_palette',
+        label: 'Toggle Palette',
+        icon: Consumer(
+          builder: (context, ref, _) {
+            final ctx = ref.watch(activeCommandContextProvider);
+            final isActive =
+                ctx is TiledEditorCommandContext && ctx.isPaletteVisible;
+            return Icon(
+              Icons.palette_outlined,
+              color: isActive ? Theme.of(context).colorScheme.primary : null,
+            );
+          },
+        ),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.togglePalette(),
+      ),
+      BaseCommand(
+        id: 'save_tmx',
+        label: 'Save Map',
+        icon: const Icon(Icons.save),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute:
+            (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+        canExecute: (ref) {
+          final tabId = ref.watch(
+            appNotifierProvider.select(
+              (s) => s.value?.currentProject?.session.currentTab?.id,
+            ),
+          );
+          if (tabId == null) return false;
+          return ref
+                  .watch(tabMetadataProvider.select((m) => m[tabId]))
+                  ?.isDirty ??
+              false;
+        },
+      ),
+      BaseCommand(
+        id: 'save_tmx_as',
+        label: 'Save As...',
+        icon: const Icon(Icons.save_as),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute:
+            (ref) async => ref.read(editorServiceProvider).saveCurrentTabAs(),
+      ),
+      BaseCommand(
+        id: 'export_map',
+        label: 'Export Map...',
+        icon: const Icon(Icons.output_outlined),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute: (ref) async {
+          final editor = _getEditorState(
+            ref,
+          ); // _getEditorState is the correct way
+          if (editor?.notifier != null) {
+            showDialog(
+              context: ref.context,
+              builder:
+                  (_) => ExportDialog(
+                    notifier: editor!.notifier!,
+                    talker: ref.read(talkerProvider),
+                  ),
+            );
+          }
+        },
+      ),
+    ];
   }
 
   @override

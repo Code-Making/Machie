@@ -9,9 +9,10 @@ class SearchExplorerSettings implements ExplorerPluginSettings {
     Set<String>? supportedExtensions,
     Set<String>? ignoredGlobPatterns,
     this.useProjectGitignore = true,
-  })  : supportedExtensions = supportedExtensions ?? {},
-        ignoredGlobPatterns = ignoredGlobPatterns ??
-            {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+  }) : supportedExtensions = supportedExtensions ?? {},
+       ignoredGlobPatterns =
+           ignoredGlobPatterns ??
+           {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
 
   SearchExplorerSettings copyWith({
     Set<String>? supportedExtensions,
@@ -27,21 +28,20 @@ class SearchExplorerSettings implements ExplorerPluginSettings {
 
   @override
   void fromJson(Map<String, dynamic> json) {
-    supportedExtensions =
-        Set<String>.from(json['supportedExtensions'] ?? {});
-    ignoredGlobPatterns =
-        Set<String>.from(json['ignoredGlobPatterns'] ?? {});
+    supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? {});
+    ignoredGlobPatterns = Set<String>.from(json['ignoredGlobPatterns'] ?? {});
     useProjectGitignore = json['useProjectGitignore'] as bool? ?? true;
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'supportedExtensions': supportedExtensions.toList(),
-        'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
-        'useProjectGitignore': useProjectGitignore,
-      };
+    'supportedExtensions': supportedExtensions.toList(),
+    'ignoredGlobPatterns': ignoredGlobPatterns.toList(),
+    'useProjectGitignore': useProjectGitignore,
+  };
 
   // Implement the clone method
+  @override
   SearchExplorerSettings clone() {
     return SearchExplorerSettings(
       supportedExtensions: Set<String>.from(supportedExtensions),

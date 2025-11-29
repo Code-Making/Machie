@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
 
@@ -11,26 +10,23 @@ import '../../../command/command_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../settings/settings_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
-import '../../models/editor_command_context.dart';
 import '../../../editor/services/editor_service.dart';
-import '../../models/text_editing_capability.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../project/project_models.dart';
+import '../../../settings/settings_notifier.dart';
 import '../../../utils/toast.dart';
-import '../../models/editor_tab_models.dart';
-import '../../tab_metadata_notifier.dart';
+import '../../models/editor_command_context.dart';
 import '../../models/editor_plugin_models.dart';
+import '../../models/editor_tab_models.dart';
+import '../../models/text_editing_capability.dart';
+import '../../services/language/language_registry.dart';
+import '../../tab_metadata_notifier.dart';
 import 'code_editor_hot_state_adapter.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'code_editor_models.dart';
 import 'code_editor_settings_widget.dart';
 import 'code_editor_widgets.dart';
-import '../../../utils/code_themes.dart';
-
-import 'package:machine/editor/services/language/language_models.dart';
-import 'package:machine/editor/services/language/language_registry.dart';
 
 class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   static const String pluginId = 'com.machine.code_editor';
@@ -52,8 +48,10 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) =>
-      CodeEditorSettingsUI(settings: settings as CodeEditorSettings, onChanged: onChanged);
+  ) => CodeEditorSettingsUI(
+    settings: settings as CodeEditorSettings,
+    onChanged: onChanged,
+  );
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
@@ -78,7 +76,6 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     return Languages.isSupported(file.name);
   }
 
-
   /// As the fallback editor for text files, this should always return true.
   /// If no specialized plugin claims the content, this one will.
   @override
@@ -96,7 +93,13 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         sourcePlugin: id,
         canExecuteFor: (ref, item) {
           // 1. Must be in Code Editor
-          final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+          final activeTab =
+              ref
+                  .read(appNotifierProvider)
+                  .value
+                  ?.currentProject
+                  ?.session
+                  .currentTab;
           if (activeTab is! CodeEditorTab) return false;
 
           // 2. Active file must support import formatting
@@ -122,7 +125,9 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
         icon: const Icon(Icons.arrow_downward, size: 20),
         sourcePlugin: id,
         canExecuteFor: (ref, activeTab, targetTab) {
-          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id) return false;
+          if (activeTab is! CodeEditorTab || activeTab.id == targetTab.id) {
+            return false;
+          }
 
           final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
           if (activeFile == null) return false;
@@ -139,14 +144,15 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       ),
     ];
   }
-  
+
   Future<void> _executeAddImport(WidgetRef ref, DocumentFile targetFile) async {
-    final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    final activeTab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (activeTab == null) return;
 
     final activeFile = ref.read(tabMetadataProvider)[activeTab.id]?.file;
     final repo = ref.read(projectRepositoryProvider);
-    
+
     // Get the TextEditable interface
     final editorState = activeTab.editorKey.currentState;
     if (activeFile == null || repo == null || editorState is! TextEditable) {
@@ -157,7 +163,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     // 1. Get Configuration
     final config = Languages.getForFile(activeFile.name);
     final formatter = config.importFormatter;
-    
+
     if (formatter == null) {
       MachineToast.error("Imports are not supported for ${config.name}");
       return;
@@ -179,22 +185,22 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     // 3. Check for Duplicates & Find Insertion Point
     final currentContent = await editable.getTextContent();
     final lines = currentContent.split('\n');
-    
+
     int lastImportIndex = -1;
     bool alreadyExists = false;
 
     // Iterate lines to find import block and check duplicates
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
-      
+
       // Check patterns defined in the language config
       for (final pattern in config.importPatterns) {
         final match = pattern.firstMatch(line);
         if (match != null) {
           lastImportIndex = i; // Track the last known import line
-          
+
           // Check if this import matches our target path
-          // Note: This is a simplified string check. 
+          // Note: This is a simplified string check.
           // 'group(1)' is assumed to be the path based on our Regex convention.
           if (match.groupCount >= 1) {
             final existingPath = match.group(1);
@@ -215,7 +221,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
     // 4. Insert
     final importStatement = formatter(relativePath);
     final insertionLine = lastImportIndex + 1;
-    
+
     editable.insertTextAtLine(insertionLine, "$importStatement\n");
     MachineToast.info("Added: $importStatement");
   }
@@ -296,7 +302,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       final hotState = initData.hotState as CodeEditorHotStateDto;
       cachedContent = hotState.content;
       initialLanguageId = hotState.languageId;
-    } 
+    }
 
     return CodeEditorTab(
       plugin: this,
@@ -337,68 +343,74 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
 
   @override
   List<Command> getAppCommands() => [
-        BaseCommand(
-          id: 'open_scratchpad',
-          label: 'Open Scratchpad',
-          icon: const Icon(Icons.edit_note),
-          defaultPositions: [AppCommandPositions.appBar],
-          sourcePlugin: 'App',
-          // No need to check for a project, the scratchpad is global.
-          canExecute: (ref) => true,
-          execute: (ref) async {
-            // Read settings to determine which scratchpad to open
-            final settings = ref
-                .read(effectiveSettingsProvider)
-                .pluginSettings[CodeEditorSettings] as CodeEditorSettings?;
+    BaseCommand(
+      id: 'open_scratchpad',
+      label: 'Open Scratchpad',
+      icon: const Icon(Icons.edit_note),
+      defaultPositions: [AppCommandPositions.appBar],
+      sourcePlugin: 'App',
+      // No need to check for a project, the scratchpad is global.
+      canExecute: (ref) => true,
+      execute: (ref) async {
+        // Read settings to determine which scratchpad to open
+        final settings =
+            ref
+                    .read(effectiveSettingsProvider)
+                    .pluginSettings[CodeEditorSettings]
+                as CodeEditorSettings?;
 
-            final localPath = settings?.scratchpadLocalPath;
+        final localPath = settings?.scratchpadLocalPath;
 
-            if (localPath != null && localPath.trim().isNotEmpty) {
-              // A local file path is configured, try to open it.
-              final repo = ref.read(projectRepositoryProvider);
-              if (repo == null) {
-                MachineToast.error(
-                    "A project must be open to use a local scratchpad file.");
-                return;
-              }
+        if (localPath != null && localPath.trim().isNotEmpty) {
+          // A local file path is configured, try to open it.
+          final repo = ref.read(projectRepositoryProvider);
+          if (repo == null) {
+            MachineToast.error(
+              "A project must be open to use a local scratchpad file.",
+            );
+            return;
+          }
 
-              try {
-                // FileHandler works with URIs. Convert the file path to a URI string.
-                // Uri.file() correctly handles platform-specific path formats.
-                final fileUri = Uri.file(localPath.trim()).toString();
-                final file = await repo.fileHandler.getFileMetadata(fileUri);
+          try {
+            // FileHandler works with URIs. Convert the file path to a URI string.
+            // Uri.file() correctly handles platform-specific path formats.
+            final fileUri = Uri.file(localPath.trim()).toString();
+            final file = await repo.fileHandler.getFileMetadata(fileUri);
 
-                if (file != null) {
-                  await ref
-                      .read(appNotifierProvider.notifier)
-                      .openFileInEditor(file, explicitPlugin: this);
-                } else {
-                  MachineToast.error(
-                      'Could not find local scratchpad file at: $localPath');
-                }
-              } catch (e) {
-                MachineToast.error('Error opening local scratchpad file: $e');
-                ref.read(talkerProvider).error(
-                    'Error opening local scratchpad file at path "$localPath"',
-                    e);
-              }
-            } else {
-              // No local file, use the internal scratchpad.
-              final filename =
-                  settings?.scratchpadFilename ?? 'scratchpad.dart';
-
-              final scratchpadFile = InternalAppFile(
-                uri: 'internal://$filename',
-                name: 'Scratchpad',
-                modifiedDate: DateTime.now(), // Placeholder date
-              );
-
+            if (file != null) {
               await ref
                   .read(appNotifierProvider.notifier)
-                  .openFileInEditor(scratchpadFile, explicitPlugin: this);
+                  .openFileInEditor(file, explicitPlugin: this);
+            } else {
+              MachineToast.error(
+                'Could not find local scratchpad file at: $localPath',
+              );
             }
-          },
-        ),
+          } catch (e) {
+            MachineToast.error('Error opening local scratchpad file: $e');
+            ref
+                .read(talkerProvider)
+                .error(
+                  'Error opening local scratchpad file at path "$localPath"',
+                  e,
+                );
+          }
+        } else {
+          // No local file, use the internal scratchpad.
+          final filename = settings?.scratchpadFilename ?? 'scratchpad.dart';
+
+          final scratchpadFile = InternalAppFile(
+            uri: 'internal://$filename',
+            name: 'Scratchpad',
+            modifiedDate: DateTime.now(), // Placeholder date
+          );
+
+          await ref
+              .read(appNotifierProvider.notifier)
+              .openFileInEditor(scratchpadFile, explicitPlugin: this);
+        }
+      },
+    ),
   ];
 
   // The command definitions are now correct. They find the active
@@ -529,14 +541,20 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       label: 'Indent',
       icon: Icons.format_indent_increase,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.applyIndent(true);},
+      execute: (ref, editor) {
+        editor?.adjustSelectionIfNeeded();
+        editor?.controller.applyIndent(true);
+      },
     ),
     _createCommand(
       id: 'outdent',
       label: 'Outdent',
       icon: Icons.format_indent_decrease,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.applyOutdent();},
+      execute: (ref, editor) {
+        editor?.adjustSelectionIfNeeded();
+        editor?.controller.applyOutdent();
+      },
     ),
     _createCommand(
       id: 'toggle_comment',
@@ -564,14 +582,20 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
       label: 'Move Line Up',
       icon: Icons.arrow_upward,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.moveSelectionLinesUp();},
+      execute: (ref, editor) {
+        editor?.adjustSelectionIfNeeded();
+        editor?.controller.moveSelectionLinesUp();
+      },
     ),
     _createCommand(
       id: 'move_line_down',
       label: 'Move Line Down',
       icon: Icons.arrow_downward,
       defaultPositions: [AppCommandPositions.pluginToolbar],
-      execute: (ref, editor) {editor?.adjustSelectionIfNeeded(); editor?.controller.moveSelectionLinesDown();},
+      execute: (ref, editor) {
+        editor?.adjustSelectionIfNeeded();
+        editor?.controller.moveSelectionLinesDown();
+      },
     ),
     BaseCommand(
       id: 'undo',
