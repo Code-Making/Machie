@@ -50,7 +50,7 @@ class _StreamingChatBubbleState extends ConsumerState<StreamingChatBubble> {
     final theme = Theme.of(context);
     final codeEditorSettings =
         ref.watch(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??

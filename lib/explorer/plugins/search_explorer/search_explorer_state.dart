@@ -1,15 +1,15 @@
-// =========================================
-// UPDATED: lib/explorer/plugins/search_explorer/search_explorer_state.dart
-// =========================================
+// FILE: lib/explorer/plugins/search_explorer/search_explorer_state.dart
 
 import 'dart:async';
-
+import 'package:flutter/foundation.dart'; // For compute
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_notifier.dart';
 import '../../../data/file_handler/file_handler.dart';
-import '../../../project/services/project_hierarchy_service.dart';
+import '../../../utils/file_traversal_util.dart';
+import '../../../settings/settings_notifier.dart';
+import 'search_explorer_settings.dart';
 
-// THE FIX: Create a wrapper class to hold the score.
 class SearchResult {
   final ProjectDocumentFile file;
   final int score;
@@ -19,18 +19,53 @@ class SearchResult {
 
 class SearchState {
   final String query;
-  // THE FIX: The results are now a list of SearchResult.
   final List<SearchResult> results;
+  final bool isSearching;
 
-  SearchState({this.query = '', this.results = const []});
+  SearchState({this.query = '', this.results = const [], this.isSearching = false});
 
-  SearchState copyWith({String? query, List<SearchResult>? results}) {
+  SearchState copyWith({String? query, List<SearchResult>? results, bool? isSearching}) {
     return SearchState(
       query: query ?? this.query,
       results: results ?? this.results,
+      isSearching: isSearching ?? this.isSearching,
     );
   }
 }
+
+final searchableFilesProvider =
+    FutureProvider.autoDispose<List<ProjectDocumentFile>>((ref) async {
+  final project = ref.watch(appNotifierProvider).value?.currentProject;
+  
+  // FIX: STRICTLY select only the search settings.
+  // We use 'select' to ensure we don't rebuild if other plugins update settings.
+  final settings = ref.watch(effectiveSettingsProvider.select((s) {
+    final config = s.explorerPluginSettings['com.machine.search_explorer'];
+    // Ensure we return a comparable object (SearchExplorerSettings) or null
+    return config is SearchExplorerSettings ? config : null;
+  }));
+
+  final effectiveSettings = settings ?? SearchExplorerSettings();
+
+  if (project == null) {
+    return [];
+  }
+
+  final List<ProjectDocumentFile> allFiles = [];
+  
+  await FileTraversalUtil.traverseProject(
+    ref: ref,
+    startDirectoryUri: project.rootUri,
+    supportedExtensions: effectiveSettings.supportedExtensions,
+    ignoredGlobPatterns: effectiveSettings.ignoredGlobPatterns,
+    useProjectGitignore: effectiveSettings.useProjectGitignore,
+    onFileFound: (file, displayPath) async {
+      allFiles.add(file);
+    },
+  );
+
+  return allFiles;
+});
 
 final searchStateProvider =
     StateNotifierProvider.autoDispose<SearchStateNotifier, SearchState>(
@@ -44,92 +79,37 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
   SearchStateNotifier(this._ref) : super(SearchState());
 
   void search(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce?.cancel();
+
+    if (query.isEmpty) {
+      state = state.copyWith(query: query, results: [], isSearching: false);
+      return;
+    }
+
+    state = state.copyWith(query: query, isSearching: true);
+
     _debounce = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
 
-      final allFiles = _ref.read(flatFileIndexProvider).valueOrNull ?? [];
-      state = state.copyWith(query: query);
+      final allFilesAsync = _ref.read(searchableFilesProvider);
 
-      if (query.isEmpty) {
-        state = state.copyWith(results: []);
-        return;
-      }
-
-      // THE FIX: Use the new fuzzy search algorithm.
-      final lowerCaseQuery = query.toLowerCase();
-      final List<SearchResult> scoredResults = [];
-
-      for (final file in allFiles) {
-        final score = _calculateFuzzyScore(
-          file.name.toLowerCase(),
-          lowerCaseQuery,
-        );
-        // Only include results that are actual matches (score > 0).
-        if (score > 0) {
-          scoredResults.add(SearchResult(file: file, score: score));
-        }
-      }
-
-      // Sort results by score in descending order.
-      scoredResults.sort((a, b) => b.score.compareTo(a.score));
-
-      if (mounted) {
-        state = state.copyWith(results: scoredResults);
-      }
+      allFilesAsync.when(
+        data: (allFiles) async {
+          // PERFORMANCE FIX: Run heavy search logic in a background isolate
+          final results = await compute(_performFuzzySearch, _SearchArgs(allFiles, query));
+          
+          if (mounted) {
+            state = state.copyWith(results: results, isSearching: false);
+          }
+        },
+        loading: () {}, // Index building
+        error: (err, stack) {
+          if (mounted) {
+            state = state.copyWith(isSearching: false, results: []);
+          }
+        },
+      );
     });
-  }
-
-  // THE FIX: The core fuzzy matching and scoring algorithm.
-  int _calculateFuzzyScore(String target, String query) {
-    if (query.isEmpty) return 1; // Empty query matches everything
-    if (target.isEmpty) return 0; // But can't match an empty target
-
-    int score = 0;
-    int queryIndex = 0;
-    int targetIndex = 0;
-    int lastMatchIndex = -1;
-
-    while (queryIndex < query.length && targetIndex < target.length) {
-      if (query[queryIndex] == target[targetIndex]) {
-        score += 10; // Base score for a match
-
-        // Contiguous bonus
-        if (lastMatchIndex == targetIndex - 1) {
-          score += 20;
-        }
-
-        // Separator/CamelCase bonus
-        if (targetIndex > 0) {
-          final prevChar = target[targetIndex - 1];
-          if (prevChar == '_' || prevChar == '-' || prevChar == ' ') {
-            score += 15;
-          }
-          if (prevChar.toLowerCase() == prevChar &&
-              target[targetIndex].toUpperCase() == target[targetIndex]) {
-            score += 15; // CamelCase bonus
-          }
-        }
-
-        // First letter bonus
-        if (targetIndex == 0) {
-          score += 15;
-        }
-
-        lastMatchIndex = targetIndex;
-        queryIndex++;
-      }
-      targetIndex++;
-    }
-
-    // If we didn't find all characters of the query, it's not a match.
-    if (queryIndex != query.length) {
-      return 0;
-    }
-
-    // Apply a penalty based on the length of the target string.
-    // This makes shorter, more exact matches score higher.
-    return score - target.length;
   }
 
   @override
@@ -137,4 +117,76 @@ class SearchStateNotifier extends StateNotifier<SearchState> {
     _debounce?.cancel();
     super.dispose();
   }
+}
+
+// --- Isolate Logic Helpers ---
+
+class _SearchArgs {
+  final List<ProjectDocumentFile> files;
+  final String query;
+  _SearchArgs(this.files, this.query);
+}
+
+// Top-level function for compute
+List<SearchResult> _performFuzzySearch(_SearchArgs args) {
+  final lowerCaseQuery = args.query.toLowerCase();
+  final List<SearchResult> scoredResults = [];
+
+  for (final file in args.files) {
+    final score = _calculateFuzzyScore(
+      file.name.toLowerCase(),
+      lowerCaseQuery,
+    );
+    if (score > 0) {
+      scoredResults.add(SearchResult(file: file, score: score));
+    }
+  }
+
+  scoredResults.sort((a, b) => b.score.compareTo(a.score));
+  return scoredResults;
+}
+
+int _calculateFuzzyScore(String target, String query) {
+  if (query.isEmpty) return 1;
+  if (target.isEmpty) return 0;
+
+  int score = 0;
+  int queryIndex = 0;
+  int targetIndex = 0;
+  int lastMatchIndex = -1;
+
+  while (queryIndex < query.length && targetIndex < target.length) {
+    if (query[queryIndex] == target[targetIndex]) {
+      score += 10;
+
+      if (lastMatchIndex == targetIndex - 1) {
+        score += 20;
+      }
+
+      if (targetIndex > 0) {
+        final prevChar = target[targetIndex - 1];
+        if (prevChar == '_' || prevChar == '-' || prevChar == ' ') {
+          score += 15;
+        }
+        if (prevChar.toLowerCase() == prevChar &&
+            target[targetIndex].toUpperCase() == target[targetIndex]) {
+          score += 15;
+        }
+      }
+
+      if (targetIndex == 0) {
+        score += 15;
+      }
+
+      lastMatchIndex = targetIndex;
+      queryIndex++;
+    }
+    targetIndex++;
+  }
+
+  if (queryIndex != query.length) {
+    return 0;
+  }
+
+  return score - target.length;
 }

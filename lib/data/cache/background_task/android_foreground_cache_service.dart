@@ -1,22 +1,20 @@
-// lib/data/cache/cache_service_manager.dart
+// FILE: lib/data/cache/background_task/android_foreground_cache_service.dart
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../logs/logs_provider.dart';
+import 'background_cache_service.dart';
 import 'hot_state_task_handler.dart';
 
-/// A facade that consolidates all client-side interactions with the
-/// FlutterForegroundTask package. No other part of the app should
-/// import or directly call flutter_foreground_task.
-class CacheServiceManager {
+/// Android-specific implementation of [BackgroundCacheService] that uses
+/// a foreground service to keep the cache alive.
+class AndroidForegroundCacheService implements BackgroundCacheService {
   final Talker _talker;
-  // static const _iconName = 'ic_stat___'; // As defined in AndroidManifest.xml
 
-  CacheServiceManager(this._talker);
+  AndroidForegroundCacheService(this._talker);
 
-  /// Initializes the foreground task plugin. Must be called once before runApp.
-  static void Init() {
+  @override
+  Future<void> initialize() async {
     FlutterForegroundTask.initCommunicationPort();
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
@@ -26,7 +24,6 @@ class CacheServiceManager {
             'This notification keeps the unsaved file cache alive.',
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
-        // The icon is NOT set here. It's set in startService.
         onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -34,9 +31,6 @@ class CacheServiceManager {
         playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        // CORRECTED: There is no `.manual()` action. To create an event-driven
-        // task that doesn't run on a timer, we use `.repeat()` with a very
-        // large interval. This effectively makes it wait for manual triggers.
         eventAction: ForegroundTaskEventAction.repeat(99999999),
         autoRunOnBoot: false,
         allowWifiLock: true,
@@ -44,12 +38,12 @@ class CacheServiceManager {
     );
   }
 
-  /// Starts the foreground service.
+  @override
   Future<void> start() async {
     if (await FlutterForegroundTask.isRunningService) {
       return;
     }
-    _talker.info('[CacheServiceManager] Starting foreground service...');
+    _talker.info('[BackgroundCacheService] Starting foreground service...');
     await FlutterForegroundTask.startService(
       notificationTitle: 'Machine',
       notificationText: 'File cache is running.',
@@ -66,49 +60,56 @@ class CacheServiceManager {
     );
   }
 
-  /// Stops the foreground service.
+  @override
   Future<void> stop() async {
-    _talker.info('[CacheServiceManager] Stopping foreground service...');
+    _talker.info('[BackgroundCacheService] Stopping foreground service...');
     if (await FlutterForegroundTask.stopService() == ServiceRequestSuccess) {
-      _talker.info('[CacheServiceManager] Service stopped successfully.');
+      _talker.info('[BackgroundCacheService] Service stopped successfully.');
     }
   }
 
-  /// A guard function that ensures the service is running before proceeding.
-  Future<void> ensureRunning() async {
+  Future<void> _ensureRunning() async {
     if (await FlutterForegroundTask.isRunningService) {
       return;
     }
     _talker.warning(
-      "[CacheServiceManager] Service was not running. Restarting...",
+      "[BackgroundCacheService] Service was not running. Restarting...",
     );
     await start();
   }
 
-  // --- Communication Methods ---
-
+  @override
   Future<void> sendHeartbeat() async {
-    await ensureRunning();
+    await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({'command': 'heartbeat'});
   }
+  
+  @override
+  Future<void> notifyUiResumed() async {
+    await _ensureRunning();
+    FlutterForegroundTask.sendDataToTask({'command': 'ui_resumed'});
+  }
 
+  @override
   Future<void> notifyUiPaused() async {
-    await ensureRunning();
+    await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({'command': 'ui_paused'});
   }
 
+  @override
   Future<void> flushHotState() async {
-    await ensureRunning();
+    await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({'command': 'flush_hot_state'});
-    _talker.info("[CacheServiceManager] Sent flush command.");
+    _talker.info("[BackgroundCacheService] Sent flush command.");
   }
 
+  @override
   Future<void> updateHotState(
     String projectId,
     String tabId,
     Map<String, dynamic> payload,
   ) async {
-    await ensureRunning();
+    await _ensureRunning();
     final message = {
       'command': 'update_hot_state',
       'projectId': projectId,
@@ -117,30 +118,27 @@ class CacheServiceManager {
     };
     FlutterForegroundTask.sendDataToTask(message);
     _talker.verbose(
-      "[CacheServiceManager] Sent debounced hot state for tab $tabId.",
+      "[BackgroundCacheService] Sent debounced hot state for tab $tabId.",
     );
   }
 
+  @override
   Future<void> clearTabState(String projectId, String tabId) async {
-    await ensureRunning();
+    await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({
       'command': 'clear_tab_state',
       'projectId': projectId,
       'tabId': tabId,
     });
-    _talker.info("[CacheServiceManager] Sent clear command for tab $tabId.");
+    _talker.info("[BackgroundCacheService] Sent clear command for tab $tabId.");
   }
-  // ----------------------------
 
+  @override
   Future<void> clearProjectCache(String projectId) async {
-    await ensureRunning();
+    await _ensureRunning();
     FlutterForegroundTask.sendDataToTask({
       'command': 'clear_project',
       'projectId': projectId,
     });
   }
 }
-
-final cacheServiceManagerProvider = Provider<CacheServiceManager>((ref) {
-  return CacheServiceManager(ref.watch(talkerProvider));
-});

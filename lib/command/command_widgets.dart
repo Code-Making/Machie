@@ -357,7 +357,7 @@ class _CommandGroupButtonState extends ConsumerState<CommandGroupButton> {
     final button = CompositedTransformTarget(
       link: _layerLink,
       child: IconButton(
-        icon: widget.commandGroup.icon,
+        icon: widget.commandGroup.finalIcon,
         tooltip: widget.commandGroup.label,
         onPressed: _toggleMenu,
       ),

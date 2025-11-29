@@ -1,9 +1,4 @@
-// =========================================
-// FILE: lib/editor/plugins/code_editor/code_editor_models.dart
-// =========================================
-
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../models/editor_tab_models.dart';
 import '../../models/text_editing_capability.dart';
@@ -17,14 +12,14 @@ class CodeEditorTab extends EditorTab {
 
   final String initialContent;
   final String? cachedContent;
-  final String? initialLanguageKey;
+  final String? initialLanguageId; 
   final String? initialBaseContentHash;
 
   CodeEditorTab({
     required super.plugin,
     required this.initialContent,
     this.cachedContent,
-    this.initialLanguageKey,
+    this.initialLanguageId,
     this.initialBaseContentHash,
     super.id,
     super.onReadyCompleter,
@@ -40,14 +35,15 @@ class CodeEditorTab extends EditorTab {
   };
 }
 
-// ... CodeEditorSettings is unchanged ...
 class CodeEditorSettings extends PluginSettings {
   bool wordWrap;
   double fontSize;
   String fontFamily;
   String themeName;
   double? fontHeight;
-  bool fontLigatures; // <-- ADDED
+  bool fontLigatures;
+  String scratchpadFilename;
+  String? scratchpadLocalPath;
 
   CodeEditorSettings({
     this.wordWrap = false,
@@ -55,18 +51,22 @@ class CodeEditorSettings extends PluginSettings {
     this.fontFamily = 'JetBrainsMono',
     this.themeName = 'Atom One Dark',
     this.fontHeight,
-    this.fontLigatures = true, // <-- ADDED (default to enabled)
+    this.fontLigatures = true,
+    this.scratchpadFilename = 'scratchpad.dart',
+    this.scratchpadLocalPath,
   });
 
   @override
   Map<String, dynamic> toJson() => {
-    'wordWrap': wordWrap,
-    'fontSize': fontSize,
-    'fontFamily': fontFamily,
-    'themeName': themeName,
-    'fontHeight': fontHeight,
-    'fontLigatures': fontLigatures, // <-- ADDED
-  };
+        'wordWrap': wordWrap,
+        'fontSize': fontSize,
+        'fontFamily': fontFamily,
+        'themeName': themeName,
+        'fontHeight': fontHeight,
+        'fontLigatures': fontLigatures,
+        'scratchpadFilename': scratchpadFilename,
+        'scratchpadLocalPath': scratchpadLocalPath,
+      };
 
   @override
   void fromJson(Map<String, dynamic> json) {
@@ -75,7 +75,9 @@ class CodeEditorSettings extends PluginSettings {
     fontFamily = json['fontFamily'] ?? 'JetBrainsMono';
     themeName = json['themeName'] ?? 'Atom One Dark';
     fontHeight = json['fontHeight']?.toDouble();
-    fontLigatures = json['fontLigatures'] ?? true; // <-- ADDED
+    fontLigatures = json['fontLigatures'] ?? true;
+    scratchpadFilename = json['scratchpadFilename'] ?? 'scratchpad.dart';
+    scratchpadLocalPath = json['scratchpadLocalPath'] as String?;
   }
 
   CodeEditorSettings copyWith({
@@ -85,7 +87,10 @@ class CodeEditorSettings extends PluginSettings {
     String? themeName,
     double? fontHeight,
     bool setFontHeightToNull = false,
-    bool? fontLigatures, // <-- ADDED
+    bool? fontLigatures,
+    String? scratchpadFilename,
+    String? scratchpadLocalPath,
+    bool setScratchpadLocalPathToNull = false,
   }) {
     return CodeEditorSettings(
       wordWrap: wordWrap ?? this.wordWrap,
@@ -93,7 +98,25 @@ class CodeEditorSettings extends PluginSettings {
       fontFamily: fontFamily ?? this.fontFamily,
       themeName: themeName ?? this.themeName,
       fontHeight: setFontHeightToNull ? null : (fontHeight ?? this.fontHeight),
-      fontLigatures: fontLigatures ?? this.fontLigatures, // <-- ADDED
+      fontLigatures: fontLigatures ?? this.fontLigatures,
+      scratchpadFilename: scratchpadFilename ?? this.scratchpadFilename,
+      scratchpadLocalPath: setScratchpadLocalPathToNull
+          ? null
+          : (scratchpadLocalPath ?? this.scratchpadLocalPath),
+    );
+  }
+
+  @override
+  MachineSettings clone() {
+    return CodeEditorSettings(
+      wordWrap: wordWrap,
+      fontSize: fontSize,
+      fontFamily: fontFamily,
+      themeName: themeName,
+      fontHeight: fontHeight,
+      fontLigatures: fontLigatures,
+      scratchpadFilename: scratchpadFilename,
+      scratchpadLocalPath: scratchpadLocalPath,
     );
   }
 }

@@ -5,7 +5,14 @@ class ColorMatch {
   final int start;
   final int end;
   final Color color;
-  ColorMatch({required this.start, required this.end, required this.color});
+  final String text;
+
+  ColorMatch({
+    required this.start,
+    required this.end,
+    required this.color,
+    required this.text,
+  });
 }
 
 class BracketHighlightState {

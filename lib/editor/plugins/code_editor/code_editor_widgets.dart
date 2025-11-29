@@ -1,16 +1,10 @@
-// =========================================
-// UPDATED: lib/editor/plugins/code_editor/code_editor_widgets.dart
-// =========================================
-
 import 'dart:async';
-import 'dart:math';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:re_editor/re_editor.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
@@ -23,17 +17,16 @@ import 'logic/code_editor_logic.dart';
 import 'code_editor_models.dart';
 import 'widgets/code_find_panel_view.dart';
 import '../../../utils/code_themes.dart';
-import 'code_editor_plugin.dart';
 import 'widgets/goto_line_dialog.dart';
-
 import '../../models/editor_command_context.dart';
 import '../../models/text_editing_capability.dart';
-import '../../../command/command_widgets.dart';
-
+import 'package:machine/editor/services/language/language_models.dart';
+import 'package:machine/editor/services/language/language_registry.dart';
 import 'code_editor_hot_state_dto.dart';
 import 'widgets/code_editor_ui.dart';
 import 'logic/code_editor_types.dart';
 import 'logic/code_editor_utils.dart';
+import '../../../project/project_settings_notifier.dart';
 
 class CodeEditorMachine extends EditorWidget {
   @override
@@ -58,9 +51,9 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   late final ValueNotifier<BracketHighlightState> _bracketHighlightNotifier;
 
+  late LanguageConfig _languageConfig;
   late CodeCommentFormatter _commentFormatter;
-  late String? _languageKey;
-
+  
   late CodeEditorStyle _style;
 
   late String? _baseContentHash;
@@ -253,7 +246,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   Future<TabHotStateDto?> serializeHotState() async {
     return CodeEditorHotStateDto(
       content: controller.text,
-      languageKey: _languageKey,
+      languageId: _languageConfig.id,
       baseContentHash: _baseContentHash,
     );
   }
@@ -269,9 +262,14 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       throw StateError("Could not find metadata for tab ID: ${widget.tab.id}");
     }
 
-    _languageKey =
-        widget.tab.initialLanguageKey ?? CodeThemes.inferLanguageKey(fileUri);
-    _commentFormatter = CodeEditorLogic.getCommentFormatter(fileUri);
+    if (widget.tab.initialLanguageId != null) {
+      _languageConfig = Languages.getById(widget.tab.initialLanguageId!);
+    } else {
+      _languageConfig = Languages.getForFile(fileUri);
+    }
+        
+    _updateCommentFormatter();
+
 
     controller = CodeLineEditingController(
       codeLines: CodeLines.fromText(widget.tab.initialContent),
@@ -301,23 +299,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _updateStyleAndRecognizers();
+    _updateCommentFormatter();
   }
 
   @override
   void didUpdateWidget(covariant CodeEditorMachine oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldFileUri =
-        ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
+    final oldFileUri = ref.read(tabMetadataProvider)[oldWidget.tab.id]?.file.uri;
     final newFileUri = ref.read(tabMetadataProvider)[widget.tab.id]?.file.uri;
 
     if (newFileUri != null && newFileUri != oldFileUri) {
       setState(() {
-        final newLanguageKey = CodeThemes.inferLanguageKey(newFileUri);
-        if (newLanguageKey != _languageKey) {
-          _languageKey = newLanguageKey;
-          _updateStyleAndRecognizers(); // Rebuild style for new language
-        }
-        _commentFormatter = CodeEditorLogic.getCommentFormatter(newFileUri);
+        // Reload config on file rename/change
+        _languageConfig = Languages.getForFile(newFileUri);
+        _updateStyleAndRecognizers();
+        _updateCommentFormatter();
       });
     }
   }
@@ -336,20 +332,28 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   void _updateStyleAndRecognizers() {
     final codeEditorSettings = ref.read(
-      settingsProvider.select(
+      effectiveSettingsProvider.select(
         (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
       ),
     );
 
     final selectedThemeName = codeEditorSettings?.themeName ?? 'Atom One Dark';
     final bool enableLigatures = codeEditorSettings?.fontLigatures ?? true;
-    final List<FontFeature>? fontFeatures = enableLigatures
-        ? null
-        : const [
-            FontFeature.disable('liga'),
-            FontFeature.disable('clig'),
-            FontFeature.disable('calt'),
-          ];
+    final List<FontFeature>? fontFeatures =
+        enableLigatures
+            ? null
+            : const [
+              FontFeature.disable('liga'),
+              FontFeature.disable('clig'),
+              FontFeature.disable('calt'),
+            ];
+
+    final Map<String, CodeHighlightThemeMode> languageMap = {};
+    if (_languageConfig.highlightMode != null) {
+      languageMap[_languageConfig.id] = CodeHighlightThemeMode(
+        mode: _languageConfig.highlightMode!
+      );
+    }
 
     _style = CodeEditorStyle(
       fontHeight: codeEditorSettings?.fontHeight,
@@ -359,9 +363,21 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       codeTheme: CodeHighlightTheme(
         theme: CodeThemes.availableCodeThemes[selectedThemeName] ??
             CodeThemes.availableCodeThemes['Atom One Dark']!,
-        languages: CodeThemes.getHighlightThemeMode(_languageKey),
+        languages: languageMap,
       ),
     );
+  }
+  
+  void _updateCommentFormatter() {
+    if (_languageConfig.comments != null) {
+      _commentFormatter = DefaultCodeCommentFormatter(
+        singleLinePrefix: _languageConfig.comments!.singleLine,
+        multiLinePrefix: _languageConfig.comments!.blockBegin,
+        multiLineSuffix: _languageConfig.comments!.blockEnd,
+      );
+    } else {
+      _commentFormatter = DefaultCodeCommentFormatter(singleLinePrefix: '');
+    }
   }
 
   Widget _buildSelectionAppBar() {
@@ -380,38 +396,62 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           (ctx) => GoToLineDialog(maxLine: maxLines, currentLine: currentLine),
     );
     if (targetLineIndex != null) {
-      final CodeLinePosition targetPosition =
-          CodeLinePosition(index: targetLineIndex, offset: 0);
-      controller.selection =
-          CodeLineSelection.fromPosition(position: targetPosition);
+      final CodeLinePosition targetPosition = CodeLinePosition(
+        index: targetLineIndex,
+        offset: 0,
+      );
+      controller.selection = CodeLineSelection.fromPosition(
+        position: targetPosition,
+      );
       controller.makePositionCenterIfInvisible(targetPosition);
     }
   }
 
-  void selectOrExpandLines() {
-    final CodeLineSelection currentSelection = controller.selection;
-    final List<CodeLine> lines = controller.codeLines.toList();
-    final bool isAlreadyFullLineSelection = currentSelection.start.offset == 0 &&
-        currentSelection.end.offset == 0 &&
-        currentSelection.end.index > currentSelection.start.index;
+void selectOrExpandLines() {
+  final CodeLineSelection currentSelection = controller.selection;
+  final List<CodeLine> lines = controller.codeLines.toList();
+  final bool isAlreadyFullLineSelection =
+      currentSelection.start.offset == 0 &&
+      currentSelection.end.offset == 0 &&
+      currentSelection.end.index > currentSelection.start.index;
 
-    if (isAlreadyFullLineSelection) {
-      if (currentSelection.end.index < lines.length) {
-        controller.selection = currentSelection.copyWith(
-            extentIndex: currentSelection.end.index + 1, extentOffset: 0);
-      }
-    } else {
-      final newStartIndex = currentSelection.start.index;
-      final newEndIndex =
-          (currentSelection.end.index + 1).clamp(0, lines.length);
-      controller.selection = CodeLineSelection(
-          baseIndex: newStartIndex,
-          baseOffset: 0,
-          extentIndex: newEndIndex,
-          extentOffset: 0);
+  if (isAlreadyFullLineSelection) {
+    // For expanding selection, we can only expand if there's a next line
+    if (currentSelection.end.index < lines.length - 1) {
+      controller.selection = currentSelection.copyWith(
+        extentIndex: currentSelection.end.index + 1,
+        extentOffset: 0,
+      );
+    } else if (currentSelection.end.index == lines.length - 1) {
+      controller.selection = currentSelection.copyWith(
+        extentIndex: lines.length - 1, // Stay on last line
+        extentOffset: lines.last.length, // Set to end of the last line
+      );
     }
-    _onControllerChange();
+  } else {
+    final newStartIndex = currentSelection.start.index;
+    
+    // Special case: if we're on the last line, select just this line
+    if (currentSelection.end.index == lines.length - 1) {
+      controller.selection = CodeLineSelection(
+        baseIndex: newStartIndex,
+        baseOffset: 0,
+        extentIndex: lines.length - 1, // Stay on last line
+        extentOffset: lines.last.length, // Set to end of the last line
+      );
+    } else {
+      // Normal case: select from current line to next line
+      final newEndIndex = currentSelection.end.index + 1;
+      controller.selection = CodeLineSelection(
+        baseIndex: newStartIndex,
+        baseOffset: 0,
+        extentIndex: newEndIndex,
+        extentOffset: 0,
+      );
+    }
   }
+  _onControllerChange();
+}
 
   void selectCurrentChunk() {
     if (_chunkController == null) return;
@@ -441,6 +481,29 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       _onControllerChange();
     }
   }
+  
+  void adjustSelectionIfNeeded() {
+    final CodeLineSelection currentSelection = controller.selection;
+    final List<CodeLine> lines = controller.codeLines.toList();
+    
+    // Check if we have a multiline selection that ends at offset 0
+    final bool isMultilineWithZeroEnd = 
+        currentSelection.end.index > currentSelection.start.index &&
+        currentSelection.end.offset == 0;
+    
+    if (isMultilineWithZeroEnd) {
+      // Move selection end to the previous line, at the end of that line
+      final previousLineIndex = currentSelection.end.index - 1;
+      if (previousLineIndex >= 0) {
+        final previousLine = lines[previousLineIndex];
+        controller.selection = currentSelection.copyWith(
+          extentIndex: previousLineIndex,
+          extentOffset: previousLine.length,
+        );
+        _onControllerChange();
+      }
+    }
+  }
 
   // --- NEW PUBLIC METHODS for Commands ---
   void showFindPanel() {
@@ -459,11 +522,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     if (fileHandler == null || currentFileMetadata == null) return;
 
     try {
-      final currentDirectoryUri =
-          fileHandler.getParentUri(currentFileMetadata.file.uri);
+      final currentDirectoryUri = fileHandler.getParentUri(
+        currentFileMetadata.file.uri,
+      );
       final pathSegments = [
         ...currentDirectoryUri.split('%2F'),
-        ...relativePath.split('/')
+        ...relativePath.split('/'),
       ];
       final resolvedSegments = <String>[];
 
@@ -489,6 +553,90 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       MachineToast.error('Could not open file: $e');
     }
   }
+  
+  Future<void> _onColorCodeTap(int lineIndex, ColorMatch match) async {
+    if (!mounted) return;
+
+    Color pickerColor = match.color;
+
+    final result = await showDialog<Color>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Color'),
+          content: SingleChildScrollView(
+            child: ColorPicker(
+              color: pickerColor,
+              onColorChanged: (Color color) => pickerColor = color,
+              width: 40,
+              height: 40,
+              spacing: 5,
+              runSpacing: 5,
+              borderRadius: 4,
+              wheelDiameter: 165,
+              enableOpacity: true,
+              showColorCode: true,
+              colorCodeHasColor: true,
+              pickersEnabled: const <ColorPickerType, bool>{
+                ColorPickerType.both: false,
+                ColorPickerType.primary: true,
+                ColorPickerType.accent: true,
+                ColorPickerType.bw: false,
+                ColorPickerType.custom: true,
+                ColorPickerType.wheel: true,
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              child: const Text('OK'),
+              onPressed: () => Navigator.of(context).pop(pickerColor),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result != match.color) {
+      // --- FIX START: Smarter replacement based on original format ---
+      String newColorString;
+      final String originalText = match.text;
+
+      if (originalText.startsWith('#')) {
+        // Respect original length to preserve alpha/no-alpha format
+        if (originalText.length == 7 || originalText.length == 4) { // #RRGGBB or #RGB
+            newColorString = '#${(result.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+        } else { // #AARRGGBB or #RGBA
+            newColorString = '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+        }
+      } else if (originalText.startsWith('Color.fromARGB')) {
+          newColorString = 'Color.fromARGB(${result.alpha}, ${result.red}, ${result.green}, ${result.blue})';
+      } else if (originalText.startsWith('Color.fromRGBO')) {
+          // Convert alpha to opacity. Format to avoid excessive decimals.
+          String opacity = (result.alpha / 255.0).toStringAsPrecision(2);
+          if (opacity.endsWith('.0')) opacity = opacity.substring(0, opacity.length - 2);
+          newColorString = 'Color.fromRGBO(${result.red}, ${result.green}, ${result.blue}, $opacity)';
+      } else if (originalText.startsWith('Color(')) {
+          // Canonical Dart format with an ARGB hex value.
+          newColorString = 'Color(0x${result.value.toRadixString(16).toUpperCase()})';
+      } else {
+          // Fallback, should not be reached.
+          newColorString = '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+      }
+      // --- FIX END ---
+
+      final rangeToReplace = TextRange(
+        start: TextPosition(line: lineIndex, column: match.start),
+        end: TextPosition(line: lineIndex, column: match.end),
+      );
+
+      replaceSelection(newColorString, range: rangeToReplace);
+    }
+  }
 
   void _onDirtyStateChange() {
     if (!mounted) return;
@@ -503,8 +651,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   void _onControllerChange() {
     if (!mounted) return;
 
-    _bracketHighlightNotifier.value =
-        CodeEditorUtils.calculateBracketHighlights(controller);
+    _bracketHighlightNotifier
+        .value = CodeEditorUtils.calculateBracketHighlights(controller);
 
     syncCommandContext();
 
@@ -521,7 +669,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   Map<String, dynamic> getHotState() {
     return {
       'content': controller.text,
-      'languageKey': _languageKey,
+      'languageId': _languageConfig.id,
       'baseContentHash': _baseContentHash,
     };
   }
@@ -581,6 +729,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
   }
 
   void toggleComments() {
+    adjustSelectionIfNeeded();
     final formatted = _commentFormatter.format(
       controller.value,
       controller.options.indent,
@@ -588,9 +737,60 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
     );
     controller.runRevocableOp(() => controller.value = formatted);
   }
+  
+  void deleteCommentText() {
+    adjustSelectionIfNeeded();
+    final selection = controller.selection;
+    final singleLinePrefix = _languageConfig.comments?.singleLine;
+
+    // Can't do anything if we don't know the single-line comment syntax.
+    if (singleLinePrefix == null || singleLinePrefix.isEmpty) {
+      return;
+    }
+
+    final startLine = selection.start.index;
+    final endLine = selection.end.index;
+
+    // 1. Build a list of the new line contents.
+    final List<String> newLines = [];
+    for (int i = startLine; i <= endLine; i++) {
+      final line = controller.codeLines[i].text;
+      final commentIndex = line.indexOf(singleLinePrefix);
+
+      if (commentIndex != -1) {
+        // A comment is found.
+        final contentBeforeComment = line.substring(0, commentIndex);
+        if (contentBeforeComment.trim().isNotEmpty) {
+          // If there's non-whitespace content before the comment, keep it.
+          // This removes the comment prefix and the comment text.
+          newLines.add(contentBeforeComment.trimRight());
+        }
+        // Otherwise, it's a comment-only line, which we delete by not adding
+        // it to the list of new lines.
+      } else {
+        // No comment, keep the line as is.
+        newLines.add(line.trimRight());
+      }
+    }
+
+    // 2. Define a selection that covers the full lines we are replacing.
+    final selectionToReplace = CodeLineSelection(
+      baseIndex: startLine,
+      baseOffset: 0, // from the beginning of the first line
+      extentIndex: endLine,
+      extentOffset: controller.codeLines[endLine].length, // to the end of the last line
+    );
+
+    // 3. Perform the replacement in a single, undoable operation.
+    controller.runRevocableOp(() {
+      controller.replaceSelection(newLines.join('\n'), selectionToReplace);
+    });
+  }
 
   Future<void> showLanguageSelectionDialog() async {
-    final selectedLanguageKey = await showDialog<String>(
+    final allLanguages = Languages.all; // Use the public list from registry
+    
+    final selectedLanguageId = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Select Language'),
@@ -598,24 +798,28 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: CodeThemes.languageNameToModeMap.keys.length,
+            itemCount: allLanguages.length,
             itemBuilder: (context, index) {
-              final langKey =
-                  CodeThemes.languageNameToModeMap.keys.elementAt(index);
+              final lang = allLanguages[index];
               return ListTile(
-                title: Text(CodeThemes.formatLanguageName(langKey)),
-                onTap: () => Navigator.pop(ctx, langKey),
+                title: Text(lang.name),
+                // Highlight current selection
+                selected: lang.id == _languageConfig.id,
+                onTap: () => Navigator.pop(ctx, lang.id),
               );
             },
           ),
         ),
       ),
     );
-    if (selectedLanguageKey != null && selectedLanguageKey != _languageKey) {
+
+    if (selectedLanguageId != null && selectedLanguageId != _languageConfig.id) {
       setState(() {
-        _languageKey = selectedLanguageKey;
+        // Update config by looking up the new ID
+        _languageConfig = Languages.getById(selectedLanguageId);
+        _updateStyleAndRecognizers();
+        _updateCommentFormatter();
       });
-      _updateStyleAndRecognizers();
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
   }
@@ -637,6 +841,8 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
       style: style,
       bracketHighlightState: _bracketHighlightNotifier.value,
       onImportTap: _onImportTap,
+      onColorCodeTap: _onColorCodeTap,
+      languageConfig: _languageConfig,
     );
   }
 
@@ -666,16 +872,18 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri),
-        (previous, next) {
+    ref.listen(tabMetadataProvider.select((m) => m[widget.tab.id]?.file.uri), (
+      previous,
+      next,
+    ) {
       if (previous != next && next != null) {
         setState(() {
-          final newLanguageKey = CodeThemes.inferLanguageKey(next);
-          if (newLanguageKey != _languageKey) {
-            _languageKey = newLanguageKey;
+          final newLanguageConfig = Languages.getForFile(next);
+          if (newLanguageConfig.id != _languageConfig.id) {
+            _languageConfig = newLanguageConfig;
             _updateStyleAndRecognizers();
           }
-          _commentFormatter = CodeEditorLogic.getCommentFormatter(next);
+          _updateCommentFormatter();
         });
       }
     });
@@ -706,8 +914,12 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
             child: child,
           );
         },
-        indicatorBuilder:
-            (context, editingController, chunkController, notifier) {
+        indicatorBuilder: (
+          context,
+          editingController,
+          chunkController,
+          notifier,
+        ) {
           _chunkController = chunkController;
           return CustomEditorIndicator(
             controller: editingController,
@@ -722,7 +934,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         ),
         style: _style,
         wordWrap: ref.watch(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) =>
                 (s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?)
                     ?.wordWrap ??

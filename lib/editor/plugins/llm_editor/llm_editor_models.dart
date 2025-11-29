@@ -124,6 +124,16 @@ class LlmModelInfo {
     'supportedGenerationMethods': supportedGenerationMethods,
   };
 
+  LlmModelInfo clone() {
+    return LlmModelInfo(
+      name: name,
+      displayName: displayName,
+      inputTokenLimit: inputTokenLimit,
+      outputTokenLimit: outputTokenLimit,
+      supportedGenerationMethods: List<String>.from(supportedGenerationMethods),
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -197,6 +207,20 @@ class LlmEditorSettings extends PluginSettings {
       selectedProviderId: selectedProviderId ?? this.selectedProviderId,
       apiKeys: apiKeys ?? this.apiKeys,
       selectedModels: selectedModels ?? this.selectedModels,
+    );
+  }
+
+  @override
+  MachineSettings clone() {
+    return LlmEditorSettings(
+      selectedProviderId: selectedProviderId,
+      apiKeys: Map.from(apiKeys),
+      selectedModels: Map.from(selectedModels.map(
+        (key, value) => MapEntry(
+          key,
+          value?.clone(),
+        ),
+      )),
     );
   }
 }

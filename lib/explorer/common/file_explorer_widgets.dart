@@ -1,7 +1,6 @@
-// lib/explorer/common/file_explorer_widgets.dart
+// FILE: lib/explorer/common/file_explorer_widgets.dart
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_notifier.dart';
@@ -14,42 +13,49 @@ import '../plugins/file_explorer/file_explorer_state.dart';
 import '../services/explorer_service.dart';
 import 'file_explorer_commands.dart';
 
-// Import the generic widgets with a prefix to avoid name clashes
+// --- Providers ---
 
-// (sortedDirectoryContentsProvider is unchanged)
+/// Granular provider: Returns true if the specific [folderUri] is currently expanded.
+final isFolderExpandedProvider =
+    Provider.autoDispose.family<bool, String>((ref, folderUri) {
+  final expandedSet = ref.watch(fileExplorerExpandedFoldersProvider);
+  return expandedSet.contains(folderUri);
+});
+
+/// Returns the sorted contents of a directory.
 final sortedDirectoryContentsProvider = Provider.autoDispose
     .family<AsyncValue<List<FileTreeNode>>, String>((ref, directoryUri) {
-      final directoryState = ref.watch(directoryContentsProvider(directoryUri));
-      final settings = ref.watch(activeExplorerSettingsProvider);
-      final sortMode =
-          (settings is FileExplorerSettings)
-              ? settings.viewMode
-              : FileExplorerViewMode.sortByNameAsc;
-      return directoryState?.whenData((nodes) {
-            final sortedNodes = List<FileTreeNode>.from(nodes);
-            sortedNodes.sort((a, b) {
-              if (a.file.isDirectory != b.file.isDirectory) {
-                return a.file.isDirectory ? -1 : 1;
-              }
-              switch (sortMode) {
-                case FileExplorerViewMode.sortByNameDesc:
-                  return b.file.name.toLowerCase().compareTo(
+  final directoryState = ref.watch(directoryContentsProvider(directoryUri));
+
+  final sortMode = ref.watch(activeExplorerSettingsProvider.select((s) {
+    if (s is FileExplorerSettings) return s.viewMode;
+    return FileExplorerViewMode.sortByNameAsc;
+  }));
+
+  return directoryState?.whenData((nodes) {
+        final sortedNodes = List<FileTreeNode>.from(nodes);
+        sortedNodes.sort((a, b) {
+          if (a.file.isDirectory != b.file.isDirectory) {
+            return a.file.isDirectory ? -1 : 1;
+          }
+          switch (sortMode) {
+            case FileExplorerViewMode.sortByNameDesc:
+              return b.file.name.toLowerCase().compareTo(
                     a.file.name.toLowerCase(),
                   );
-                case FileExplorerViewMode.sortByDateModified:
-                  return b.file.modifiedDate.compareTo(a.file.modifiedDate);
-                default:
-                  return a.file.name.toLowerCase().compareTo(
+            case FileExplorerViewMode.sortByDateModified:
+              return b.file.modifiedDate.compareTo(a.file.modifiedDate);
+            default:
+              return a.file.name.toLowerCase().compareTo(
                     b.file.name.toLowerCase(),
                   );
-              }
-            });
-            return sortedNodes;
-          }) ??
-          const AsyncValue.loading();
-    });
+          }
+        });
+        return sortedNodes;
+      }) ??
+      const AsyncValue.loading();
+});
 
-// RE-IMPLEMENTED: Helper function and placeholder class
 bool _isDropAllowed(
   ProjectDocumentFile draggedFile,
   ProjectDocumentFile targetFolder,
@@ -77,8 +83,126 @@ class RootPlaceholder implements ProjectDocumentFile {
   RootPlaceholder(this.uri);
 }
 
-/// NEW: The decorator widget that adds project-specific features like
-/// drag-and-drop and context menus to any widget.
+class DirectoryView extends ConsumerWidget {
+  final String directoryUri;
+  final int depth;
+
+  const DirectoryView({super.key, required this.directoryUri, this.depth = 1});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sortedDirectoryState = ref.watch(
+      sortedDirectoryContentsProvider(directoryUri),
+    );
+
+    return sortedDirectoryState.when(
+      data: (nodes) {
+        return ListView.builder(
+          key: PageStorageKey(directoryUri),
+          padding: const EdgeInsets.only(top: 0.0),
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
+          itemCount: nodes.length,
+          itemBuilder: (context, index) {
+            final node = nodes[index];
+            return _FileExplorerItem(
+              item: node.file,
+              depth: depth,
+            );
+          },
+        );
+      },
+      // Don't show a spinner for every folder while building the tree recursively
+      // Just show nothing until loaded.
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) => Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text('Error: $err', style: const TextStyle(color: Colors.red, fontSize: 12)),
+      ),
+    );
+  }
+}
+
+class _FileExplorerItem extends ConsumerWidget {
+  final ProjectDocumentFile item;
+  final int depth;
+
+  const _FileExplorerItem({required this.item, required this.depth});
+
+  static const double _kIndentPerLevel = 16.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void onFileTapped() async {
+      final navigator = Navigator.of(context);
+      final success = await ref
+          .read(appNotifierProvider.notifier)
+          .openFileInEditor(item);
+      
+      if (success && context.mounted && navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+
+    void onExpansionChanged(bool isExpanded) {
+      if (isExpanded) {
+        ref
+            .read(projectHierarchyServiceProvider.notifier)
+            .loadDirectory(item.uri);
+      }
+      ref.read(fileExplorerExpandedFoldersProvider.notifier).toggle(item.uri, isExpanded);
+    }
+
+    Widget tile;
+    if (item.isDirectory) {
+      final isExpanded = ref.watch(isFolderExpandedProvider(item.uri));
+
+      tile = ExpansionTile(
+        key: PageStorageKey<String>(item.uri),
+        tilePadding: EdgeInsets.only(left: depth * _kIndentPerLevel, right: 8.0),
+        leading: Icon(
+          isExpanded ? Icons.folder_open : Icons.folder,
+          color: Colors.yellow.shade700,
+          // Removed manual size, reverting to default
+        ),
+        title: Text(
+          item.name,
+          style: const TextStyle(fontSize: 14.0),
+          overflow: TextOverflow.ellipsis,
+        ),
+        childrenPadding: EdgeInsets.zero,
+        initiallyExpanded: isExpanded,
+        onExpansionChanged: onExpansionChanged,
+        children: [
+          // FIX: Removed 'if (isExpanded)' check.
+          // ExpansionTile needs the child to exist to animate its height.
+          DirectoryView(directoryUri: item.uri, depth: depth + 1),
+        ],
+      );
+    } else {
+      tile = ListTile(
+        onTap: onFileTapped,
+        dense: true,
+        contentPadding: EdgeInsets.only(
+          left: depth * _kIndentPerLevel,
+          right: 8.0,
+        ),
+        leading: generic.FileTypeIcon(file: item),
+        title: Text(
+          item.name,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14.0),
+        ),
+      );
+    }
+
+    return ProjectFileItemDecorator(
+      item: item,
+      child: tile,
+    );
+  }
+}
+
 class ProjectFileItemDecorator extends ConsumerStatefulWidget {
   final ProjectDocumentFile item;
   final Widget child;
@@ -100,22 +224,24 @@ class _ProjectFileItemDecoratorState
 
   @override
   Widget build(BuildContext context) {
-    final fileHandler = ref.watch(projectRepositoryProvider)!.fileHandler;
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
     final explorerService = ref.read(explorerServiceProvider);
+
+    if (fileHandler == null) return widget.child;
 
     final Draggable<ProjectDocumentFile> draggableItem =
         LongPressDraggable<ProjectDocumentFile>(
-          data: widget.item,
-          feedback: _buildDragFeedback(),
-          childWhenDragging: Opacity(opacity: 0.5, child: widget.child),
-          delay: const Duration(milliseconds: 300),
-          onDragEnd: (details) {
-            if (!details.wasAccepted) {
-              showFileContextMenu(context, ref, widget.item);
-            }
-          },
-          child: widget.child,
-        );
+      data: widget.item,
+      feedback: _buildDragFeedback(),
+      childWhenDragging: Opacity(opacity: 0.5, child: widget.child),
+      delay: const Duration(milliseconds: 300),
+      onDragEnd: (details) {
+        if (!details.wasAccepted) {
+          showFileContextMenu(context, ref, widget.item);
+        }
+      },
+      child: widget.child,
+    );
 
     if (!widget.item.isDirectory) {
       return draggableItem;
@@ -124,10 +250,9 @@ class _ProjectFileItemDecoratorState
     return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         return Container(
-          color:
-              _isHoveredByDraggable
-                  ? Theme.of(context).colorScheme.primary.withAlpha(70)
-                  : null,
+          color: _isHoveredByDraggable
+              ? Theme.of(context).colorScheme.primary.withAlpha(70)
+              : null,
           child: draggableItem,
         );
       },
@@ -181,78 +306,6 @@ class _ProjectFileItemDecoratorState
   }
 }
 
-/// This is the main "smart" widget for the project's file explorer.
-/// It fetches data, provides project-specific callbacks, and uses the
-/// [ProjectFileItemDecorator] to add features to the generic [FileListView].
-class DirectoryView extends ConsumerWidget {
-  final String directoryUri;
-  final int depth;
-
-  const DirectoryView({super.key, required this.directoryUri, this.depth = 1});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sortedDirectoryState = ref.watch(
-      sortedDirectoryContentsProvider(directoryUri),
-    );
-    final settings =
-        ref.watch(activeExplorerSettingsProvider) as FileExplorerSettings?;
-
-    if (settings == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return sortedDirectoryState.when(
-      data: (nodes) {
-        return generic.FileListView(
-          items: nodes.map((node) => node.file).toList(),
-          expandedDirectoryUris: settings.expandedFolders,
-          depth: depth,
-          onFileTapped: (file) async {
-            final navigator = Navigator.of(context);
-            final success = await ref
-                .read(appNotifierProvider.notifier)
-                .openFileInEditor(file as ProjectDocumentFile);
-            if (success && context.mounted) navigator.pop();
-          },
-          onExpansionChanged: (directory, isExpanded) {
-            if (isExpanded) {
-              ref
-                  .read(projectHierarchyServiceProvider.notifier)
-                  .loadDirectory(directory.uri);
-            }
-            ref.read(activeExplorerNotifierProvider).updateSettings((s) {
-              final currentSettings = s as FileExplorerSettings;
-              final newExpanded = Set<String>.from(
-                currentSettings.expandedFolders,
-              );
-              if (isExpanded) {
-                newExpanded.add(directory.uri);
-              } else {
-                newExpanded.remove(directory.uri);
-              }
-              return currentSettings.copyWith(expandedFolders: newExpanded);
-            });
-          },
-          directoryChildrenBuilder:
-              (directory) =>
-                  DirectoryView(directoryUri: directory.uri, depth: depth + 1),
-          // HERE IS THE DECORATION LOGIC
-          itemBuilder: (context, item, depth, defaultItem) {
-            return ProjectFileItemDecorator(
-              item: item as ProjectDocumentFile,
-              child: defaultItem,
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error: $err')),
-    );
-  }
-}
-
-// RE-IMPLEMENTED: The RootDropZone
 class RootDropZone extends ConsumerWidget {
   final String projectRootUri;
   final bool isDragActive;
@@ -268,7 +321,10 @@ class RootDropZone extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fileHandler = ref.watch(projectRepositoryProvider)!.fileHandler;
+    final fileHandler = ref.watch(projectRepositoryProvider)?.fileHandler;
+    
+    if (fileHandler == null) return const SizedBox.shrink();
+
     return DragTarget<ProjectDocumentFile>(
       builder: (context, candidateData, rejectedData) {
         final bool shouldBeExpanded = isDragActive || candidateData.isNotEmpty;

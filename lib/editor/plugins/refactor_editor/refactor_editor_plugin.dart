@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/editor/plugins/refactor_editor/refactor_editor_plugin.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -37,12 +33,10 @@ class RefactorEditorPlugin extends EditorPlugin {
   PluginSettings? get settings => RefactorSettings();
 
   @override
-  Widget buildSettingsUI(PluginSettings settings) {
-    // <-- CONNECT THE NEW UI WIDGET HERE
-    return RefactorEditorSettingsUI(settings: settings as RefactorSettings);
-  }
-
-  // ... rest of the file is unchanged ...
+  Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) => RefactorEditorSettingsUI(settings: settings as RefactorSettings, onChanged: onChanged);
 
   @override
   bool supportsFile(DocumentFile file) {

@@ -23,9 +23,10 @@ class GitExplorerView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(selectedGitCommitHashProvider, (_, __) {
-      ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
-    });
+    // This listener is now handled by the GitTreeCacheNotifier's listener.
+    // ref.listen(selectedGitCommitHashProvider, (_, __) {
+    //   ref.read(gitExplorerExpandedFoldersProvider.notifier).state = {};
+    // });
 
     final gitRepoAsync = ref.watch(gitRepositoryProvider);
 
@@ -45,12 +46,11 @@ class GitExplorerView extends ConsumerWidget {
           if (context.mounted &&
               ref.read(gitHistoryStartHashProvider) == null) {
             final headHash = await gitRepo.headHash();
+            // Setting this provider will automatically update selectedGitCommitHashProvider
             ref.read(gitHistoryStartHashProvider.notifier).state = headHash;
-            ref.read(selectedGitCommitHashProvider.notifier).state = headHash;
           }
-          if (context.mounted) {
-            ref.read(gitTreeCacheProvider.notifier).loadDirectory('');
-          }
+          // The initial load is now handled by the listener in GitTreeCacheNotifier
+          // when the selectedGitCommitHashProvider gets its first non-null value.
         });
 
         return const Column(

@@ -120,7 +120,7 @@ class _ContextPreviewContentState extends ConsumerState<ContextPreviewContent> {
   void _highlightCode() {
     final settings =
         ref.read(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[CodeEditorSettings] as CodeEditorSettings?,
           ),
         ) ??

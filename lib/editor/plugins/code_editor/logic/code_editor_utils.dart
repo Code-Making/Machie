@@ -8,6 +8,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
+import '../../../services/language/language_models.dart';
 import 'code_editor_types.dart';
 
 /// A utility class containing helper functions for the CodeEditorMachineState.
@@ -67,12 +68,13 @@ class CodeEditorUtils {
     final line = codeLines[position.index].text;
     final char = line[position.offset];
     final isOpen = brackets.keys.contains(char);
-    final target = isOpen
-        ? brackets[char]
-        : brackets.keys.firstWhere(
-            (k) => brackets[k] == char,
-            orElse: () => '',
-          );
+    final target =
+        isOpen
+            ? brackets[char]
+            : brackets.keys.firstWhere(
+              (k) => brackets[k] == char,
+              orElse: () => '',
+            );
     if (target?.isEmpty ?? true) return null;
 
     int stack = 1;
@@ -121,15 +123,31 @@ class CodeEditorUtils {
     required TextStyle style,
     required BracketHighlightState bracketHighlightState,
     required void Function(String) onImportTap,
+    void Function(int lineIndex, ColorMatch match)? onColorCodeTap,
+    required LanguageConfig languageConfig,
   }) {
     // Pipeline Step 1: Add tappable links to import paths.
-    final linkedSpan =
-        _linkifyImportPaths(codeLine, textSpan, style, onImportTap);
+    final linkedSpan = _linkifyImportPaths(
+      codeLine,
+      textSpan,
+      style,
+      onImportTap,
+      languageConfig,
+    );
     // Pipeline Step 2: Highlight color codes
-    final rainbowSpan = _highlightColorCodes(codeLine, linkedSpan, style);
+    final rainbowSpan = _highlightColorCodes(
+      codeLine,
+      linkedSpan,
+      style,
+      onColorCodeTap != null ? (match) => onColorCodeTap(index, match) : null,
+    );
     // Pipeline Step 3: Highlight matching brackets
-    final finalSpan =
-        _highlightBrackets(index, rainbowSpan, style, bracketHighlightState);
+    final finalSpan = _highlightBrackets(
+      index,
+      rainbowSpan,
+      style,
+      bracketHighlightState,
+    );
 
     return finalSpan;
   }
@@ -140,6 +158,7 @@ class CodeEditorUtils {
     TextSpan textSpan,
     TextStyle style,
     void Function(String) onImportTap,
+    LanguageConfig config,
   ) {
     final text = codeLine.text;
     if (!(text.startsWith('import') ||
@@ -177,9 +196,10 @@ class CodeEditorUtils {
         }
         return [
           TextSpan(
-              style: span.style,
-              children: newChildren,
-              recognizer: span.recognizer)
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
         ];
       }
 
@@ -188,24 +208,31 @@ class CodeEditorUtils {
       }
 
       final beforeText = spanText.substring(
-          0, (pathStartIndex - spanStart).clamp(0, spanText.length));
+        0,
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+      );
       final linkText = spanText.substring(
-          (pathStartIndex - spanStart).clamp(0, spanText.length),
-          (pathEndIndex - spanStart).clamp(0, spanText.length));
-      final afterText = spanText
-          .substring((pathEndIndex - spanStart).clamp(0, spanText.length));
+        (pathStartIndex - spanStart).clamp(0, spanText.length),
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
+      );
+      final afterText = spanText.substring(
+        (pathEndIndex - spanStart).clamp(0, spanText.length),
+      );
 
       if (beforeText.isNotEmpty) {
         newChildren.add(TextSpan(text: beforeText, style: span.style));
       }
       if (linkText.isNotEmpty) {
-        newChildren.add(TextSpan(
-          text: linkText,
-          style: (span.style ?? style).copyWith(
-            decoration: TextDecoration.underline,
+        newChildren.add(
+          TextSpan(
+            text: linkText,
+            style: (span.style ?? style).copyWith(
+              decoration: TextDecoration.underline,
+            ),
+            recognizer:
+                TapGestureRecognizer()..onTap = () => onImportTap(linkText),
           ),
-          recognizer: TapGestureRecognizer()..onTap = () => onImportTap(linkText),
-        ));
+        );
       }
       if (afterText.isNotEmpty) {
         newChildren.add(TextSpan(text: afterText, style: span.style));
@@ -222,18 +249,25 @@ class CodeEditorUtils {
     CodeLine codeLine,
     TextSpan textSpan,
     TextStyle style,
+    void Function(ColorMatch match)? onColorCodeTap,
   ) {
     final text = codeLine.text;
     final List<ColorMatch> matches = [];
 
     // Regexes for color parsing
-    final hexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
-    final shortHexColorRegex = RegExp(r'\b#([A-Fa-f0-9]{3,4})\b');
-    final colorConstructorRegex = RegExp(r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)');
+    // --- FIX START: Use negative lookbehind (?<!\w) instead of word boundary \b ---
+    final hexColorRegex = RegExp(r'(?<!\w)#([A-Fa-f0-9]{8}|[A-Fa-f0-9]{6})\b');
+    final shortHexColorRegex = RegExp(r'(?<!\w)#([A-Fa-f0-9]{3,4})\b');
+    // --- FIX END ---
+    final colorConstructorRegex = RegExp(
+      r'Color\(\s*(0x[A-Fa-f0-9]{1,8})\s*\)',
+    );
     final fromARGBRegex = RegExp(
-        r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
+      r'Color\.fromARGB\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
+    );
     final fromRGBORegex = RegExp(
-        r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)');
+      r'Color\.fromRGBO\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)',
+    );
 
     hexColorRegex.allMatches(text).forEach((m) {
       final hex = m.group(1);
@@ -241,21 +275,22 @@ class CodeEditorUtils {
         final val = int.tryParse(hex, radix: 16);
         if (val != null) {
           final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-          matches.add(ColorMatch(start: m.start, end: m.end, color: color));
+          matches.add(ColorMatch(start: m.start, end: m.end, color: color, text: m.group(0)!));
         }
       }
     });
     shortHexColorRegex.allMatches(text).forEach((m) {
       String hex = m.group(1)!;
-      hex = hex.length == 3
-          ? hex.split('').map((e) => e + e).join()
-          : hex[0] +
-              hex[0] +
-              hex.substring(1).split('').map((e) => e + e).join();
+      hex =
+          hex.length == 3
+              ? hex.split('').map((e) => e + e).join()
+              : hex[0] +
+                  hex[0] +
+                  hex.substring(1).split('').map((e) => e + e).join();
       final val = int.tryParse(hex, radix: 16);
       if (val != null) {
         final color = hex.length == 8 ? Color(val) : Color(0xFF000000 | val);
-        matches.add(ColorMatch(start: m.start, end: m.end, color: color));
+        matches.add(ColorMatch(start: m.start, end: m.end, color: color, text: m.group(0)!));
       }
     });
     colorConstructorRegex.allMatches(text).forEach((m) {
@@ -264,7 +299,7 @@ class CodeEditorUtils {
         final val = int.tryParse(hex.substring(2), radix: 16);
         if (val != null) {
           matches.add(
-            ColorMatch(start: m.start, end: m.end, color: Color(val)),
+            ColorMatch(start: m.start, end: m.end, color: Color(val), text: m.group(0)!),
           );
         }
       }
@@ -277,7 +312,11 @@ class CodeEditorUtils {
       if (a != null && r != null && g != null && b != null) {
         matches.add(
           ColorMatch(
-              start: m.start, end: m.end, color: Color.fromARGB(a, r, g, b)),
+            start: m.start,
+            end: m.end,
+            color: Color.fromARGB(a, r, g, b),
+            text: m.group(0)!,
+          ),
         );
       }
     });
@@ -289,7 +328,11 @@ class CodeEditorUtils {
       if (r != null && g != null && b != null && o != null) {
         matches.add(
           ColorMatch(
-              start: m.start, end: m.end, color: Color.fromRGBO(r, g, b, o)),
+            start: m.start,
+            end: m.end,
+            color: Color.fromRGBO(r, g, b, o),
+            text: m.group(0)!,
+          ),
         );
       }
     });
@@ -322,9 +365,10 @@ class CodeEditorUtils {
         }
         return [
           TextSpan(
-              style: span.style,
-              children: newChildren,
-              recognizer: span.recognizer)
+            style: span.style,
+            children: newChildren,
+            recognizer: span.recognizer,
+          ),
         ];
       }
 
@@ -335,21 +379,32 @@ class CodeEditorUtils {
 
         if (effectiveStart < effectiveEnd) {
           if (effectiveStart > spanStart + lastSplitEnd) {
-            final beforeText =
-                spanText.substring(lastSplitEnd, effectiveStart - spanStart);
+            final beforeText = spanText.substring(
+              lastSplitEnd,
+              effectiveStart - spanStart,
+            );
             newChildren.add(TextSpan(text: beforeText, style: span.style));
           }
 
           final matchText = spanText.substring(
-              effectiveStart - spanStart, effectiveEnd - spanStart);
+            effectiveStart - spanStart,
+            effectiveEnd - spanStart,
+          );
           final isDark = match.color.computeLuminance() < 0.5;
           final textColor = isDark ? Colors.white : Colors.black;
 
-          newChildren.add(TextSpan(
-            text: matchText,
-            style: (span.style ?? style)
-                .copyWith(backgroundColor: match.color, color: textColor),
-          ));
+          newChildren.add(
+            TextSpan(
+              text: matchText,
+              style: (span.style ?? style).copyWith(
+                backgroundColor: match.color,
+                color: textColor,
+              ),
+              recognizer: onColorCodeTap == null
+                  ? null
+                  : (TapGestureRecognizer()..onTap = () => onColorCodeTap(match)),
+            ),
+          );
           lastSplitEnd = effectiveEnd - spanStart;
         }
       }
@@ -381,10 +436,11 @@ class CodeEditorUtils {
     TextStyle style,
     BracketHighlightState highlightState,
   ) {
-    final highlightPositions = highlightState.bracketPositions
-        .where((pos) => pos.index == index)
-        .map((pos) => pos.offset)
-        .toSet();
+    final highlightPositions =
+        highlightState.bracketPositions
+            .where((pos) => pos.index == index)
+            .map((pos) => pos.offset)
+            .toSet();
     if (highlightPositions.isEmpty) {
       return textSpan;
     }
@@ -399,20 +455,26 @@ class CodeEditorUtils {
         final absolutePosition = currentPosition + i;
         if (highlightPositions.contains(absolutePosition)) {
           if (i > lastSplit) {
-            builtSpans
-                .add(TextSpan(text: text.substring(lastSplit, i), style: spanStyle));
+            builtSpans.add(
+              TextSpan(text: text.substring(lastSplit, i), style: spanStyle),
+            );
           }
-          builtSpans.add(TextSpan(
-            text: text[i],
-            style: spanStyle.copyWith(
+          builtSpans.add(
+            TextSpan(
+              text: text[i],
+              style: spanStyle.copyWith(
                 backgroundColor: Colors.yellow.withValues(alpha: 0.3),
-                fontWeight: FontWeight.bold),
-          ));
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
           lastSplit = i + 1;
         }
       }
       if (lastSplit < text.length) {
-        builtSpans.add(TextSpan(text: text.substring(lastSplit), style: spanStyle));
+        builtSpans.add(
+          TextSpan(text: text.substring(lastSplit), style: spanStyle),
+        );
       }
       currentPosition += text.length;
       if (span.children != null) {
@@ -432,7 +494,7 @@ class CodeEditorUtils {
 
   /// Finds the smallest block (e.g., (), [], {}) that fully contains the [selection].
   static ({CodeLineSelection full, CodeLineSelection contents})?
-      findSmallestEnclosingBlock(
+  findSmallestEnclosingBlock(
     CodeLineSelection selection,
     CodeLineEditingController controller,
   ) {
@@ -445,7 +507,11 @@ class CodeEditorUtils {
         final openChar = char;
         final closeChar = _getMatchingDelimiterChar(openChar);
         final closeDelimiterPos = _findMatchingDelimiter(
-            openDelimiterPos, openChar, closeChar, controller);
+          openDelimiterPos,
+          openChar,
+          closeChar,
+          controller,
+        );
         if (closeDelimiterPos != null) {
           final fullBlockSelection = CodeLineSelection(
             baseIndex: openDelimiterPos.index,
@@ -516,7 +582,10 @@ class CodeEditorUtils {
   }
 
   /// Gets the character at a given position, returning null on failure.
-  static String? _getChar(CodeLinePosition pos, CodeLineEditingController controller) {
+  static String? _getChar(
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
     if (pos.index < 0 || pos.index >= controller.codeLines.length) return null;
     final line = controller.codeLines[pos.index].text;
     if (pos.offset < 0 || pos.offset >= line.length) return null;
@@ -525,7 +594,9 @@ class CodeEditorUtils {
 
   /// Gets the character position immediately before the given one.
   static CodeLinePosition _getPreviousPosition(
-      CodeLinePosition pos, CodeLineEditingController controller) {
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
     if (pos.offset > 0) {
       return CodeLinePosition(index: pos.index, offset: pos.offset - 1);
     }
@@ -538,7 +609,9 @@ class CodeEditorUtils {
 
   /// Gets the character position immediately after the given one.
   static CodeLinePosition _getNextPosition(
-      CodeLinePosition pos, CodeLineEditingController controller) {
+    CodeLinePosition pos,
+    CodeLineEditingController controller,
+  ) {
     final line = controller.codeLines[pos.index].text;
     if (pos.offset < line.length) {
       return CodeLinePosition(index: pos.index, offset: pos.offset + 1);

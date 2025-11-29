@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/content_provider/file_content_provider.dart';
 import '../../../project/project_models.dart';
 import '../../explorer_plugin_models.dart';
+import 'search_explorer_settings_widget.dart';
 import 'search_explorer_view.dart';
+import 'search_explorer_settings.dart';
 
 class SearchExplorerPlugin implements ExplorerPlugin {
   @override
@@ -19,9 +21,20 @@ class SearchExplorerPlugin implements ExplorerPlugin {
   @override
   IconData get icon => Icons.search;
 
-  // REFACTOR: Stateless plugins simply return null for settings.
   @override
-  ExplorerPluginSettings? get settings => null;
+  final ExplorerPluginSettings? settings = SearchExplorerSettings();
+
+  @override
+  Widget buildSettingsUI(
+    ExplorerPluginSettings settings,
+    void Function(ExplorerPluginSettings) onChanged,
+  ) {
+    return SearchExplorerSettingsUI(
+      settings: settings as SearchExplorerSettings,
+      onChanged: onChanged,
+    );
+  }
+
 
   @override
   List<FileContentProvider Function(Ref ref)>

@@ -1,17 +1,12 @@
-// lib/explorer/explorer_plugin_models.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/content_provider/file_content_provider.dart';
 import '../project/project_models.dart';
+import '../settings/settings_models.dart';
 
-// REFACTOR: Add a base class for plugin-specific settings.
-abstract class ExplorerPluginSettings {
-  Map<String, dynamic> toJson();
-  void fromJson(Map<String, dynamic> json);
-}
+abstract class ExplorerPluginSettings extends MachineSettings {}
 
 /// Defines the contract for any "explorer" that can be shown in the main drawer.
 abstract class ExplorerPlugin {
@@ -19,9 +14,15 @@ abstract class ExplorerPlugin {
   String get name;
   IconData get icon;
 
-  // REFACTOR: Add an optional settings object.
   // Plugins that are stateless (like Search) can leave this as null.
   ExplorerPluginSettings? get settings;
+
+  Widget buildSettingsUI(
+    ExplorerPluginSettings settings,
+    void Function(ExplorerPluginSettings) onChanged,
+  ) =>
+      const SizedBox.shrink();
+
 
   /// A list of [FileContentProvider]s that this plugin introduces.
   /// This allows the explorer to define custom [DocumentFile] types and

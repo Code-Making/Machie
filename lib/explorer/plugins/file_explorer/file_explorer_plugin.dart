@@ -21,9 +21,15 @@ class FileExplorerPlugin implements ExplorerPlugin {
   @override
   IconData get icon => Icons.folder_open;
 
-  // REFACTOR: The plugin now provides its settings object.
   @override
   final ExplorerPluginSettings? settings = FileExplorerSettings();
+  
+  @override
+  Widget buildSettingsUI(
+    ExplorerPluginSettings settings,
+    void Function(ExplorerPluginSettings) onChanged,
+  ) =>
+      const SizedBox.shrink();
 
   @override
   List<FileContentProvider Function(Ref ref)>

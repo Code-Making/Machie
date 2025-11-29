@@ -157,7 +157,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
     setState(() {}); // Update UI to reflect loading state immediately
 
     final settings =
-        ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+        ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
             as LlmEditorSettings?;
     if (settings == null) {
       MachineToast.error('LLM settings are not available.');
@@ -311,7 +311,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   }
 
   // Future<void> _recalculateTokensAfterEdit() async {
-  //   final model = (ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+  //   final model = (ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
   //           as LlmEditorSettings?)
   //       ?.selectedModels
   //       .values
@@ -684,7 +684,7 @@ class LlmEditorWidgetState extends EditorWidgetState<LlmEditorWidget> {
   Widget _buildTopBar() {
     final settings =
         ref.watch(
-          settingsProvider.select(
+          effectiveSettingsProvider.select(
             (s) => s.pluginSettings[LlmEditorSettings] as LlmEditorSettings?,
           ),
         ) ??

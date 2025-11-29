@@ -1,16 +1,18 @@
-// import 'package:collection/collection.dart'; // Import for firstWhereOrNull
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../settings/settings_notifier.dart';
 import 'llm_editor_models.dart';
 import 'providers/llm_provider_factory.dart';
 
 class LlmEditorSettingsUI extends ConsumerStatefulWidget {
   final LlmEditorSettings settings;
-  const LlmEditorSettingsUI({super.key, required this.settings});
+  final void Function(LlmEditorSettings) onChanged;
+
+  const LlmEditorSettingsUI({
+    super.key,
+    required this.settings,
+    required this.onChanged,
+  });
 
   @override
   ConsumerState<LlmEditorSettingsUI> createState() =>
@@ -18,20 +20,35 @@ class LlmEditorSettingsUI extends ConsumerStatefulWidget {
 }
 
 class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
-  late LlmEditorSettings _currentSettings;
   late TextEditingController _apiKeyController;
-
   bool _isLoadingModels = true;
   List<LlmModelInfo> _availableModels = [];
 
   @override
   void initState() {
     super.initState();
-    _currentSettings = widget.settings;
     _apiKeyController = TextEditingController(
-      text: _currentSettings.apiKeys[_currentSettings.selectedProviderId],
+      text: widget.settings.apiKeys[widget.settings.selectedProviderId],
     );
     _fetchModels();
+  }
+
+  @override
+  void didUpdateWidget(covariant LlmEditorSettingsUI oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentProviderId = widget.settings.selectedProviderId;
+    final oldProviderId = oldWidget.settings.selectedProviderId;
+    final currentApiKey = widget.settings.apiKeys[currentProviderId];
+    final oldApiKey = oldWidget.settings.apiKeys[oldProviderId];
+
+    // If the provider or its API key has changed, we need to fetch new models.
+    if (currentProviderId != oldProviderId || currentApiKey != oldApiKey) {
+      // Update the text controller if the provider changed.
+      if (currentProviderId != oldProviderId) {
+        _apiKeyController.text = currentApiKey ?? '';
+      }
+      _fetchModels();
+    }
   }
 
   @override
@@ -52,18 +69,16 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
 
     if (!mounted) return;
 
-    // Auto-select the first model if the current selection is invalid
-    final currentModel = _currentSettings.selectedModels[provider.id];
+    // Auto-select the first model if the current selection is invalid.
+    final currentModel = widget.settings.selectedModels[provider.id];
     if (models.isNotEmpty &&
         (currentModel == null || !models.contains(currentModel))) {
       final newModels = Map<String, LlmModelInfo?>.from(
-        _currentSettings.selectedModels,
+        widget.settings.selectedModels,
       );
       newModels[provider.id] = models.first;
-      _updateSettings(
-        _currentSettings.copyWith(selectedModels: newModels),
-        triggerModelFetch: false,
-      );
+      // Emit the change upwards.
+      widget.onChanged(widget.settings.copyWith(selectedModels: newModels));
     }
 
     setState(() {
@@ -72,48 +87,25 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
     });
   }
 
-  void _updateSettings(
-    LlmEditorSettings newSettings, {
-    bool triggerModelFetch = true,
-  }) {
-    setState(() => _currentSettings = newSettings);
-    ref.read(settingsProvider.notifier).updatePluginSettings(newSettings);
-    if (triggerModelFetch) {
-      // Use a post-frame callback to ensure the provider has updated
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _fetchModels();
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // final selectedProvider = allLlmProviders.firstWhereOrNull(
-    //   (p) => p.id == _currentSettings.selectedProviderId,
-    // );
-
-    // Find the full model info object for the selected model
+    // The source of truth is always `widget.settings`.
     final LlmModelInfo? selectedModelInfo =
-        _currentSettings.selectedModels[_currentSettings.selectedProviderId];
+        widget.settings.selectedModels[widget.settings.selectedProviderId];
 
     return Column(
       children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'LLM Provider'),
-          initialValue: _currentSettings.selectedProviderId,
-          items:
-              allLlmProviders
-                  .map(
-                    (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
-                  )
-                  .toList(),
+          value: widget.settings.selectedProviderId,
+          items: allLlmProviders
+              .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
+              .toList(),
           onChanged: (value) {
             if (value != null) {
-              final newSettings = _currentSettings.copyWith(
-                selectedProviderId: value,
-              );
-              _updateSettings(newSettings); // This will trigger a fetch
-              _apiKeyController.text = newSettings.apiKeys[value] ?? '';
+              final newSettings =
+                  widget.settings.copyWith(selectedProviderId: value);
+              widget.onChanged(newSettings);
             }
           },
         ),
@@ -127,25 +119,18 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
         else if (_availableModels.isNotEmpty)
           DropdownButtonFormField<LlmModelInfo>(
             decoration: const InputDecoration(labelText: 'Model'),
-            initialValue: selectedModelInfo,
-            items:
-                _availableModels
-                    .map(
-                      (m) => DropdownMenuItem(
-                        value: m,
-                        child: Text(m.displayName),
-                      ),
-                    )
-                    .toList(),
+            value: selectedModelInfo,
+            items: _availableModels
+                .map((m) => DropdownMenuItem(value: m, child: Text(m.displayName)))
+                .toList(),
             onChanged: (value) {
               if (value != null) {
                 final newModels = Map<String, LlmModelInfo?>.from(
-                  _currentSettings.selectedModels,
+                  widget.settings.selectedModels,
                 );
-                newModels[_currentSettings.selectedProviderId] = value;
-                _updateSettings(
-                  _currentSettings.copyWith(selectedModels: newModels),
-                  triggerModelFetch: false,
+                newModels[widget.settings.selectedProviderId] = value;
+                widget.onChanged(
+                  widget.settings.copyWith(selectedModels: newModels),
                 );
               }
             },
@@ -168,25 +153,22 @@ class _LlmEditorSettingsUIState extends ConsumerState<LlmEditorSettingsUI> {
           ),
 
         const SizedBox(height: 16),
-        if (_currentSettings.selectedProviderId != 'dummy')
+        if (widget.settings.selectedProviderId != 'dummy')
           TextFormField(
             controller: _apiKeyController,
             decoration: const InputDecoration(labelText: 'API Key'),
             obscureText: true,
             onChanged: (value) {
               final newApiKeys = Map<String, String>.from(
-                _currentSettings.apiKeys,
+                widget.settings.apiKeys,
               );
-              newApiKeys[_currentSettings.selectedProviderId] = value;
-              // No need to fetch models again, just update the key
-              _updateSettings(
-                _currentSettings.copyWith(apiKeys: newApiKeys),
-                triggerModelFetch: false,
+              newApiKeys[widget.settings.selectedProviderId] = value;
+              widget.onChanged(
+                widget.settings.copyWith(apiKeys: newApiKeys),
               );
             },
-            // ADDED: Debounce API key check
             onEditingComplete: () {
-              // Re-fetch models when the user finishes editing the API key
+              // Re-fetch models when the user finishes editing the API key.
               _fetchModels();
             },
           ),

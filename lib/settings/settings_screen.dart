@@ -1,15 +1,18 @@
-// =========================================
-// UPDATED: lib/settings/settings_screen.dart
-// =========================================
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 
 import '../app/app_notifier.dart';
 import '../command/command_notifier.dart';
 import '../editor/plugins/editor_plugin_registry.dart';
+import '../explorer/explorer_plugin_registry.dart';
+import '../project/project_type_handler_registry.dart';
+import 'setting_override_widget.dart';
 import 'settings_notifier.dart';
+import '../project/project_settings_notifier.dart';
+import '../project/project_type_handler.dart';
+import '../project/project_settings_models.dart';
 
 const Map<String, Color> kAccentColors = {
   'Orange': Colors.orange,
@@ -29,31 +32,37 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: _buildPluginSettingsList(context, ref),
     );
-  }
+  } 
 
   Widget _buildPluginSettingsList(BuildContext context, WidgetRef ref) {
     final allPlugins = ref.watch(activePluginsProvider);
+    final explorerPlugins = ref.watch(explorerRegistryProvider);
     final settings = ref.watch(settingsProvider);
     final generalSettings =
         settings.pluginSettings[GeneralSettings] as GeneralSettings?;
-        
-    // --- NEW SORTING LOGIC ---
-    // 1. Get the currently active plugin, if any.
-    final activePlugin = ref.watch(appNotifierProvider.select(
-      (s) => s.value?.currentProject?.session.currentTab?.plugin,
-    ));
+    final activePlugin = ref.watch(
+      appNotifierProvider.select(
+        (s) => s.value?.currentProject?.session.currentTab?.plugin,
+      ),
+    );
+    
+    final currentProject = ref.watch(appNotifierProvider).value?.currentProject;
+    final projectTypeHandler = currentProject != null
+        ? ref.watch(projectTypeHandlerRegistryProvider)[
+            currentProject.metadata.projectTypeId]
+        : null;
 
-    // 2. Create a mutable copy of the plugins that have settings.
-    final pluginsWithSettings = allPlugins.where((p) => p.settings != null).toList();
-
-    // 3. If there's an active plugin with settings, move it to the top.
+    final pluginsWithSettings =
+        allPlugins.where((p) => p.settings != null).toList();
     if (activePlugin != null && pluginsWithSettings.contains(activePlugin)) {
       pluginsWithSettings.remove(activePlugin);
-      pluginsWithSettings.insert(0, activePlugin);
+      //pluginsWithSettings.insert(0, activePlugin);
     }
-    // --- END NEW SORTING LOGIC ---
+    final explorerPluginsWithSettings =
+      explorerPlugins.where((p) => p.settings != null).toList();
 
-    return ListView(
+
+return ListView(
       children: [
         ListTile(
           leading: const Icon(Icons.keyboard),
@@ -61,158 +70,249 @@ class SettingsScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.pushNamed(context, '/command-settings'),
         ),
-        if (generalSettings != null)
-          _GeneralSettingsCard(settings: generalSettings),
-        // 4. Use the newly sorted list to build the cards.
-        ...pluginsWithSettings
-            .map(
-              (plugin) => _PluginSettingsCard(
-                plugin: plugin,
-                settings:
-                    settings.pluginSettings[plugin.settings.runtimeType]!
-                        as PluginSettings,
-              ),
-            ),
+        if (generalSettings != null) 
+        _ExpandableSettingsList(
+          title: 'General Settings',
+          items: [_GeneralSettingsCard(settings: generalSettings)],
+        ),
+        if (projectTypeHandler?.projectTypeSettings != null && currentProject?.settings?.typeSpecificSettings != null)
+          _ProjectSpecificSettingsCard(
+            handler: projectTypeHandler!,
+            settings: currentProject!.settings!.typeSpecificSettings!,
+          ),
+        _ExpandableSettingsList(
+          title: 'Explorer Plugins',
+          items: explorerPluginsWithSettings
+              .where((plugin) => settings.explorerPluginSettings[plugin.id] != null)
+              .map(
+                (plugin) => _ExplorerPluginSettingsCard(
+                  plugin: plugin,
+                  settings: settings.explorerPluginSettings[plugin.id]!
+                      as ExplorerPluginSettings,
+                ),
+              )
+              .toList(),
+        ),
+        _ExpandableSettingsList(
+          title: 'Editor Plugins',
+          items: pluginsWithSettings
+              .map(
+                (plugin) => _PluginSettingsCard(
+                  plugin: plugin,
+                  settings: settings.pluginSettings[plugin.settings.runtimeType]!
+                      as PluginSettings,
+                ),
+              )
+              .toList(),
+        ),
+        if (activePlugin != null)
+          _PluginSettingsCard(
+            expanded: true,
+            plugin: activePlugin,
+            settings: settings.pluginSettings[activePlugin.settings.runtimeType]!
+                as PluginSettings,
+          ),
       ],
     );
   }
 }
 
-// ... (_GeneralSettingsCard and _PluginSettingsCard are unchanged) ...
+class _ExpandableSettingsList extends StatelessWidget {
+  final String title;
+  final List<Widget> items;
+
+  const _ExpandableSettingsList({
+    Key? key,
+    required this.title,
+    required this.items,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      title: Text(title),
+      children: items,
+    );
+  }
+}
+
 class _GeneralSettingsCard extends ConsumerWidget {
-  final GeneralSettings settings;
+  final GeneralSettings settings; // This is the global instance.
   const _GeneralSettingsCard({required this.settings});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(settingsProvider.notifier);
-
     return Card(
       margin: const EdgeInsets.all(8),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildThemeSettings(context, notifier),
-            const Divider(height: 32),
-            _buildFileExplorerSettings(
-              context,
-              notifier,
-            ), // <-- ADDED THIS SECTION
-            const Divider(height: 32),
-            _buildFullscreenSettings(context, notifier),
-          ],
+        // A SINGLE SettingOverrideWidget wraps the entire group of settings.
+        child: SettingOverrideWidget(
+          globalSetting: settings,
+          childBuilder: (context, effectiveSetting, onChanged) {
+            // The builder provides the correct settings object (global or override)
+            // and the correct update function.
+            final currentSettings = effectiveSetting as GeneralSettings;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Theme', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                _buildAccentColorPicker(
+                  context,
+                  currentSettings,
+                  (newSettings) => onChanged(newSettings),
+                ),
+                const Divider(height: 32),
+                Text('File Explorer', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                _buildHiddenFilesSwitch(
+                  context,
+                  currentSettings,
+                  (newSettings) => onChanged(newSettings),
+                ),
+                const Divider(height: 32),
+                Text('Fullscreen Mode', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                _buildFullscreenToggles(
+                  context,
+                  currentSettings,
+                  (newSettings) => onChanged(newSettings),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildThemeSettings(BuildContext context, SettingsNotifier notifier) {
+  // Helper methods are now plain functions, not widgets. They are fully "dumb".
+  Widget _buildAccentColorPicker(
+    BuildContext context,
+    GeneralSettings effectiveSettings,
+    void Function(GeneralSettings) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Theme', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 20),
         Text('Accent Color', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children:
-              kAccentColors.entries.map((entry) {
-                final color = entry.value;
-                final isSelected = settings.accentColorValue == color.value;
-                return GestureDetector(
-                  onTap: () {
-                    notifier.updatePluginSettings(
-                      settings.copyWith(accentColorValue: color.value),
-                    );
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border:
-                          isSelected
-                              ? Border.all(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                width: 3,
-                              )
-                              : null,
-                    ),
-                  ),
-                );
-              }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFileExplorerSettings(
-    BuildContext context,
-    SettingsNotifier notifier,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('File Explorer', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Show Hidden Files'),
-          subtitle: const Text(
-            'Displays files and folders starting with a dot (e.g., .git)',
-          ),
-          value: settings.showHiddenFiles,
-          onChanged: (value) {
-            notifier.updatePluginSettings(
-              settings.copyWith(showHiddenFiles: value),
+          children: kAccentColors.entries.map((entry) {
+            final color = entry.value;
+            final isSelected = effectiveSettings.accentColorValue == color.value;
+            return GestureDetector(
+              onTap: () =>
+                  onChanged(effectiveSettings.copyWith(accentColorValue: color.value)),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          width: 3,
+                        )
+                      : null,
+                ),
+              ),
             );
-          },
+          }).toList(),
         ),
       ],
     );
   }
 
-  Widget _buildFullscreenSettings(
+  Widget _buildHiddenFilesSwitch(
     BuildContext context,
-    SettingsNotifier notifier,
+    GeneralSettings effectiveSettings,
+    void Function(GeneralSettings) onChanged,
+  ) {
+    return SwitchListTile(
+      title: const Text('Show Hidden Files'),
+      subtitle: const Text(
+        'Displays files and folders starting with a dot (e.g., .git)',
+      ),
+      value: effectiveSettings.showHiddenFiles,
+      onChanged: (value) =>
+          onChanged(effectiveSettings.copyWith(showHiddenFiles: value)),
+    );
+  }
+
+  Widget _buildFullscreenToggles(
+    BuildContext context,
+    GeneralSettings effectiveSettings,
+    void Function(GeneralSettings) onChanged,
   ) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Fullscreen Mode', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 16),
         SwitchListTile(
           title: const Text('Hide App Bar'),
-          value: settings.hideAppBarInFullScreen,
-          onChanged: (value) {
-            notifier.updatePluginSettings(
-              settings.copyWith(hideAppBarInFullScreen: value),
-            );
-          },
+          value: effectiveSettings.hideAppBarInFullScreen,
+          onChanged: (value) =>
+              onChanged(effectiveSettings.copyWith(hideAppBarInFullScreen: value)),
         ),
         SwitchListTile(
           title: const Text('Hide Tab Bar'),
-          value: settings.hideTabBarInFullScreen,
-          onChanged: (value) {
-            notifier.updatePluginSettings(
-              settings.copyWith(hideTabBarInFullScreen: value),
-            );
-          },
+          value: effectiveSettings.hideTabBarInFullScreen,
+          onChanged: (value) =>
+              onChanged(effectiveSettings.copyWith(hideTabBarInFullScreen: value)),
         ),
         SwitchListTile(
           title: const Text('Hide Bottom Toolbar'),
-          value: settings.hideBottomToolbarInFullScreen,
-          onChanged: (value) {
-            notifier.updatePluginSettings(
-              settings.copyWith(hideBottomToolbarInFullScreen: value),
-            );
-          },
+          value: effectiveSettings.hideBottomToolbarInFullScreen,
+          onChanged: (value) =>
+              onChanged(effectiveSettings.copyWith(hideBottomToolbarInFullScreen: value)),
         ),
       ],
+    );
+  }
+}
+
+class _ProjectSpecificSettingsCard extends ConsumerWidget {
+  final ProjectTypeHandler handler;
+  final ProjectSettings settings;
+
+  const _ProjectSpecificSettingsCard({
+    required this.handler,
+    required this.settings,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(projectSettingsProvider.notifier);
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        title: Row(
+          children: [
+            Icon(handler.icon),
+            const SizedBox(width: 12),
+            Text(
+              '${handler.name} Settings',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ],
+        ),
+        subtitle: const Text('These settings are specific to this project'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: handler.buildProjectTypeSettingsUI(
+              settings,
+              (newSettings) => notifier.updateProjectTypeSettings(newSettings),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -220,38 +320,85 @@ class _GeneralSettingsCard extends ConsumerWidget {
 class _PluginSettingsCard extends ConsumerWidget {
   final EditorPlugin plugin;
   final PluginSettings settings;
+  final bool expanded;
 
-  const _PluginSettingsCard({required this.plugin, required this.settings});
+  const _PluginSettingsCard({required this.plugin, required this.settings, this.expanded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.all(8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ExpansionTile(
+        initiallyExpanded: expanded,
+        title: Row(
           children: [
-            Row(
-              children: [
-                plugin.icon,
-                const SizedBox(width: 12),
-                Text(
-                  plugin.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
+            plugin.icon,
+            const SizedBox(width: 12),
+            Text(
+              plugin.name,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
-            plugin.buildSettingsUI(settings),
           ],
         ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SettingOverrideWidget(
+              globalSetting: settings,
+              childBuilder: (context, effectiveSetting, onChanged) {
+                return plugin.buildSettingsUI(
+                  effectiveSetting as PluginSettings,
+                  (newSettings) => onChanged(newSettings),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// REFACTORED: This screen is now fully dynamic.
+class _ExplorerPluginSettingsCard extends ConsumerWidget {
+  final ExplorerPlugin plugin;
+  final ExplorerPluginSettings settings;
+
+  const _ExplorerPluginSettingsCard({required this.plugin, required this.settings});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(plugin.icon),
+            const SizedBox(width: 12),
+            Text(
+              plugin.name,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SettingOverrideWidget(
+              globalSetting: settings,
+              childBuilder: (context, effectiveSetting, onChanged) {
+                return plugin.buildSettingsUI(
+                  effectiveSetting as ExplorerPluginSettings,
+                  (newSettings) => onChanged(newSettings),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class CommandSettingsScreen extends ConsumerWidget {
   const CommandSettingsScreen({super.key});
 
@@ -273,7 +420,6 @@ class CommandSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 80),
         children: [
-          // Dynamically build a section for each available position
           ...state.availablePositions.map((position) {
             return _buildSection(
               context,
@@ -285,7 +431,6 @@ class CommandSettingsScreen extends ConsumerWidget {
           ...state.commandGroups.values.map(
             (group) => _buildGroupSection(context, ref, group),
           ),
-          // Hidden commands section
           _buildSection(
             context,
             ref,
@@ -302,29 +447,33 @@ class CommandSettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     CommandGroup group,
   ) {
-    // ... (This widget is mostly unchanged, but its reorderable list now uses positionId) ...
     return ExpansionTile(
-      leading: group.icon,
+      leading: group.finalIcon, // Use the new getter for the icon
       title: Text(group.label),
       initiallyExpanded: true,
+      // --- START: MODIFIED TRAILING WIDGETS ---
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // The edit button now handles both user and plugin groups
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed:
-                () => showDialog(
-                  context: context,
-                  builder: (_) => GroupEditorDialog(ref: ref, group: group),
-                ),
+            tooltip: group.isDeletable ? 'Edit Group' : 'Customize Group',
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => GroupEditorDialog(ref: ref, group: group),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed:
-                () => ref.read(commandProvider.notifier).deleteGroup(group.id),
-          ),
+          // Only show delete button for user-created groups
+          if (group.isDeletable)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.redAccent),
+              onPressed: () =>
+                  ref.read(commandProvider.notifier).deleteGroup(group.id),
+            ),
         ],
       ),
+      // --- END: MODIFIED TRAILING WIDGETS ---
       children: [
         _buildReorderableList(
           context,
@@ -360,7 +509,14 @@ class CommandSettingsScreen extends ConsumerWidget {
   }) {
     final state = ref.watch(commandProvider);
     final notifier = ref.read(commandProvider.notifier);
+    
+    final originalPluginGroups = notifier.pluginDefinedGroups;
 
+    final currentPosition = state.availablePositions.firstWhereOrNull(
+      (p) => p.id == positionId,
+    );
+    final currentGroup = state.commandGroups[positionId];
+    
     return Column(
       children: [
         ReorderableListView.builder(
@@ -370,6 +526,21 @@ class CommandSettingsScreen extends ConsumerWidget {
           itemBuilder: (ctx, index) {
             final itemId = itemIds[index];
             final Widget itemWidget;
+            
+            bool canBeRemoved = true;
+            if (positionId == AppCommandPositions.hidden.id) {
+              canBeRemoved = false;
+            } else if (currentPosition?.mandatoryCommands.contains(itemId) ?? false) {
+              canBeRemoved = false;
+            } else if (currentGroup != null && !currentGroup.isDeletable) {
+              // We are inside a plugin group. Check if the item is a default one.
+              final originalGroupDef = originalPluginGroups[currentGroup.id];
+              if (originalGroupDef?.commandIds.contains(itemId) ?? false) {
+                // This item was part of the original plugin definition, so it can't be removed.
+                canBeRemoved = false;
+              }
+              // Otherwise, it's a user-added item, and canBeRemoved remains true.
+            }
 
             if (state.commandGroups.containsKey(itemId)) {
               final group = state.commandGroups[itemId]!;
@@ -378,7 +549,7 @@ class CommandSettingsScreen extends ConsumerWidget {
                 leading: const Icon(Icons.drag_handle),
                 title: Row(
                   children: [
-                    group.icon,
+                    group.finalIcon,
                     const SizedBox(width: 12),
                     Text(
                       group.label,
@@ -386,9 +557,8 @@ class CommandSettingsScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                trailing:
-                    positionId == AppCommandPositions.hidden.id
-                        ? null
+                trailing: !canBeRemoved
+                    ? null
                         : IconButton(
                           icon: const Icon(
                             Icons.remove_circle_outline,
@@ -418,7 +588,7 @@ class CommandSettingsScreen extends ConsumerWidget {
                 );
               }
               itemWidget = ListTile(
-                key: ValueKey(command.id + positionId),
+                key: ValueKey(command!.id + positionId),
                 leading: const Icon(Icons.drag_handle),
                 title: Row(
                   children: [
@@ -436,21 +606,19 @@ class CommandSettingsScreen extends ConsumerWidget {
                     sources.length > 1
                         ? Text('From: ${sources.join(', ')}')
                         : null,
-                trailing:
-                    positionId == AppCommandPositions.hidden.id
-                        ? null
-                        : IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline,
-                            color: Colors.redAccent,
-                          ),
-                          tooltip: 'Remove from this list',
-                          onPressed:
-                              () => notifier.removeItemFromList(
-                                itemId: command.id,
-                                fromPositionId: positionId,
-                              ),
+                trailing: !canBeRemoved
+                    ? null
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
+                          color: Colors.redAccent,
                         ),
+                        tooltip: 'Remove from this list',
+                        onPressed: () => notifier.removeItemFromList(
+                          itemId: command.id,
+                          fromPositionId: positionId,
+                        ),
+                      ),
               );
             }
             return itemWidget;
@@ -485,8 +653,6 @@ class CommandSettingsScreen extends ConsumerWidget {
     );
   }
 }
-
-// REFACTORED: The AddItemDialog now uses positionId.
 class AddItemDialog extends ConsumerStatefulWidget {
   final WidgetRef ref;
   final String toPositionId;
@@ -501,7 +667,6 @@ class AddItemDialog extends ConsumerStatefulWidget {
 }
 
 class _AddItemDialogState extends ConsumerState<AddItemDialog> {
-  // ... (unchanged)
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -603,8 +768,6 @@ class _AddItemDialogState extends ConsumerState<AddItemDialog> {
     );
   }
 }
-
-// ... (GroupEditorDialog and IconPickerDialog are unchanged) ...
 class GroupEditorDialog extends StatefulWidget {
   final WidgetRef ref;
   final CommandGroup? group;
@@ -617,15 +780,17 @@ class GroupEditorDialog extends StatefulWidget {
 class _GroupEditorDialogState extends State<GroupEditorDialog> {
   late final TextEditingController _nameController;
   late String _selectedIconName;
-  late bool _showLabels; // <-- ADDED
+  late bool _showLabels; 
+  late bool _isPluginGroup;
 
   @override
   void initState() {
     super.initState();
+    _isPluginGroup = !(widget.group?.isDeletable ?? true);
     _nameController = TextEditingController(text: widget.group?.label ?? '');
     _selectedIconName =
         widget.group?.iconName ?? CommandIcon.availableIcons.keys.first;
-    _showLabels = widget.group?.showLabels ?? true; // <-- ADDED
+    _showLabels = widget.group?.showLabels ?? true;
   }
 
   @override
@@ -643,14 +808,14 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
       notifier.createGroup(
         name: name,
         iconName: _selectedIconName,
-        showLabels: _showLabels, // <-- ADDED
+        showLabels: _showLabels, 
       );
     } else {
       notifier.updateGroup(
         widget.group!.id,
         newName: name,
         newIconName: _selectedIconName,
-        newShowLabels: _showLabels, // <-- ADDED
+        newShowLabels: _showLabels, 
       );
     }
     Navigator.of(context).pop();
@@ -666,15 +831,18 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
           TextField(
             controller: _nameController,
             decoration: const InputDecoration(labelText: 'Group Name'),
-            autofocus: true,
+            autofocus: !_isPluginGroup,
+            readOnly: _isPluginGroup,
           ),
           const SizedBox(height: 20),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: CommandIcon.getIcon(_selectedIconName),
+            leading: widget.group?.finalIcon ?? CommandIcon.getIcon(_selectedIconName),
             title: const Text('Group Icon'),
-            trailing: const Icon(Icons.arrow_drop_down),
-            onTap: () async {
+            trailing: _isPluginGroup ? null : const Icon(Icons.arrow_drop_down),
+            onTap: _isPluginGroup
+                ? null
+                : () async {
               final String? newIcon = await showDialog(
                 context: context,
                 builder: (_) => const IconPickerDialog(),
@@ -684,7 +852,6 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               }
             },
           ),
-          // --- ADDED WIDGET ---
           SwitchListTile(
             title: const Text('Show Command Labels'),
             value: _showLabels,
@@ -695,7 +862,6 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
             },
             contentPadding: EdgeInsets.zero,
           ),
-          // --------------------
         ],
       ),
       actions: [

@@ -41,7 +41,9 @@ class CustomCodeLineNumber extends LeafRenderObjectWidget {
 
   @override
   void updateRenderObject(
-      BuildContext context, covariant CustomCodeLineNumberRenderObject renderObject) {
+    BuildContext context,
+    covariant CustomCodeLineNumberRenderObject renderObject,
+  ) {
     renderObject
       ..controller = controller
       ..notifier = notifier
@@ -64,17 +66,18 @@ class CustomCodeLineNumberRenderObject extends CodeLineNumberRenderObject {
 
   CustomCodeLineNumberRenderObject({
     required super.controller,
-    required CodeIndicatorValueNotifier notifier, // Receive as a normal parameter
+    required CodeIndicatorValueNotifier
+    notifier, // Receive as a normal parameter
     required super.textStyle,
     required super.focusedTextStyle,
     required super.minNumberCount,
     required Set<int> highlightedLines,
     required Color highlightColor,
-  })  : _highlightedLines = highlightedLines,
-        _highlightColor = highlightColor,
-        _notifier = notifier, // Initialize our local reference
-        super(notifier: notifier) // Also pass it to the superclass constructor
-  {
+  }) : _highlightedLines = highlightedLines,
+       _highlightColor = highlightColor,
+       _notifier = notifier, // Initialize our local reference
+       super(notifier: notifier) // Also pass it to the superclass constructor
+       {
     _highlightPaint = Paint()..color = _highlightColor;
   }
 

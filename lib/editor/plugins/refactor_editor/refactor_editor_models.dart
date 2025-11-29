@@ -6,7 +6,7 @@ import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
 import 'refactor_editor_widget.dart';
 
-/// Defines the settings for the Refactor Editor plugin.
+
 class RefactorSettings extends PluginSettings {
   Set<String> supportedExtensions;
   Set<String> ignoredGlobPatterns;
@@ -19,18 +19,46 @@ class RefactorSettings extends PluginSettings {
     Set<String>? ignoredGlobPatterns,
     this.useProjectGitignore = true,
     this.updateInternalPathsAsDirty = true, // Default to the safer option.
-  })  : supportedExtensions = supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
-        ignoredGlobPatterns = ignoredGlobPatterns ?? {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+  })  : supportedExtensions =
+            supportedExtensions ?? {'.dart', '.yaml', '.md', '.txt', '.json'},
+        ignoredGlobPatterns = ignoredGlobPatterns ??
+            {'.git/**', '.idea/**', 'build/**', '.dart_tool/**'};
+
+  RefactorSettings copyWith({
+    Set<String>? supportedExtensions,
+    Set<String>? ignoredGlobPatterns,
+    bool? useProjectGitignore,
+    bool? updateInternalPathsAsDirty,
+  }) {
+    return RefactorSettings(
+      supportedExtensions: supportedExtensions ?? this.supportedExtensions,
+      ignoredGlobPatterns: ignoredGlobPatterns ?? this.ignoredGlobPatterns,
+      useProjectGitignore: useProjectGitignore ?? this.useProjectGitignore,
+      updateInternalPathsAsDirty:
+          updateInternalPathsAsDirty ?? this.updateInternalPathsAsDirty,
+    );
+  }
+
+  @override
+  MachineSettings clone() {
+    return RefactorSettings(
+      supportedExtensions: Set<String>.from(supportedExtensions),
+      ignoredGlobPatterns: Set<String>.from(ignoredGlobPatterns),
+      useProjectGitignore: useProjectGitignore,
+      updateInternalPathsAsDirty: updateInternalPathsAsDirty,
+    );
+  }
 
   @override
   void fromJson(Map<String, dynamic> json) {
     final legacyIgnored = List<String>.from(json['ignoredFolders'] ?? []);
     final currentIgnored = List<String>.from(json['ignoredGlobPatterns'] ?? []);
-    
-    supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? []);
+
+    supportedExtensions = Set<String>.from(json['supportedExtensions'] ?? {});
     ignoredGlobPatterns = {...legacyIgnored, ...currentIgnored}.toSet();
     useProjectGitignore = json['useProjectGitignore'] as bool? ?? true;
-    updateInternalPathsAsDirty = json['updateInternalPathsAsDirty'] as bool? ?? true;
+    updateInternalPathsAsDirty =
+        json['updateInternalPathsAsDirty'] as bool? ?? true;
   }
 
   @override

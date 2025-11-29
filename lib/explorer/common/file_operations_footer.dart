@@ -1,11 +1,8 @@
-// lib/explorer/common/file_operations_footer.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/file_handler/local_file_handler.dart';
 import '../../logs/logs_provider.dart';
 import '../../utils/clipboard.dart';
 import '../plugins/file_explorer/file_explorer_state.dart';
@@ -17,6 +14,8 @@ import 'file_explorer_widgets.dart';
 import '../explorer_plugin_registry.dart'; // REFACTOR: Import registry
 import '../plugins/file_explorer/file_explorer_plugin.dart'; // REFACTOR: Import for type check
 
+import '../../platform/platform_file_service.dart';
+
 class FileOperationsFooter extends ConsumerWidget {
   final String projectRootUri;
   // REFACTOR: This widget no longer needs projectId
@@ -27,7 +26,6 @@ class FileOperationsFooter extends ConsumerWidget {
     final clipboardContent = ref.watch(clipboardProvider);
     final talker = ref.read(talkerProvider);
     final explorerService = ref.read(explorerServiceProvider);
-    // REFACTOR: Check which explorer is active to conditionally show the sort button.
     final activeExplorer = ref.watch(activeExplorerProvider);
 
     final rootDoc = RootPlaceholder(projectRootUri);
@@ -87,8 +85,9 @@ class FileOperationsFooter extends ConsumerWidget {
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Import File',
             onPressed: () async {
-              final pickerHandler = LocalFileHandlerFactory.create();
-              final pickedFile = await pickerHandler.pickFile();
+              final platformService = ref.read(platformFileServiceProvider);
+              final pickedFile = await platformService.pickFileForImport();
+              
               if (pickedFile != null) {
                 try {
                   await explorerService.importFile(pickedFile, projectRootUri);

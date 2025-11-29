@@ -1,11 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../logs/logs_provider.dart';
 import '../dto/app_state_dto.dart';
-
 
 /// Manages saving and loading the app state DTO to/from SharedPreferences.
 class AppStateRepository {

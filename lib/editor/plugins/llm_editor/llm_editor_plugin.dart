@@ -52,9 +52,11 @@ class LlmEditorPlugin extends EditorPlugin {
   PluginSettings? get settings => LlmEditorSettings();
 
   @override
-  Widget buildSettingsUI(PluginSettings settings) {
-    return LlmEditorSettingsUI(settings: settings as LlmEditorSettings);
-  }
+    Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) =>
+       LlmEditorSettingsUI(settings: settings as LlmEditorSettings, onChanged: onChanged);
 
   // *** FIX: This function no longer accepts a WidgetRef. ***
   // It now receives the dependencies it needs directly, making it safer to call
@@ -260,7 +262,7 @@ class LlmEditorPlugin extends EditorPlugin {
         final context = ref.read(navigatorKeyProvider).currentContext;
         // *** FIX: Get dependencies from ref BEFORE the first await ***
         final settings =
-            ref.read(settingsProvider).pluginSettings[LlmEditorSettings]
+            ref.read(effectiveSettingsProvider).pluginSettings[LlmEditorSettings]
                 as LlmEditorSettings?;
         final provider = ref.read(llmServiceProvider);
         final project = ref.read(appNotifierProvider).value!.currentProject!;

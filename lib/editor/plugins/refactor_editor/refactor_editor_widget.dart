@@ -30,7 +30,6 @@ import 'refactor_editor_models.dart';
 import '../../../explorer/services/explorer_service.dart'; // Import for the listener
 import '../../../widgets/dialogs/folder_picker_dialog.dart';
 
-
 typedef _CompiledGlob = ({Glob glob, bool isDirectoryOnly});
 
 class RefactorEditorWidget extends EditorWidget {
@@ -94,7 +93,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   @override
   Future<void> onFileOperation(FileOperationEvent event) async {
     if (!mounted) return;
-    
+
     if (event is FileRenameEvent) {
       if (!event.newFile.isDirectory) {
         await _updateInternalPathsOnMove(event.oldFile, event.newFile);
@@ -109,60 +108,94 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
       widget.tab.onReady.complete(this);
     }
   }
-  
-  Future<void> _updateInternalPathsOnMove(ProjectDocumentFile oldFile, ProjectDocumentFile newFile) async {
+
+  Future<void> _updateInternalPathsOnMove(
+    ProjectDocumentFile oldFile,
+    ProjectDocumentFile newFile,
+  ) async {
     if (!mounted) return;
-    
+
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
     // NEW: Get the settings and editor service
-    final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings?;
+    final settings =
+        ref.read(effectiveSettingsProvider).pluginSettings[RefactorSettings]
+            as RefactorSettings?;
     final editorService = ref.read(editorServiceProvider);
 
     if (project == null || repo == null || settings == null) return;
-    
+
     try {
       String content = await repo.readFile(newFile.uri);
-      final oldPath = repo.fileHandler.getPathForDisplay(oldFile.uri, relativeTo: project.rootUri);
-      final newPath = repo.fileHandler.getPathForDisplay(newFile.uri, relativeTo: project.rootUri);
-      
+      final oldPath = repo.fileHandler.getPathForDisplay(
+        oldFile.uri,
+        relativeTo: project.rootUri,
+      );
+      final newPath = repo.fileHandler.getPathForDisplay(
+        newFile.uri,
+        relativeTo: project.rootUri,
+      );
+
       final oldDir = p.dirname(oldPath);
       final newDir = p.dirname(newPath);
 
       if (oldDir == newDir) return;
-      
+
       final List<({String original, String replacement})> replacements = [];
-      final List<ReplaceRangeEdit> edits = []; // For the openAndApplyEdit strategy
+      final List<ReplaceRangeEdit> edits =
+          []; // For the openAndApplyEdit strategy
 
       for (final match in _pathRegex.allMatches(content)) {
         final matchedPath = match.group(2);
-        
-        if (matchedPath == null || matchedPath.isEmpty || p.isAbsolute(matchedPath) || matchedPath.contains(':')) {
+
+        if (matchedPath == null ||
+            matchedPath.isEmpty ||
+            p.isAbsolute(matchedPath) ||
+            matchedPath.contains(':')) {
           continue;
         }
 
         final absolutePath = p.normalize(p.join(oldDir, matchedPath));
-        
+
         // NEW: VALIDATION STEP - Check if the resolved file actually exists.
-        final targetFile = await repo.fileHandler.resolvePath(project.rootUri, absolutePath);
+        final targetFile = await repo.fileHandler.resolvePath(
+          project.rootUri,
+          absolutePath,
+        );
         if (targetFile == null) {
           continue; // Not a valid project path, so we skip it.
         }
 
-        final newRelativePath = p.relative(absolutePath, from: newDir).replaceAll(r'\', '/');
-        
+        final newRelativePath = p
+            .relative(absolutePath, from: newDir)
+            .replaceAll(r'\', '/');
+
         if (matchedPath != newRelativePath) {
           // Prepare data for both replacement strategies.
-          replacements.add((original: matchedPath, replacement: newRelativePath));
-          
-          final lineInfo = _getLineAndColumn(content, match.start + 1); // +1 to be inside the quotes
-          edits.add(ReplaceRangeEdit(
-            range: TextRange(
-              start: TextPosition(line: lineInfo.line, column: lineInfo.column),
-              end: TextPosition(line: lineInfo.line, column: lineInfo.column + matchedPath.length),
-            ), 
-            replacement: newRelativePath
+          replacements.add((
+            original: matchedPath,
+            replacement: newRelativePath,
           ));
+
+          final lineInfo = _getLineAndColumn(
+            content,
+            match.start + 1,
+          ); // +1 to be inside the quotes
+          edits.add(
+            ReplaceRangeEdit(
+              range: TextRange(
+                start: TextPosition(
+                  line: lineInfo.line,
+                  column: lineInfo.column,
+                ),
+                end: TextPosition(
+                  line: lineInfo.line,
+                  column: lineInfo.column + matchedPath.length,
+                ),
+              ),
+              replacement: newRelativePath,
+            ),
+          );
         }
       }
 
@@ -174,21 +207,42 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
             newPath, // Use the new path of the file
             BatchReplaceRangesEdit(edits: edits),
           );
-          ref.read(talkerProvider).info('Applied internal path updates as dirty changes for: ${newFile.name}');
-
+          ref
+              .read(talkerProvider)
+              .info(
+                'Applied internal path updates as dirty changes for: ${newFile.name}',
+              );
         } else {
           // STRATEGY 2: Modify the content string and save directly to disk.
-          replacements.sort((a, b) => b.original.length.compareTo(a.original.length));
+          replacements.sort(
+            (a, b) => b.original.length.compareTo(a.original.length),
+          );
           for (final change in replacements) {
-            content = content.replaceAll("'${change.original}'", "'${change.replacement}'");
-            content = content.replaceAll('"${change.original}"', '"${change.replacement}"');
+            content = content.replaceAll(
+              "'${change.original}'",
+              "'${change.replacement}'",
+            );
+            content = content.replaceAll(
+              '"${change.original}"',
+              '"${change.replacement}"',
+            );
           }
           await repo.writeFile(newFile, content);
-          ref.read(talkerProvider).info('Auto-saved internal path updates for moved file: ${newFile.name}');
+          ref
+              .read(talkerProvider)
+              .info(
+                'Auto-saved internal path updates for moved file: ${newFile.name}',
+              );
         }
       }
     } catch (e, st) {
-      ref.read(talkerProvider).handle(e, st, 'Failed to update internal paths for moved file: ${newFile.name}');
+      ref
+          .read(talkerProvider)
+          .handle(
+            e,
+            st,
+            'Failed to update internal paths for moved file: ${newFile.name}',
+          );
     }
   }
 
@@ -262,7 +316,7 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
   Future<void> _findTextOccurrences() async {
     final repo = ref.read(projectRepositoryProvider);
     final settings =
-        ref.read(settingsProvider).pluginSettings[RefactorSettings]
+        ref.read(effectiveSettingsProvider).pluginSettings[RefactorSettings]
             as RefactorSettings?;
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (repo == null || settings == null || project == null) {
@@ -463,8 +517,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
     );
     _controller.completeSearch(results);
   }
-  
-    ({int line, int column}) _getLineAndColumn(String content, int offset) {
+
+  ({int line, int column}) _getLineAndColumn(String content, int offset) {
     int line = 0;
     int lastLineStart = 0;
     for (int i = 0; i < offset; i++) {
@@ -532,48 +586,86 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
 
   Future<void> _traverseAndSearch({
     required String directoryUri,
-    required Function(String content, ProjectDocumentFile file, String displayPath) onFileContent,
+    required Function(
+      String content,
+      ProjectDocumentFile file,
+      String displayPath,
+    )
+    onFileContent,
   }) async {
     final repo = ref.read(projectRepositoryProvider)!;
-    final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-    final settings = ref.read(settingsProvider).pluginSettings[RefactorSettings] as RefactorSettings;
-    
-    final hierarchyNotifier = ref.read(projectHierarchyServiceProvider.notifier);
-    var directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+    final projectRootUri =
+        ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+    final settings =
+        ref.read(effectiveSettingsProvider).pluginSettings[RefactorSettings]
+            as RefactorSettings;
+
+    final hierarchyNotifier = ref.read(
+      projectHierarchyServiceProvider.notifier,
+    );
+    var directoryState =
+        ref.read(projectHierarchyServiceProvider)[directoryUri];
     if (directoryState == null || directoryState is! AsyncData) {
-        await hierarchyNotifier.loadDirectory(directoryUri);
-        directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
+      await hierarchyNotifier.loadDirectory(directoryUri);
+      directoryState = ref.read(projectHierarchyServiceProvider)[directoryUri];
     }
-    final entries = directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
+    final entries =
+        directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
 
     final globalIgnoreGlobs = _compileGlobs(settings.ignoredGlobPatterns);
     List<_CompiledGlob> currentIgnoreGlobs = [];
-    final gitignoreFile = entries.firstWhereOrNull((f) => f.name == '.gitignore');
+    final gitignoreFile = entries.firstWhereOrNull(
+      (f) => f.name == '.gitignore',
+    );
     if (gitignoreFile != null && settings.useProjectGitignore) {
-        try {
-            final content = await repo.readFile(gitignoreFile.uri);
-            final patterns = content.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty && !l.startsWith('#')).toSet();
-            currentIgnoreGlobs = _compileGlobs(patterns);
-        } catch (_) {}
+      try {
+        final content = await repo.readFile(gitignoreFile.uri);
+        final patterns =
+            content
+                .split('\n')
+                .map((l) => l.trim())
+                .where((l) => l.isNotEmpty && !l.startsWith('#'))
+                .toSet();
+        currentIgnoreGlobs = _compileGlobs(patterns);
+      } catch (_) {}
     }
-    
+
     // A list to hold the futures of the recursive calls.
     final List<Future<void>> subDirectoryFutures = [];
 
     for (final entry in entries) {
-      final relativePath = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: projectRootUri).replaceAll(r'\', '/');
-      bool isIgnored = globalIgnoreGlobs.any((g) => !(g.isDirectoryOnly && !entry.isDirectory) && g.glob.matches(relativePath));
+      final relativePath = repo.fileHandler
+          .getPathForDisplay(entry.uri, relativeTo: projectRootUri)
+          .replaceAll(r'\', '/');
+      bool isIgnored = globalIgnoreGlobs.any(
+        (g) =>
+            !(g.isDirectoryOnly && !entry.isDirectory) &&
+            g.glob.matches(relativePath),
+      );
       if (isIgnored) continue;
-      
-      final pathFromCurrentDir = repo.fileHandler.getPathForDisplay(entry.uri, relativeTo: directoryUri).replaceAll(r'\', '/');
-      isIgnored = currentIgnoreGlobs.any((g) => !(g.isDirectoryOnly && !entry.isDirectory) && g.glob.matches(pathFromCurrentDir));
+
+      final pathFromCurrentDir = repo.fileHandler
+          .getPathForDisplay(entry.uri, relativeTo: directoryUri)
+          .replaceAll(r'\', '/');
+      isIgnored = currentIgnoreGlobs.any(
+        (g) =>
+            !(g.isDirectoryOnly && !entry.isDirectory) &&
+            g.glob.matches(pathFromCurrentDir),
+      );
       if (isIgnored) continue;
-      
+
       if (entry.isDirectory) {
         // Launch the search for the subdirectory concurrently and add its Future to the list.
-        subDirectoryFutures.add(_traverseAndSearch(directoryUri: entry.uri, onFileContent: onFileContent));
+        subDirectoryFutures.add(
+          _traverseAndSearch(
+            directoryUri: entry.uri,
+            onFileContent: onFileContent,
+          ),
+        );
       } else {
-        if (settings.supportedExtensions.any((ext) => relativePath.endsWith(ext))) {
+        if (settings.supportedExtensions.any(
+          (ext) => relativePath.endsWith(ext),
+        )) {
           // File processing can happen immediately.
           try {
             final content = await repo.readFile(entry.uri);
@@ -737,28 +829,33 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
                     labelText: 'Find',
                     border: const OutlineInputBorder(),
                     // NEW: Add the suffix icon button for path mode.
-                    suffixIcon: isPathMode 
-                      ? IconButton(
-                          icon: const Icon(Icons.folder_open_outlined),
-                          tooltip: 'Select File or Folder',
-                          onPressed: () async {
-                            final selectedPath = await showDialog<String>(
-                              context: context,
-                              builder: (_) => const FileOrFolderPickerDialog(),
-                            );
-                            if (selectedPath != null) {
-                              _controller.updateSearchTerm(selectedPath);
-                            }
-                          },
-                        ) 
-                      : null,
+                    suffixIcon:
+                        isPathMode
+                            ? IconButton(
+                              icon: const Icon(Icons.folder_open_outlined),
+                              tooltip: 'Select File or Folder',
+                              onPressed: () async {
+                                final selectedPath = await showDialog<String>(
+                                  context: context,
+                                  builder:
+                                      (_) => const FileOrFolderPickerDialog(),
+                                );
+                                if (selectedPath != null) {
+                                  _controller.updateSearchTerm(selectedPath);
+                                }
+                              },
+                            )
+                            : null,
                   ),
                   onSubmitted: (_) => _handleFindOccurrences(),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: _controller.searchStatus == SearchStatus.searching ? null : _handleFindOccurrences,
+                onPressed:
+                    _controller.searchStatus == SearchStatus.searching
+                        ? null
+                        : _handleFindOccurrences,
                 child: const Text('Find All'),
               ),
             ],
@@ -766,7 +863,10 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
           const SizedBox(height: 8),
           TextField(
             controller: _replaceController,
-            decoration: const InputDecoration(labelText: 'Replace (use \$1, \$2 for groups)', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Replace (use \$1, \$2 for groups)',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 8),
           SegmentedButton<RefactorMode>(
@@ -794,12 +894,19 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
               _OptionCheckbox(
                 label: 'Use Regex',
                 value: isPathMode ? false : _controller.isRegex,
-                onChanged: isPathMode ? null : (val) => _controller.toggleIsRegex(val ?? false),
+                onChanged:
+                    isPathMode
+                        ? null
+                        : (val) => _controller.toggleIsRegex(val ?? false),
               ),
               _OptionCheckbox(
                 label: 'Case Sensitive',
                 value: isPathMode ? true : _controller.isCaseSensitive,
-                onChanged: isPathMode ? null : (val) => _controller.toggleCaseSensitive(val ?? false),
+                onChanged:
+                    isPathMode
+                        ? null
+                        : (val) =>
+                            _controller.toggleCaseSensitive(val ?? false),
               ),
             ],
           ),
@@ -809,7 +916,8 @@ class RefactorEditorWidgetState extends EditorWidgetState<RefactorEditorWidget>
               _OptionCheckbox(
                 label: 'Auto-open files',
                 value: _controller.autoOpenFiles,
-                onChanged: (val) => _controller.toggleAutoOpenFiles(val ?? false),
+                onChanged:
+                    (val) => _controller.toggleAutoOpenFiles(val ?? false),
               ),
             ],
           ),

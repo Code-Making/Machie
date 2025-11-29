@@ -15,6 +15,8 @@ import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
 import '../../data/content_provider/file_content_provider.dart';
 
+export '../../settings/settings_models.dart';
+
 enum PluginDataRequirement { string, bytes }
 
 class EditorInitData {
@@ -55,6 +57,9 @@ abstract class EditorPlugin {
   /// Plugin-specific commands. Defaults to an empty list.
   List<Command> getCommands() => [];
 
+  /// Plugin-specific command groups. Defaults to an empty list.
+  List<CommandGroup> getCommandGroups() => [];
+  
   /// App-wide commands provided by the plugin. Defaults to an empty list.
   List<Command> getAppCommands() => [];
 
@@ -68,8 +73,11 @@ abstract class EditorPlugin {
   PluginSettings? get settings => null;
 
   /// UI for editing plugin-specific settings. Defaults to an empty widget.
-  Widget buildSettingsUI(PluginSettings settings) => const SizedBox.shrink();
-
+  Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) =>
+      const SizedBox.shrink();
   /// A way for plugins to wrap toolbars (e.g., to handle focus).
   /// Defaults to returning the toolbar unmodified.
   Widget wrapCommandToolbar(Widget toolbar) => toolbar;
