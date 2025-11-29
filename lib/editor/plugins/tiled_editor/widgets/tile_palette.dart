@@ -373,7 +373,7 @@ class _TilesetPainter extends CustomPainter {
     if (selection != null) {
       final selectionPaint =
           Paint()
-            ..color = Colors.blue.withOpacity(0.5)
+            ..color = Colors.blue.withValues(alpha: 0.5)
             ..style = PaintingStyle.fill;
       final pixelRect = Rect.fromLTWH(
         selection!.left * tileWidth,
