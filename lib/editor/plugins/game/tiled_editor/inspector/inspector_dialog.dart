@@ -6,7 +6,7 @@ import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'property_descriptors.dart';
 import 'property_widgets.dart';
-import 'tiled_reflectors.dart';
+import '../../../tiled_editor/inspector/tiled_reflectors.dart';
 
 import 'package:tiled/tiled.dart' as tiled; // Use a prefix
 

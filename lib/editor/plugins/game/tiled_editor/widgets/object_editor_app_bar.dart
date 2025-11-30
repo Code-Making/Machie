@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../command/command_widgets.dart';
+import '../../../../../command/command_widgets.dart';
 import '../tiled_editor_plugin.dart';
 
 class ObjectEditorAppBar extends StatelessWidget

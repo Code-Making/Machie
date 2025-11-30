@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_notifier.dart';
-import '../../../command/command_models.dart';
-import '../../../command/command_widgets.dart';
-import '../../../data/cache/type_adapters.dart';
-import '../../../data/file_handler/file_handler.dart';
-import '../../../logs/logs_provider.dart';
-import '../../models/editor_command_context.dart';
-import '../../models/editor_plugin_models.dart';
-import '../../models/editor_tab_models.dart';
-import '../../services/editor_service.dart';
-import '../../tab_metadata_notifier.dart';
+import '../../../../app/app_notifier.dart';
+import '../../../../command/command_models.dart';
+import '../../../../command/command_widgets.dart';
+import '../../../../data/cache/type_adapters.dart';
+import '../../../../data/file_handler/file_handler.dart';
+import '../../../../logs/logs_provider.dart';
+import '../../../models/editor_command_context.dart';
+import '../../../models/editor_plugin_models.dart';
+import '../../../models/editor_tab_models.dart';
+import '../../../services/editor_service.dart';
+import '../../../tab_metadata_notifier.dart';
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
 import 'tiled_editor_settings_model.dart';

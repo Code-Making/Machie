@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../models/editor_tab_models.dart';
+import '../../../models/editor_tab_models.dart';
 import 'tiled_editor_widget.dart';
 
 @immutable
