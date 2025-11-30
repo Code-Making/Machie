@@ -3,7 +3,7 @@
 import 'package:tiled/tiled.dart';
 import 'package:xml/xml.dart';
 
-import '../../tiled_editor/tmx_writer_extensions.dart'; // Import the new extensions file
+import 'tmx_writer_extensions.dart'; // Import the new extensions file
 
 class TmxWriter {
   final TiledMap map;
