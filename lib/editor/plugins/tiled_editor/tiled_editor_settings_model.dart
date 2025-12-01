@@ -1,4 +1,4 @@
-import '../../editor_plugin_registry.dart';
+import '../editor_plugin_registry.dart';
 
 class TiledEditorSettings extends PluginSettings {
   int gridColorValue;

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart' hide ColorProperty;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../utils/toast.dart';
-import '../../../../../widgets/dialogs/folder_picker_dialog.dart';
+import '../../../../utils/toast.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../image_load_result.dart';
 import '../tiled_editor_widget.dart';
 import 'property_descriptors.dart';

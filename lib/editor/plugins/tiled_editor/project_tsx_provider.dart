@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:xml/xml.dart';
 
-import '../../../../data/repositories/project/project_repository.dart';
+import '../../../data/repositories/project/project_repository.dart';
 
 class ProjectTsxProvider extends TsxProvider {
   final ProjectRepository repo;

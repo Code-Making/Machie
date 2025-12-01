@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:meta/meta.dart';
 
-import '../../../models/editor_command_context.dart';
+import '../../models/editor_command_context.dart';
 import 'tiled_paint_tools.dart';
 
 @immutable
