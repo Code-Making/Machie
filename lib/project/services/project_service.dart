@@ -15,6 +15,7 @@ import '../../explorer/explorer_plugin_registry.dart';
 import '../project_models.dart';
 import '../project_settings_models.dart';
 import '../project_type_handler_registry.dart';
+import '../../settings/settings_notifier.dart';
 
 final projectServiceProvider = Provider<ProjectService>((ref) {
   return ProjectService(ref);
