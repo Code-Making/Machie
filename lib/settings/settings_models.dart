@@ -1,5 +1,3 @@
-// FILE: lib/settings/settings_models.dart
-
 import 'package:flutter/material.dart';
 
 abstract class MachineSettings {

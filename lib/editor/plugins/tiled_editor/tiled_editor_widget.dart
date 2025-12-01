@@ -587,17 +587,20 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final assetCache = ref.read(projectAssetCacheProvider); // <-- Get the asset cache
+      final assetCache = ref.read(projectAssetCacheProvider);
       final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-      
+
+      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
+      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
+
       final imageFile = await repo.fileHandler.resolvePath(
         projectRootUri,
-        relativeImagePath, // from dialog
+        relativeImagePath,
       );
       if (imageFile == null) {
         throw Exception('Tileset image not found: $relativeImagePath');
       }
-      
+
       // Use the asset cache to load the image
       final assetData = await assetCache.load<ui.Image>(imageFile);
       if (assetData.hasError) {

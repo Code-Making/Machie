@@ -1,7 +1,3 @@
-// =========================================
-// lib/app/app_notifier.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,8 +22,6 @@ import '../utils/clipboard.dart';
 import '../utils/toast.dart';
 import '../widgets/dialogs/file_explorer_dialogs.dart';
 import 'app_state.dart';
-
-// NEW
 
 final appNotifierProvider = AsyncNotifierProvider<AppNotifier, AppState>(
   AppNotifier.new,

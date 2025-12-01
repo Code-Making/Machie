@@ -1,5 +1,3 @@
-// FILE: lib/settings/settings_notifier.dart
-
 import 'dart:async';
 import 'dart:convert';
 
