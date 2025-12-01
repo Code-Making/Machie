@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../editor/plugins/editor_plugin_registry.dart';
 import '../explorer/explorer_plugin_registry.dart';
+import 'settings_models.dart';
 
 export 'settings_models.dart';
 export '../project/project_settings_notifier.dart';
