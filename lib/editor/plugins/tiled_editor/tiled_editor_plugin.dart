@@ -23,7 +23,17 @@ import 'tiled_paint_tools.dart';
 import 'widgets/export_dialog.dart';
 import 'widgets/tiled_editor_settings_widget.dart';
 
-class TiledEditorPlugin extends EditorPlugin {
+import '../common/game_asset_models.dart';
+import '../common/game_asset_provider_plugin.dart';
+import '../common/game_asset_service.dart';
+import '../../../../project/project_settings_notifier.dart'; // For currentProjectProvider
+
+
+class TiledMapAssetPlaceholder extends GameAsset {
+  const TiledMapAssetPlaceholder();
+}
+
+class TiledEditorPlugin extends EditorPlugin with GameAssetProviderPlugin {
   static const String pluginId = 'com.machine.tiled_editor';
 
   static const tiledFloatingToolbar = CommandPosition(
@@ -76,6 +86,52 @@ class TiledEditorPlugin extends EditorPlugin {
     settings: settings as TiledEditorSettings,
     onChanged: onChanged,
   );
+  
+  // Game asset overrides
+  @override
+  String get gameAssetType => 'tiled_map';
+
+  @override
+  Future<GameAsset> parseAsset(DocumentFile file, String content) async {
+    // In Phase 3, this will be fully implemented to parse the TMX
+    // into a new `ParsedTiledMap` model which will implement `GameAsset`.
+    // For now, a placeholder is sufficient.
+    print('Parsing Tiled map: ${file.name}');
+    return const TiledMapAssetPlaceholder(); // Placeholder model
+  }
+
+  @override
+  Future<String> writeAsset(GameAsset asset) async {
+    // This will take a `ParsedTiledMap` and convert it back to a TMX string.
+    return '';
+  }
+
+  @override
+  Future<void> exportAsset(
+    GameAsset asset,
+    GameAssetService service,
+    String exportPath,
+  ) async {
+    // This will contain the final export logic, resolving asset paths
+    // via the provided service.
+  }
+  
+  // --
+
+  @override
+  void activateTab(EditorTab tab, Ref ref) {
+    super.activateTab(tab, ref);
+
+    // This is the revised bootstrap mechanism.
+    // When a Tiled tab is activated, we simply access the provider for the
+    // current project. The first time this happens for a given projectID,
+    // Riverpod will create the GameAssetService instance. The `keepAlive()`
+    // call inside the provider itself ensures it persists for the session.
+    final projectId = ref.read(currentProjectProvider)?.id;
+    if (projectId != null) {
+      ref.read(gameAssetServiceProvider(projectId));
+    }
+  }
 
   @override
   Future<EditorTab> createTab(
