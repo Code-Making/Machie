@@ -12,6 +12,8 @@ import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
 import 'asset_models.dart';
 
+export '../../settings/settings_models.dart';
+
 enum PluginDataRequirement { string, bytes }
 
 class EditorInitData {
