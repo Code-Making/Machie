@@ -40,7 +40,9 @@ import 'widgets/object_editor_app_bar.dart';
 import 'widgets/paint_editor_app_bar.dart';
 import 'widgets/tile_palette.dart';
 
-import 'inspector/inspector_dialog.dart'; // ADDED
+import 'inspector/inspector_dialog.dart';
+
+import '../../../project/services/project_asset_cache_service.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -210,7 +212,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController = TransformationController();
     _transformationController.addListener(() => setState(() {}));
-    _loadMapAndDependencies();
+    _loadMapAndInitializeNotifier();
   }
 
   @override
@@ -232,106 +234,72 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     super.dispose();
   }
 
-  Future<void> _loadMapAndDependencies() async {
+  Future<void> _loadMapAndInitializeNotifier() async {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
+      final assetCache = ref.read(projectAssetCacheProvider);
+      final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
+      final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
 
+      // 1. Parse the TMX to find external tilesets (TSX files)
       final tsxProvider = ProjectTsxProvider(repo, tmxParentUri);
-
       final tsxProviders = await ProjectTsxProvider.parseFromTmx(
         widget.tab.initialTmxContent,
         tsxProvider.getProvider,
       );
 
+      // 2. Parse the TMX into a TiledMap object
       final map = TileMapParser.parseTmx(
         widget.tab.initialTmxContent,
         tsxList: tsxProviders,
       );
-
       _fixupParsedMap(map, widget.tab.initialTmxContent);
-
-      final tilesetImages = <String, ImageLoadResult>{};
+      
+      // 3. Load all required images using the ProjectAssetCacheService
+      final imageLoadResults = <String, ImageLoadResult>{};
       final allImagesToLoad = map.tiledImages();
-      final imageLayerSources =
-          map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
 
-      final imageFutures =
-          allImagesToLoad.map((tiledImage) async {
-            final imageSourcePath = tiledImage.source;
-            if (imageSourcePath == null) return;
+      final imageFutures = allImagesToLoad.map((tiledImage) async {
+        final imageSourcePath = tiledImage.source;
+        if (imageSourcePath == null) return;
+        
+        try {
+          // Resolve the base URI for the image (it could be relative to the map or a tileset)
+          final baseUri = await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
+          final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
 
-            try {
-              // <--- START TRY-CATCH BLOCK
-              String baseUri = tmxParentUri;
+          if (imageFile == null) {
+            throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
+          }
+          
+          // Use the asset cache to load the image
+          final assetData = await assetCache.load<ui.Image>(imageFile);
+          
+          if (assetData.hasError) {
+             throw assetData.error!;
+          }
 
-              if (!imageLayerSources.contains(imageSourcePath)) {
-                final tileset = map.tilesets.firstWhereOrNull(
-                  (ts) =>
-                      ts.image?.source == imageSourcePath ||
-                      ts.tiles.any((t) => t.image?.source == imageSourcePath),
-                );
-                if (tileset != null && tileset.source != null) {
-                  final tsxFile = await repo.fileHandler.resolvePath(
-                    tmxParentUri,
-                    tileset.source!,
-                  );
-                  if (tsxFile != null) {
-                    baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
-                  }
-                }
-              }
-
-              final imageFile = await repo.fileHandler.resolvePath(
-                baseUri,
-                imageSourcePath,
-              );
-
-              if (imageFile == null) {
-                throw Exception(
-                  'File not found at path: $imageSourcePath (relative to $baseUri)',
-                );
-              }
-
-              final bytes = await repo.readFileAsBytes(imageFile.uri);
-              final codec = await ui.instantiateImageCodec(bytes);
-              final frame = await codec.getNextFrame();
-
-              if (mounted) {
-                tilesetImages[imageSourcePath] = ImageLoadResult(
-                  image: frame.image,
-                  path: imageSourcePath,
-                );
-              }
-            } catch (e, st) {
-              // <--- CATCH THE ERROR
-              // If loading fails, log it and store the error state.
-              ref
-                  .read(talkerProvider)
-                  .handle(
-                    e,
-                    st,
-                    'Failed to load TMX image source: $imageSourcePath',
-                  );
-              if (mounted) {
-                tilesetImages[imageSourcePath] = ImageLoadResult(
-                  error: e.toString(),
-                  path: imageSourcePath,
-                );
-              }
-            }
-          }).toList();
-
-      // Future.wait will now always succeed because we are catching errors inside.
+          if (mounted) {
+            imageLoadResults[imageSourcePath] =
+                ImageLoadResult(image: assetData.data, path: imageSourcePath);
+          }
+        } catch (e, st) {
+          ref.read(talkerProvider).handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
+          if (mounted) {
+            imageLoadResults[imageSourcePath] =
+                ImageLoadResult(error: e.toString(), path: imageSourcePath);
+          }
+        }
+      }).toList();
+      
       await Future.wait(imageFutures);
 
-      _fixupTilesetsAfterImageLoad(map, tilesetImages);
+      _fixupTilesetsAfterImageLoad(map, imageLoadResults);
 
+      // 4. Initialize the Notifier with the fully loaded data
       if (mounted) {
         setState(() {
-          // --- CORRECTED NOTIFIER INSTANTIATION ---
-          _notifier = TiledMapNotifier(map, tilesetImages);
+          _notifier = TiledMapNotifier(map, imageLoadResults);
           _notifier!.addListener(_onMapChanged);
           _selectedLayerId =
               map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
@@ -349,30 +317,39 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
   }
+  
+  Future<String> _resolveImageBaseUri(String tmxParentUri, ProjectRepository repo, TiledMap map, String imageSourcePath) async {
+    final imageLayerSources = map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
+    if (imageLayerSources.contains(imageSourcePath)) {
+      return tmxParentUri; // Image layer sources are relative to the map file
+    }
+
+    // For tilesets, the image source is relative to the TSX file if it's external
+    final tileset = map.tilesets.firstWhereOrNull(
+      (ts) => ts.image?.source == imageSourcePath || ts.tiles.any((t) => t.image?.source == imageSourcePath),
+    );
+    
+    if (tileset != null && tileset.source != null) {
+      final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
+      if (tsxFile != null) {
+        return repo.fileHandler.getParentUri(tsxFile.uri);
+      }
+    }
+
+    return tmxParentUri;
+  }
 
   Future<void> reloadImageSource({
-    required Object parentObject, // The Tileset or ImageLayer being edited
+    required Object parentObject,
     required String oldSourcePath,
     required String newProjectPath,
   }) async {
     if (_notifier == null) return;
-
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final projectRootUri =
-          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-
-      final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-        tmxParentUri,
-        relativeTo: projectRootUri,
-      );
-      final newTmxRelativePath = p.relative(
-        newProjectPath,
-        from: tmxParentDisplayPath,
-      );
-
+      final assetCache = ref.read(projectAssetCacheProvider);
+      final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+      
       final imageFile = await repo.fileHandler.resolvePath(
         projectRootUri,
         newProjectPath,
@@ -381,17 +358,28 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       if (imageFile == null) {
         throw Exception('New image not found: $newProjectPath');
       }
+      
+      // Use the asset cache to load the new image
+      final assetData = await assetCache.load<ui.Image>(imageFile);
+      if (assetData.hasError) {
+        throw assetData.error!;
+      }
+      final newImage = assetData.data!;
+      
+      // The relative path logic remains the same
+      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
+      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
+      final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
+        tmxParentUri,
+        relativeTo: projectRootUri,
+      );
+      final newTmxRelativePath = p.relative(newProjectPath, from: tmxParentDisplayPath);
 
-      final bytes = await repo.readFileAsBytes(imageFile.uri);
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-
-      // Call the notifier's public method with the parent object.
       _notifier!.updateImageSource(
-        parentObject: parentObject, // Pass the parent
+        parentObject: parentObject,
         oldSourcePath: oldSourcePath,
         newSourcePath: newTmxRelativePath,
-        newImage: frame.image,
+        newImage: newImage,
       );
       MachineToast.info('Image source updated successfully.');
     } catch (e, st) {
@@ -400,7 +388,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  // --- NEW: Helper method to fix parsing issues from the `tiled` package ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
@@ -600,27 +587,23 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final projectRootUri =
-          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-
-      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-
+      final assetCache = ref.read(projectAssetCacheProvider); // <-- Get the asset cache
+      final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+      
       final imageFile = await repo.fileHandler.resolvePath(
         projectRootUri,
-        relativeImagePath,
+        relativeImagePath, // from dialog
       );
       if (imageFile == null) {
         throw Exception('Tileset image not found: $relativeImagePath');
       }
-
-      // Store the parent URI of the selected file for next time
-      _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
-
-      final bytes = await repo.readFileAsBytes(imageFile.uri);
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
+      
+      // Use the asset cache to load the image
+      final assetData = await assetCache.load<ui.Image>(imageFile);
+      if (assetData.hasError) {
+        throw assetData.error!;
+      }
+      final image = assetData.data!;
 
       final imagePathRelativeToTmx = p.relative(
         relativeImagePath,
@@ -891,7 +874,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           }
           notifier!.endObjectChange(
             _selectedLayerId,
-          ); // End it to revert visuals
+          );
           _initialObjectPositions = null;
         }
 
@@ -1040,7 +1023,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       notifier?.setTileSelection(
         null,
         _selectedLayerId,
-      ); // Clear previous selection
+      );
     } else {
       if (_dragStartMapPosition == null) return;
       setState(() {
@@ -1085,7 +1068,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  // Inside TiledEditorWidgetState
 
   void _handlePaintInteractionEnd() {
     if (_paintMode == TiledPaintMode.select && _tileMarqueeSelection != null) {
@@ -1118,8 +1100,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _tileMarqueeSelection = null;
       _dragStartOffsetInSelection = null; // Add this line to clear the offset
     });
-
-    // syncCommandContext() is called in the parent _onInteractionEnd, which is correct.
   }
 
   Offset _getMapPosition(Offset localPosition) {
@@ -1641,7 +1621,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     syncCommandContext();
   }
 
-  // ... (Other override methods are unchanged) ...
   @override
   Future<EditorContent> getContent() async {
     if (notifier == null) throw Exception("Map is not loaded");

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
@@ -22,6 +21,9 @@ import 'tiled_editor_widget.dart';
 import 'tiled_paint_tools.dart';
 import 'widgets/export_dialog.dart';
 import 'widgets/tiled_editor_settings_widget.dart';
+
+import '../../models/asset_models.dart';
+import 'data/tiled_asset_providers.dart';
 
 
 class TiledEditorPlugin extends EditorPlugin {
@@ -124,6 +126,16 @@ class TiledEditorPlugin extends EditorPlugin {
     paintToolsToolbar,
     objectToolsToolbar,
   ];
+  
+  @override
+  Map<String, AssetDataProvider> get assetDataProviders => {
+        '.png': TiledImageProvider(),
+        '.jpg': TiledImageProvider(),
+        '.jpeg': TiledImageProvider(),
+        '.bmp': TiledImageProvider(),
+        '.gif': TiledImageProvider(),
+      };
+
 
   TiledEditorWidgetState? _getEditorState(WidgetRef ref) {
     final tab =

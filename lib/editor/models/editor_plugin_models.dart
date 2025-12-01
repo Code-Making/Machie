@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/editor/plugins/plugin_models.dart
-// =========================================
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,8 +10,7 @@ import '../../data/content_provider/file_content_provider.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
-
-export '../../settings/settings_models.dart';
+import 'asset_models.dart';
 
 enum PluginDataRequirement { string, bytes }
 
@@ -105,6 +100,11 @@ abstract class EditorPlugin {
   /// how their content should be fetched and saved.
   List<FileContentProvider Function(Ref ref)>
   get fileContentProviderFactories => [];
+
+  // In EditorPlugin class
+  /// A map where keys are file extensions (e.g., '.png', '.json') and
+  /// values are the providers that can parse those file types.
+  Map<String, AssetDataProvider> get assetDataProviders => {};
 
   /// A unique string identifying the type of the hot state DTO for this plugin.
   /// Must be implemented if the plugin supports caching.
