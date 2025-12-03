@@ -1,5 +1,6 @@
 // FILE: lib/editor/plugins/tiled_editor/services/tiled_project_service.dart
 
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -12,6 +13,7 @@ import '../../../../data/file_handler/file_handler.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 import '../../../../editor/models/asset_models.dart';
 import '../../../../logs/logs_provider.dart';
+// CORRECTED IMPORT: No longer need the specific provider, just the service file.
 import '../../../../project/services/project_asset_service.dart';
 import '../image_load_result.dart';
 import '../project_tsx_provider.dart';
@@ -22,47 +24,37 @@ final tiledProjectServiceProvider = Provider<TiledProjectService>((ref) {
   return TiledProjectService(ref);
 });
 
-/// A container for a fully loaded and parsed Tiled map and its dependencies.
 class TiledMapData {
   final TiledMap map;
   final Map<String, ImageLoadResult> imageCache;
   TiledMapData({required this.map, required this.imageCache});
 }
 
-/// A service dedicated to Tiled map data operations, abstracting away the
-/// complexities of parsing, dependency resolution, and serialization.
 class TiledProjectService {
   final Ref _ref;
   TiledProjectService(this._ref);
 
-  /// Loads a TMX file, resolves all dependencies, applies necessary fixups,
-  /// and returns a fully prepared [TiledMapData] object ready for the editor.
   Future<TiledMapData> loadAndPrepareMap(
     DocumentFile tmxFile,
     String initialTmxContent,
   ) async {
     final repo = _ref.read(projectRepositoryProvider)!;
-    final assetService = _ref.read(projectAssetServiceProvider);
     final talker = _ref.read(talkerProvider);
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
 
-    // Step 1: Parse external tilesets (TSX)
     final tsxProvider = ProjectTsxProvider(repo, tmxParentUri);
     final tsxProviders = await ProjectTsxProvider.parseFromTmx(
       initialTmxContent,
       tsxProvider.getProvider,
     );
 
-    // Step 2: Parse the TMX into a TiledMap object
     final map = TileMapParser.parseTmx(
       initialTmxContent,
       tsxList: tsxProviders,
     );
 
-    // Step 3: Apply initial fixups to the parsed map structure
     _fixupParsedMap(map, initialTmxContent);
 
-    // Step 4: Load all required images using the effectiveAssetProvider
     final imageLoadResults = <String, ImageLoadResult>{};
     final allTiledImages = map.tiledImages();
     final imageFutures = allTiledImages.map((tiledImage) async {
@@ -70,28 +62,35 @@ class TiledProjectService {
       if (imageSourcePath == null) return;
 
       try {
-        final baseUri = await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
-        final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
+        final baseUri =
+            await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
+        final imageFile =
+            await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
 
         if (imageFile == null) {
-          throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
+          throw Exception(
+              'File not found at path: $imageSourcePath (relative to $baseUri)');
         }
-        
-        // CORRECTED: We now load using the effectiveAssetProvider, which returns AsyncValue.
-        // We can use `ref.read` to get the future and await it.
-        final asyncAssetData = await _ref.read(effectiveAssetProvider(imageFile).future);
 
-        if (asyncAssetData is ImageAssetData) {
-            imageLoadResults[imageSourcePath] =
-                ImageLoadResult(image: asyncAssetData.data, path: imageSourcePath);
-        } else if (asyncAssetData.hasError) {
-          throw asyncAssetData.error!;
+        // CORRECTED: Await the first non-loading value from the provider.
+        final assetData = await _ref.read(effectiveAssetProvider(imageFile).future);
+
+        // CORRECTED: `assetData` is now guaranteed to be non-null and is an `AssetData` instance.
+        // We now check for the specific subclass `ImageAssetData`.
+        if (assetData.hasError) {
+          throw assetData.error!;
+        }
+
+        if (assetData is ImageAssetData) {
+          imageLoadResults[imageSourcePath] =
+              ImageLoadResult(image: assetData.data, path: imageSourcePath);
         } else {
-          throw Exception('Loaded asset is not an image.');
+          throw Exception('Loaded asset is not an image for $imageSourcePath.');
         }
 
       } catch (e, st) {
-        talker.handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
+        talker.handle(
+            e, st, 'Failed to load TMX image source: $imageSourcePath');
         imageLoadResults[imageSourcePath] =
             ImageLoadResult(error: e.toString(), path: imageSourcePath);
       }
@@ -99,26 +98,21 @@ class TiledProjectService {
 
     await Future.wait(imageFutures);
 
-    // Step 5: Apply final fixups that depend on loaded images
     _fixupTilesetsAfterImageLoad(map, imageLoadResults);
 
     return TiledMapData(map: map, imageCache: imageLoadResults);
   }
 
-  /// Serializes a [TiledMap] object into its XML (.tmx) string representation.
   String getMapContentAsTmx(TiledMap map) {
     return TmxWriter(map).toTmx();
   }
-
-  /// Serializes a [TiledMap] object into its JSON (.tmj) string representation.
+  
   String getMapContentAsTmj(TiledMap map) {
     return TmjWriter(map).toTmj();
   }
 
-  // --- Private Helper Methods (Moved from Widget) ---
-
+  // --- All private helper methods (_fixupParsedMap, etc.) remain unchanged ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
-    // ... (The exact same logic as was in TiledEditorWidgetState)
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
     final objectGroupElements =
@@ -205,7 +199,6 @@ class TiledProjectService {
 
   void _fixupTilesetsAfterImageLoad(
       TiledMap map, Map<String, ImageLoadResult> tilesetImages) {
-    // ... (The exact same logic as was in TiledEditorWidgetState)
     for (final tileset in map.tilesets) {
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
         final imageResult = tilesetImages[tileset.image!.source];
@@ -236,7 +229,6 @@ class TiledProjectService {
 
   Future<String> _resolveImageBaseUri(String tmxParentUri,
       ProjectRepository repo, TiledMap map, String imageSourcePath) async {
-    // ... (The exact same logic as was in TiledEditorWidgetState)
     final imageLayerSources =
         map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
     if (imageLayerSources.contains(imageSourcePath)) {
