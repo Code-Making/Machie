@@ -43,6 +43,8 @@ import 'widgets/tile_palette.dart';
 import 'inspector/inspector_dialog.dart';
 
 import 'services/tiled_project_service.dart'; // <-- ADD THIS IMPORT
+import '../../../project/services/project_asset_service.dart';
+import '../../models/asset_models.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
