@@ -239,16 +239,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final tiledService = ref.read(tiledProjectServiceProvider);
       final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
 
-      // Delegate all loading and parsing to the service.
-      final mapData = await tiledService.loadMap(tmxFile, widget.tab.initialTmxContent);
-      
-      // Perform fixups on the loaded map object.
-      _fixupParsedMap(mapData.map, widget.tab.initialTmxContent);
-      _fixupTilesetsAfterImageLoad(mapData.map, mapData.imageCache);
+      // Single call to the service to get a fully prepared map.
+      final mapData =
+          await tiledService.loadAndPrepareMap(tmxFile, widget.tab.initialTmxContent);
 
       if (mounted) {
         setState(() {
-          // Initialize the notifier with the data returned from the service.
           _notifier = TiledMapNotifier(mapData.map, mapData.imageCache);
           _notifier!.addListener(_onMapChanged);
           _selectedLayerId =
