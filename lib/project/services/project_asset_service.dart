@@ -1,6 +1,6 @@
 // FILE: lib/project/services/project_asset_service.dart
 
-import 'dart:async';
+import 'dart.async';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -21,7 +21,6 @@ final _projectAssetLoaderServiceProvider =
 /// Provider family that loads an asset from disk and handles its lifecycle.
 final diskAssetProvider =
     FutureProvider.autoDispose.family<AssetData, DocumentFile>((ref, assetFile) {
-  // ... (Cache invalidation logic remains the same)
   final sub = ref.listen(fileOperationStreamProvider, (_, asyncEvent) {
     final event = asyncEvent.valueOrNull;
     if (event == null) return;
@@ -41,22 +40,25 @@ final diskAssetProvider =
 });
 
 /// The primary, public-facing provider that all consumers should use.
+/// It intelligently returns the "live" version of an asset if it's being edited,
+/// otherwise it falls back to the disk-based version.
+///
+/// **CORRECTED:** This is now a `FutureProvider` again. Its build method can return
+/// either a `Future<T>` or a `T` directly.
 final effectiveAssetProvider =
-    Provider.autoDispose.family<AsyncValue<AssetData>, DocumentFile>((ref, assetFile) {
+    FutureProvider.autoDispose.family<AssetData, DocumentFile>((ref, assetFile) {
+  final liveAssetRegistry = ref.watch(liveAssetRegistryProvider);
+  final liveAssetNotifier = liveAssetRegistry.get(assetFile);
 
-  // Watch the entire live asset map.
-  final liveAssets = ref.watch(liveAssetRegistryProvider);
-
-  // Check if our specific asset is in the live map.
-  final liveAsset = liveAssets[assetFile.uri];
-
-  if (liveAsset != null) {
-    // If it's live, return its state immediately, wrapped in AsyncData.
-    // This is synchronous and highly efficient.
-    return AsyncData(liveAsset);
+  if (liveAssetNotifier != null) {
+    // If it's live, we watch the notifier. When the notifier's state changes,
+    // this FutureProvider will re-run and return the new state, which is
+    // automatically wrapped in a Future.value() by Riverpod. This is correct.
+    return ref.watch(liveAssetNotifier);
   } else {
-    // If not live, fall back to watching the disk-based FutureProvider.
-    return ref.watch(diskAssetProvider(assetFile));
+    // If not live, fall back to awaiting the result of the disk-based provider.
+    // We watch its `.future` to link the providers' lifecycles.
+    return ref.watch(diskAssetProvider(assetFile).future);
   }
 });
 
@@ -73,7 +75,6 @@ class ProjectAssetLoaderService {
   }
 
   void _initializeProviders() {
-    // ...
     final talker = _ref.read(talkerProvider);
     final allPlugins = _ref.read(activePluginsProvider);
     final providerMap = <String, List<AssetDataProvider<AssetData>>>{};
