@@ -31,7 +31,7 @@ class LiveAssetRegistryService {
   /// An editor calls this method when it opens an asset. The service creates
   /// a [LiveAsset] notifier, registers it, and returns it to the editor.
   /// Throws if the asset is already claimed.
-  LiveAsset<T> claim<T extends AssetDatal>(T initialAssetData) {
+  LiveAsset<T> claim<T extends AssetData>(T initialAssetData) {
     final uri = initialAssetData.assetFile.uri;
     if (_liveAssets.containsKey(uri)) {
       // This scenario should ideally be prevented by app logic (e.g., not opening the same file twice).
