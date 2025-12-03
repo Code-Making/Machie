@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../editor/models/asset_models.dart';
 import '../../logs/logs_provider.dart';
+import 'project_asset_service.dart'; // We need this for the invalidate call
 
 /// A project-scoped provider for the live asset registry.
 final liveAssetRegistryProvider =
@@ -14,27 +15,15 @@ final liveAssetRegistryProvider =
 });
 
 /// A service that manages a registry of "live" assets currently open for editing.
-///
-/// This service allows an editor to "claim" an asset, providing a [LiveAsset]
-/// notifier that can be updated. Other parts of the app can then listen to this
-/// live version instead of the static, disk-cached version.
 class LiveAssetRegistryService {
   final Ref _ref;
-
-  /// The internal registry mapping a file's URI to its corresponding LiveAsset notifier.
   final Map<String, LiveAsset<AssetData>> _liveAssets = {};
 
   LiveAssetRegistryService(this._ref);
 
-  /// "Claims" an asset for live editing.
-  ///
-  /// An editor calls this method when it opens an asset. The service creates
-  /// a [LiveAsset] notifier, registers it, and returns it to the editor.
-  /// Throws if the asset is already claimed.
   LiveAsset<T> claim<T extends AssetData>(T initialAssetData) {
     final uri = initialAssetData.assetFile.uri;
     if (_liveAssets.containsKey(uri)) {
-      // This scenario should ideally be prevented by app logic (e.g., not opening the same file twice).
       throw StateError('Asset at $uri is already claimed for live editing.');
     }
 
@@ -44,23 +33,19 @@ class LiveAssetRegistryService {
     return liveAsset;
   }
 
-  /// Releases a "claimed" asset, returning it to a static state.
-  ///
-  /// An editor calls this in its dispose method.
   void release(DocumentFile assetFile) {
     final uri = assetFile.uri;
     if (_liveAssets.containsKey(uri)) {
       _liveAssets.remove(uri);
       _ref.read(talkerProvider).info('Live Asset released: $uri');
-      
-      // Invalidate the effective provider to force consumers to switch back
-      // to the disk-based version.
+
+      // CORRECTED: Invalidate the effectiveAssetProvider for this specific file.
+      // This tells Riverpod to destroy its state, forcing any listeners to
+      // re-evaluate and switch back to the disk-based version.
       _ref.invalidate(effectiveAssetProvider(assetFile));
     }
   }
 
-  /// Retrieves a live asset notifier if one is registered for the given file.
-  /// Returns null if the asset is not currently "live".
   LiveAsset<AssetData>? get(DocumentFile assetFile) {
     return _liveAssets[assetFile.uri];
   }

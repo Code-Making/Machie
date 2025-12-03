@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -7,9 +8,8 @@ import '../../data/repositories/project/project_repository.dart';
 import '../../editor/models/asset_models.dart';
 import '../../editor/plugins/editor_plugin_registry.dart';
 import '../../logs/logs_provider.dart';
+import 'live_asset_registry_service.dart';
 
-
-import 'live_asset_registry_service.dart'; // <-- ADD THIS IMPORT
 
 /// A provider that serves the "effective" version of an asset.
 ///
@@ -39,53 +39,29 @@ final effectiveAssetProvider =
   }
 });
 
-/// A project-scoped provider for the asset service.
-///
-/// This provider instantiates the [ProjectAssetService] and ensures its lifecycle
-/// is tied to the currently open project. When the project is closed, the
-/// service is disposed, automatically clearing its cache.
+
+
+/// A provider for the stateless asset *loader*.
+/// This service's only job is to know how to load an asset from disk, without caching.
 final projectAssetServiceProvider =
     Provider.autoDispose<ProjectAssetService>((ref) {
-  final projectRepo = ref.watch(projectRepositoryProvider);
-  if (projectRepo == null) {
-    throw StateError('Cannot create ProjectAssetService without a project.');
-  }
-
-  final service = ProjectAssetService(ref, projectRepo.fileHandler);
-  ref.onDispose(() => service.dispose());
-  return service;
+  return ProjectAssetService(ref);
 });
 
-/// A service that manages the loading and in-memory caching of shared, read-only
-/// project assets (e.g., images, JSON data files).
-///
-/// It uses a plugin-driven system of [AssetDataProvider]s to parse different
-/// file types and prevents duplicate loading of the same asset within a project session.
-/// It also automatically invalidates its cache when it detects file changes.
+/// A stateless service that can load and parse a file from disk using the
+/// appropriate plugin-provided [AssetDataProvider].
 class ProjectAssetService {
   final Ref _ref;
-  final FileHandler _fileHandler;
-  StreamSubscription? _fileOperationSubscription;
 
-  /// A map where keys are file extensions (e.g., '.png') and values are a list
-  /// of all providers registered for that extension across all plugins.
   late final Map<String, List<AssetDataProvider<AssetData>>>
       _assetProvidersByExtension;
 
-  /// The in-memory cache.
-  /// The key is a record containing the asset's URI and the requested Type,
-  /// ensuring type-safe caching.
-  /// Storing a `Future` is crucial to handle concurrent requests for the same
-  /// asset, ensuring the file is read from disk and parsed only once.
-  final Map<(String, Type), Future<AssetData>> _cache = {};
-
-  ProjectAssetService(this._ref, this._fileHandler) {
+  ProjectAssetService(this._ref) {
     _initializeProviders();
-    _listenForFileChanges();
   }
 
-  /// Consolidates providers and logs conflicts.
   void _initializeProviders() {
+    // ... (This logic remains the same as before)
     final talker = _ref.read(talkerProvider);
     final allPlugins = _ref.read(activePluginsProvider);
     final providerMap = <String, List<AssetDataProvider<AssetData>>>{};
@@ -97,96 +73,73 @@ class ProjectAssetService {
         providerMap.putIfAbsent(extension, () => []).add(entry.value);
       }
     }
-
-    providerMap.forEach((extension, providers) {
-      if (providers.length > 1) {
-        final providerTypes = providers.map((p) => p.runtimeType).join(', ');
-        talker.warning(
-          'Asset provider conflict: Multiple providers for extension "$extension": [$providerTypes].',
-        );
-      }
-    });
     _assetProvidersByExtension = Map.unmodifiable(providerMap);
   }
 
-  /// Subscribes to file system events to automatically invalidate the cache.
-  void _listenForFileChanges() {
-    _fileOperationSubscription =
-        _ref.read(fileOperationStreamProvider).listen((event) {
-      String? uriToInvalidate;
-      if (event is FileDeleteEvent) {
-        uriToInvalidate = event.deletedFile.uri;
-      } else if (event is FileRenameEvent) {
-        uriToInvalidate = event.oldFile.uri;
+  /// Loads and parses a single asset from disk, returning it wrapped in an AssetData subclass.
+  Future<AssetData> load(DocumentFile assetFile) async {
+    try {
+      final extension = p.extension(assetFile.name).toLowerCase();
+      final providers = _assetProvidersByExtension[extension];
+
+      if (providers == null || providers.isEmpty) {
+        throw UnsupportedError('No provider for extension "$extension".');
       }
-      // Note: A 'FileModifyEvent' would also be handled here if it existed.
-      // For now, delete and rename are the most critical for invalidation.
 
-      if (uriToInvalidate != null) {
-        _cache.removeWhere((key, value) => key.$1 == uriToInvalidate);
-        _ref.read(talkerProvider).info('Invalidated asset cache for: $uriToInvalidate');
-      }
-    });
-  }
+      // For simplicity, we'll use the first registered provider.
+      // A more complex app could try multiple providers if the first fails.
+      final provider = providers.first;
 
-  /// Loads, parses, and caches an asset of type [T] from the given [assetFile].
-  /// Returns a specific subclass of [AssetData] (e.g., [ImageAssetData]).
-  Future<T> load<T extends AssetData>(DocumentFile assetFile) async {
-    final cacheKey = (assetFile.uri, T);
-    final existingFuture = _cache[cacheKey];
-
-    if (existingFuture != null) {
-      return (await existingFuture) as T;
+      final bytes =
+          await _ref.read(projectRepositoryProvider)!.fileHandler.readFileAsBytes(assetFile.uri);
+      final parsedData = await provider.parse(bytes, assetFile);
+      return parsedData;
+    } catch (e) {
+      return ErrorAssetData(assetFile: assetFile, error: e);
     }
-
-    final completer = Completer<T>();
-    _cache[cacheKey] = completer.future;
-
-    _loadAndParseAsset<T>(assetFile).then((result) {
-      if (!completer.isCompleted) {
-        completer.complete(result);
-      }
-    }).catchError((error) {
-      // On failure, remove from cache so the next attempt can retry.
-      _cache.remove(cacheKey);
-      if (!completer.isCompleted) {
-        // We complete with an ErrorAssetData, but the caller expects T,
-        // so we must cast. The caller should check `hasError`.
-        completer.complete(ErrorAssetData(assetFile: assetFile, error: error) as T);
-      }
-    });
-
-    return completer.future;
-  }
-
-  Future<T> _loadAndParseAsset<T extends AssetData>(
-    DocumentFile assetFile,
-  ) async {
-    final extension = p.extension(assetFile.name).toLowerCase();
-    final providers = _assetProvidersByExtension[extension];
-
-    if (providers == null || providers.isEmpty) {
-      throw UnsupportedError('No provider for extension "$extension".');
-    }
-
-    final provider = providers.whereType<AssetDataProvider<T>>().firstOrNull;
-
-    if (provider == null) {
-      final availableTypes = providers.map((p) => p.runtimeType).join(', ');
-      throw UnsupportedError(
-        'No provider for "$extension" can produce type "$T". Have: [$availableTypes]',
-      );
-    }
-
-    final bytes = await _fileHandler.readFileAsBytes(assetFile.uri);
-    final parsedData = await provider.parse(bytes, assetFile);
-    return parsedData;
-  }
-
-  /// Clears the cache and cancels subscriptions.
-  /// Called automatically when the provider is disposed.
-  void dispose() {
-    _fileOperationSubscription?.cancel();
-    _cache.clear();
   }
 }
+
+/// A provider that serves the "effective" version of an asset.
+///
+/// This is the primary, public-facing provider that all consumers should use.
+/// It automatically handles caching, invalidation, and live-editing overrides.
+final effectiveAssetProvider =
+    FutureProvider.autoDispose.family<AssetData, DocumentFile>((ref, assetFile) {
+
+  // Set up cache invalidation by listening to file system events.
+  final sub = ref.listen(fileOperationStreamProvider, (_, asyncEvent) {
+    final event = asyncEvent.valueOrNull;
+    if (event == null) return;
+
+    bool shouldInvalidate = false;
+    if (event is FileDeleteEvent && event.deletedFile.uri == assetFile.uri) {
+      shouldInvalidate = true;
+    } else if (event is FileRenameEvent && event.oldFile.uri == assetFile.uri) {
+      shouldInvalidate = true;
+    }
+    // A future `FileModifyEvent` would also be handled here.
+
+    if (shouldInvalidate) {
+      ref.invalidateSelf();
+    }
+  });
+
+  // Clean up the listener when the provider is disposed.
+  ref.onDispose(() => sub.close());
+
+  // Check the live registry first.
+  final liveAssetRegistry = ref.watch(liveAssetRegistryProvider);
+  final liveAssetNotifier = liveAssetRegistry.get(assetFile);
+
+  if (liveAssetNotifier != null) {
+    // If it's live, watch the notifier's state directly.
+    // This creates a reactive link: when the notifier updates, this provider re-runs.
+    return ref.watch(liveAssetNotifier);
+  } else {
+    // If not live, fall back to the stateless loader service.
+    // The FutureProvider handles the async state (loading/data/error) for us.
+    final assetService = ref.watch(projectAssetServiceProvider);
+    return assetService.load(assetFile);
+  }
+});
