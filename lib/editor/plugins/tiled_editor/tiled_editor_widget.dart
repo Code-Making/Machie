@@ -295,7 +295,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     if (_notifier == null) return;
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final assetService = ref.read(projectAssetServiceProvider); // Correct provider name
       final projectRootUri =
           ref.read(appNotifierProvider).value!.currentProject!.rootUri;
 
@@ -306,9 +305,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         throw Exception('New image not found: $newProjectPath');
       }
 
-      final assetData = await assetService.load<ImageAssetData>(imageFile);
+      final assetData = await ref.read(effectiveAssetProvider(imageFile).future);
+
       if (assetData.hasError) {
         throw assetData.error!;
+      }
+      if (assetData is! ImageAssetData) {
+        throw Exception('Asset is not an image.');
       }
       final newImage = assetData.data;
 
@@ -386,7 +389,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final assetService = ref.read(projectAssetServiceProvider); // Correct provider name
       final projectRootUri =
           ref.read(appNotifierProvider).value!.currentProject!.rootUri;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
@@ -400,9 +402,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
       _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
       
-      final assetData = await assetService.load<ImageAssetData>(imageFile);
+      final assetData = await ref.read(effectiveAssetProvider(imageFile).future);
+
       if (assetData.hasError) {
         throw assetData.error!;
+      }
+      if (assetData is! ImageAssetData) {
+        throw Exception('Selected file is not a valid image.');
       }
       final image = assetData.data;
       
