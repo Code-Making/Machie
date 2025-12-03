@@ -4,48 +4,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/file_handler/file_handler.dart';
 import '../../editor/models/asset_models.dart';
 import '../../logs/logs_provider.dart';
-import 'project_asset_service.dart'; // Import for effectiveAssetProvider
 
-final liveAssetRegistryProvider =
-    Provider.autoDispose<LiveAssetRegistryService>((ref) {
-  final service = LiveAssetRegistryService(ref);
-  ref.onDispose(() => service.dispose());
-  return service;
+/// The provider for our new StateNotifier. It holds the state of all live assets.
+final liveAssetRegistryProvider = StateNotifierProvider.autoDispose<
+    LiveAssetRegistry, Map<String, AssetData>>((ref) {
+  return LiveAssetRegistry(ref);
 });
 
-class LiveAssetRegistryService {
+/// A StateNotifier that manages a map of "live" assets currently open for editing.
+///
+/// Instead of a complex service with "claim" methods, editors now simply "update"
+/// this notifier's state. This is a more direct and idiomatic Riverpod pattern.
+class LiveAssetRegistry extends StateNotifier<Map<String, AssetData>> {
   final Ref _ref;
-  final Map<String, LiveAsset<AssetData>> _liveAssets = {};
+  LiveAssetRegistry(this._ref) : super({});
 
-  LiveAssetRegistryService(this._ref);
-
-  LiveAsset<T> claim<T extends AssetData>(T initialAssetData) {
-    final uri = initialAssetData.assetFile.uri;
-    if (_liveAssets.containsKey(uri)) {
-      throw StateError('Asset at $uri is already claimed for live editing.');
-    }
-    final liveAsset = LiveAsset<T>(initialAssetData);
-    _liveAssets[uri] = liveAsset;
-    _ref.read(talkerProvider).info('Live Asset claimed: $uri');
-    return liveAsset;
+  /// Called by an editor to register or update a live asset.
+  void updateAsset(AssetData assetData) {
+    final uri = assetData.assetFile.uri;
+    state = {...state, uri: assetData};
+    _ref.read(talkerProvider).info('Live Asset updated: $uri');
   }
 
-  void release(DocumentFile assetFile) {
+  /// Called by an editor in its dispose method to release the asset.
+  void releaseAsset(DocumentFile assetFile) {
     final uri = assetFile.uri;
-    if (_liveAssets.containsKey(uri)) {
-      _liveAssets.remove(uri);
+    if (state.containsKey(uri)) {
+      state = Map.from(state)..remove(uri);
       _ref.read(talkerProvider).info('Live Asset released: $uri');
-      
-      // Corrected: Invalidate the specific instance of the family provider.
-      _ref.invalidate(effectiveAssetProvider(assetFile));
     }
-  }
-
-  LiveAsset<AssetData>? get(DocumentFile assetFile) {
-    return _liveAssets[assetFile.uri];
-  }
-
-  void dispose() {
-    _liveAssets.clear();
   }
 }
