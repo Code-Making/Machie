@@ -54,17 +54,24 @@ final diskAssetProvider =
 /// The primary, public-facing provider that all consumers should use.
 /// It intelligently returns the "live" version of an asset if it's being edited,
 /// otherwise it falls back to the disk-based version.
+///
+/// **CORRECTED:** This is now a `Provider` that returns an `AsyncValue`, not a `FutureProvider`.
+/// This allows it to synchronously return `AsyncData` when watching a live asset,
+/// or return the `AsyncValue` from the `diskAssetProvider` when not live.
 final effectiveAssetProvider =
     Provider.autoDispose.family<AsyncValue<AssetData>, DocumentFile>((ref, assetFile) {
+  // Check the live registry first.
   final liveAssetRegistry = ref.watch(liveAssetRegistryProvider);
   final liveAssetNotifier = liveAssetRegistry.get(assetFile);
 
   if (liveAssetNotifier != null) {
-    // If live, watch the notifier and return its state wrapped in AsyncData.
-    final liveState = ref.watch(liveAssetNotifier);
-    return AsyncData(liveState);
+    // If it's live, watch the notifier's state. `ref.watch(notifier)` correctly
+    // subscribes to the StateNotifier and returns its current state.
+    // We wrap it in AsyncData to match the return type of the disk provider.
+    return AsyncData(ref.watch(liveAssetNotifier));
   } else {
-    // If not live, watch the disk-based provider.
+    // If not live, fall back to watching the disk-based FutureProvider.
+    // This will return AsyncLoading/AsyncData/AsyncError as appropriate.
     return ref.watch(diskAssetProvider(assetFile));
   }
 });
