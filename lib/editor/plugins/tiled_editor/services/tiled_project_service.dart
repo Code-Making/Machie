@@ -62,7 +62,7 @@ class TiledProjectService {
     // Step 3: Apply initial fixups to the parsed map structure
     _fixupParsedMap(map, initialTmxContent);
 
-    // Step 4: Load all required images using the ProjectAssetService
+    // Step 4: Load all required images using the effectiveAssetProvider
     final imageLoadResults = <String, ImageLoadResult>{};
     final allTiledImages = map.tiledImages();
     final imageFutures = allTiledImages.map((tiledImage) async {
@@ -70,27 +70,28 @@ class TiledProjectService {
       if (imageSourcePath == null) return;
 
       try {
-        final baseUri =
-            await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
-        final imageFile =
-            await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
+        final baseUri = await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
+        final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
 
         if (imageFile == null) {
-          throw Exception(
-              'File not found at path: $imageSourcePath (relative to $baseUri)');
+          throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
+        }
+        
+        // CORRECTED: We now load using the effectiveAssetProvider, which returns AsyncValue.
+        // We can use `ref.read` to get the future and await it.
+        final asyncAssetData = await _ref.read(effectiveAssetProvider(imageFile).future);
+
+        if (asyncAssetData is ImageAssetData) {
+            imageLoadResults[imageSourcePath] =
+                ImageLoadResult(image: asyncAssetData.data, path: imageSourcePath);
+        } else if (asyncAssetData.hasError) {
+          throw asyncAssetData.error!;
+        } else {
+          throw Exception('Loaded asset is not an image.');
         }
 
-        final assetData = await assetService.load<ImageAssetData>(imageFile);
-
-        if (assetData.hasError) {
-          throw assetData.error!;
-        }
-
-        imageLoadResults[imageSourcePath] =
-            ImageLoadResult(image: assetData.data, path: imageSourcePath);
       } catch (e, st) {
-        talker.handle(
-            e, st, 'Failed to load TMX image source: $imageSourcePath');
+        talker.handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
         imageLoadResults[imageSourcePath] =
             ImageLoadResult(error: e.toString(), path: imageSourcePath);
       }
