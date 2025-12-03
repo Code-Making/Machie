@@ -24,9 +24,6 @@ import 'widgets/tiled_editor_settings_widget.dart';
 
 import '../../models/asset_models.dart';
 import 'data/tiled_asset_providers.dart';
-import 'widgets/multi_map_export_dialog.dart';
-import 'services/tiled_project_service.dart';
-
 
 class TiledEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.tiled_editor';
@@ -148,39 +145,6 @@ class TiledEditorPlugin extends EditorPlugin {
     return null;
   }
   
-  @override
-  List<Command> getAppCommands() {
-    return [
-      BaseCommand(
-        id: 'tiled_pack_atlas',
-        label: 'Pack Maps into Atlas...',
-        icon: const Icon(Icons.collections_bookmark_outlined),
-        defaultPositions: [AppCommandPositions.appBar],
-        sourcePlugin: id,
-        execute: (ref) async {
-          // It's good practice to ensure there are no unsaved changes first.
-          final dirtyTabs = ref.read(appNotifierProvider.notifier).getDirtyTabs();
-          if (dirtyTabs.isNotEmpty) {
-            final action = await showUnsavedChangesDialog(
-              ref.context,
-              dirtyFiles: dirtyTabs,
-            );
-            if (action == UnsavedChangesAction.cancel) return;
-            if (action == UnsavedChangesAction.save) {
-              await ref.read(appNotifierProvider.notifier).saveDirtyTabs();
-            }
-          }
-          
-          // Show the new dialog
-          await showDialog(
-            context: ref.context,
-            builder: (_) => const MultiMapExportDialog(),
-          );
-        },
-      ),
-    ];
-  }
-
   @override
   List<CommandGroup> getCommandGroups() {
     // This map is needed for the dynamic icon

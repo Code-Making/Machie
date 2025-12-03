@@ -103,10 +103,11 @@ abstract class EditorPlugin {
   List<FileContentProvider Function(Ref ref)>
   get fileContentProviderFactories => [];
 
-  // In EditorPlugin class
   /// A map where keys are file extensions (e.g., '.png', '.json') and
-  /// values are the providers that can parse those file types.
-  Map<String, AssetDataProvider> get assetDataProviders => {};
+  /// values are the providers that can parse those file types into
+  /// usable in-memory objects for the asset cache.
+  /// The value is now `AssetDataProvider<AssetData>` to allow for any concrete subclass.
+  Map<String, AssetDataProvider<AssetData>> get assetDataProviders => {};
 
   /// A unique string identifying the type of the hot state DTO for this plugin.
   /// Must be implemented if the plugin supports caching.

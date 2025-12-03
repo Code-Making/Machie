@@ -42,7 +42,7 @@ import 'widgets/tile_palette.dart';
 
 import 'inspector/inspector_dialog.dart';
 
-import '../../../project/services/project_asset_cache_service.dart';
+import 'services/tiled_project_service.dart'; // <-- ADD THIS IMPORT
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -236,74 +236,24 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   Future<void> _loadMapAndInitializeNotifier() async {
     try {
-      final repo = ref.read(projectRepositoryProvider)!;
-      final assetCache = ref.read(projectAssetCacheProvider);
+      final tiledService = ref.read(tiledProjectServiceProvider);
       final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-      final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
 
-      // 1. Parse the TMX to find external tilesets (TSX files)
-      final tsxProvider = ProjectTsxProvider(repo, tmxParentUri);
-      final tsxProviders = await ProjectTsxProvider.parseFromTmx(
-        widget.tab.initialTmxContent,
-        tsxProvider.getProvider,
-      );
-
-      // 2. Parse the TMX into a TiledMap object
-      final map = TileMapParser.parseTmx(
-        widget.tab.initialTmxContent,
-        tsxList: tsxProviders,
-      );
-      _fixupParsedMap(map, widget.tab.initialTmxContent);
+      // Delegate all loading and parsing to the service.
+      final mapData = await tiledService.loadMap(tmxFile, widget.tab.initialTmxContent);
       
-      // 3. Load all required images using the ProjectAssetCacheService
-      final imageLoadResults = <String, ImageLoadResult>{};
-      final allImagesToLoad = map.tiledImages();
+      // Perform fixups on the loaded map object.
+      _fixupParsedMap(mapData.map, widget.tab.initialTmxContent);
+      _fixupTilesetsAfterImageLoad(mapData.map, mapData.imageCache);
 
-      final imageFutures = allImagesToLoad.map((tiledImage) async {
-        final imageSourcePath = tiledImage.source;
-        if (imageSourcePath == null) return;
-        
-        try {
-          // Resolve the base URI for the image (it could be relative to the map or a tileset)
-          final baseUri = await _resolveImageBaseUri(tmxParentUri, repo, map, imageSourcePath);
-          final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
-
-          if (imageFile == null) {
-            throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
-          }
-          
-          // Use the asset cache to load the image
-          final assetData = await assetCache.load<ui.Image>(imageFile);
-          
-          if (assetData.hasError) {
-             throw assetData.error!;
-          }
-
-          if (mounted) {
-            imageLoadResults[imageSourcePath] =
-                ImageLoadResult(image: assetData.data, path: imageSourcePath);
-          }
-        } catch (e, st) {
-          ref.read(talkerProvider).handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
-          if (mounted) {
-            imageLoadResults[imageSourcePath] =
-                ImageLoadResult(error: e.toString(), path: imageSourcePath);
-          }
-        }
-      }).toList();
-      
-      await Future.wait(imageFutures);
-
-      _fixupTilesetsAfterImageLoad(map, imageLoadResults);
-
-      // 4. Initialize the Notifier with the fully loaded data
       if (mounted) {
         setState(() {
-          _notifier = TiledMapNotifier(map, imageLoadResults);
+          // Initialize the notifier with the data returned from the service.
+          _notifier = TiledMapNotifier(mapData.map, mapData.imageCache);
           _notifier!.addListener(_onMapChanged);
           _selectedLayerId =
-              map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
-          _selectedTileset = map.tilesets.firstOrNull;
+              mapData.map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+          _selectedTileset = mapData.map.tilesets.firstOrNull;
           _isLoading = false;
         });
       }
@@ -1627,8 +1577,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   @override
   Future<EditorContent> getContent() async {
     if (notifier == null) throw Exception("Map is not loaded");
-    final writer = TmxWriter(notifier!.map);
-    final newTmxContent = writer.toTmx();
+    // Delegate serialization to the service.
+    final newTmxContent = ref.read(tiledProjectServiceProvider).getMapContentAsTmx(notifier!.map);
     return EditorContentString(newTmxContent);
   }
 
