@@ -1,6 +1,6 @@
 // FILE: lib/project/services/project_asset_service.dart
 
-import 'dart.async';
+import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
