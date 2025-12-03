@@ -47,14 +47,14 @@ final diskAssetProvider =
 /// either a `Future<T>` or a `T` directly.
 final effectiveAssetProvider =
     FutureProvider.autoDispose.family<AssetData, DocumentFile>((ref, assetFile) {
-  final liveAssetRegistry = ref.watch(liveAssetRegistryProvider);
-  final liveAssetNotifier = liveAssetRegistry.get(assetFile);
+  final liveAssetsMap = ref.watch(liveAssetRegistryProvider);
+  final liveAsset = liveAssetsMap[assetFile.uri];
 
-  if (liveAssetNotifier != null) {
+  if (liveAsset != null) {
     // If it's live, we watch the notifier. When the notifier's state changes,
     // this FutureProvider will re-run and return the new state, which is
     // automatically wrapped in a Future.value() by Riverpod. This is correct.
-    return ref.watch(liveAssetNotifier);
+    return ref.watch(liveAsset);
   } else {
     // If not live, fall back to awaiting the result of the disk-based provider.
     // We watch its `.future` to link the providers' lifecycles.
