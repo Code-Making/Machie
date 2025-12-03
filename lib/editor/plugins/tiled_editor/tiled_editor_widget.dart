@@ -297,33 +297,29 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     if (_notifier == null) return;
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final assetCache = ref.read(projectAssetCacheProvider);
-      final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-      
-      final imageFile = await repo.fileHandler.resolvePath(
-        projectRootUri,
-        newProjectPath,
-      );
+      final assetService = ref.read(projectAssetServiceProvider); // Correct provider name
+      final projectRootUri =
+          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
+
+      final imageFile =
+          await repo.fileHandler.resolvePath(projectRootUri, newProjectPath);
 
       if (imageFile == null) {
         throw Exception('New image not found: $newProjectPath');
       }
-      
-      // Use the asset cache to load the new image
-      final assetData = await assetCache.load<ui.Image>(imageFile);
+
+      final assetData = await assetService.load<ImageAssetData>(imageFile);
       if (assetData.hasError) {
         throw assetData.error!;
       }
-      final newImage = assetData.data!;
-      
-      // The relative path logic remains the same
+      final newImage = assetData.data;
+
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-      final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-        tmxParentUri,
-        relativeTo: projectRootUri,
-      );
-      final newTmxRelativePath = p.relative(newProjectPath, from: tmxParentDisplayPath);
+      final tmxParentDisplayPath = repo.fileHandler
+          .getPathForDisplay(tmxParentUri, relativeTo: projectRootUri);
+      final newTmxRelativePath =
+          p.relative(newProjectPath, from: tmxParentDisplayPath);
 
       _notifier!.updateImageSource(
         parentObject: parentObject,
@@ -338,152 +334,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  void _fixupParsedMap(TiledMap map, String tmxContent) {
-    final xmlDocument = XmlDocument.parse(tmxContent);
-    final layerElements = xmlDocument.rootElement.findAllElements('layer');
-    final objectGroupElements = xmlDocument.rootElement.findAllElements(
-      'objectgroup',
-    );
 
-    // FIX 1: Handle un-encoded tile layer data.
-    for (final layerElement in layerElements) {
-      final layerId = int.tryParse(layerElement.getAttribute('id') ?? '');
-      if (layerId == null) continue;
-
-      final layer =
-          map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
-      if (layer != null &&
-          (layer.tileData == null || layer.tileData!.isEmpty)) {
-        final dataElement = layerElement.findElements('data').firstOrNull;
-        if (dataElement != null &&
-            dataElement.getAttribute('encoding') == null) {
-          final tileElements = dataElement.findElements('tile');
-          final gids =
-              tileElements
-                  .map((t) => int.tryParse(t.getAttribute('gid') ?? '0') ?? 0)
-                  .toList();
-          if (gids.isNotEmpty) {
-            layer.tileData = Gid.generate(gids, layer.width, layer.height);
-          }
-        }
-      }
-    }
-
-    // FIX 2: Handle object types (point, ellipse, etc.).
-    for (final objectGroupElement in objectGroupElements) {
-      final layerId = int.tryParse(objectGroupElement.getAttribute('id') ?? '');
-      if (layerId == null) continue;
-
-      final objectGroup =
-          map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
-      if (objectGroup == null) continue;
-
-      final objectElements = objectGroupElement.findAllElements('object');
-      for (final objectElement in objectElements) {
-        final objectId = int.tryParse(objectElement.getAttribute('id') ?? '');
-        if (objectId == null) continue;
-
-        final tiledObject = objectGroup.objects.firstWhereOrNull(
-          (o) => o.id == objectId,
-        );
-        if (tiledObject != null) {
-          final hasEllipse = objectElement.findElements('ellipse').isNotEmpty;
-          final hasPoint = objectElement.findElements('point').isNotEmpty;
-
-          if (hasEllipse) {
-            tiledObject.ellipse = true;
-            tiledObject.rectangle = false;
-            tiledObject.point = false;
-          } else if (hasPoint) {
-            tiledObject.point = true;
-            tiledObject.rectangle = false;
-            tiledObject.ellipse = false;
-          }
-        }
-      }
-    }
-
-    // --- NEW: FIX 3: Ensure all layers have a unique ID. ---
-    var nextAvailableId = map.nextLayerId;
-
-    // Helper to find the max ID recursively.
-    int findMaxId(List<Layer> layers) {
-      var maxId = 0;
-      for (final layer in layers) {
-        if (layer.id != null) {
-          maxId = max(maxId, layer.id!);
-        }
-        if (layer is Group) {
-          maxId = max(maxId, findMaxId(layer.layers));
-        }
-      }
-      return maxId;
-    }
-
-    // If the map doesn't specify the next ID, we calculate it.
-    if (nextAvailableId == null) {
-      final maxLayerId = findMaxId(map.layers);
-      nextAvailableId = maxLayerId + 1;
-    }
-
-    // Helper to assign IDs recursively.
-    void assignIds(List<Layer> layers) {
-      for (final layer in layers) {
-        if (layer.id == null) {
-          layer.id = nextAvailableId;
-          nextAvailableId = nextAvailableId! + 1;
-        }
-        if (layer is Group) {
-          assignIds(layer.layers);
-        }
-      }
-    }
-
-    assignIds(map.layers);
-
-    // Update the map object so new layers created in the UI get a valid ID.
-    map.nextLayerId = nextAvailableId;
-  }
-
-  void _fixupTilesetsAfterImageLoad(
-    TiledMap map,
-    Map<String, ImageLoadResult> tilesetImages,
-  ) {
-    for (final tileset in map.tilesets) {
-      // If the tiles are empty and there is an image, the `tiled` package likely failed to generate them.
-      if (tileset.tiles.isEmpty && tileset.image?.source != null) {
-        final imageResult = tilesetImages[tileset.image!.source];
-        final image = imageResult?.image; // <--- Use the result object
-        final tileWidth = tileset.tileWidth;
-        final tileHeight = tileset.tileHeight;
-
-        if (image != null &&
-            tileWidth != null &&
-            tileHeight != null &&
-            tileWidth > 0 &&
-            tileHeight > 0) {
-          // Manually calculate columns and tileCount
-          final columns =
-              (image.width - tileset.margin * 2 + tileset.spacing) ~/
-              (tileWidth + tileset.spacing);
-          final rows =
-              (image.height - tileset.margin * 2 + tileset.spacing) ~/
-              (tileHeight + tileset.spacing);
-          final tileCount = columns * rows;
-
-          tileset.columns = columns;
-          tileset.tileCount = tileCount;
-
-          // Re-generate the tiles list. This is a simplified version of the internal `_generateTiles` from the library.
-          final newTiles = <Tile>[];
-          for (var i = 0; i < tileCount; ++i) {
-            newTiles.add(Tile(localId: i));
-          }
-          tileset.tiles = newTiles;
-        }
-      }
-    }
-  }
 
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
@@ -537,27 +388,26 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final assetCache = ref.read(projectAssetCacheProvider);
-      final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-
+      final assetService = ref.read(projectAssetServiceProvider); // Correct provider name
+      final projectRootUri =
+          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-      final imageFile = await repo.fileHandler.resolvePath(
-        projectRootUri,
-        relativeImagePath,
-      );
+      final imageFile =
+          await repo.fileHandler.resolvePath(projectRootUri, relativeImagePath);
       if (imageFile == null) {
         throw Exception('Tileset image not found: $relativeImagePath');
       }
 
-      // Use the asset cache to load the image
-      final assetData = await assetCache.load<ui.Image>(imageFile);
+      _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
+      
+      final assetData = await assetService.load<ImageAssetData>(imageFile);
       if (assetData.hasError) {
         throw assetData.error!;
       }
-      final image = assetData.data!;
-
+      final image = assetData.data;
+      
       final imagePathRelativeToTmx = p.relative(
         relativeImagePath,
         from: repo.fileHandler.getPathForDisplay(
