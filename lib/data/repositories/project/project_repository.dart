@@ -12,9 +12,15 @@ sealed class FileOperationEvent {
   const FileOperationEvent();
 }
 
+
 class FileCreateEvent extends FileOperationEvent {
   final ProjectDocumentFile createdFile;
   const FileCreateEvent({required this.createdFile});
+}
+
+class FileModifyEvent extends FileOperationEvent {
+  final ProjectDocumentFile modifiedFile;
+  const FileModifyEvent({required this.modifiedFile});
 }
 
 class FileRenameEvent extends FileOperationEvent {
