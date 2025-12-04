@@ -180,7 +180,8 @@ class AppNotifier extends AsyncNotifier<AppState> {
     switch (event) {
       case FileCreateEvent():
         break;
-
+      case FileModifyEvent(modifiedFile: final modifiedFile):
+        break;
       case FileRenameEvent(oldFile: final oldFile, newFile: final newFile):
         _editorService.updateTabForRenamedFile(oldFile.uri, newFile);
         break;
