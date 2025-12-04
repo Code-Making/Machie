@@ -29,7 +29,6 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
       throw Exception('Cannot load asset without an active project.');
     }
 
-    // Resolve the relative path to a full file object
     final file = await repo.fileHandler.resolvePath(
       project.rootUri,
       projectRelativeUri,
@@ -39,21 +38,21 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
       throw Exception('Asset not found at path: $projectRelativeUri');
     }
 
-    // Listen for file changes to invalidate this specific provider instance.
-    // Riverpod will automatically dispose this listener when the provider is disposed.
-    ref.listen<FileOperationEvent>(fileOperationStreamProvider.stream, (_, next) {
+    // CORRECTED: Listen to the provider itself, which emits AsyncValue state.
+    ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
+      // CORRECTED: 'next' is an AsyncValue, so we can use .asData.
       final event = next.asData?.value;
       if (event == null) return;
-      
+
       final String? eventUri;
       if (event is FileModifyEvent) {
         eventUri = event.modifiedFile.uri;
       } else if (event is FileDeleteEvent) {
         eventUri = event.deletedFile.uri;
       } else if (event is FileRenameEvent) {
-        if(event.oldFile.uri == file.uri) {
-           // If the file we are watching is renamed, it's effectively gone.
-           ref.invalidateSelf();
+        if (event.oldFile.uri == file.uri) {
+          // If the file we are watching is renamed, it's effectively gone.
+          ref.invalidateSelf();
         }
         return; // Don't handle rename events further for this provider
       } else {
@@ -68,7 +67,6 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
       }
     });
 
-    // Fetch and decode the image
     try {
       final bytes = await repo.readFileAsBytes(file.uri);
       final codec = await ui.instantiateImageCodec(bytes);
@@ -89,15 +87,19 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
 final assetMapProvider =
     FutureProvider.family<Map<String, AssetData>, Set<String>>(
   (ref, uris) async {
-    final results = <String, AssetData>{};
-    final futures = <Future>[];
-
-    for (final uri in uris) {
-      final future = ref.watch(assetDataProvider(uri).future);
-      futures.add(
-        future.then((data) => results[uri] = data),
-      );
+    if (uris.isEmpty) {
+      return {};
     }
+
+    final results = <String, AssetData>{};
+    
+    // This creates a list of futures. Watching the .future property ensures
+    // that we get the result of the AsyncNotifier without causing this
+    // provider to rebuild every time the notifier's state changes.
+    final futures = uris.map(
+      (uri) => ref.watch(assetDataProvider(uri).future)
+        .then((data) => results[uri] = data)
+    ).toList();
 
     // Wait for all assets to be fetched and decoded concurrently.
     await Future.wait(futures);
