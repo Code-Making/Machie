@@ -56,12 +56,10 @@ class _TileSelectionHistoryAction implements _HistoryAction {
 class _BulkTilesetRemovalHistoryAction implements _HistoryAction {
   final List<Tileset> removedTilesets;
   final List<int> originalIndices;
-  final List<ImageLoadResult?> imageResults;
 
   _BulkTilesetRemovalHistoryAction({
     required this.removedTilesets,
     required this.originalIndices,
-    required this.imageResults,
   });
 
   @override
@@ -242,13 +240,11 @@ class _TileLayerHistoryAction implements _HistoryAction {
 class _TilesetHistoryAction implements _HistoryAction {
   final Tileset tileset;
   final int index;
-  final ImageLoadResult? imageResult;
   final bool wasAddOperation;
 
   _TilesetHistoryAction({
     required this.tileset,
     required this.index,
-    this.imageResult,
     required this.wasAddOperation,
   });
 
@@ -767,7 +763,6 @@ void toggleLayerVisibility(int layerId) {
 
     final removedTilesets = <Tileset>[];
     final originalIndices = <int>[];
-    final imageResults = <ImageLoadResult?>[];
     final namesToRemove = tilesetsToRemove.map((ts) => ts.name).toSet();
 
     // Iterate backwards to safely remove while preserving indices
@@ -775,18 +770,15 @@ void toggleLayerVisibility(int layerId) {
       final tileset = _map.tilesets[i];
       if (namesToRemove.contains(tileset.name)) {
         final removed = _map.tilesets.removeAt(i);
-        final imageResult = removed.image?.source != null ? _tilesetImages.remove(removed.image!.source) : null;
         
         removedTilesets.insert(0, removed); // Keep order consistent
         originalIndices.insert(0, i);
-        imageResults.insert(0, imageResult);
       }
     }
 
     final action = _BulkTilesetRemovalHistoryAction(
       removedTilesets: removedTilesets,
       originalIndices: originalIndices,
-      imageResults: imageResults,
     );
 
     final historyAction = _WrapperAction(
@@ -794,10 +786,6 @@ void toggleLayerVisibility(int layerId) {
         action.undo(_map);
         for (int i = 0; i < action.removedTilesets.length; i++) {
           final tileset = action.removedTilesets[i];
-          final imageResult = action.imageResults[i];
-          if (imageResult != null && tileset.image?.source != null) {
-            _tilesetImages[tileset.image!.source!] = imageResult;
-          }
         }
       },
       onRedo: () {
