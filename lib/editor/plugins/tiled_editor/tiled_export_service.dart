@@ -172,7 +172,7 @@ class TiledExportService {
     talker.info('Export complete: $mapFileName');
   }
 
-  Future<_PackAtlasResult> _packAtlas(TiledMap map, Map<String, ImageLoadResult> imageCache, String atlasBaseName) async {
+  Future<_PackAtlasResult> _packAtlas(TiledMap map, Map<String, AssetData> assetDataMap, String atlasBaseName) async {
     _ref.read(talkerProvider).info('Starting atlas packing...');
     final usedGids = _findUsedGids(map);
     final uniqueTileSources = <int, _TileSourceInfo>{};
