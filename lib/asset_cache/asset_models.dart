@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 @immutable
 sealed class AssetData {
   const AssetData();
+  
+  bool get hasError => this is ErrorAssetData;
 }
 
 /// Represents a successfully loaded and decoded image asset.

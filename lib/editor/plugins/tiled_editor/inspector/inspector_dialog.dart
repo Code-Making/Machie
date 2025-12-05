@@ -7,12 +7,14 @@ import 'tiled_reflectors.dart';
 import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
+import 'package:machine/asset_cache/asset_models.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
   final String title;
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
+  final Map<String, AssetData> assetDataMap;
 
   const InspectorDialog({
     super.key,
@@ -20,6 +22,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.title,
     required this.notifier,
     required this.editorKey,
+    required this.assetDataMap,
   });
 
   @override
@@ -109,12 +112,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
-      final imageResult = widget.notifier.tilesetImages[descriptor.currentValue];
+      final imageAsset = widget.assetDataMap[descriptor.currentValue];
       final parentObject = (parentDescriptor as ObjectPropertyDescriptor).target;
       return PropertyImagePathInput(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        imageLoadResult: imageResult,
+        imageAsset: imageAsset,
         editorKey: widget.editorKey,
         parentObject: parentObject!,
       );
