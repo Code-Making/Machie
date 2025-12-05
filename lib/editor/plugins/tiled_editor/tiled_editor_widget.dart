@@ -303,9 +303,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     required String newProjectPath,
   }) async {
     if (_notifier == null) return;
-    
-    final progress = MachineToast.showProgress('Reloading image...');
-    
+        
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
@@ -337,8 +335,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
       MachineToast.error('Failed to reload image: $e');
-    } finally {
-      progress.dismiss();
     }
   }
 
@@ -559,9 +555,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
     if (result == null || !mounted) return;
 
-    // Show a loading indicator
-    final progress = MachineToast.showProgress('Loading tileset image...');
-
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
@@ -619,8 +612,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     } catch (e, st) {
       MachineToast.error('Failed to add tileset: $e');
       ref.read(talkerProvider).handle(e, st, 'Failed to add tileset');
-    } finally {
-      progress.dismiss(); // Hide loading indicator
     }
   }
   
