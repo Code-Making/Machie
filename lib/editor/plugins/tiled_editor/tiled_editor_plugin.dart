@@ -530,13 +530,8 @@ commandIds: ObjectTool.values
           defaultPositions: [AppCommandPositions.appBar],
           sourcePlugin: id,
           execute: (ref) async {
-            final editor = _getEditorState(ref); // _getEditorState is the correct way
-            if (editor?.notifier != null) {
-              showDialog(
-                context: ref.context,
-                builder: (_) => ExportDialog(notifier: editor!.notifier!, talker: ref.read(talkerProvider)),
-              );
-            }
+            final editor = _getEditorState(ref);
+            editor?.showExportDialog();
           },
         ),
       ];

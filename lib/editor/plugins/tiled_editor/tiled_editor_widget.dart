@@ -1,4 +1,4 @@
-import 'dart:async' hide AsyncValue;
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -8,7 +8,6 @@ import 'package:tiled/tiled.dart' as tiled show Text;
 
 import 'package:xml/xml.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../widgets/dialogs/folder_picker_dialog.dart';
@@ -489,8 +488,34 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
+  Map<String, AssetData>? _getAssetDataMap() {
+    final assetMapAsync = ref.read(assetMapProvider(_requiredAssetUris));
+    final assetMap = assetMapAsync.valueOrNull;
+    if (assetMap == null) {
+      MachineToast.info("Assets are still loading, please wait.");
+      return null;
+    }
+    return assetMap;
+  }
+  
+  void showExportDialog() {
+    final assetMap = _getAssetDataMap();
+    if (_notifier == null || assetMap == null) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => ExportDialog(
+        notifier: _notifier!,
+        talker: ref.read(talkerProvider),
+        assetDataMap: assetMap,
+      ),
+    );
+  }  
+  
   void inspectMapProperties() {
-    if (_notifier == null) return;
+    final assetMap = _getAssetDataMap();
+    if (_notifier == null || assetMap == null) return;
+
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
@@ -498,6 +523,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
+        assetDataMap: assetMap, // PASS THE MAP
       ),
     );
   }
@@ -707,6 +733,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   
   void _showLayerInspector(Layer layer) {
+    final assetMap = _getAssetDataMap();
+    if (_notifier == null || assetMap == null) return;
+    
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
@@ -714,6 +743,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
+        assetDataMap: assetMap,
       ),
     );
   }
@@ -1374,8 +1404,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final AsyncValue<Map<String, AssetData>> assetMapAsync =
-        ref.watch(assetMapProvider(_requiredAssetUris));
+    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
 
     return assetMapAsync.when(
       data: (assetDataMap) {
