@@ -663,6 +663,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void _inspectSelectedTileset() {
+    final assetMap = _getAssetDataMap();
     if (_notifier == null || _selectedTileset == null) return;
     showDialog(
       context: context,
@@ -751,6 +752,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void _inspectSelectedObject() {
+    final assetMap = _getAssetDataMap();
     if (_notifier == null) return;
     final selection = _notifier!.selectedObjects;
     if (selection.length != 1) return;
