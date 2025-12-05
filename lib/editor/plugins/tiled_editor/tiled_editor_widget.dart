@@ -664,12 +664,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   
   void _inspectSelectedTileset() {
     final assetMap = _getAssetDataMap();
-    if (_notifier == null || _selectedTileset == null) return;
+    if (_notifier == null || _selectedTileset == null ||assetMap==null) return;
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
         target: _selectedTileset!,
-        assetDataMap: assetMap,
+        assetDataMap: assetMap!,
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
@@ -753,6 +753,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   
   void _inspectSelectedObject() {
     final assetMap = _getAssetDataMap();
+    if(assetMap==null) return;
     if (_notifier == null) return;
     final selection = _notifier!.selectedObjects;
     if (selection.length != 1) return;
@@ -762,7 +763,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: target,
-        assetDataMap: assetMap,
+        assetDataMap: assetMap!,
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
