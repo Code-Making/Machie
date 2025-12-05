@@ -1,11 +1,8 @@
-// lib/editor/plugins/tiled_editor/tiled_map_notifier.dart
-
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart' hide Text;
 import 'package:tiled/tiled.dart';
 import 'package:collection/collection.dart';
-import 'image_load_result.dart';
 
 abstract class _HistoryAction {
   void undo(TiledMap map);
@@ -277,7 +274,7 @@ class _TilesetHistoryAction implements _HistoryAction {
 
 class TiledMapNotifier extends ChangeNotifier {
   TiledMap _map;
-  final Map<String, ImageLoadResult> _tilesetImages;
+  // final Map<String, ImageLoadResult> _tilesetImages;
 
   final _undoStack = <_HistoryAction>[];
   final _redoStack = <_HistoryAction>[];
@@ -292,9 +289,9 @@ class TiledMapNotifier extends ChangeNotifier {
   Point? _floatingSelectionPosition;
 
 
-  TiledMapNotifier(this._map, this._tilesetImages);
+  TiledMapNotifier(this._map);
   TiledMap get map => _map;
-  Map<String, ImageLoadResult> get tilesetImages => _tilesetImages;
+  // Map<String, ImageLoadResult> get tilesetImages => _tilesetImages;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
   List<TiledObject> get selectedObjects => List.unmodifiable(_selectedObjects);
@@ -335,47 +332,40 @@ class TiledMapNotifier extends ChangeNotifier {
   }
 
   void updateImageSource({
-    required Object parentObject, // The specific Tileset or ImageLayer being edited
-    required String oldSourcePath,
+    required Object parentObject,
     required String newSourcePath,
-    required ui.Image newImage,
+    required int newWidth,
+    required int newHeight,
   }) {
-    _tilesetImages.remove(oldSourcePath);
-    _tilesetImages[newSourcePath] = ImageLoadResult(image: newImage, path: newSourcePath);
-
     final newTiledImage = TiledImage(
       source: newSourcePath,
-      width: newImage.width,
-      height: newImage.height,
+      width: newWidth,
+      height: newHeight,
     );
+
+    Object? beforeState;
+    Object? afterState;
 
     if (parentObject is Tileset) {
       final tilesetInMap = _map.tilesets.firstWhereOrNull((ts) => ts == parentObject);
       if (tilesetInMap != null) {
+        beforeState = deepCopyTileset(tilesetInMap);
         tilesetInMap.image = newTiledImage;
+        afterState = deepCopyTileset(tilesetInMap);
       }
     } else if (parentObject is ImageLayer) {
-      final layerIndex = _map.layers.indexWhere((l) => l == parentObject);
-      if (layerIndex != -1) {
-        final oldLayer = _map.layers[layerIndex] as ImageLayer;
-        _map.layers[layerIndex] = ImageLayer(
-          id: oldLayer.id,
-          name: oldLayer.name,
-          class_: oldLayer.class_,
-          offsetX: oldLayer.offsetX,
-          offsetY: oldLayer.offsetY,
-          parallaxX: oldLayer.parallaxX,
-          parallaxY: oldLayer.parallaxY,
-          opacity: oldLayer.opacity,
-          visible: oldLayer.visible,
-          tintColorHex: oldLayer.tintColorHex,
-          repeatX: oldLayer.repeatX,
-          repeatY: oldLayer.repeatY,
-          image: newTiledImage, // Assign the new instance
-        );
+      final layerInMap = _map.layers.firstWhereOrNull((l) => l == parentObject) as ImageLayer?;
+      if (layerInMap != null) {
+        beforeState = deepCopyLayer(layerInMap);
+        layerInMap.image = newTiledImage;
+        afterState = deepCopyLayer(layerInMap);
       }
     }
 
+    if (beforeState != null && afterState != null) {
+      recordPropertyChange(beforeState, afterState);
+    }
+    
     notifyListeners();
   }
 
@@ -710,20 +700,13 @@ void toggleLayerVisibility(int layerId) {
     notifyListeners();
   }
 
-  Future<void> addTileset(Tileset newTileset, ui.Image image) async {
-    final imageResult = ImageLoadResult(image: image, path: newTileset.image!.source!);
-    
-    // Add to map and cache
+  Future<void> addTileset(Tileset newTileset) async {
     _map.tilesets.add(newTileset);
-    if (newTileset.image?.source != null) {
-      _tilesetImages[newTileset.image!.source!] = imageResult;
-    }
-
-    // Record history
+    
+    // The history action no longer needs the imageResult.
     _pushHistory(_TilesetHistoryAction(
       tileset: newTileset,
       index: _map.tilesets.length - 1,
-      imageResult: imageResult,
       wasAddOperation: true,
     ));
 
@@ -737,34 +720,13 @@ void toggleLayerVisibility(int layerId) {
   void deleteTileset(Tileset tilesetToDelete) {
     final index = _map.tilesets.indexWhere((ts) => ts.name == tilesetToDelete.name);
     if (index == -1) return;
-
     final tileset = _map.tilesets.removeAt(index);
-    final imageResult = tileset.image?.source != null ? _tilesetImages.remove(tileset.image!.source) : null;
-    
     final action = _TilesetHistoryAction(
       tileset: tileset,
       index: index,
-      imageResult: imageResult,
       wasAddOperation: false,
     );
-    
-    // Custom undo/redo logic for the notifier's image cache
-    final historyAction = _WrapperAction(
-      onUndo: () {
-        action.undo(_map);
-        if (action.imageResult != null && action.tileset.image?.source != null) {
-          _tilesetImages[action.tileset.image!.source!] = action.imageResult!;
-        }
-      },
-      onRedo: () {
-        action.redo(_map);
-        if (action.tileset.image?.source != null) {
-          _tilesetImages.remove(action.tileset.image!.source);
-        }
-      },
-    );
-
-    _pushHistory(historyAction);
+    _pushHistory(action);
     notifyListeners();
   }
   

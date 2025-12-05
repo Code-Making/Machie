@@ -35,12 +35,13 @@ import 'widgets/new_tileset_dialog.dart';
 import 'project_tsx_provider.dart';
 
 import 'tiled_map_painter.dart';
-import 'image_load_result.dart';
 import 'inspector/inspector_dialog.dart'; // ADDED
 import 'widgets/object_editor_app_bar.dart';
 import 'widgets/paint_editor_app_bar.dart';
 import 'package:machine/settings/settings_notifier.dart';
 import 'tiled_editor_settings_model.dart';
+import 'package:machine/asset_cache/asset_models.dart';
+import 'package:machine/asset_cache/asset_providers.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -57,11 +58,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   TiledMapNotifier? get notifier => _notifier;
   TiledMapNotifier? _notifier;
 
+
   int _selectedLayerId = -1;
   Tileset? _selectedTileset;
   Rect? _selectedTileRect;
 
   String? _baseContentHash;
+  
+  Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
 
@@ -207,7 +211,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController = TransformationController();
     _transformationController.addListener(() => setState(() {}));
-    _loadMapAndDependencies();
+    _initializeMapData(); 
   }
 
   @override
@@ -229,7 +233,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     super.dispose();
   }
 
-  Future<void> _loadMapAndDependencies() async {
+  Future<void> _initializeMapData() async {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
@@ -249,63 +253,17 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
-      final tilesetImages = <String, ImageLoadResult>{};
-      final allImagesToLoad = map.tiledImages();
-      final imageLayerSources = map.layers.whereType<ImageLayer>().map((l) => l.image.source).toSet();
-
-      final imageFutures = allImagesToLoad.map((tiledImage) async {
-        final imageSourcePath = tiledImage.source;
-        if (imageSourcePath == null) return;
-
-        try { // <--- START TRY-CATCH BLOCK
-          String baseUri = tmxParentUri;
-          
-          if (!imageLayerSources.contains(imageSourcePath)) {
-            final tileset = map.tilesets.firstWhereOrNull(
-              (ts) => ts.image?.source == imageSourcePath || ts.tiles.any((t) => t.image?.source == imageSourcePath),
-            );
-            if (tileset != null && tileset.source != null) {
-              final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
-              if (tsxFile != null) {
-                baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
-              }
-            }
-          }
-
-          final imageFile = await repo.fileHandler.resolvePath(baseUri, imageSourcePath);
-
-          if (imageFile == null) {
-            throw Exception('File not found at path: $imageSourcePath (relative to $baseUri)');
-          }
-
-          final bytes = await repo.readFileAsBytes(imageFile.uri);
-          final codec = await ui.instantiateImageCodec(bytes);
-          final frame = await codec.getNextFrame();
-          
-          if (mounted) {
-            tilesetImages[imageSourcePath] = ImageLoadResult(image: frame.image, path: imageSourcePath);
-          }
-        } catch (e, st) { // <--- CATCH THE ERROR
-          // If loading fails, log it and store the error state.
-          ref.read(talkerProvider).handle(e, st, 'Failed to load TMX image source: $imageSourcePath');
-          if (mounted) {
-            tilesetImages[imageSourcePath] = ImageLoadResult(error: e.toString(), path: imageSourcePath);
-          }
-        }
-      }).toList();
-
-      // Future.wait will now always succeed because we are catching errors inside.
-      await Future.wait(imageFutures);
-
-      _fixupTilesetsAfterImageLoad(map, tilesetImages);
+      
+      // _fixupTilesetsAfterImageLoad(map, tilesetImages);
 
       if (mounted) {
         setState(() {
-          // --- CORRECTED NOTIFIER INSTANTIATION ---
-          _notifier = TiledMapNotifier(map, tilesetImages);
+          _notifier = TiledMapNotifier(map);
           _notifier!.addListener(_onMapChanged);
-          _selectedLayerId =
-              map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+
+          _rebuildAssetUriSet();
+
+          _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
           _selectedTileset = map.tilesets.firstOrNull;
           _isLoading = false;
         });
@@ -321,52 +279,68 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-Future<void> reloadImageSource({
-  required Object parentObject, // The Tileset or ImageLayer being edited
-  required String oldSourcePath,
-  required String newProjectPath,
-}) async {
-  if (_notifier == null) return;
-  
-  try {
-    final repo = ref.read(projectRepositoryProvider)!;
-    final projectRootUri = ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-    final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-    final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-
-    final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-      tmxParentUri,
-      relativeTo: projectRootUri,
-    );
-    final newTmxRelativePath = p.relative(newProjectPath, from: tmxParentDisplayPath);
-
-    final imageFile = await repo.fileHandler.resolvePath(
-      projectRootUri,
-      newProjectPath,
-    );
-
-    if (imageFile == null) {
-      throw Exception('New image not found: $newProjectPath');
+  void _rebuildAssetUriSet() {
+    if (_notifier == null) return;
+    final map = _notifier!.map;
+    final uris = <String>{};
+    final allTiledImages = map.tiledImages();
+    for (final tiledImage in allTiledImages) {
+      if (tiledImage.source != null) {
+        uris.add(tiledImage.source!);
+      }
     }
-
-    final bytes = await repo.readFileAsBytes(imageFile.uri);
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    
-    // Call the notifier's public method with the parent object.
-    _notifier!.updateImageSource(
-      parentObject: parentObject, // Pass the parent
-      oldSourcePath: oldSourcePath,
-      newSourcePath: newTmxRelativePath,
-      newImage: frame.image,
-    );
-    MachineToast.info('Image source updated successfully.');
-
-  } catch (e, st) {
-    ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
-    MachineToast.error('Failed to reload image: $e');
+    // Update the state to trigger the assetMapProvider to re-evaluate
+    if (!const SetEquality().equals(uris, _requiredAssetUris)) {
+      setState(() {
+        _requiredAssetUris = uris;
+      });
+    }
   }
-}
+  
+  Future<void> reloadImageSource({
+    required Object parentObject,
+    required String oldSourcePath,
+    required String newProjectPath,
+  }) async {
+    if (_notifier == null) return;
+    
+    final progress = MachineToast.showProgress('Reloading image...');
+    
+    try {
+      final repo = ref.read(projectRepositoryProvider)!;
+      final project = ref.read(currentProjectProvider)!;
+      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
+      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
+
+      // 1. Calculate the new relative path
+      final newTmxRelativePath = p.relative(
+        newProjectPath,
+        from: repo.fileHandler.getPathForDisplay(tmxParentUri, relativeTo: project.rootUri),
+      );
+
+      // 2. Use the asset provider to load the new image data
+      final assetData = await ref.read(assetDataProvider(newTmxRelativePath).future);
+      if (assetData is! ImageAssetData) {
+        throw (assetData as ErrorAssetData).error;
+      }
+      final newImage = assetData.image;
+
+      // 3. Call the notifier with the complete, valid data
+      _notifier!.updateImageSource(
+        parentObject: parentObject,
+        newSourcePath: newTmxRelativePath,
+        newWidth: newImage.width,
+        newHeight: newImage.height,
+      );
+      
+      MachineToast.info('Image source updated successfully.');
+    } catch (e, st) {
+      ref.read(talkerProvider).handle(e, st, 'Failed to reload image source');
+      MachineToast.error('Failed to reload image: $e');
+    } finally {
+      progress.dismiss();
+    }
+  }
 
   // --- NEW: Helper method to fix parsing issues from the `tiled` package ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
@@ -465,30 +439,28 @@ Future<void> reloadImageSource({
     map.nextLayerId = nextAvailableId;
   }
   
-  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, ImageLoadResult> tilesetImages) {
+  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
     for (final tileset in map.tilesets) {
-      // If the tiles are empty and there is an image, the `tiled` package likely failed to generate them.
+      // Only process tilesets that might be incomplete (e.g., from an old TMX file format)
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
-        final imageResult = tilesetImages[tileset.image!.source];
-        final image = imageResult?.image; // <--- Use the result object
-        final tileWidth = tileset.tileWidth;
-        final tileHeight = tileset.tileHeight;
+        final asset = assetDataMap[tileset.image!.source];
+        if (asset is ImageAssetData) {
+          final image = asset.image;
+          // If the TMX file didn't specify image dimensions, set them now
+          tileset.image!.width ??= image.width;
+          tileset.image!.height ??= image.height;
 
-        if (image != null && tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
-          // Manually calculate columns and tileCount
-          final columns = (image.width - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
-          final rows = (image.height - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
-          final tileCount = columns * rows;
-          
-          tileset.columns = columns;
-          tileset.tileCount = tileCount;
-
-          // Re-generate the tiles list. This is a simplified version of the internal `_generateTiles` from the library.
-          final newTiles = <Tile>[];
-          for (var i = 0; i < tileCount; ++i) {
-            newTiles.add(Tile(localId: i));
+          final tileWidth = tileset.tileWidth;
+          final tileHeight = tileset.tileHeight;
+          if (tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
+            final columns = (image.width - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
+            final rows = (image.height - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
+            final tileCount = columns * rows;
+            tileset.columns = columns;
+            tileset.tileCount = tileCount;
+            // This is important for the Tiled package to correctly map GIDs
+            tileset.tiles = [for (var i = 0; i < tileCount; ++i) Tile(localId: i)];
           }
-          tileset.tiles = newTiles;
         }
       }
     }
@@ -496,8 +468,9 @@ Future<void> reloadImageSource({
 
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
+    _rebuildAssetUriSet();
     syncCommandContext();
-    setState(() {}); // Rebuild to reflect changes
+    setState(() {});
   }
 
   void _editMapProperties() async {
@@ -529,9 +502,9 @@ Future<void> reloadImageSource({
   }
 
   Future<void> _addTileset() async {
+    // 1. Get user input for the new tileset
     final relativeImagePath = await showDialog<String>(
       context: context,
-      // Pass the last used URI to the dialog
       builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
     );
     if (relativeImagePath == null || !mounted) return;
@@ -540,62 +513,54 @@ Future<void> reloadImageSource({
       context: context,
       builder: (_) => NewTilesetDialog(imagePath: relativeImagePath),
     );
-    if (result == null) return;
+    if (result == null || !mounted) return;
+
+    // Show a loading indicator
+    final progress = MachineToast.showProgress('Loading tileset image...');
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final projectRootUri =
-          ref.read(appNotifierProvider).value!.currentProject!.rootUri;
-
+      final project = ref.read(currentProjectProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-      final imageFile = await repo.fileHandler.resolvePath(
-        projectRootUri,
-        relativeImagePath,
-      );
-      if (imageFile == null) {
-        throw Exception('Tileset image not found: $relativeImagePath');
-      }
-
-      // Store the parent URI of the selected file for next time
+      // 2. Resolve paths
+      final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
+      if (imageFile == null) throw Exception('Tileset image not found: $relativeImagePath');
       _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
-
-      final bytes = await repo.readFileAsBytes(imageFile.uri);
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-
+      
       final imagePathRelativeToTmx = p.relative(
         relativeImagePath,
-        from: repo.fileHandler.getPathForDisplay(
-          tmxParentUri,
-          relativeTo: projectRootUri,
-        ),
+        from: repo.fileHandler.getPathForDisplay(tmxParentUri, relativeTo: project.rootUri),
       );
 
+      // 3. Use the asset provider to load the image data imperatively
+      final assetData = await ref.read(assetDataProvider(imagePathRelativeToTmx).future);
+      
+      if (assetData is! ImageAssetData) {
+         throw (assetData as ErrorAssetData).error;
+      }
+      final image = assetData.image;
+
+      // 4. Now that we have the image, we can calculate required properties
       final tileWidth = result['tileWidth'] as int;
       final tileHeight = result['tileHeight'] as int;
-      final margin = 0, spacing = 0;
-      final columns =
-          (image.width - margin * 2 + spacing) ~/ (tileWidth + spacing);
-      final rows =
-          (image.height - margin * 2 + spacing) ~/ (tileHeight + spacing);
+      final columns = (image.width) ~/ tileWidth;
+      final tileCount = columns * (image.height ~/ tileHeight);
 
       int nextGid = 1;
-      if (notifier!.map.tilesets.isNotEmpty) {
-        final last = notifier!.map.tilesets.last;
+      if (_notifier!.map.tilesets.isNotEmpty) {
+        final last = _notifier!.map.tilesets.last;
         nextGid = (last.firstGid ?? 0) + (last.tileCount ?? 0);
       }
 
+      // 5. Create the complete, valid Tileset object
       final newTileset = Tileset(
         name: result['name'],
         firstGid: nextGid,
         tileWidth: tileWidth,
         tileHeight: tileHeight,
-        spacing: spacing,
-        margin: margin,
-        tileCount: columns * rows,
+        tileCount: tileCount,
         columns: columns,
         image: TiledImage(
           source: imagePathRelativeToTmx,
@@ -604,10 +569,14 @@ Future<void> reloadImageSource({
         ),
       );
 
-      await notifier!.addTileset(newTileset, image);
+      // 6. Commit the new tileset to the notifier
+      await _notifier!.addTileset(newTileset);
+
     } catch (e, st) {
       MachineToast.error('Failed to add tileset: $e');
       ref.read(talkerProvider).handle(e, st, 'Failed to add tileset');
+    } finally {
+      progress.dismiss(); // Hide loading indicator
     }
   }
   
@@ -1404,7 +1373,12 @@ Future<void> reloadImageSource({
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final editorContent = GestureDetector(
+    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
+
+    final editorContent = assetMapAsync.when(
+      data: (assetDataMap) {
+    _fixupTilesetsAfterImageLoad(map, assetDataMap);
+    return GestureDetector(
       onTapDown: (details) =>
           _onInteractionUpdate(details.localPosition, isStart: true),
       onPanStart: (details) =>
@@ -1424,7 +1398,8 @@ Future<void> reloadImageSource({
         child: CustomPaint(
           size: Size(mapPixelWidth, mapPixelHeight),
           painter: TiledMapPainter(
-            map: map,
+                map: map,
+                assetDataMap: assetDataMap, 
             tilesetImages: notifier!.tilesetImages,
             showGrid: _showGrid,
             transform: _transformationController.value,
@@ -1436,6 +1411,15 @@ Future<void> reloadImageSource({
             floatingSelection: notifier!.floatingSelection,
             floatingSelectionPosition: notifier!.floatingSelectionPosition,
           ),
+        ),
+      ),
+    );
+    },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text('Error loading assets:\n$err', textAlign: TextAlign.center),
         ),
       ),
     );

@@ -8,12 +8,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
-import 'image_load_result.dart';
 import 'tiled_editor_settings_model.dart';
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
-  final Map<String, ImageLoadResult> tilesetImages; // <-- TYPE CHANGED
+  final Map<String, AssetData> assetDataMap;
   final bool showGrid;
   final Matrix4 transform;
   
@@ -30,7 +29,7 @@ class TiledMapPainter extends CustomPainter {
 
   TiledMapPainter({
     required this.map,
-    required this.tilesetImages,
+    required this.assetDataMap,
     required this.showGrid,
     required this.transform,
     this.selectedObjects = const [],
@@ -41,6 +40,15 @@ class TiledMapPainter extends CustomPainter {
     this.floatingSelection,
     this.floatingSelectionPosition,
   });
+  
+  ui.Image? _getImage(String? sourcePath) {
+    if (sourcePath == null) return null;
+    final asset = assetDataMap[sourcePath];
+    if (asset is ImageAssetData) {
+      return asset.image;
+    }
+    return null;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -269,9 +277,7 @@ class TiledMapPainter extends CustomPainter {
         final tileset = map.tilesetByTileGId(gid.tile);
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
-
-        final imageResult = tilesetImages[imageSource]; // <-- Get the result object
-        final image = imageResult?.image;
+        final image = _getImage(imageSource);
         
         final srcRect = tileset.computeDrawRect(tile);
         final source = Rect.fromLTWH(
@@ -371,10 +377,9 @@ class TiledMapPainter extends CustomPainter {
   
   void _paintImageLayer(Canvas canvas, ImageLayer layer, Rect visibleRect) {
     if (layer.image.source == null) return;
-    final imageResult = tilesetImages[layer.image.source!];
-    final image = imageResult?.image;
+    final image = _getImage(layer.image.source);
 
-    if (image == null) { // <--- CHECK IF IMAGE IS MISSING
+    if (image == null) {
         _drawMissingImagePlaceholder(canvas, Rect.fromLTWH(layer.offsetX, layer.offsetY, (layer.image.width ?? 100).toDouble(), (layer.image.height ?? 100).toDouble()), imageResult?.path ?? 'Unknown');
         return;
     }
@@ -555,8 +560,7 @@ Matrix4 applyParallax(
     final imageSource = tile.image?.source ?? tileset.image?.source;
     if (imageSource == null) return;
 
-    final imageResult = tilesetImages[imageSource];
-    final image = imageResult?.image;
+    final image = _getImage(imageSource);
     
 
     final rect = tileset.computeDrawRect(tile);
