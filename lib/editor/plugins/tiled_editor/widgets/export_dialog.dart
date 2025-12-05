@@ -8,12 +8,18 @@ import 'package:machine/editor/plugins/tiled_editor/tiled_map_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../../../../logs/logs_provider.dart';
+import 'package:machine/asset_cache/asset_models.dart';
 
 class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final Talker talker;
-  const ExportDialog({super.key, required this.notifier, required this.talker});
-
+  final Map<String, AssetData> assetDataMap;
+  const ExportDialog({
+    super.key,
+    required this.notifier,
+    required this.talker,
+    required this.assetDataMap,
+  });
   @override
   ConsumerState<ExportDialog> createState() => _ExportDialogState();
 }
@@ -78,15 +84,15 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
     try {
       await ref.read(tiledExportServiceProvider).exportMap(
-        map: widget.notifier.map,
-        imageCache: widget.notifier.tilesetImages,
-        destinationFolderUri: _destinationFolderUri!,
-        mapFileName: _mapNameController.text.trim(),
-        atlasFileName: _atlasNameController.text.trim(),
-        removeUnused: _removeUnusedTilesets,
-        asJson: _exportAsJson,
-        packInAtlas: _packInAtlas,
-      );
+            map: widget.notifier.map,
+            assetDataMap: widget.assetDataMap,
+            destinationFolderUri: _destinationFolderUri!,
+            mapFileName: _mapNameController.text.trim(),
+            atlasFileName: _atlasNameController.text.trim(),
+            removeUnused: _removeUnusedTilesets,
+            asJson: _exportAsJson,
+            packInAtlas: _packInAtlas,
+          );
       MachineToast.info("Export successful!");
       if (mounted) Navigator.of(context).pop();
     } catch (e) {

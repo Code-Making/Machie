@@ -14,6 +14,7 @@ import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/logs/logs_provider.dart';
 import 'package:tiled/tiled.dart';
 import 'package:machine/editor/plugins/tiled_editor/image_load_result.dart'; // Add this import
+import 'package:machine/asset_cache/asset_models.dart';
 
 import 'tiled_map_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
@@ -43,10 +44,10 @@ class TiledExportService {
 
   Future<void> exportMap({
     required TiledMap map,
-    required Map<String, ImageLoadResult> imageCache,
+    required Map<String, AssetData> assetDataMap,
     required String destinationFolderUri,
-    required String mapFileName,       // NEW
-    required String atlasFileName,     // NEW
+    required String mapFileName,
+    required String atlasFileName,
     required bool removeUnused,
     required bool asJson,
     required bool packInAtlas,
@@ -76,7 +77,7 @@ class TiledExportService {
     }
     
     if (packInAtlas) {
-      final result = await _packAtlas(mapToExport, imageCache, atlasFileName);
+      final result = await _packAtlas(mapToExport, assetDataMap, atlasFileName);
       mapToExport = result.modifiedMap;
       atlasImageBytes = result.atlasImageBytes;
       finalAtlasImageName = result.atlasImageName;
@@ -225,9 +226,10 @@ class TiledExportService {
         tiledRect.top.toDouble(),
         tiledRect.width.toDouble(),
         tiledRect.height.toDouble(),
-      );
+      );      
+      final asset = assetDataMap[source.tileset.image!.source!];
+      final sourceImage = asset is ImageAssetData ? asset.image : null;
 
-      final sourceImage = imageCache[source.tileset.image!.source!]?.image;
       if (sourceImage != null) {
         canvas.drawImageRect(sourceImage, sourceRect, destRect, paint);
       }

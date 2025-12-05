@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide ColorProperty;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flex_color_picker/flex_color_picker.dart'; // <-- IMPORT THE PACKAGE
+import 'package:machine/asset_cache/asset_models.dart';
 
 import 'property_descriptors.dart';
 import '../tiled_editor_widget.dart';
@@ -89,7 +90,7 @@ class PropertyBoolSwitch extends StatelessWidget {
 class PropertyImagePathInput extends ConsumerWidget {
   final ImagePathPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  final ImageLoadResult? imageLoadResult;
+  final AssetData? imageAsset;
   final GlobalKey<TiledEditorWidgetState> editorKey;
   final Object parentObject; // <-- CHANGED: Now required
 
@@ -97,14 +98,14 @@ class PropertyImagePathInput extends ConsumerWidget {
     super.key,
     required this.descriptor,
     required this.onUpdate,
-    required this.imageLoadResult,
+    required this.imageAsset,
     required this.editorKey,
-    required this.parentObject, // <-- CHANGED: Now required
+    required this.parentObject,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasError = imageLoadResult?.hasError ?? false;
+    final hasError = imageAsset?.hasError ?? false; 
     final theme = Theme.of(context);
 
     return ListTile(
