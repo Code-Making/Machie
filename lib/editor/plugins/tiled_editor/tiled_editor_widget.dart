@@ -441,24 +441,41 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   
   void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
     for (final tileset in map.tilesets) {
-      // Only process tilesets that might be incomplete (e.g., from an old TMX file format)
+      // We only need to fix up tilesets that are based on an image and haven't had their
+      // individual tiles defined (common for new or simple tilesets).
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
-        final asset = assetDataMap[tileset.image!.source];
+        final asset = assetDataMap[tileset.image!.source!];
         if (asset is ImageAssetData) {
-          final image = asset.image;
-          // If the TMX file didn't specify image dimensions, set them now
-          tileset.image!.width ??= image.width;
-          tileset.image!.height ??= image.height;
+          final loadedImage = asset.image;
+          final currentTiledImage = tileset.image!;
 
+          // If the TiledImage from the parsed map data is missing width/height,
+          // it means the TMX file didn't specify them. We must create a NEW
+          // TiledImage object with the correct dimensions from the loaded asset.
+          if (currentTiledImage.width == null || currentTiledImage.height == null) {
+            tileset.image = TiledImage(
+              source: currentTiledImage.source,
+              width: loadedImage.width,
+              height: loadedImage.height,
+            );
+          }
+
+          // Now, we can safely proceed with calculations, using the now-guaranteed
+          // non-null dimensions from the tileset's data model.
           final tileWidth = tileset.tileWidth;
           final tileHeight = tileset.tileHeight;
+          final imageWidth = tileset.image!.width!;
+          final imageHeight = tileset.image!.height!;
+
           if (tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
-            final columns = (image.width - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
-            final rows = (image.height - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
+            final columns = (imageWidth - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
+            final rows = (imageHeight - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
             final tileCount = columns * rows;
+            
+            // Update the tileset model with the calculated properties.
             tileset.columns = columns;
             tileset.tileCount = tileCount;
-            // This is important for the Tiled package to correctly map GIDs
+            // This is crucial for the Tiled package to correctly map GIDs to tile coordinates.
             tileset.tiles = [for (var i = 0; i < tileCount; ++i) Tile(localId: i)];
           }
         }
