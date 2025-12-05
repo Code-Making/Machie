@@ -572,7 +572,7 @@ Matrix4 applyParallax(
     final dst = Rect.fromLTWH(object.x, object.y - object.height, object.width, object.height);
     
     if (image == null) { // <--- CHECK IF IMAGE IS MISSING
-      _drawMissingImagePlaceholder(canvas, dst, imageResult?.path ?? 'Unknown');
+      _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
       return;
     }
 
