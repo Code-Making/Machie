@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' hide AsyncValue;
 import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -1373,7 +1373,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
+    final AsyncValue<Map<String, AssetData>> assetMapAsync =
+        ref.watch(assetMapProvider(_requiredAssetUris));
 
     return assetMapAsync.when(
       data: (assetDataMap) {
