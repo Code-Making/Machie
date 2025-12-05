@@ -91,8 +91,7 @@ class TiledMapPainter extends CustomPainter {
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
 
-        final imageResult = tilesetImages[imageSource];
-        final image = imageResult?.image;
+        final image = _getImage(imageSource);
         if (image == null) continue;
 
         final srcRect = tileset.computeDrawRect(tile);
@@ -299,7 +298,7 @@ class TiledMapPainter extends CustomPainter {
         );
         
         if (image == null) { // <--- CHECK IF IMAGE IS MISSING
-          _drawMissingImagePlaceholder(canvas, dst, imageResult?.path ?? 'Unknown');
+          _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
           continue; // Skip the rest of the drawing for this tile
         }
 
@@ -381,7 +380,7 @@ class TiledMapPainter extends CustomPainter {
     final image = _getImage(layer.image.source);
 
     if (image == null) {
-        _drawMissingImagePlaceholder(canvas, Rect.fromLTWH(layer.offsetX, layer.offsetY, (layer.image.width ?? 100).toDouble(), (layer.image.height ?? 100).toDouble()), imageResult?.path ?? 'Unknown');
+        _drawMissingImagePlaceholder(canvas, Rect.fromLTWH(layer.offsetX, layer.offsetY, (layer.image.width ?? 100).toDouble(), (layer.image.height ?? 100).toDouble()), layer.image.source ?? 'Unknown');
         return;
     }
 
