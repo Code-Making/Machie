@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart' hide Text;
 import 'package:tiled/tiled.dart';
 import 'package:collection/collection.dart';
+import '../../../asset_cache/asset_models.dart';
 
 abstract class _HistoryAction {
   void undo(TiledMap map);
@@ -698,8 +699,7 @@ void toggleLayerVisibility(int layerId) {
 
   Future<void> addTileset(Tileset newTileset) async {
     _map.tilesets.add(newTileset);
-    
-    // The history action no longer needs the imageResult.
+
     _pushHistory(_TilesetHistoryAction(
       tileset: newTileset,
       index: _map.tilesets.length - 1,
@@ -716,13 +716,15 @@ void toggleLayerVisibility(int layerId) {
   void deleteTileset(Tileset tilesetToDelete) {
     final index = _map.tilesets.indexWhere((ts) => ts.name == tilesetToDelete.name);
     if (index == -1) return;
+
     final tileset = _map.tilesets.removeAt(index);
-    final action = _TilesetHistoryAction(
+
+    // Push the simplified history action. No wrapper needed.
+    _pushHistory(_TilesetHistoryAction(
       tileset: tileset,
       index: index,
       wasAddOperation: false,
-    );
-    _pushHistory(action);
+    ));
     notifyListeners();
   }
   
@@ -763,43 +765,25 @@ void toggleLayerVisibility(int layerId) {
 
     final removedTilesets = <Tileset>[];
     final originalIndices = <int>[];
+    
     final namesToRemove = tilesetsToRemove.map((ts) => ts.name).toSet();
-
-    // Iterate backwards to safely remove while preserving indices
+    
     for (int i = _map.tilesets.length - 1; i >= 0; i--) {
       final tileset = _map.tilesets[i];
       if (namesToRemove.contains(tileset.name)) {
         final removed = _map.tilesets.removeAt(i);
-        
-        removedTilesets.insert(0, removed); // Keep order consistent
+        removedTilesets.insert(0, removed);
         originalIndices.insert(0, i);
       }
     }
 
-    final action = _BulkTilesetRemovalHistoryAction(
-      removedTilesets: removedTilesets,
-      originalIndices: originalIndices,
-    );
-
-    final historyAction = _WrapperAction(
-      onUndo: () {
-        action.undo(_map);
-        for (int i = 0; i < action.removedTilesets.length; i++) {
-          final tileset = action.removedTilesets[i];
-        }
-      },
-      onRedo: () {
-        action.redo(_map);
-        for (final tileset in action.removedTilesets) {
-          if (tileset.image?.source != null) {
-            _tilesetImages.remove(tileset.image!.source);
-          }
-        }
-      },
-    );
-
-    _pushHistory(historyAction);
-    notifyListeners();
+    if(removedTilesets.isNotEmpty) {
+        _pushHistory(_BulkTilesetRemovalHistoryAction(
+          removedTilesets: removedTilesets,
+          originalIndices: originalIndices,
+        ));
+        notifyListeners();
+    }
   }
 
 void addLayer({required String name, required LayerType type}) {
