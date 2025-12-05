@@ -8,6 +8,7 @@ import 'package:tiled/tiled.dart' as tiled show Text;
 
 import 'package:xml/xml.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_notifier.dart';
 import '../../../widgets/dialogs/folder_picker_dialog.dart';
