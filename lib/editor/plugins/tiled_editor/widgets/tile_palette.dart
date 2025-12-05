@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 
-import '../image_load_result.dart'; // Make sure this is imported
+import 'package:machine/asset_cache/asset_models.dart'; // IMPORT THIS
 
 class TilePalette extends StatefulWidget {
   final TiledMap map;
-  final Map<String, ImageLoadResult> tilesetImages; // Use the new model
+  final Map<String, AssetData> assetDataMap; 
   final Tileset? selectedTileset;
   final Rect? selectedTileRect;
   final ValueChanged<Tileset?> onTilesetChanged;
@@ -17,12 +17,12 @@ class TilePalette extends StatefulWidget {
   final ValueChanged<DragUpdateDetails>? onResize;
   final VoidCallback? onInspectSelectedTileset;
   final VoidCallback? onDeleteSelectedTileset;
-  final VoidCallback? onClearUnusedTilesets; // Add this
+  final VoidCallback? onClearUnusedTilesets;
 
   const TilePalette({
     super.key,
     required this.map,
-    required this.tilesetImages,
+    required this.assetDataMap,
     required this.selectedTileset,
     required this.selectedTileRect,
     required this.onTilesetChanged,
@@ -251,8 +251,13 @@ class _TilePaletteState extends State<TilePalette> {
     if (imageSource == null) {
       return const Center(child: Text('Tileset has no image.'));
     }
-    final imageResult = widget.tilesetImages[imageSource];
-    final image = imageResult?.image;
+    final asset = widget.assetDataMap[imageSource];
+    final ui.Image? image;
+    if (asset is ImageAssetData) {
+      image = asset.image;
+    } else {
+      image = null;
+    }
     if (image == null) {
       // Use the inspector to fix this!
       return Center(

@@ -1375,10 +1375,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
 
-    final editorContent = assetMapAsync.when(
+    return assetMapAsync.when(
       data: (assetDataMap) {
     _fixupTilesetsAfterImageLoad(map, assetDataMap);
-    return GestureDetector(
+    final editorContent = GestureDetector(
       onTapDown: (details) =>
           _onInteractionUpdate(details.localPosition, isStart: true),
       onPanStart: (details) =>
@@ -1400,7 +1400,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           painter: TiledMapPainter(
                 map: map,
                 assetDataMap: assetDataMap, 
-            tilesetImages: notifier!.tilesetImages,
             showGrid: _showGrid,
             transform: _transformationController.value,
             selectedObjects: notifier!.selectedObjects,
@@ -1414,15 +1413,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         ),
       ),
     );
-    },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Error loading assets:\n$err', textAlign: TextAlign.center),
-        ),
-      ),
-    );
+
 
     // Get the filtered list of TileLayers that the UI will display.
     final tileLayers = notifier!.map.layers.whereType<TileLayer>().toList();
@@ -1456,7 +1447,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
             height: _paletteHeight,
             child: TilePalette(
               map: notifier!.map,
-              tilesetImages: notifier!.tilesetImages,
+                assetDataMap: assetDataMap, 
               selectedTileset: _selectedTileset,
               selectedTileRect: _selectedTileRect,
               onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
@@ -1490,6 +1481,15 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           ),
         ),
       ],
+    );
+        },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text('Error loading assets:\n$err', textAlign: TextAlign.center),
+        ),
+      ),
     );
   }
 
