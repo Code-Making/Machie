@@ -42,6 +42,7 @@ import 'package:machine/settings/settings_notifier.dart';
 import 'tiled_editor_settings_model.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
+import 'widgets/export_dialog.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -523,7 +524,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        assetDataMap: assetMap, // PASS THE MAP
+        assetDataMap: assetMap,
       ),
     );
   }
@@ -667,6 +668,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: _selectedTileset!,
+        assetDataMap: assetMap,
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
@@ -758,6 +760,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: target,
+        assetDataMap: assetMap,
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
