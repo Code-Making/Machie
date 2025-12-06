@@ -65,7 +65,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   String? _baseContentHash;
   
-  // Set<String> _requiredAssetUris = const {};
+  Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
 
@@ -261,7 +261,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           _notifier = TiledMapNotifier(map);
           _notifier!.addListener(_onMapChanged);
 
-          // _rebuildAssetUriSet();
+          _rebuildAssetUriSet();
 
           _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
           _selectedTileset = map.tilesets.firstOrNull;
@@ -283,62 +283,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     if (_notifier == null) return;
     final map = _notifier!.map;
     final uris = <String>{};
-
-    final repo = ref.read(projectRepositoryProvider)!;
-    final project = ref.read(currentProjectProvider)!;
-    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
-    final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-      tmxParentUri,
-      relativeTo: project.rootUri,
-    );
-
-    // Helper to perform the path resolution
-    String? resolveToProjectRelativePath(String rawPath, String baseDisplayPath) {
-      if (rawPath.isEmpty) return null;
-      // Combine the base path with the raw relative path from the TMX file
-      final combinedPath = p.join(baseDisplayPath, rawPath);
-      // Normalize the path to resolve any ".." or "." segments
-      final normalizedPath = p.normalize(combinedPath);
-      return normalizedPath;
-    }
-
-    // 1. Process Tilesets
-    for (final tileset in map.tilesets) {
-      final imageSource = tileset.image?.source;
-      if (imageSource != null) {
-        // Default base path is the TMX file's directory
-        var baseDisplayPath = tmxParentDisplayPath;
-
-        // If it's an external tileset (.tsx), the path is relative to the .tsx file
-        if (tileset.source != null) {
-          final tsxDisplayPath = resolveToProjectRelativePath(tileset.source!, tmxParentDisplayPath);
-          if (tsxDisplayPath != null) {
-            baseDisplayPath = p.dirname(tsxDisplayPath);
-          }
-        }
-        
-        final projectRelativePath = resolveToProjectRelativePath(imageSource, baseDisplayPath);
-        if (projectRelativePath != null) {
-          uris.add(projectRelativePath);
-        }
+    final allTiledImages = map.tiledImages();
+    for (final tiledImage in allTiledImages) {
+      if (tiledImage.source != null) {
+        uris.add(tiledImage.source!);
       }
     }
-
-    // 2. Process Image Layers
-    for (final layer in map.layers) {
-      if (layer is ImageLayer) {
-        final imageSource = layer.image.source;
-        if (imageSource != null) {
-          // Image layer paths are always relative to the TMX file
-          final projectRelativePath = resolveToProjectRelativePath(imageSource, tmxParentDisplayPath);
-          if (projectRelativePath != null) {
-            uris.add(projectRelativePath);
-          }
-        }
-      }
-    }
-
     // Update the state to trigger the assetMapProvider to re-evaluate
     if (!const SetEquality().equals(uris, _requiredAssetUris)) {
       setState(() {
@@ -531,7 +481,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    // _rebuildAssetUriSet();
+    _rebuildAssetUriSet();
     syncCommandContext();
     setState(() {});
   }
@@ -552,7 +502,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   Map<String, AssetData>? _getAssetDataMap() {
-    final assetMapAsync = ref.watch(assetMapProvider);
+    final assetMapAsync = ref.read(assetMapProvider(_requiredAssetUris));
     final assetMap = assetMapAsync.valueOrNull;
     if (assetMap == null) {
       MachineToast.info("Assets are still loading, please wait.");
@@ -1467,7 +1417,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final assetMapAsync = ref.watch(assetMapProvider);
+    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
 
     return assetMapAsync.when(
       data: (assetDataMap) {
