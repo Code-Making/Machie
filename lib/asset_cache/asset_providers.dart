@@ -1,3 +1,4 @@
+// lib/asset_cache/asset_providers.dart
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -7,14 +8,17 @@ import 'package:machine/logs/logs_provider.dart';
 import 'package:machine/project/project_settings_notifier.dart';
 import '../data/repositories/project/project_repository.dart';
 import 'asset_models.dart';
-import 'package:path/path.dart' as p;
-import 'package:collection/collection.dart';
-import '../editor/tab_metadata_notifier.dart';
 
+/// A provider that fetches, decodes, and caches a single asset by its
+/// project-relative URI.
+///
+/// It automatically listens for file system events and invalidates itself if the
+/// underlying file is modified or deleted, ensuring the UI stays reactive.
 final assetDataProvider =
     AsyncNotifierProvider.family<AssetNotifier, AssetData, String>(
   AssetNotifier.new,
 );
+
 class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
   @override
   Future<AssetData> build(String projectRelativeUri) async {
@@ -75,93 +79,31 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
   }
 }
 
-// --- NEW PROVIDER ---
-/// A provider that derives the set of all required asset URIs for the current map.
-///
-/// It watches the TiledMapNotifier and recalculates the set of URIs whenever the
-/// map's structure changes. Riverpod ensures this only recomputes when necessary
-/// and provides a stable Set object if the contents haven't changed.
-final requiredAssetUrisProvider = Provider<Set<String>>((ref) {
-  // Watch the notifier to re-run when the map changes
-  final notifier = ref.watch(tiledMapNotifierProvider);
-  if (notifier == null) return const {};
-
-  final map = notifier.map;
-  final uris = <String>{};
-
-  // The path resolution logic is moved here from the widget
-  final repo = ref.watch(projectRepositoryProvider);
-  final project = ref.watch(currentProjectProvider);
-  final currentTab = ref.watch(currentProjectProvider.select((p) => p?.session.currentTab));
-  
-  if (repo == null || project == null || currentTab == null) return const {};
-
-  final tmxFile = ref.watch(tabMetadataProvider)[currentTab.id]?.file;
-  if (tmxFile == null) return const {};
-
-  final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
-  final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-    tmxParentUri,
-    relativeTo: project.rootUri,
-  );
-
-  String? resolveToProjectRelativePath(String rawPath, String baseDisplayPath) {
-    if (rawPath.isEmpty) return null;
-    final combinedPath = p.join(baseDisplayPath, rawPath);
-    return p.normalize(combinedPath);
-  }
-
-  for (final tileset in map.tilesets) {
-    final imageSource = tileset.image?.source;
-    if (imageSource != null) {
-      var baseDisplayPath = tmxParentDisplayPath;
-      if (tileset.source != null) {
-        final tsxDisplayPath = resolveToProjectRelativePath(tileset.source!, tmxParentDisplayPath);
-        if (tsxDisplayPath != null) {
-          baseDisplayPath = p.dirname(tsxDisplayPath);
-        }
-      }
-      final projectRelativePath = resolveToProjectRelativePath(imageSource, baseDisplayPath);
-      if (projectRelativePath != null) uris.add(projectRelativePath);
-    }
-  }
-
-  for (final layer in map.layers) {
-    if (layer is ImageLayer) {
-      final imageSource = layer.image.source;
-      if (imageSource != null) {
-        final projectRelativePath = resolveToProjectRelativePath(imageSource, tmxParentDisplayPath);
-        if (projectRelativePath != null) uris.add(projectRelativePath);
-      }
-    }
-  }
-
-  return uris;
-});
-
-
 /// A secondary provider that efficiently fetches a map of multiple assets at once.
-final assetMapProvider = FutureProvider<Map<String, AssetData>>((ref) async {
-  final uris = ref.watch(requiredAssetUrisProvider);
+///
+/// It watches a set of individual [assetDataProvider] instances and returns a
+/// complete map when all of them have successfully loaded. This is the ideal
+/// provider for a UI widget to watch, as it aggregates loading states.
+final assetMapProvider =
+    FutureProvider.family<Map<String, AssetData>, Set<String>>(
+  (ref, uris) async {
+    if (uris.isEmpty) {
+      return {};
+    }
 
-  if (uris.isEmpty) {
-    return {};
-  }
+    final results = <String, AssetData>{};
+    
+    // This creates a list of futures. Watching the .future property ensures
+    // that we get the result of the AsyncNotifier without causing this
+    // provider to rebuild every time the notifier's state changes.
+    final futures = uris.map(
+      (uri) => ref.watch(assetDataProvider(uri).future)
+        .then((data) => results[uri] = data)
+    ).toList();
 
-  final results = <String, AssetData>{};
-  
-  final futures = uris.map(
-    (uri) => ref.watch(assetDataProvider(uri).future)
-      .then((data) => results[uri] = data)
-  ).toList();
+    // Wait for all assets to be fetched and decoded concurrently.
+    await Future.wait(futures);
 
-  await Future.wait(futures);
-
-  return results;
-});
-
-final tiledMapNotifierProvider = Provider<TiledMapNotifier?>((ref) {
-  final tab = ref.watch(currentProjectProvider.select((p) => p?.session.currentTab));
-  if (tab is! TiledEditorTab) return null;
-  return tab.editorKey.currentState?.notifier;
-});
+    return results;
+  },
+);
