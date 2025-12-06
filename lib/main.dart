@@ -123,6 +123,7 @@ void main() {
     talker: talker,
     settings: TalkerRiverpodLoggerSettings(
       enabled: true,
+      printProviderDisposed: true,
       printStateFullData: false, // Truncate long state objects
     ),
   );
