@@ -15,7 +15,7 @@ import 'asset_models.dart';
 /// It automatically listens for file system events and invalidates itself if the
 /// underlying file is modified or deleted, ensuring the UI stays reactive.
 final assetDataProvider =
-    AsyncNotifierProvider.family.autoDispose<AssetNotifier, AssetData, String>(
+    AsyncNotifierProvider.family<AssetNotifier, AssetData, String>(
   AssetNotifier.new,
 );
 
