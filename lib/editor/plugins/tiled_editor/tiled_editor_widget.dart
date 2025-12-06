@@ -1470,169 +1470,115 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
 
     return assetMapAsync.when(
+      skipLoadingOnReload: true,
       data: (assetDataMap) {
-    _fixupTilesetsAfterImageLoad(map, assetDataMap);
-    final editorContent = GestureDetector(
-      onTapDown: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
-      onPanStart: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
-      onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
-      onPanEnd: (details) => _onInteractionEnd(),
-      onTapUp: (details) => _onInteractionEnd(),
-      onTapCancel: _onInteractionCancel,
-      child: InteractiveViewer(
-        clipBehavior: Clip.none,
-        transformationController: _transformationController,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        minScale: 0.1,
-        maxScale: 16.0,
-        panEnabled: isZoomMode,
-        scaleEnabled: isZoomMode,
-        child: CustomPaint(
-          size: Size(mapPixelWidth, mapPixelHeight),
-          painter: TiledMapPainter(
-                map: map,
-                assetDataMap: assetDataMap, 
-            showGrid: _showGrid,
-            transform: _transformationController.value,
-            selectedObjects: notifier!.selectedObjects,
-            previewShape: _previewShape,
-            inProgressPoints: _inProgressPoints,
-            marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
-            settings: tiledSettings,
-            floatingSelection: notifier!.floatingSelection,
-            floatingSelectionPosition: notifier!.floatingSelectionPosition,
-          ),
-        ),
-      ),
-    );
-
-
-    // Get the filtered list of TileLayers that the UI will display.
-    final tileLayers = notifier!.map.layers.whereType<TileLayer>().toList();
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        editorContent,
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Card(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: const CommandToolbar(
-                  position: TiledEditorPlugin.tiledFloatingToolbar,
-                ),
+        _fixupTilesetsAfterImageLoad(map, assetDataMap);
+        final editorContent = GestureDetector(
+          onTapDown: (details) =>
+              _onInteractionUpdate(details.localPosition, isStart: true),
+          onPanStart: (details) =>
+              _onInteractionUpdate(details.localPosition, isStart: true),
+          onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
+          onPanEnd: (details) => _onInteractionEnd(),
+          onTapUp: (details) => _onInteractionEnd(),
+          onTapCancel: _onInteractionCancel,
+          child: InteractiveViewer(
+            clipBehavior: Clip.none,
+            transformationController: _transformationController,
+            boundaryMargin: const EdgeInsets.all(double.infinity),
+            minScale: 0.1,
+            maxScale: 16.0,
+            panEnabled: isZoomMode,
+            scaleEnabled: isZoomMode,
+            child: CustomPaint(
+              size: Size(mapPixelWidth, mapPixelHeight),
+              painter: TiledMapPainter(
+                    map: map,
+                    assetDataMap: assetDataMap, 
+                showGrid: _showGrid,
+                transform: _transformationController.value,
+                selectedObjects: notifier!.selectedObjects,
+                previewShape: _previewShape,
+                inProgressPoints: _inProgressPoints,
+                marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
+                settings: tiledSettings,
+                floatingSelection: notifier!.floatingSelection,
+                floatingSelectionPosition: notifier!.floatingSelectionPosition,
               ),
             ),
           ),
-        ),
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          bottom: _isPaletteVisible ? 0 : -_paletteHeight,
-          left: 0,
-          right: 0,
-          child: SizedBox(
-            height: _paletteHeight,
-            child: TilePalette(
-              map: notifier!.map,
-                assetDataMap: assetDataMap, 
-              selectedTileset: _selectedTileset,
-              selectedTileRect: _selectedTileRect,
-              onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
-              onTileSelectionChanged:
-                  (rect) => setState(() => _selectedTileRect = rect),
-              onAddTileset: _addTileset,
-              onResize: _handlePaletteResize, // Pass the callback
-              onInspectSelectedTileset: _inspectSelectedTileset,
-              onDeleteSelectedTileset: _deleteSelectedTileset,
-              onClearUnusedTilesets: _clearUnusedTilesets, // Pass the new method
+        );
+    
+    
+        // Get the filtered list of TileLayers that the UI will display.
+        final tileLayers = notifier!.map.layers.whereType<TileLayer>().toList();
+    
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            editorContent,
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Card(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: const CommandToolbar(
+                      position: TiledEditorPlugin.tiledFloatingToolbar,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          bottom: 0,
-          left: _isLayersPanelVisible ? 0 : -400,
-          width: 320,
-          child: LayersPanel(
-            layers: notifier!.map.layers, // THE FIX: Pass all layers
-            selectedLayerId: _selectedLayerId,
-            onLayerSelected: _onLayerSelect,
-            onVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
-            onLayerReorder: (oldIndex, newIndex) {
-              notifier!.reorderLayer(oldIndex, newIndex);
-            },
-            onAddLayer: _addLayer,
-            onLayerDelete: _deleteLayer,
-            onLayerInspect: _showLayerInspector,
-          ),
-        ),
-      ],
-    );
-        },
-      loading: () {
-        // If the provider is refreshing but we already have previous data,
-        // keep showing the old data to prevent a flicker.
-        if (assetMapAsync.hasValue) {
-          final previousAssetDataMap = assetMapAsync.value!;
-          _fixupTilesetsAfterImageLoad(map, previousAssetDataMap);
-          
-    final editorContent = GestureDetector(
-      onTapDown: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
-      onPanStart: (details) =>
-          _onInteractionUpdate(details.localPosition, isStart: true),
-      onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
-      onPanEnd: (details) => _onInteractionEnd(),
-      onTapUp: (details) => _onInteractionEnd(),
-      onTapCancel: _onInteractionCancel,
-      child: InteractiveViewer(
-        clipBehavior: Clip.none,
-        transformationController: _transformationController,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        minScale: 0.1,
-        maxScale: 16.0,
-        panEnabled: isZoomMode,
-        scaleEnabled: isZoomMode,
-        child: CustomPaint(
-          size: Size(mapPixelWidth, mapPixelHeight),
-          painter: TiledMapPainter(
-                  map: map,
-                  assetDataMap: previousAssetDataMap, // Use previous data here
-            showGrid: _showGrid,
-            transform: _transformationController.value,
-            selectedObjects: notifier!.selectedObjects,
-            previewShape: _previewShape,
-            inProgressPoints: _inProgressPoints,
-            marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
-            settings: tiledSettings,
-            floatingSelection: notifier!.floatingSelection,
-            floatingSelectionPosition: notifier!.floatingSelectionPosition,
-          ),
-        ),
-      ),
-    );
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              // You can optionally add a subtle loading indicator on top
-              // to signify a refresh is happening without a full-screen takeover.
-              editorContent,
-              // For example: Positioned(top: 8, left: 8, child: CircularProgressIndicator()),
-            ],
-          );
-        }
-        // Only show the centered loading spinner for the initial load.
-        return const Center(child: CircularProgressIndicator());
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              bottom: _isPaletteVisible ? 0 : -_paletteHeight,
+              left: 0,
+              right: 0,
+              child: SizedBox(
+                height: _paletteHeight,
+                child: TilePalette(
+                  map: notifier!.map,
+                    assetDataMap: assetDataMap, 
+                  selectedTileset: _selectedTileset,
+                  selectedTileRect: _selectedTileRect,
+                  onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
+                  onTileSelectionChanged:
+                      (rect) => setState(() => _selectedTileRect = rect),
+                  onAddTileset: _addTileset,
+                  onResize: _handlePaletteResize, // Pass the callback
+                  onInspectSelectedTileset: _inspectSelectedTileset,
+                  onDeleteSelectedTileset: _deleteSelectedTileset,
+                  onClearUnusedTilesets: _clearUnusedTilesets, // Pass the new method
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              bottom: 0,
+              left: _isLayersPanelVisible ? 0 : -400,
+              width: 320,
+              child: LayersPanel(
+                layers: notifier!.map.layers, // THE FIX: Pass all layers
+                selectedLayerId: _selectedLayerId,
+                onLayerSelected: _onLayerSelect,
+                onVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
+                onLayerReorder: (oldIndex, newIndex) {
+                  notifier!.reorderLayer(oldIndex, newIndex);
+                },
+                onAddLayer: _addLayer,
+                onLayerDelete: _deleteLayer,
+                onLayerInspect: _showLayerInspector,
+              ),
+            ),
+          ],
+        );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
