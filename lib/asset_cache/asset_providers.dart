@@ -23,14 +23,14 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
   @override
   Future<AssetData> build(String projectRelativeUri) async {
     final repo = ref.watch(projectRepositoryProvider);
-    final project = ref.watch(currentProjectProvider);
+    final projectRoot = ref.watch(currentProjectProvider.select((p)=>p.rootUri));
 
-    if (repo == null || project == null) {
+    if (repo == null) {
       throw Exception('Cannot load asset without an active project.');
     }
 
     final file = await repo.fileHandler.resolvePath(
-      project.rootUri,
+      projectRoot,
       projectRelativeUri,
     );
 
