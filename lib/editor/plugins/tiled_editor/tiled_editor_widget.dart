@@ -65,7 +65,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   String? _baseContentHash;
   
-  Set<String> _requiredAssetUris = const {};
+  // Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
 
@@ -261,7 +261,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           _notifier = TiledMapNotifier(map);
           _notifier!.addListener(_onMapChanged);
 
-          _rebuildAssetUriSet();
+          // _rebuildAssetUriSet();
 
           _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
           _selectedTileset = map.tilesets.firstOrNull;
@@ -531,7 +531,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    _rebuildAssetUriSet();
+    // _rebuildAssetUriSet();
     syncCommandContext();
     setState(() {});
   }
@@ -552,7 +552,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   Map<String, AssetData>? _getAssetDataMap() {
-    final assetMapAsync = ref.read(assetMapProvider(_requiredAssetUris));
+    final assetMapAsync = ref.watch(assetMapProvider);
     final assetMap = assetMapAsync.valueOrNull;
     if (assetMap == null) {
       MachineToast.info("Assets are still loading, please wait.");
@@ -1467,7 +1467,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
+    final assetMapAsync = ref.watch(assetMapProvider);
 
     return assetMapAsync.when(
       data: (assetDataMap) {
