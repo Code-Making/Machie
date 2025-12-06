@@ -552,7 +552,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   Map<String, AssetData>? _getAssetDataMap() {
-    final assetMapAsync = ref.read(assetMapProvider(_requiredAssetUris));
+    final assetMapAsync = ref.read(assetMapProvider(widget.tab.id));
     final assetMap = assetMapAsync.valueOrNull;
     if (assetMap == null) {
       MachineToast.info("Assets are still loading, please wait.");
