@@ -1577,7 +1577,62 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       ],
     );
         },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () {
+        // If the provider is refreshing but we already have previous data,
+        // keep showing the old data to prevent a flicker.
+        if (assetMapAsync.hasValue) {
+          final previousAssetDataMap = assetMapAsync.value!;
+          _fixupTilesetsAfterImageLoad(map, previousAssetDataMap);
+          
+    final editorContent = GestureDetector(
+      onTapDown: (details) =>
+          _onInteractionUpdate(details.localPosition, isStart: true),
+      onPanStart: (details) =>
+          _onInteractionUpdate(details.localPosition, isStart: true),
+      onPanUpdate: (details) => _onInteractionUpdate(details.localPosition),
+      onPanEnd: (details) => _onInteractionEnd(),
+      onTapUp: (details) => _onInteractionEnd(),
+      onTapCancel: _onInteractionCancel,
+      child: InteractiveViewer(
+        clipBehavior: Clip.none,
+        transformationController: _transformationController,
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        minScale: 0.1,
+        maxScale: 16.0,
+        panEnabled: isZoomMode,
+        scaleEnabled: isZoomMode,
+        child: CustomPaint(
+          size: Size(mapPixelWidth, mapPixelHeight),
+          painter: TiledMapPainter(
+                  map: map,
+                  assetDataMap: previousAssetDataMap, // Use previous data here
+            showGrid: _showGrid,
+            transform: _transformationController.value,
+            selectedObjects: notifier!.selectedObjects,
+            previewShape: _previewShape,
+            inProgressPoints: _inProgressPoints,
+            marqueeSelection: _mode == TiledEditorMode.paint ? _tileMarqueeSelection : _marqueeSelection,
+            settings: tiledSettings,
+            floatingSelection: notifier!.floatingSelection,
+            floatingSelectionPosition: notifier!.floatingSelectionPosition,
+          ),
+        ),
+      ),
+    );
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // You can optionally add a subtle loading indicator on top
+              // to signify a refresh is happening without a full-screen takeover.
+              editorContent,
+              // For example: Positioned(top: 8, left: 8, child: CircularProgressIndicator()),
+            ],
+          );
+        }
+        // Only show the centered loading spinner for the initial load.
+        return const Center(child: CircularProgressIndicator());
+      },
       error: (err, stack) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
