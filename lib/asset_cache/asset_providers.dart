@@ -137,7 +137,7 @@ class AssetMapNotifier
 
     // Immediately enter a loading state, but crucially, preserve the
     // previous data to prevent flickers. This is the key.
-    state = AsyncValue.loading().copyWithPrevious(state);
+    state = AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
 
     try {
       final results = <String, AssetData>{};
@@ -155,7 +155,6 @@ class AssetMapNotifier
       state = AsyncValue.data(results);
     } catch (e, st) {
       // If any asset fails, the whole operation goes into an error state.
-      state = AsyncValue.error(e, st).copyWithPrevious(state);
-    }
+      state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);    }
   }
 }
