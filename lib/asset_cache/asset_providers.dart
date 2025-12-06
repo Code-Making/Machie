@@ -1,3 +1,12 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/logs/logs_provider.dart';
+import 'package:machine/project/project_settings_notifier.dart';
+import '../data/repositories/project/project_repository.dart';
+import 'asset_models.dart';
 import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 import '../editor/tab_metadata_notifier.dart';
