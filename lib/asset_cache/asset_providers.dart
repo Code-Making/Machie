@@ -92,31 +92,70 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   }
 }
 
-/// A secondary provider that efficiently fetches a map of multiple assets at once.
+/// A NotifierProvider that manages a map of multiple assets for a specific consumer.
 ///
-/// It watches a set of individual [assetDataProvider] instances and returns a
-/// complete map when all of them have successfully loaded. This is the ideal
-/// provider for a UI widget to watch, as it aggregates loading states.
-final assetMapProvider =
-    FutureProvider.autoDispose.family<Map<String, AssetData>, Set<String>>(
-  (ref, uris) async {
-    if (uris.isEmpty) {
-      return {};
+/// Its family parameter is a stable identifier for the consumer (e.g., a tab ID),
+/// ensuring the provider instance itself persists. The set of assets it manages is
+/// updated imperatively by calling the `updateUris` method.
+final assetMapProvider = NotifierProvider.autoDispose
+    .family<AssetMapNotifier, AsyncValue<Map<String, AssetData>>, String>(
+  AssetMapNotifier.new,
+);
+
+class AssetMapNotifier
+    extends AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
+      
+  /// The set of URIs this notifier is currently responsible for.
+  Set<String> _uris = {};
+
+  @override
+  AsyncValue<Map<String, AssetData>> build(String consumerId) {
+    // The provider starts in a loading state with no data.
+    // The UI is expected to call `updateUris` to trigger the first load.
+    return const AsyncValue.data({});
+  }
+
+  /// Imperatively updates the set of asset URIs this provider should manage.
+  /// This is the main entry point for the UI.
+  Future<void> updateUris(Set<String> newUris) async {
+    // If the set of URIs hasn't changed, do nothing.
+    if (const SetEquality().equals(newUris, _uris)) {
+      return;
     }
 
-    final results = <String, AssetData>{};
-    
-    // This creates a list of futures. Watching the .future property ensures
-    // that we get the result of the AsyncNotifier without causing this
-    // provider to rebuild every time the notifier's state changes.
-    final futures = uris.map(
-      (uri) => ref.watch(assetDataProvider(uri).future)
-        .then((data) => results[uri] = data)
-    ).toList();
+    _uris = newUris;
+    await _fetchAssets();
+  }
 
-    // Wait for all assets to be fetched and decoded concurrently.
-    await Future.wait(futures);
+  /// The core logic for fetching assets and updating the provider's state.
+  Future<void> _fetchAssets() async {
+    // If there are no URIs, the state is an empty map.
+    if (_uris.isEmpty) {
+      state = const AsyncValue.data({});
+      return;
+    }
 
-    return results;
-  },
-);
+    // Immediately enter a loading state, but crucially, preserve the
+    // previous data to prevent flickers. This is the key.
+    state = AsyncValue.loading().copyWithPrevious(state);
+
+    try {
+      final results = <String, AssetData>{};
+
+      // Use Future.wait to fetch all assets concurrently.
+      // We use `ref.read` because we are in a method and don't want to
+      // create a subscription here; we just want to trigger the load and get the result.
+      final futures = _uris.map((uri) async {
+        results[uri] = await ref.read(assetDataProvider(uri).future);
+      }).toList();
+
+      await Future.wait(futures);
+
+      // Once all assets are loaded, update the state with the final map.
+      state = AsyncValue.data(results);
+    } catch (e, st) {
+      // If any asset fails, the whole operation goes into an error state.
+      state = AsyncValue.error(e, st).copyWithPrevious(state);
+    }
+  }
+}
