@@ -338,7 +338,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         }
       }
     }
-
+    ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
     // Update the state to trigger the assetMapProvider to re-evaluate
     if (!const SetEquality().equals(uris, _requiredAssetUris)) {
       setState(() {
@@ -1467,7 +1467,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final assetMapAsync = ref.watch(assetMapProvider(_requiredAssetUris));
+    final AsyncValue<Map<String, AssetData>> assetMapAsync =
+        ref.watch(assetMapProvider(widget.tab.id));
 
     return assetMapAsync.when(
       skipLoadingOnReload: true,
