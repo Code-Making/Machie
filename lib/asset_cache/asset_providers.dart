@@ -15,43 +15,26 @@ import 'asset_models.dart';
 /// It automatically listens for file system events and invalidates itself if the
 /// underlying file is modified or deleted, ensuring the UI stays reactive.
 final assetDataProvider =
-    AsyncNotifierProvider.family<AssetNotifier, AssetData, String>(
+    AsyncNotifierProvider.autoDispose.family<AssetNotifier, AssetData, String>(
   AssetNotifier.new,
 );
 
-class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
+class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   Timer? _timer;
-  KeepAliveLink? _keepAliveLink;
 
   @override
   Future<AssetData> build(String projectRelativeUri) async {
-      ref.onCancel(() {
-      // Start a timer to dispose the provider after a 5-second delay.
+    final keepAliveLink = ref.keepAlive();
+    ref.onDispose(() => _timer?.cancel());
+    ref.onCancel(() {
       _timer = Timer(const Duration(seconds: 5), () {
-        // When the timer fires, we close the keep-alive link. Since there are
-        // still no listeners, Riverpod will now proceed with disposal.
-        _keepAliveLink?.close();
+        keepAliveLink.close();
       });
-      // Immediately after cancellation, we create a keep-alive link to prevent
-      // Riverpod from disposing the state right away.
-      _keepAliveLink = ref.keepAlive();
     });
-
-    // 2. If a new listener is added before the 5-second timer completes, `onResume` is called.
     ref.onResume(() {
-      // We cancel the disposal timer because the provider is active again.
       _timer?.cancel();
-      // We also close the link, as the provider is now being kept alive by its
-      // active listener, not by our manual intervention.
-      _keepAliveLink?.close();
     });
 
-    // 3. Ensure the timer is cancelled if the provider is disposed for other reasons
-    // (e.g., manual invalidation).
-    ref.onDispose(() {
-      _timer?.cancel();
-    });
-    
     final repo = ref.watch(projectRepositoryProvider);
     final projectRoot = ref.watch(currentProjectProvider.select((p)=>p?.rootUri));
 
@@ -115,7 +98,7 @@ class AssetNotifier extends FamilyAsyncNotifier<AssetData, String> {
 /// complete map when all of them have successfully loaded. This is the ideal
 /// provider for a UI widget to watch, as it aggregates loading states.
 final assetMapProvider =
-    FutureProvider.family<Map<String, AssetData>, Set<String>>(
+    FutureProvider.autoDispose.family<Map<String, AssetData>, Set<String>>(
   (ref, uris) async {
     if (uris.isEmpty) {
       return {};
