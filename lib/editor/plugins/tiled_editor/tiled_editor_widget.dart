@@ -254,14 +254,16 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
-      if (!mounted) return;
-      setState(() {
-        _notifier = TiledMapNotifier(map);
-        _notifier!.addListener(_onMapChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _notifier = TiledMapNotifier(map);
+          _notifier!.addListener(_onMapChanged);
 
-        _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
-        _selectedTileset = map.tilesets.firstOrNull;
-        _isLoading = false;
+          _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+          _selectedTileset = map.tilesets.firstOrNull;
+          _isLoading = false;
+        });
       });
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load TMX map');
