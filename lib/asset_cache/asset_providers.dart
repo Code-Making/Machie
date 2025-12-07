@@ -104,51 +104,94 @@ final assetMapProvider = NotifierProvider.autoDispose
 
 class AssetMapNotifier
     extends AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
-      
-  /// The set of URIs this notifier is currently responsible for.
-  Set<String> _uris = {};
+  
+  // We keep track of active subscriptions so we can close them when URIs are removed.
+  final Map<String, ProviderSubscription<AsyncValue<AssetData>>> _subscriptions = {};
+  
+  // We keep a local cache of the data to emit instant updates.
+  final Map<String, AssetData> _localData = {};
 
   @override
   AsyncValue<Map<String, AssetData>> build(String consumerId) {
-    // The provider starts in a loading state with no data.
-    // The UI is expected to call `updateUris` to trigger the first load.
+    // Clean up subscriptions when this provider is disposed (e.g. tab closed)
+    ref.onDispose(() {
+      for (final sub in _subscriptions.values) {
+        sub.close();
+      }
+    });
     return const AsyncValue.data({});
   }
 
-  /// Imperatively updates the set of asset URIs this provider should manage.
-  /// This is the main entry point for the UI.
-  Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
-    if (const SetEquality().equals(newUris, _uris)) {
-      return state.valueOrNull ?? const {};
+  Future<void> updateUris(Set<String> requiredUris) async {
+    final currentUris = _subscriptions.keys.toSet();
+    
+    // 1. Remove URIs that are no longer needed
+    final urisToRemove = currentUris.difference(requiredUris);
+    for (final uri in urisToRemove) {
+      _subscriptions[uri]?.close();
+      _subscriptions.remove(uri);
+      _localData.remove(uri);
     }
 
-    _uris = newUris;
-    return await _fetchAssets();
+    // 2. Add new URIs
+    final urisToAdd = requiredUris.difference(currentUris);
+    for (final uri in urisToAdd) {
+      // We use listenManual to explicitly manage the subscription.
+      // This ensures the assetDataProvider stays alive as long as we need it.
+      final subscription = ref.listenManual<AsyncValue<AssetData>>(
+        assetDataProvider(uri),
+        (previous, next) {
+          // Whenever an individual asset changes (loaded, error, updated),
+          // we update our local cache and emit a new map state.
+          next.when(
+            data: (data) {
+              _localData[uri] = data;
+              _emitState();
+            },
+            error: (err, st) {
+              _localData[uri] = ErrorAssetData(error: err, stackTrace: st);
+              _emitState();
+            },
+            loading: () {
+              // Optionally handle loading state of individual assets if needed,
+              // but usually we just wait for data/error.
+            },
+          );
+        },
+        fireImmediately: true, // Important: get current value immediately if available
+      );
+      _subscriptions[uri] = subscription;
+    }
+
+    // 3. Handle the "Loading" state for the batch
+    // If we added new URIs, we might not have data for them yet.
+    // We check if we have data for ALL required URIs.
+    if (urisToAdd.isNotEmpty) {
+       // Wait for the futures of the NEW items so `updateUris` can be awaited
+       // by the caller (essential for the init sequence).
+       final futures = urisToAdd.map((uri) => ref.read(assetDataProvider(uri).future));
+       
+       // While waiting, we can set state to loading-with-previous if you want,
+       // OR we can just wait. Since `listenManual` fires immediately, 
+       // `_localData` might already be partially populated if cached.
+       try {
+         await Future.wait(futures);
+       } catch (e) {
+         // Individual errors are handled by the listeners above, 
+         // so we don't strictly need to catch here, but it's good practice.
+       }
+    }
+    
+    // Final emission to ensure state is consistent after the await.
+    _emitState();
   }
 
-  /// The core logic for fetching assets and updating the provider's state.
-  Future<Map<String, AssetData>> _fetchAssets() async {
-    if (_uris.isEmpty) {
-      state = const AsyncValue.data({});
-      return {};
-    }
+  void _emitState() {
+    // If we are disposing, don't emit.
+    if (_subscriptions.isEmpty && _localData.isNotEmpty) return; 
 
-    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
-
-    try {
-      final results = <String, AssetData>{};
-
-      final futures = _uris.map((uri) async {
-        results[uri] = await ref.read(assetDataProvider(uri).future);
-      }).toList();
-
-      await Future.wait(futures);
-
-      state = AsyncValue.data(results);
-      return results;
-    } catch (e, st) {
-      state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
-      rethrow;
-    }
+    // Create a new map copy to ensure immutability
+    final newState = Map<String, AssetData>.from(_localData);
+    state = AsyncValue.data(newState);
   }
 }
