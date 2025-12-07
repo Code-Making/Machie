@@ -250,11 +250,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final uris = _collectAssetUris(map);
-      await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
-
-      // This read will now succeed with data
-      final assetMapState = ref.read(assetMapProvider(widget.tab.id));
-      final assetDataMap = assetMapState.valueOrNull ?? {};
+      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
