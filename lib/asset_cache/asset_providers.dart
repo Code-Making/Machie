@@ -138,7 +138,7 @@ class AssetMapNotifier
     for (final uri in urisToAdd) {
       // We use listenManual to explicitly manage the subscription.
       // This ensures the assetDataProvider stays alive as long as we need it.
-      final subscription = ref.listenManual<AsyncValue<AssetData>>(
+      final subscription = ref.listen<AsyncValue<AssetData>>(
         assetDataProvider(uri),
         (previous, next) {
           // Whenever an individual asset changes (loaded, error, updated),
