@@ -255,7 +255,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
-
+      _onMapChanged();
       setState(() {
         _notifier = TiledMapNotifier(map);
         _notifier!.addListener(_onMapChanged);
