@@ -250,9 +250,23 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final uris = _collectAssetUris(map);
-      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).future);
       await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
+      // Now that `updateUris` has completed, we can read the provider's state.
+      // It will be either AsyncData or AsyncError.
+      final assetMapState = ref.read(assetMapProvider(widget.tab.id));
+      
+      // Check for errors during asset loading.
+      if (assetMapState.hasError) {
+        throw assetMapState.error!;
+      }
+      
+      // Get the actual data map from the state.
+      final assetDataMap = assetMapState.valueOrNull ?? {};
+      // ----------------------------------------
+
+      // Step 3: Perform the critical data hydration (the "fixup").
+      // This now receives the correct Map type.
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
