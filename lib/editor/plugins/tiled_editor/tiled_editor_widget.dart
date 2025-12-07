@@ -211,7 +211,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController = TransformationController();
     _transformationController.addListener(() => setState(() {}));
-    _initializeMapData(); 
+    _initializeAndLoadMap();
   }
 
   @override
@@ -233,41 +233,38 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     super.dispose();
   }
 
-  Future<void> _initializeMapData() async {
+  Future<void> _initializeAndLoadMap() async {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
-
       final tsxProvider = ProjectTsxProvider(repo, tmxParentUri);
-
       final tsxProviders = await ProjectTsxProvider.parseFromTmx(
         widget.tab.initialTmxContent,
         tsxProvider.getProvider,
       );
-
       final map = TileMapParser.parseTmx(
         widget.tab.initialTmxContent,
         tsxList: tsxProviders,
       );
-      
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
-      
-      // _fixupTilesetsAfterImageLoad(map, tilesetImages);
+      final uris = _collectAssetUris(map);
+      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).future);
+      await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
-      if (mounted) {
-        setState(() {
-          _notifier = TiledMapNotifier(map);
-          _notifier!.addListener(_onMapChanged);
+      _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
-          _rebuildAssetUriSet();
+      if (!mounted) return;
 
-          _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
-          _selectedTileset = map.tilesets.firstOrNull;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _notifier = TiledMapNotifier(map);
+        _notifier!.addListener(_onMapChanged);
+
+        _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+        _selectedTileset = map.tilesets.firstOrNull;
+        _isLoading = false;
+      });
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load TMX map');
       if (mounted) {
@@ -279,11 +276,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-  void _rebuildAssetUriSet() {
-    if (_notifier == null) return;
-    final map = _notifier!.map;
+  Set<String> _collectAssetUris(TiledMap map) {
     final uris = <String>{};
-
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
@@ -338,13 +332,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         }
       }
     }
+    return uris;
+  }
+  
+  void _rebuildAssetUriSet() {
+    if (_notifier == null) return;
+    final uris = _collectAssetUris(_notifier!.map);
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
-    // Update the state to trigger the assetMapProvider to re-evaluate
-    if (!const SetEquality().equals(uris, _requiredAssetUris)) {
-      setState(() {
-        _requiredAssetUris = uris;
-      });
-    }
   }
   
   Future<void> reloadImageSource({
