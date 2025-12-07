@@ -148,7 +148,7 @@ class AssetMapNotifier
       return results;
     } catch (e, st) {
       state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
-      throw;
+      rethrow;
     }
   }
 }
