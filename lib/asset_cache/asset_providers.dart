@@ -26,8 +26,10 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   Future<AssetData> build(String projectRelativeUri) async {
     final keepAliveLink = ref.keepAlive();
     ref.onDispose(() {
-      _cacheTimer?.cancel();
-      keepAlive.close(); // Ensure it's closed on dispose
+      _timer?.cancel();
+      _timer = Timer(const Duration(seconds: 5), () {
+        keepAliveLink.close();
+      });
     });
     ref.onCancel(() {
       _timer = Timer(const Duration(seconds: 5), () {
