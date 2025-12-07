@@ -109,29 +109,38 @@ final assetMapProvider = NotifierProvider.autoDispose
 
 class AssetMapNotifier
     extends AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
-      
+  
   /// The set of URIs this notifier is currently responsible for.
   Set<String> _uris = {};
-  
-  /// Store subscriptions to asset providers for proper lifecycle management
+
+  /// Store subscriptions to asset providers for proper lifecycle management.
   final List<ProviderSubscription> _assetSubscriptions = [];
+  
+  /// Keep-alive timer to prevent flickering on quick tab switches.
+  Timer? _keepAliveTimer;
 
   @override
   AsyncValue<Map<String, AssetData>> build(String consumerId) {
-    // Clear any existing subscriptions when rebuilding
-    _cleanupSubscriptions();
-    
-    // When the provider is disposed, clean up all subscriptions
+    // --- Keep-Alive Logic ---
+    final link = ref.keepAlive();
     ref.onDispose(() {
       _cleanupSubscriptions();
+      _keepAliveTimer?.cancel();
     });
+    ref.onCancel(() {
+      _keepAliveTimer = Timer(const Duration(seconds: 5), () {
+        link.close();
+      });
+    });
+    ref.onResume(() {
+      _keepAliveTimer?.cancel();
+    });
+    // ------------------------
 
-    // The provider starts in a loading state with no data.
-    // The UI is expected to call `updateUris` to trigger the first load.
     return const AsyncValue.data({});
   }
 
-  /// Clean up all existing asset provider subscriptions
+  /// Clean up all existing asset provider subscriptions.
   void _cleanupSubscriptions() {
     for (final subscription in _assetSubscriptions) {
       subscription.close();
@@ -139,90 +148,100 @@ class AssetMapNotifier
     _assetSubscriptions.clear();
   }
 
-  /// Update the tracked URIs and set up proper listeners for each asset
-  void _updateTrackedUris(Set<String> newUris) {
-    // Create listeners for new URIs
-    for (final uri in newUris) {
-      final assetProvider = assetDataProvider(uri);
-      
-      // Listen to each asset provider
-      final subscription = ref.listen<AsyncValue<AssetData>>(
-        assetProvider,
-        (previous, next) {
-          // When an asset updates, update our map
-          if (next is AsyncData<AssetData>) {
-            final currentData = state.valueOrNull ?? {};
-            final updatedData = Map<String, AssetData>.from(currentData);
-            updatedData[uri] = next.value;
-            state = AsyncValue.data(updatedData);
-          } else if (next is AsyncError<AssetData>) {
-            // Handle errors for individual assets
-            final currentData = state.valueOrNull ?? {};
-            final updatedData = Map<String, AssetData>.from(currentData);
-            updatedData[uri] = ErrorAssetData(
-              error: next.error,
-              stackTrace: next.stackTrace,
-            );
-            state = AsyncValue.data(updatedData);
-          }
-        },
-      );
-      
-      _assetSubscriptions.add(subscription);
-    }
-  }
-
   /// Imperatively updates the set of asset URIs this provider should manage.
-  /// This is the main entry point for the UI.
-  Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
+  /// Returns a Future that completes when the initial load of these assets is done.
+  Future<void> updateUris(Set<String> newUris) async {
+    // Optimization: If the set hasn't changed, do nothing.
     if (const SetEquality().equals(newUris, _uris)) {
-      return state.valueOrNull ?? const {};
+      return;
     }
 
-    // Update tracked URIs
     _uris = newUris;
     
-    // Clean up old subscriptions and create new ones
+    // Stop listening to old assets immediately.
     _cleanupSubscriptions();
-    _updateTrackedUris(newUris);
 
-    return await _fetchAssets();
+    // 1. Enter loading state, but keep previous data to prevent UI flicker.
+    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
+
+    // 2. Perform the initial fetch and setup listeners.
+    await _fetchAndSetupListeners();
   }
 
-  /// The core logic for fetching assets and updating the provider's state.
-  Future<Map<String, AssetData>> _fetchAssets() async {
+  /// Fetches all current URIs and then establishes listeners for future changes.
+  Future<void> _fetchAndSetupListeners() async {
     if (_uris.isEmpty) {
       state = const AsyncValue.data({});
-      return {};
+      return;
     }
-
-    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
 
     try {
       final results = <String, AssetData>{};
 
-      // Use watch instead of read to establish proper dependency tracking
-      for (final uri in _uris) {
-        final assetAsync = ref.watch(assetDataProvider(uri));
-        
-        if (assetAsync is AsyncData<AssetData>) {
-          results[uri] = assetAsync.value;
-        } else if (assetAsync is AsyncError<AssetData>) {
-          results[uri] = ErrorAssetData(
-            error: assetAsync.error,
-            stackTrace: assetAsync.stackTrace,
-          );
-        } else {
-          // Still loading - use a placeholder or rethrow
-          throw Exception('Asset $uri is still loading');
+      // 3. Fetch all assets concurrently using read(... .future).
+      // We do NOT use ref.listen here yet. We want the initial snapshot.
+      final futures = _uris.map((uri) async {
+        try {
+          // We assume assetDataProvider returns AssetData (or throws).
+          // ErrorAssetData is a subtype of AssetData, so we check for it manually if needed,
+          // or catch actual Exceptions thrown by the provider.
+          final data = await ref.read(assetDataProvider(uri).future);
+          results[uri] = data;
+        } catch (e, st) {
+          results[uri] = ErrorAssetData(error: e, stackTrace: st);
         }
+      }).toList();
+
+      await Future.wait(futures);
+
+      // 4. Update state with the fully loaded map.
+      state = AsyncValue.data(results);
+
+      // 5. Now that we have data, set up listeners for *reactive* updates.
+      // If a file changes on disk later, these listeners will fire.
+      for (final uri in _uris) {
+        final sub = ref.listen<AsyncValue<AssetData>>(
+          assetDataProvider(uri),
+          (previous, next) {
+            _onAssetChanged(uri, next);
+          },
+        );
+        _assetSubscriptions.add(sub);
       }
 
-      state = AsyncValue.data(results);
-      return results;
     } catch (e, st) {
+      // If the batch fetch fails completely (rare, as we catch individual errors above),
+      // set the whole map state to error.
       state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
-      rethrow;
+    }
+  }
+
+  /// Callback when a single underlying asset changes (e.g. file modified on disk).
+  void _onAssetChanged(String uri, AsyncValue<AssetData> nextAssetValue) {
+    // We only care about data or specific error states. 
+    // We generally ignore 'loading' states from individual assets to prevent partial map flickers.
+    
+    AssetData? newData;
+    
+    if (nextAssetValue is AsyncData<AssetData>) {
+      newData = nextAssetValue.value;
+    } else if (nextAssetValue is AsyncError<AssetData>) {
+      newData = ErrorAssetData(
+        error: nextAssetValue.error, 
+        stackTrace: nextAssetValue.stackTrace
+      );
+    }
+
+    if (newData != null) {
+      // Gracefully update the map.
+      // We use .valueOrNull because we established the data in _fetchAndSetupListeners.
+      final currentMap = state.valueOrNull ?? {};
+      
+      // Create a shallow copy of the map to ensure immutability
+      final newMap = Map<String, AssetData>.from(currentMap);
+      newMap[uri] = newData;
+      
+      state = AsyncValue.data(newMap);
     }
   }
 }
