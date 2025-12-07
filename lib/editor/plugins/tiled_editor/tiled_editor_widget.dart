@@ -211,7 +211,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     _baseContentHash = widget.tab.initialBaseContentHash;
     _transformationController = TransformationController();
     _transformationController.addListener(() => setState(() {}));
-    _initializeAndLoadMap();
   }
 
   @override
@@ -222,7 +221,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     if (_baseContentHash == "new_map") {
       ref.read(editorServiceProvider).markCurrentTabDirty();
     }
-    syncCommandContext(); // Set initial context
+    _initializeAndLoadMap();
+    syncCommandContext();
   }
 
   @override
@@ -255,7 +255,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
-      _onMapChanged();
       setState(() {
         _notifier = TiledMapNotifier(map);
         _notifier!.addListener(_onMapChanged);
