@@ -153,7 +153,7 @@ class AssetMapNotifier
   Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
     // Optimization: If the set hasn't changed, do nothing.
     if (const SetEquality().equals(newUris, _uris)) {
-      return;
+      return state.valueOrNull ?? const {};
     }
 
     _uris = newUris;
@@ -172,7 +172,7 @@ class AssetMapNotifier
   Future<Map<String, AssetData>> _fetchAndSetupListeners() async {
     if (_uris.isEmpty) {
       state = const AsyncValue.data({});
-      return;
+      return {};
     }
 
     try {
@@ -213,6 +213,7 @@ class AssetMapNotifier
       // If the batch fetch fails completely (rare, as we catch individual errors above),
       // set the whole map state to error.
       state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
+      rethrow;
     }
   }
 
