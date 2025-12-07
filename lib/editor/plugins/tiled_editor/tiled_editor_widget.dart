@@ -254,7 +254,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
       // Now that `updateUris` has completed, we can read the provider's state.
       // It will be either AsyncData or AsyncError.
-      final assetMapState = ref.read(assetMapProvider(widget.tab.id));
+      final assetMapState = await ref.read(assetMapProvider(widget.tab.id));
       
       // Check for errors during asset loading.
       if (assetMapState.hasError) {
