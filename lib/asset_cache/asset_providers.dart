@@ -150,7 +150,7 @@ class AssetMapNotifier
 
   /// Imperatively updates the set of asset URIs this provider should manage.
   /// Returns a Future that completes when the initial load of these assets is done.
-  Future<void> updateUris(Set<String> newUris) async {
+  Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
     // Optimization: If the set hasn't changed, do nothing.
     if (const SetEquality().equals(newUris, _uris)) {
       return;
@@ -165,11 +165,11 @@ class AssetMapNotifier
     state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
 
     // 2. Perform the initial fetch and setup listeners.
-    await _fetchAndSetupListeners();
+    return await _fetchAndSetupListeners();
   }
 
   /// Fetches all current URIs and then establishes listeners for future changes.
-  Future<void> _fetchAndSetupListeners() async {
+  Future<Map<String, AssetData>> _fetchAndSetupListeners() async {
     if (_uris.isEmpty) {
       state = const AsyncValue.data({});
       return;
@@ -208,7 +208,7 @@ class AssetMapNotifier
         );
         _assetSubscriptions.add(sub);
       }
-
+      return results;
     } catch (e, st) {
       // If the batch fetch fails completely (rare, as we catch individual errors above),
       // set the whole map state to error.
