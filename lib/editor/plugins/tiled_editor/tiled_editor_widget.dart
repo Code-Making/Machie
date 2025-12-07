@@ -250,20 +250,25 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final uris = _collectAssetUris(map);
-      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+      await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+
+      // This read will now succeed with data
+      final assetMapState = ref.read(assetMapProvider(widget.tab.id));
+      final assetDataMap = assetMapState.valueOrNull ?? {};
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _notifier = TiledMapNotifier(map);
-          _notifier!.addListener(_onMapChanged);
+      if (!mounted) return;
+      setState(() {
+        _notifier = TiledMapNotifier(map);
+        _notifier!.addListener(_onMapChanged);
 
-          _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
-          _selectedTileset = map.tilesets.firstOrNull;
-          _isLoading = false;
-        });
+        _selectedLayerId = map.layers.whereType<TileLayer>().firstOrNull?.id ?? -1;
+        _selectedTileset = map.tilesets.firstOrNull;
+        _isLoading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onMapChanged();
       });
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load TMX map');
