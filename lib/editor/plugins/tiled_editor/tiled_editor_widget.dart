@@ -252,16 +252,18 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final uris = _collectAssetUris(map);
       await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
-      // Now that `updateUris` has completed, we can read the provider's state
-      // and handle its different states using `whenData`.
+// Now that `updateUris` has completed, we can read the provider's state.
+      // It will be either AsyncData or AsyncError.
       final assetMapState = ref.read(assetMapProvider(widget.tab.id));
 
-      late final Map<String, TiledAsset> assetDataMap;
-      assetMapState.whenData((data) {
-        assetDataMap = data;
-      }).whenError((error, stackTrace) {
-        throw error;
-      });      // ----------------------------------------
+      // Get the actual data map from the state.
+      final assetDataMap = assetMapState.when(
+        data: (data) => data,
+        loading: () => {}, // Handle loading state if necessary, though unlikely here
+        error: (error, _) {
+          throw error; // Re-throw the error to be caught by a higher-level error handler
+        },
+      );      // ----------------------------------------
 
       // Step 3: Perform the critical data hydration (the "fixup").
       // This now receives the correct Map type.
