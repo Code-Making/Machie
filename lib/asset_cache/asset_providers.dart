@@ -25,7 +25,10 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   @override
   Future<AssetData> build(String projectRelativeUri) async {
     final keepAliveLink = ref.keepAlive();
-    ref.onDispose(() => _timer?.cancel());
+    ref.onDispose(() {
+      _cacheTimer?.cancel();
+      keepAlive.close(); // Ensure it's closed on dispose
+    });
     ref.onCancel(() {
       _timer = Timer(const Duration(seconds: 5), () {
         keepAliveLink.close();
@@ -107,12 +110,64 @@ class AssetMapNotifier
       
   /// The set of URIs this notifier is currently responsible for.
   Set<String> _uris = {};
+  
+  /// Store subscriptions to asset providers for proper lifecycle management
+  final List<ProviderSubscription> _assetSubscriptions = [];
 
   @override
   AsyncValue<Map<String, AssetData>> build(String consumerId) {
+    // Clear any existing subscriptions when rebuilding
+    _cleanupSubscriptions();
+    
+    // When the provider is disposed, clean up all subscriptions
+    ref.onDispose(() {
+      _cleanupSubscriptions();
+    });
+
     // The provider starts in a loading state with no data.
     // The UI is expected to call `updateUris` to trigger the first load.
     return const AsyncValue.data({});
+  }
+
+  /// Clean up all existing asset provider subscriptions
+  void _cleanupSubscriptions() {
+    for (final subscription in _assetSubscriptions) {
+      subscription.close();
+    }
+    _assetSubscriptions.clear();
+  }
+
+  /// Update the tracked URIs and set up proper listeners for each asset
+  void _updateTrackedUris(Set<String> newUris) {
+    // Create listeners for new URIs
+    for (final uri in newUris) {
+      final assetProvider = assetDataProvider(uri);
+      
+      // Listen to each asset provider
+      final subscription = ref.listen<AsyncValue<AssetData>>(
+        assetProvider,
+        (previous, next) {
+          // When an asset updates, update our map
+          if (next is AsyncData<AssetData>) {
+            final currentData = state.valueOrNull ?? {};
+            final updatedData = Map<String, AssetData>.from(currentData);
+            updatedData[uri] = next.value;
+            state = AsyncValue.data(updatedData);
+          } else if (next is AsyncError<AssetData>) {
+            // Handle errors for individual assets
+            final currentData = state.valueOrNull ?? {};
+            final updatedData = Map<String, AssetData>.from(currentData);
+            updatedData[uri] = ErrorAssetData(
+              error: next.error,
+              stackTrace: next.stackTrace,
+            );
+            state = AsyncValue.data(updatedData);
+          }
+        },
+      );
+      
+      _assetSubscriptions.add(subscription);
+    }
   }
 
   /// Imperatively updates the set of asset URIs this provider should manage.
@@ -122,7 +177,13 @@ class AssetMapNotifier
       return state.valueOrNull ?? const {};
     }
 
+    // Update tracked URIs
     _uris = newUris;
+    
+    // Clean up old subscriptions and create new ones
+    _cleanupSubscriptions();
+    _updateTrackedUris(newUris);
+
     return await _fetchAssets();
   }
 
@@ -138,11 +199,22 @@ class AssetMapNotifier
     try {
       final results = <String, AssetData>{};
 
-      final futures = _uris.map((uri) async {
-        results[uri] = await ref.read(assetDataProvider(uri).future);
-      }).toList();
-
-      await Future.wait(futures);
+      // Use watch instead of read to establish proper dependency tracking
+      for (final uri in _uris) {
+        final assetAsync = ref.watch(assetDataProvider(uri));
+        
+        if (assetAsync is AsyncData<AssetData>) {
+          results[uri] = assetAsync.value;
+        } else if (assetAsync is AsyncError<AssetData>) {
+          results[uri] = ErrorAssetData(
+            error: assetAsync.error,
+            stackTrace: assetAsync.stackTrace,
+          );
+        } else {
+          // Still loading - use a placeholder or rethrow
+          throw Exception('Asset $uri is still loading');
+        }
+      }
 
       state = AsyncValue.data(results);
       return results;
