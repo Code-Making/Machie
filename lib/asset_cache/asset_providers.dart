@@ -117,44 +117,38 @@ class AssetMapNotifier
 
   /// Imperatively updates the set of asset URIs this provider should manage.
   /// This is the main entry point for the UI.
-  Future<void> updateUris(Set<String> newUris) async {
-    // If the set of URIs hasn't changed, do nothing.
+  Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
     if (const SetEquality().equals(newUris, _uris)) {
-      return;
+      return state.valueOrNull ?? const {};
     }
 
     _uris = newUris;
-    await _fetchAssets();
+    return await _fetchAssets();
   }
 
   /// The core logic for fetching assets and updating the provider's state.
-  Future<void> _fetchAssets() async {
-    // If there are no URIs, the state is an empty map.
+  Future<Map<String, AssetData>> _fetchAssets() async {
     if (_uris.isEmpty) {
       state = const AsyncValue.data({});
-      return;
+      return {};
     }
 
-    // Immediately enter a loading state, but crucially, preserve the
-    // previous data to prevent flickers. This is the key.
-    state = AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
+    state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
 
     try {
       final results = <String, AssetData>{};
 
-      // Use Future.wait to fetch all assets concurrently.
-      // We use `ref.read` because we are in a method and don't want to
-      // create a subscription here; we just want to trigger the load and get the result.
       final futures = _uris.map((uri) async {
         results[uri] = await ref.read(assetDataProvider(uri).future);
       }).toList();
 
       await Future.wait(futures);
 
-      // Once all assets are loaded, update the state with the final map.
       state = AsyncValue.data(results);
+      return results;
     } catch (e, st) {
-      // If any asset fails, the whole operation goes into an error state.
-      state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);    }
+      state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
+      throw;
+    }
   }
 }

@@ -250,23 +250,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
       final uris = _collectAssetUris(map);
-      await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
-// Now that `updateUris` has completed, we can read the provider's state.
-      // It will be either AsyncData or AsyncError.
-      final assetMapState = ref.read(assetMapProvider(widget.tab.id));
-
-      // Get the actual data map from the state.
-      final assetDataMap = assetMapState.when(
-        data: (data) => data,
-        loading: () => {}, // Handle loading state if necessary, though unlikely here
-        error: (error, _) {
-          throw error; // Re-throw the error to be caught by a higher-level error handler
-        },
-      );      // ----------------------------------------
-
-      // Step 3: Perform the critical data hydration (the "fixup").
-      // This now receives the correct Map type.
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
@@ -1481,7 +1466,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     return assetMapAsync.when(
       skipLoadingOnReload: true,
       data: (assetDataMap) {
-        _fixupTilesetsAfterImageLoad(map, assetDataMap);
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
