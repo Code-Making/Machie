@@ -8,6 +8,7 @@ import 'package:machine/logs/logs_provider.dart';
 import 'package:machine/project/project_settings_notifier.dart';
 import '../data/repositories/project/project_repository.dart';
 import 'asset_models.dart';
+import 'asset_loader_registry.dart';
 
 /// A provider that fetches, decodes, and caches a single asset by its
 /// project-relative URI.
@@ -55,10 +56,15 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
     if (file == null) {
       throw Exception('Asset not found at path: $projectRelativeUri');
     }
+    
+    final registry = ref.read(assetLoaderRegistryProvider);
+    final loader = registry.getLoader(file);
 
-    // CORRECTED: Listen to the provider itself, which emits AsyncValue state.
+    if (loader == null) {
+      throw Exception('No loader registered for file type: ${file.name}');
+    }
+    
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
-      // CORRECTED: 'next' is an AsyncValue, so we can use .asData.
       final event = next.asData?.value;
       if (event == null) return;
 
@@ -68,6 +74,7 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       } else if (event is FileDeleteEvent) {
         eventUri = event.deletedFile.uri;
       } else if (event is FileRenameEvent) {
+        // FIXME: check this logic
         if (event.oldFile.uri == file.uri) {
           // If the file we are watching is renamed, it's effectively gone.
           ref.invalidateSelf();
@@ -86,10 +93,7 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
     });
 
     try {
-      final bytes = await repo.readFileAsBytes(file.uri);
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      return ImageAssetData(image: frame.image);
+      return await loader.load(ref, file, repo);
     } catch (e, st) {
       ref.read(talkerProvider).handle(e, st, 'Failed to load asset: $projectRelativeUri');
       return ErrorAssetData(error: e, stackTrace: st);

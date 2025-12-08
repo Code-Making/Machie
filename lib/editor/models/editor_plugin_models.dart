@@ -14,6 +14,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
 import '../../data/content_provider/file_content_provider.dart';
+import 'asset_loader_registry.dart';
 
 export '../../settings/settings_models.dart';
 
@@ -117,6 +118,11 @@ abstract class EditorPlugin {
   /// The adapter for serializing/deserializing the DTO.
   /// Must be implemented if the plugin supports caching.
   TypeAdapter<TabHotStateDto>? get hotStateAdapter;
+
+  /// A list of [AssetLoader]s that this plugin introduces.
+  /// This allows the plugin to define how to load custom file types 
+  /// into the shared cache.
+  List<AssetLoader> get assetLoaders => [];
 
   // --- Abstract Methods (Must be Implemented) ---
 
