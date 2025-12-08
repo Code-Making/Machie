@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/project/project_repository.dart';
 import '../project/project_models.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
 
 /// A sealed class representing the state of a cached asset.
 @immutable
@@ -26,4 +27,9 @@ class ErrorAssetData extends AssetData {
   final Object error;
   final StackTrace? stackTrace;
   const ErrorAssetData({required this.error, this.stackTrace});
+}
+
+class ImageAssetData extends AssetData {
+  final ui.Image image;
+  const ImageAssetData({required this.image});
 }
