@@ -1,6 +1,5 @@
 import 'dart:ui' as ui;
 import 'asset_models.dart';
-import 'asset_loader_registry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/editor/plugins/editor_plugin_registry.dart';

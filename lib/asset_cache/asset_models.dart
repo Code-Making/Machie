@@ -1,6 +1,9 @@
 // lib/asset_cache/asset_models.dart
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/repositories/project/project_repository.dart';
+import '../project/project_models.dart';
 
 /// A sealed class representing the state of a cached asset.
 @immutable
