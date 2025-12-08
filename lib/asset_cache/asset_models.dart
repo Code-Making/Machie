@@ -4,18 +4,20 @@ import 'package:flutter/foundation.dart';
 
 /// A sealed class representing the state of a cached asset.
 @immutable
-sealed class AssetData {
+abstract class AssetData {
   const AssetData();
   
   bool get hasError => this is ErrorAssetData;
 }
 
-/// Represents a successfully loaded and decoded image asset.
-class ImageAssetData extends AssetData {
-  final ui.Image image;
-  const ImageAssetData({required this.image});
-}
+abstract class AssetLoader<T extends AssetData> {
+  /// Returns true if this loader can handle the file (e.g. based on extension).
+  bool canLoad(ProjectDocumentFile file);
 
+  /// Loads and decodes the asset.
+  /// [ref] is provided to access other providers/services if needed.
+  Future<T> load(Ref ref, ProjectDocumentFile file, ProjectRepository repo);
+}
 /// Represents an asset that failed to load.
 class ErrorAssetData extends AssetData {
   final Object error;
