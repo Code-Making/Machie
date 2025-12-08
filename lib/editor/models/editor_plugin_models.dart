@@ -14,7 +14,7 @@ import '../../data/file_handler/file_handler.dart';
 import '../../settings/settings_models.dart';
 import 'editor_tab_models.dart';
 import '../../data/content_provider/file_content_provider.dart';
-import 'asset_loader_registry.dart';
+import '../../asset_cache/asset_models.dart';
 
 export '../../settings/settings_models.dart';
 

@@ -6,10 +6,7 @@ import 'package:machine/editor/plugins/editor_plugin_registry.dart';
 import '../data/repositories/project/project_repository.dart';
 import '../project/project_models.dart';
 
-class ImageAssetData extends AssetData {
-  final ui.Image image;
-  const ImageAssetData({required this.image});
-}
+
 
 class CoreImageAssetLoader implements AssetLoader<ImageAssetData> {
   static const _extensions = {'png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'};
