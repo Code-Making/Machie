@@ -241,9 +241,9 @@ class EditorService {
           .clearTabState(project.id, tab.id);
       editorState.onSaveSuccess(newHash);
 
-      _ref
-          .read(fileOperationControllerProvider)
-          .add(FileCreateEvent(createdFile: newFile));
+      // _ref
+      //     .read(fileOperationControllerProvider)
+      //     .add(FileCreateEvent(createdFile: newFile));
       MachineToast.info("Saved as ${newFile.name}");
     } catch (e, st) {
       _ref.read(talkerProvider).handle(e, st, 'Save As operation failed');

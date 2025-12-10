@@ -99,6 +99,7 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
     final persistenceRegistry = _ref.read(persistenceStrategyRegistryProvider);
     final persistenceFactory = persistenceRegistry[metadata.persistenceTypeId];
     final sharedPrefs = _ref.read(sharedPreferencesProvider).value;
+    final eventController = _ref.read(fileOperationControllerProvider);
 
     if (persistenceFactory == null) {
       throw StateError(
@@ -110,9 +111,9 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
     }
 
     final persistenceStrategy = persistenceFactory.create(
-      metadata: metadata, // Pass full metadata
+      metadata: metadata,
       fileHandler: fileHandler,
-      prefs: sharedPrefs, // Pass the SharedPreferences instance
+      prefs: sharedPrefs,
       projectStateJson: projectStateJson,
     );
 
@@ -120,6 +121,7 @@ class LocalProjectTypeHandler implements ProjectTypeHandler {
       rootUri: metadata.rootUri,
       fileHandler: fileHandler,
       persistenceStrategy: persistenceStrategy,
+      eventController: eventController,
     );
   }
 

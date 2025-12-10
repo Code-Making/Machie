@@ -86,60 +86,37 @@ class ExplorerService {
     String projectRootUri,
     String relativePath,
   ) async {
-    final result = await _repo.fileHandler.createDirectoryAndFile(
+    final result = await _repo.createDirectoryAndFile(
       projectRootUri,
       relativePath,
     );
-
-    final eventController = _ref.read(fileOperationControllerProvider);
-
-    // Fire events for all the newly created parent directories.
-    for (final dir in result.createdDirs) {
-      eventController.add(FileCreateEvent(createdFile: dir));
-    }
-
-    // Fire the event for the final file.
-    eventController.add(FileCreateEvent(createdFile: result.file));
-
     _talker.info('Created file with hierarchy: "$relativePath"');
     return result.file;
   }
 
   Future<void> createFile(String parentUri, String name) async {
-    final newFile = await _repo.createDocumentFile(
+    await _repo.createDocumentFile(
       parentUri,
       name,
       isDirectory: false,
     );
-    _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: newFile));
   }
 
   Future<void> createFolder(String parentUri, String name) async {
-    final newFolder = await _repo.createDocumentFile(
+    await _repo.createDocumentFile(
       parentUri,
       name,
       isDirectory: true,
     );
-    _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: newFolder));
   }
 
   Future<void> deleteItem(ProjectDocumentFile item) async {
     await _repo.deleteDocumentFile(item);
-    _ref
-        .read(fileOperationControllerProvider)
-        .add(FileDeleteEvent(deletedFile: item));
   }
 
   Future<void> renameItem(ProjectDocumentFile item, String newName) async {
     try {
       final renamedFile = await _repo.renameDocumentFile(item, newName);
-      _ref
-          .read(fileOperationControllerProvider)
-          .add(FileRenameEvent(oldFile: item, newFile: renamedFile));
       _talker.info('Renamed "${item.name}" to "${renamedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to rename item: ${item.name}');
@@ -160,15 +137,9 @@ class ExplorerService {
       }
 
       if (clipboardItem.operation == ClipboardOperation.copy) {
-        final copiedFile = await _repo.copyDocumentFile(
+        await _repo.copyDocumentFile(
           sourceFile,
           destinationFolder.uri,
-        );
-        _ref
-            .read(fileOperationControllerProvider)
-            .add(FileCreateEvent(createdFile: copiedFile));
-        _talker.info(
-          'Pasted (copy) "${copiedFile.name}" into "${destinationFolder.name}"',
         );
       } else {
         await moveItem(sourceFile, destinationFolder);
@@ -192,13 +163,10 @@ class ExplorerService {
       return;
     }
     try {
-      final movedFile = await _repo.moveDocumentFile(
+      await _repo.moveDocumentFile(
         source,
         destinationFolder.uri,
       );
-      _ref
-          .read(fileOperationControllerProvider)
-          .add(FileRenameEvent(oldFile: source, newFile: movedFile));
       _talker.info('Moved "${source.name}" into "${destinationFolder.name}"');
     } catch (e, st) {
       _talker.handle(
@@ -217,14 +185,10 @@ class ExplorerService {
     String projectRootUri,
   ) async {
     try {
-      final importedFile = await _repo.copyDocumentFile(
+      await _repo.copyDocumentFile(
         pickedFile,
         projectRootUri,
       );
-      _ref
-          .read(fileOperationControllerProvider)
-          .add(FileCreateEvent(createdFile: importedFile));
-      _talker.info('Imported file: "${importedFile.name}"');
     } catch (e, st) {
       _talker.handle(e, st, 'Failed to import file: ${pickedFile.name}');
       MachineToast.error("Failed to import '${pickedFile.name}'.");

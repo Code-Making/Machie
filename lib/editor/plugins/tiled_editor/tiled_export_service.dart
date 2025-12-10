@@ -150,10 +150,9 @@ class TiledExportService {
         initialBytes: atlasImageBytes,
         overwrite: true,
       );
-      
-        _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: atlasFile));
+        // _ref
+        // .read(fileOperationControllerProvider)
+        // .add(FileCreateEvent(createdFile: atlasFile));
 
     }
     
@@ -164,9 +163,9 @@ class TiledExportService {
       overwrite: true,
     );
     
-        _ref
-        .read(fileOperationControllerProvider)
-        .add(FileCreateEvent(createdFile: mapFile));
+        // _ref
+        // .read(fileOperationControllerProvider)
+        // .add(FileCreateEvent(createdFile: mapFile));
 
 
     talker.info('Export complete: $mapFileName');
