@@ -7,11 +7,9 @@ import '../../dto/project_dto.dart';
 import '../../file_handler/file_handler.dart';
 import 'project_state_persistence_strategy.dart';
 
-// ... (FileOperationEvent and related providers are unchanged) ...
 sealed class FileOperationEvent {
   const FileOperationEvent();
 }
-
 
 class FileCreateEvent extends FileOperationEvent {
   final ProjectDocumentFile createdFile;
@@ -64,6 +62,9 @@ class ProjectRepository {
   /// Handles direct file system operations.
   final FileHandler fileHandler;
 
+  // The event controller for broadcasting file system events.
+  final StreamController<FileOperationEvent> _eventController;
+
   /// Handles loading and saving of the project's session state DTO.
   final ProjectStatePersistenceStrategy persistenceStrategy;
 
@@ -71,7 +72,8 @@ class ProjectRepository {
     required this.rootUri,
     required this.fileHandler,
     required this.persistenceStrategy,
-  });
+    required StreamController<FileOperationEvent> eventController,
+  }) : _eventController = eventController;
 
   // --- Persistence Methods (Delegated) ---
 
@@ -92,8 +94,8 @@ class ProjectRepository {
     String? initialContent,
     Uint8List? initialBytes,
     bool overwrite = false,
-  }) {
-    return fileHandler.createDocumentFile(
+  }) async {
+    final file = await fileHandler.createDocumentFile(
       parentUri,
       name,
       isDirectory: isDirectory,
@@ -101,31 +103,66 @@ class ProjectRepository {
       initialBytes: initialBytes,
       overwrite: overwrite,
     );
+    _eventController.add(FileCreateEvent(createdFile: file));
+    return file;
   }
 
-  Future<void> deleteDocumentFile(ProjectDocumentFile file) {
-    return fileHandler.deleteDocumentFile(file);
+  Future<void> deleteDocumentFile(ProjectDocumentFile file) async {
+    await fileHandler.deleteDocumentFile(file);
+    _eventController.add(FileDeleteEvent(deletedFile: file));
   }
 
   Future<ProjectDocumentFile> renameDocumentFile(
     ProjectDocumentFile file,
     String newName,
-  ) {
-    return fileHandler.renameDocumentFile(file, newName);
+  ) async {
+    final newFile = await fileHandler.renameDocumentFile(file, newName);
+    _eventController.add(FileRenameEvent(oldFile: file, newFile: newFile));
+    return newFile;
   }
 
   Future<ProjectDocumentFile> copyDocumentFile(
     ProjectDocumentFile source,
     String destinationParentUri,
-  ) {
-    return fileHandler.copyDocumentFile(source, destinationParentUri);
+  ) async {
+    final newFile = await fileHandler.copyDocumentFile(
+      source,
+      destinationParentUri,
+    );
+    _eventController.add(FileCreateEvent(createdFile: newFile));
+    return newFile;
   }
 
   Future<ProjectDocumentFile> moveDocumentFile(
     ProjectDocumentFile source,
     String destinationParentUri,
-  ) {
-    return fileHandler.moveDocumentFile(source, destinationParentUri);
+  ) async {
+    final newFile = await fileHandler.moveDocumentFile(
+      source,
+      destinationParentUri,
+    );
+    _eventController.add(FileRenameEvent(oldFile: source, newFile: newFile));
+    return newFile;
+  }
+  
+  Future<({ProjectDocumentFile file, List<ProjectDocumentFile> createdDirs})>
+      createDirectoryAndFile(
+    String parentUri,
+    String relativePath, {
+    String? initialContent,
+  }) async {
+    final result = await fileHandler.createDirectoryAndFile(
+      parentUri,
+      relativePath,
+      initialContent: initialContent,
+    );
+    // Fire events for all the newly created parent directories.
+    for (final dir in result.createdDirs) {
+      _eventController.add(FileCreateEvent(createdFile: dir));
+    }
+    // Fire the event for the final file.
+    _eventController.add(FileCreateEvent(createdFile: result.file));
+    return result;
   }
 
   Future<ProjectDocumentFile?> getFileMetadata(String uri) {
@@ -150,14 +187,18 @@ class ProjectRepository {
   Future<ProjectDocumentFile> writeFile(
     ProjectDocumentFile file,
     String content,
-  ) {
-    return fileHandler.writeFile(file, content);
+  ) async {
+    final newFile = await fileHandler.writeFile(file, content);
+    _eventController.add(FileModifyEvent(modifiedFile: newFile));
+    return newFile;
   }
 
   Future<ProjectDocumentFile> writeFileAsBytes(
     ProjectDocumentFile file,
     Uint8List bytes,
-  ) {
-    return fileHandler.writeFileAsBytes(file, bytes);
+  ) async {
+    final newFile = await fileHandler.writeFileAsBytes(file, bytes);
+    _eventController.add(FileModifyEvent(modifiedFile: newFile));
+    return newFile;
   }
 }
