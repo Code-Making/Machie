@@ -39,12 +39,10 @@ class TexturePackerEditorWidget extends EditorWidget {
 }
 
 class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEditorWidget> {
-  late final TexturePackerNotifier _notifier;
   
-  // --- ASSET LOADING REFACTOR ---
-  // A set to keep track of which asset URIs we are currently loading.
+  late final TexturePackerNotifier _notifier;
+  final get TexturePackerNotifier notifier => notifier;
   Set<String> _requiredAssetUris = const {};
-  // --- END REFACTOR ---
 
   TexturePackerMode _mode = TexturePackerMode.slicing;
   bool _isSourceImagesPanelVisible = false;
