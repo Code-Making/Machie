@@ -1,3 +1,7 @@
+// =========================================
+// UPDATED: plugins/texture_packer/texture_packer_plugin.dart
+// =========================================
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -10,7 +14,6 @@ import 'package:machine/editor/models/editor_command_context.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/editor/models/editor_plugin_models.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_editor_plugin.dart'; // Re-using a CommandPosition
 import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_editor_widget.dart';
@@ -18,12 +21,14 @@ import 'texture_packer_models.dart';
 import 'widgets/slicing_properties_dialog.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
+  // --- COMMAND SYSTEM REFACTOR ---
+  // Define a unique CommandPosition for this plugin's floating toolbar.
   static const textureFloatingToolbar = CommandPosition(
-    id: 'texture_floating_toolbar',
-    label: 'Texture Floating Toolbar',
+    id: 'com.machine.texture_packer.floating_toolbar',
+    label: 'Texture Packer Floating Toolbar',
     icon: Icons.grid_on_outlined,
   );
-
+  // --- END REFACTOR ---
   
   @override
   String get id => 'com.machine.texture_packer';
@@ -35,7 +40,7 @@ class TexturePackerPlugin extends EditorPlugin {
   Widget get icon => const Icon(Icons.grid_view);
 
   @override
-  int get priority => 5; // Same as Tiled Editor
+  int get priority => 5;
 
   @override
   bool supportsFile(DocumentFile file) {
@@ -60,7 +65,6 @@ class TexturePackerPlugin extends EditorPlugin {
   }) async {
     final content = (initData.initialContent as EditorContentString).content;
     
-    // Parse the .tpacker file content into our project data model.
     final TexturePackerProject projectState;
     if (content.trim().isEmpty) {
       projectState = TexturePackerProject.fresh();
@@ -84,6 +88,8 @@ class TexturePackerPlugin extends EditorPlugin {
     );
   }
   
+  // --- COMMAND SYSTEM REFACTOR ---
+  /// Helper method to get the active editor state for command execution.
   TexturePackerEditorWidgetState? _getEditorState(WidgetRef ref) {
     final tab =
         ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
@@ -95,12 +101,13 @@ class TexturePackerPlugin extends EditorPlugin {
   
   @override
   List<CommandPosition> getCommandPositions() => [
-    textureFloatingToolbar // Re-using the floating toolbar position
+    textureFloatingToolbar
   ];
 
   @override
   List<Command> getCommands() {
     return [
+      // --- Floating Toolbar Commands ---
       BaseCommand(
         id: 'packer_toggle_pan_zoom_mode',
         label: 'Pan/Zoom',
@@ -125,6 +132,8 @@ class TexturePackerPlugin extends EditorPlugin {
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.slicing),
       ),
+      
+      // --- Main Plugin Toolbar Commands ---
       BaseCommand(
         id: 'packer_toggle_sources_panel',
         label: 'Source Images',
@@ -157,22 +166,20 @@ class TexturePackerPlugin extends EditorPlugin {
         sourcePlugin: id,
         execute: (ref) async {
           final editor = _getEditorState(ref);
-          if (editor != null) {
-            await SlicingPropertiesDialog.show(editor.context, editor.notifier);
+          // We need the editor context to show the dialog.
+          if (editor?.mounted == true) {
+            await SlicingPropertiesDialog.show(editor!.context, editor.widget.tab.id, editor.notifier);
           }
         },
       ),
     ];
   }
+  // --- END REFACTOR ---
   
-  // --- Other optional plugin overrides can go here ---
-
   @override
-  String? get hotStateDtoType => null; // Not implemented yet
-
+  String? get hotStateDtoType => null;
   @override
-  Type? get hotStateDtoRuntimeType => null; // Not implemented yet
-
+  Type? get hotStateDtoRuntimeType => null;
   @override
-  TypeAdapter<TabHotStateDto>? get hotStateAdapter => null; // Not implemented yet
+  TypeAdapter<TabHotStateDto>? get hotStateAdapter => null;
 }

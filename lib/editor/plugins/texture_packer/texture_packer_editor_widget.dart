@@ -334,7 +334,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(4.0),
-              child: CommandToolbar(position: TiledEditorPlugin.tiledFloatingToolbar),
+              // --- COMMAND SYSTEM REFACTOR ---
+              // Reference the new, specific CommandPosition from TexturePackerPlugin.
+              child: CommandToolbar(position: TexturePackerPlugin.textureFloatingToolbar),
+              // --- END REFACTOR ---
             ),
           ),
         ),
