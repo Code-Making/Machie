@@ -292,63 +292,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     // If all checks pass, we've identified a valid grid cell.
     return GridRect(x: gridX, y: gridY, width: 1, height: 1);
   }
-
-  /// Callback for SlicingView: handles the start of a tap or drag gesture.
-  void onSlicingGestureStart(Offset localPosition, SlicingConfig slicing) {
-    if (_mode != TexturePackerMode.slicing) return;
-
-    // Convert the widget's local coordinates to coordinates on the image itself.
-    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
-    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
     
-    setState(() {
-      // Store the starting pixel position for calculating the selection box.
-      _dragStart = positionInImage;
-      // Immediately create a 1x1 selection rect based on the starting cell.
-      _selectionRect = _pixelToGridRect(positionInImage, slicing);
-    });
-    
-    // Update the UI (e.g., show the contextual app bar).
-    syncCommandContext();
-  }
-
-  /// Callback for SlicingView: handles the update of a drag gesture.
-  void onSlicingGestureUpdate(Offset localPosition, SlicingConfig slicing) {
-    if (_mode != TexturePackerMode.slicing || _dragStart == null) return;
-
-    // Convert current drag position to image coordinates.
-    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
-    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
-
-    // Get the grid cells for the start and current drag positions.
-    final startRect = _pixelToGridRect(_dragStart!, slicing);
-    final endRect = _pixelToGridRect(positionInImage, slicing);
-
-    // If either position is invalid (e.g., in a padding area), do nothing.
-    if (startRect == null || endRect == null) return;
-    
-    // Determine the top-left and bottom-right corners of the selection box.
-    final left = startRect.x < endRect.x ? startRect.x : endRect.x;
-    final top = startRect.y < endRect.y ? startRect.y : endRect.y;
-    final right = startRect.x > endRect.x ? startRect.x : endRect.x;
-    final bottom = startRect.y > endRect.y ? startRect.y : endRect.y;
-    
-    // Update the state with the new multi-cell selection rectangle.
-    setState(() {
-      _selectionRect = GridRect(
-        x: left,
-        y: top,
-        width: right - left + 1,
-        height: bottom - top + 1,
-      );
-    });
-    
-    // The command context doesn't need to be synced here as the relevant state
-    // (hasSelection) is already true from onSlicingGestureStart.
-  }
-  
-  //endregion
-  
   
   @override
   void undo() {}
