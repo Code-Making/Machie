@@ -29,7 +29,7 @@ abstract class AssetLoader<T extends AssetData> {
 ///
 /// This allows the asset system to reactively reload this asset when one of
 /// its dependencies changes.
-mixin IDependentAssetLoader on AssetLoader<AssetData> {
+mixin IDependentAssetLoader<T extends AssetData> on AssetLoader<T> {
   /// Parses the given file to discover its asset dependencies.
   ///
   /// Returns a set of project-relative URIs that this asset needs to load.

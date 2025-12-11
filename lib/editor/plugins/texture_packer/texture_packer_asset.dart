@@ -68,7 +68,9 @@ class TexturePackerAssetData extends AssetData {
 
 /// Loads a `.tpacker` file, resolves its source image dependencies,
 /// and builds a `TexturePackerAssetData` in memory.
-class TexturePackerAssetLoader implements AssetLoader<TexturePackerAssetData>, IDependentAssetLoader {
+class TexturePackerAssetLoader
+    implements AssetLoader<TexturePackerAssetData>
+    with IDependentAssetLoader<TexturePackerAssetData> {
   @override
   bool canLoad(ProjectDocumentFile file) {
     return file.name.toLowerCase().endsWith('.tpacker');
@@ -150,7 +152,7 @@ class TexturePackerAssetLoader implements AssetLoader<TexturePackerAssetData>, I
 
     // This is just a placeholder to create a dummy atlas.
     final placeholderRect = ui.Rect.fromLTWH(0, 0, 64, 64);
-    canvas.drawRect(placeholderRect, Paint()..color = const ui.Color(0xFFFF00FF));
+    canvas.drawRect(placeholderRect, ui.Paint()..color = const ui.Color(0xFFFF00FF));
     frames['placeholder'] = SpritesheetFrameDataModel(
       frame: {'x': 0, 'y': 0, 'w': 64, 'h': 64},
       sourceSize: {'w': 64, 'h': 64},
