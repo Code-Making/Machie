@@ -6,151 +6,40 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
 
-class SlicingView extends ConsumerStatefulWidget {
+class SlicingView extends ConsumerWidget {
   final String tabId;
-  const SlicingView({super.key, required this.tabId});
+  final TransformationController transformationController;
+  final GridRect? dragSelection;
+  final bool isPanZoomMode;
+  final Function(Offset localPosition) onGestureStart;
+  final Function(Offset localPosition) onGestureUpdate;
+  final VoidCallback onGestureEnd;
+
+  const SlicingView({
+    super.key,
+    required this.tabId,
+    required this.transformationController,
+    required this.dragSelection,
+    required this.isPanZoomMode,
+    required this.onGestureStart,
+    required this.onGestureUpdate,
+    required this.onGestureEnd,
+  });
 
   @override
-  ConsumerState<SlicingView> createState() => _SlicingViewState();
-}
-
-class _SlicingViewState extends ConsumerState<SlicingView> {
-  late final TransformationController _transformationController;
-  
-  // State for tracking a drag-selection, in image pixel coordinates.
-  Offset? _dragStart;
-  // The current selection being dragged, in grid coordinates.
-  GridRect? _selectionRect;
-
-  @override
-  void initState() {
-    super.initState();
-    _transformationController = TransformationController();
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
-
-  /// Converts a pixel offset within the image to a 1x1 grid rect.
-  GridRect? _pixelToGridRect(Offset position, SlicingConfig slicing) {
-    if (position.dx < slicing.margin || position.dy < slicing.margin) return null;
-
-    final effectiveX = position.dx - slicing.margin;
-    final effectiveY = position.dy - slicing.margin;
-
-    final cellWidth = slicing.tileWidth + slicing.padding;
-    final cellHeight = slicing.tileHeight + slicing.padding;
-
-    if (cellWidth <= 0 || cellHeight <= 0) return null;
-
-    final gridX = (effectiveX / cellWidth).floor();
-    final gridY = (effectiveY / cellHeight).floor();
-
-    // Check if the click was in the padding area
-    if (effectiveX % cellWidth > slicing.tileWidth) return null;
-    if (effectiveY % cellHeight > slicing.tileHeight) return null;
-
-    return GridRect(x: gridX, y: gridY, width: 1, height: 1);
-  }
-
-  /// Handles the start of a tap or drag gesture.
-  void _onGestureStart(Offset localPosition, SlicingConfig slicing) {
-    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
-    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
-    
-    setState(() {
-      _dragStart = positionInImage;
-      _selectionRect = _pixelToGridRect(positionInImage, slicing);
-    });
-  }
-
-  /// Handles the update of a drag gesture.
-  void _onGestureUpdate(Offset localPosition, SlicingConfig slicing) {
-    if (_dragStart == null) return;
-
-    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
-    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
-
-    final startRect = _pixelToGridRect(_dragStart!, slicing);
-    final endRect = _pixelToGridRect(positionInImage, slicing);
-
-    if (startRect == null || endRect == null) return;
-    
-    final left = startRect.x < endRect.x ? startRect.x : endRect.x;
-    final top = startRect.y < endRect.y ? startRect.y : endRect.y;
-    final right = startRect.x > endRect.x ? startRect.x : endRect.x;
-    final bottom = startRect.y > endRect.y ? startRect.y : endRect.y;
-    
-    setState(() {
-      _selectionRect = GridRect(
-        x: left,
-        y: top,
-        width: right - left + 1,
-        height: bottom - top + 1,
-      );
-    });
-  }
-
-  /// Handles the end of a tap or drag, prompting to create a sprite.
-  Future<void> _onGestureEnd() async {
-    if (_selectionRect == null) return;
-    
-    final confirmedRect = _selectionRect!;
-    // Reset local state immediately for snappy UI
-    setState(() {
-      _dragStart = null;
-      _selectionRect = null;
-    });
-
-    final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
-    if (spriteName != null && spriteName.trim().isNotEmpty) {
-      final notifier = ref.read(texturePackerNotifierProvider(widget.tabId).notifier);
-      final activeImageIndex = ref.read(activeSourceImageIndexProvider);
-
-      // TODO: Get selected folder ID to create sprite inside it.
-      // For now, it will be created at the root.
-      final parentId = ref.read(selectedNodeIdProvider.select((id) {
-        final nodeType = ref.read(texturePackerNotifierProvider(widget.tabId)
-          .select((p) => p.definitions[id]?.runtimeType));
-        // Only allow adding to folders or root
-        return nodeType != SpriteDefinition && nodeType != AnimationDefinition ? id : null;
-      }));
-      
-      final newNode = notifier.createNode(
-        type: PackerItemType.sprite,
-        name: spriteName.trim(),
-        parentId: parentId,
-      );
-
-      final definition = SpriteDefinition(
-        sourceImageIndex: activeImageIndex,
-        gridRect: confirmedRect,
-      );
-
-      notifier.updateSpriteDefinition(newNode.id, definition);
-
-      // Select the newly created node
-      ref.read(selectedNodeIdProvider.notifier).state = newNode.id;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
-    final project = ref.watch(texturePackerNotifierProvider(widget.tabId));
+    final project = ref.watch(texturePackerNotifierProvider(tabId));
 
+    // This should ideally not be reached if the parent widget handles it,
+    // but it's good defensive programming.
     if (activeIndex >= project.sourceImages.length) {
       return const Center(child: Text('Select a source image.'));
     }
 
     final sourceConfig = project.sourceImages[activeIndex];
-    final slicingConfig = sourceConfig.slicing;
-    final assetMap = ref.watch(assetMapProvider(widget.tabId));
+    final assetMap = ref.watch(assetMapProvider(tabId));
 
     return assetMap.when(
       data: (assets) {
@@ -162,7 +51,7 @@ class _SlicingViewState extends ConsumerState<SlicingView> {
         final image = imageAsset.image;
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
-        // Find the grid rect of the currently selected node, if any.
+        // Find the grid rect of the currently selected node to highlight it.
         final selectedNodeId = ref.watch(selectedNodeIdProvider);
         final definition = project.definitions[selectedNodeId];
         GridRect? activeSelection;
@@ -171,22 +60,29 @@ class _SlicingViewState extends ConsumerState<SlicingView> {
         }
 
         return GestureDetector(
-          onTapUp: (_) => _onGestureEnd(),
-          onPanStart: (details) => _onGestureStart(details.localPosition, slicingConfig),
-          onPanUpdate: (details) => _onGestureUpdate(details.localPosition, slicingConfig),
-          onPanEnd: (_) => _onGestureEnd(),
-          child: InteractiveViewer(
-            transformationController: _transformationController,
-            boundaryMargin: const EdgeInsets.all(double.infinity),
-            minScale: 0.1,
-            maxScale: 8.0,
-            child: CustomPaint(
-              size: imageSize,
-              painter: _SlicingPainter(
-                image: image,
-                slicing: slicingConfig,
-                dragSelection: _selectionRect,
-                activeSelection: activeSelection,
+          // Forward gesture events to the parent controller via callbacks.
+          onPanStart: (details) => onGestureStart(details.localPosition),
+          onPanUpdate: (details) => onGestureUpdate(details.localPosition),
+          onPanEnd: (_) => onGestureEnd(),
+          // Use a Listener for onTapUp to avoid conflicts with InteractiveViewer
+          child: Listener(
+            onPointerUp: (_) => onGestureEnd(),
+            child: InteractiveViewer(
+              transformationController: transformationController,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              minScale: 0.1,
+              maxScale: 16.0,
+              // Pan/Zoom is enabled based on the current editor mode.
+              panEnabled: isPanZoomMode,
+              scaleEnabled: isPanZoomMode,
+              child: CustomPaint(
+                size: imageSize,
+                painter: _SlicingPainter(
+                  image: image,
+                  slicing: sourceConfig.slicing,
+                  dragSelection: dragSelection,
+                  activeSelection: activeSelection,
+                ),
               ),
             ),
           ),
@@ -199,6 +95,7 @@ class _SlicingViewState extends ConsumerState<SlicingView> {
 }
 
 /// Custom painter for the slicing view.
+/// This is a pure rendering widget with no business logic.
 class _SlicingPainter extends CustomPainter {
   final ui.Image image;
   final SlicingConfig slicing;
@@ -238,8 +135,8 @@ class _SlicingPainter extends CustomPainter {
   }
   
   void _drawHighlight(Canvas canvas, GridRect rect, Paint paint) {
-      final pixelRect = _gridToPixelRect(rect);
-      canvas.drawRect(pixelRect, paint);
+    final pixelRect = _gridToPixelRect(rect);
+    canvas.drawRect(pixelRect, paint);
   }
 
   Rect _gridToPixelRect(GridRect rect) {
@@ -256,6 +153,10 @@ class _SlicingPainter extends CustomPainter {
     final paint = Paint()
       ..color = Colors.white.withOpacity(0.4)
       ..strokeWidth = 1.0;
+      
+    final faintPaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..strokeWidth = 1.0;
 
     final cellWidth = (slicing.tileWidth + slicing.padding).toDouble();
     final cellHeight = (slicing.tileHeight + slicing.padding).toDouble();
@@ -266,14 +167,14 @@ class _SlicingPainter extends CustomPainter {
     for (double x = slicing.margin.toDouble(); x < imageWidth; x += cellWidth) {
       canvas.drawLine(Offset(x, 0), Offset(x, imageHeight), paint);
       if (slicing.padding > 0) {
-        canvas.drawLine(Offset(x + slicing.tileWidth, 0), Offset(x + slicing.tileWidth, imageHeight), paint..color = Colors.white.withOpacity(0.15));
+        canvas.drawLine(Offset(x + slicing.tileWidth, 0), Offset(x + slicing.tileWidth, imageHeight), faintPaint);
       }
     }
 
     for (double y = slicing.margin.toDouble(); y < imageHeight; y += cellHeight) {
-      canvas.drawLine(Offset(0, y), Offset(imageWidth, y), paint..color = Colors.white.withOpacity(0.4));
+      canvas.drawLine(Offset(0, y), Offset(imageWidth, y), paint);
       if (slicing.padding > 0) {
-        canvas.drawLine(Offset(0, y + slicing.tileHeight), Offset(imageWidth, y + slicing.tileHeight), paint..color = Colors.white.withOpacity(0.15));
+        canvas.drawLine(Offset(0, y + slicing.tileHeight), Offset(imageWidth, y + slicing.tileHeight), faintPaint);
       }
     }
   }

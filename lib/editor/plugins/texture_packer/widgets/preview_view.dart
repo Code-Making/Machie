@@ -26,6 +26,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   void initState() {
     super.initState();
     _animationController = AnimationController(vsync: this);
+    // Add a listener that just calls setState to trigger a repaint on every tick.
     _animationController.addListener(() => setState(() {}));
   }
 
@@ -47,13 +48,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
   /// Configures or re-configures the AnimationController for a given animation.
   void _setupAnimationController(AnimationDefinition animDef) {
-    if (animDef.frameIds.isEmpty) {
+    if (animDef.frameIds.isEmpty || animDef.speed <= 0) {
       _animationController.stop();
+      _currentAnimationDef = null;
+      _frameAnimation = null;
       return;
     }
 
-    // Check if the animation has changed since last build
-    if (animDef.frameIds != _currentAnimationDef?.frameIds || animDef.speed != _currentAnimationDef?.speed) {
+    // Check if the animation has changed since last build to avoid unnecessary work.
+    if (animDef != _currentAnimationDef) {
       _currentAnimationDef = animDef;
       _animationController.duration = Duration(
         milliseconds: (animDef.frameIds.length / animDef.speed * 1000).round(),
@@ -76,6 +79,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return assetMap.when(
       data: (assets) {
         if (selectedNodeId == null) {
+          // TODO: Implement Atlas Preview
           return _buildPlaceholder('No Item Selected', 'Select a sprite or animation from the hierarchy panel to preview it here.');
         }
 
@@ -91,13 +95,16 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
         }
 
         if (definition == null) {
-          return _buildPlaceholder('No Data', 'This item has not been defined yet.');
+          _animationController.stop();
+          return _buildPlaceholder('No Data', 'This item has not been defined yet.\nSelect a region in the Slicing View to define it.');
         }
 
         Widget previewContent;
 
         if (definition is SpriteDefinition) {
-          _animationController.stop(); // Stop any running animation
+          // If a sprite is selected, ensure any running animation is stopped.
+          _animationController.stop();
+          _currentAnimationDef = null;
           previewContent = _buildSpritePreview(project, definition, assets);
         } else if (definition is AnimationDefinition) {
           _setupAnimationController(definition);
@@ -123,11 +130,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     SpriteDefinition spriteDef,
     Map<String, AssetData> assets,
   ) {
+    if (spriteDef.sourceImageIndex >= project.sourceImages.length) {
+       return _buildPlaceholder('Data Error', 'Invalid source image index.');
+    }
+    
     final sourceImageConfig = project.sourceImages[spriteDef.sourceImageIndex];
     final asset = assets[sourceImageConfig.path];
 
     if (asset is! ImageAssetData) {
-      return _buildPlaceholder('Image Error', 'Could not load source image: ${sourceImageConfig.path}');
+      return _buildPlaceholder('Image Error', 'Could not load source image:\n${sourceImageConfig.path}');
     }
 
     final srcRect = _calculateSourceRect(sourceImageConfig, spriteDef.gridRect);
@@ -144,32 +155,34 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     Map<String, AssetData> assets,
   ) {
     if (_frameAnimation == null || animDef.frameIds.isEmpty) {
-      return _buildPlaceholder('Empty Animation', 'Add frames to this animation.');
+      return _buildPlaceholder('Empty Animation', 'Right-click this animation in the hierarchy to add frames.');
     }
 
     final frameId = animDef.frameIds[_frameAnimation!.value];
     final spriteDef = project.definitions[frameId] as SpriteDefinition?;
 
     if (spriteDef == null) {
-      return _buildPlaceholder('Frame Error', 'Frame "$frameId" is not defined.');
+      return _buildPlaceholder('Frame Error', 'Animation frame with ID "$frameId" is not defined or is not a sprite.');
     }
     
-    // Reuse the single sprite preview logic
+    // Reuse the single sprite preview logic for the current frame
     return _buildSpritePreview(project, spriteDef, assets);
   }
 
+  /// Helper to convert grid coordinates into pixel coordinates for clipping.
   Rect _calculateSourceRect(SourceImageConfig source, GridRect gridRect) {
     final slicing = source.slicing;
     final left = slicing.margin + gridRect.x * (slicing.tileWidth + slicing.padding);
     final top = slicing.margin + gridRect.y * (slicing.tileHeight + slicing.padding);
-    final width = gridRect.width * slicing.tileWidth + (gridRect.width - 1) * slicing.padding;
-    final height = gridRect.height * slicing.tileHeight + (gridRect.height - 1) * slicing.padding;
+    final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
+    final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
     return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
   
   Widget _buildPlaceholder(String title, String message) {
     final theme = Theme.of(context);
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -192,13 +205,16 @@ class _SpritePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. Draw a checkerboard background
     _drawCheckerboard(canvas, size);
-
-    // **FIXED**: Correctly use applyBoxFit to get destination Size, then inscribe it into a Rect.
-    final FittedSizes fittedSizes = applyBoxFit(BoxFit.contain, srcRect.size, size);
-    final Rect destinationRect = Alignment.center.inscribe(fittedSizes.destination, Rect.fromLTWH(0, 0, size.width, size.height));
+    
+    // 2. Define the destination rect to draw the sprite into.
+    // This will fill the CustomPaint's area.
+    final destinationRect = Offset.zero & size;
 
     final paint = Paint()..filterQuality = FilterQuality.none;
+
+    // 3. Draw the specific portion of the spritesheet image
     canvas.drawImageRect(image, srcRect, destinationRect, paint);
   }
 
@@ -208,7 +224,7 @@ class _SpritePainter extends CustomPainter {
     const double checkerSize = 16.0;
     for (double i = 0; i < size.width; i += checkerSize) {
       for (double j = 0; j < size.height; j += checkerSize) {
-        final paint = ((i + j) / checkerSize) % 2 == 0 ? checkerPaint1 : checkerPaint2;
+        final paint = ((i + j) / checkerSize).floor() % 2 == 0 ? checkerPaint1 : checkerPaint2;
         canvas.drawRect(Rect.fromLTWH(i, j, checkerSize, checkerSize), paint);
       }
     }
