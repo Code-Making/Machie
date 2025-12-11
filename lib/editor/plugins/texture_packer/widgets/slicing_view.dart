@@ -9,6 +9,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.da
 
 class SlicingView extends ConsumerWidget {
   final String tabId;
+  final TexturePackerNotifier notifier; // Pass notifier directly
   final TransformationController transformationController;
   final GridRect? dragSelection;
   final bool isPanZoomMode;
@@ -19,6 +20,7 @@ class SlicingView extends ConsumerWidget {
   const SlicingView({
     super.key,
     required this.tabId,
+    required this.notifier,
     required this.transformationController,
     required this.dragSelection,
     required this.isPanZoomMode,
@@ -30,17 +32,19 @@ class SlicingView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
-    final project = ref.watch(texturePackerNotifierProvider(tabId));
+    final project = notifier.project; // Get project state from notifier
 
-    // This should ideally not be reached if the parent widget handles it,
-    // but it's good defensive programming.
     if (activeIndex >= project.sourceImages.length) {
       return const Center(child: Text('Select a source image.'));
     }
 
     final sourceConfig = project.sourceImages[activeIndex];
+    
+    // --- ASSET LOADING REFACTOR ---
+    // Watch the asset provider for the current tab.
     final assetMap = ref.watch(assetMapProvider(tabId));
 
+    // Use .when() to handle loading, data, and error states gracefully.
     return assetMap.when(
       data: (assets) {
         final imageAsset = assets[sourceConfig.path];
@@ -51,7 +55,6 @@ class SlicingView extends ConsumerWidget {
         final image = imageAsset.image;
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
-        // Find the grid rect of the currently selected node to highlight it.
         final selectedNodeId = ref.watch(selectedNodeIdProvider);
         final definition = project.definitions[selectedNodeId];
         GridRect? activeSelection;
@@ -60,11 +63,9 @@ class SlicingView extends ConsumerWidget {
         }
 
         return GestureDetector(
-          // Forward gesture events to the parent controller via callbacks.
           onPanStart: (details) => onGestureStart(details.localPosition),
           onPanUpdate: (details) => onGestureUpdate(details.localPosition),
           onPanEnd: (_) => onGestureEnd(),
-          // Use a Listener for onTapUp to avoid conflicts with InteractiveViewer
           child: Listener(
             onPointerUp: (_) => onGestureEnd(),
             child: InteractiveViewer(
@@ -72,7 +73,6 @@ class SlicingView extends ConsumerWidget {
               boundaryMargin: const EdgeInsets.all(double.infinity),
               minScale: 0.1,
               maxScale: 16.0,
-              // Pan/Zoom is enabled based on the current editor mode.
               panEnabled: isPanZoomMode,
               scaleEnabled: isPanZoomMode,
               child: CustomPaint(
@@ -91,6 +91,7 @@ class SlicingView extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error loading assets: $err')),
     );
+    // --- END REFACTOR ---
   }
 }
 

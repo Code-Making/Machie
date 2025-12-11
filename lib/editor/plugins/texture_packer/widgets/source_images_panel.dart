@@ -4,20 +4,20 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widg
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 
 class SourceImagesPanel extends ConsumerWidget {
-  final String tabId;
+  final TexturePackerNotifier notifier; // Pass notifier directly
   final VoidCallback onAddImage;
 
   const SourceImagesPanel({
     super.key,
-    required this.tabId,
+    required this.notifier,
     required this.onAddImage,
   });
 
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sourceImages = ref.watch(texturePackerNotifierProvider(tabId)
-        .select((project) => project.sourceImages));
+    // Get project state directly from the notifier
+    final sourceImages = notifier.project.sourceImages;
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
 
     return Material(

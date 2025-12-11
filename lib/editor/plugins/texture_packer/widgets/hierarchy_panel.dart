@@ -5,12 +5,13 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 
 class HierarchyPanel extends ConsumerWidget {
-  final String tabId;
-  const HierarchyPanel({super.key, required this.tabId});
+  final TexturePackerNotifier notifier; // Pass notifier directly
+  const HierarchyPanel({super.key, required this.notifier});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rootNode = ref.watch(texturePackerNotifierProvider(tabId).select((p) => p.tree));
+    // Get project state directly from the notifier
+    final rootNode = notifier.project.tree;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -23,7 +24,7 @@ class HierarchyPanel extends ConsumerWidget {
         Expanded(
           child: ListView(
             children: rootNode.children
-                .map((node) => _PackerNodeItem(node: node, tabId: tabId))
+                .map((node) => _PackerNodeItem(node: node, notifier: notifier))
                 .toList(),
           ),
         ),
@@ -36,12 +37,12 @@ class HierarchyPanel extends ConsumerWidget {
 
 class _PackerNodeItem extends ConsumerWidget {
   final PackerItemNode node;
-  final String tabId;
+  final TexturePackerNotifier notifier; // Pass notifier directly
   final int depth;
 
   const _PackerNodeItem({
     required this.node,
-    required this.tabId,
+    required this.notifier,
     this.depth = 0,
   });
 
@@ -87,7 +88,7 @@ class _PackerNodeItem extends ConsumerWidget {
             padding: const EdgeInsets.only(left: 16.0),
             child: Column(
               children: node.children
-                  .map((child) => _PackerNodeItem(node: child, tabId: tabId, depth: depth + 1))
+                  .map((child) => _PackerNodeItem(node: child, notifier: notifier, depth: depth + 1))
                   .toList(),
             ),
           )

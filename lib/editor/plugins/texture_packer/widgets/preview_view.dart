@@ -9,7 +9,8 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.da
 
 class PreviewView extends ConsumerStatefulWidget {
   final String tabId;
-  const PreviewView({super.key, required this.tabId});
+  final TexturePackerNotifier notifier; // Pass notifier directly
+  const PreviewView({super.key, required this.tabId, required this.notifier});
 
   @override
   ConsumerState<PreviewView> createState() => _PreviewViewState();
@@ -18,15 +19,12 @@ class PreviewView extends ConsumerStatefulWidget {
 class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderStateMixin {
   late final AnimationController _animationController;
   Animation<int>? _frameAnimation;
-
-  // Store the last seen animation definition to check for updates
   AnimationDefinition? _currentAnimationDef;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(vsync: this);
-    // Add a listener that just calls setState to trigger a repaint on every tick.
     _animationController.addListener(() => setState(() {}));
   }
 
@@ -36,7 +34,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     super.dispose();
   }
 
-  /// Finds a node by its ID in the project tree recursively.
   PackerItemNode? _findNodeById(PackerItemNode node, String id) {
     if (node.id == id) return node;
     for (final child in node.children) {
@@ -46,7 +43,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return null;
   }
 
-  /// Configures or re-configures the AnimationController for a given animation.
   void _setupAnimationController(AnimationDefinition animDef) {
     if (animDef.frameIds.isEmpty || animDef.speed <= 0) {
       _animationController.stop();
@@ -55,7 +51,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       return;
     }
 
-    // Check if the animation has changed since last build to avoid unnecessary work.
     if (animDef != _currentAnimationDef) {
       _currentAnimationDef = animDef;
       _animationController.duration = Duration(
@@ -73,14 +68,17 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
-    final project = ref.watch(texturePackerNotifierProvider(widget.tabId));
+    final project = widget.notifier.project; // Get project state from notifier
+
+    // --- ASSET LOADING REFACTOR ---
+    // Watch the asset provider for the current tab.
     final assetMap = ref.watch(assetMapProvider(widget.tabId));
 
     return assetMap.when(
       data: (assets) {
+        // ... (rest of the build method logic is now safe) ...
         if (selectedNodeId == null) {
-          // TODO: Implement Atlas Preview
-          return _buildPlaceholder('No Item Selected', 'Select a sprite or animation from the hierarchy panel to preview it here.');
+          return _buildPlaceholder('No Item Selected', 'Select a sprite or animation to preview.');
         }
 
         final node = _findNodeById(project.tree, selectedNodeId);
@@ -96,13 +94,12 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
         if (definition == null) {
           _animationController.stop();
-          return _buildPlaceholder('No Data', 'This item has not been defined yet.\nSelect a region in the Slicing View to define it.');
+          return _buildPlaceholder('No Data', 'This item has not been defined yet.');
         }
 
         Widget previewContent;
 
         if (definition is SpriteDefinition) {
-          // If a sprite is selected, ensure any running animation is stopped.
           _animationController.stop();
           _currentAnimationDef = null;
           previewContent = _buildSpritePreview(project, definition, assets);
@@ -123,6 +120,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => _buildPlaceholder('Asset Error', err.toString()),
     );
+    // --- END REFACTOR ---
   }
 
   Widget _buildSpritePreview(
