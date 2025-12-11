@@ -69,8 +69,8 @@ class TexturePackerAssetData extends AssetData {
 /// Loads a `.tpacker` file, resolves its source image dependencies,
 /// and builds a `TexturePackerAssetData` in memory.
 class TexturePackerAssetLoader
-    with IDependentAssetLoader<TexturePackerAssetData> 
-    implements AssetLoader<TexturePackerAssetData> {
+    implements AssetLoader<TexturePackerAssetData>
+    with IDependentAssetLoader<TexturePackerAssetData> {
   @override
   bool canLoad(ProjectDocumentFile file) {
     return file.name.toLowerCase().endsWith('.tpacker');

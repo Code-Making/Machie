@@ -192,7 +192,17 @@ class _SpritePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw a checkerboard background
+    _drawCheckerboard(canvas, size);
+
+    // **FIXED**: Correctly use applyBoxFit to get destination Size, then inscribe it into a Rect.
+    final FittedSizes fittedSizes = applyBoxFit(BoxFit.contain, srcRect.size, size);
+    final Rect destinationRect = Alignment.center.inscribe(fittedSizes.destination, Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final paint = Paint()..filterQuality = FilterQuality.none;
+    canvas.drawImageRect(image, srcRect, destinationRect, paint);
+  }
+
+  void _drawCheckerboard(Canvas canvas, Size size) {
     final checkerPaint1 = Paint()..color = const Color(0xFFCCCCCC);
     final checkerPaint2 = Paint()..color = const Color(0xFF888888);
     const double checkerSize = 16.0;
@@ -202,16 +212,6 @@ class _SpritePainter extends CustomPainter {
         canvas.drawRect(Rect.fromLTWH(i, j, checkerSize, checkerSize), paint);
       }
     }
-    
-    // Fit the sprite within the canvas while preserving aspect ratio
-    final fittedSizes = applyBoxFit(BoxFit.contain, srcRect.size, size);
-    final sourceRect = fittedSizes.source; // Not used for drawImageRect, but good practice
-    final destinationRect = fittedSizes.destination;
-
-    final paint = Paint()..filterQuality = FilterQuality.none;
-
-    // Draw the specific portion of the spritesheet image
-    canvas.drawImageRect(image, srcRect, destinationRect, paint);
   }
 
   @override
