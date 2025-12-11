@@ -1,50 +1,33 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_models.dart';
+import 'package:flutter/foundation.dart';
 import 'texture_packer_models.dart';
 
-/// A family provider that creates a unique TexturePackerNotifier for each tab.
-/// It finds its own initial state by looking up its tab in the global app state.
-final texturePackerNotifierProvider = StateNotifierProvider.autoDispose
-    .family<TexturePackerNotifier, TexturePackerProject, String>(
-  (ref, tabId) {
-    // Find the corresponding tab in the app's session state to get the initial data.
-    final tabs =
-        ref.watch(appNotifierProvider.select((s) => s.valueOrNull?.currentProject?.session.tabs));
-    final tab = tabs?.firstWhere((t) => t.id == tabId) as TexturePackerTab?;
-
-    if (tab == null) {
-      // This should not happen in a valid state.
-      throw Exception('TexturePackerTab with ID $tabId not found in session.');
-    }
-
-    return TexturePackerNotifier(tab.initialProjectState);
-  },
-);
-
-
-/// Manages the state of the TexturePackerProject using an immutable approach.
+/// Manages the state of the TexturePackerProject using a mutable approach
+/// with ChangeNotifier.
 ///
 /// All modifications to the project state should be done through this notifier
-/// to ensure state changes are predictable and trackable.
-class TexturePackerNotifier extends StateNotifier<TexturePackerProject> {
-  TexturePackerNotifier(TexturePackerProject initialState) : super(initialState);
+/// to ensure UI updates are triggered correctly via notifyListeners().
+class TexturePackerNotifier extends ChangeNotifier {
+  TexturePackerProject project;
+
+  TexturePackerNotifier(this.project);
 
   /// Adds a new source image to the project.
   void addSourceImage(String path) {
     final newImage = SourceImageConfig(path: path);
-    state = state.copyWith(
-      sourceImages: [...state.sourceImages, newImage],
+    project = project.copyWith(
+      sourceImages: [...project.sourceImages, newImage],
     );
+    notifyListeners();
   }
 
   /// Updates the slicing configuration for a source image at a given index.
   void updateSlicingConfig(int sourceIndex, SlicingConfig newConfig) {
-    if (sourceIndex < 0 || sourceIndex >= state.sourceImages.length) return;
+    if (sourceIndex < 0 || sourceIndex >= project.sourceImages.length) return;
 
-    final newSourceImages = List<SourceImageConfig>.from(state.sourceImages);
+    final newSourceImages = List<SourceImageConfig>.from(project.sourceImages);
     newSourceImages[sourceIndex] = newSourceImages[sourceIndex].copyWith(slicing: newConfig);
-    state = state.copyWith(sourceImages: newSourceImages);
+    project = project.copyWith(sourceImages: newSourceImages);
+    notifyListeners();
   }
 
   /// Creates a new node (folder, sprite, or animation) in the tree.
@@ -66,27 +49,30 @@ class TexturePackerNotifier extends StateNotifier<TexturePackerProject> {
       );
     }
     
-    state = state.copyWith(tree: insert(state.tree));
+    project = project.copyWith(tree: insert(project.tree));
+    notifyListeners();
     return newNode;
   }
   
   /// Updates the definition data for a given sprite node.
   void updateSpriteDefinition(String nodeId, SpriteDefinition definition) {
-      final newDefinitions = Map<String, PackerItemDefinition>.from(state.definitions);
+      final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
       newDefinitions[nodeId] = definition;
-      state = state.copyWith(definitions: newDefinitions);
+      project = project.copyWith(definitions: newDefinitions);
+      notifyListeners();
   }
 
   /// Updates the definition data for a given animation node.
   void updateAnimationDefinition(String nodeId, AnimationDefinition definition) {
-      final newDefinitions = Map<String, PackerItemDefinition>.from(state.definitions);
+      final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
       newDefinitions[nodeId] = definition;
-      state = state.copyWith(definitions: newDefinitions);
+      project = project.copyWith(definitions: newDefinitions);
+      notifyListeners();
   }
 
   /// Deletes a node and all its children from the tree and definitions.
   void deleteNode(String nodeId) {
-    final newDefinitions = Map<String, PackerItemDefinition>.from(state.definitions);
+    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
     final List<String> idsToDelete = [];
 
     // Recursive function to find and remove a node, and collect all child IDs
@@ -107,20 +93,21 @@ class TexturePackerNotifier extends StateNotifier<TexturePackerProject> {
       return currentNode.copyWith(children: newChildren);
     }
 
-    final newTree = filter(state.tree);
+    final newTree = filter(project.tree);
 
     // Remove all collected IDs from the definitions map
     for (final id in idsToDelete) {
       newDefinitions.remove(id);
     }
     
-    state = state.copyWith(
+    project = project.copyWith(
       tree: newTree,
       definitions: newDefinitions,
     );
+    notifyListeners();
   }
   
   // Note: More complex operations like `moveNode` and `updateNodeName` would also
   // involve similar recursive logic to traverse the tree and are omitted here
-  // for brevity but would follow the same immutable update pattern.
+  // for brevity but would follow the same mutable update pattern.
 }
