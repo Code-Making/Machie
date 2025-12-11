@@ -25,6 +25,7 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
 
   @override
   Future<AssetData> build(String projectRelativeUri) async {
+    // --- Keep-alive logic remains the same ---
     final keepAliveLink = ref.keepAlive();
     ref.onDispose(() {
       _timer?.cancel();
@@ -41,30 +42,30 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       _timer?.cancel();
     });
 
+    // --- Initial setup remains the same ---
     final repo = ref.watch(projectRepositoryProvider);
-    final projectRoot = ref.watch(currentProjectProvider.select((p)=>p?.rootUri));
+    final projectRoot = ref.watch(currentProjectProvider.select((p) => p?.rootUri));
 
     if (repo == null || projectRoot == null) {
       throw Exception('Cannot load asset without an active project.');
     }
 
-    final file = await repo.fileHandler.resolvePath(
-      projectRoot,
-      projectRelativeUri,
-    );
+    final file = await repo.fileHandler.resolvePath(projectRoot, projectRelativeUri);
 
     if (file == null) {
       throw Exception('Asset not found at path: $projectRelativeUri');
     }
-    
+
     final registry = ref.read(assetLoaderRegistryProvider);
     final loader = registry.getLoader(file);
 
     if (loader == null) {
       throw Exception('No loader registered for file type: ${file.name}');
     }
-    
+
+    // --- File operation listener remains the same ---
     ref.listen<AsyncValue<FileOperationEvent>>(fileOperationStreamProvider, (_, next) {
+      // ... (existing logic for file changes)
       final event = next.asData?.value;
       if (event == null) return;
 
@@ -74,24 +75,51 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       } else if (event is FileDeleteEvent) {
         eventUri = event.deletedFile.uri;
       } else if (event is FileRenameEvent) {
-        // FIXME: check this logic
         if (event.oldFile.uri == file.uri) {
-          // If the file we are watching is renamed, it's effectively gone.
           ref.invalidateSelf();
         }
-        return; // Don't handle rename events further for this provider
+        return;
       } else {
         eventUri = null;
       }
 
       if (eventUri != null && eventUri == file.uri) {
-        ref.read(talkerProvider).info(
-              'Invalidating asset cache for ${file.name} due to file system event.',
-            );
+        ref.read(talkerProvider).info('Invalidating asset cache for ${file.name} due to file system event.');
         ref.invalidateSelf();
       }
     });
 
+    // --- NEW: Dependency-aware loading logic ---
+    if (loader is IDependentAssetLoader) {
+      // This is a composite asset that depends on other assets.
+      
+      // 1. First, get the list of dependency URIs.
+      final dependencyUris = await loader.getDependencies(ref, file, repo);
+
+      // 2. Reactively watch all dependencies.
+      final dependencyValues = [
+        for (final uri in dependencyUris) ref.watch(assetDataProvider(uri)),
+      ];
+
+      // 3. Check the state of dependencies. If any are loading or have errored,
+      //    this asset inherits that state.
+      final firstError = dependencyValues.firstWhereOrNull((v) => v.hasError);
+      if (firstError != null) {
+        throw firstError.error!;
+      }
+      if (dependencyValues.any((v) => !v.hasValue)) {
+        // One of the dependencies is still loading. We wait.
+        // Riverpod will automatically re-run this build method when it's ready.
+        // We return a Loading state that never completes.
+        return await Completer<AssetData>().future;
+      }
+      
+      // If we reach here, all dependencies are loaded and available via ref.read().
+    }
+
+    // --- Original loading logic ---
+    // This part now runs for both simple assets, and for dependent assets
+    // *after* their dependencies have been successfully loaded and watched.
     try {
       return await loader.load(ref, file, repo);
     } catch (e, st) {
