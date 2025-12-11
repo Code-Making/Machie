@@ -346,7 +346,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           bottom: 0,
           left: _isSourceImagesPanelVisible ? 0 : -251, // Hides just off-screen
           width: 250,
-          child: SourceImagesPanel(tabId: widget.tab.id),
+          child: SourceImagesPanel(tabId: widget.tab.id, onAddImage: _promptAndAddSourceImage),
         ),
 
         // 4. The Hierarchy Panel, implemented as a drawer sliding from the right.
