@@ -43,7 +43,7 @@ class TexturePackerPlugin extends EditorPlugin {
   }
 
   @override
-  final PluginSettings? settings = PluginSettings();
+  final PluginSettings? settings = null;
   @override
     Widget buildSettingsUI(
     PluginSettings settings,
@@ -101,7 +101,6 @@ class TexturePackerPlugin extends EditorPlugin {
   @override
   List<Command> getCommands() {
     return [
-      // Mode Switching Commands
       BaseCommand(
         id: 'packer_toggle_pan_zoom_mode',
         label: 'Pan/Zoom',
@@ -126,8 +125,6 @@ class TexturePackerPlugin extends EditorPlugin {
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.slicing),
       ),
-      
-      // Panel Toggle Commands
       BaseCommand(
         id: 'packer_toggle_sources_panel',
         label: 'Source Images',
@@ -152,8 +149,6 @@ class TexturePackerPlugin extends EditorPlugin {
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.toggleHierarchyPanel(),
       ),
-
-      // Other Commands
       BaseCommand(
         id: 'packer_edit_slicing_properties',
         label: 'Slicing Properties',
@@ -163,7 +158,7 @@ class TexturePackerPlugin extends EditorPlugin {
         execute: (ref) async {
           final editor = _getEditorState(ref);
           if (editor != null) {
-            await SlicingPropertiesDialog.show(editor.context, editor.widget.tab.id);
+            await SlicingPropertiesDialog.show(editor.context, editor.notifier);
           }
         },
       ),
