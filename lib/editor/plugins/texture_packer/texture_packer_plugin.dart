@@ -48,6 +48,15 @@ class TexturePackerPlugin extends EditorPlugin {
   List<AssetLoader> get assetLoaders => [TexturePackerAssetLoader()];
 
   @override
+  final PluginSettings? settings = null;
+  @override
+    Widget buildSettingsUI(
+    PluginSettings settings,
+    void Function(PluginSettings) onChanged,
+  ) => const SizedBox.shrink();
+
+
+  @override
   Future<EditorTab> createTab(
     DocumentFile file,
     EditorInitData initData, {
