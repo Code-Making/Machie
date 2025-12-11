@@ -184,6 +184,26 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     // The selection is not confirmed until the user presses the button
     // in the app bar. So, on gesture end, we do nothing.
   }
+  
+    Future<void> _promptAndAddSourceImage() async {
+    final newPath = await showDialog<String>(
+      context: context,
+      builder: (_) => const FileOrFolderPickerDialog(),
+    );
+    if (newPath != null) {
+      if (!newPath.toLowerCase().endsWith('.png')) {
+        MachineToast.error('Please select a valid PNG image.');
+        return;
+      }
+      ref.read(texturePackerNotifierProvider(widget.tab.id).notifier).addSourceImage(newPath);
+      
+      // If this was the first image, automatically select it.
+      final imageCount = ref.read(texturePackerNotifierProvider(widget.tab.id)).sourceImages.length;
+      if (imageCount == 1) {
+          ref.read(activeSourceImageIndexProvider.notifier).state = 0;
+      }
+    }
+  }
 
   // --- Command Context Sync ---
   @override
@@ -207,11 +227,129 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       appBarOverride: appBarOverride,
     );
   }
+  
+  // Add this private method inside your _TexturePackerEditorWidgetState class:
 
-  GridRect? _pixelToGridRect(Offset p, SlicingConfig s) { /* ... */ }
-  void _onGestureStart(Offset p, SlicingConfig s) { /* ... */ }
-  void _onGestureUpdate(Offset p, SlicingConfig s) { /* ... */ }
+  /// Finds a node by its ID by recursively searching the project tree.
+  PackerItemNode? _findNodeById(PackerItemNode node, String id) {
+    // Base case: Check if the current node is the one we're looking for.
+    if (node.id == id) {
+      return node;
+    }
 
+    // Recursive step: Search through all children of the current node.
+    for (final child in node.children) {
+      final found = _findNodeById(child, id);
+      // If the node was found in a child's subtree, immediately return it.
+      if (found != null) {
+        return found;
+      }
+    }
+
+    // Base case: The node was not found in this branch of the tree.
+    return null;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //region Gesture Logic & Callbacks
+  // ---------------------------------------------------------------------------
+
+  /// Converts a pixel offset within the source image to a grid cell coordinate.
+  /// Returns null if the position is outside a valid cell (e.g., in the margin or padding).
+  GridRect? _pixelToGridRect(Offset positionInImage, SlicingConfig slicing) {
+    // Ignore clicks in the margin area before the grid starts.
+    if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) {
+      return null;
+    }
+
+    // Adjust coordinates to be relative to the top-left of the grid area.
+    final effectiveX = positionInImage.dx - slicing.margin;
+    final effectiveY = positionInImage.dy - slicing.margin;
+
+    // The total size of one cell including its right/bottom padding.
+    final cellWidthWithPadding = slicing.tileWidth + slicing.padding;
+    final cellHeightWithPadding = slicing.tileHeight + slicing.padding;
+
+    // These must be positive to avoid division by zero.
+    if (cellWidthWithPadding <= 0 || cellHeightWithPadding <= 0) {
+      return null;
+    }
+
+    // Determine the grid cell indices (e.g., column 0, row 1).
+    final gridX = (effectiveX / cellWidthWithPadding).floor();
+    final gridY = (effectiveY / cellHeightWithPadding).floor();
+
+    // Check if the click was inside the padding area between cells.
+    // The modulo operator finds the position *within* a cell+padding block.
+    if (effectiveX % cellWidthWithPadding >= slicing.tileWidth) {
+      return null; // Clicked in the vertical padding area.
+    }
+    if (effectiveY % cellHeightWithPadding >= slicing.tileHeight) {
+      return null; // Clicked in the horizontal padding area.
+    }
+
+    // If all checks pass, we've identified a valid grid cell.
+    return GridRect(x: gridX, y: gridY, width: 1, height: 1);
+  }
+
+  /// Callback for SlicingView: handles the start of a tap or drag gesture.
+  void onSlicingGestureStart(Offset localPosition, SlicingConfig slicing) {
+    if (_mode != TexturePackerMode.slicing) return;
+
+    // Convert the widget's local coordinates to coordinates on the image itself.
+    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
+    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
+    
+    setState(() {
+      // Store the starting pixel position for calculating the selection box.
+      _dragStart = positionInImage;
+      // Immediately create a 1x1 selection rect based on the starting cell.
+      _selectionRect = _pixelToGridRect(positionInImage, slicing);
+    });
+    
+    // Update the UI (e.g., show the contextual app bar).
+    syncCommandContext();
+  }
+
+  /// Callback for SlicingView: handles the update of a drag gesture.
+  void onSlicingGestureUpdate(Offset localPosition, SlicingConfig slicing) {
+    if (_mode != TexturePackerMode.slicing || _dragStart == null) return;
+
+    // Convert current drag position to image coordinates.
+    final invMatrix = Matrix4.copy(_transformationController.value)..invert();
+    final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
+
+    // Get the grid cells for the start and current drag positions.
+    final startRect = _pixelToGridRect(_dragStart!, slicing);
+    final endRect = _pixelToGridRect(positionInImage, slicing);
+
+    // If either position is invalid (e.g., in a padding area), do nothing.
+    if (startRect == null || endRect == null) return;
+    
+    // Determine the top-left and bottom-right corners of the selection box.
+    final left = startRect.x < endRect.x ? startRect.x : endRect.x;
+    final top = startRect.y < endRect.y ? startRect.y : endRect.y;
+    final right = startRect.x > endRect.x ? startRect.x : endRect.x;
+    final bottom = startRect.y > endRect.y ? startRect.y : endRect.y;
+    
+    // Update the state with the new multi-cell selection rectangle.
+    setState(() {
+      _selectionRect = GridRect(
+        x: left,
+        y: top,
+        width: right - left + 1,
+        height: bottom - top + 1,
+      );
+    });
+    
+    // The command context doesn't need to be synced here as the relevant state
+    // (hasSelection) is already true from onSlicingGestureStart.
+  }
+  
+  //endregion
+  
+  
   @override
   void undo() {}
   @override
@@ -282,18 +420,52 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   Widget _buildMainContent() {
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
     final project = ref.watch(texturePackerNotifierProvider(widget.tab.id));
-    // A helper to find a node in the tree
-    PackerItemNode? findNode(String id) { /* ... */ return null; }
+
+    // **THIS IS THE FIX**: If there are no source images, show the empty state first.
+    if (project.sourceImages.isEmpty) {
+      return _buildEmptyState();
+    }
     
-    final node = selectedNodeId != null ? findNode(selectedNodeId) : null;
+    // Use the correctly implemented helper function to find the node.
+    final PackerItemNode? node = selectedNodeId != null 
+        ? _findNodeById(project.tree, selectedNodeId) 
+        : null;
+        
     final definition = project.definitions[selectedNodeId];
 
-    // Show preview if the selected item is an animation, otherwise show slicer.
+    // Logic for view switching:
+    // Show the PreviewView only if an ANIMATION is explicitly selected.
+    // In all other cases (no selection, folder, or sprite selected), show the SlicingView.
     if (node?.type == PackerItemType.animation && definition is AnimationDefinition) {
       return PreviewView(tabId: widget.tab.id);
     }
     
     return _buildSlicingView();
+  }
+  
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.image_search, size: 80, color: theme.textTheme.bodySmall?.color),
+          const SizedBox(height: 24),
+          Text('Empty Texture Packer Project', style: theme.textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text(
+            'Add a source image to begin slicing sprites.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _promptAndAddSourceImage, // Call the centralized method
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: const Text('Add First Source Image'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSlicingView() {
