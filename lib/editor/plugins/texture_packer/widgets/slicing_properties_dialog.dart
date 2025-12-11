@@ -5,14 +5,15 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 
 class SlicingPropertiesDialog extends ConsumerStatefulWidget {
-  final TexturePackerNotifier notifier;
+  final String tabId;
+  final TexturePackerNotifier notifier; // Pass notifier directly
 
-  const SlicingPropertiesDialog({super.key, required this.notifier});
+  const SlicingPropertiesDialog({super.key, required this.tabId, required this.notifier});
   
-  static Future<void> show(BuildContext context, TexturePackerNotifier notifier) {
+  static Future<void> show(BuildContext context, String tabId, TexturePackerNotifier notifier) {
     return showDialog(
       context: context,
-      builder: (_) => SlicingPropertiesDialog(notifier: notifier),
+      builder: (_) => SlicingPropertiesDialog(tabId: tabId, notifier: notifier),
     );
   }
 
@@ -30,9 +31,8 @@ class _SlicingPropertiesDialogState extends ConsumerState<SlicingPropertiesDialo
   @override
   void initState() {
     super.initState();
-    // Read UI state provider
     _activeIndex = ref.read(activeSourceImageIndexProvider);
-    // Get config directly from the passed-in notifier
+    // Get state from the passed notifier instance
     final config = widget.notifier.project.sourceImages[_activeIndex].slicing;
 
     _tileWidthController = TextEditingController(text: config.tileWidth.toString());
@@ -57,7 +57,7 @@ class _SlicingPropertiesDialogState extends ConsumerState<SlicingPropertiesDialo
       margin: int.tryParse(_marginController.text) ?? 0,
       padding: int.tryParse(_paddingController.text) ?? 0,
     );
-    // Call the update method on the notifier instance from the widget
+    // Use the passed notifier instance to update state
     widget.notifier.updateSlicingConfig(_activeIndex, newConfig);
     Navigator.of(context).pop();
   }
