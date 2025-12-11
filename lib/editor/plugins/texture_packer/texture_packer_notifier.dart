@@ -1,5 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_models.dart';
 import 'texture_packer_models.dart';
+
+/// A family provider that creates a unique TexturePackerNotifier for each tab.
+/// It finds its own initial state by looking up its tab in the global app state.
+final texturePackerNotifierProvider = StateNotifierProvider.autoDispose
+    .family<TexturePackerNotifier, TexturePackerProject, String>(
+  (ref, tabId) {
+    // Find the corresponding tab in the app's session state to get the initial data.
+    final tabs =
+        ref.watch(appNotifierProvider.select((s) => s.valueOrNull?.currentProject?.session.tabs));
+    final tab = tabs?.firstWhere((t) => t.id == tabId) as TexturePackerTab?;
+
+    if (tab == null) {
+      // This should not happen in a valid state.
+      throw Exception('TexturePackerTab with ID $tabId not found in session.');
+    }
+
+    return TexturePackerNotifier(tab.initialProjectState);
+  },
+);
+
 
 /// Manages the state of the TexturePackerProject using an immutable approach.
 ///
