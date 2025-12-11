@@ -22,6 +22,7 @@ import 'texture_packer_notifier.dart';
 import '../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../../../utils/toast.dart';
 import 'package:collection/collection.dart'; // Import for SetEquality
+import 'texture_packer_plugin.dart';
 
 // Providers for UI state, scoped to the editor instance.
 final activeSourceImageIndexProvider = StateProvider.autoDispose<int>((ref) => 0);
