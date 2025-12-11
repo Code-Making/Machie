@@ -234,52 +234,48 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // This is the main layout for the editor.
-    // For a more advanced layout, consider a package like `multi_split_view`.
-    return Scaffold(
-      appBar: AppBar(
-        primary: false,
-        automaticallyImplyLeading: false,
-        title: const Text('Texture Packer'),
-        actions: [
-          // TODO: Add Export Command Button here
-          const SizedBox(width: 16),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => setState(() => _showPreview = !_showPreview),
-        label: Text(_showPreview ? 'Slicing View' : 'Preview Atlas'),
-        icon: Icon(_showPreview ? Icons.grid_on_outlined : Icons.visibility_outlined),
-      ),
-      body: Row(
-        children: [
-          // Panel 1: Source Images
-          Container(
-            width: 250,
-            decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: theme.dividerColor)),
-            ),
-            child: SourceImagesPanel(tabId: widget.tab.id),
-          ),
+    // The main editor view is a Stack to accommodate the overlay panels (drawers)
+    // and the floating command bar.
+    return Stack(
+      children: [
+        // 1. The main content area, which will be either the SlicingView or PreviewView.
+        _buildMainContent(),
 
-          // Main Content: Slicing or Preview
-          Expanded(
-            child: _showPreview
-                ? PreviewView(tabId: widget.tab.id)
-                : SlicingView(tabId: widget.tab.id),
-          ),
-
-          // Panel 2: Hierarchy
-          Container(
-            width: 300,
-            decoration: BoxDecoration(
-              border: Border(left: BorderSide(color: theme.dividerColor)),
+        // 2. The floating command toolbar in the top-right corner.
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              // We re-use the CommandPosition from the Tiled plugin for consistency.
+              child: CommandToolbar(position: TiledEditorPlugin.tiledFloatingToolbar),
             ),
-            child: HierarchyPanel(tabId: widget.tab.id),
           ),
-        ],
-      ),
+        ),
+
+        // 3. The Source Images Panel, implemented as a drawer sliding from the left.
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          top: 0,
+          bottom: 0,
+          left: _isSourceImagesPanelVisible ? 0 : -251, // Hides just off-screen
+          width: 250,
+          child: SourceImagesPanel(tabId: widget.tab.id),
+        ),
+
+        // 4. The Hierarchy Panel, implemented as a drawer sliding from the right.
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          top: 0,
+          bottom: 0,
+          right: _isHierarchyPanelVisible ? 0 : -301, // Hides just off-screen
+          width: 300,
+          child: HierarchyPanel(tabId: widget.tab.id),
+        ),
+      ],
     );
   }
   
