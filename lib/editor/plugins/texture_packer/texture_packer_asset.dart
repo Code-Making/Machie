@@ -125,48 +125,136 @@ class TexturePackerAssetLoader implements AssetLoader<TexturePackerAssetData>, I
     TexturePackerProject project,
     Map<int, ui.Image> sourceImages,
   ) async {
-    // --- This section is a simplified stand-in for a real bin-packing algorithm ---
-    const int atlasWidth = 1024; // Fixed width for simplicity
-    final Map<String, SpritesheetFrameDataModel> frames = {};
-    
-    // In a real implementation, you would use a bin-packing algorithm to determine
-    // the positions. Here, we'll just lay them out in a simple grid.
-    int currentX = 0;
-    int currentY = 0;
-    int maxRowHeight = 0;
+    // 1. COLLECT: Traverse the tree to find all sprites and their data.
+    final spritesToPack = <_SpriteToPack>[];
+    final Map<String, String> nodeIdToFullName = {};
 
-    // Use a PictureRecorder to draw the new atlas image.
+    void collectSprites(PackerItemNode node, String currentPath) {
+      final nodeName = (node.id == 'root') ? '' : node.name;
+      final newPath = (currentPath.isEmpty) ? nodeName : '$currentPath/$nodeName';
+
+      if (node.type == PackerItemType.sprite) {
+        final def = project.definitions[node.id] as SpriteDefinition?;
+        if (def != null) {
+          final sourceConfig = project.sourceImages[def.sourceImageIndex];
+          final sourceImage = sourceImages[def.sourceImageIndex];
+          if (sourceImage != null) {
+            final slicing = sourceConfig.slicing;
+            final left = slicing.margin + def.gridRect.x * (slicing.tileWidth + slicing.padding);
+            final top = slicing.margin + def.gridRect.y * (slicing.tileHeight + slicing.padding);
+            final width = def.gridRect.width * slicing.tileWidth + (def.gridRect.width - 1) * slicing.padding;
+            final height = def.gridRect.height * slicing.tileHeight + (def.gridRect.height - 1) * slicing.padding;
+
+            spritesToPack.add(_SpriteToPack(
+              nodeId: node.id,
+              fullName: newPath,
+              sourceImage: sourceImage,
+              sourceRect: Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble()),
+            ));
+            nodeIdToFullName[node.id] = newPath;
+          }
+        }
+      }
+
+      for (final child in node.children) {
+        collectSprites(child, newPath);
+      }
+    }
+
+    collectSprites(project.tree, '');
+
+    // 2. PACK: Arrange the sprites into an atlas using a simple shelf algorithm.
+    const int atlasWidth = 2048; // A common atlas width
+    final Map<_SpriteToPack, Rect> packedLayout = {};
+
+    if (spritesToPack.isNotEmpty) {
+      // Sort sprites by height (descending) for better packing.
+      spritesToPack.sort((a, b) => b.sourceRect.height.compareTo(a.sourceRect.height));
+
+      int currentX = 0;
+      int currentY = 0;
+      int currentRowHeight = 0;
+
+      for (final sprite in spritesToPack) {
+        if (currentX + sprite.sourceRect.width > atlasWidth) {
+          currentX = 0;
+          currentY += currentRowHeight;
+          currentRowHeight = 0;
+        }
+
+        packedLayout[sprite] = Rect.fromLTWH(
+          currentX.toDouble(),
+          currentY.toDouble(),
+          sprite.sourceRect.width,
+          sprite.sourceRect.height,
+        );
+
+        currentX += sprite.sourceRect.width.toInt();
+        currentRowHeight = max(currentRowHeight, sprite.sourceRect.height.toInt());
+      }
+    }
+
+    // 3. DRAW: Render the final atlas image.
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
-    // TODO: Implement the recursive traversal of the project.tree to process sprites.
-    // For now, we'll assume a flat list of sprites for demonstration.
-    
-    // (A real implementation would traverse `project.tree` and use `project.definitions`)
-
-    // This is just a placeholder to create a dummy atlas.
-    final placeholderRect = ui.Rect.fromLTWH(0, 0, 64, 64);
-    canvas.drawRect(placeholderRect, ui.Paint()..color = const ui.Color(0xFFFF00FF));
-    frames['placeholder'] = SpritesheetFrameDataModel(
-      frame: {'x': 0, 'y': 0, 'w': 64, 'h': 64},
-      sourceSize: {'w': 64, 'h': 64},
-    );
-
-    final int atlasHeight = currentY + maxRowHeight;
-    // --- End of simplified packing logic ---
+    int finalAtlasHeight = 0;
+    packedLayout.forEach((sprite, destRect) {
+      canvas.drawImageRect(sprite.sourceImage, sprite.sourceRect, destRect, paint);
+      finalAtlasHeight = max(finalAtlasHeight, destRect.bottom.toInt());
+    });
 
     final picture = recorder.endRecording();
-    final atlasImage = await picture.toImage(atlasWidth, atlasHeight > 0 ? atlasHeight : 64);
+    // Ensure minimum size of 1x1 to prevent errors with empty atlases.
+    final atlasImage = await picture.toImage(atlasWidth, max(1, finalAtlasHeight));
 
+    // 4. GENERATE METADATA: Create the final JSON structure.
+    final Map<String, SpritesheetFrameDataModel> frames = {};
+    packedLayout.forEach((sprite, destRect) {
+      frames[sprite.fullName] = SpritesheetFrameDataModel(
+        frame: {
+          'x': destRect.left.toInt(),
+          'y': destRect.top.toInt(),
+          'w': destRect.width.toInt(),
+          'h': destRect.height.toInt(),
+        },
+        sourceSize: {
+          'w': sprite.sourceRect.width.toInt(),
+          'h': sprite.sourceRect.height.toInt(),
+        },
+      );
+    });
+
+    final Map<String, List<String>> animations = {};
+    void collectAnimations(PackerItemNode node, String currentPath) {
+      final nodeName = (node.id == 'root') ? '' : node.name;
+      final newPath = (currentPath.isEmpty) ? nodeName : '$currentPath/$nodeName';
+
+      if (node.type == PackerItemType.animation) {
+        final def = project.definitions[node.id] as AnimationDefinition?;
+        if (def != null) {
+          animations[newPath] = def.frameIds
+              .map((id) => nodeIdToFullName[id])
+              .where((name) => name != null)
+              .cast<String>()
+              .toList();
+        }
+      }
+      for (final child in node.children) {
+        collectAnimations(child, newPath);
+      }
+    }
+
+    collectAnimations(project.tree, '');
+    
     final spritesheetData = SpritesheetDataModel(
       frames: frames,
-      // TODO: Process animations from project.tree/definitions
-      animations: {},
+      animations: animations,
       meta: {
         'app': 'Machine Texture Packer',
         'version': '1.0',
-        'image': 'atlas.png', // This would be dynamic in the export phase
+        'image': 'atlas.png', // This is a placeholder name for the in-memory asset
         'format': 'RGBA8888',
         'size': {'w': atlasImage.width, 'h': atlasImage.height},
         'scale': '1',
