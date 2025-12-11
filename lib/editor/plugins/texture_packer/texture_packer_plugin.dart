@@ -13,6 +13,13 @@ import 'texture_packer_editor_widget.dart';
 import 'texture_packer_models.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
+  static const textureFloatingToolbar = CommandPosition(
+    id: 'texture_floating_toolbar',
+    label: 'Texture Floating Toolbar',
+    icon: Icons.grid_on_outlined,
+  );
+
+  
   @override
   String get id => 'com.machine.texture_packer';
 
@@ -65,6 +72,92 @@ class TexturePackerPlugin extends EditorPlugin {
       key: (tab as TexturePackerTab).editorKey,
       tab: tab,
     );
+  }
+  
+  TexturePackerEditorWidgetState? _getEditorState(WidgetRef ref) {
+    final tab =
+        ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
+    if (tab is TexturePackerTab) {
+      return tab.editorKey.currentState as TexturePackerEditorWidgetState?;
+    }
+    return null;
+  }
+  
+  @override
+  List<CommandPosition> getCommandPositions() => [
+    textureFloatingToolbar // Re-using the floating toolbar position
+  ];
+
+  @override
+  List<Command> getCommands() {
+    return [
+      // Mode Switching Commands
+      BaseCommand(
+        id: 'packer_toggle_pan_zoom_mode',
+        label: 'Pan/Zoom',
+        icon: Consumer(builder: (context, ref, _) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          final isActive = ctx is TexturePackerCommandContext && ctx.mode == TexturePackerMode.panZoom;
+          return Icon(Icons.pan_tool_outlined, color: isActive ? Theme.of(context).colorScheme.primary : null);
+        }),
+        defaultPositions: [textureFloatingToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.panZoom),
+      ),
+      BaseCommand(
+        id: 'packer_toggle_slicing_mode',
+        label: 'Slice & Select',
+        icon: Consumer(builder: (context, ref, _) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          final isActive = ctx is TexturePackerCommandContext && ctx.mode == TexturePackerMode.slicing;
+          return Icon(Icons.select_all_outlined, color: isActive ? Theme.of(context).colorScheme.primary : null);
+        }),
+        defaultPositions: [textureFloatingToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.slicing),
+      ),
+      
+      // Panel Toggle Commands
+      BaseCommand(
+        id: 'packer_toggle_sources_panel',
+        label: 'Source Images',
+        icon: Consumer(builder: (context, ref, _) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          final isActive = ctx is TexturePackerCommandContext && ctx.isSourceImagesPanelVisible;
+          return Icon(Icons.photo_library_outlined, color: isActive ? Theme.of(context).colorScheme.primary : null);
+        }),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.toggleSourceImagesPanel(),
+      ),
+      BaseCommand(
+        id: 'packer_toggle_hierarchy_panel',
+        label: 'Hierarchy',
+        icon: Consumer(builder: (context, ref, _) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          final isActive = ctx is TexturePackerCommandContext && ctx.isHierarchyPanelVisible;
+          return Icon(Icons.account_tree_outlined, color: isActive ? Theme.of(context).colorScheme.primary : null);
+        }),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.toggleHierarchyPanel(),
+      ),
+
+      // Other Commands
+      BaseCommand(
+        id: 'packer_edit_slicing_properties',
+        label: 'Slicing Properties',
+        icon: const Icon(Icons.tune_outlined),
+        defaultPositions: [AppCommandPositions.pluginToolbar],
+        sourcePlugin: id,
+        execute: (ref) async {
+          final editor = _getEditorState(ref);
+          if (editor != null) {
+            await SlicingPropertiesDialog.show(editor.context, editor.widget.tab.id);
+          }
+        },
+      ),
+    ];
   }
   
   // --- Other optional plugin overrides can go here ---
