@@ -2,15 +2,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/data/cache/type_adapters.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/command/command_models.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/editor/models/editor_command_context.dart';
 import 'package:machine/editor/models/editor_plugin_models.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
-import 'package:machine/asset_cache/asset_models.dart';
+import 'package:machine/editor/plugins/tiled_editor/tiled_editor_plugin.dart'; // Re-using a CommandPosition
 import 'texture_packer_asset.dart';
+import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_editor_widget.dart';
 import 'texture_packer_models.dart';
+import 'widgets/slicing_properties_dialog.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
   static const textureFloatingToolbar = CommandPosition(
