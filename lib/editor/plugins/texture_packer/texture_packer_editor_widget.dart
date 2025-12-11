@@ -41,7 +41,7 @@ class TexturePackerEditorWidget extends EditorWidget {
 class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEditorWidget> {
   
   late final TexturePackerNotifier _notifier;
-  final get TexturePackerNotifier notifier => notifier;
+  final TexturePackerNotifier get notifier => _notifier;
   Set<String> _requiredAssetUris = const {};
 
   TexturePackerMode _mode = TexturePackerMode.slicing;
