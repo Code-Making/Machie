@@ -187,7 +187,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     // in the app bar. So, on gesture end, we do nothing.
   }
   
-    Future<void> _promptAndAddSourceImage() async {
+  Future<void> _promptAndAddSourceImage() async {
+    // 1. The dialog returns a project-relative path string (e.g., "sprites/player.png").
+    // This is the correct format we want to store.
     final newPath = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
@@ -197,9 +199,11 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
         MachineToast.error('Please select a valid PNG image.');
         return;
       }
+      
+      // 2. We pass this correct, project-relative path directly to the notifier.
+      // The notifier will then save it into the TexturePackerProject state.
       ref.read(texturePackerNotifierProvider(widget.tab.id).notifier).addSourceImage(newPath);
       
-      // If this was the first image, automatically select it.
       final imageCount = ref.read(texturePackerNotifierProvider(widget.tab.id)).sourceImages.length;
       if (imageCount == 1) {
           ref.read(activeSourceImageIndexProvider.notifier).state = 0;

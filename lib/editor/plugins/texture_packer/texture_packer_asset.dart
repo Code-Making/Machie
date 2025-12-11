@@ -68,9 +68,7 @@ class TexturePackerAssetData extends AssetData {
 
 /// Loads a `.tpacker` file, resolves its source image dependencies,
 /// and builds a `TexturePackerAssetData` in memory.
-class TexturePackerAssetLoader
-    extends AssetLoader<TexturePackerAssetData>
-    with IDependentAssetLoader<TexturePackerAssetData> {
+class TexturePackerAssetLoader implements AssetLoader<TexturePackerAssetData>, IDependentAssetLoader {
   @override
   bool canLoad(ProjectDocumentFile file) {
     return file.name.toLowerCase().endsWith('.tpacker');
@@ -79,11 +77,13 @@ class TexturePackerAssetLoader
   /// This method is called first by the AssetNotifier to discover dependencies.
   @override
   Future<Set<String>> getDependencies(Ref ref, ProjectDocumentFile file, ProjectRepository repo) async {
-    // Read the project file just to find the source image paths.
     final jsonString = await repo.readFile(file.uri);
     if (jsonString.trim().isEmpty) return const {};
     
     final packerProject = TexturePackerProject.fromJson(jsonDecode(jsonString));
+    
+    // Since we store project-relative paths, we can just return them directly.
+    // The assetDataProvider will correctly resolve them relative to the project root.
     return packerProject.sourceImages.map((e) => e.path).toSet();
   }
 
@@ -93,31 +93,26 @@ class TexturePackerAssetLoader
     ProjectDocumentFile file,
     ProjectRepository repo,
   ) async {
-    // 1. Load and parse the source .tpacker project file again.
-    //    (This is fast as it should be in the OS file cache).
     final jsonString = await repo.readFile(file.uri);
     final packerProject = TexturePackerProject.fromJson(jsonDecode(jsonString));
 
-    // 2. Get the pre-loaded dependency assets.
-    //    We use ref.read here because the reactive link is already established
-    //    in the AssetNotifier's build method.
     final sourceImageAssets = <int, ui.Image>{};
     for (int i = 0; i < packerProject.sourceImages.length; i++) {
       final sourcePath = packerProject.sourceImages[i].path;
-      // This read is now safe and synchronous if the asset is loaded.
+      
+      // The 'sourcePath' is project-relative, which is exactly what
+      // the assetDataProvider family expects.
       final assetData = ref.read(assetDataProvider(sourcePath)).value;
+
       if (assetData is ImageAssetData) {
         sourceImageAssets[i] = assetData.image;
       } else {
-        // This should theoretically not be reached if the AssetNotifier works correctly.
-        throw Exception('Dependency asset "$sourcePath" was not a valid image.');
+        throw Exception('Dependency asset "$sourcePath" was not loaded or is not a valid image.');
       }
     }
 
-    // 3. Perform the in-memory packing and drawing.
     final packResult = await _packAtlasInMemory(packerProject, sourceImageAssets);
 
-    // 4. Return the final, compiled asset.
     return TexturePackerAssetData(
       atlasImage: packResult.atlasImage,
       spritesheetData: packResult.spritesheetData,
