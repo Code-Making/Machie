@@ -174,8 +174,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final slicing = source.slicing;
     final left = slicing.margin + gridRect.x * (slicing.tileWidth + slicing.padding);
     final top = slicing.margin + gridRect.y * (slicing.tileHeight + slicing.padding);
-    final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
-    final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
+    final width = gridRect.width * slicing.tileWidth + (gridRect.width - 1) * slicing.padding;
+    final height = gridRect.height * slicing.tileHeight + (gridRect.height - 1) * slicing.padding;
     return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
   
