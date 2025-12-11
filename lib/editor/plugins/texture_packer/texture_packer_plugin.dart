@@ -11,7 +11,6 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/editor/models/editor_plugin_models.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_editor_plugin.dart'; // Re-using a CommandPosition
-import 'texture_packer_asset.dart';
 import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_editor_widget.dart';
@@ -43,12 +42,8 @@ class TexturePackerPlugin extends EditorPlugin {
     return file.name.toLowerCase().endsWith('.tpacker');
   }
 
-  /// Register the custom asset loader for .tpacker files.
   @override
-  List<AssetLoader> get assetLoaders => [TexturePackerAssetLoader()];
-
-  @override
-  final PluginSettings? settings = null;
+  final PluginSettings? settings = PluginSettings();
   @override
     Widget buildSettingsUI(
     PluginSettings settings,
