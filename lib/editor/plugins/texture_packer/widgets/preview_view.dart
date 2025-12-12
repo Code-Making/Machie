@@ -25,7 +25,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   late final TransformationController _transformationController;
   
   Animation<int>? _frameAnimation;
-  AnimationDefinition? _currentAnimationDef;
+  PackerItemNode? _currentAnimationNode; // Changed from Definition to Node to track children
   String? _lastSelectedNodeId;
   bool _needsFit = true;
 
@@ -35,21 +35,16 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     _transformationController = TransformationController();
     _animationController = AnimationController(vsync: this);
     
-    // Force repaint on every frame tick
     _animationController.addListener(() {
       setState(() {});
     });
     
-    // Handle "Play Once" behavior: Stop and Rewind
     _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         final state = ref.read(previewStateProvider(widget.tabId));
         if (!state.isLooping) {
-          // 1. Update UI state to "Paused"
           ref.read(previewStateProvider(widget.tabId).notifier).state = 
               state.copyWith(isPlaying: false);
-          
-          // 2. Rewind to frame 0
           _animationController.reset();
         }
       }
@@ -72,6 +67,18 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return null;
   }
 
+  // Recursive helper to find source config in the new SourceImageNode tree
+  SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
+    if (node.type == SourceNodeType.image && node.id == id) {
+      return node.content;
+    }
+    for (final child in node.children) {
+      final found = _findSourceConfig(child, id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
   List<SpriteDefinition> _collectSpritesInFolder(PackerItemNode folder, Map<String, PackerItemDefinition> defs) {
     List<SpriteDefinition> sprites = [];
     for (final child in folder.children) {
@@ -87,26 +94,28 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return sprites;
   }
 
-  void _updateAnimationState(AnimationDefinition animDef, PreviewState state) {
-    if (animDef.frameIds.isEmpty || animDef.speed <= 0) {
+  void _updateAnimationState(PackerItemNode node, AnimationDefinition animDef, PreviewState state) {
+    // Frames are the children of the animation node
+    final frameCount = node.children.length;
+
+    if (frameCount == 0 || animDef.speed <= 0) {
       _animationController.stop();
-      _currentAnimationDef = null;
+      _currentAnimationNode = null;
       _frameAnimation = null;
       return;
     }
 
     final effectiveSpeed = animDef.speed * state.speedMultiplier;
-    // Ensure duration is at least 1ms to avoid division by zero
-    final durationMs = (animDef.frameIds.length / effectiveSpeed * 1000).round();
+    final durationMs = (frameCount / effectiveSpeed * 1000).round();
     final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
 
-    bool configChanged = animDef != _currentAnimationDef || 
+    bool configChanged = node != _currentAnimationNode || 
                          _animationController.duration != newDuration;
 
     if (configChanged) {
-      _currentAnimationDef = animDef;
+      _currentAnimationNode = node;
       _animationController.duration = newDuration;
-      _frameAnimation = StepTween(begin: 0, end: animDef.frameIds.length).animate(_animationController);
+      _frameAnimation = StepTween(begin: 0, end: frameCount).animate(_animationController);
     }
 
     if (state.isPlaying) {
@@ -123,7 +132,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     }
   }
 
-  /// Calculates the matrix to fit the content within the viewport with a margin.
   void _fitContent(Size contentSize, Size viewportSize) {
     if (contentSize.isEmpty || viewportSize.isEmpty) return;
 
@@ -131,15 +139,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final double availableW = viewportSize.width - margin * 2;
     final double availableH = viewportSize.height - margin * 2;
 
-    // Determine scale to fit the *closest* dimension
     final double scaleX = availableW / contentSize.width;
     final double scaleY = availableH / contentSize.height;
-    
-    // Use the smaller scale to ensure it fits entirely, clamped to reasonable limits
     final double scale = math.min(scaleX, scaleY).clamp(0.1, 10.0); 
 
-    // Calculate offset to center the scaled content in the viewport.
-    // This assumes the content is positioned at (0,0) locally.
     final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
     final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
 
@@ -158,11 +161,9 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final assetMap = ref.watch(assetMapProvider(widget.tabId));
     final previewState = ref.watch(previewStateProvider(widget.tabId));
     
-    // Check if selection changed to trigger a re-fit
     if (selectedNodeId != _lastSelectedNodeId) {
       _lastSelectedNodeId = selectedNodeId;
       _needsFit = true;
-      // Stop animation when switching nodes to prevent ghosting or state bleeding
       _animationController.stop();
       _animationController.reset();
     }
@@ -185,26 +186,26 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
             final sprites = _collectSpritesInFolder(node, project.definitions);
             content = _buildAtlasPreview(sprites, project, assets);
-            // We don't auto-fit Folders/Atlas as their size is dynamic/unknown at build time
           } else {
             final definition = project.definitions[node.id];
             
             if (definition is SpriteDefinition) {
               _animationController.stop();
-              // Calculate size for single sprite
               final size = _getSpriteSize(project, definition, assets);
               contentSize = size ?? Size.zero;
               content = _buildSpritePreview(project, definition, assets, size);
             } else if (definition is AnimationDefinition) {
-              _updateAnimationState(definition, previewState);
-              // Calculate size based on first frame (assuming consistent frame size)
-              if (definition.frameIds.isNotEmpty) {
-                 final firstFrameDef = project.definitions[definition.frameIds.first];
+              // Pass Node, not just def
+              _updateAnimationState(node, definition, previewState);
+              
+              // Use first child sprite for sizing
+              if (node.children.isNotEmpty) {
+                 final firstFrameDef = project.definitions[node.children.first.id];
                  if (firstFrameDef is SpriteDefinition) {
                    contentSize = _getSpriteSize(project, firstFrameDef, assets) ?? Size.zero;
                  }
               }
-              content = _buildAnimationPreview(project, definition, assets, contentSize);
+              content = _buildAnimationPreview(project, node, assets, contentSize);
             } else {
               content = _buildPlaceholder('No Data', 'Item definition missing.');
             }
@@ -213,7 +214,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            // Apply Auto-Fit logic if we have a valid content size
             if (_needsFit && !contentSize.isEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _needsFit) {
@@ -237,12 +237,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.01,
                     maxScale: 20.0,
-                    // FIX: Use Align(topLeft) instead of Center.
-                    // Center conflicts with our manual matrix calculations by adding an offset.
-                    // Align(topLeft) ensures the content starts at (0,0) in viewport space,
-                    // making our _fitContent translation math correct.
                     child: contentSize.isEmpty 
-                      ? Center(child: content) // For Atlas/Folder, fall back to simple Center
+                      ? Center(child: content) 
                       : Align(
                           alignment: Alignment.topLeft,
                           child: SizedBox(
@@ -264,8 +260,9 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 
   Size? _getSpriteSize(TexturePackerProject project, SpriteDefinition def, Map<String, AssetData> assets) {
-    if (def.sourceImageIndex >= project.sourceImages.length) return null;
-    final sourceConfig = project.sourceImages[def.sourceImageIndex];
+    final sourceConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId);
+    if (sourceConfig == null) return null;
+    
     final rect = _calculateSourceRect(sourceConfig, def.gridRect);
     return Size(rect.width, rect.height);
   }
@@ -276,11 +273,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     Map<String, AssetData> assets,
     Size? precalcSize,
   ) {
-    if (spriteDef.sourceImageIndex >= project.sourceImages.length) return const Icon(Icons.broken_image);
-    
-    final sourceConfig = project.sourceImages[spriteDef.sourceImageIndex];
-    final asset = assets[sourceConfig.path];
+    final sourceConfig = _findSourceConfig(project.sourceImagesRoot, spriteDef.sourceImageId);
+    if (sourceConfig == null) return const Icon(Icons.broken_image);
 
+    final asset = assets[sourceConfig.path];
     if (asset is! ImageAssetData) return const Icon(Icons.broken_image);
 
     final srcRect = _calculateSourceRect(sourceConfig, spriteDef.gridRect);
@@ -294,20 +290,20 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
   Widget _buildAnimationPreview(
     TexturePackerProject project,
-    AnimationDefinition animDef,
+    PackerItemNode animNode,
     Map<String, AssetData> assets,
     Size frameSize,
   ) {
-    if (_frameAnimation == null || animDef.frameIds.isEmpty) {
-      return _buildPlaceholder('Empty Animation', 'No frames defined.');
+    if (_frameAnimation == null || animNode.children.isEmpty) {
+      return _buildPlaceholder('Empty Animation', 'No frames (sprites) inside.');
     }
 
-    // Wrap frame index safely
     var frameIndex = _frameAnimation!.value;
-    if (frameIndex >= animDef.frameIds.length) frameIndex = 0;
+    // Safety check
+    if (frameIndex >= animNode.children.length) frameIndex = 0;
 
-    final frameId = animDef.frameIds[frameIndex];
-    final spriteDef = project.definitions[frameId] as SpriteDefinition?;
+    final frameNode = animNode.children[frameIndex];
+    final spriteDef = project.definitions[frameNode.id] as SpriteDefinition?;
 
     if (spriteDef == null) return const Icon(Icons.error_outline);
     
@@ -328,9 +324,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       children: sprites.map((def) {
         final size = _getSpriteSize(project, def, assets);
         return Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white24),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.white24)),
           child: _buildSpritePreview(project, def, assets, size),
         );
       }).toList(),
@@ -359,6 +353,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 }
 
+// ... _BackgroundPainter and _SpritePainter remain unchanged ...
 class _BackgroundPainter extends CustomPainter {
   final TexturePackerSettings settings;
   _BackgroundPainter({required this.settings});
@@ -403,7 +398,6 @@ class _SpritePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SpritePainter oldDelegate) {
-    // Return true if image source or cropping changes to trigger repaint
     return oldDelegate.image != image || oldDelegate.srcRect != srcRect;
   }
 }

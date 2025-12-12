@@ -6,7 +6,7 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart'; // Import settings
+import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart';
 import 'package:machine/settings/settings_notifier.dart';
 
 class SlicingView extends ConsumerWidget {
@@ -15,6 +15,7 @@ class SlicingView extends ConsumerWidget {
   final TransformationController transformationController;
   final GridRect? dragSelection;
   final bool isPanZoomMode;
+  // Gestures pass the position back to the controller
   final Function(Offset localPosition) onGestureStart;
   final Function(Offset localPosition) onGestureUpdate;
   final VoidCallback onGestureEnd;
@@ -33,38 +34,56 @@ class SlicingView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeIndex = ref.watch(activeSourceImageIndexProvider);
-    final project = notifier.project;
+    // 1. Get Active Source Image ID
+    final activeSourceId = ref.watch(activeSourceImageIdProvider);
     
-    // Read settings
+    // 2. Read Settings
     final settings = ref.watch(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
         ?? TexturePackerSettings();
 
-    if (activeIndex >= project.sourceImages.length) {
-      return const Center(child: Text('Select a source image.'));
+    if (activeSourceId == null) {
+      return const Center(child: Text('Select a source image from the panel.'));
     }
 
-    final sourceConfig = project.sourceImages[activeIndex];
+    // 3. Find Configuration in Tree
+    final sourceConfig = notifier.findSourceImageConfig(activeSourceId);
+    if (sourceConfig == null) {
+      return const Center(child: Text('Source image not found in hierarchy.'));
+    }
+
+    // 4. Load Asset
     final assetMap = ref.watch(assetMapProvider(tabId));
 
     return assetMap.when(
       data: (assets) {
         final imageAsset = assets[sourceConfig.path];
+        
+        if (imageAsset is ErrorAssetData) {
+           return Center(child: Text('Failed to load image:\n${imageAsset.error}'));
+        }
+        
         if (imageAsset is! ImageAssetData) {
-          return Center(child: Text('Could not load image: ${sourceConfig.path}'));
+          // Still loading specific asset or not found in map yet
+          return const Center(child: CircularProgressIndicator());
         }
 
         final image = imageAsset.image;
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
+        // 5. Determine Active Selection (Green Box)
+        // We look at the selected OUTPUT node (Sprite). If it references this source, highlight it.
         final selectedNodeId = ref.watch(selectedNodeIdProvider);
-        final definition = project.definitions[selectedNodeId];
         GridRect? activeSelection;
-        if (definition is SpriteDefinition && definition.sourceImageIndex == activeIndex) {
-          activeSelection = definition.gridRect;
+        
+        if (selectedNodeId != null) {
+          final definition = notifier.project.definitions[selectedNodeId];
+          if (definition is SpriteDefinition && definition.sourceImageId == activeSourceId) {
+            activeSelection = definition.gridRect;
+          }
         }
 
+        // 6. Build UI
         return SizedBox.expand(
           child: GestureDetector(
             onPanStart: (details) => onGestureStart(details.localPosition),
@@ -86,7 +105,7 @@ class SlicingView extends ConsumerWidget {
                     slicing: sourceConfig.slicing,
                     dragSelection: dragSelection,
                     activeSelection: activeSelection,
-                    settings: settings, // Pass settings
+                    settings: settings,
                   ),
                 ),
               ),
@@ -117,23 +136,22 @@ class _SlicingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw checkerboard background strictly within image bounds
+    // 1. Checkerboard
     _drawCheckerboard(canvas, size);
 
-    // 2. Draw the source image
+    // 2. Source Image
     final imagePaint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImage(image, Offset.zero, imagePaint);
 
-    // 3. Draw the grid
+    // 3. Grid Lines
     _drawGrid(canvas, size);
 
-    // 4. Draw active selection
+    // 4. Highlights
     if (activeSelection != null) {
       final paint = Paint()..color = Colors.green.withOpacity(0.5);
       _drawHighlight(canvas, activeSelection!, paint);
     }
 
-    // 5. Draw drag selection
     if (dragSelection != null) {
       final paint = Paint()..color = Colors.blue.withOpacity(0.5);
       _drawHighlight(canvas, dragSelection!, paint);
@@ -144,7 +162,6 @@ class _SlicingPainter extends CustomPainter {
     final pixelRect = _gridToPixelRect(rect);
     canvas.drawRect(pixelRect, paint);
     
-    // Draw stroke
     final stroke = Paint()
       ..color = paint.color.withOpacity(1.0)
       ..style = PaintingStyle.stroke
@@ -155,7 +172,6 @@ class _SlicingPainter extends CustomPainter {
   Rect _gridToPixelRect(GridRect rect) {
     final left = slicing.margin + rect.x * (slicing.tileWidth + slicing.padding);
     final top = slicing.margin + rect.y * (slicing.tileHeight + slicing.padding);
-    // Width calculation: (width in tiles * tile width) + (number of gaps * padding)
     final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
     final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
     return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
@@ -168,15 +184,12 @@ class _SlicingPainter extends CustomPainter {
       ..color = Color(settings.gridColor)
       ..strokeWidth = settings.gridThickness;
 
-    // Grid calculations should stop at the image edge
     final double endX = size.width;
     final double endY = size.height;
 
     // Vertical lines
-    // Start at margin, jump by (tileWidth + padding)
     for (double x = slicing.margin.toDouble(); x <= endX; x += (slicing.tileWidth + slicing.padding)) {
       canvas.drawLine(Offset(x, 0), Offset(x, endY), paint);
-      // If there is padding, draw the other side of the gutter
       if (slicing.padding > 0) {
         final gutterRight = x + slicing.tileWidth;
         if (gutterRight <= endX) {
@@ -198,7 +211,6 @@ class _SlicingPainter extends CustomPainter {
   }
 
   void _drawCheckerboard(Canvas canvas, Size size) {
-    // Only draw within image dimensions
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.save();
     canvas.clipRect(rect);
@@ -229,6 +241,6 @@ class _SlicingPainter extends CustomPainter {
         oldDelegate.slicing != slicing ||
         oldDelegate.dragSelection != dragSelection ||
         oldDelegate.activeSelection != activeSelection ||
-        oldDelegate.settings != settings; // Check settings
+        oldDelegate.settings != settings;
   }
 }
