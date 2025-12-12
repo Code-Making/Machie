@@ -37,7 +37,6 @@ class SourceImagesPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
@@ -54,11 +53,9 @@ class SourceImagesPanel extends ConsumerWidget {
           ),
           const Divider(height: 1),
 
-          // Tree View - REFACTORED
           Expanded(
             child: Stack(
               children: [
-                // 1. Background Root Drop Zone
                 Positioned.fill(
                   child: _SourceRootDropZone(
                     notifier: notifier, 
@@ -67,13 +64,12 @@ class SourceImagesPanel extends ConsumerWidget {
                   ),
                 ),
 
-                // 2. The List
                 SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildNodeList(rootNode, context, ref),
-                      const SizedBox(height: 50),
+                      const SizedBox(height: 100), // Spacer for background drop
                     ],
                   ),
                 ),
@@ -82,7 +78,7 @@ class SourceImagesPanel extends ConsumerWidget {
           ),
           
           const Divider(height: 1),
-          // Toolbar
+          
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -160,7 +156,6 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
     return DragTarget<String>(
       onWillAccept: (draggedId) {
         if (draggedId == null) return false;
-        // Don't accept if already at root
         if (widget.rootNode.children.any((c) => c.id == draggedId)) return false;
         setState(() => _isHovered = true);
         return true;
@@ -175,11 +170,9 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
           if (_isHovered) {
             return Container(
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              alignment: Alignment.bottomCenter,
-              padding: const EdgeInsets.only(bottom: 20),
+              alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.subdirectory_arrow_left, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
@@ -222,7 +215,6 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
 
     Widget content = _buildTile(context, ref);
 
-    // Folder Drop Logic (Drop Inside)
     if (isFolder) {
       content = DragTarget<String>(
         onWillAccept: (draggedId) {
@@ -252,7 +244,6 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
       );
     }
 
-    // Drag Source Logic
     content = LongPressDraggable<String>(
       data: node.id,
       feedback: Material(

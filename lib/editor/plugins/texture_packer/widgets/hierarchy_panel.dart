@@ -32,7 +32,6 @@ class HierarchyPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
@@ -49,30 +48,26 @@ class HierarchyPanel extends ConsumerWidget {
           ),
           const Divider(height: 1),
           
-          // Tree View - REFACTORED LAYOUT
           Expanded(
             child: Stack(
               children: [
-                // 1. Background Drop Zone (Covers entire scrollable area)
-                // This acts as the "Move to Root" target when dropping in whitespace
+                // Background Drop Zone (Covers area, handles drops to root)
                 Positioned.fill(
                   child: HierarchyRootDropZone(
                     notifier: notifier,
                     rootNode: rootNode,
-                    isBackground: true, // New flag for styling
+                    isBackground: true,
                   ),
                 ),
                 
-                // 2. The List
+                // Scrollable List
                 SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Recursive Node List
                       _buildNodeList(rootNode, context, ref),
-                      
-                      // Extra padding at bottom to ensure we can always drop to root easily
-                      const SizedBox(height: 50), 
+                      // Spacer to ensure bottom area is clickable for root drop
+                      const SizedBox(height: 100), 
                     ],
                   ),
                 ),
@@ -81,7 +76,7 @@ class HierarchyPanel extends ConsumerWidget {
           ),
           
           const Divider(height: 1),
-          // Toolbar
+          
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -108,11 +103,11 @@ class HierarchyPanel extends ConsumerWidget {
       ),
     );
   }
-  
+
   Widget _buildNodeList(PackerItemNode parent, BuildContext context, WidgetRef ref) {
     final children = parent.children;
     
-    // If empty folder/animation, show a small drop hint
+    // Explicitly handle empty non-root folders to show a drop target
     if (children.isEmpty && parent.id != 'root') {
       return Padding(
         padding: const EdgeInsets.only(left: 16.0),
@@ -141,7 +136,6 @@ class HierarchyPanel extends ConsumerWidget {
   }
 }
 
-// Updated Root Drop Zone
 class HierarchyRootDropZone extends StatefulWidget {
   final TexturePackerNotifier notifier;
   final PackerItemNode rootNode;
@@ -166,7 +160,6 @@ class _HierarchyRootDropZoneState extends State<HierarchyRootDropZone> {
     return DragTarget<String>(
       onWillAccept: (draggedId) {
         if (draggedId == null) return false;
-        // Don't accept if already at root
         final isAlreadyRoot = widget.rootNode.children.any((c) => c.id == draggedId);
         if (isAlreadyRoot) return false;
         
@@ -179,16 +172,13 @@ class _HierarchyRootDropZoneState extends State<HierarchyRootDropZone> {
         widget.notifier.moveNode(draggedId, 'root', widget.rootNode.children.length);
       },
       builder: (context, candidates, rejected) {
-        // If background, show visual feedback only on hover
         if (widget.isBackground) {
           if (_isHovered) {
             return Container(
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              alignment: Alignment.bottomCenter,
-              padding: const EdgeInsets.only(bottom: 20),
+              alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.subdirectory_arrow_left, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
@@ -197,9 +187,8 @@ class _HierarchyRootDropZoneState extends State<HierarchyRootDropZone> {
               ),
             );
           }
-          return const SizedBox.expand(); // Invisible hit test target
+          return const SizedBox.expand(); 
         }
-        
         return const SizedBox.shrink();
       },
     );
