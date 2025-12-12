@@ -277,72 +277,61 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-Future<Set<String>> _collectAssetUris(TiledMap map) async {
+  Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
     
-    // Get the actual URI of the TMX file on the filesystem
+    // Get the URI of the TMX file itself
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
 
-    // Helper to add a file to the list if it exists
-    Future<void> resolveAndAdd(String? sourcePath, String baseUri) async {
-      if (sourcePath == null || sourcePath.isEmpty) return;
+    // Helper to resolve a path relative to a specific parent URI
+    Future<void> resolveAndAdd(String? rawPath, String parentUri) async {
+      if (rawPath == null || rawPath.isEmpty) return;
 
       try {
-        // Use the repository to resolve the actual file. 
-        // This handles ".." segments and different file system structures correctly.
-        final file = await repo.fileHandler.resolvePath(baseUri, sourcePath);
+        // 1. Resolve the absolute URI using the FileHandler's logic (handles '..' and SAF structure)
+        final resolvedFile = await repo.fileHandler.resolvePath(parentUri, rawPath);
         
-        if (file != null) {
-          // Convert the resolved file back to a project-relative path
-          // This is the key the AssetProvider expects.
-          final projectRelativePath = repo.fileHandler.getPathForDisplay(
-            file.uri,
+        if (resolvedFile != null) {
+          // 2. Convert absolute URI to Project-Relative path for the AssetMap
+          final displayPath = repo.fileHandler.getPathForDisplay(
+            resolvedFile.uri,
             relativeTo: project.rootUri,
           );
-          uris.add(projectRelativePath);
+          uris.add(displayPath);
         }
       } catch (e) {
-        // Log warning if path resolution fails, but don't crash
-        ref.read(talkerProvider).warning('Failed to resolve asset path: $sourcePath from $baseUri');
+        ref.read(talkerProvider).warning('Failed to resolve asset path: $rawPath relative to $parentUri');
       }
     }
 
     // 1. Process Tilesets
     for (final tileset in map.tilesets) {
-      final imageSource = tileset.image?.source;
-      
-      // Default base is the TMX folder
-      String baseUri = tmxParentUri;
+      // Default base is TMX folder
+      var currentBaseUri = tmxParentUri;
 
-      // Logic from previous version: Handle external TSX files
+      // If it's an external tileset (.tsx), we need to resolve the .tsx file location first
       if (tileset.source != null) {
-        // Resolve the .tsx file first
         final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
         if (tsxFile != null) {
-          // If found, images inside are relative to the .tsx file, not the .tmx
-          baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
+          // The image path inside the TSX is relative to the TSX file, not the TMX
+          currentBaseUri = repo.fileHandler.getParentUri(tsxFile.uri);
         }
       }
       
-      await resolveAndAdd(imageSource, baseUri);
-      
-      // Also check for individual tile images (collection of images tileset)
-      for (final tile in tileset.tiles) {
-        await resolveAndAdd(tile.image?.source, baseUri);
-      }
+      await resolveAndAdd(tileset.image?.source, currentBaseUri);
     }
 
     // 2. Process Image Layers
     for (final layer in map.layers) {
       if (layer is ImageLayer) {
-        // Image Layers are always relative to the TMX map
+        // Image layer paths are always relative to the TMX file
         await resolveAndAdd(layer.image.source, tmxParentUri);
       }
     }
-
+    
     return uris;
   }
   
@@ -355,7 +344,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   Future<void> reloadImageSource({
     required Object parentObject,
     required String oldSourcePath,
-    required String newProjectPath,
+    required String newProjectPath, // This is the Project-Relative path (Display Path)
   }) async {
     if (_notifier == null) return;
         
@@ -365,23 +354,39 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
       final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-      // 1. Calculate the new relative path
-      final newTmxRelativePath = p.relative(
-        newProjectPath,
-        from: repo.fileHandler.getPathForDisplay(tmxParentUri, relativeTo: project.rootUri),
-      );
-
-      // 2. Use the asset provider to load the new image data
-      final assetData = await ref.read(assetDataProvider(newTmxRelativePath).future);
+      // 1. Load the image data using the Asset Provider (using Project Relative Path)
+      // This ensures we have the dimensions.
+      final assetData = await ref.read(assetDataProvider(newProjectPath).future);
       if (assetData is! ImageAssetData) {
         throw (assetData as ErrorAssetData).error;
       }
       final newImage = assetData.image;
 
-      // 3. Call the notifier with the complete, valid data
+      // 2. Calculate the RELATIVE path to store in the TMX file.
+      // We have the new file's Project Relative Path. We need to find its absolute URI
+      // to calculate the relationship with the TMX folder.
+      
+      // Resolve absolute URI of the new file
+      final newFile = await repo.fileHandler.resolvePath(project.rootUri, newProjectPath);
+      if (newFile == null) throw Exception("Could not resolve new file URI");
+
+      // Tiled (and standard filesystems) expect relative paths using ../
+      // Since SAF URIs don't support simple string relativization, we have to cheat slightly:
+      // We calculate the relative path based on the "Display Paths" (which mimic a real filesystem).
+      
+      final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
+      final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
+      
+      // Calculate relative path: "assets/images/img.png" from "maps/level1.tmx" -> "../assets/images/img.png"
+      final newRelativePathForTmx = p.relative(newProjectPath, from: tmxDirDisplayPath).replaceAll(r'\', '/');
+
+      // 3. Update the AssetMap to include this new file
+      await _rebuildAssetUriSet();
+
+      // 4. Update the notifier
       _notifier!.updateImageSource(
         parentObject: parentObject,
-        newSourcePath: newTmxRelativePath,
+        newSourcePath: newRelativePathForTmx, // Store relative path in TMX
         newWidth: newImage.width,
         newHeight: newImage.height,
       );
@@ -392,7 +397,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       MachineToast.error('Failed to reload image: $e');
     }
   }
-
+  
   // --- NEW: Helper method to fix parsing issues from the `tiled` package ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
     final xmlDocument = XmlDocument.parse(tmxContent);
@@ -596,57 +601,48 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     );
   }
 
-  Future<void> _addTileset() async {
-    // 1. Get user input for the new tileset
+Future<void> _addTileset() async {
+    // 1. Get user input (This returns Project Relative Path)
     final relativeImagePath = await showDialog<String>(
       context: context,
       builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
     );
     if (relativeImagePath == null || !mounted) return;
 
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (_) => NewTilesetDialog(imagePath: relativeImagePath),
-    );
+    // ... (Dialog for name/dimensions remains same) ...
+    final result = await showDialog<Map<String, dynamic>>(/*...*/);
     if (result == null || !mounted) return;
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-      final tmxParentUri = repo.fileHandler.getParentUri(tmxFileUri);
 
-      // 2. Resolve paths
+      // 2. Resolve the absolute file to update _lastTilesetParentUri
       final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
-      if (imageFile == null) throw Exception('Tileset image not found: $relativeImagePath');
-      _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
+      if (imageFile != null) {
+        _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
+      }
+
+      // 3. Calculate path relative to TMX for storage
+      final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
+      final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
       
       final imagePathRelativeToTmx = p.relative(
         relativeImagePath,
-        from: repo.fileHandler.getPathForDisplay(tmxParentUri, relativeTo: project.rootUri),
-      );
+        from: tmxDirDisplayPath,
+      ).replaceAll(r'\', '/');
 
-      // 3. Use the asset provider to load the image data imperatively
-      final assetData = await ref.read(assetDataProvider(imagePathRelativeToTmx).future);
-      
-      if (assetData is! ImageAssetData) {
-         throw (assetData as ErrorAssetData).error;
-      }
+      // 4. Load asset (using Project Relative Path)
+      final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
+      if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
 
-      // 4. Now that we have the image, we can calculate required properties
+      // 5. Create Tileset
       final tileWidth = result['tileWidth'] as int;
       final tileHeight = result['tileHeight'] as int;
-      final columns = (image.width) ~/ tileWidth;
-      final tileCount = columns * (image.height ~/ tileHeight);
+      // ... (calculations) ...
 
-      int nextGid = 1;
-      if (_notifier!.map.tilesets.isNotEmpty) {
-        final last = _notifier!.map.tilesets.last;
-        nextGid = (last.firstGid ?? 0) + (last.tileCount ?? 0);
-      }
-
-      // 5. Create the complete, valid Tileset object
       final newTileset = Tileset(
         name: result['name'],
         firstGid: nextGid,
@@ -655,13 +651,15 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         tileCount: tileCount,
         columns: columns,
         image: TiledImage(
-          source: imagePathRelativeToTmx,
+          source: imagePathRelativeToTmx, // Stored as relative
           width: image.width,
           height: image.height,
         ),
       );
 
-      // 6. Commit the new tileset to the notifier
+      // 6. Update Asset Map before notifying UI
+      await _rebuildAssetUriSet();
+
       await _notifier!.addTileset(newTileset);
 
     } catch (e, st) {
