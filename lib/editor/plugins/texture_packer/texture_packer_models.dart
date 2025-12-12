@@ -373,4 +373,49 @@ class TexturePackerProject {
   );
 }
 
-//endregion
+
+/// Helper extension to resolve fully qualified names for export.
+extension ProjectExportHelper on TexturePackerProject {
+  /// Generates a map of Export Names -> Definitions.
+  /// 
+  /// The key is the fully qualified name (e.g. "Folder_Subfolder_SpriteName").
+  /// The value is the associated PackerItemDefinition.
+  /// 
+  /// This flattens the hierarchy as requested: "Nesting will not be present in the output format,
+  /// it will just be used for adding name_prefixes."
+  Map<String, PackerItemDefinition> getFlattenedExportData() {
+    final Map<String, PackerItemDefinition> exportMap = {};
+
+    // Recursive helper to traverse tree and build prefixes
+    void traverse(PackerItemNode node, String prefix) {
+      String currentName = node.name;
+      String nextPrefix = prefix;
+
+      if (node.id != 'root') {
+        // If not root, append current name to prefix
+        if (prefix.isEmpty) {
+          nextPrefix = currentName;
+        } else {
+          nextPrefix = '${prefix}_$currentName';
+        }
+      }
+
+      // If this node is a Leaf (Sprite/Animation) with a definition, add to map
+      if (node.type == PackerItemType.sprite || node.type == PackerItemType.animation) {
+        final def = definitions[node.id];
+        if (def != null) {
+          // Use nextPrefix as the key (which includes the node's own name)
+          exportMap[nextPrefix] = def;
+        }
+      }
+
+      // Continue traversal
+      for (final child in node.children) {
+        traverse(child, nextPrefix);
+      }
+    }
+
+    traverse(tree, "");
+    return exportMap;
+  }
+}
