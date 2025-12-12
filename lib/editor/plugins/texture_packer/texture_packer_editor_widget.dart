@@ -118,12 +118,27 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
   void setMode(TexturePackerMode newMode) {
     if (_mode == newMode) {
+      // If toggling the active mode, revert to PanZoom (default state)
+      // Exception: If we are in preview, toggling it off goes back to PanZoom
       setState(() => _mode = TexturePackerMode.panZoom);
     } else {
       setState(() => _mode = newMode);
     }
     syncCommandContext();
   }
+  
+  // Call this whenever selectedNodeIdProvider changes via the hierarchy
+  void _syncActiveImageToSelection() {
+    final selectedId = ref.read(selectedNodeIdProvider);
+    if (selectedId == null) return;
+
+    final definition = _notifier.project.definitions[selectedId];
+    if (definition is SpriteDefinition) {
+      // If a sprite is selected, automatically switch the view to that image
+      ref.read(activeSourceImageIndexProvider.notifier).state = definition.sourceImageIndex;
+    }
+  }
+
 
   void toggleSourceImagesPanel() {
     setState(() {
@@ -149,38 +164,43 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     syncCommandContext();
   }
 
-  Future<void> confirmSpriteSelection() async {
-    if (_selectionRect == null) return;
-    
-    final confirmedRect = _selectionRect!;
-    cancelSpriteSelection();
 
-    final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
-    if (spriteName != null && spriteName.trim().isNotEmpty) {
-      final notifier = _notifier;
-      final activeImageIndex = ref.read(activeSourceImageIndexProvider);
-      final parentId = ref.read(selectedNodeIdProvider);
-      
-      final newNode = notifier.createNode(
-        type: PackerItemType.sprite,
-        name: spriteName.trim(),
-        parentId: parentId,
-      );
-
-      notifier.updateSpriteDefinition(newNode.id, SpriteDefinition(
-        sourceImageIndex: activeImageIndex,
-        gridRect: confirmedRect,
-      ));
-
-      ref.read(selectedNodeIdProvider.notifier).state = newNode.id;
-    }
-  }
 
   //endregion
 
   // ---------------------------------------------------------------------------
   //region Slicing View Callbacks
   // ---------------------------------------------------------------------------
+
+
+
+  // Helper to convert an image pixel coordinate to a grid coordinate.
+  // Returns point(gridX, gridY) or null if invalid.
+  Point<int>? _pixelToGridPoint(Offset positionInImage, SlicingConfig slicing) {
+    if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) {
+      return null;
+    }
+    
+    final effectiveX = positionInImage.dx - slicing.margin;
+    final effectiveY = positionInImage.dy - slicing.margin;
+    final cellWidthWithPadding = slicing.tileWidth + slicing.padding;
+    final cellHeightWithPadding = slicing.tileHeight + slicing.padding;
+
+    if (cellWidthWithPadding <= 0 || cellHeightWithPadding <= 0) return null;
+
+    final gridX = (effectiveX / cellWidthWithPadding).floor();
+    final gridY = (effectiveY / cellHeightWithPadding).floor();
+
+    // Check if we are inside the tile or in the gutter/padding
+    final offsetInCellX = effectiveX % cellWidthWithPadding;
+    final offsetInCellY = effectiveY % cellHeightWithPadding;
+
+    if (offsetInCellX >= slicing.tileWidth || offsetInCellY >= slicing.tileHeight) {
+      return null; // In padding area
+    }
+
+    return Point(gridX, gridY);
+  }
 
   void onSlicingGestureStart(Offset localPosition, SlicingConfig slicing) {
     if (_mode != TexturePackerMode.slicing) return;
@@ -190,7 +210,12 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     
     setState(() {
       _dragStart = positionInImage;
-      _selectionRect = _pixelToGridRect(positionInImage, slicing);
+      final point = _pixelToGridPoint(positionInImage, slicing);
+      if (point != null) {
+        _selectionRect = GridRect(x: point.x, y: point.y, width: 1, height: 1);
+      } else {
+        _selectionRect = null;
+      }
     });
     syncCommandContext();
   }
@@ -201,20 +226,164 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final invMatrix = Matrix4.copy(_transformationController.value)..invert();
     final positionInImage = MatrixUtils.transformPoint(invMatrix, localPosition);
 
-    final startRect = _pixelToGridRect(_dragStart!, slicing);
-    final endRect = _pixelToGridRect(positionInImage, slicing);
+    final startPoint = _pixelToGridPoint(_dragStart!, slicing);
+    final endPoint = _pixelToGridPoint(positionInImage, slicing);
 
-    if (startRect == null || endRect == null) return;
+    if (startPoint == null || endPoint == null) return;
     
-    final left = startRect.x < endRect.x ? startRect.x : endRect.x;
-    final top = startRect.y < endRect.y ? startRect.y : endRect.y;
-    final right = startRect.x > endRect.x ? startRect.x : endRect.x;
-    final bottom = startRect.y > endRect.y ? startRect.y : endRect.y;
+    // Calculate bounds of selection
+    final left = min(startPoint.x, endPoint.x);
+    final top = min(startPoint.y, endPoint.y);
+    final right = max(startPoint.x, endPoint.x);
+    final bottom = max(startPoint.y, endPoint.y);
     
     setState(() {
-      _selectionRect = GridRect(x: left, y: top, width: right - left + 1, height: bottom - top + 1);
+      _selectionRect = GridRect(
+        x: left, 
+        y: top, 
+        width: right - left + 1, 
+        height: bottom - top + 1
+      );
     });
-    syncCommandContext();
+    // No need to sync context on every drag frame usually, but if commands depend on bounds:
+    // syncCommandContext(); 
+  }
+
+  Future<void> confirmSpriteSelection() async {
+    if (_selectionRect == null) return;
+    final rect = _selectionRect!;
+    
+    // Check if it's a multi-tile selection
+    final bool isMulti = rect.width > 1 || rect.height > 1;
+
+    if (!isMulti) {
+      // Standard single tile creation
+      await _createSingleSprite(rect);
+    } else {
+      // Multi-tile logic
+      await _handleMultiSelection(rect);
+    }
+    
+    cancelSpriteSelection();
+  }
+
+  Future<void> _createSingleSprite(GridRect rect) async {
+    final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
+    if (spriteName != null && spriteName.trim().isNotEmpty) {
+      final activeImageIndex = ref.read(activeSourceImageIndexProvider);
+      final parentId = ref.read(selectedNodeIdProvider);
+      
+      final newNode = _notifier.createNode(
+        type: PackerItemType.sprite,
+        name: spriteName.trim(),
+        parentId: parentId,
+      );
+
+      _notifier.updateSpriteDefinition(newNode.id, SpriteDefinition(
+        sourceImageIndex: activeImageIndex,
+        gridRect: rect,
+      ));
+      
+      ref.read(selectedNodeIdProvider.notifier).state = newNode.id;
+    }
+  }
+
+  Future<void> _handleMultiSelection(GridRect rect) async {
+    // 3 Options
+    const optionAnim = 'Create Animation';
+    const optionBatch = 'Batch Sprites';
+    const optionSingle = 'Single Sprite (Merged)';
+
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Multi-Selection Action'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, optionAnim),
+            child: const ListTile(
+              leading: Icon(Icons.movie_creation_outlined),
+              title: Text(optionAnim),
+              subtitle: Text('Create individual frames and one animation node.'),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, optionBatch),
+            child: const ListTile(
+              leading: Icon(Icons.copy_all_outlined),
+              title: Text(optionBatch),
+              subtitle: Text('Create independent sprites for each selected tile.'),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, optionSingle),
+            child: const ListTile(
+              leading: Icon(Icons.crop_free),
+              title: Text(optionSingle),
+              subtitle: Text('Create one sprite covering the entire area.'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null) return;
+
+    if (choice == optionSingle) {
+      await _createSingleSprite(rect);
+      return;
+    }
+
+    // For Batch or Animation, we need a base name
+    final baseName = await showTextInputDialog(context, title: 'Base Name');
+    if (baseName == null || baseName.trim().isEmpty) return;
+    
+    final activeImageIndex = ref.read(activeSourceImageIndexProvider);
+    final parentId = ref.read(selectedNodeIdProvider); // Folder to put them in
+
+    // Generate definitions for every tile in the rect
+    // Iterate row by row
+    final definitions = <SpriteDefinition>[];
+    final names = <String>[];
+    
+    int counter = 0;
+    for (int y = 0; y < rect.height; y++) {
+      for (int x = 0; x < rect.width; x++) {
+        final tileRect = GridRect(x: rect.x + x, y: rect.y + y, width: 1, height: 1);
+        definitions.add(SpriteDefinition(
+          sourceImageIndex: activeImageIndex, 
+          gridRect: tileRect,
+        ));
+        names.add('${baseName.trim()}_$counter');
+        counter++;
+      }
+    }
+
+    if (choice == optionBatch) {
+      _notifier.createBatchSprites(
+        names: names,
+        definitions: definitions,
+        parentId: parentId,
+      );
+    } else if (choice == optionAnim) {
+      // 1. Create the sprites first
+      final nodes = _notifier.createBatchSprites(
+        names: names,
+        definitions: definitions,
+        parentId: parentId,
+      );
+      
+      // 2. Create animation referencing these IDs
+      final settings = ref.read(effectiveSettingsProvider
+        .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?));
+      
+      _notifier.createAnimationFromSpriteIds(
+        name: baseName.trim(),
+        frameIds: nodes.map((n) => n.id).toList(),
+        parentId: parentId,
+        speed: settings?.defaultAnimationSpeed ?? 10.0,
+      );
+    }
   }
 
   void onSlicingGestureEnd() {
@@ -245,12 +414,18 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   @override
   void syncCommandContext() {
     Widget? appBarOverride;
+
     if (_mode == TexturePackerMode.slicing) {
       appBarOverride = SlicingAppBar(
         onExit: () => setMode(TexturePackerMode.panZoom),
         onConfirm: confirmSpriteSelection,
         onCancel: cancelSpriteSelection,
         hasSelection: _selectionRect != null,
+      );
+    } else if (_mode == TexturePackerMode.preview) {
+      appBarOverride = PreviewAppBar(
+        tabId: widget.tab.id,
+        onExit: () => setMode(TexturePackerMode.panZoom),
       );
     }
 
@@ -277,7 +452,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     return null;
   }
 
-  // ... (Gesture Logic & Callbacks, undo/redo, etc. are unchanged) ...
   GridRect? _pixelToGridRect(Offset positionInImage, SlicingConfig slicing) {
     if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) {
       return null;
@@ -372,28 +546,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
   
   Widget _buildMainContent() {
-    final selectedNodeId = ref.watch(selectedNodeIdProvider);
-    final project = _notifier.project;
-
-    // First, handle the case where there are no images at all.
-    if (project.sourceImages.isEmpty) {
-      return _buildEmptyState();
-    }
-    
-    // Find the selected node and its definition from the project state.
-    final PackerItemNode? node = selectedNodeId != null 
-        ? _findNodeById(project.tree, selectedNodeId) 
-        : null;
-        
-    final definition = project.definitions[selectedNodeId];
-
-
-    if ((node?.type == PackerItemType.sprite && definition is SpriteDefinition) ||
-        (node?.type == PackerItemType.animation && definition is AnimationDefinition)) {
+    if (_mode == TexturePackerMode.preview) {
       return PreviewView(tabId: widget.tab.id, notifier: _notifier);
     }
-    
-    // Default to the slicing view.
     return _buildSlicingView();
   }
   
@@ -426,14 +581,16 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
     final project = _notifier.project;
 
+    if (project.sourceImages.isEmpty) {
+        return _buildEmptyState();
+    }
+
     if (activeIndex >= project.sourceImages.length) {
       return const Center(child: Text('Select a source image.'));
     }
 
     final sourceConfig = project.sourceImages[activeIndex];
     
-    // --- ASSET LOADING REFACTOR ---
-    // Pass the notifier down to the view.
     return SlicingView(
       tabId: widget.tab.id,
       notifier: _notifier,
@@ -444,6 +601,5 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       onGestureUpdate: (pos) => onSlicingGestureUpdate(pos, sourceConfig.slicing),
       onGestureEnd: onSlicingGestureEnd,
     );
-    // --- END REFACTOR ---
   }
 }

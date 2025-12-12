@@ -6,6 +6,8 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_editor_widget.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
+import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart'; // Import settings
+import 'package:machine/settings/settings_notifier.dart';
 
 class SlicingView extends ConsumerWidget {
   final String tabId;
@@ -33,6 +35,11 @@ class SlicingView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
     final project = notifier.project;
+    
+    // Read settings
+    final settings = ref.watch(effectiveSettingsProvider
+        .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
+        ?? TexturePackerSettings();
 
     if (activeIndex >= project.sourceImages.length) {
       return const Center(child: Text('Select a source image.'));
@@ -58,10 +65,6 @@ class SlicingView extends ConsumerWidget {
           activeSelection = definition.gridRect;
         }
 
-        // --- LAYOUT FIX ---
-        // Wrap the interactive content in a SizedBox.expand() to force it
-        // to fill all available space. This ensures the InteractiveViewer's
-        // viewport is the full size of the editor area.
         return SizedBox.expand(
           child: GestureDetector(
             onPanStart: (details) => onGestureStart(details.localPosition),
@@ -71,16 +74,11 @@ class SlicingView extends ConsumerWidget {
               onPointerUp: (_) => onGestureEnd(),
               child: InteractiveViewer(
                 transformationController: transformationController,
-                // boundaryMargin must be large enough to allow panning the image
-                // completely out of view.
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.1,
                 maxScale: 16.0,
                 panEnabled: isPanZoomMode,
                 scaleEnabled: isPanZoomMode,
-                // The child CustomPaint still uses the intrinsic imageSize.
-                // InteractiveViewer will correctly center and scale this content
-                // within its now-expanded viewport.
                 child: CustomPaint(
                   size: imageSize,
                   painter: _SlicingPainter(
@@ -88,13 +86,13 @@ class SlicingView extends ConsumerWidget {
                     slicing: sourceConfig.slicing,
                     dragSelection: dragSelection,
                     activeSelection: activeSelection,
+                    settings: settings, // Pass settings
                   ),
                 ),
               ),
             ),
           ),
         );
-        // --- END LAYOUT FIX ---
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error loading assets: $err')),
@@ -102,41 +100,40 @@ class SlicingView extends ConsumerWidget {
   }
 }
 
-/// Custom painter for the slicing view.
-/// This is a pure rendering widget with no business logic.
-/// THIS WIDGET WAS ALREADY CORRECT AND DOES NOT NEED CHANGES.
 class _SlicingPainter extends CustomPainter {
   final ui.Image image;
   final SlicingConfig slicing;
   final GridRect? dragSelection;
   final GridRect? activeSelection;
+  final TexturePackerSettings settings;
 
   _SlicingPainter({
     required this.image,
     required this.slicing,
     this.dragSelection,
     this.activeSelection,
+    required this.settings,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw checkerboard background matching the full image size
+    // 1. Draw checkerboard background strictly within image bounds
     _drawCheckerboard(canvas, size);
 
     // 2. Draw the source image
     final imagePaint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImage(image, Offset.zero, imagePaint);
 
-    // 3. Draw the grid over the full image size
+    // 3. Draw the grid
     _drawGrid(canvas, size);
 
-    // 4. Draw the active selection (from the hierarchy panel)
+    // 4. Draw active selection
     if (activeSelection != null) {
       final paint = Paint()..color = Colors.green.withOpacity(0.5);
       _drawHighlight(canvas, activeSelection!, paint);
     }
 
-    // 5. Draw the current drag selection
+    // 5. Draw drag selection
     if (dragSelection != null) {
       final paint = Paint()..color = Colors.blue.withOpacity(0.5);
       _drawHighlight(canvas, dragSelection!, paint);
@@ -146,11 +143,19 @@ class _SlicingPainter extends CustomPainter {
   void _drawHighlight(Canvas canvas, GridRect rect, Paint paint) {
     final pixelRect = _gridToPixelRect(rect);
     canvas.drawRect(pixelRect, paint);
+    
+    // Draw stroke
+    final stroke = Paint()
+      ..color = paint.color.withOpacity(1.0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRect(pixelRect, stroke);
   }
 
   Rect _gridToPixelRect(GridRect rect) {
     final left = slicing.margin + rect.x * (slicing.tileWidth + slicing.padding);
     final top = slicing.margin + rect.y * (slicing.tileHeight + slicing.padding);
+    // Width calculation: (width in tiles * tile width) + (number of gaps * padding)
     final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
     final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
     return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
@@ -160,44 +165,62 @@ class _SlicingPainter extends CustomPainter {
     if (slicing.tileWidth <= 0 || slicing.tileHeight <= 0) return;
 
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..strokeWidth = 1.0;
-      
-    final faintPaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
-      ..strokeWidth = 1.0;
+      ..color = Color(settings.gridColor)
+      ..strokeWidth = settings.gridThickness;
 
-    final cellWidth = (slicing.tileWidth + slicing.padding).toDouble();
-    final cellHeight = (slicing.tileHeight + slicing.padding).toDouble();
+    // Grid calculations should stop at the image edge
+    final double endX = size.width;
+    final double endY = size.height;
 
-    final imageWidth = size.width;
-    final imageHeight = size.height;
-
-    for (double x = slicing.margin.toDouble(); x < imageWidth; x += cellWidth) {
-      canvas.drawLine(Offset(x, 0), Offset(x, imageHeight), paint);
+    // Vertical lines
+    // Start at margin, jump by (tileWidth + padding)
+    for (double x = slicing.margin.toDouble(); x <= endX; x += (slicing.tileWidth + slicing.padding)) {
+      canvas.drawLine(Offset(x, 0), Offset(x, endY), paint);
+      // If there is padding, draw the other side of the gutter
       if (slicing.padding > 0) {
-        canvas.drawLine(Offset(x + slicing.tileWidth, 0), Offset(x + slicing.tileWidth, imageHeight), faintPaint);
+        final gutterRight = x + slicing.tileWidth;
+        if (gutterRight <= endX) {
+          canvas.drawLine(Offset(gutterRight, 0), Offset(gutterRight, endY), paint);
+        }
       }
     }
 
-    for (double y = slicing.margin.toDouble(); y < imageHeight; y += cellHeight) {
-      canvas.drawLine(Offset(0, y), Offset(imageWidth, y), paint);
+    // Horizontal lines
+    for (double y = slicing.margin.toDouble(); y <= endY; y += (slicing.tileHeight + slicing.padding)) {
+      canvas.drawLine(Offset(0, y), Offset(endX, y), paint);
       if (slicing.padding > 0) {
-        canvas.drawLine(Offset(0, y + slicing.tileHeight), Offset(imageWidth, y + slicing.tileHeight), faintPaint);
+        final gutterBottom = y + slicing.tileHeight;
+        if (gutterBottom <= endY) {
+          canvas.drawLine(Offset(0, gutterBottom), Offset(endX, gutterBottom), paint);
+        }
       }
     }
   }
 
   void _drawCheckerboard(Canvas canvas, Size size) {
-    final checkerPaint1 = Paint()..color = const Color(0xFF404040);
-    final checkerPaint2 = Paint()..color = const Color(0xFF505050);
+    // Only draw within image dimensions
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.save();
+    canvas.clipRect(rect);
+
+    final c1 = Color(settings.checkerBoardColor1);
+    final c2 = Color(settings.checkerBoardColor2);
+    final paint = Paint();
+    
     const double checkerSize = 16.0;
-    for (double i = 0; i < size.width; i += checkerSize) {
-      for (double j = 0; j < size.height; j += checkerSize) {
-        final paint = ((i + j) / checkerSize).floor() % 2 == 0 ? checkerPaint1 : checkerPaint2;
-        canvas.drawRect(Rect.fromLTWH(i, j, checkerSize, checkerSize), paint);
+    final cols = (size.width / checkerSize).ceil();
+    final rows = (size.height / checkerSize).ceil();
+
+    for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols; x++) {
+        paint.color = ((x + y) % 2 == 0) ? c1 : c2;
+        canvas.drawRect(
+          Rect.fromLTWH(x * checkerSize, y * checkerSize, checkerSize, checkerSize),
+          paint,
+        );
       }
     }
+    canvas.restore();
   }
 
   @override
@@ -205,6 +228,7 @@ class _SlicingPainter extends CustomPainter {
     return oldDelegate.image != image ||
         oldDelegate.slicing != slicing ||
         oldDelegate.dragSelection != dragSelection ||
-        oldDelegate.activeSelection != activeSelection;
+        oldDelegate.activeSelection != activeSelection ||
+        oldDelegate.settings != settings; // Check settings
   }
 }
