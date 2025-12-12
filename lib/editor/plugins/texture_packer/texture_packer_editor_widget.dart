@@ -27,6 +27,10 @@ import 'texture_packer_plugin.dart';
 import '../../../project/project_settings_notifier.dart';
 import 'texture_packer_settings.dart';
 import 'widgets/preview_app_bar.dart';
+import 'widgets/texture_packer_file_dialog.dart'; // Import the new dialog
+import 'package:machine/data/repositories/project/project_repository.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:path/path.dart' as p;
 
 // Providers for UI state, scoped to the editor instance.
 final activeSourceImageIndexProvider = StateProvider.autoDispose<int>((ref) => 0);
@@ -394,23 +398,151 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     if (_mode != TexturePackerMode.slicing) return;
   }
   
-  Future<void> _promptAndAddSourceImage() async {
-    final newPath = await showDialog<String>(
+  Future<void> _promptAndAddSourceImages() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    if (project == null) return;
+
+    // 1. Show the custom picker
+    final result = await showDialog<TexturePackerImportResult>(
       context: context,
-      builder: (_) => const FileOrFolderPickerDialog(),
+      builder: (_) => TexturePackerFilePickerDialog(projectRootUri: project.rootUri),
     );
-    if (newPath != null) {
-      if (!newPath.toLowerCase().endsWith('.png')) {
-        MachineToast.error('Please select a valid PNG image.');
-        return;
+
+    if (result == null || result.files.isEmpty) return;
+
+    final repo = ref.read(projectRepositoryProvider)!;
+    final parentId = ref.read(selectedNodeIdProvider); // Target folder for sprites
+
+    // 2. Ask for mode if "Import as Sprites" is checked AND multiple files
+    String mode = 'batch'; 
+    String? baseName;
+    
+    if (result.asSprites) {
+      if (result.files.length > 1) {
+        // Multi-file import choice
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('Import Mode'),
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'batch'),
+                child: const ListTile(
+                  leading: Icon(Icons.copy_all),
+                  title: Text('Batch Sprites'),
+                  subtitle: Text('Create individual sprites for each image.'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'anim'),
+                child: const ListTile(
+                  leading: Icon(Icons.movie_creation),
+                  title: Text('Animation'),
+                  subtitle: Text('Create one animation using images as frames.'),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (choice == null) return; // Cancelled
+        mode = choice;
       }
       
-      _notifier.addSourceImage(newPath);
-      final imageCount = _notifier.project.sourceImages.length;
-      
-      if (imageCount == 1) {
-          ref.read(activeSourceImageIndexProvider.notifier).state = 0;
+      // If animation, or if user wants to rename batch, ask for name
+      // Simple logic: If animation, name is required. If batch, use filename (default) or ask?
+      // Let's use filename for batch to keep it fast, but ask name for Animation.
+      if (mode == 'anim') {
+        baseName = await showTextInputDialog(context, title: 'Animation Name');
+        if (baseName == null || baseName.trim().isEmpty) return;
       }
+    }
+
+    // 3. Process Files
+    final List<String> createdNodeIds = [];
+    final List<String> createdNames = []; // For notification
+
+    for (final file in result.files) {
+      // a. Resolve path
+      final relativePath = repo.fileHandler.getPathForDisplay(
+        file.uri, 
+        relativeTo: project.rootUri
+      );
+
+      // b. Determine Config
+      SlicingConfig config = const SlicingConfig();
+      
+      if (result.asSprites) {
+        try {
+          // We must load the asset *now* to get dimensions
+          // This ensures the asset is in cache before we add the node
+          final assetData = await ref.read(assetDataProvider(relativePath).future);
+          
+          if (assetData is ImageAssetData) {
+            config = SlicingConfig(
+              tileWidth: assetData.image.width,
+              tileHeight: assetData.image.height,
+              margin: 0,
+              padding: 0,
+            );
+          }
+        } catch (e) {
+          MachineToast.error('Failed to load dimensions for ${file.name}');
+          continue;
+        }
+      }
+
+      // c. Add Source Image to Project
+      // We calculate the index based on current length, assuming append
+      final sourceIndex = _notifier.project.sourceImages.length; 
+      _notifier.addSourceImage(relativePath, config: config);
+
+      // d. Create Nodes if requested
+      if (result.asSprites) {
+        final spriteName = p.basenameWithoutExtension(file.name);
+        
+        final node = _notifier.createNode(
+          type: PackerItemType.sprite,
+          name: spriteName,
+          parentId: parentId,
+        );
+        
+        _notifier.updateSpriteDefinition(node.id, SpriteDefinition(
+          sourceImageIndex: sourceIndex,
+          gridRect: const GridRect(x: 0, y: 0, width: 1, height: 1),
+        ));
+        
+        createdNodeIds.add(node.id);
+        createdNames.add(spriteName);
+      }
+    }
+
+    // 4. Finalize Animation Creation if needed
+    if (mode == 'anim' && baseName != null && createdNodeIds.isNotEmpty) {
+      // Move the created sprite nodes into a hidden/utility structure? 
+      // Or just leave them as sprites and link them?
+      // Requirement: "We will not nest sprites... Nesting only for folders"
+      // So the sprites exist in the folder. We create an Animation node alongside them.
+      
+      final settings = ref.read(effectiveSettingsProvider
+        .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?));
+
+      _notifier.createAnimationFromSpriteIds(
+        name: baseName!,
+        frameIds: createdNodeIds,
+        parentId: parentId,
+        speed: settings?.defaultAnimationSpeed ?? 10.0,
+      );
+      
+      MachineToast.info('Created animation "$baseName" with ${createdNodeIds.length} frames.');
+    } else if (createdNames.isNotEmpty) {
+      MachineToast.info('Imported ${createdNames.length} sprites.');
+    } else {
+      MachineToast.info('Imported ${result.files.length} source images.');
+    }
+    
+    // Auto-select first added image if it was the first one
+    if (_notifier.project.sourceImages.length == result.files.length) {
+       ref.read(activeSourceImageIndexProvider.notifier).state = 0;
     }
   }
 
@@ -529,7 +661,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           width: 250,
           child: SourceImagesPanel(
             notifier: _notifier, 
-            onAddImage: _promptAndAddSourceImage,
+            onAddImage: _promptAndAddSourceImages,
             onClose: toggleSourceImagesPanel,
           ),
         ),
