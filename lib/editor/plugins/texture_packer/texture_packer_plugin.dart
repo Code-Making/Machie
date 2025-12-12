@@ -20,6 +20,8 @@ import 'texture_packer_editor_widget.dart';
 import 'texture_packer_models.dart';
 import 'widgets/slicing_properties_dialog.dart';
 import '../../../command/command_widgets.dart';
+import 'widgets/texture_packer_settings_widget.dart';
+import 'texture_packer_settings.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
   // --- COMMAND SYSTEM REFACTOR ---
@@ -49,14 +51,20 @@ class TexturePackerPlugin extends EditorPlugin {
   }
 
   @override
-  final PluginSettings? settings = null;
+  PluginSettings? get settings => TexturePackerSettings();
+
   @override
-    Widget buildSettingsUI(
+  Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
-  ) => const SizedBox.shrink();
-
-
+  ) {
+    if (settings is! TexturePackerSettings) return const SizedBox.shrink();
+    return TexturePackerSettingsWidget(
+      settings: settings,
+      onChanged: (newSettings) => onChanged(newSettings),
+    );
+  }
+  
   @override
   Future<EditorTab> createTab(
     DocumentFile file,
