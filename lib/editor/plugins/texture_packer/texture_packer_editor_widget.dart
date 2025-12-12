@@ -349,7 +349,11 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           bottom: 0,
           left: _isSourceImagesPanelVisible ? 0 : -251,
           width: 250,
-          child: SourceImagesPanel(notifier: _notifier, onAddImage: _promptAndAddSourceImage),
+          child: SourceImagesPanel(
+            notifier: _notifier, 
+            onAddImage: _promptAndAddSourceImage,
+            onClose: toggleSourceImagesPanel,
+          ),
         ),
         AnimatedPositioned(
           duration: const Duration(milliseconds: 250),
@@ -371,23 +375,25 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
     final project = _notifier.project;
 
+    // First, handle the case where there are no images at all.
     if (project.sourceImages.isEmpty) {
       return _buildEmptyState();
     }
     
+    // Find the selected node and its definition from the project state.
     final PackerItemNode? node = selectedNodeId != null 
         ? _findNodeById(project.tree, selectedNodeId) 
         : null;
         
     final definition = project.definitions[selectedNodeId];
 
-    if (node?.type == PackerItemType.animation && definition is AnimationDefinition) {
-      // --- ASSET LOADING REFACTOR ---
-      // Pass the notifier down to the view.
+
+    if ((node?.type == PackerItemType.sprite && definition is SpriteDefinition) ||
+        (node?.type == PackerItemType.animation && definition is AnimationDefinition)) {
       return PreviewView(tabId: widget.tab.id, notifier: _notifier);
-      // --- END REFACTOR ---
     }
     
+    // Default to the slicing view.
     return _buildSlicingView();
   }
   

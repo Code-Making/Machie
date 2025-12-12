@@ -35,6 +35,21 @@ class TexturePackerNotifier extends ChangeNotifier {
     );
     notifyListeners();
   }
+  
+  /// Removes a source image from the project at a given index.
+  /// WARNING: This does not currently clean up sprites that reference this index.
+  void removeSourceImage(int index) {
+    if (index < 0 || index >= project.sourceImages.length) return;
+
+    final newSourceImages = List<SourceImageConfig>.from(project.sourceImages);
+    newSourceImages.removeAt(index);
+    
+    // TODO: A more robust implementation would find and remove all sprite definitions 
+    // that use the removed index to prevent dangling references.
+    
+    project = project.copyWith(sourceImages: newSourceImages);
+    notifyListeners();
+  }
 
   /// Updates the slicing configuration for a source image at a given index.
   void updateSlicingConfig(int sourceIndex, SlicingConfig newConfig) {
