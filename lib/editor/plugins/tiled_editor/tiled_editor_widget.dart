@@ -335,7 +335,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     return uris;
   }
   
-  void _rebuildAssetUriSet() async {
+  Future<void> _rebuildAssetUriSet() async {
     if (_notifier == null) return;
     final uris = await _collectAssetUris(_notifier!.map);
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
