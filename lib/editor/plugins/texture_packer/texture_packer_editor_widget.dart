@@ -704,7 +704,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: _promptAndAddSourceImage,
+            onPressed: _promptAndAddSourceImages,
             icon: const Icon(Icons.add_photo_alternate_outlined),
             label: const Text('Add First Source Image'),
           ),
