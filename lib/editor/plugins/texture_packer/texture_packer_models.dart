@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
 
-/// Enum defining the types of items in the hierarchy.
+/// Enum defining the types of items in the output hierarchy.
 enum PackerItemType { folder, sprite, animation }
+
+/// Enum defining types for source images (grouping vs actual file).
+enum SourceNodeType { folder, image }
 
 // -----------------------------------------------------------------------------
 //region Slicing and Source Image Configuration
@@ -65,11 +68,10 @@ class SlicingConfig {
           padding == other.padding;
 
   @override
-  int get hashCode =>
-      Object.hash(tileWidth, tileHeight, margin, padding);
+  int get hashCode => Object.hash(tileWidth, tileHeight, margin, padding);
 }
 
-/// Represents a source spritesheet image and its slicing configuration.
+/// Represents the data for a source image leaf node.
 @immutable
 class SourceImageConfig {
   final String path;
@@ -111,13 +113,69 @@ class SourceImageConfig {
   int get hashCode => Object.hash(path, slicing);
 }
 
+/// Represents a node in the SOURCE IMAGE tree structure.
+@immutable
+class SourceImageNode {
+  final String id;
+  final String name;
+  final SourceNodeType type;
+  final List<SourceImageNode> children;
+  
+  /// Only present if type == SourceNodeType.image
+  final SourceImageConfig? content;
+
+  SourceImageNode({
+    String? id,
+    required this.name,
+    required this.type,
+    this.children = const [],
+    this.content,
+  }) : id = id ?? const Uuid().v4();
+
+  factory SourceImageNode.fromJson(Map<String, dynamic> json) {
+    return SourceImageNode(
+      id: json['id'],
+      name: json['name'],
+      type: SourceNodeType.values.byName(json['type']),
+      children: (json['children'] as List? ?? [])
+          .map((childJson) => SourceImageNode.fromJson(childJson))
+          .toList(),
+      content: json['content'] != null 
+          ? SourceImageConfig.fromJson(json['content']) 
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'type': type.name,
+        'children': children.map((child) => child.toJson()).toList(),
+        if (content != null) 'content': content!.toJson(),
+      };
+
+  SourceImageNode copyWith({
+    String? name,
+    SourceNodeType? type,
+    List<SourceImageNode>? children,
+    SourceImageConfig? content,
+  }) {
+    return SourceImageNode(
+      id: id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      children: children ?? this.children,
+      content: content ?? this.content,
+    );
+  }
+}
+
 //endregion
 
 // -----------------------------------------------------------------------------
 //region Item Definitions (The actual data for sprites and animations)
 // -----------------------------------------------------------------------------
 
-/// A simple rectangle class for grid coordinates.
 @immutable
 class GridRect {
   final int x;
@@ -147,7 +205,6 @@ class GridRect {
       };
 }
 
-/// Abstract base class for the data associated with a PackerItemNode.
 @immutable
 abstract class PackerItemDefinition {
   const PackerItemDefinition();
@@ -168,50 +225,52 @@ abstract class PackerItemDefinition {
   }
 }
 
-/// Defines a single sprite by referencing a source image and a grid rectangle.
+/// Defines a single sprite by referencing a source image ID and a grid rectangle.
 class SpriteDefinition extends PackerItemDefinition {
-  final int sourceImageIndex;
+  /// Reference to a [SourceImageNode.id] where type is image.
+  final String sourceImageId; 
   final GridRect gridRect;
 
   const SpriteDefinition({
-    required this.sourceImageIndex,
+    required this.sourceImageId,
     required this.gridRect,
   });
 
   factory SpriteDefinition.fromJson(Map<String, dynamic> json) {
     return SpriteDefinition(
-      sourceImageIndex: json['sourceImageIndex'],
+      // Support migration from old 'index' based if necessary (logic needs to handle conversion elsewhere)
+      // For strictly new model:
+      sourceImageId: json['sourceImageId'] ?? '',
       gridRect: GridRect.fromJson(json['gridRect']),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'sourceImageIndex': sourceImageIndex,
+        'sourceImageId': sourceImageId,
         'gridRect': gridRect.toJson(),
       };
 }
 
-/// Defines an animation by an ordered list of sprite node IDs and a speed.
+/// Defines an animation configuration.
+/// 
+/// Note: Frame data is no longer stored here. 
+/// Frames are the children [PackerItemNode]s of the node containing this definition.
 class AnimationDefinition extends PackerItemDefinition {
-  final List<String> frameIds;
   final double speed; // in frames per second
 
   const AnimationDefinition({
-    this.frameIds = const [],
     this.speed = 10.0,
   });
 
   factory AnimationDefinition.fromJson(Map<String, dynamic> json) {
     return AnimationDefinition(
-      frameIds: List<String>.from(json['frameIds'] ?? []),
       speed: json['speed']?.toDouble() ?? 10.0,
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'frameIds': frameIds,
         'speed': speed,
       };
 }
@@ -222,7 +281,7 @@ class AnimationDefinition extends PackerItemDefinition {
 //region Hierarchy and Main Project Structure
 // -----------------------------------------------------------------------------
 
-/// Represents a node in the hierarchical tree structure.
+/// Represents a node in the OUTPUT hierarchical tree structure (Folders, Animations, Sprites).
 @immutable
 class PackerItemNode {
   final String id;
@@ -282,12 +341,17 @@ class PackerItemNode {
 /// The root data model for a `.tpacker` file.
 @immutable
 class TexturePackerProject {
-  final List<SourceImageConfig> sourceImages;
+  /// The root of the Source Image tree (Input files).
+  final SourceImageNode sourceImagesRoot;
+  
+  /// The root of the Packer Item tree (Output sprites/animations).
   final PackerItemNode tree;
+  
+  /// Definitions map (Node ID -> Definition Data).
   final Map<String, PackerItemDefinition> definitions;
 
   const TexturePackerProject({
-    this.sourceImages = const [],
+    required this.sourceImagesRoot,
     required this.tree,
     this.definitions = const {},
   });
@@ -295,12 +359,25 @@ class TexturePackerProject {
   /// Creates an empty, initial project state.
   factory TexturePackerProject.fresh() {
     return TexturePackerProject(
+      sourceImagesRoot: SourceImageNode(name: 'root', type: SourceNodeType.folder, id: 'root'),
       tree: PackerItemNode(name: 'root', type: PackerItemType.folder, id: 'root'),
     );
   }
 
   factory TexturePackerProject.fromJson(Map<String, dynamic> json) {
+    // Deserialize Output Tree
     final tree = PackerItemNode.fromJson(json['tree']);
+    
+    // Deserialize Source Image Tree
+    SourceImageNode sourceRoot;
+    if (json['sourceImagesRoot'] != null) {
+      sourceRoot = SourceImageNode.fromJson(json['sourceImagesRoot']);
+    } else {
+      // Migration from old List<SourceImageConfig> if needed
+      // For now, we return fresh root if not found to ensure non-null
+      sourceRoot = SourceImageNode(name: 'root', type: SourceNodeType.folder, id: 'root');
+    }
+
     final Map<String, PackerItemDefinition> defs = {};
     if (json['definitions'] != null) {
       final Map<String, dynamic> rawDefs = json['definitions'];
@@ -330,92 +407,27 @@ class TexturePackerProject {
     }
 
     return TexturePackerProject(
-      sourceImages: (json['sourceImages'] as List? ?? [])
-          .map((e) => SourceImageConfig.fromJson(e))
-          .toList(),
+      sourceImagesRoot: sourceRoot,
       tree: tree,
       definitions: defs,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'sourceImages': sourceImages.map((e) => e.toJson()).toList(),
+        'sourceImagesRoot': sourceImagesRoot.toJson(),
         'tree': tree.toJson(),
         'definitions': definitions.map((key, value) => MapEntry(key, value.toJson())),
       };
       
   TexturePackerProject copyWith({
-    List<SourceImageConfig>? sourceImages,
+    SourceImageNode? sourceImagesRoot,
     PackerItemNode? tree,
     Map<String, PackerItemDefinition>? definitions,
   }) {
     return TexturePackerProject(
-      sourceImages: sourceImages ?? this.sourceImages,
+      sourceImagesRoot: sourceImagesRoot ?? this.sourceImagesRoot,
       tree: tree ?? this.tree,
       definitions: definitions ?? this.definitions,
     );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TexturePackerProject &&
-          runtimeType == other.runtimeType &&
-          const ListEquality().equals(sourceImages, other.sourceImages) &&
-          tree == other.tree &&
-          const MapEquality().equals(definitions, other.definitions);
-
-  @override
-  int get hashCode => Object.hash(
-    const ListEquality().hash(sourceImages),
-    tree,
-    const MapEquality().hash(definitions),
-  );
-}
-
-
-/// Helper extension to resolve fully qualified names for export.
-extension ProjectExportHelper on TexturePackerProject {
-  /// Generates a map of Export Names -> Definitions.
-  /// 
-  /// The key is the fully qualified name (e.g. "Folder_Subfolder_SpriteName").
-  /// The value is the associated PackerItemDefinition.
-  /// 
-  /// This flattens the hierarchy as requested: "Nesting will not be present in the output format,
-  /// it will just be used for adding name_prefixes."
-  Map<String, PackerItemDefinition> getFlattenedExportData() {
-    final Map<String, PackerItemDefinition> exportMap = {};
-
-    // Recursive helper to traverse tree and build prefixes
-    void traverse(PackerItemNode node, String prefix) {
-      String currentName = node.name;
-      String nextPrefix = prefix;
-
-      if (node.id != 'root') {
-        // If not root, append current name to prefix
-        if (prefix.isEmpty) {
-          nextPrefix = currentName;
-        } else {
-          nextPrefix = '${prefix}_$currentName';
-        }
-      }
-
-      // If this node is a Leaf (Sprite/Animation) with a definition, add to map
-      if (node.type == PackerItemType.sprite || node.type == PackerItemType.animation) {
-        final def = definitions[node.id];
-        if (def != null) {
-          // Use nextPrefix as the key (which includes the node's own name)
-          exportMap[nextPrefix] = def;
-        }
-      }
-
-      // Continue traversal
-      for (final child in node.children) {
-        traverse(child, nextPrefix);
-      }
-    }
-
-    traverse(tree, "");
-    return exportMap;
   }
 }
