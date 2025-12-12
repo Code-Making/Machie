@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/asset_cache/asset_models.dart';
@@ -23,6 +24,9 @@ import '../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../../../utils/toast.dart';
 import 'package:collection/collection.dart'; // Import for SetEquality
 import 'texture_packer_plugin.dart';
+import '../../../project/project_settings_notifier.dart';
+import 'texture_packer_settings.dart';
+import 'widgets/preview_app_bar.dart';
 
 // Providers for UI state, scoped to the editor instance.
 final activeSourceImageIndexProvider = StateProvider.autoDispose<int>((ref) => 0);
