@@ -158,8 +158,8 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     final definition = _notifier.project.definitions[selectedId];
     if (definition is SpriteDefinition) {
-      // If a sprite is selected, automatically switch the view to that image
-      ref.read(activeSourceImageIndexProvider.notifier).state = definition.sourceImageIndex;
+      // UPDATED: Sync using ID, not index
+      ref.read(activeSourceImageIdProvider.notifier).state = definition.sourceImageId;
     }
   }
 
@@ -726,18 +726,21 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
 
   Widget _buildSlicingView() {
-    final activeIndex = ref.watch(activeSourceImageIndexProvider);
-    final project = _notifier.project;
-
-    if (project.sourceImages.isEmpty) {
+    // UPDATED: Check for existence of any source images in the new tree
+    if (_notifier.getAllSourceImages().isEmpty) {
         return _buildEmptyState();
     }
 
-    if (activeIndex >= project.sourceImages.length) {
+    final activeId = ref.watch(activeSourceImageIdProvider);
+    if (activeId == null) {
       return const Center(child: Text('Select a source image.'));
     }
 
-    final sourceConfig = project.sourceImages[activeIndex];
+    // UPDATED: Find config by ID
+    final sourceConfig = _notifier.findSourceImageConfig(activeId);
+    if (sourceConfig == null) {
+      return const Center(child: Text('Source image not found.'));
+    }
     
     return SlicingView(
       tabId: widget.tab.id,
