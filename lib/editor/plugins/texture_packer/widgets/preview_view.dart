@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/asset_cache/asset_models.dart';
@@ -21,19 +22,43 @@ class PreviewView extends ConsumerStatefulWidget {
 
 class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderStateMixin {
   late final AnimationController _animationController;
+  late final TransformationController _transformationController;
+  
   Animation<int>? _frameAnimation;
   AnimationDefinition? _currentAnimationDef;
+  String? _lastSelectedNodeId;
+  bool _needsFit = true;
 
   @override
   void initState() {
     super.initState();
+    _transformationController = TransformationController();
     _animationController = AnimationController(vsync: this);
-    _animationController.addListener(() => setState(() {}));
+    _animationController.addListener(() {
+      // Force rebuild to paint the next frame
+      setState(() {});
+    });
+    
+    // Handle animation completion for non-looping mode
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        final state = ref.read(previewStateProvider(widget.tabId));
+        if (!state.isLooping) {
+          // 1. Stop playback state in UI
+          ref.read(previewStateProvider(widget.tabId).notifier).state = 
+              state.copyWith(isPlaying: false);
+          
+          // 2. Reset controller to beginning
+          _animationController.reset();
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _transformationController.dispose();
     super.dispose();
   }
 
@@ -46,7 +71,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return null;
   }
 
-  // Collects all sprites within a folder (recursive)
   List<SpriteDefinition> _collectSpritesInFolder(PackerItemNode folder, Map<String, PackerItemDefinition> defs) {
     List<SpriteDefinition> sprites = [];
     for (final child in folder.children) {
@@ -70,7 +94,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       return;
     }
 
-    // Update controller parameters
     final effectiveSpeed = animDef.speed * state.speedMultiplier;
     final durationMs = (animDef.frameIds.length / effectiveSpeed * 1000).round();
     final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
@@ -85,14 +108,40 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     }
 
     if (state.isPlaying) {
-      if (!_animationController.isAnimating) {
+      if (!_animationController.isAnimating && 
+          _animationController.status != AnimationStatus.completed) {
         state.isLooping ? _animationController.repeat() : _animationController.forward();
+      } else if (state.isLooping && !_animationController.isAnimating) {
+         _animationController.repeat();
       }
     } else {
       if (_animationController.isAnimating) {
         _animationController.stop();
       }
     }
+  }
+
+  /// Calculates the matrix to fit the content within the viewport with a margin.
+  void _fitContent(Size contentSize, Size viewportSize) {
+    if (contentSize.isEmpty || viewportSize.isEmpty) return;
+
+    final double margin = 32.0;
+    final double availableW = viewportSize.width - margin * 2;
+    final double availableH = viewportSize.height - margin * 2;
+
+    final double scaleX = availableW / contentSize.width;
+    final double scaleY = availableH / contentSize.height;
+    final double scale = math.min(scaleX, scaleY).clamp(0.1, 5.0); // Clamp to sane defaults
+
+    final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
+    final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
+
+    final Matrix4 matrix = Matrix4.identity()
+      ..translate(offsetX, offsetY)
+      ..scale(scale);
+
+    _transformationController.value = matrix;
+    _needsFit = false;
   }
 
   @override
@@ -102,6 +151,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final assetMap = ref.watch(assetMapProvider(widget.tabId));
     final previewState = ref.watch(previewStateProvider(widget.tabId));
     
+    // Check if selection changed to trigger a re-fit
+    if (selectedNodeId != _lastSelectedNodeId) {
+      _lastSelectedNodeId = selectedNodeId;
+      _needsFit = true;
+      // Also stop animation when switching nodes to prevent ghosting
+      _animationController.stop();
+      _animationController.reset();
+    }
+    
     final settings = ref.watch(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
         ?? TexturePackerSettings();
@@ -109,6 +167,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return assetMap.when(
       data: (assets) {
         Widget content;
+        Size contentSize = Size.zero;
         
         if (selectedNodeId == null) {
           content = _buildPlaceholder('No Item Selected', 'Select an item to preview.');
@@ -117,42 +176,76 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
           if (node == null) {
             content = _buildPlaceholder('Error', 'Item not found.');
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
-            // Folder / Root -> Atlas View
             final sprites = _collectSpritesInFolder(node, project.definitions);
             content = _buildAtlasPreview(sprites, project, assets);
+            // Estimate atlas content size for fit (approximate based on Wrap width)
+            // This is tricky with Wrap, so we might default to no fit or a safe guess
+            contentSize = const Size(500, 500); 
           } else {
             final definition = project.definitions[node.id];
             
             if (definition is SpriteDefinition) {
               _animationController.stop();
-              content = _buildSpritePreview(project, definition, assets);
+              // Calculate size for single sprite
+              final size = _getSpriteSize(project, definition, assets);
+              contentSize = size ?? Size.zero;
+              content = _buildSpritePreview(project, definition, assets, size);
             } else if (definition is AnimationDefinition) {
               _updateAnimationState(definition, previewState);
-              content = _buildAnimationPreview(project, definition, assets);
+              // Calculate size based on first frame (assuming consistent frame size)
+              if (definition.frameIds.isNotEmpty) {
+                 final firstFrameDef = project.definitions[definition.frameIds.first];
+                 if (firstFrameDef is SpriteDefinition) {
+                   contentSize = _getSpriteSize(project, firstFrameDef, assets) ?? Size.zero;
+                 }
+              }
+              content = _buildAnimationPreview(project, definition, assets, contentSize);
             } else {
               content = _buildPlaceholder('No Data', 'Item definition missing.');
             }
           }
         }
 
-        return Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          child: Stack(
-            children: [
-              if (previewState.showGrid)
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _BackgroundPainter(settings: settings),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Apply Auto-Fit logic if needed
+            if (_needsFit && !contentSize.isEmpty) {
+              // Schedule post frame to modify controller during build safe-guard
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _needsFit) {
+                  _fitContent(contentSize, constraints.biggest);
+                }
+              });
+            }
+
+            return Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Stack(
+                children: [
+                  if (previewState.showGrid)
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _BackgroundPainter(settings: settings),
+                      ),
+                    ),
+                  InteractiveViewer(
+                    transformationController: _transformationController,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    minScale: 0.01,
+                    maxScale: 20.0,
+                    // Center content if it's smaller than viewport
+                    child: Center(
+                        child: SizedBox(
+                          width: contentSize.width > 0 ? contentSize.width : null,
+                          height: contentSize.height > 0 ? contentSize.height : null,
+                          child: content
+                        )
+                    ),
                   ),
-                ),
-              InteractiveViewer(
-                boundaryMargin: const EdgeInsets.all(double.infinity),
-                minScale: 0.1,
-                maxScale: 16.0,
-                child: Center(child: content),
+                ],
               ),
-            ],
-          ),
+            );
+          }
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -160,10 +253,18 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     );
   }
 
+  Size? _getSpriteSize(TexturePackerProject project, SpriteDefinition def, Map<String, AssetData> assets) {
+    if (def.sourceImageIndex >= project.sourceImages.length) return null;
+    final sourceConfig = project.sourceImages[def.sourceImageIndex];
+    final rect = _calculateSourceRect(sourceConfig, def.gridRect);
+    return Size(rect.width, rect.height);
+  }
+
   Widget _buildSpritePreview(
     TexturePackerProject project,
     SpriteDefinition spriteDef,
     Map<String, AssetData> assets,
+    Size? precalcSize,
   ) {
     if (spriteDef.sourceImageIndex >= project.sourceImages.length) return const Icon(Icons.broken_image);
     
@@ -173,9 +274,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     if (asset is! ImageAssetData) return const Icon(Icons.broken_image);
 
     final srcRect = _calculateSourceRect(sourceConfig, spriteDef.gridRect);
+    final size = precalcSize ?? Size(srcRect.width, srcRect.height);
 
     return CustomPaint(
-      size: Size(srcRect.width, srcRect.height),
+      size: size,
       painter: _SpritePainter(image: asset.image, srcRect: srcRect),
     );
   }
@@ -184,12 +286,12 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     TexturePackerProject project,
     AnimationDefinition animDef,
     Map<String, AssetData> assets,
+    Size frameSize,
   ) {
     if (_frameAnimation == null || animDef.frameIds.isEmpty) {
       return _buildPlaceholder('Empty Animation', 'No frames defined.');
     }
 
-    // Handle loop end behavior for UI purposes (prevent out of bounds)
     var frameIndex = _frameAnimation!.value;
     if (frameIndex >= animDef.frameIds.length) frameIndex = 0;
 
@@ -198,7 +300,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
     if (spriteDef == null) return const Icon(Icons.error_outline);
     
-    return _buildSpritePreview(project, spriteDef, assets);
+    return _buildSpritePreview(project, spriteDef, assets, frameSize);
   }
 
   Widget _buildAtlasPreview(
@@ -208,17 +310,17 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   ) {
     if (sprites.isEmpty) return _buildPlaceholder('Empty Folder', 'No sprites to display.');
 
-    // Simple grid layout for visualization
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: sprites.map((def) {
+        final size = _getSpriteSize(project, def, assets);
         return Container(
           decoration: BoxDecoration(
             border: Border.all(color: Colors.white24),
           ),
-          child: _buildSpritePreview(project, def, assets),
+          child: _buildSpritePreview(project, def, assets, size),
         );
       }).toList(),
     );
@@ -236,8 +338,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   Widget _buildPlaceholder(String title, String message) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 8),
         Text(message),
       ],
     );
@@ -255,7 +359,6 @@ class _BackgroundPainter extends CustomPainter {
     final paint = Paint();
     const double checkerSize = 20.0;
 
-    // Draw full screen checkerboard
     final cols = (size.width / checkerSize).ceil();
     final rows = (size.height / checkerSize).ceil();
 
@@ -274,7 +377,6 @@ class _BackgroundPainter extends CustomPainter {
   bool shouldRepaint(_BackgroundPainter oldDelegate) => oldDelegate.settings != settings;
 }
 
-// Reused simple painter for single sprite rendering
 class _SpritePainter extends CustomPainter {
   final ui.Image image;
   final Rect srcRect;
@@ -289,5 +391,8 @@ class _SpritePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SpritePainter oldDelegate) => false;
+  bool shouldRepaint(_SpritePainter oldDelegate) {
+    // FIX: Must return true if properties changed to trigger repaint
+    return oldDelegate.image != image || oldDelegate.srcRect != srcRect;
+  }
 }
