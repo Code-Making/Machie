@@ -609,9 +609,10 @@ Future<void> _addTileset() async {
     );
     if (relativeImagePath == null || !mounted) return;
 
-    // ... (Dialog for name/dimensions remains same) ...
-    final result = await showDialog<Map<String, dynamic>>(/*...*/);
-    if (result == null || !mounted) return;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => NewTilesetDialog(imagePath: relativeImagePath),
+    );    if (result == null || !mounted) return;
 
     try {
       final repo = ref.read(projectRepositoryProvider)!;
@@ -638,10 +639,17 @@ Future<void> _addTileset() async {
       if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
 
-      // 5. Create Tileset
+      // 4. Now that we have the image, we can calculate required properties
       final tileWidth = result['tileWidth'] as int;
       final tileHeight = result['tileHeight'] as int;
-      // ... (calculations) ...
+      final columns = (image.width) ~/ tileWidth;
+      final tileCount = columns * (image.height ~/ tileHeight);
+
+      int nextGid = 1;
+      if (_notifier!.map.tilesets.isNotEmpty) {
+        final last = _notifier!.map.tilesets.last;
+        nextGid = (last.firstGid ?? 0) + (last.tileCount ?? 0);
+      }
 
       final newTileset = Tileset(
         name: result['name'],
