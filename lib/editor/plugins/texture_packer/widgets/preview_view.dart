@@ -34,21 +34,22 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     super.initState();
     _transformationController = TransformationController();
     _animationController = AnimationController(vsync: this);
+    
+    // Force repaint on every frame tick
     _animationController.addListener(() {
-      // Force rebuild to paint the next frame
       setState(() {});
     });
     
-    // Handle animation completion for non-looping mode
+    // Handle "Play Once" behavior: Stop and Rewind
     _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         final state = ref.read(previewStateProvider(widget.tabId));
         if (!state.isLooping) {
-          // 1. Stop playback state in UI
+          // 1. Update UI state to "Paused"
           ref.read(previewStateProvider(widget.tabId).notifier).state = 
               state.copyWith(isPlaying: false);
           
-          // 2. Reset controller to beginning
+          // 2. Rewind to frame 0
           _animationController.reset();
         }
       }
@@ -95,6 +96,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     }
 
     final effectiveSpeed = animDef.speed * state.speedMultiplier;
+    // Ensure duration is at least 1ms to avoid division by zero
     final durationMs = (animDef.frameIds.length / effectiveSpeed * 1000).round();
     final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
 
@@ -129,10 +131,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final double availableW = viewportSize.width - margin * 2;
     final double availableH = viewportSize.height - margin * 2;
 
+    // Determine scale to fit the *closest* dimension
     final double scaleX = availableW / contentSize.width;
     final double scaleY = availableH / contentSize.height;
-    final double scale = math.min(scaleX, scaleY).clamp(0.1, 5.0); // Clamp to sane defaults
+    
+    // Use the smaller scale to ensure it fits entirely, clamped to reasonable limits
+    final double scale = math.min(scaleX, scaleY).clamp(0.1, 10.0); 
 
+    // Calculate offset to center the scaled content in the viewport.
+    // This assumes the content is positioned at (0,0) locally.
     final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
     final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
 
@@ -155,7 +162,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     if (selectedNodeId != _lastSelectedNodeId) {
       _lastSelectedNodeId = selectedNodeId;
       _needsFit = true;
-      // Also stop animation when switching nodes to prevent ghosting
+      // Stop animation when switching nodes to prevent ghosting or state bleeding
       _animationController.stop();
       _animationController.reset();
     }
@@ -178,9 +185,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
             final sprites = _collectSpritesInFolder(node, project.definitions);
             content = _buildAtlasPreview(sprites, project, assets);
-            // Estimate atlas content size for fit (approximate based on Wrap width)
-            // This is tricky with Wrap, so we might default to no fit or a safe guess
-            contentSize = const Size(500, 500); 
+            // We don't auto-fit Folders/Atlas as their size is dynamic/unknown at build time
           } else {
             final definition = project.definitions[node.id];
             
@@ -208,9 +213,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            // Apply Auto-Fit logic if needed
+            // Apply Auto-Fit logic if we have a valid content size
             if (_needsFit && !contentSize.isEmpty) {
-              // Schedule post frame to modify controller during build safe-guard
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _needsFit) {
                   _fitContent(contentSize, constraints.biggest);
@@ -233,14 +237,20 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.01,
                     maxScale: 20.0,
-                    // Center content if it's smaller than viewport
-                    child: Center(
-                        child: SizedBox(
-                          width: contentSize.width > 0 ? contentSize.width : null,
-                          height: contentSize.height > 0 ? contentSize.height : null,
-                          child: content
-                        )
-                    ),
+                    // FIX: Use Align(topLeft) instead of Center.
+                    // Center conflicts with our manual matrix calculations by adding an offset.
+                    // Align(topLeft) ensures the content starts at (0,0) in viewport space,
+                    // making our _fitContent translation math correct.
+                    child: contentSize.isEmpty 
+                      ? Center(child: content) // For Atlas/Folder, fall back to simple Center
+                      : Align(
+                          alignment: Alignment.topLeft,
+                          child: SizedBox(
+                            width: contentSize.width, 
+                            height: contentSize.height, 
+                            child: content
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -292,6 +302,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       return _buildPlaceholder('Empty Animation', 'No frames defined.');
     }
 
+    // Wrap frame index safely
     var frameIndex = _frameAnimation!.value;
     if (frameIndex >= animDef.frameIds.length) frameIndex = 0;
 
@@ -392,7 +403,7 @@ class _SpritePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SpritePainter oldDelegate) {
-    // FIX: Must return true if properties changed to trigger repaint
+    // Return true if image source or cropping changes to trigger repaint
     return oldDelegate.image != image || oldDelegate.srcRect != srcRect;
   }
 }

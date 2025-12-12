@@ -249,7 +249,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       );
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
-      final uris = _collectAssetUris(map);
+      final uris = await _collectAssetUris(map);
       final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
@@ -277,62 +277,72 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-  Set<String> _collectAssetUris(TiledMap map) {
+Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
+    
+    // Get the actual URI of the TMX file on the filesystem
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
-    final tmxParentDisplayPath = repo.fileHandler.getPathForDisplay(
-      tmxParentUri,
-      relativeTo: project.rootUri,
-    );
 
-    // Helper to perform the path resolution
-    String? resolveToProjectRelativePath(String rawPath, String baseDisplayPath) {
-      if (rawPath.isEmpty) return null;
-      // Combine the base path with the raw relative path from the TMX file
-      final combinedPath = p.join(baseDisplayPath, rawPath);
-      // Normalize the path to resolve any ".." or "." segments
-      final normalizedPath = p.normalize(combinedPath);
-      return normalizedPath;
+    // Helper to add a file to the list if it exists
+    Future<void> resolveAndAdd(String? sourcePath, String baseUri) async {
+      if (sourcePath == null || sourcePath.isEmpty) return;
+
+      try {
+        // Use the repository to resolve the actual file. 
+        // This handles ".." segments and different file system structures correctly.
+        final file = await repo.fileHandler.resolvePath(baseUri, sourcePath);
+        
+        if (file != null) {
+          // Convert the resolved file back to a project-relative path
+          // This is the key the AssetProvider expects.
+          final projectRelativePath = repo.fileHandler.getPathForDisplay(
+            file.uri,
+            relativeTo: project.rootUri,
+          );
+          uris.add(projectRelativePath);
+        }
+      } catch (e) {
+        // Log warning if path resolution fails, but don't crash
+        ref.read(talkerProvider).warning('Failed to resolve asset path: $sourcePath from $baseUri');
+      }
     }
 
     // 1. Process Tilesets
     for (final tileset in map.tilesets) {
       final imageSource = tileset.image?.source;
-      if (imageSource != null) {
-        // Default base path is the TMX file's directory
-        var baseDisplayPath = tmxParentDisplayPath;
+      
+      // Default base is the TMX folder
+      String baseUri = tmxParentUri;
 
-        // If it's an external tileset (.tsx), the path is relative to the .tsx file
-        if (tileset.source != null) {
-          final tsxDisplayPath = resolveToProjectRelativePath(tileset.source!, tmxParentDisplayPath);
-          if (tsxDisplayPath != null) {
-            baseDisplayPath = p.dirname(tsxDisplayPath);
-          }
+      // Logic from previous version: Handle external TSX files
+      if (tileset.source != null) {
+        // Resolve the .tsx file first
+        final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
+        if (tsxFile != null) {
+          // If found, images inside are relative to the .tsx file, not the .tmx
+          baseUri = repo.fileHandler.getParentUri(tsxFile.uri);
         }
-        
-        final projectRelativePath = resolveToProjectRelativePath(imageSource, baseDisplayPath);
-        if (projectRelativePath != null) {
-          uris.add(projectRelativePath);
-        }
+      }
+      
+      await resolveAndAdd(imageSource, baseUri);
+      
+      // Also check for individual tile images (collection of images tileset)
+      for (final tile in tileset.tiles) {
+        await resolveAndAdd(tile.image?.source, baseUri);
       }
     }
 
     // 2. Process Image Layers
     for (final layer in map.layers) {
       if (layer is ImageLayer) {
-        final imageSource = layer.image.source;
-        if (imageSource != null) {
-          // Image layer paths are always relative to the TMX file
-          final projectRelativePath = resolveToProjectRelativePath(imageSource, tmxParentDisplayPath);
-          if (projectRelativePath != null) {
-            uris.add(projectRelativePath);
-          }
-        }
+        // Image Layers are always relative to the TMX map
+        await resolveAndAdd(layer.image.source, tmxParentUri);
       }
     }
+
     return uris;
   }
   
