@@ -19,6 +19,7 @@ import 'texture_packer_editor_models.dart';
 import 'texture_packer_editor_widget.dart';
 import 'texture_packer_models.dart';
 import 'widgets/slicing_properties_dialog.dart';
+import '../../../command/command_widgets.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
   // --- COMMAND SYSTEM REFACTOR ---
