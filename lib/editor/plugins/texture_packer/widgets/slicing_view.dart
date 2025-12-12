@@ -9,7 +9,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.da
 
 class SlicingView extends ConsumerWidget {
   final String tabId;
-  final TexturePackerNotifier notifier; // Pass notifier directly
+  final TexturePackerNotifier notifier;
   final TransformationController transformationController;
   final GridRect? dragSelection;
   final bool isPanZoomMode;
@@ -32,19 +32,15 @@ class SlicingView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeIndex = ref.watch(activeSourceImageIndexProvider);
-    final project = notifier.project; // Get project state from notifier
+    final project = notifier.project;
 
     if (activeIndex >= project.sourceImages.length) {
       return const Center(child: Text('Select a source image.'));
     }
 
     final sourceConfig = project.sourceImages[activeIndex];
-    
-    // --- ASSET LOADING REFACTOR ---
-    // Watch the asset provider for the current tab.
     final assetMap = ref.watch(assetMapProvider(tabId));
 
-    // Use .when() to handle loading, data, and error states gracefully.
     return assetMap.when(
       data: (assets) {
         final imageAsset = assets[sourceConfig.path];
@@ -62,41 +58,53 @@ class SlicingView extends ConsumerWidget {
           activeSelection = definition.gridRect;
         }
 
-        return GestureDetector(
-          onPanStart: (details) => onGestureStart(details.localPosition),
-          onPanUpdate: (details) => onGestureUpdate(details.localPosition),
-          onPanEnd: (_) => onGestureEnd(),
-          child: Listener(
-            onPointerUp: (_) => onGestureEnd(),
-            child: InteractiveViewer(
-              transformationController: transformationController,
-              boundaryMargin: const EdgeInsets.all(double.infinity),
-              minScale: 0.1,
-              maxScale: 16.0,
-              panEnabled: isPanZoomMode,
-              scaleEnabled: isPanZoomMode,
-              child: CustomPaint(
-                size: imageSize,
-                painter: _SlicingPainter(
-                  image: image,
-                  slicing: sourceConfig.slicing,
-                  dragSelection: dragSelection,
-                  activeSelection: activeSelection,
+        // --- LAYOUT FIX ---
+        // Wrap the interactive content in a SizedBox.expand() to force it
+        // to fill all available space. This ensures the InteractiveViewer's
+        // viewport is the full size of the editor area.
+        return SizedBox.expand(
+          child: GestureDetector(
+            onPanStart: (details) => onGestureStart(details.localPosition),
+            onPanUpdate: (details) => onGestureUpdate(details.localPosition),
+            onPanEnd: (_) => onGestureEnd(),
+            child: Listener(
+              onPointerUp: (_) => onGestureEnd(),
+              child: InteractiveViewer(
+                transformationController: transformationController,
+                // boundaryMargin must be large enough to allow panning the image
+                // completely out of view.
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                minScale: 0.1,
+                maxScale: 16.0,
+                panEnabled: isPanZoomMode,
+                scaleEnabled: isPanZoomMode,
+                // The child CustomPaint still uses the intrinsic imageSize.
+                // InteractiveViewer will correctly center and scale this content
+                // within its now-expanded viewport.
+                child: CustomPaint(
+                  size: imageSize,
+                  painter: _SlicingPainter(
+                    image: image,
+                    slicing: sourceConfig.slicing,
+                    dragSelection: dragSelection,
+                    activeSelection: activeSelection,
+                  ),
                 ),
               ),
             ),
           ),
         );
+        // --- END LAYOUT FIX ---
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error loading assets: $err')),
     );
-    // --- END REFACTOR ---
   }
 }
 
 /// Custom painter for the slicing view.
 /// This is a pure rendering widget with no business logic.
+/// THIS WIDGET WAS ALREADY CORRECT AND DOES NOT NEED CHANGES.
 class _SlicingPainter extends CustomPainter {
   final ui.Image image;
   final SlicingConfig slicing;
@@ -112,14 +120,14 @@ class _SlicingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw checkerboard background
+    // 1. Draw checkerboard background matching the full image size
     _drawCheckerboard(canvas, size);
 
     // 2. Draw the source image
     final imagePaint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImage(image, Offset.zero, imagePaint);
 
-    // 3. Draw the grid
+    // 3. Draw the grid over the full image size
     _drawGrid(canvas, size);
 
     // 4. Draw the active selection (from the hierarchy panel)
@@ -186,7 +194,7 @@ class _SlicingPainter extends CustomPainter {
     const double checkerSize = 16.0;
     for (double i = 0; i < size.width; i += checkerSize) {
       for (double j = 0; j < size.height; j += checkerSize) {
-        final paint = ((i + j) / checkerSize) % 2 == 0 ? checkerPaint1 : checkerPaint2;
+        final paint = ((i + j) / checkerSize).floor() % 2 == 0 ? checkerPaint1 : checkerPaint2;
         canvas.drawRect(Rect.fromLTWH(i, j, checkerSize, checkerSize), paint);
       }
     }

@@ -9,7 +9,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.da
 
 class PreviewView extends ConsumerStatefulWidget {
   final String tabId;
-  final TexturePackerNotifier notifier; // Pass notifier directly
+  final TexturePackerNotifier notifier;
   const PreviewView({super.key, required this.tabId, required this.notifier});
 
   @override
@@ -68,15 +68,11 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
-    final project = widget.notifier.project; // Get project state from notifier
-
-    // --- ASSET LOADING REFACTOR ---
-    // Watch the asset provider for the current tab.
+    final project = widget.notifier.project;
     final assetMap = ref.watch(assetMapProvider(widget.tabId));
 
     return assetMap.when(
       data: (assets) {
-        // ... (rest of the build method logic is now safe) ...
         if (selectedNodeId == null) {
           return _buildPlaceholder('No Item Selected', 'Select a sprite or animation to preview.');
         }
@@ -94,12 +90,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
         if (definition == null) {
           _animationController.stop();
-          return _buildPlaceholder('No Data', 'This item has not been defined yet.');
+          return _buildPlaceholder('No Data', 'This item has not been defined yet.\nSelect a region in the Slicing View to define it.');
         }
 
         Widget previewContent;
 
+        // --- PREVIEW LOGIC REFACTOR ---
+        // Handle both SpriteDefinition and AnimationDefinition.
         if (definition is SpriteDefinition) {
+          // If a single sprite is selected, stop any running animation.
           _animationController.stop();
           _currentAnimationDef = null;
           previewContent = _buildSpritePreview(project, definition, assets);
@@ -110,19 +109,23 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
           previewContent = const SizedBox.shrink();
         }
 
+        // --- LAYOUT FIX ---
+        // The InteractiveViewer now fills the available space, and its child
+        // is wrapped in a Center widget to ensure it's properly aligned.
         return InteractiveViewer(
           boundaryMargin: const EdgeInsets.all(50),
           minScale: 0.1,
           maxScale: 16.0,
           child: Center(child: previewContent),
         );
+        // --- END LAYOUT FIX ---
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => _buildPlaceholder('Asset Error', err.toString()),
     );
-    // --- END REFACTOR ---
   }
 
+  /// Builds the widget to preview a single sprite.
   Widget _buildSpritePreview(
     TexturePackerProject project,
     SpriteDefinition spriteDef,
@@ -141,12 +144,14 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
     final srcRect = _calculateSourceRect(sourceImageConfig, spriteDef.gridRect);
 
+    // The CustomPaint widget is explicitly sized to the sprite's dimensions.
     return CustomPaint(
       size: Size(srcRect.width, srcRect.height),
       painter: _SpritePainter(image: asset.image, srcRect: srcRect),
     );
   }
 
+  /// Builds the widget to preview a running animation.
   Widget _buildAnimationPreview(
     TexturePackerProject project,
     AnimationDefinition animDef,
@@ -163,7 +168,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       return _buildPlaceholder('Frame Error', 'Animation frame with ID "$frameId" is not defined or is not a sprite.');
     }
     
-    // Reuse the single sprite preview logic for the current frame
+    // Re-use the single sprite preview logic for the current frame.
     return _buildSpritePreview(project, spriteDef, assets);
   }
 
@@ -193,7 +198,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 }
 
-
 /// A painter that draws a single sprite from a larger spritesheet.
 class _SpritePainter extends CustomPainter {
   final ui.Image image;
@@ -203,16 +207,11 @@ class _SpritePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw a checkerboard background
     _drawCheckerboard(canvas, size);
     
-    // 2. Define the destination rect to draw the sprite into.
-    // This will fill the CustomPaint's area.
     final destinationRect = Offset.zero & size;
-
     final paint = Paint()..filterQuality = FilterQuality.none;
 
-    // 3. Draw the specific portion of the spritesheet image
     canvas.drawImageRect(image, srcRect, destinationRect, paint);
   }
 
