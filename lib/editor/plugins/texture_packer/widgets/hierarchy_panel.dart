@@ -32,7 +32,6 @@ class HierarchyPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
@@ -48,7 +47,6 @@ class HierarchyPanel extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          // Tree View
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
@@ -58,7 +56,6 @@ class HierarchyPanel extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          // Footer Buttons
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -89,7 +86,6 @@ class HierarchyPanel extends ConsumerWidget {
   Widget _buildNodeList(PackerItemNode parent, BuildContext context, WidgetRef ref) {
     final children = parent.children;
     if (children.isEmpty) {
-      // Empty drop zone for folders
       return _DropZone(
         parentId: parent.id,
         index: 0,
@@ -102,17 +98,13 @@ class HierarchyPanel extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (int i = 0; i < children.length; i++) ...[
-          // Drop zone ABOVE item (insert at i)
           _DropZone(parentId: parent.id, index: i, notifier: notifier),
-          // The item itself
           _DraggableNodeItem(
             node: children[i],
             notifier: notifier,
-            depth: 0, // Depth handled by padding in recursive calls, or visually here? 
-                      // Actually, let's keep visual indentation simple.
+            depth: 0, 
           ),
         ],
-        // Drop zone AFTER last item
         _DropZone(parentId: parent.id, index: children.length, notifier: notifier),
       ],
     );
@@ -132,7 +124,6 @@ class _DraggableNodeItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. The Draggable Wrapper
     return LongPressDraggable<String>(
       data: node.id,
       feedback: Material(
@@ -162,7 +153,6 @@ class _DraggableNodeItem extends ConsumerWidget {
     );
   }
 
-  // 2. The Drop Target Wrapper (For nesting INTO this node)
   Widget _buildDragTargetWrapper(BuildContext context, WidgetRef ref) {
     if (node.type != PackerItemType.folder) {
       return _buildTile(context, ref);
@@ -171,11 +161,9 @@ class _DraggableNodeItem extends ConsumerWidget {
     return DragTarget<String>(
       onWillAccept: (incomingId) {
         if (incomingId == null || incomingId == node.id) return false;
-        // Don't allow dropping a parent into its child (circular check would go here)
         return true; 
       },
       onAccept: (incomingId) {
-        // Append to the end of this folder
         notifier.moveNode(incomingId, node.id, node.children.length);
       },
       builder: (context, candidateData, rejectedData) {
@@ -193,7 +181,6 @@ class _DraggableNodeItem extends ConsumerWidget {
     );
   }
 
-  // 3. The Visual Tile
   Widget _buildTile(BuildContext context, WidgetRef ref, {bool isDragging = false}) {
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
     final isSelected = node.id == selectedNodeId;
@@ -222,12 +209,10 @@ class _DraggableNodeItem extends ConsumerWidget {
             trailing: _buildContextMenu(context, ref),
           ),
         ),
-        // Recursive children
         if (node.children.isNotEmpty)
           Column(
             children: [
               for (int i = 0; i < node.children.length; i++) ...[
-                // Drop zones inside folder
                 _DropZone(
                   parentId: node.id, 
                   index: i, 
@@ -240,7 +225,6 @@ class _DraggableNodeItem extends ConsumerWidget {
                   depth: depth + 1,
                 ),
               ],
-              // Final drop zone inside folder
               _DropZone(
                 parentId: node.id, 
                 index: node.children.length, 
@@ -302,7 +286,7 @@ class _DropZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
-      onWillAccept: (data) => data != null, // Add more logic if needed to prevent self-drop
+      onWillAccept: (data) => data != null,
       onAccept: (nodeId) {
         notifier.moveNode(nodeId, parentId, index);
       },
@@ -310,23 +294,22 @@ class _DropZone extends StatelessWidget {
         final isHovered = candidateData.isNotEmpty;
         
         if (isEmptyFolder) {
-          // Special look for empty folders: "Drop here" area
-          if (!isHovered) return const SizedBox(height: 0); // Hide if not hovering
+          if (!isHovered) return const SizedBox(height: 0); 
           return Container(
             margin: const EdgeInsets.all(8),
             height: 40,
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.primary, style: BorderStyle.dashed),
+              // FIX: Replaced dashed with solid, as standard Flutter doesn't have dashed enum
+              border: Border.all(color: Theme.of(context).colorScheme.primary, style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Center(child: Text("Drop inside folder", style: TextStyle(fontSize: 10))),
           );
         }
 
-        // Normal Insertion Line
         return AnimatedContainer(
           duration: const Duration(milliseconds: 100),
-          height: isHovered ? 4.0 : 4.0, // Always occupy space to prevent jitter, or use 0 if hidden
+          height: isHovered ? 4.0 : 4.0,
           margin: EdgeInsets.only(left: indent),
           width: double.infinity,
           decoration: BoxDecoration(
