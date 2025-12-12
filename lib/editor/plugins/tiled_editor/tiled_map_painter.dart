@@ -14,6 +14,7 @@ import '../../../asset_cache/asset_models.dart';
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
   final Map<String, AssetData> assetDataMap;
+  final Map<String, String> tmxToProjectPaths; // New Field
   final bool showGrid;
   final Matrix4 transform;
   
@@ -31,6 +32,7 @@ class TiledMapPainter extends CustomPainter {
   TiledMapPainter({
     required this.map,
     required this.assetDataMap,
+    required this.tmxToProjectPaths,
     required this.showGrid,
     required this.transform,
     this.selectedObjects = const [],
@@ -44,10 +46,24 @@ class TiledMapPainter extends CustomPainter {
   
   ui.Image? _getImage(String? sourcePath) {
     if (sourcePath == null) return null;
-    final asset = assetDataMap[sourcePath];
-    if (asset is ImageAssetData) {
-      return asset.image;
+    
+    // 1. Try resolving using the TMX-to-Project map
+    final projectPath = tmxToProjectPaths[sourcePath];
+    
+    // 2. Lookup the asset using the resolved project path
+    if (projectPath != null) {
+      final asset = assetDataMap[projectPath];
+      if (asset is ImageAssetData) {
+        return asset.image;
+      }
     }
+    
+    // 3. Fallback: Check if the sourcePath happens to be the key directly (e.g. root files)
+    if (assetDataMap.containsKey(sourcePath)) {
+        final asset = assetDataMap[sourcePath];
+        if (asset is ImageAssetData) return asset.image;
+    }
+
     return null;
   }
 
