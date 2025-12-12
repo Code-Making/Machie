@@ -28,8 +28,14 @@ class TexturePackerNotifier extends ChangeNotifier {
   }
 
   /// Adds a new source image to the project.
-  void addSourceImage(String path) {
-    final newImage = SourceImageConfig(path: path);
+  /// Adds a new source image to the project.
+  /// [config]: Optional slicing configuration (e.g. for exact image size).
+  void addSourceImage(String path, {SlicingConfig? config}) {
+    final newImage = SourceImageConfig(
+      path: path,
+      slicing: config ?? const SlicingConfig(),
+    );
+    
     project = project.copyWith(
       sourceImages: [...project.sourceImages, newImage],
     );
