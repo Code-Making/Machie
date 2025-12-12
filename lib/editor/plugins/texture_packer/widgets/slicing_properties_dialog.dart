@@ -6,7 +6,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.da
 
 class SlicingPropertiesDialog extends ConsumerStatefulWidget {
   final String tabId;
-  final TexturePackerNotifier notifier; // Pass notifier directly
+  final TexturePackerNotifier notifier;
 
   const SlicingPropertiesDialog({super.key, required this.tabId, required this.notifier});
   
@@ -26,14 +26,21 @@ class _SlicingPropertiesDialogState extends ConsumerState<SlicingPropertiesDialo
   late final TextEditingController _tileHeightController;
   late final TextEditingController _marginController;
   late final TextEditingController _paddingController;
-  late int _activeIndex;
+  String? _activeId;
 
   @override
   void initState() {
     super.initState();
-    _activeIndex = ref.read(activeSourceImageIndexProvider);
-    // Get state from the passed notifier instance
-    final config = widget.notifier.project.sourceImages[_activeIndex].slicing;
+    // UPDATED: Use ID instead of index
+    _activeId = ref.read(activeSourceImageIdProvider);
+    
+    SlicingConfig config = const SlicingConfig();
+    if (_activeId != null) {
+      final sourceConfig = widget.notifier.findSourceImageConfig(_activeId!);
+      if (sourceConfig != null) {
+        config = sourceConfig.slicing;
+      }
+    }
 
     _tileWidthController = TextEditingController(text: config.tileWidth.toString());
     _tileHeightController = TextEditingController(text: config.tileHeight.toString());
@@ -51,14 +58,17 @@ class _SlicingPropertiesDialogState extends ConsumerState<SlicingPropertiesDialo
   }
 
   void _onConfirm() {
+    if (_activeId == null) return;
+
     final newConfig = SlicingConfig(
       tileWidth: int.tryParse(_tileWidthController.text) ?? 16,
       tileHeight: int.tryParse(_tileHeightController.text) ?? 16,
       margin: int.tryParse(_marginController.text) ?? 0,
       padding: int.tryParse(_paddingController.text) ?? 0,
     );
-    // Use the passed notifier instance to update state
-    widget.notifier.updateSlicingConfig(_activeIndex, newConfig);
+    
+    // UPDATED: Pass ID string to update method
+    widget.notifier.updateSlicingConfig(_activeId!, newConfig);
     Navigator.of(context).pop();
   }
 
