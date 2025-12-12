@@ -6,6 +6,7 @@ import 'package:meta/meta.dart';
 enum TexturePackerMode {
   panZoom,
   slicing,
+  preview,
 }
 
 @immutable

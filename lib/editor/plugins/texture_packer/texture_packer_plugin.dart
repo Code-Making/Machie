@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: plugins/texture_packer/texture_packer_plugin.dart
-// =========================================
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -121,7 +117,6 @@ class TexturePackerPlugin extends EditorPlugin {
   @override
   List<Command> getCommands() {
     return [
-      // --- Floating Toolbar Commands ---
       BaseCommand(
         id: 'packer_toggle_pan_zoom_mode',
         label: 'Pan/Zoom',
@@ -145,6 +140,19 @@ class TexturePackerPlugin extends EditorPlugin {
         defaultPositions: [textureFloatingToolbar],
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.slicing),
+      ),
+      // --- NEW: Preview Command ---
+      BaseCommand(
+        id: 'packer_toggle_preview_mode',
+        label: 'Preview',
+        icon: Consumer(builder: (context, ref, _) {
+          final ctx = ref.watch(activeCommandContextProvider);
+          final isActive = ctx is TexturePackerCommandContext && ctx.mode == TexturePackerMode.preview;
+          return Icon(Icons.play_circle_outline, color: isActive ? Theme.of(context).colorScheme.primary : null);
+        }),
+        defaultPositions: [textureFloatingToolbar],
+        sourcePlugin: id,
+        execute: (ref) async => _getEditorState(ref)?.setMode(TexturePackerMode.preview),
       ),
       
       // --- Main Plugin Toolbar Commands ---

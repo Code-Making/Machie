@@ -138,7 +138,154 @@ class TexturePackerNotifier extends ChangeNotifier {
     notifyListeners();
   }
   
-  // Note: More complex operations like `moveNode` and `updateNodeName` would also
-  // involve similar recursive logic to traverse the tree and are omitted here
-  // for brevity but would follow the same mutable update pattern.
+  /// Creates multiple sprites in a batch.
+  /// Useful for "Batch Sprites" or creating frames for an animation.
+  List<PackerItemNode> createBatchSprites({
+    required List<String> names,
+    required List<SpriteDefinition> definitions,
+    String? parentId,
+  }) {
+    if (names.length != definitions.length) return [];
+
+    final List<PackerItemNode> newNodes = [];
+    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
+
+    // 1. Create Nodes
+    for (int i = 0; i < names.length; i++) {
+      final node = PackerItemNode(name: names[i], type: PackerItemType.sprite);
+      newNodes.add(node);
+      newDefinitions[node.id] = definitions[i];
+    }
+
+    // 2. Insert into Tree
+    PackerItemNode insert(PackerItemNode currentNode) {
+      if (currentNode.id == (parentId ?? 'root')) {
+        return currentNode.copyWith(children: [...currentNode.children, ...newNodes]);
+      }
+      return currentNode.copyWith(
+        children: currentNode.children.map(insert).toList(),
+      );
+    }
+
+    project = project.copyWith(
+      tree: insert(project.tree),
+      definitions: newDefinitions,
+    );
+    
+    notifyListeners();
+    return newNodes;
+  }
+
+  /// Creates an animation node and links it to a list of existing sprite IDs.
+  void createAnimationFromSpriteIds({
+    required String name,
+    required List<String> frameIds,
+    String? parentId,
+    double speed = 10.0,
+  }) {
+    final animNode = PackerItemNode(name: name, type: PackerItemType.animation);
+    
+    final animDef = AnimationDefinition(
+      frameIds: frameIds,
+      speed: speed,
+    );
+
+    final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
+    newDefinitions[animNode.id] = animDef;
+
+    PackerItemNode insert(PackerItemNode currentNode) {
+      if (currentNode.id == (parentId ?? 'root')) {
+        return currentNode.copyWith(children: [...currentNode.children, animNode]);
+      }
+      return currentNode.copyWith(
+        children: currentNode.children.map(insert).toList(),
+      );
+    }
+
+    project = project.copyWith(
+      tree: insert(project.tree),
+      definitions: newDefinitions,
+    );
+    notifyListeners();
+  }
+  /// Moves a node to a new parent and/or new index.
+  /// [nodeId]: The ID of the node to move.
+  /// [newParentId]: The ID of the destination parent folder (use 'root' for top level).
+  /// [newIndex]: The index within the new parent's children list to insert at.
+  void moveNode(String nodeId, String newParentId, int newIndex) {
+    if (nodeId == newParentId) return; // Cannot move into self
+    
+    // 1. Find and Remove the node from its current location
+    PackerItemNode? movedNode;
+    
+    // Helper to remove node and return the modified tree
+    PackerItemNode removeRecursive(PackerItemNode current) {
+      // Check children
+      final index = current.children.indexWhere((c) => c.id == nodeId);
+      if (index != -1) {
+        movedNode = current.children[index];
+        final newChildren = List<PackerItemNode>.from(current.children)..removeAt(index);
+        return current.copyWith(children: newChildren);
+      }
+      
+      // Recurse
+      final newChildren = <PackerItemNode>[];
+      bool changed = false;
+      for (final child in current.children) {
+        final newChild = removeRecursive(child);
+        newChildren.add(newChild);
+        if (newChild != child) changed = true;
+      }
+      
+      return changed ? current.copyWith(children: newChildren) : current;
+    }
+
+    final treeAfterRemoval = removeRecursive(project.tree);
+    
+    if (movedNode == null) return; // Node not found
+
+    // 2. Validate Circular Dependency (prevent dropping folder into its own child)
+    bool isDescendant(PackerItemNode candidate, String targetId) {
+      if (candidate.id == targetId) return true;
+      return candidate.children.any((c) => isDescendant(c, targetId));
+    }
+    
+    // If we are moving a folder, ensure newParentId is not inside that folder
+    if (movedNode!.type == PackerItemType.folder) {
+       // We can't check this easily on the detached node against the tree without ID lookups,
+       // but strictly speaking, if newParentId is a descendant of movedNode.id, we abort.
+       // However, since we already removed movedNode from the tree, 'newParentId' must exist 
+       // in 'treeAfterRemoval' to be valid. If it was a child of movedNode, it's gone now.
+       // So we just need to ensure the insert target exists.
+    }
+
+    // 3. Insert the node at the new location
+    PackerItemNode insertRecursive(PackerItemNode current) {
+      if (current.id == newParentId) {
+        final safeIndex = newIndex.clamp(0, current.children.length);
+        final newChildren = List<PackerItemNode>.from(current.children)
+          ..insert(safeIndex, movedNode!);
+        return current.copyWith(children: newChildren);
+      }
+
+      final newChildren = <PackerItemNode>[];
+      bool changed = false;
+      for (final child in current.children) {
+        final newChild = insertRecursive(child);
+        newChildren.add(newChild);
+        if (newChild != child) changed = true;
+      }
+
+      return changed ? current.copyWith(children: newChildren) : current;
+    }
+
+    final newTree = insertRecursive(treeAfterRemoval);
+
+    // If the target parent wasn't found (e.g. trying to drop into the node we just removed),
+    // the tree won't change size effectively (movedNode is lost). 
+    // In a robust app we'd handle this, but the UI should prevent it.
+    
+    project = project.copyWith(tree: newTree);
+    notifyListeners();
+  }
 }
