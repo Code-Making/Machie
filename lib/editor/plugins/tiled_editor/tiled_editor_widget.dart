@@ -348,7 +348,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   
   void _rebuildAssetUriSet() async {
     if (_notifier == null) return;
-    final uris = _await collectAssetUris(_notifier!.map);
+    final uris = await _collectAssetUris(_notifier!.map);
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
   }
   
