@@ -88,6 +88,11 @@ class TexturePackerPlugin extends EditorPlugin {
     );
   }
   
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    return const BottomToolbar();
+  }
+  
   // --- COMMAND SYSTEM REFACTOR ---
   /// Helper method to get the active editor state for command execution.
   TexturePackerEditorWidgetState? _getEditorState(WidgetRef ref) {
