@@ -23,7 +23,7 @@ class SourceImagesPanel extends ConsumerWidget {
       notifier.addSourceNode(
         name: name.trim(),
         type: SourceNodeType.folder,
-        parentId: 'root', // Always create at root from toolbar, user can drag later
+        parentId: 'root',
       );
     }
   }
@@ -54,35 +54,34 @@ class SourceImagesPanel extends ConsumerWidget {
           ),
           const Divider(height: 1),
 
-          // Tree View
+          // Tree View - REFACTORED
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildNodeList(rootNode, context, ref),
-                          Expanded(
-                            child: _SourceRootDropZone(
-                              notifier: notifier, 
-                              rootNode: rootNode
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+            child: Stack(
+              children: [
+                // 1. Background Root Drop Zone
+                Positioned.fill(
+                  child: _SourceRootDropZone(
+                    notifier: notifier, 
+                    rootNode: rootNode,
+                    isBackground: true,
                   ),
-                );
-              }
+                ),
+
+                // 2. The List
+                SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildNodeList(rootNode, context, ref),
+                      const SizedBox(height: 50),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           
           const Divider(height: 1),
-
           // Toolbar
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -141,8 +140,13 @@ class SourceImagesPanel extends ConsumerWidget {
 class _SourceRootDropZone extends StatefulWidget {
   final TexturePackerNotifier notifier;
   final SourceImageNode rootNode;
+  final bool isBackground;
 
-  const _SourceRootDropZone({required this.notifier, required this.rootNode});
+  const _SourceRootDropZone({
+    required this.notifier, 
+    required this.rootNode,
+    this.isBackground = false,
+  });
 
   @override
   State<_SourceRootDropZone> createState() => _SourceRootDropZoneState();
@@ -167,25 +171,26 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
         widget.notifier.moveSourceNode(draggedId, 'root', widget.rootNode.children.length);
       },
       builder: (context, candidates, rejected) {
-        if (!_isHovered && candidates.isEmpty) return const SizedBox(height: 50);
-        
-        return Container(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          height: 50,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.subdirectory_arrow_left, 
-                color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                "Move to Root",
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+        if (widget.isBackground) {
+          if (_isHovered) {
+            return Container(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              alignment: Alignment.bottomCenter,
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.subdirectory_arrow_left, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text("Move to Root", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                ],
               ),
-            ],
-          ),
-        );
+            );
+          }
+          return const SizedBox.expand();
+        }
+        return const SizedBox.shrink();
       },
     );
   }
@@ -345,13 +350,7 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
   Widget _buildContextMenu(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: (value) async {
-        if (value == 'rename') {
-          // Note: Renaming logic for source nodes assumes a simpler rename operation
-          // than renaming a file on disk. We just rename the node label here.
-          // Implementing rename in Notifier is trivial if not exists.
-          // Assuming renameSourceNode exists or will be added.
-          // For now, let's leave it as a placeholder or implement in next step.
-        } else if (value == 'delete') {
+        if (value == 'delete') {
           final confirm = await showConfirmDialog(
             context,
             title: 'Remove "${widget.node.name}"?',
@@ -363,7 +362,6 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
         }
       },
       itemBuilder: (context) => [
-        // const PopupMenuItem(value: 'rename', child: Text('Rename')),
         const PopupMenuItem(value: 'delete', child: Text('Remove', style: TextStyle(color: Colors.red))),
       ],
       icon: const Icon(Icons.more_vert, size: 16),
