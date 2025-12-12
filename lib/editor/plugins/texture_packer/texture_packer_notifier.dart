@@ -11,6 +11,22 @@ class TexturePackerNotifier extends ChangeNotifier {
 
   TexturePackerNotifier(this.project);
 
+  void renameNode(String nodeId, String newName) {
+    if (nodeId == 'root') return; // Cannot rename the root
+
+    PackerItemNode renameRecursive(PackerItemNode currentNode) {
+      if (currentNode.id == nodeId) {
+        return currentNode.copyWith(name: newName);
+      }
+      return currentNode.copyWith(
+        children: currentNode.children.map(renameRecursive).toList(),
+      );
+    }
+
+    project = project.copyWith(tree: renameRecursive(project.tree));
+    notifyListeners();
+  }
+
   /// Adds a new source image to the project.
   void addSourceImage(String path) {
     final newImage = SourceImageConfig(path: path);

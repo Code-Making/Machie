@@ -358,7 +358,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           bottom: 0,
           right: _isHierarchyPanelVisible ? 0 : -301,
           width: 300,
-          child: HierarchyPanel(notifier: _notifier),
+          child: HierarchyPanel(
+            notifier: _notifier,
+            onClose: toggleHierarchyPanel,
+          ),
         ),
       ],
     );
