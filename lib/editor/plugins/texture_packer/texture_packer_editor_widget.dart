@@ -17,7 +17,7 @@ import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/project/project_settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
-
+import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
 import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_models.dart';
