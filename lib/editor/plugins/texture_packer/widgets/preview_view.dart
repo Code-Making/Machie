@@ -1,3 +1,5 @@
+// lib/editor/plugins/texture_packer/widgets/preview_view.dart
+
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -25,8 +27,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   late final TransformationController _transformationController;
   
   Animation<int>? _frameAnimation;
-  PackerItemNode? _currentAnimationNode; // Changed from Definition to Node to track children
-  String? _lastSelectedNodeId;
+  // Track the ID instead of the node object reference to avoid stale data
+  String? _currentAnimationNodeId; 
   bool _needsFit = true;
 
   @override
@@ -35,9 +37,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     _transformationController = TransformationController();
     _animationController = AnimationController(vsync: this);
     
-    _animationController.addListener(() {
-      setState(() {});
-    });
+    _animationController.addListener(() => setState(() {}));
     
     _animationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -58,6 +58,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     super.dispose();
   }
 
+  // --- Helpers ---
+
   PackerItemNode? _findNodeById(PackerItemNode node, String id) {
     if (node.id == id) return node;
     for (final child in node.children) {
@@ -67,25 +69,18 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return null;
   }
 
-  // Recursive helper to find source config in the new SourceImageNode tree
-  SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
-    if (node.type == SourceNodeType.image && node.id == id) {
-      return node.content;
-    }
-    for (final child in node.children) {
-      final found = _findSourceConfig(child, id);
-      if (found != null) return found;
-    }
-    return null;
+  SourceImageConfig? _findSourceConfig(String sourceId) {
+    // Delegate to notifier to ensure we use the latest tree state
+    return widget.notifier.findSourceImageConfig(sourceId);
   }
 
-  List<SpriteDefinition> _collectSpritesInFolder(PackerItemNode folder, Map<String, PackerItemDefinition> defs) {
+  List<SpriteDefinition> _collectSpritesInFolder(PackerItemNode folder) {
     List<SpriteDefinition> sprites = [];
     for (final child in folder.children) {
       if (child.type == PackerItemType.folder) {
-        sprites.addAll(_collectSpritesInFolder(child, defs));
+        sprites.addAll(_collectSpritesInFolder(child));
       } else if (child.type == PackerItemType.sprite) {
-        final def = defs[child.id];
+        final def = widget.notifier.project.definitions[child.id];
         if (def is SpriteDefinition) {
           sprites.add(def);
         }
@@ -94,13 +89,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return sprites;
   }
 
+  // --- Animation Logic ---
+
   void _updateAnimationState(PackerItemNode node, AnimationDefinition animDef, PreviewState state) {
-    // Frames are the children of the animation node
     final frameCount = node.children.length;
 
+    // Safety: If empty or invalid speed, stop.
     if (frameCount == 0 || animDef.speed <= 0) {
       _animationController.stop();
-      _currentAnimationNode = null;
+      _currentAnimationNodeId = null;
       _frameAnimation = null;
       return;
     }
@@ -109,11 +106,12 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final durationMs = (frameCount / effectiveSpeed * 1000).round();
     final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
 
-    bool configChanged = node != _currentAnimationNode || 
+    // Detect if we switched animations or if properties changed
+    bool configChanged = node.id != _currentAnimationNodeId || 
                          _animationController.duration != newDuration;
 
     if (configChanged) {
-      _currentAnimationNode = node;
+      _currentAnimationNodeId = node.id;
       _animationController.duration = newDuration;
       _frameAnimation = StepTween(begin: 0, end: frameCount).animate(_animationController);
     }
@@ -146,28 +144,32 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
     final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
 
-    final Matrix4 matrix = Matrix4.identity()
+    _transformationController.value = Matrix4.identity()
       ..translate(offsetX, offsetY)
       ..scale(scale);
 
-    _transformationController.value = matrix;
     _needsFit = false;
   }
+
+  // --- Build ---
 
   @override
   Widget build(BuildContext context) {
     final selectedNodeId = ref.watch(selectedNodeIdProvider);
-    final project = widget.notifier.project;
+    
+    // Listen for selection changes to reset "fit to screen" logic
+    ref.listen(selectedNodeIdProvider, (prev, next) {
+      if (prev != next) {
+        setState(() {
+          _needsFit = true;
+          _animationController.stop();
+          _animationController.reset();
+        });
+      }
+    });
+
     final assetMap = ref.watch(assetMapProvider(widget.tabId));
     final previewState = ref.watch(previewStateProvider(widget.tabId));
-    
-    if (selectedNodeId != _lastSelectedNodeId) {
-      _lastSelectedNodeId = selectedNodeId;
-      _needsFit = true;
-      _animationController.stop();
-      _animationController.reset();
-    }
-    
     final settings = ref.watch(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
         ?? TexturePackerSettings();
@@ -178,34 +180,39 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
         Size contentSize = Size.zero;
         
         if (selectedNodeId == null) {
-          content = _buildPlaceholder('No Item Selected', 'Select an item to preview.');
+          content = _buildPlaceholder('No Item Selected', 'Select a sprite or animation to preview.');
         } else {
-          final node = _findNodeById(project.tree, selectedNodeId);
+          // Look up node in the CURRENT project tree
+          final node = _findNodeById(widget.notifier.project.tree, selectedNodeId);
+          
           if (node == null) {
-            content = _buildPlaceholder('Error', 'Item not found.');
+            content = _buildPlaceholder('Item Not Found', 'The selected item may have been deleted.');
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
-            final sprites = _collectSpritesInFolder(node, project.definitions);
-            content = _buildAtlasPreview(sprites, project, assets);
+            // Folder Preview (Atlas Sheet style)
+            final sprites = _collectSpritesInFolder(node);
+            content = _buildAtlasPreview(sprites, assets);
+            // Don't auto-fit folders as they can be huge, let user pan/zoom
+            contentSize = const Size(500, 500); 
           } else {
-            final definition = project.definitions[node.id];
+            // Sprite or Animation
+            final definition = widget.notifier.project.definitions[node.id];
             
             if (definition is SpriteDefinition) {
               _animationController.stop();
-              final size = _getSpriteSize(project, definition, assets);
+              final size = _getSpriteSize(definition);
               contentSize = size ?? Size.zero;
-              content = _buildSpritePreview(project, definition, assets, size);
+              content = _buildSpritePreview(definition, assets, size);
             } else if (definition is AnimationDefinition) {
-              // Pass Node, not just def
               _updateAnimationState(node, definition, previewState);
               
-              // Use first child sprite for sizing
+              // Determine size based on the first frame
               if (node.children.isNotEmpty) {
-                 final firstFrameDef = project.definitions[node.children.first.id];
+                 final firstFrameDef = widget.notifier.project.definitions[node.children.first.id];
                  if (firstFrameDef is SpriteDefinition) {
-                   contentSize = _getSpriteSize(project, firstFrameDef, assets) ?? Size.zero;
+                   contentSize = _getSpriteSize(firstFrameDef) ?? Size.zero;
                  }
               }
-              content = _buildAnimationPreview(project, node, assets, contentSize);
+              content = _buildAnimationPreview(node, assets, contentSize);
             } else {
               content = _buildPlaceholder('No Data', 'Item definition missing.');
             }
@@ -215,6 +222,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
         return LayoutBuilder(
           builder: (context, constraints) {
             if (_needsFit && !contentSize.isEmpty) {
+              // Post-frame callback to avoid build collisions
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _needsFit) {
                   _fitContent(contentSize, constraints.biggest);
@@ -228,9 +236,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                 children: [
                   if (previewState.showGrid)
                     Positioned.fill(
-                      child: CustomPaint(
-                        painter: _BackgroundPainter(settings: settings),
-                      ),
+                      child: CustomPaint(painter: _BackgroundPainter(settings: settings)),
                     ),
                   InteractiveViewer(
                     transformationController: _transformationController,
@@ -239,8 +245,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                     maxScale: 20.0,
                     child: contentSize.isEmpty 
                       ? Center(child: content) 
-                      : Align(
-                          alignment: Alignment.topLeft,
+                      : Center(
                           child: SizedBox(
                             width: contentSize.width, 
                             height: contentSize.height, 
@@ -255,29 +260,27 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error: $err')),
+      error: (err, stack) => Center(child: Text('Error loading assets: $err')),
     );
   }
 
-  Size? _getSpriteSize(TexturePackerProject project, SpriteDefinition def, Map<String, AssetData> assets) {
-    final sourceConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId);
+  Size? _getSpriteSize(SpriteDefinition def) {
+    final sourceConfig = _findSourceConfig(def.sourceImageId);
     if (sourceConfig == null) return null;
-    
     final rect = _calculateSourceRect(sourceConfig, def.gridRect);
     return Size(rect.width, rect.height);
   }
 
   Widget _buildSpritePreview(
-    TexturePackerProject project,
     SpriteDefinition spriteDef,
     Map<String, AssetData> assets,
     Size? precalcSize,
   ) {
-    final sourceConfig = _findSourceConfig(project.sourceImagesRoot, spriteDef.sourceImageId);
-    if (sourceConfig == null) return const Icon(Icons.broken_image);
+    final sourceConfig = _findSourceConfig(spriteDef.sourceImageId);
+    if (sourceConfig == null) return const Icon(Icons.broken_image, size: 48);
 
     final asset = assets[sourceConfig.path];
-    if (asset is! ImageAssetData) return const Icon(Icons.broken_image);
+    if (asset is! ImageAssetData) return const Icon(Icons.broken_image, size: 48);
 
     final srcRect = _calculateSourceRect(sourceConfig, spriteDef.gridRect);
     final size = precalcSize ?? Size(srcRect.width, srcRect.height);
@@ -289,30 +292,27 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 
   Widget _buildAnimationPreview(
-    TexturePackerProject project,
     PackerItemNode animNode,
     Map<String, AssetData> assets,
     Size frameSize,
   ) {
     if (_frameAnimation == null || animNode.children.isEmpty) {
-      return _buildPlaceholder('Empty Animation', 'No frames (sprites) inside.');
+      return _buildPlaceholder('Empty Animation', 'Add sprites to this animation.');
     }
 
     var frameIndex = _frameAnimation!.value;
-    // Safety check
     if (frameIndex >= animNode.children.length) frameIndex = 0;
 
     final frameNode = animNode.children[frameIndex];
-    final spriteDef = project.definitions[frameNode.id] as SpriteDefinition?;
+    final spriteDef = widget.notifier.project.definitions[frameNode.id] as SpriteDefinition?;
 
     if (spriteDef == null) return const Icon(Icons.error_outline);
     
-    return _buildSpritePreview(project, spriteDef, assets, frameSize);
+    return _buildSpritePreview(spriteDef, assets, frameSize);
   }
 
   Widget _buildAtlasPreview(
     List<SpriteDefinition> sprites,
-    TexturePackerProject project,
     Map<String, AssetData> assets,
   ) {
     if (sprites.isEmpty) return _buildPlaceholder('Empty Folder', 'No sprites to display.');
@@ -322,10 +322,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: sprites.map((def) {
-        final size = _getSpriteSize(project, def, assets);
+        final size = _getSpriteSize(def);
         return Container(
           decoration: BoxDecoration(border: Border.all(color: Colors.white24)),
-          child: _buildSpritePreview(project, def, assets, size),
+          child: _buildSpritePreview(def, assets, size),
         );
       }).toList(),
     );
@@ -341,63 +341,50 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
   
   Widget _buildPlaceholder(String title, String message) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        Text(message),
-      ],
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
     );
   }
 }
 
-// ... _BackgroundPainter and _SpritePainter remain unchanged ...
+// Painters remain the same as Phase 1/Original...
 class _BackgroundPainter extends CustomPainter {
   final TexturePackerSettings settings;
   _BackgroundPainter({required this.settings});
-
   @override
   void paint(Canvas canvas, Size size) {
     final c1 = Color(settings.checkerBoardColor1);
     final c2 = Color(settings.checkerBoardColor2);
     final paint = Paint();
     const double checkerSize = 20.0;
-
     final cols = (size.width / checkerSize).ceil();
     final rows = (size.height / checkerSize).ceil();
-
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
         paint.color = ((x + y) % 2 == 0) ? c1 : c2;
-        canvas.drawRect(
-          Rect.fromLTWH(x * checkerSize, y * checkerSize, checkerSize, checkerSize),
-          paint,
-        );
+        canvas.drawRect(Rect.fromLTWH(x * checkerSize, y * checkerSize, checkerSize, checkerSize), paint);
       }
     }
   }
-
   @override
-  bool shouldRepaint(_BackgroundPainter oldDelegate) => oldDelegate.settings != settings;
+  bool shouldRepaint(_BackgroundPainter old) => old.settings != settings;
 }
 
 class _SpritePainter extends CustomPainter {
   final ui.Image image;
   final Rect srcRect;
-
   _SpritePainter({required this.image, required this.srcRect});
-
   @override
   void paint(Canvas canvas, Size size) {
-    final destinationRect = Offset.zero & size;
-    final paint = Paint()..filterQuality = FilterQuality.none;
-    canvas.drawImageRect(image, srcRect, destinationRect, paint);
+    canvas.drawImageRect(image, srcRect, Offset.zero & size, Paint()..filterQuality = FilterQuality.none);
   }
-
   @override
-  bool shouldRepaint(_SpritePainter oldDelegate) {
-    return oldDelegate.image != image || oldDelegate.srcRect != srcRect;
-  }
+  bool shouldRepaint(_SpritePainter old) => old.image != image || old.srcRect != srcRect;
 }

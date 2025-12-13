@@ -1,3 +1,5 @@
+// lib/editor/plugins/texture_packer/texture_packer_notifier.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -9,7 +11,7 @@ class TexturePackerNotifier extends ChangeNotifier {
   TexturePackerNotifier(this.project);
 
   // -------------------------------------------------------------------------
-  // Source Image Tree Operations
+  // Source Image Tree Operations (Robust)
   // -------------------------------------------------------------------------
 
   SourceImageNode? _findSourceNode(String id) {
@@ -49,8 +51,15 @@ class TexturePackerNotifier extends ChangeNotifier {
       content: content,
     );
 
+    // Default to root if parentId is missing or invalid
+    final targetParentId = parentId ?? 'root';
+    
+    // Safety check: ensure parent actually exists, otherwise fallback to root
+    final parentExists = _findSourceNode(targetParentId) != null;
+    final safeParentId = parentExists ? targetParentId : 'root';
+
     SourceImageNode insert(SourceImageNode currentNode) {
-      if (currentNode.id == (parentId ?? 'root')) {
+      if (currentNode.id == safeParentId) {
         return currentNode.copyWith(children: [...currentNode.children, newNode]);
       }
       return currentNode.copyWith(
@@ -62,7 +71,7 @@ class TexturePackerNotifier extends ChangeNotifier {
       sourceImagesRoot: insert(project.sourceImagesRoot),
     );
     notifyListeners();
-    return newNode; // Return the new node
+    return newNode;
   }
 
   void removeSourceNode(String nodeId) {
@@ -82,56 +91,96 @@ class TexturePackerNotifier extends ChangeNotifier {
     notifyListeners();
   }
   
-    /// Moves a source node (image or folder) to a new parent and/or index.
+  /// Moves a source node safely with cycle detection.
   void moveSourceNode(String nodeId, String newParentId, int newIndex) {
-    if (nodeId == newParentId) return; // Cannot move into self
+    if (nodeId == newParentId) return; 
+    if (nodeId == 'root') return;
 
-    SourceImageNode? movedNode;
+    // 1. Cycle Detection: Check if newParentId is a descendant of nodeId.
+    // If we move a folder into its own child, we destroy the tree.
+    if (_isSourceDescendant(nodeId, newParentId)) {
+      debugPrint("TexturePackerNotifier: Attempted circular move (Source Tree). Aborting.");
+      return;
+    }
 
-    // 1. Remove from old location
-    SourceImageNode removeRecursive(SourceImageNode current) {
-      final index = current.children.indexWhere((c) => c.id == nodeId);
+    // 2. Extraction: Remove the node from the tree first.
+    // We use a specific return type to get both the modified tree and the extracted node.
+    final result = _extractSourceNode(project.sourceImagesRoot, nodeId);
+    final newRootWithoutNode = result.newRoot;
+    final movedNode = result.extractedNode;
+
+    if (movedNode == null) return; // Node didn't exist
+
+    // 3. Validation: Ensure the new parent exists in the *modified* tree.
+    // (It might have been inside the node we just removed if the cycle check failed logic).
+    if (!_sourceNodeExists(newRootWithoutNode, newParentId)) {
+       debugPrint("TexturePackerNotifier: Target parent $newParentId not found after extraction. Aborting.");
+       // In a real transactional system we would revert, here we just don't apply changes.
+       return;
+    }
+
+    // 4. Insertion: Insert the isolated node into the new location.
+    final finalRoot = _insertSourceNode(newRootWithoutNode, newParentId, newIndex, movedNode);
+
+    project = project.copyWith(sourceImagesRoot: finalRoot);
+    notifyListeners();
+  }
+
+  // --- Source Tree Helpers ---
+
+  bool _isSourceDescendant(String ancestorId, String targetId) {
+    final ancestor = _findSourceNode(ancestorId);
+    if (ancestor == null) return false;
+
+    bool contains(SourceImageNode node) {
+      if (node.id == targetId) return true;
+      return node.children.any(contains);
+    }
+    // We check children, not the ancestor itself (strict descendant)
+    return ancestor.children.any(contains);
+  }
+
+  bool _sourceNodeExists(SourceImageNode root, String id) {
+    if (root.id == id) return true;
+    for (final child in root.children) {
+      if (_sourceNodeExists(child, id)) return true;
+    }
+    return false;
+  }
+
+  ({SourceImageNode newRoot, SourceImageNode? extractedNode}) _extractSourceNode(SourceImageNode root, String idToExtract) {
+    SourceImageNode? foundNode;
+
+    SourceImageNode traverse(SourceImageNode current) {
+      // Check children
+      final index = current.children.indexWhere((c) => c.id == idToExtract);
       if (index != -1) {
-        movedNode = current.children[index];
+        foundNode = current.children[index];
         final newChildren = List<SourceImageNode>.from(current.children)..removeAt(index);
         return current.copyWith(children: newChildren);
       }
       
-      final newChildren = current.children.map(removeRecursive).toList();
-      // Optimization: if children didn't change, return current
+      // Recurse
+      final newChildren = current.children.map(traverse).toList();
       return current.copyWith(children: newChildren);
     }
 
-    final treeAfterRemoval = removeRecursive(project.sourceImagesRoot);
-    if (movedNode == null) return; // Node not found
+    final newRoot = traverse(root);
+    return (newRoot: newRoot, extractedNode: foundNode);
+  }
 
-    // 2. Validate Circular Dependency (dropping folder into its own child)
-    // Note: Since we removed the node from the tree, if newParentId was a child,
-    // it would be gone from treeAfterRemoval unless we check specifically.
-    // Assuming UI prevents invalid drops, but for safety:
-    // If the target parent doesn't exist in the treeAfterRemoval, we abort.
+  SourceImageNode _insertSourceNode(SourceImageNode root, String parentId, int index, SourceImageNode nodeToInsert) {
+    if (root.id == parentId) {
+      final safeIndex = index.clamp(0, root.children.length);
+      final newChildren = List<SourceImageNode>.from(root.children)..insert(safeIndex, nodeToInsert);
+      return root.copyWith(children: newChildren);
+    }
+
+    final newChildren = root.children.map(
+      (child) => _insertSourceNode(child, parentId, index, nodeToInsert)
+    ).toList();
     
-    // 3. Insert at new location
-    bool inserted = false;
-    SourceImageNode insertRecursive(SourceImageNode current) {
-      if (current.id == newParentId) {
-        final safeIndex = newIndex.clamp(0, current.children.length);
-        final newChildren = List<SourceImageNode>.from(current.children)
-          ..insert(safeIndex, movedNode!);
-        inserted = true;
-        return current.copyWith(children: newChildren);
-      }
-
-      final newChildren = current.children.map(insertRecursive).toList();
-      return current.copyWith(children: newChildren);
-    }
-
-    final newTree = insertRecursive(treeAfterRemoval);
-
-    if (inserted) {
-      project = project.copyWith(sourceImagesRoot: newTree);
-      notifyListeners();
-    }
+    return root.copyWith(children: newChildren);
   }
 
   /// Updates the slicing configuration for a source image node.
@@ -154,7 +203,7 @@ class TexturePackerNotifier extends ChangeNotifier {
   }
 
   // -------------------------------------------------------------------------
-  // Output Tree Operations (Packer Items)
+  // Output Tree Operations (Packer Items) - Robust
   // -------------------------------------------------------------------------
 
   void renameNode(String nodeId, String newName) {
@@ -180,8 +229,13 @@ class TexturePackerNotifier extends ChangeNotifier {
   }) {
     final newNode = PackerItemNode(name: name, type: type);
     
+    // Validate Parent ID or default to root
+    final targetParentId = parentId ?? 'root';
+    final parentExists = _packerNodeExists(project.tree, targetParentId);
+    final safeParentId = parentExists ? targetParentId : 'root';
+
     PackerItemNode insert(PackerItemNode currentNode) {
-      if (currentNode.id == (parentId ?? 'root')) {
+      if (currentNode.id == safeParentId) {
         return currentNode.copyWith(children: [...currentNode.children, newNode]);
       }
       return currentNode.copyWith(
@@ -257,8 +311,13 @@ class TexturePackerNotifier extends ChangeNotifier {
       newDefinitions[node.id] = definitions[i];
     }
 
+    // Safety fallback
+    final safeParentId = (parentId != null && _packerNodeExists(project.tree, parentId)) 
+        ? parentId 
+        : 'root';
+
     PackerItemNode insert(PackerItemNode currentNode) {
-      if (currentNode.id == (parentId ?? 'root')) {
+      if (currentNode.id == safeParentId) {
         return currentNode.copyWith(children: [...currentNode.children, ...newNodes]);
       }
       return currentNode.copyWith(
@@ -275,33 +334,27 @@ class TexturePackerNotifier extends ChangeNotifier {
     return newNodes;
   }
 
-  /// Creates an animation node and moves the existing sprite nodes into it.
-  /// 
-  /// [frameNodeIds]: The IDs of existing Sprite Nodes in the tree.
   void createAnimationFromExistingSprites({
     required String name,
     required List<String> frameNodeIds,
     String? parentId,
     double speed = 10.0,
   }) {
-    // 1. Create Animation Node and Definition
     final animNode = PackerItemNode(name: name, type: PackerItemType.animation);
     final animDef = AnimationDefinition(speed: speed);
 
     final newDefinitions = Map<String, PackerItemDefinition>.from(project.definitions);
     newDefinitions[animNode.id] = animDef;
 
-    // 2. Extract the actual Node objects for the frames
     final List<PackerItemNode> framesToMove = [];
     
-    // Helper to find and extract nodes (returns copy of tree without them)
+    // 1. Extract frames from tree
     PackerItemNode removeFramesRecursive(PackerItemNode current) {
       final keptChildren = <PackerItemNode>[];
       for (final child in current.children) {
         if (frameNodeIds.contains(child.id)) {
-          framesToMove.add(child); // Capture the node
+          framesToMove.add(child); 
         } else {
-          // Recurse
           final processedChild = removeFramesRecursive(child);
           keptChildren.add(processedChild);
         }
@@ -311,15 +364,19 @@ class TexturePackerNotifier extends ChangeNotifier {
 
     final treeAfterRemoval = removeFramesRecursive(project.tree);
 
-    // 3. Add frames as children to Animation Node (preserve order from input list)
-    // Sort framesToMove based on frameNodeIds index to maintain selection order
+    // Sort to maintain selection order
     framesToMove.sort((a, b) => frameNodeIds.indexOf(a.id).compareTo(frameNodeIds.indexOf(b.id)));
     
     final populatedAnimNode = animNode.copyWith(children: framesToMove);
 
-    // 4. Insert Animation Node into Tree
+    // Safety fallback
+    final safeParentId = (parentId != null && _packerNodeExists(treeAfterRemoval, parentId)) 
+        ? parentId 
+        : 'root';
+
+    // 2. Insert Animation
     PackerItemNode insertRecursive(PackerItemNode current) {
-      if (current.id == (parentId ?? 'root')) {
+      if (current.id == safeParentId) {
         return current.copyWith(children: [...current.children, populatedAnimNode]);
       }
       return current.copyWith(
@@ -336,55 +393,93 @@ class TexturePackerNotifier extends ChangeNotifier {
 
   void moveNode(String nodeId, String newParentId, int newIndex) {
     if (nodeId == newParentId) return;
+    if (nodeId == 'root') return;
     
-    PackerItemNode? movedNode;
-    
-    PackerItemNode removeRecursive(PackerItemNode current) {
-      final index = current.children.indexWhere((c) => c.id == nodeId);
+    // 1. Cycle Detection
+    if (_isPackerDescendant(nodeId, newParentId)) {
+        debugPrint("TexturePackerNotifier: Attempted circular move (Packer Tree). Aborting.");
+        return;
+    }
+
+    // 2. Extraction
+    final result = _extractPackerNode(project.tree, nodeId);
+    final newTreeWithoutNode = result.newRoot;
+    final movedNode = result.extractedNode;
+
+    if (movedNode == null) return;
+
+    // 3. Validation
+    if (!_packerNodeExists(newTreeWithoutNode, newParentId)) {
+        debugPrint("TexturePackerNotifier: Target parent $newParentId not found. Aborting.");
+        return;
+    }
+
+    // 4. Insertion
+    final finalTree = _insertPackerNode(newTreeWithoutNode, newParentId, newIndex, movedNode);
+
+    project = project.copyWith(tree: finalTree);
+    notifyListeners();
+  }
+
+  // --- Packer Tree Helpers ---
+
+  bool _packerNodeExists(PackerItemNode root, String id) {
+    if (root.id == id) return true;
+    for (final child in root.children) {
+      if (_packerNodeExists(child, id)) return true;
+    }
+    return false;
+  }
+
+  bool _isPackerDescendant(String ancestorId, String targetId) {
+    // Find ancestor in current tree
+    PackerItemNode? find(PackerItemNode node) {
+      if (node.id == ancestorId) return node;
+      for (final child in node.children) {
+        final res = find(child);
+        if (res != null) return res;
+      }
+      return null;
+    }
+    final ancestor = find(project.tree);
+    if (ancestor == null) return false;
+
+    // Check subtree
+    bool contains(PackerItemNode node) {
+      if (node.id == targetId) return true;
+      return node.children.any(contains);
+    }
+    return ancestor.children.any(contains);
+  }
+
+  ({PackerItemNode newRoot, PackerItemNode? extractedNode}) _extractPackerNode(PackerItemNode root, String idToExtract) {
+    PackerItemNode? foundNode;
+
+    PackerItemNode traverse(PackerItemNode current) {
+      final index = current.children.indexWhere((c) => c.id == idToExtract);
       if (index != -1) {
-        movedNode = current.children[index];
+        foundNode = current.children[index];
         final newChildren = List<PackerItemNode>.from(current.children)..removeAt(index);
         return current.copyWith(children: newChildren);
       }
-      
-      final newChildren = current.children.map(removeRecursive).toList();
+      final newChildren = current.children.map(traverse).toList();
       return current.copyWith(children: newChildren);
     }
 
-    final treeAfterRemoval = removeRecursive(project.tree);
-    if (movedNode == null) return;
+    final newRoot = traverse(root);
+    return (newRoot: newRoot, extractedNode: foundNode);
+  }
 
-    // Check for circular dependency
-    bool isDescendant(PackerItemNode candidate, String targetId) {
-      if (candidate.id == targetId) return true;
-      return candidate.children.any((c) => isDescendant(c, targetId));
+  PackerItemNode _insertPackerNode(PackerItemNode root, String parentId, int index, PackerItemNode nodeToInsert) {
+    if (root.id == parentId) {
+      final safeIndex = index.clamp(0, root.children.length);
+      final newChildren = List<PackerItemNode>.from(root.children)..insert(safeIndex, nodeToInsert);
+      return root.copyWith(children: newChildren);
     }
-    
-    // We can't check movedNode descendants easily against treeAfterRemoval via ID 
-    // without a separate lookup map, but logic: if 'newParentId' is inside 'movedNode',
-    // then 'newParentId' would have been removed from the tree in the step above.
-    // So we just need to ensure the target parent exists.
-
-    PackerItemNode insertRecursive(PackerItemNode current) {
-      if (current.id == newParentId) {
-        final safeIndex = newIndex.clamp(0, current.children.length);
-        final newChildren = List<PackerItemNode>.from(current.children)
-          ..insert(safeIndex, movedNode!);
-        return current.copyWith(children: newChildren);
-      }
-      final newChildren = current.children.map(insertRecursive).toList();
-      return current.copyWith(children: newChildren);
-    }
-
-    final newTree = insertRecursive(treeAfterRemoval);
-    
-    // Safety check: if newTree is identical to treeAfterRemoval, parenting failed (target not found)
-    // In that case, we abort to avoid losing the node.
-    // However, deep equality check is expensive. We assume UI provided valid ID.
-    // Ideally, we'd traverse to check if newParentId exists first.
-
-    project = project.copyWith(tree: newTree);
-    notifyListeners();
+    final newChildren = root.children.map(
+      (child) => _insertPackerNode(child, parentId, index, nodeToInsert)
+    ).toList();
+    return root.copyWith(children: newChildren);
   }
   
   // -------------------------------------------------------------------------
