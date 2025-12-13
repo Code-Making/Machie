@@ -141,14 +141,14 @@ class _SlicingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Optimized Checkerboard (Path Batching)
+    // 1. Checkerboard (Background)
     _drawCheckerboard(canvas, size);
 
     // 2. Source Image
     final imagePaint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImage(image, Offset.zero, imagePaint);
 
-    // 3. Optimized Grid (Gradient Shader)
+    // 3. Grid Lines (Overlay)
     _drawGrid(canvas, size);
 
     // 4. Highlights
@@ -162,11 +162,11 @@ class _SlicingPainter extends CustomPainter {
       _drawHighlight(canvas, dragSelection!, paint);
     }
   }
-
+  
   void _drawHighlight(Canvas canvas, GridRect rect, Paint paint) {
     final pixelRect = _gridToPixelRect(rect);
     canvas.drawRect(pixelRect, paint);
-
+    
     final stroke = Paint()
       ..color = paint.color.withOpacity(1.0)
       ..style = PaintingStyle.stroke
@@ -177,80 +177,94 @@ class _SlicingPainter extends CustomPainter {
   Rect _gridToPixelRect(GridRect rect) {
     final left = slicing.margin + rect.x * (slicing.tileWidth + slicing.padding);
     final top = slicing.margin + rect.y * (slicing.tileHeight + slicing.padding);
-    final width =
-        rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
-    final height =
-        rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
-    return Rect.fromLTWH(
-        left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
+    final width = rect.width * slicing.tileWidth + (rect.width - 1) * slicing.padding;
+    final height = rect.height * slicing.tileHeight + (rect.height - 1) * slicing.padding;
+    return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
 
-  /// Optimizes grid drawing using Gradient Shaders (2 draw calls total).
+  // --- FIX 2: Correct Grid Shader Logic ---
   void _drawGrid(Canvas canvas, Size size) {
     if (slicing.tileWidth <= 0 || slicing.tileHeight <= 0) return;
 
-    final totalWidth = (slicing.tileWidth + slicing.padding).toDouble();
-    final totalHeight = (slicing.tileHeight + slicing.padding).toDouble();
-    final thickness = settings.gridThickness;
-    final gridColor = Color(settings.gridColor);
+    final double periodX = (slicing.tileWidth + slicing.padding).toDouble();
+    final double periodY = (slicing.tileHeight + slicing.padding).toDouble();
+    final double thickness = settings.gridThickness;
+    final Color gridColor = Color(settings.gridColor);
+
+    if (periodX <= 0 || periodY <= 0) return;
 
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // 1. Vertical Lines Shader
-    // Creates a repeating gradient: Transparent -> GridColor -> Transparent
+    // Helper to build stops for [Line]...[Space]...[Optional Line]
+    List<Color> buildColors() {
+      final c = [gridColor, gridColor, Colors.transparent, Colors.transparent];
+      // If padding exists, add a second line at the end of the tile (start of gutter)
+      if (slicing.padding > 0) {
+        c.addAll([Colors.transparent, Colors.transparent, gridColor, gridColor, Colors.transparent, Colors.transparent]);
+      }
+      return c;
+    }
+
+    List<double> buildStops(double period, double tileDim) {
+      final double r1 = (thickness / period).clamp(0.0, 1.0);
+      final s = [0.0, r1, r1, 1.0];
+      
+      if (slicing.padding > 0) {
+        // Line 2 starts after the tile content
+        final double r2Start = (tileDim / period).clamp(0.0, 1.0);
+        final double r2End = ((tileDim + thickness) / period).clamp(0.0, 1.0);
+        
+        // Insert second line stops in the middle
+        return [
+          0.0, r1, 
+          r1, r2Start, 
+          r2Start, r2End, 
+          r2End, 1.0
+        ];
+      }
+      return s;
+    }
+
+    // Vertical Lines Shader
     paint.shader = ui.Gradient.linear(
       Offset.zero,
-      Offset(totalWidth, 0),
-      [Colors.transparent, Colors.transparent, gridColor, gridColor],
-      [
-        0.0,
-        (slicing.tileWidth / totalWidth),
-        (slicing.tileWidth / totalWidth),
-        1.0
-      ],
+      Offset(periodX, 0),
+      buildColors(),
+      buildStops(periodX, slicing.tileWidth.toDouble()),
       TileMode.repeated,
       Matrix4.translationValues(slicing.margin.toDouble(), 0, 0).storage,
     );
     canvas.drawRect(Offset.zero & size, paint);
 
-    // 2. Horizontal Lines Shader
+    // Horizontal Lines Shader
     paint.shader = ui.Gradient.linear(
       Offset.zero,
-      Offset(0, totalHeight),
-      [Colors.transparent, Colors.transparent, gridColor, gridColor],
-      [
-        0.0,
-        (slicing.tileHeight / totalHeight),
-        (slicing.tileHeight / totalHeight),
-        1.0
-      ],
+      Offset(0, periodY),
+      buildColors(),
+      buildStops(periodY, slicing.tileHeight.toDouble()),
       TileMode.repeated,
       Matrix4.translationValues(0, slicing.margin.toDouble(), 0).storage,
     );
     canvas.drawRect(Offset.zero & size, paint);
   }
 
-  /// Optimizes checkerboard by batching rectangles into a single Path (1 draw call).
   void _drawCheckerboard(Canvas canvas, Size size) {
     final c1 = Color(settings.checkerBoardColor1);
     final c2 = Color(settings.checkerBoardColor2);
 
-    // Fill background with Color 1
+    // Draw base color
     canvas.drawColor(c1, BlendMode.src);
 
     final paint = Paint()..color = c2;
     const double checkerSize = 16.0;
 
-    // Construct a path for all "Color 2" squares
+    // Batch draw the alternating squares using a Path
     final path = Path();
-    
-    // We only need to loop enough to cover the image size
     final cols = (size.width / checkerSize).ceil();
     final rows = (size.height / checkerSize).ceil();
 
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
-        // Draw every other square
         if ((x + y) % 2 == 1) {
           path.addRect(Rect.fromLTWH(
             x * checkerSize, 
@@ -261,7 +275,6 @@ class _SlicingPainter extends CustomPainter {
         }
       }
     }
-    
     canvas.drawPath(path, paint);
   }
 
