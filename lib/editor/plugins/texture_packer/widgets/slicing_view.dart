@@ -98,14 +98,19 @@ class SlicingView extends ConsumerWidget {
                 maxScale: 16.0,
                 panEnabled: isPanZoomMode,
                 scaleEnabled: isPanZoomMode,
-                child: CustomPaint(
-                  size: imageSize,
-                  painter: _SlicingPainter(
-                    image: image,
-                    slicing: sourceConfig.slicing,
-                    dragSelection: dragSelection,
-                    activeSelection: activeSelection,
-                    settings: settings,
+                constrained: false, // <--- THE FIX: Allow content to be larger than viewport
+                child: SizedBox(
+                  width: imageSize.width,
+                  height: imageSize.height,
+                  child: CustomPaint(
+                    size: imageSize,
+                    painter: _SlicingPainter(
+                      image: image,
+                      slicing: sourceConfig.slicing,
+                      dragSelection: dragSelection,
+                      activeSelection: activeSelection,
+                      settings: settings,
+                    ),
                   ),
                 ),
               ),
