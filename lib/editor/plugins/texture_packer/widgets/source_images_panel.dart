@@ -329,8 +329,14 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
-      onWillAccept: (d) => d != null,
-      onEnter: (_) => setState(() => _hover = true),
+      // Corrected: Use onWillAccept to detect entry and set hover state
+      onWillAccept: (d) {
+        if (d != null) {
+          setState(() => _hover = true);
+          return true;
+        }
+        return false;
+      },
       onLeave: (_) => setState(() => _hover = false),
       onAccept: (id) {
         setState(() => _hover = false);
@@ -345,6 +351,8 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
     );
   }
 }
+
+
 
 class _SourceDropPainter extends CustomPainter {
   final _SourceDropPos position;
