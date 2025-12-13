@@ -5,7 +5,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
 
-class HierarchyPanel extends ConsumerWidget {
+class HierarchyPanel extends ConsumerStatefulWidget {
   final TexturePackerNotifier notifier;
   final VoidCallback onClose;
 
@@ -15,23 +15,128 @@ class HierarchyPanel extends ConsumerWidget {
     required this.onClose,
   });
 
-  Future<void> _showCreateDialog(BuildContext context, PackerItemType type, {String? parentId}) async {
-    final String title = type == PackerItemType.folder ? 'New Folder' : 'New Animation';
-    final name = await showTextInputDialog(context, title: title);
-    if (name != null && name.trim().isNotEmpty) {
-      notifier.createNode(type: type, name: name.trim(), parentId: parentId);
+  @override
+  ConsumerState<HierarchyPanel> createState() => _HierarchyPanelState();
+}
+
+class _HierarchyPanelState extends ConsumerState<HierarchyPanel> {
+  // Track expanded nodes locally to flatten the tree
+  final Set<String> _expandedIds = {};
+
+  // Auto-expand root children initially
+  @override
+  void initState() {
+    super.initState();
+    // Optional: Pre-expand root level items
+    final root = widget.notifier.project.tree;
+    for(final child in root.children) {
+      if (child.type != PackerItemType.sprite) {
+        _expandedIds.add(child.id);
+      }
     }
   }
 
+  Future<void> _showCreateDialog(BuildContext context, PackerItemType type) async {
+    final String title = type == PackerItemType.folder ? 'New Folder' : 'New Animation';
+    final name = await showTextInputDialog(context, title: title);
+    if (name != null && name.trim().isNotEmpty) {
+      // Create at root by default
+      widget.notifier.createNode(type: type, name: name.trim(), parentId: 'root');
+    }
+  }
+
+  void _toggleExpansion(String nodeId) {
+    setState(() {
+      if (_expandedIds.contains(nodeId)) {
+        _expandedIds.remove(nodeId);
+      } else {
+        _expandedIds.add(nodeId);
+      }
+    });
+  }
+
+  /// Flattens the recursive tree into a linear list of widgets (DropZones and Items)
+  List<Widget> _buildFlatList(PackerItemNode root) {
+    final List<Widget> widgets = [];
+
+    void traverse(PackerItemNode parent, int depth) {
+      final children = parent.children;
+      final double indent = depth * 16.0;
+
+      // 1. If empty folder (and not root), show "Drop Here" hint
+      if (children.isEmpty && parent.id != 'root') {
+        widgets.add(Padding(
+          padding: EdgeInsets.only(left: indent),
+          child: _EmptyFolderDropZone(
+            parentId: parent.id, 
+            notifier: widget.notifier
+          ),
+        ));
+        return;
+      }
+
+      // 2. Iterate children
+      for (int i = 0; i < children.length; i++) {
+        final child = children[i];
+        
+        // Add DropZone BEFORE item (for reordering above)
+        widgets.add(_ReorderDropZone(
+          parentId: parent.id, 
+          index: i, 
+          notifier: widget.notifier,
+          indent: indent,
+        ));
+
+        // Add the Item itself
+        final isContainer = child.type == PackerItemType.folder || child.type == PackerItemType.animation;
+        final isExpanded = _expandedIds.contains(child.id);
+
+        widgets.add(_HierarchyNodeItem(
+          node: child,
+          notifier: widget.notifier,
+          depth: depth,
+          isExpanded: isExpanded,
+          onToggleExpand: () => _toggleExpansion(child.id),
+        ));
+
+        // Recurse if expanded
+        if (isContainer && isExpanded) {
+          traverse(child, depth + 1);
+        }
+      }
+
+      // 3. Final DropZone at end of this list (for reordering to bottom)
+      if (children.isNotEmpty) {
+        widgets.add(_ReorderDropZone(
+          parentId: parent.id, 
+          index: children.length, 
+          notifier: widget.notifier,
+          indent: indent,
+        ));
+      }
+    }
+
+    traverse(root, 0);
+    
+    // 4. Add global "Move to Root" zone at the very bottom
+    widgets.add(const SizedBox(height: 16));
+    widgets.add(HierarchyRootDropZone(notifier: widget.notifier, rootNode: root));
+    widgets.add(const SizedBox(height: 32)); // Bottom padding
+
+    return widgets;
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rootNode = notifier.project.tree;
+  Widget build(BuildContext context) {
+    final rootNode = widget.notifier.project.tree;
+    final flatList = _buildFlatList(rootNode);
 
     return Material(
       elevation: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
@@ -40,43 +145,26 @@ class HierarchyPanel extends ConsumerWidget {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: onClose,
+                  onPressed: widget.onClose,
                   tooltip: 'Close Panel',
                 )
               ],
             ),
           ),
           const Divider(height: 1),
-          
+
+          // Flat List View
           Expanded(
-            child: Stack(
-              children: [
-                // Background Drop Zone (Covers area, handles drops to root)
-                Positioned.fill(
-                  child: HierarchyRootDropZone(
-                    notifier: notifier,
-                    rootNode: rootNode,
-                    isBackground: true,
-                  ),
-                ),
-                
-                // Scrollable List
-                SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildNodeList(rootNode, context, ref),
-                      // Spacer to ensure bottom area is clickable for root drop
-                      const SizedBox(height: 100), 
-                    ],
-                  ),
-                ),
-              ],
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: flatList.length,
+              itemBuilder: (context, index) => flatList[index],
             ),
           ),
-          
+
           const Divider(height: 1),
-          
+
+          // Toolbar
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -103,49 +191,20 @@ class HierarchyPanel extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _buildNodeList(PackerItemNode parent, BuildContext context, WidgetRef ref) {
-    final children = parent.children;
-    
-    // Explicitly handle empty non-root folders to show a drop target
-    if (children.isEmpty && parent.id != 'root') {
-      return Padding(
-        padding: const EdgeInsets.only(left: 16.0),
-        child: _EmptyFolderDropZone(parentId: parent.id, notifier: notifier),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          _ReorderDropZone(
-            parentId: parent.id, 
-            index: i, 
-            notifier: notifier,
-          ),
-          _HierarchyNodeItem(
-            node: children[i],
-            notifier: notifier,
-            depth: 0, 
-          ),
-        ],
-        _ReorderDropZone(parentId: parent.id, index: children.length, notifier: notifier),
-      ],
-    );
-  }
 }
+
+// -----------------------------------------------------------------------------
+// Component Widgets (Non-Recursive)
+// -----------------------------------------------------------------------------
 
 class HierarchyRootDropZone extends StatefulWidget {
   final TexturePackerNotifier notifier;
   final PackerItemNode rootNode;
-  final bool isBackground;
 
   const HierarchyRootDropZone({
     super.key,
     required this.notifier,
     required this.rootNode,
-    this.isBackground = false,
   });
 
   @override
@@ -160,8 +219,8 @@ class _HierarchyRootDropZoneState extends State<HierarchyRootDropZone> {
     return DragTarget<String>(
       onWillAccept: (draggedId) {
         if (draggedId == null) return false;
-        final isAlreadyRoot = widget.rootNode.children.any((c) => c.id == draggedId);
-        if (isAlreadyRoot) return false;
+        // Don't accept if already at root
+        if (widget.rootNode.children.any((c) => c.id == draggedId)) return false;
         
         setState(() => _isHovered = true);
         return true;
@@ -172,24 +231,28 @@ class _HierarchyRootDropZoneState extends State<HierarchyRootDropZone> {
         widget.notifier.moveNode(draggedId, 'root', widget.rootNode.children.length);
       },
       builder: (context, candidates, rejected) {
-        if (widget.isBackground) {
-          if (_isHovered) {
-            return Container(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.subdirectory_arrow_left, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text("Move to Root", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-                ],
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+            border: _isHovered ? Border.all(color: Theme.of(context).colorScheme.primary) : null,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          height: 50,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.subdirectory_arrow_left, 
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+              const SizedBox(width: 8),
+              Text(
+                "Move to Root",
+                style: TextStyle(color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
               ),
-            );
-          }
-          return const SizedBox.expand(); 
-        }
-        return const SizedBox.shrink();
+            ],
+          ),
+        );
       },
     );
   }
@@ -199,11 +262,15 @@ class _HierarchyNodeItem extends ConsumerStatefulWidget {
   final PackerItemNode node;
   final TexturePackerNotifier notifier;
   final int depth;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
 
   const _HierarchyNodeItem({
     required this.node,
     required this.notifier,
-    this.depth = 0,
+    required this.depth,
+    required this.isExpanded,
+    required this.onToggleExpand,
   });
 
   @override
@@ -212,20 +279,22 @@ class _HierarchyNodeItem extends ConsumerStatefulWidget {
 
 class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
   bool _isHovered = false;
-  bool _isExpanded = true; 
 
   @override
   Widget build(BuildContext context) {
     final node = widget.node;
     final isContainer = node.type == PackerItemType.folder || node.type == PackerItemType.animation;
 
+    // Base Tile
     Widget content = _buildTile(context, ref);
 
+    // If container, wrap in "Drop Inside" target
     if (isContainer) {
       content = DragTarget<String>(
         onWillAccept: (draggedId) {
           if (draggedId == null || draggedId == node.id) return false;
           
+          // Type checks
           if (node.type == PackerItemType.animation) {
              final draggedNode = _findNodeInTree(widget.notifier.project.tree, draggedId);
              if (draggedNode?.type != PackerItemType.sprite) return false;
@@ -238,6 +307,8 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
         onAccept: (draggedId) {
           setState(() => _isHovered = false);
           widget.notifier.moveNode(draggedId, node.id, node.children.length);
+          // Auto-expand on drop
+          if (!widget.isExpanded) widget.onToggleExpand();
         },
         builder: (context, candidates, rejected) {
           return Container(
@@ -248,7 +319,6 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
               border: _isHovered 
                   ? Border.all(color: Theme.of(context).colorScheme.primary) 
                   : null,
-              borderRadius: BorderRadius.circular(4),
             ),
             child: content,
           );
@@ -256,7 +326,8 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
       );
     }
 
-    content = LongPressDraggable<String>(
+    // Wrap in Draggable
+    return LongPressDraggable<String>(
       data: node.id,
       feedback: Material(
         elevation: 4,
@@ -280,43 +351,6 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
       childWhenDragging: Opacity(opacity: 0.5, child: content),
       child: content,
     );
-
-    if (isContainer && _isExpanded) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          content,
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: _buildChildrenList(),
-          ),
-        ],
-      );
-    }
-
-    return content;
-  }
-
-  Widget _buildChildrenList() {
-    final children = widget.node.children;
-    if (children.isEmpty) {
-      return _EmptyFolderDropZone(parentId: widget.node.id, notifier: widget.notifier);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          _ReorderDropZone(parentId: widget.node.id, index: i, notifier: widget.notifier),
-          _HierarchyNodeItem(
-            node: children[i], 
-            notifier: widget.notifier,
-            depth: widget.depth + 1,
-          ),
-        ],
-        _ReorderDropZone(parentId: widget.node.id, index: children.length, notifier: widget.notifier),
-      ],
-    );
   }
 
   Widget _buildTile(BuildContext context, WidgetRef ref) {
@@ -326,33 +360,37 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
 
     IconData getIcon() {
       switch (widget.node.type) {
-        case PackerItemType.folder: return _isExpanded ? Icons.folder_open : Icons.folder;
+        case PackerItemType.folder: return widget.isExpanded ? Icons.folder_open : Icons.folder;
         case PackerItemType.sprite: return Icons.image_outlined;
         case PackerItemType.animation: return Icons.movie_outlined;
       }
     }
 
-    return ListTile(
-      leading: GestureDetector(
-        onTap: isContainer ? () => setState(() => _isExpanded = !_isExpanded) : null,
-        child: Icon(getIcon(), size: 20, 
-          color: widget.node.type == PackerItemType.folder ? Colors.yellow[700] : null
+    return Padding(
+      // Visual indentation
+      padding: EdgeInsets.only(left: widget.depth * 16.0),
+      child: ListTile(
+        leading: GestureDetector(
+          onTap: isContainer ? widget.onToggleExpand : null,
+          child: Icon(getIcon(), size: 20, 
+            color: widget.node.type == PackerItemType.folder ? Colors.yellow[700] : null
+          ),
         ),
+        title: Text(widget.node.name),
+        dense: true,
+        selected: isSelected,
+        selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4), // Reduce padding
+        onTap: () {
+          ref.read(selectedNodeIdProvider.notifier).state = widget.node.id;
+        },
+        trailing: _buildContextMenu(context),
       ),
-      title: Text(widget.node.name),
-      dense: true,
-      selected: isSelected,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-      visualDensity: VisualDensity.compact,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      onTap: () {
-        ref.read(selectedNodeIdProvider.notifier).state = widget.node.id;
-      },
-      trailing: _buildContextMenu(context, ref),
     );
   }
 
-  Widget _buildContextMenu(BuildContext context, WidgetRef ref) {
+  Widget _buildContextMenu(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: (value) async {
         if (value == 'rename') {
@@ -367,9 +405,6 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
             content: 'This action cannot be undone.',
           );
           if (confirm) {
-            if (ref.read(selectedNodeIdProvider) == widget.node.id) {
-              ref.read(selectedNodeIdProvider.notifier).state = null;
-            }
             widget.notifier.deleteNode(widget.node.id);
           }
         }
@@ -381,7 +416,7 @@ class _HierarchyNodeItemState extends ConsumerState<_HierarchyNodeItem> {
       icon: const Icon(Icons.more_vert, size: 16),
     );
   }
-  
+
   PackerItemNode? _findNodeInTree(PackerItemNode root, String id) {
     if (root.id == id) return root;
     for (var child in root.children) {
@@ -396,11 +431,13 @@ class _ReorderDropZone extends StatefulWidget {
   final String parentId;
   final int index;
   final TexturePackerNotifier notifier;
+  final double indent;
 
   const _ReorderDropZone({
     required this.parentId,
     required this.index,
     required this.notifier,
+    required this.indent,
   });
 
   @override
@@ -415,6 +452,7 @@ class _ReorderDropZoneState extends State<_ReorderDropZone> {
     return DragTarget<String>(
       onWillAccept: (draggedId) {
         if (draggedId == null) return false;
+        // Basic check: don't show drop zone if self or sibling logic (optional optimization)
         setState(() => _isHovered = true);
         return true;
       },
@@ -424,16 +462,18 @@ class _ReorderDropZoneState extends State<_ReorderDropZone> {
         widget.notifier.moveNode(draggedId, widget.parentId, widget.index);
       },
       builder: (context, candidates, rejected) {
+        // Always take up a tiny bit of space so it can be hit, but only visible on hover
         if (!_isHovered && candidates.isEmpty) {
-          return const SizedBox(height: 4.0);
+          return const SizedBox(height: 6.0); 
         }
 
         return Container(
-          height: 4.0,
+          height: 6.0,
+          margin: EdgeInsets.only(left: widget.indent),
           width: double.infinity,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
           ),
         );
       },
@@ -456,25 +496,29 @@ class _EmptyFolderDropZone extends StatelessWidget {
       },
       builder: (context, candidates, rejected) {
         final isHovered = candidates.isNotEmpty;
-        if (!isHovered) return const SizedBox(height: 10); 
-
+        // Always visible to indicate empty folder state
         return Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           height: 32,
           decoration: BoxDecoration(
             border: Border.all(
-              color: Theme.of(context).colorScheme.primary, 
-              style: BorderStyle.solid
+              color: isHovered ? Theme.of(context).colorScheme.primary : Colors.grey.withOpacity(0.5), 
+              style: isHovered ? BorderStyle.solid : BorderStyle.none
             ),
+            color: isHovered 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
             borderRadius: BorderRadius.circular(4),
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
           ),
           child: Center(
             child: Text(
-              "Drop here", 
+              "Empty - Drop Items Here", 
               style: TextStyle(
                 fontSize: 10, 
-                color: Theme.of(context).colorScheme.primary
+                fontStyle: FontStyle.italic,
+                color: isHovered 
+                    ? Theme.of(context).colorScheme.primary 
+                    : Theme.of(context).textTheme.bodySmall?.color
               ),
             ),
           ),

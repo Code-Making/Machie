@@ -5,7 +5,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
 
-class SourceImagesPanel extends ConsumerWidget {
+class SourceImagesPanel extends ConsumerStatefulWidget {
   final TexturePackerNotifier notifier;
   final VoidCallback onAddImage;
   final VoidCallback onClose;
@@ -17,10 +17,38 @@ class SourceImagesPanel extends ConsumerWidget {
     required this.onClose,
   });
 
+  @override
+  ConsumerState<SourceImagesPanel> createState() => _SourceImagesPanelState();
+}
+
+class _SourceImagesPanelState extends ConsumerState<SourceImagesPanel> {
+  final Set<String> _expandedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final root = widget.notifier.project.sourceImagesRoot;
+    for (final child in root.children) {
+      if (child.type == SourceNodeType.folder) {
+        _expandedIds.add(child.id);
+      }
+    }
+  }
+
+  void _toggleExpansion(String nodeId) {
+    setState(() {
+      if (_expandedIds.contains(nodeId)) {
+        _expandedIds.remove(nodeId);
+      } else {
+        _expandedIds.add(nodeId);
+      }
+    });
+  }
+
   Future<void> _createFolder(BuildContext context) async {
     final name = await showTextInputDialog(context, title: 'New Folder');
     if (name != null && name.trim().isNotEmpty) {
-      notifier.addSourceNode(
+      widget.notifier.addSourceNode(
         name: name.trim(),
         type: SourceNodeType.folder,
         parentId: 'root',
@@ -28,15 +56,80 @@ class SourceImagesPanel extends ConsumerWidget {
     }
   }
 
+  List<Widget> _buildFlatList(SourceImageNode root) {
+    final List<Widget> widgets = [];
+
+    void traverse(SourceImageNode parent, int depth) {
+      final children = parent.children;
+      final double indent = depth * 16.0;
+
+      if (children.isEmpty && parent.id != 'root') {
+        widgets.add(Padding(
+          padding: EdgeInsets.only(left: indent),
+          child: _EmptySourceDropZone(
+            parentId: parent.id, 
+            notifier: widget.notifier
+          ),
+        ));
+        return;
+      }
+
+      for (int i = 0; i < children.length; i++) {
+        final child = children[i];
+        
+        widgets.add(_SourceReorderDropZone(
+          parentId: parent.id, 
+          index: i, 
+          notifier: widget.notifier,
+          indent: indent,
+        ));
+
+        final isFolder = child.type == SourceNodeType.folder;
+        final isExpanded = _expandedIds.contains(child.id);
+
+        widgets.add(_SourceTreeItem(
+          node: child,
+          notifier: widget.notifier,
+          depth: depth,
+          isExpanded: isExpanded,
+          onToggleExpand: () => _toggleExpansion(child.id),
+        ));
+
+        if (isFolder && isExpanded) {
+          traverse(child, depth + 1);
+        }
+      }
+
+      if (children.isNotEmpty) {
+        widgets.add(_SourceReorderDropZone(
+          parentId: parent.id, 
+          index: children.length, 
+          notifier: widget.notifier,
+          indent: indent,
+        ));
+      }
+    }
+
+    traverse(root, 0);
+    
+    widgets.add(const SizedBox(height: 16));
+    widgets.add(_SourceRootDropZone(notifier: widget.notifier, rootNode: root));
+    widgets.add(const SizedBox(height: 32));
+
+    return widgets;
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rootNode = notifier.project.sourceImagesRoot;
+  Widget build(BuildContext context) {
+    final rootNode = widget.notifier.project.sourceImagesRoot;
+    final flatList = _buildFlatList(rootNode);
 
     return Material(
       elevation: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
@@ -45,7 +138,7 @@ class SourceImagesPanel extends ConsumerWidget {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: onClose,
+                  onPressed: widget.onClose,
                   tooltip: 'Close Panel',
                 )
               ],
@@ -53,32 +146,18 @@ class SourceImagesPanel extends ConsumerWidget {
           ),
           const Divider(height: 1),
 
+          // List
           Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: _SourceRootDropZone(
-                    notifier: notifier, 
-                    rootNode: rootNode,
-                    isBackground: true,
-                  ),
-                ),
-
-                SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildNodeList(rootNode, context, ref),
-                      const SizedBox(height: 100), // Spacer for background drop
-                    ],
-                  ),
-                ),
-              ],
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: flatList.length,
+              itemBuilder: (context, index) => flatList[index],
             ),
           ),
           
           const Divider(height: 1),
-          
+
+          // Toolbar
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -93,7 +172,7 @@ class SourceImagesPanel extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: onAddImage,
+                    onPressed: widget.onAddImage,
                     icon: const Icon(Icons.add_photo_alternate_outlined),
                     label: const Text('Add Image'),
                   ),
@@ -105,44 +184,13 @@ class SourceImagesPanel extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _buildNodeList(SourceImageNode parent, BuildContext context, WidgetRef ref) {
-    final children = parent.children;
-    
-    if (children.isEmpty && parent.id != 'root') {
-      return Padding(
-        padding: const EdgeInsets.only(left: 16.0),
-        child: _EmptySourceDropZone(parentId: parent.id, notifier: notifier),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          _SourceReorderDropZone(parentId: parent.id, index: i, notifier: notifier),
-          _SourceTreeItem(
-            node: children[i],
-            notifier: notifier,
-            depth: 0,
-          ),
-        ],
-        _SourceReorderDropZone(parentId: parent.id, index: children.length, notifier: notifier),
-      ],
-    );
-  }
 }
 
 class _SourceRootDropZone extends StatefulWidget {
   final TexturePackerNotifier notifier;
   final SourceImageNode rootNode;
-  final bool isBackground;
 
-  const _SourceRootDropZone({
-    required this.notifier, 
-    required this.rootNode,
-    this.isBackground = false,
-  });
+  const _SourceRootDropZone({required this.notifier, required this.rootNode});
 
   @override
   State<_SourceRootDropZone> createState() => _SourceRootDropZoneState();
@@ -166,24 +214,28 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
         widget.notifier.moveSourceNode(draggedId, 'root', widget.rootNode.children.length);
       },
       builder: (context, candidates, rejected) {
-        if (widget.isBackground) {
-          if (_isHovered) {
-            return Container(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.subdirectory_arrow_left, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text("Move to Root", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-                ],
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          height: 50,
+          decoration: BoxDecoration(
+            color: _isHovered ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+            border: _isHovered ? Border.all(color: Theme.of(context).colorScheme.primary) : null,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.subdirectory_arrow_left, 
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+              const SizedBox(width: 8),
+              Text(
+                "Move to Root",
+                style: TextStyle(color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
               ),
-            );
-          }
-          return const SizedBox.expand();
-        }
-        return const SizedBox.shrink();
+            ],
+          ),
+        );
       },
     );
   }
@@ -193,11 +245,15 @@ class _SourceTreeItem extends ConsumerStatefulWidget {
   final SourceImageNode node;
   final TexturePackerNotifier notifier;
   final int depth;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
 
   const _SourceTreeItem({
     required this.node,
     required this.notifier,
-    this.depth = 0,
+    required this.depth,
+    required this.isExpanded,
+    required this.onToggleExpand,
   });
 
   @override
@@ -206,7 +262,6 @@ class _SourceTreeItem extends ConsumerStatefulWidget {
 
 class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
   bool _isHovered = false;
-  bool _isExpanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +281,7 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
         onAccept: (draggedId) {
           setState(() => _isHovered = false);
           widget.notifier.moveSourceNode(draggedId, node.id, node.children.length);
+          if (!widget.isExpanded) widget.onToggleExpand();
         },
         builder: (context, candidates, rejected) {
           return Container(
@@ -244,7 +300,7 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
       );
     }
 
-    content = LongPressDraggable<String>(
+    return LongPressDraggable<String>(
       data: node.id,
       feedback: Material(
         elevation: 4,
@@ -268,43 +324,6 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
       childWhenDragging: Opacity(opacity: 0.5, child: content),
       child: content,
     );
-
-    if (isFolder && _isExpanded) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          content,
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: _buildChildrenList(),
-          ),
-        ],
-      );
-    }
-
-    return content;
-  }
-
-  Widget _buildChildrenList() {
-    final children = widget.node.children;
-    if (children.isEmpty) {
-      return _EmptySourceDropZone(parentId: widget.node.id, notifier: widget.notifier);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          _SourceReorderDropZone(parentId: widget.node.id, index: i, notifier: widget.notifier),
-          _SourceTreeItem(
-            node: children[i], 
-            notifier: widget.notifier,
-            depth: widget.depth + 1,
-          ),
-        ],
-        _SourceReorderDropZone(parentId: widget.node.id, index: children.length, notifier: widget.notifier),
-      ],
-    );
   }
 
   Widget _buildTile(BuildContext context, WidgetRef ref) {
@@ -312,29 +331,34 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
     final isSelected = widget.node.id == activeId;
     final isFolder = widget.node.type == SourceNodeType.folder;
 
-    return ListTile(
-      leading: GestureDetector(
-        onTap: isFolder ? () => setState(() => _isExpanded = !_isExpanded) : null,
-        child: Icon(
-          isFolder 
-            ? (_isExpanded ? Icons.folder_open : Icons.folder)
-            : Icons.image_outlined,
-          size: 20,
-          color: isFolder ? Colors.yellow[700] : null,
+    return Padding(
+      padding: EdgeInsets.only(left: widget.depth * 16.0),
+      child: ListTile(
+        leading: GestureDetector(
+          onTap: isFolder ? widget.onToggleExpand : null,
+          child: Icon(
+            isFolder 
+              ? (widget.isExpanded ? Icons.folder_open : Icons.folder)
+              : Icons.image_outlined,
+            size: 20,
+            color: isFolder ? Colors.yellow[700] : null,
+          ),
         ),
+        title: Text(widget.node.name, overflow: TextOverflow.ellipsis),
+        dense: true,
+        selected: isSelected,
+        selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        onTap: () {
+          if (!isFolder) {
+            ref.read(activeSourceImageIdProvider.notifier).state = widget.node.id;
+          } else {
+            widget.onToggleExpand();
+          }
+        },
+        trailing: _buildContextMenu(context),
       ),
-      title: Text(widget.node.name, overflow: TextOverflow.ellipsis),
-      dense: true,
-      selected: isSelected,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-      visualDensity: VisualDensity.compact,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      onTap: () {
-        if (!isFolder) {
-          ref.read(activeSourceImageIdProvider.notifier).state = widget.node.id;
-        }
-      },
-      trailing: _buildContextMenu(context),
     );
   }
 
@@ -345,7 +369,7 @@ class _SourceTreeItemState extends ConsumerState<_SourceTreeItem> {
           final confirm = await showConfirmDialog(
             context,
             title: 'Remove "${widget.node.name}"?',
-            content: 'This will remove the image/folder from the project. References in sprites may be broken.',
+            content: 'This will remove the image/folder from the project.',
           );
           if (confirm) {
             widget.notifier.removeSourceNode(widget.node.id);
@@ -364,8 +388,14 @@ class _SourceReorderDropZone extends StatefulWidget {
   final String parentId;
   final int index;
   final TexturePackerNotifier notifier;
+  final double indent;
 
-  const _SourceReorderDropZone({required this.parentId, required this.index, required this.notifier});
+  const _SourceReorderDropZone({
+    required this.parentId,
+    required this.index,
+    required this.notifier,
+    required this.indent,
+  });
 
   @override
   State<_SourceReorderDropZone> createState() => _SourceReorderDropZoneState();
@@ -389,14 +419,15 @@ class _SourceReorderDropZoneState extends State<_SourceReorderDropZone> {
       },
       builder: (context, candidates, rejected) {
         if (!_isHovered && candidates.isEmpty) {
-          return const SizedBox(height: 4.0);
+          return const SizedBox(height: 6.0);
         }
         return Container(
-          height: 4.0,
+          height: 6.0,
+          margin: EdgeInsets.only(left: widget.indent),
           width: double.infinity,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
           ),
         );
       },
@@ -419,25 +450,28 @@ class _EmptySourceDropZone extends StatelessWidget {
       },
       builder: (context, candidates, rejected) {
         final isHovered = candidates.isNotEmpty;
-        if (!isHovered) return const SizedBox(height: 10);
-
         return Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           height: 32,
           decoration: BoxDecoration(
             border: Border.all(
-              color: Theme.of(context).colorScheme.primary, 
-              style: BorderStyle.solid
+              color: isHovered ? Theme.of(context).colorScheme.primary : Colors.grey.withOpacity(0.5), 
+              style: isHovered ? BorderStyle.solid : BorderStyle.none
             ),
+            color: isHovered 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
             borderRadius: BorderRadius.circular(4),
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
           ),
           child: Center(
             child: Text(
-              "Drop here", 
+              "Empty - Drop Items Here", 
               style: TextStyle(
                 fontSize: 10, 
-                color: Theme.of(context).colorScheme.primary
+                fontStyle: FontStyle.italic,
+                color: isHovered 
+                    ? Theme.of(context).colorScheme.primary 
+                    : Theme.of(context).textTheme.bodySmall?.color
               ),
             ),
           ),
