@@ -27,7 +27,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   late final TransformationController _transformationController;
   
   Animation<int>? _frameAnimation;
-  // Track the ID instead of the node object reference to avoid stale data
   String? _currentAnimationNodeId; 
   bool _needsFit = true;
 
@@ -70,7 +69,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 
   SourceImageConfig? _findSourceConfig(String sourceId) {
-    // Delegate to notifier to ensure we use the latest tree state
     return widget.notifier.findSourceImageConfig(sourceId);
   }
 
@@ -94,7 +92,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   void _updateAnimationState(PackerItemNode node, AnimationDefinition animDef, PreviewState state) {
     final frameCount = node.children.length;
 
-    // Safety: If empty or invalid speed, stop.
     if (frameCount == 0 || animDef.speed <= 0) {
       _animationController.stop();
       _currentAnimationNodeId = null;
@@ -106,7 +103,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final durationMs = (frameCount / effectiveSpeed * 1000).round();
     final newDuration = Duration(milliseconds: durationMs > 0 ? durationMs : 1000);
 
-    // Detect if we switched animations or if properties changed
     bool configChanged = node.id != _currentAnimationNodeId || 
                          _animationController.duration != newDuration;
 
@@ -139,8 +135,10 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
     final double scaleX = availableW / contentSize.width;
     final double scaleY = availableH / contentSize.height;
+    // Limit scale to avoid tiny images blowing up too much, or huge images disappearing
     final double scale = math.min(scaleX, scaleY).clamp(0.1, 10.0); 
 
+    // Calculate offset to center the scaled content
     final double offsetX = (viewportSize.width - contentSize.width * scale) / 2;
     final double offsetY = (viewportSize.height - contentSize.height * scale) / 2;
 
@@ -182,16 +180,15 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
         if (selectedNodeId == null) {
           content = _buildPlaceholder('No Item Selected', 'Select a sprite or animation to preview.');
         } else {
-          // Look up node in the CURRENT project tree
           final node = _findNodeById(widget.notifier.project.tree, selectedNodeId);
           
           if (node == null) {
             content = _buildPlaceholder('Item Not Found', 'The selected item may have been deleted.');
           } else if (node.type == PackerItemType.folder || node.id == 'root') {
-            // Folder Preview (Atlas Sheet style)
+            // Folder / Root Preview
             final sprites = _collectSpritesInFolder(node);
             content = _buildAtlasPreview(sprites, assets);
-            // Don't auto-fit folders as they can be huge, let user pan/zoom
+            // Don't auto-fit folders as they can be huge; use default size and let user pan
             contentSize = const Size(500, 500); 
           } else {
             // Sprite or Animation
@@ -205,7 +202,6 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
             } else if (definition is AnimationDefinition) {
               _updateAnimationState(node, definition, previewState);
               
-              // Determine size based on the first frame
               if (node.children.isNotEmpty) {
                  final firstFrameDef = widget.notifier.project.definitions[node.children.first.id];
                  if (firstFrameDef is SpriteDefinition) {
@@ -221,8 +217,8 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
 
         return LayoutBuilder(
           builder: (context, constraints) {
+            // Auto-fit logic: runs once per selection change when content size is known
             if (_needsFit && !contentSize.isEmpty) {
-              // Post-frame callback to avoid build collisions
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _needsFit) {
                   _fitContent(contentSize, constraints.biggest);
@@ -243,9 +239,18 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.01,
                     maxScale: 20.0,
+                    // Use constrained: false so boundaries don't force centering before transform
+                    constrained: false, 
                     child: contentSize.isEmpty 
-                      ? Center(child: content) 
-                      : Center(
+                      ? SizedBox(
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                          child: Center(child: content),
+                        )
+                      : Align(
+                          // CORRECTED: Align top-left so the matrix translation 
+                          // (which assumes 0,0 origin) centers it correctly.
+                          alignment: Alignment.topLeft,
                           child: SizedBox(
                             width: contentSize.width, 
                             height: contentSize.height, 
@@ -344,6 +349,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
@@ -354,7 +360,7 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
   }
 }
 
-// Painters remain the same as Phase 1/Original...
+// Painters (Identical to original)
 class _BackgroundPainter extends CustomPainter {
   final TexturePackerSettings settings;
   _BackgroundPainter({required this.settings});
