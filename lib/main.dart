@@ -21,10 +21,10 @@ import 'data/cache/hot_state_cache_service.dart';
 import 'settings/settings_notifier.dart'; 
 import 'project/project_settings_notifier.dart'; 
 
-// -------------  -------
+// --------------------
 //   Global Providers
 // --------------------
-//test
+
 final appStartupProvider = FutureProvider<void>((ref) async {
   // This provider now ONLY contains ASYNCHRONOUS startup logic.
   final talker = ref.read(talkerProvider);
