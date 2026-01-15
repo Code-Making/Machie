@@ -1503,7 +1503,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               painter: TiledMapPainter(
                 map: map,
                 assetDataMap: assetDataMap,
-                tmxToProjectPaths: _tmxToProjectPaths, // PASS THE MAPPING
+                tmxToProjectPaths: _tmxToProjectPaths,
                 showGrid: _showGrid,
                 transform: _transformationController.value,
                 selectedObjects: notifier!.selectedObjects,
@@ -1517,10 +1517,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
             ),
           ),
         );
-    
-    
-        // Get the filtered list of TileLayers that the UI will display.
-        final tileLayers = notifier!.map.layers.whereType<TileLayer>().toList();
     
         return Stack(
           fit: StackFit.expand,
@@ -1551,33 +1547,34 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 height: _paletteHeight,
                 child: TilePalette(
                   map: notifier!.map,
-                    assetDataMap: assetDataMap, 
+                  assetDataMap: assetDataMap, 
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
                   onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
                   onTileSelectionChanged:
                       (rect) => setState(() => _selectedTileRect = rect),
                   onAddTileset: _addTileset,
-                  onResize: _handlePaletteResize, // Pass the callback
+                  onResize: _handlePaletteResize,
                   onInspectSelectedTileset: _inspectSelectedTileset,
                   onDeleteSelectedTileset: _deleteSelectedTileset,
-                  onClearUnusedTilesets: _clearUnusedTilesets, // Pass the new method
+                  onClearUnusedTilesets: _clearUnusedTilesets,
                 ),
               ),
             ),
+            // --- UPDATED LAYERS PANEL POSITIONING ---
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
-              bottom: 0,
-              left: _isLayersPanelVisible ? 0 : -400,
+              top: 0,        // <--- Added top anchor
+              bottom: 0,     // <--- Added bottom anchor (full height)
+              left: _isLayersPanelVisible ? 0 : -320, // Width match
               width: 320,
               child: LayersPanel(
                 layers: notifier!.map.layers,
                 selectedLayerId: _selectedLayerId,
-                selectedObjects: notifier!.selectedObjects, // Pass selected objects
+                selectedObjects: notifier!.selectedObjects,
                 onLayerSelected: _onLayerSelect,
                 onObjectSelected: (obj) {
-                  // Switch to object mode and select
                   setState(() {
                     _mode = TiledEditorMode.object;
                   });
