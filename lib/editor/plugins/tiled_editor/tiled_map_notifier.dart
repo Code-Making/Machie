@@ -22,6 +22,36 @@ class _WrapperAction implements _HistoryAction {
   void redo(TiledMap map) => onRedo();
 }
 
+class _ObjectReorderHistoryAction implements _HistoryAction {
+  final int layerId;
+  final int oldIndex;
+  final int newIndex;
+
+  _ObjectReorderHistoryAction({
+    required this.layerId,
+    required this.oldIndex,
+    required this.newIndex,
+  });
+
+  @override
+  void undo(TiledMap map) {
+    final layer = map.layers.firstWhereOrNull((l) => l.id == layerId);
+    if (layer is ObjectGroup) {
+      final item = layer.objects.removeAt(newIndex);
+      layer.objects.insert(oldIndex, item);
+    }
+  }
+
+  @override
+  void redo(TiledMap map) {
+    final layer = map.layers.firstWhereOrNull((l) => l.id == layerId);
+    if (layer is ObjectGroup) {
+      final item = layer.objects.removeAt(oldIndex);
+      layer.objects.insert(newIndex, item);
+    }
+  }
+}
+
 class _TileSelectionHistoryAction implements _HistoryAction {
   final int layerId;
   final List<List<Gid>> beforeData;
@@ -864,6 +894,31 @@ void addLayer({required String name, required LayerType type}) {
     _pushHistory(
       _LayerStructureHistoryAction(layer: layerToRemove, index: index),
     );
+    notifyListeners();
+  }
+  
+  void reorderObject(int layerId, int oldIndex, int newIndex) {
+    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
+    if (layer is! ObjectGroup) return;
+
+    // Adjust index if dragging downwards
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    
+    // Clamp to be safe
+    newIndex = newIndex.clamp(0, layer.objects.length - 1);
+
+    if (oldIndex == newIndex) return;
+
+    final obj = layer.objects.removeAt(oldIndex);
+    layer.objects.insert(newIndex, obj);
+
+    _pushHistory(_ObjectReorderHistoryAction(
+      layerId: layerId,
+      oldIndex: oldIndex,
+      newIndex: newIndex,
+    ));
     notifyListeners();
   }
 
