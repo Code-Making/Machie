@@ -187,6 +187,10 @@ extension ObjectGroupWriter on ObjectGroup {
     builder.element('objectgroup', nest: () {
       if (!isForTile) {
         _writeCommonAttributes(builder);
+        if (color != null) {
+          // Tiled supports #RRGGBB or #AARRGGBB
+          builder.attribute('color', color!.toHex(includeAlpha: true));
+        }
         if (drawOrder != null) {
           builder.attribute('draworder', drawOrder!.name.replaceAll('Order', ''));
         }
