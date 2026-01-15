@@ -816,6 +816,22 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     );
   }
   
+  void _inspectObject(TiledObject object) {
+    final assetMap = _getAssetDataMap();
+    if (assetMap == null || _notifier == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (_) => InspectorDialog(
+        target: object,
+        assetDataMap: assetMap,
+        title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
+        notifier: _notifier!,
+        editorKey: widget.tab.editorKey,
+      ),
+    );
+  }
+  
   void _inspectSelectedObject() {
     final assetMap = _getAssetDataMap();
     if(assetMap==null) return;
@@ -1565,9 +1581,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
-              top: 0,        // <--- Added top anchor
-              bottom: 0,     // <--- Added bottom anchor (full height)
-              left: _isLayersPanelVisible ? 0 : -320, // Width match
+              top: 0,
+              bottom: 0,
+              left: _isLayersPanelVisible ? 0 : -320,
               width: 320,
               child: LayersPanel(
                 layers: notifier!.map.layers,
@@ -1581,16 +1597,30 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   notifier!.selectObject(obj);
                   syncCommandContext();
                 },
-                onVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
+                // Visibility
+                onLayerVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
+                onObjectVisibilityChanged: (layerId, objectId) => 
+                    notifier!.toggleObjectVisibility(layerId, objectId),
+                
+                // Reorder
                 onLayerReorder: (oldIndex, newIndex) {
                   notifier!.reorderLayer(oldIndex, newIndex);
                 },
                 onObjectReorder: (layerId, oldIndex, newIndex) {
                   notifier!.reorderObject(layerId, oldIndex, newIndex);
                 },
+                
                 onAddLayer: _addLayer,
+                
+                // Delete
                 onLayerDelete: _deleteLayer,
+                onObjectDelete: (layerId, objectId) {
+                  notifier!.deleteObject(layerId, objectId);
+                },
+                
+                // Inspect
                 onLayerInspect: _showLayerInspector,
+                onObjectInspect: _inspectObject,
               ),
             ),
           ],
