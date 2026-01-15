@@ -1572,12 +1572,24 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               left: _isLayersPanelVisible ? 0 : -400,
               width: 320,
               child: LayersPanel(
-                layers: notifier!.map.layers, // THE FIX: Pass all layers
+                layers: notifier!.map.layers,
                 selectedLayerId: _selectedLayerId,
+                selectedObjects: notifier!.selectedObjects, // Pass selected objects
                 onLayerSelected: _onLayerSelect,
+                onObjectSelected: (obj) {
+                  // Switch to object mode and select
+                  setState(() {
+                    _mode = TiledEditorMode.object;
+                  });
+                  notifier!.selectObject(obj);
+                  syncCommandContext();
+                },
                 onVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
                 onLayerReorder: (oldIndex, newIndex) {
                   notifier!.reorderLayer(oldIndex, newIndex);
+                },
+                onObjectReorder: (layerId, oldIndex, newIndex) {
+                  notifier!.reorderObject(layerId, oldIndex, newIndex);
                 },
                 onAddLayer: _addLayer,
                 onLayerDelete: _deleteLayer,
