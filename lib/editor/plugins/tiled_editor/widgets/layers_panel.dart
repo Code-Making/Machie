@@ -1,17 +1,20 @@
+// lib/editor/plugins/tiled_editor/widgets/layers_panel.dart
+
 import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart' hide Text;
 
 // Used to identify what is being dragged
 class _LayerPanelDragData {
-  final String type;
-  final int id;
-  final int index; // Added this
-  final int? parentLayerId;
+  final String type; // 'layer' or 'object'
+  final int id; // layerId or objectId
+  final int index; // Original index in the list/collection
+  final int? parentLayerId; // only for objects
 
   _LayerPanelDragData.layer(this.id, this.index)
       : type = 'layer',
         parentLayerId = null;
-  _LayerPanelDragData.object(this.id, this.index, this.parentLayerId) : type = 'object';
+  _LayerPanelDragData.object(this.id, this.index, this.parentLayerId)
+      : type = 'object';
 }
 
 enum _DropPosition { above, below, inside }
@@ -64,7 +67,7 @@ class _LayersPanelState extends State<LayersPanel> {
   // Flatten the tree for ListView
   List<_FlatNode> _buildFlatList() {
     final List<_FlatNode> flatList = [];
-    
+
     // Iterate reversed so top layer in list = top layer visually (draw order)
     // Tiled layers[0] is bottom-most.
     for (int i = widget.layers.length - 1; i >= 0; i--) {
@@ -113,7 +116,7 @@ class _LayersPanelState extends State<LayersPanel> {
             ),
           ),
           const Divider(height: 1),
-          
+
           // Tree List
           Expanded(
             child: ListView.builder(
@@ -128,8 +131,7 @@ class _LayersPanelState extends State<LayersPanel> {
                           .contains(flatList[index].object)
                       : false,
                   isExpanded: flatList[index].isLayer
-                      ? _expandedLayerIds
-                          .contains(flatList[index].layer!.id)
+                      ? _expandedLayerIds.contains(flatList[index].layer!.id)
                       : false,
                   onToggleExpand: () =>
                       _toggleExpansion(flatList[index].layer!.id!),
@@ -146,21 +148,17 @@ class _LayersPanelState extends State<LayersPanel> {
                     final node = flatList[index];
                     if (node.isLayer) {
                       widget.onVisibilityChanged(node.layer!.id!);
-                    } else {
-                      // Object visibility toggle logic (if supported by notifier)
-                      // For now, objects inherit layer, but TiledObject has visible property too
-                      // This would need a specific callback in TiledMapNotifier like toggleObjectVisibility
                     }
                   },
                   onInspect: () {
-                     final node = flatList[index];
-                     if(node.isLayer) {
-                       widget.onLayerInspect(node.layer!);
-                     }
+                    final node = flatList[index];
+                    if (node.isLayer) {
+                      widget.onLayerInspect(node.layer!);
+                    }
                   },
                   onDelete: () {
                     final node = flatList[index];
-                    if(node.isLayer) {
+                    if (node.isLayer) {
                       widget.onLayerDelete(node.layer!.id!);
                     }
                   },
@@ -209,7 +207,6 @@ class _FlatNode {
 
   bool get isLayer => layer != null;
   bool get isObject => object != null;
-  int get id => isLayer ? layer!.id! : object!.id;
 }
 
 class _HierarchyRow extends StatefulWidget {
@@ -284,17 +281,18 @@ class _HierarchyRowState extends State<_HierarchyRow> {
               style: TextStyle(
                 color: isSelected ? theme.colorScheme.primary : null,
                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                fontStyle: (widget.node.isLayer && widget.node.layer is! TileLayer)
-                    ? FontStyle.italic
-                    : FontStyle.normal,
+                fontStyle:
+                    (widget.node.isLayer && widget.node.layer is! TileLayer)
+                        ? FontStyle.italic
+                        : FontStyle.normal,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
 
           // Actions
-          if(widget.node.isLayer) ...[
-             IconButton(
+          if (widget.node.isLayer) ...[
+            IconButton(
               icon: Icon(
                 (widget.node.layer?.visible ?? true)
                     ? Icons.visibility
@@ -308,9 +306,6 @@ class _HierarchyRowState extends State<_HierarchyRow> {
               icon: const Icon(Icons.edit_outlined, size: 16),
               onPressed: widget.onInspect,
             ),
-          ] else if (widget.node.isObject) ...[
-             // For objects, show small indicator or type?
-             // Keeping it simple for now to avoid clutter
           ]
         ],
       ),
@@ -328,9 +323,10 @@ class _HierarchyRowState extends State<_HierarchyRow> {
     }
 
     // Draggable
-final draggable = LongPressDraggable<_LayerPanelDragData>(
+    final draggable = LongPressDraggable<_LayerPanelDragData>(
       data: widget.node.isLayer
-          ? _LayerPanelDragData.layer(widget.node.layer!.id!, widget.node.index)
+          ? _LayerPanelDragData.layer(
+              widget.node.layer!.id!, widget.node.index)
           : _LayerPanelDragData.object(
               widget.node.object!.id, widget.node.index, widget.node.parentLayerId!),
       feedback: Material(
@@ -366,8 +362,6 @@ final draggable = LongPressDraggable<_LayerPanelDragData>(
           return data.parentLayerId == widget.node.parentLayerId &&
               data.id != widget.node.object!.id;
         }
-        // Object dragged onto its own Layer (reparenting logic or simple drop to top?)
-        // For simplicity in Phase 1: Only Object <-> Object reordering
         return false;
       },
       onMove: (details) {
@@ -387,31 +381,32 @@ final draggable = LongPressDraggable<_LayerPanelDragData>(
         }
       },
       onLeave: (_) => setState(() => _dropPosition = null),
-onAccept: (data) {
+      onAccept: (data) {
         setState(() => _dropPosition = null);
         if (data.type == 'layer' && widget.node.isLayer) {
-          int targetIndex = widget.node.index; 
-          // visual top = list end. 
-          // dropping "above" (visually) -> higher index
+          int targetIndex = widget.node.index;
+          // visual top = list end (data index).
+          // dropping "above" (visually) -> higher index in data list
           if (_dropPosition == _DropPosition.above) {
-             targetIndex += 1;
+            targetIndex += 1;
           }
-          widget.onLayerReorder(data.index, targetIndex);
+          // Corrected method name:
+          widget.onReorderLayer(data.index, targetIndex);
 
         } else if (data.type == 'object' && widget.node.isObject) {
           int targetIndex = widget.node.index;
           // visual top = list start (0).
-          // dropping "above" (visually) -> lower index
-          // But here we rendered objects in index order (0 to N).
-          // So "above" means index, "below" means index + 1.
+          // dropping "below" (visually) -> higher index in data list
           if (_dropPosition == _DropPosition.below) {
             targetIndex += 1;
           }
-          widget.onObjectReorder(data.parentLayerId!, data.index, targetIndex);
+          // Corrected method name:
+          widget.onReorderObject(data.parentLayerId!, data.index, targetIndex);
         }
       },
       builder: (ctx, _, __) => InkWell(
         onTap: widget.onTap,
+        onLongPress: widget.node.isLayer ? widget.onDelete : null, // Shortcut
         child: draggable,
       ),
     );
@@ -439,33 +434,9 @@ onAccept: (data) {
       if (o.isPolygon) return Icons.pentagon_outlined;
       if (o.isPolyline) return Icons.polyline;
       if (o.text != null) return Icons.text_fields;
-      if (o.gid != null) return Icons.image_aspect_ratio; // Tile object
+      if (o.gid != null) return Icons.image_aspect_ratio;
       return Icons.rectangle_outlined;
     }
-  }
-
-  // Helper to find original index because drag data only has ID
-  int _findLayerIndexById(int id) {
-    // Access ancestor to find index? Or simple hack:
-    // In production, better to pass source index in DragData if list doesn't mutate during drag
-    // But DragData is created at start. 
-    // This requires the parent Widget to pass down a lookup or handle the index translation.
-    // For Phase 1, we rely on the parent logic or assume data passed is correct.
-    // Actually, TiledMapNotifier expects generic indices. 
-    // Let's assume the controller can handle ID lookup, OR we assume we can't easily find it here 
-    // without context.
-    // FIX: DragData should contain the original index at drag start.
-    // But if we scroll, it's fine.
-    // Let's update `_LayerPanelDragData`? No, simpler to find it via the ancestor.
-    // For brevity in this snippet, I will assume `widget.onLayerReorder` handles index resolution 
-    // OR we pass indices in drag data.
-    // Let's assume we pass indices in DragData for simplicity in Phase 1 (see below update).
-    return 0; // Placeholder, see logic update in Step 2b
-  }
-  
-  int _findObjectIndex(int layerId, int objectId) {
-    // Same logic.
-    return 0; // Placeholder
   }
 }
 
@@ -485,7 +456,8 @@ class _DropIndicatorPainter extends CustomPainter {
     if (position == _DropPosition.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), paint);
     } else if (position == _DropPosition.below) {
-      canvas.drawLine(Offset(0, size.height - 1), Offset(size.width, size.height - 1), paint);
+      canvas.drawLine(
+          Offset(0, size.height - 1), Offset(size.width, size.height - 1), paint);
     }
   }
 
