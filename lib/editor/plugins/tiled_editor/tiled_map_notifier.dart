@@ -648,6 +648,45 @@ class TiledMapNotifier extends ChangeNotifier {
     }
     notifyListeners();
   }
+  
+  void toggleObjectVisibility(int layerId, int objectId) {
+    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
+    if (layer is ObjectGroup) {
+      final object = layer.objects.firstWhereOrNull((o) => o.id == objectId);
+      if (object != null) {
+        // Create copies for history
+        final before = deepCopyTiledObject(object);
+        object.visible = !object.visible;
+        final after = deepCopyTiledObject(object);
+        
+        // recordPropertyChange handles TiledObject by finding it via ID and replacing it
+        recordPropertyChange(before, after);
+        notifyListeners();
+      }
+    }
+  }
+
+  void deleteObject(int layerId, int objectId) {
+    final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
+    if (layer == null) return;
+
+    // Snapshot state before deletion for Undo
+    beginObjectChange(layerId);
+
+    final object = layer.objects.firstWhereOrNull((o) => o.id == objectId);
+    if (object != null) {
+      layer.objects.remove(object);
+      
+      // Clean up selection if the deleted object was selected
+      if (_selectedObjects.contains(object)) {
+        _selectedObjects.remove(object);
+      }
+    }
+
+    // Snapshot state after deletion and push to history
+    endObjectChange(layerId);
+    notifyListeners();
+  }
 
   void deleteFloatingSelection() {
     if (_floatingSelection != null) {
