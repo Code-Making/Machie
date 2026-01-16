@@ -4,7 +4,7 @@
 
 import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'hide StringProperty;
 import 'package:flutter/material.dart' hide StringProperty; // FIX: Hide conflicting class
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
