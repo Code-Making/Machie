@@ -11,6 +11,7 @@ import '../../../../utils/toast.dart';
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/asset_cache/asset_models.dart';
+import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
@@ -134,9 +135,10 @@ class PropertySpriteSelector extends StatelessWidget {
           return;
         }
 
+        // Use the shared dialog class
         final selected = await showDialog<String>(
           context: context,
-          builder: (ctx) => _SpritePickerDialog(spriteNames: allSpriteNames),
+          builder: (ctx) => SpritePickerDialog(spriteNames: allSpriteNames),
         );
 
         if (selected != null) {

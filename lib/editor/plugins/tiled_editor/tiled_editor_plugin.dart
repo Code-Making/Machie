@@ -137,6 +137,7 @@ class TiledEditorPlugin extends EditorPlugin {
       ObjectTool.addPolygon: Icons.pentagon_outlined,
       ObjectTool.addPolyline: Icons.polyline_outlined,
       ObjectTool.addText: Icons.text_fields_outlined,
+      ObjectTool.addSprite: Icons.image_search, // <-- NEW ICON
     };
 
     return [
@@ -184,6 +185,7 @@ commandIds: ObjectTool.values
       ObjectTool.addPolygon: Icons.pentagon_outlined,
       ObjectTool.addPolyline: Icons.polyline_outlined,
       ObjectTool.addText: Icons.text_fields_outlined,
+       ObjectTool.addSprite: Icons.image_search, // <-- NEW ICON
     };
     
     const objectToolLabels = {
@@ -194,7 +196,8 @@ commandIds: ObjectTool.values
       ObjectTool.addPoint: 'Add Point',
       ObjectTool.addPolygon: 'Add Polygon',
       ObjectTool.addPolyline: 'Add Polyline',
-      ObjectTool.addText: 'Add Text',
+      ObjectTool.addText: 'Add Text',      
+      ObjectTool.addSprite: 'Add Sprite', // <-- NEW
     };
 
 
