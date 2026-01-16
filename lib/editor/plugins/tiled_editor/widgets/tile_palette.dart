@@ -1,10 +1,13 @@
+// FILE: lib/editor/plugins/tiled_editor/widgets/tile_palette.dart
+
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
+import 'package:path/path.dart' as p;
 
-import 'package:machine/asset_cache/asset_models.dart'; // IMPORT THIS
+import 'package:machine/asset_cache/asset_models.dart';
 
 class TilePalette extends StatefulWidget {
   final TiledMap map;
@@ -18,6 +21,7 @@ class TilePalette extends StatefulWidget {
   final VoidCallback? onInspectSelectedTileset;
   final VoidCallback? onDeleteSelectedTileset;
   final VoidCallback? onClearUnusedTilesets;
+  final String mapContextPath;
 
   const TilePalette({
     super.key,
@@ -32,6 +36,7 @@ class TilePalette extends StatefulWidget {
     this.onInspectSelectedTileset,
     this.onDeleteSelectedTileset,
     this.onClearUnusedTilesets,
+    required this.mapContextPath,
   });
 
   @override
@@ -251,15 +256,21 @@ class _TilePaletteState extends State<TilePalette> {
     if (imageSource == null) {
       return const Center(child: Text('Tileset has no image.'));
     }
-    final asset = widget.assetDataMap[imageSource];
+    
+    // Resolve asset
+    final contextDir = p.dirname(widget.mapContextPath);
+    final combined = p.join(contextDir, imageSource);
+    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
+    
+    final asset = widget.assetDataMap[canonicalKey];
     final ui.Image? image;
     if (asset is ImageAssetData) {
       image = asset.image;
     } else {
       image = null;
     }
+    
     if (image == null) {
-      // Use the inspector to fix this!
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

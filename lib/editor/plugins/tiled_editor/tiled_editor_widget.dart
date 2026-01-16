@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/tiled_editor/tiled_editor_widget.dart
+
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math';
@@ -5,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:tiled/tiled.dart' as tiled show Text;
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Ensure this 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xml/xml.dart';
 import 'package:collection/collection.dart';
 import '../../../app/app_notifier.dart';
@@ -34,7 +36,7 @@ import 'widgets/new_tileset_dialog.dart';
 import 'project_tsx_provider.dart';
 
 import 'tiled_map_painter.dart';
-import 'inspector/inspector_dialog.dart'; // ADDED
+import 'inspector/inspector_dialog.dart';
 import 'widgets/object_editor_app_bar.dart';
 import 'widgets/paint_editor_app_bar.dart';
 import 'package:machine/settings/settings_notifier.dart';
@@ -43,8 +45,8 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
 import 'widgets/export_dialog.dart';
 
-import 'widgets/sprite_picker_dialog.dart'; // Import
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart'; // Import for models
+import 'widgets/sprite_picker_dialog.dart';
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -68,33 +70,28 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   String? _baseContentHash;
   
-  final Map<String, String> _tmxToProjectPaths = {};
   Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
 
-  // General state
   bool _showGrid = true;
   bool _isPaletteVisible = false;
   bool _isLayersPanelVisible = false;
   TiledEditorMode _mode = TiledEditorMode.panZoom;
   
   bool get isZoomMode => (_mode == TiledEditorMode.panZoom);
-  // Paint mode state
   TiledPaintMode _paintMode = TiledPaintMode.paint;
   Rect? _tileMarqueeSelection;
   Offset? _dragStartOffsetInSelection;
   
-  // Object mode state
   ObjectTool _activeObjectTool = ObjectTool.select;
   bool _isSnapToGridEnabled = true;
   Offset? _dragStartMapPosition;
   Map<int, Point>? _initialObjectPositions;
 
-  // Temporary drawing state
   List<Point> _inProgressPoints = [];
   Rect? _previewShape;
-  Rect? _marqueeSelection; // NEW: Specific state for marquee selection
+  Rect? _marqueeSelection;
 
   static const double _kMinPaletteHeight = 150.0;
   static const double _kDefaultPaletteHeight = 200.0;
@@ -102,7 +99,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   late final TransformationController _transformationController;
   String? _lastTilesetParentUri;
-  // --- Public Methods for Commands ---
   void editMapProperties() => _editMapProperties();
   void addTileset() => _addTileset();
   void addLayer() => _addLayer();
@@ -125,7 +121,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   
   void setMode(TiledEditorMode newMode) {
     if (_mode == newMode) {
-      // If tapping the active mode, toggle back to Pan/Zoom
       setState(() => _mode = TiledEditorMode.panZoom);
     } else {
       setState(() => _mode = newMode);
@@ -255,13 +250,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       );
       _fixupParsedMap(map, widget.tab.initialTmxContent);
 
-      // Collect URIs and populate the path mapping
       final uris = await _collectAssetUris(map);
       
-      // Load the assets
+      // Update AssetMap so files are loaded into memory
       final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
-      // Apply fixups using the loaded assets and the mapping
+      // Pass map and resolved data to fixup (only for width/height loading)
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
@@ -287,68 +281,65 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-Future<Set<String>> _collectAssetUris(TiledMap map) async {
+  Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
-    final newMappings = <String, String>{};
     
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
-    final talker = ref.read(talkerProvider);
-    
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
+    
+    final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
+    final tmxDir = p.dirname(tmxDisplayPath);
 
-    Future<void> resolveAndAdd(String? rawPath, String parentUri) async {
-      if (rawPath == null || rawPath.isEmpty) return;
-      try {
-        final resolvedFile = await repo.fileHandler.resolvePath(parentUri, rawPath);
-        if (resolvedFile != null) {
-          final displayPath = repo.fileHandler.getPathForDisplay(
-            resolvedFile.uri,
-            relativeTo: project.rootUri,
-          );
-          uris.add(displayPath);
-          newMappings[rawPath] = displayPath;
-        } else {
-          talker.warning('TiledEditor: Could not resolve path "$rawPath" relative to "$parentUri"');
-        }
-      } catch (e) {
-        talker.warning('TiledEditor: Failed to resolve path: $rawPath ($e)');
-      }
+    // Helper to resolve a relative path from TMX to a project-relative canonical path
+    String resolve(String relativePath) {
+      final combined = p.join(tmxDir, relativePath);
+      return p.normalize(combined).replaceAll(r'\', '/');
     }
 
-    // 1. Process Tilesets & Image Layers (Existing logic)
     for (final tileset in map.tilesets) {
-      var currentBaseUri = tmxParentUri;
+      // If tileset is external (.tsx), its images are relative to the TSX file.
+      // Current Tiled parser handles TSX merging, but we need to know the base.
+      // For now, assuming embedded tilesets or images relative to TMX.
+      // NOTE: Properly supporting external TSX paths requires calculating the TSX directory.
+      // Since map.tilesets is flattened, we might treat them relative to TMX 
+      // unless we parse the source attribute again.
+      // For simplicity in this phase, we assume images are reachable relative to the TMX
+      // or we check if the tileset has a source path.
+      
+      String baseDir = tmxDir;
       if (tileset.source != null) {
-        final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
-        if (tsxFile != null) {
-          currentBaseUri = repo.fileHandler.getParentUri(tsxFile.uri);
-        }
+         // This is an external tileset. The image source inside it is relative to the TSX.
+         // We need to resolve TSX path relative to TMX first.
+         final tsxPath = resolve(tileset.source!);
+         baseDir = p.dirname(tsxPath);
       }
-      await resolveAndAdd(tileset.image?.source, currentBaseUri);
-    }
-    for (final layer in map.layers) {
-      if (layer is ImageLayer) {
-        await resolveAndAdd(layer.image.source, tmxParentUri);
+
+      if (tileset.image?.source != null) {
+        final imagePath = tileset.image!.source!;
+        // Resolve image relative to baseDir
+        final canonical = p.normalize(p.join(baseDir, imagePath)).replaceAll(r'\', '/');
+        uris.add(canonical);
       }
     }
 
-    // --- FIX: Access properties using .byName ---
-    // Property: tp_atlases (String, comma-separated relative paths)
-    // Check if property exists first
+    for (final layer in map.layers) {
+      if (layer is ImageLayer && layer.image.source != null) {
+        uris.add(resolve(layer.image.source!));
+      }
+    }
+
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
       if (prop is StringProperty && prop.value.isNotEmpty) {
-        talker.info('TiledEditor: Found linked atlases: ${prop.value}');
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
-          await resolveAndAdd(path, tmxParentUri);
+          uris.add(resolve(path));
         }
       }
     }
     
-    _tmxToProjectPaths.addAll(newMappings);
     return uris;
   }
   
@@ -370,21 +361,19 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       final project = ref.read(currentProjectProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
 
-      // 1. Load asset to get dimensions
+      // Ensure the new asset is loaded
       final assetData = await ref.read(assetDataProvider(newProjectPath).future);
       if (assetData is! ImageAssetData) {
         throw (assetData as ErrorAssetData).error;
       }
       final newImage = assetData.image;
 
-      // 2. Calculate RELATIVE path for TMX storage
-      // We rely on "Display Paths" to calculate relative strings, assuming SAF structure mirrors display
       final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
       final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
       
+      // Calculate path relative to the TMX file to store in the map data
       final newRelativePathForTmx = p.relative(newProjectPath, from: tmxDirDisplayPath).replaceAll(r'\', '/');
 
-      // 3. Update Notifier (Model)
       _notifier!.updateImageSource(
         parentObject: parentObject,
         newSourcePath: newRelativePathForTmx,
@@ -392,7 +381,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         newHeight: newImage.height,
       );
       
-      // 4. Rebuild mappings (will map newRelativePathForTmx -> newProjectPath)
       await _rebuildAssetUriSet();
       
       MachineToast.info('Image source updated successfully.');
@@ -402,13 +390,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     }
   }
   
-  // --- NEW: Helper method to fix parsing issues from the `tiled` package ---
   void _fixupParsedMap(TiledMap map, String tmxContent) {
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
     final objectGroupElements = xmlDocument.rootElement.findAllElements('objectgroup');
 
-    // FIX 1: Handle un-encoded tile layer data.
     for (final layerElement in layerElements) {
       final layerId = int.tryParse(layerElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
@@ -426,7 +412,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       }
     }
 
-    // FIX 2: Handle object types (point, ellipse, etc.).
     for (final objectGroupElement in objectGroupElements) {
       final layerId = int.tryParse(objectGroupElement.getAttribute('id') ?? '');
       if (layerId == null) continue;
@@ -457,10 +442,8 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       }
     }
 
-    // --- NEW: FIX 3: Ensure all layers have a unique ID. ---
     var nextAvailableId = map.nextLayerId;
 
-    // Helper to find the max ID recursively.
     int findMaxId(List<Layer> layers) {
       var maxId = 0;
       for (final layer in layers) {
@@ -474,13 +457,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       return maxId;
     }
 
-    // If the map doesn't specify the next ID, we calculate it.
     if (nextAvailableId == null) {
       final maxLayerId = findMaxId(map.layers);
       nextAvailableId = maxLayerId + 1;
     }
 
-    // Helper to assign IDs recursively.
     void assignIds(List<Layer> layers) {
       for (final layer in layers) {
         if (layer.id == null) {
@@ -495,45 +476,61 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
 
     assignIds(map.layers);
     
-    // Update the map object so new layers created in the UI get a valid ID.
     map.nextLayerId = nextAvailableId;
   }
   
   void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
+    // We need the project-relative path of the TMX to resolve relative paths in tilesets
+    final repo = ref.read(projectRepositoryProvider)!;
+    final project = ref.read(currentProjectProvider)!;
+    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
+    final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
+    final tmxDir = p.dirname(tmxDisplayPath);
+
+    String resolve(String relativePath) {
+      final combined = p.join(tmxDir, relativePath);
+      return p.normalize(combined).replaceAll(r'\', '/');
+    }
+
     for (final tileset in map.tilesets) {
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
-        // Use the mapping to find the correct key for assetDataMap
         final rawSource = tileset.image!.source!;
-        final projectPath = _tmxToProjectPaths[rawSource];
         
-        if (projectPath != null) {
-          final asset = assetDataMap[projectPath];
-          if (asset is ImageAssetData) {
-            final loadedImage = asset.image;
-            final currentTiledImage = tileset.image!;
+        // Use the resolution logic to find the key in the map
+        String baseDir = tmxDir;
+        if (tileset.source != null) {
+           final tsxPath = resolve(tileset.source!);
+           baseDir = p.dirname(tsxPath);
+        }
+        
+        final canonicalKey = p.normalize(p.join(baseDir, rawSource)).replaceAll(r'\', '/');
+        
+        final asset = assetDataMap[canonicalKey];
+        if (asset is ImageAssetData) {
+          final loadedImage = asset.image;
+          final currentTiledImage = tileset.image!;
 
-            if (currentTiledImage.width == null || currentTiledImage.height == null) {
-              tileset.image = TiledImage(
-                source: currentTiledImage.source,
-                width: loadedImage.width,
-                height: loadedImage.height,
-              );
-            }
+          if (currentTiledImage.width == null || currentTiledImage.height == null) {
+            tileset.image = TiledImage(
+              source: currentTiledImage.source,
+              width: loadedImage.width,
+              height: loadedImage.height,
+            );
+          }
 
-            final tileWidth = tileset.tileWidth;
-            final tileHeight = tileset.tileHeight;
-            final imageWidth = tileset.image!.width!;
-            final imageHeight = tileset.image!.height!;
+          final tileWidth = tileset.tileWidth;
+          final tileHeight = tileset.tileHeight;
+          final imageWidth = tileset.image!.width!;
+          final imageHeight = tileset.image!.height!;
 
-            if (tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
-              final columns = (imageWidth - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
-              final rows = (imageHeight - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
-              final tileCount = columns * rows;
-              
-              tileset.columns = columns;
-              tileset.tileCount = tileCount;
-              tileset.tiles = [for (var i = 0; i < tileCount; ++i) Tile(localId: i)];
-            }
+          if (tileWidth != null && tileHeight != null && tileWidth > 0 && tileHeight > 0) {
+            final columns = (imageWidth - tileset.margin * 2 + tileset.spacing) ~/ (tileWidth + tileset.spacing);
+            final rows = (imageHeight - tileset.margin * 2 + tileset.spacing) ~/ (tileHeight + tileset.spacing);
+            final tileCount = columns * rows;
+            
+            tileset.columns = columns;
+            tileset.tileCount = tileCount;
+            tileset.tiles = [for (var i = 0; i < tileCount; ++i) Tile(localId: i)];
           }
         }
       }
@@ -543,13 +540,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
     
-    // Re-resolve paths (e.g. if a tileset was added) and then force a UI update
     _rebuildAssetUriSet().then((_) {
       if (mounted) setState(() {});
     });
     
     syncCommandContext();
-    setState(() {}); // Immediate update for non-asset changes
+    setState(() {});
   }
 
   void _editMapProperties() async {
@@ -591,6 +587,14 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     );
   }  
   
+  // Gets the current TMX file path (project relative) to pass to inspectors/painters
+  String _getMapContextPath() {
+    final repo = ref.read(projectRepositoryProvider)!;
+    final project = ref.read(currentProjectProvider)!;
+    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
+    return repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
+  }
+
   void inspectMapProperties() {
     final assetMap = _getAssetDataMap();
     if (_notifier == null || assetMap == null) return;
@@ -603,6 +607,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
         assetDataMap: assetMap,
+        contextPath: _getMapContextPath(),
       ),
     );
   }
@@ -625,13 +630,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       final project = ref.read(currentProjectProvider)!;
       final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
 
-      // Update last path for convenience
       final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
       if (imageFile != null) {
         _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
       }
 
-      // Calculate path relative to TMX
       final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
       final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
       
@@ -640,7 +643,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         from: tmxDirDisplayPath,
       ).replaceAll(r'\', '/');
 
-      // Load data
       final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
       if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
@@ -670,7 +672,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         ),
       );
 
-      // Add to map -> triggers onMapChanged -> triggers rebuildAssetUriSet -> resolves path
       await _notifier!.addTileset(newTileset);
 
     } catch (e, st) {
@@ -717,7 +718,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     );
 
     if (confirm) {
-      // Check if the currently selected tileset is among those to be removed
       final selectedIsUnused = unused.any((ts) => ts.name == _selectedTileset?.name);
       
       _notifier!.removeTilesets(unused);
@@ -744,6 +744,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
+        contextPath: _getMapContextPath(),
       ),
     );
   }
@@ -788,8 +789,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     if (layer == null) return;
 
     var newMode = _mode;
-    // If the current mode is incompatible with the newly selected layer type,
-    // revert to the default Pan/Zoom mode.
     if (_mode == TiledEditorMode.paint && layer is! TileLayer) {
       newMode = TiledEditorMode.panZoom;
       MachineToast.info("Switched to Pan/Zoom mode. Selected layer is not a Tile Layer.");
@@ -818,6 +817,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
         assetDataMap: assetMap,
+        contextPath: _getMapContextPath(),
       ),
     );
   }
@@ -834,6 +834,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
+        contextPath: _getMapContextPath(),
       ),
     );
   }
@@ -854,6 +855,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
+        contextPath: _getMapContextPath(),
       ),
     );
   }
@@ -884,7 +886,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         _handleObjectInteraction(localPosition, isStart: isStart);
         break;
       case TiledEditorMode.panZoom:
-        // Do nothing, handled by InteractiveViewer
         break;
     }
   }
@@ -893,18 +894,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   void _onInteractionCancel() {
     switch (_mode) {
       case TiledEditorMode.paint:
-        // For paint mode, we can treat cancel like an end, as the history
-        // entry is only created on endStroke anyway. If a stroke was in
-        // progress, this cleans it up without committing.
         notifier?.endTileStroke(_selectedLayerId);
         break;
 
       case TiledEditorMode.object:
-        // This is a pure cleanup method for object mode. It reverts any
-        // temporary state without committing changes to the model or history.
         if (_initialObjectPositions != null && notifier != null) {
-          // If a move was in progress, snap objects back to original positions.
-          notifier!.beginObjectChange(_selectedLayerId); // Start a "change"
+          notifier!.beginObjectChange(_selectedLayerId);
           for (final obj in notifier!.selectedObjects) {
             final initialPos = _initialObjectPositions![obj.id];
             if (initialPos != null) {
@@ -912,17 +907,15 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
               obj.y = initialPos.y;
             }
           }
-          notifier!.endObjectChange(_selectedLayerId); // End it to revert visuals
+          notifier!.endObjectChange(_selectedLayerId);
           _initialObjectPositions = null;
         }
 
         if (_activeObjectTool == ObjectTool.addPolygon ||
             _activeObjectTool == ObjectTool.addPolyline) {
-          // If a poly tool was cancelled mid-drag, remove the temporary point
           if (_inProgressPoints.isNotEmpty) {
             _inProgressPoints.removeLast();
             if (_inProgressPoints.isEmpty) {
-              // If that was the first point, cancel the history entry.
               notifier?.endObjectChange(_selectedLayerId);
             }
           }
@@ -930,7 +923,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         break;
 
       case TiledEditorMode.panZoom:
-        // Nothing to do for pan/zoom.
         break;
     }
 
@@ -952,7 +944,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         _handleObjectInteractionEnd();
         break;
       case TiledEditorMode.panZoom:
-        // Do nothing
         break;
     }
     syncCommandContext();
@@ -992,7 +983,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         }
         break;
       case TiledPaintMode.erase:
-        // Erase a 1x1 tile for now. Could be extended to use a brush size.
         notifier!.eraseTiles(
           mapX,
           mapY,
@@ -1055,7 +1045,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final mapPosition = _getMapPosition(localPosition);
     if (isStart) {
       _dragStartMapPosition = mapPosition;
-      notifier?.setTileSelection(null, _selectedLayerId); // Clear previous selection
+      notifier?.setTileSelection(null, _selectedLayerId);
     } else {
       if (_dragStartMapPosition == null) return;
       setState(() {
@@ -1069,7 +1059,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final mapPosition = _getMapPosition(localPosition);
 
     if (isStart) {
-      // Drag started. Calculate the offset from the selection's top-left corner.
       final selectionPos = notifier!.floatingSelectionPosition!;
       final selectionPixelX = selectionPos.x * notifier!.map.tileWidth;
       final selectionPixelY = selectionPos.y * notifier!.map.tileHeight;
@@ -1078,14 +1067,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         mapPosition.dy - selectionPixelY,
       );
     } else {
-      // Drag is in progress.
-      if (_dragStartOffsetInSelection == null) return; // Should not happen if isStart was called
+      if (_dragStartOffsetInSelection == null) return;
 
-      // Calculate the new top-left corner of the selection by subtracting the initial offset.
       final newTopLeftPixelX = mapPosition.dx - _dragStartOffsetInSelection!.dx;
       final newTopLeftPixelY = mapPosition.dy - _dragStartOffsetInSelection!.dy;
 
-      // Convert the new pixel position to tile coordinates.
       final tileX = (newTopLeftPixelX / notifier!.map.tileWidth).floor();
       final tileY = (newTopLeftPixelY / notifier!.map.tileHeight).floor();
 
@@ -1093,7 +1079,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     }
   }
   
-// Inside TiledEditorWidgetState
 
   void _handlePaintInteractionEnd() {
     if (_paintMode == TiledPaintMode.select && _tileMarqueeSelection != null) {
@@ -1101,7 +1086,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       final tileWidth = notifier!.map.tileWidth;
       final tileHeight = notifier!.map.tileHeight;
 
-      // Ensure correct integer conversion and ordering
       final startTileX = (rect.left / tileWidth).floor();
       final startTileY = (rect.top / tileHeight).floor();
       final endTileX = (rect.right / tileWidth).floor();
@@ -1123,10 +1107,9 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     setState(() {
       _dragStartMapPosition = null;
       _tileMarqueeSelection = null;
-      _dragStartOffsetInSelection = null; // Add this line to clear the offset
+      _dragStartOffsetInSelection = null;
     });
     
-    // syncCommandContext() is called in the parent _onInteractionEnd, which is correct.
   }
 
   Offset _getMapPosition(Offset localPosition) {
@@ -1153,7 +1136,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         if (asset.frames.containsKey(spriteName)) {
           return asset.frames[spriteName];
         }
-        // Check animations too (use first frame)
         if (asset.animations.containsKey(spriteName)) {
           final firstFrame = asset.animations[spriteName]!.firstOrNull;
           if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
@@ -1169,7 +1151,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
     if (layer is! ObjectGroup || _dragStartMapPosition == null) return;
 
-    // 1. Collect all available sprite names
     final assetMap = _getAssetDataMap();
     if (assetMap == null) return;
 
@@ -1187,7 +1168,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     }
     allSpriteNames.sort();
 
-    // 2. Show Picker
     final selectedSprite = await showDialog<String>(
       context: context,
       builder: (ctx) => SpritePickerDialog(spriteNames: allSpriteNames),
@@ -1195,9 +1175,8 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
 
     if (selectedSprite == null) return;
 
-    // 3. Get Dimensions
     final spriteData = _findSpriteDataInAssets(selectedSprite);
-    if (spriteData == null) return; // Should not happen
+    if (spriteData == null) return;
 
     notifier?.beginObjectChange(_selectedLayerId);
 
@@ -1205,15 +1184,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final width = spriteData.sourceRect.width;
     final height = spriteData.sourceRect.height;
 
-    // Center the sprite on the tap position (optional, or top-left)
-    // Let's do Top-Left to match Tiled default, or center if that feels better.
-    // Tiled usually places click at top-left.
     final x = _dragStartMapPosition!.dx;
     final y = _dragStartMapPosition!.dy;
 
     final newObject = TiledObject(
       id: newId,
-      name: selectedSprite, // Auto-name the object
+      name: selectedSprite,
       x: x,
       y: y,
       width: width,
@@ -1261,7 +1237,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         break;
       case ObjectTool.addSprite:
         if (isStart) {
-           // Capture the tap position. The picker logic runs in _handleObjectInteractionEnd.
            setState(() => _dragStartMapPosition = _snapOffsetToGrid(mapPosition));
         }
         break;
@@ -1269,7 +1244,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   }
 
   void _handleObjectInteractionEnd() {
-    // A small drag distance threshold to differentiate a tap from a drag.
     final dragThreshold = 4.0;
     final didDrag = _dragStartMapPosition != null &&
         (_getMapPosition(Offset.zero) - _dragStartMapPosition!).distance >
@@ -1284,10 +1258,8 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         case ObjectTool.addPoint:
         case ObjectTool.addText:
           if (didDrag && _previewShape != null) {
-            // It was a drag, create from preview
             _createShapeFromPreview();
           } else {
-            // It was a tap, create a default-sized object
             _createShapeFromTap();
           }
           break;
@@ -1298,9 +1270,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
           break;
         case ObjectTool.addPolygon:
         case ObjectTool.addPolyline:
-          // For poly tools, interaction end just finalizes the current point's position.
-          // The shape itself is finalized by the "Finish Shape" button.
-          // The logic is already handled by the last `_handlePolygonTool` call.
           break;
         default:
           break;
@@ -1308,11 +1277,9 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     }
 
     if (_initialObjectPositions != null) {
-      // Finalize move operation
       notifier?.endObjectChange(_selectedLayerId);
     }
 
-    // Reset temporary drag state
     setState(() {
       _dragStartMapPosition = null;
       _previewShape = null;
@@ -1326,7 +1293,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         notifier?.map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is! ObjectGroup) return null;
 
-    // Iterate backwards to hit top-most objects first
     for (final obj in layer.objects.reversed) {
       final rect = Rect.fromLTWH(obj.x, obj.y, obj.width, obj.height);
       if (rect.contains(mapPosition)) {
@@ -1344,14 +1310,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       } else {
         notifier?.clearSelection();
         setState(() {
-          _dragStartMapPosition = mapPosition; // For marquee select
+          _dragStartMapPosition = mapPosition;
         });
       }
     } else {
-      // Marquee select update
       if (_dragStartMapPosition == null) return;
       setState(() {
-        // Use the new marqueeSelection state variable
         _marqueeSelection = Rect.fromPoints(_dragStartMapPosition!, mapPosition);
       });
     }
@@ -1371,9 +1335,9 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     }
     
     if (selected.isNotEmpty) {
-      notifier?.selectObject(selected.first); // Select first
+      notifier?.selectObject(selected.first);
       for (var i = 1; i < selected.length; i++) {
-        notifier?.addSelection(selected[i]); // Add rest to selection
+        notifier?.addSelection(selected[i]);
       }
     }
   }
@@ -1381,10 +1345,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
   void _handleMoveTool(Offset mapPosition, {required bool isStart}) {
     if (isStart) {
       if (notifier?.selectedObjects.isEmpty ?? true) return;
-      // final hitObject = _getObjectAt(mapPosition, _selectedLayerId);
-      // if (hitObject == null || !notifier!.selectedObjects.contains(hitObject)) {
-      //   return;
-      // }
       
       notifier?.beginObjectChange(_selectedLayerId);
       setState(() {
@@ -1409,7 +1369,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
           obj.y = initialPos.y + delta.dy;
         }
       }
-      setState(() {}); // Trigger repaint
+      setState(() {});
     }
   }
 
@@ -1461,7 +1421,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
     if (layer is! ObjectGroup || _previewShape == null) return;
 
-    // beginObjectChange was already called in _handleCreateTool
     
     final rect = _previewShape!;
     final newId = notifier!.map.nextObjectId ?? 1;
@@ -1494,14 +1453,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         break;
       case ObjectTool.addText:
         newObject.text = tiled.Text(text: 'New Text');
-        // Text objects are implicitly rectangular for their bounds
         newObject.rectangle = true;
         break;
       case ObjectTool.addPoint:
         newObject.point = true;
         break;
       default:
-        // This function should only be called for shape tools
         break;
     }
   }
@@ -1512,15 +1469,12 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     
     if (isStart) {
       if (_inProgressPoints.isEmpty) {
-        // This is the very first point of a new shape
         notifier?.beginObjectChange(_selectedLayerId);
       }
       setState(() {
-        // On tap down, add a new point to the list. This point will be updated on drag.
         _inProgressPoints.add(point);
       });
     } else {
-      // This is a drag update (pan).
       if (_inProgressPoints.isNotEmpty) {
         setState(() {
           _inProgressPoints[_inProgressPoints.length - 1] = point;
@@ -1534,10 +1488,8 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final layer =
         notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
     if (layer is! ObjectGroup || _inProgressPoints.length < 2) {
-      // Clear any stray points and exit
       setState(() {
         if (_inProgressPoints.isNotEmpty) {
-          // No need to create a history entry if nothing was created.
           _inProgressPoints.clear();
         }
       });
@@ -1545,7 +1497,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       return;
     }
 
-    // beginObjectChange was already called on the first tap.
 
     final newId = notifier!.map.nextObjectId ?? 1;
     final minX = _inProgressPoints.map((p) => p.x).reduce(min);
@@ -1557,8 +1508,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         .map((p) => Point(x: p.x - minX, y: p.y - minY))
         .toList();
 
-    // CORRECTED: Set the object's position to the top-left of the AABB,
-    // and set its width and height.
     final newObject = TiledObject(
       id: newId,
       x: minX,
@@ -1623,7 +1572,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
               painter: TiledMapPainter(
                 map: map,
                 assetDataMap: assetDataMap,
-                tmxToProjectPaths: _tmxToProjectPaths,
+                mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,
                 selectedObjects: notifier!.selectedObjects,
@@ -1678,10 +1627,10 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
                   onInspectSelectedTileset: _inspectSelectedTileset,
                   onDeleteSelectedTileset: _deleteSelectedTileset,
                   onClearUnusedTilesets: _clearUnusedTilesets,
+                  mapContextPath: _getMapContextPath(),
                 ),
               ),
             ),
-            // --- UPDATED LAYERS PANEL POSITIONING ---
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
@@ -1701,12 +1650,10 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
                   notifier!.selectObject(obj);
                   syncCommandContext();
                 },
-                // Visibility
                 onLayerVisibilityChanged: (id) => notifier!.toggleLayerVisibility(id),
                 onObjectVisibilityChanged: (layerId, objectId) => 
                     notifier!.toggleObjectVisibility(layerId, objectId),
                 
-                // Reorder
                 onLayerReorder: (oldIndex, newIndex) {
                   notifier!.reorderLayer(oldIndex, newIndex);
                 },
@@ -1716,13 +1663,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
                 
                 onAddLayer: _addLayer,
                 
-                // Delete
                 onLayerDelete: _deleteLayer,
                 onObjectDelete: (layerId, objectId) {
                   notifier!.deleteObject(layerId, objectId);
                 },
                 
-                // Inspect
                 onLayerInspect: _showLayerInspector,
                 onObjectInspect: _inspectObject,
               ),
@@ -1752,7 +1697,6 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
     syncCommandContext();
   }
 
-  // ... (Other override methods are unchanged) ...
   @override
   Future<EditorContent> getContent() async {
     if (notifier == null) throw Exception("Map is not loaded");

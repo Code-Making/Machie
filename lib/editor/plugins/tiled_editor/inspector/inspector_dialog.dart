@@ -1,6 +1,9 @@
+// FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' as tiled; // Use a prefix
+import 'package:tiled/tiled.dart' as tiled;
+import 'package:path/path.dart' as p;
 
 import 'property_descriptors.dart';
 import 'tiled_reflectors.dart';
@@ -15,6 +18,8 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
   final Map<String, AssetData> assetDataMap;
+  /// The project-relative path of the TMX file, for resolving relative assets.
+  final String contextPath;
 
   const InspectorDialog({
     super.key,
@@ -23,6 +28,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.notifier,
     required this.editorKey,
     required this.assetDataMap,
+    required this.contextPath,
   });
 
   @override
@@ -36,13 +42,11 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   @override
   void initState() {
     super.initState();
-    // Capture the state of the object when the dialog opens.
     _beforeState = _deepCopyTarget(widget.target);
   }
 
   @override
   void dispose() {
-    // If changes were made, record them in the history.
     if (_hasChanges) {
       final afterState = _deepCopyTarget(widget.target);
       widget.notifier.recordPropertyChange(_beforeState, afterState);
@@ -72,7 +76,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     if (target is tiled.Tileset) {
       return deepCopyTileset(target);
     }
-    return target; // Fallback
+    return target;
   }
 
   void _onUpdate() {
@@ -80,7 +84,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     setState(() {
       _hasChanges = true;
     });
-    // This live-updates the main editor view as properties are changed.
     widget.notifier.notifyListeners();
   }
 
@@ -112,8 +115,16 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
-      final imageAsset = widget.assetDataMap[descriptor.currentValue];
+      
+      // Resolve path
+      final rawPath = descriptor.currentValue;
+      final contextDir = p.dirname(widget.contextPath);
+      final combined = p.join(contextDir, rawPath);
+      final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
+      
+      final imageAsset = widget.assetDataMap[canonicalKey];
       final parentObject = (parentDescriptor as ObjectPropertyDescriptor).target;
+      
       return PropertyImagePathInput(
         descriptor: descriptor,
         onUpdate: _onUpdate,
@@ -133,7 +144,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        assetDataMap: widget.assetDataMap, // Pass the asset map!
+        assetDataMap: widget.assetDataMap,
       );
     }
     if (descriptor is BoolPropertyDescriptor) {
@@ -177,7 +188,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         final imageDescriptors = nestedObject.getDescriptors(descriptor.target!);
         return ExpansionTile(
           title: Text(descriptor.label),
-          // Pass the current ObjectPropertyDescriptor as the parent to its children
           children: imageDescriptors.map((childDesc) => _buildPropertyWidget(childDesc, parentDescriptor: descriptor)).toList(),
         );
       }
