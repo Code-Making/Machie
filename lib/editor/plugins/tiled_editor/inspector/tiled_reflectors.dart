@@ -1,5 +1,3 @@
-// lib/editor/plugins/tiled_editor/inspector/tiled_reflectors.dart
-
 import 'package:tiled/tiled.dart';
 import 'property_descriptors.dart';
 
@@ -30,22 +28,19 @@ extension on ColorData {
 }
 
 // --- THE NEW REFLECTOR CLASS ---
-// Its only job is to dispatch to the correct extension method.
 class TiledReflector {
   static List<PropertyDescriptor> getDescriptors(Object? obj) {
     if (obj == null) return [];
     
-    // The switch is gone! Now we use polymorphism via extensions.
     if (obj is TiledMap) return obj.getDescriptors();
-    if (obj is Layer) return obj.getDescriptors(); // Catches all layer types
+    if (obj is Layer) return obj.getDescriptors();
     if (obj is Tileset) return obj.getDescriptors();
     if (obj is TiledObject) return obj.getDescriptors();
-    if (obj is TiledImage) return obj.getDescriptors(null); // Parent must be supplied by caller
+    if (obj is TiledImage) return obj.getDescriptors(null);
 
     return [];
   }
 }
-
 
 // --- EXTENSIONS FOR EACH TILED TYPE ---
 
@@ -58,6 +53,8 @@ extension TiledMapReflector on TiledMap {
       IntPropertyDescriptor(name: 'tileWidth', label: 'Tile Width (px)', getter: () => tileWidth, setter: (v) => tileWidth = v),
       IntPropertyDescriptor(name: 'tileHeight', label: 'Tile Height (px)', getter: () => tileHeight, setter: (v) => tileHeight = v),
       ColorPropertyDescriptor(name: 'backgroundColor', label: 'Background Color', getter: () => backgroundColorHex, setter: (v) => backgroundColorHex = v),
+      
+      // --- Texture Packer Sources ---
       FileListPropertyDescriptor(
         name: 'tp_atlases', 
         label: 'Linked Atlases (.tpacker)', 
@@ -69,9 +66,13 @@ extension TiledMapReflector on TiledMap {
           return [];
         }, 
         setter: (List<String> files) {
-          properties['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
+          // Fix: Create new map, modify, reassign CustomProperties
+          final newProps = Map<String, Property>.from(properties.byName);
+          newProps['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
+          properties = CustomProperties(newProps);
         }
       ),
+
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
   }
@@ -132,7 +133,7 @@ extension TiledObjectReflector on TiledObject {
       IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => id, setter: (v) {}, isReadOnly: true),
       StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => name, setter: (v) => name = v),
       StringPropertyDescriptor(name: 'type', label: 'Type', getter: () => type, setter: (v) => type = v),
-      StringPropertyDescriptor(name: 'class', label: 'Class', getter: () => class_, setter: (v) {}, isReadOnly: true), // CORRECTED: Now read-only
+      StringPropertyDescriptor(name: 'class', label: 'Class', getter: () => class_, setter: (v) {}, isReadOnly: true),
       BoolPropertyDescriptor(name: 'visible', label: 'Visible', getter: () => visible, setter: (v) => visible = v),
       DoublePropertyDescriptor(name: 'x', label: 'X', getter: () => x, setter: (v) => x = v),
       DoublePropertyDescriptor(name: 'y', label: 'Y', getter: () => y, setter: (v) => y = v),
@@ -140,7 +141,9 @@ extension TiledObjectReflector on TiledObject {
       DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => height, setter: (v) => height = v),
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => rotation, setter: (v) => rotation = v),
       IntPropertyDescriptor(name: 'gid', label: 'GID (Tile)', getter: () => gid ?? 0, setter: (v) => gid = v > 0 ? v : null),
-            SpriteReferencePropertyDescriptor(
+      
+      // --- Texture Packer Sprite Reference ---
+      SpriteReferencePropertyDescriptor(
         name: 'tp_sprite',
         label: 'Texture Packer Sprite',
         getter: () {
@@ -148,13 +151,17 @@ extension TiledObjectReflector on TiledObject {
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
+          // Fix: Create new map, modify, reassign CustomProperties
+          final newProps = Map<String, Property>.from(properties.byName);
           if (val.isEmpty) {
-            properties.remove('tp_sprite');
+            newProps.remove('tp_sprite');
           } else {
-            properties['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+            newProps['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
           }
+          properties = CustomProperties(newProps);
         },
       ),
+
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
 
