@@ -1,15 +1,6 @@
-import 'dart:convert';
-import 'dart:ui' as ui;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
-import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'package:machine/utils/texture_packer_algo.dart';
+// ... imports
 
 class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAssetData> {
-  
   @override
   bool canLoad(ProjectDocumentFile file) {
     return file.name.toLowerCase().endsWith('.tpacker');
@@ -49,41 +40,47 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     final content = await repo.readFile(file.uri);
     final project = TexturePackerProject.fromJson(jsonDecode(content));
 
-    // 1. Resolve Dependencies (Source Images)
-    // We assume these are already loaded by the AssetNotifier before load() is called.
     final Map<String, ui.Image> sourceImages = {};
     
-    // Helper to recursively find image paths again (same as getDependencies)
-    // We map the path to the loaded ui.Image.
-    void collectImages(SourceImageNode node) async {
+    // 1. Resolve Dependencies (Source Images)
+    // We assume these are already loaded by the AssetNotifier before load() is called.
+    
+    // Use a loop to handle async loads sequentially or Future.wait for parallel
+    final sourceNodes = <SourceImageNode>[];
+    void collectNodes(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
-        final path = node.content!.path;
-        if (path.isNotEmpty) {
-          // Use ref.read because dependencies are guaranteed to be ready
+        sourceNodes.add(node);
+      }
+      for (final child in node.children) collectNodes(child);
+    }
+    collectNodes(project.sourceImagesRoot);
+
+    for (final node in sourceNodes) {
+      final path = node.content!.path;
+      if (path.isNotEmpty) {
+        try {
+          // Use ref.read because dependencies are guaranteed to be ready by the AssetNotifier
           final assetData = await ref.read(assetDataProvider(path).future);
           if (assetData is ImageAssetData) {
-            sourceImages[node.id] = assetData.image; // Map by Node ID for easy lookup
+            sourceImages[node.id] = assetData.image;
           }
+        } catch (e) {
+          // Log warning but continue loading the rest of the atlas
+          print('TexturePackerLoader: Failed to load source image $path: $e');
         }
       }
-      for (final child in node.children) collectImages(child);
     }
-    collectImages(project.sourceImagesRoot);
-    
-    // Wait a tick just to ensure sync access isn't an issue, although ref.read should be fine
-    // if getDependencies worked correctly. In a strict sense, we might need to await
-    // individual provider futures if they weren't 'watched' but 'read' inside build.
-    // However, assetDataProvider logic ensures they are watched.
     
     // 2. Prepare Items for Packing
     final packerItems = <PackerInputItem<SpriteDefinition>>[];
-    final spriteNames = <String, String>{}; // Definition ID -> Sprite Name
+    final spriteNames = <String, String>{}; 
 
     void collectSprites(PackerItemNode node) {
       if (node.type == PackerItemType.sprite) {
         final def = project.definitions[node.id];
         if (def is SpriteDefinition) {
           final sourceImage = sourceImages[def.sourceImageId];
+          // ONLY add if source image was successfully loaded
           if (sourceImage != null) {
             final sourceConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId);
             if (sourceConfig != null) {
@@ -92,31 +89,28 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
               packerItems.add(PackerInputItem(
                 width: pxRect.width,
                 height: pxRect.height,
-                data: def, // We store the definition to link back later
+                data: def, 
               ));
               spriteNames[node.id] = node.name;
             }
           }
         }
       } else {
-        // Recursively check children (Folders, Animations)
         for(final child in node.children) collectSprites(child);
       }
     }
     collectSprites(project.tree);
 
+    // ... (Steps 3 and 4 remain exactly the same as previous Phase 1 code) ...
     // 3. Run Packing Algorithm
-    final packer = MaxRectsPacker(padding: 2); // 2px padding for safety
+    final packer = MaxRectsPacker(padding: 2);
     final result = packer.pack(packerItems);
 
     // 4. Build Result Data
     final frames = <String, TexturePackerSpriteData>{};
     final animations = <String, List<String>>{};
 
-    // 4a. Map packed items back to their names and source data
     for (final item in result.items) {
-      // Find the node ID associated with this definition
-      // (Inefficient reverse lookup, but dataset is usually small < 1000 sprites)
       final nodeId = project.definitions.entries
           .firstWhere((e) => e.value == item.data)
           .key;
@@ -135,7 +129,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       );
     }
 
-    // 4b. Collect Animations
     void collectAnimations(PackerItemNode node) {
       if (node.type == PackerItemType.animation) {
         final frameNames = node.children
@@ -157,9 +150,8 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       metaSize: ui.Size(result.width, result.height),
     );
   }
-
-  // --- Helpers ---
-
+  
+  // ... Helpers (_findSourceConfig, _calculatePixelRect) remain the same ...
   SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
     if (node.id == id && node.type == SourceNodeType.image) return node.content;
     for (final child in node.children) {
