@@ -1,7 +1,3 @@
-// =========================================
-// REFACTORED FILE: lib/editor/plugins/tiled_editor/tiled_map_painter.dart
-// =========================================
-
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart'hide StringProperty;
@@ -14,7 +10,9 @@ import '../../../asset_cache/asset_models.dart';
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
   final Map<String, AssetData> assetDataMap;
-  final Map<String, String> tmxToProjectPaths; // New Field
+  /// The project-relative path of the TMX file being edited.
+  /// Used to resolve relative paths found in the map data.
+  final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
   
@@ -32,7 +30,7 @@ class TiledMapPainter extends CustomPainter {
   TiledMapPainter({
     required this.map,
     required this.assetDataMap,
-    required this.tmxToProjectPaths,
+    required this.mapContextPath,
     required this.showGrid,
     required this.transform,
     this.selectedObjects = const [],
@@ -45,23 +43,22 @@ class TiledMapPainter extends CustomPainter {
   });
   
   ui.Image? _getImage(String? sourcePath) {
-    if (sourcePath == null) return null;
+    if (sourcePath == null || sourcePath.isEmpty) return null;
     
-    // 1. Try resolving using the TMX-to-Project map
-    final projectPath = tmxToProjectPaths[sourcePath];
+    // Resolve the relative path from the TMX file location to a project-relative canonical path
+    final contextDir = p.dirname(mapContextPath);
+    final combined = p.join(contextDir, sourcePath);
+    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
     
-    // 2. Lookup the asset using the resolved project path
-    if (projectPath != null) {
-      final asset = assetDataMap[projectPath];
-      if (asset is ImageAssetData) {
-        return asset.image;
-      }
+    final asset = assetDataMap[canonicalKey];
+    if (asset is ImageAssetData) {
+      return asset.image;
     }
-    
-    // 3. Fallback: Check if the sourcePath happens to be the key directly (e.g. root files)
+
+    // Fallback: try direct lookup in case it was stored as absolute/canonical
     if (assetDataMap.containsKey(sourcePath)) {
-        final asset = assetDataMap[sourcePath];
-        if (asset is ImageAssetData) return asset.image;
+        final fallbackAsset = assetDataMap[sourcePath];
+        if (fallbackAsset is ImageAssetData) return fallbackAsset.image;
     }
 
     return null;
@@ -88,12 +85,13 @@ class TiledMapPainter extends CustomPainter {
   }
   
   TexturePackerSpriteData? _findSpriteData(String spriteName) {
+    // TexturePacker assets are self-contained, so looking them up by sprite name
+    // across all loaded assets is acceptable for now, though ideally we'd link to a specific atlas.
     for (final asset in assetDataMap.values) {
       if (asset is TexturePackerAssetData) {
         if (asset.frames.containsKey(spriteName)) {
           return asset.frames[spriteName];
         }
-        // Basic animation support: if it's an animation name, pick first frame
         if (asset.animations.containsKey(spriteName)) {
           final firstFrame = asset.animations[spriteName]!.firstOrNull;
           if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
