@@ -19,6 +19,8 @@ import '../../../command/command_widgets.dart';
 import 'widgets/texture_packer_settings_widget.dart';
 import 'texture_packer_settings.dart';
 import 'texture_packer_loader.dart'; // Import the new file
+import 'widgets/texture_packer_export_dialog.dart'; // Add this import
+import 'texture_packer_loader.dart'; // Add this import from Phase 1
 
 class TexturePackerPlugin extends EditorPlugin {
   // --- COMMAND SYSTEM REFACTOR ---
@@ -197,6 +199,25 @@ class TexturePackerPlugin extends EditorPlugin {
           // We need the editor context to show the dialog.
           if (editor?.mounted == true) {
             await SlicingPropertiesDialog.show(editor!.context, editor.widget.tab.id, editor.notifier);
+          }
+        },
+      ),
+      BaseCommand(
+        id: 'packer_export_atlas',
+        label: 'Export Atlas',
+        icon: const Icon(Icons.output),
+        defaultPositions: [AppCommandPositions.appBar], // Or pluginToolbar
+        sourcePlugin: id,
+        execute: (ref) async {
+          final editor = _getEditorState(ref);
+          if (editor?.mounted == true) {
+            await showDialog(
+              context: editor!.context,
+              builder: (_) => TexturePackerExportDialog(
+                tabId: editor.widget.tab.id,
+                notifier: editor.notifier,
+              ),
+            );
           }
         },
       ),
