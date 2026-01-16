@@ -12,4 +12,5 @@ enum ObjectTool {
   addPolygon,
   addPolyline,
   addText,
+  addSprite,
 }

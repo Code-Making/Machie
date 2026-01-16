@@ -43,6 +43,9 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
 import 'widgets/export_dialog.dart';
 
+import 'widgets/sprite_picker_dialog.dart'; // Import
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart'; // Import for models
+
 class TiledEditorWidget extends EditorWidget {
   @override
   final TiledEditorTab tab;
@@ -1140,6 +1143,93 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       (offset.dy / tileHeight).round() * tileHeight,
     );
   }
+  
+  TexturePackerSpriteData? _findSpriteDataInAssets(String spriteName) {
+    final assetMap = _getAssetDataMap();
+    if (assetMap == null) return null;
+
+    for (final asset in assetMap.values) {
+      if (asset is TexturePackerAssetData) {
+        if (asset.frames.containsKey(spriteName)) {
+          return asset.frames[spriteName];
+        }
+        // Check animations too (use first frame)
+        if (asset.animations.containsKey(spriteName)) {
+          final firstFrame = asset.animations[spriteName]!.firstOrNull;
+          if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
+            return asset.frames[firstFrame];
+          }
+        }
+      }
+    }
+    return null;
+  }
+  
+  Future<void> _createSpriteObjectFromTap() async {
+    final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
+    if (layer is! ObjectGroup || _dragStartMapPosition == null) return;
+
+    // 1. Collect all available sprite names
+    final assetMap = _getAssetDataMap();
+    if (assetMap == null) return;
+
+    final List<String> allSpriteNames = [];
+    assetMap.forEach((key, value) {
+      if (value is TexturePackerAssetData) {
+        allSpriteNames.addAll(value.frames.keys);
+        allSpriteNames.addAll(value.animations.keys);
+      }
+    });
+    
+    if (allSpriteNames.isEmpty) {
+      MachineToast.info("No sprites available. Link a .tpacker file in Map Properties.");
+      return;
+    }
+    allSpriteNames.sort();
+
+    // 2. Show Picker
+    final selectedSprite = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SpritePickerDialog(spriteNames: allSpriteNames),
+    );
+
+    if (selectedSprite == null) return;
+
+    // 3. Get Dimensions
+    final spriteData = _findSpriteDataInAssets(selectedSprite);
+    if (spriteData == null) return; // Should not happen
+
+    notifier?.beginObjectChange(_selectedLayerId);
+
+    final newId = notifier!.map.nextObjectId ?? 1;
+    final width = spriteData.sourceRect.width;
+    final height = spriteData.sourceRect.height;
+
+    // Center the sprite on the tap position (optional, or top-left)
+    // Let's do Top-Left to match Tiled default, or center if that feels better.
+    // Tiled usually places click at top-left.
+    final x = _dragStartMapPosition!.dx;
+    final y = _dragStartMapPosition!.dy;
+
+    final newObject = TiledObject(
+      id: newId,
+      name: selectedSprite, // Auto-name the object
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      properties: CustomProperties({
+        'tp_sprite': Property(name: 'tp_sprite', type: PropertyType.string, value: selectedSprite)
+      }),
+    );
+
+    layer.objects.add(newObject);
+    notifier!.map.nextObjectId = newId + 1;
+    notifier!.endObjectChange(_selectedLayerId);
+    notifier!.selectObject(newObject);
+    
+    setState(() {});
+  }
 
   void _handleObjectInteraction(Offset localPosition, {bool isStart = false}) {
     final layer = notifier?.map.layers.firstWhereOrNull((l) => l.id == _selectedLayerId);
@@ -1193,6 +1283,11 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
           } else {
             // It was a tap, create a default-sized object
             _createShapeFromTap();
+          }
+          break;
+        case ObjectTool.addSprite:
+          if (!didDrag) {
+            _createSpriteObjectFromTap();
           }
           break;
         case ObjectTool.addPolygon:
