@@ -8,6 +8,7 @@ import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
+import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 
 class TexturePackerExportDialog extends ConsumerStatefulWidget {
   final String tabId;
