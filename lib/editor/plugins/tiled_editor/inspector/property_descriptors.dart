@@ -187,3 +187,36 @@ class CustomPropertiesDescriptor extends PropertyDescriptor {
     }
   }
 }
+
+// A descriptor for a comma-separated list of file paths (used for tp_atlases)
+class FileListPropertyDescriptor extends PropertyDescriptor {
+  final List<String> Function() getter;
+  final void Function(List<String>) setter;
+
+  const FileListPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    super.isReadOnly,
+  });
+
+  @override
+  List<String> get currentValue => getter();
+  
+  @override
+  void updateValue(dynamic newValue) {
+    if (newValue is List<String>) setter(newValue);
+  }
+}
+
+// A descriptor for selecting a single sprite name from loaded atlases
+class SpriteReferencePropertyDescriptor extends StringPropertyDescriptor {
+  const SpriteReferencePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+    super.isReadOnly,
+  });
+}

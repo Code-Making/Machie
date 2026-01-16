@@ -122,6 +122,20 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         parentObject: parentObject!,
       );
     }
+    if (descriptor is FileListPropertyDescriptor) {
+      return PropertyFileListEditor(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        editorKey: widget.editorKey,
+      );
+    }
+    if (descriptor is SpriteReferencePropertyDescriptor) {
+      return PropertySpriteSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        assetDataMap: widget.assetDataMap, // Pass the asset map!
+      );
+    }
     if (descriptor is BoolPropertyDescriptor) {
       return PropertyBoolSwitch(descriptor: descriptor, onUpdate: _onUpdate);
     }

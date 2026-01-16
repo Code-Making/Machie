@@ -87,6 +87,24 @@ class TiledMapPainter extends CustomPainter {
     }
   }
   
+  TexturePackerSpriteData? _findSpriteData(String spriteName) {
+    for (final asset in assetDataMap.values) {
+      if (asset is TexturePackerAssetData) {
+        if (asset.frames.containsKey(spriteName)) {
+          return asset.frames[spriteName];
+        }
+        // Basic animation support: if it's an animation name, pick first frame
+        if (asset.animations.containsKey(spriteName)) {
+          final firstFrame = asset.animations[spriteName]!.firstOrNull;
+          if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
+            return asset.frames[firstFrame];
+          }
+        }
+      }
+    }
+    return null;
+  }
+  
   void _paintFloatingSelection(Canvas canvas) {
     final selection = floatingSelection!;
     final position = floatingSelectionPosition!;
@@ -500,11 +518,60 @@ Matrix4 applyParallax(
       if (!object.visible) continue;
 
       canvas.save();
+      
+      // 1. Check for Texture Packer Sprite
+      final tpSpriteProp = object.properties.where((p) => p.name == 'tp_sprite').firstOrNull;
+      final String? spriteName = (tpSpriteProp is StringProperty) ? tpSpriteProp.value : null;
+
+      
       if (object.rotation != 0) {
         canvas.translate(object.x + object.width / 2, object.y + object.height / 2);
         canvas.rotate(vector.radians(object.rotation));
         canvas.translate(-(object.x + object.width / 2), -(object.y + object.height / 2));
       }
+      
+      bool customDrawDone = false;
+
+      if (spriteName != null && spriteName.isNotEmpty) {
+        final spriteData = _findSpriteData(spriteName);
+        if (spriteData != null) {
+          // Draw the sprite!
+          // We map the sprite's bounds to the object's bounds.
+          // Tiled objects normally anchor top-left.
+          
+          final srcRect = spriteData.sourceRect;
+          final dstRect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
+          
+          // Optionally, if object has size 0,0 (default point), use sprite size
+          final drawRect = (object.width == 0 && object.height == 0)
+              ? Rect.fromLTWH(object.x, object.y - srcRect.height, srcRect.width, srcRect.height) // Tiled Points are bottom-left anchored visually usually, but coordinate is top-left. Let's align to Tiled conventions or simple top-left.
+              // Actually Tiled Point Objects are just X,Y.
+              // If it is a Tiled Rectangle with size, we stretch.
+              : dstRect;
+
+          // Correction: Tiled Image Objects draw from Bottom-Left if they are Tiles, but Top-Left if they are objects?
+          // Standard Tiled objects are Top-Left. 
+          // However, if we replace a "Point" with a sprite, we typically center it or bottom-center it.
+          // For simplicity, we fill the `drawRect`.
+          
+          canvas.drawImageRect(
+            spriteData.sourceImage, 
+            srcRect, 
+            drawRect, 
+            Paint()..filterQuality = ui.FilterQuality.none
+          );
+          
+          // Draw selection outline on top if selected
+          if (selectedObjects.contains(object)) {
+             final strokePaint = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
+             canvas.drawRect(drawRect, strokePaint);
+          }
+          
+          customDrawDone = true;
+        }
+      }
+
+      if (!customDrawDone) {
 
       // 1. Draw the main object shape/tile first.
       if (object.gid != null) {
@@ -554,6 +621,7 @@ Matrix4 applyParallax(
             canvas.drawPath(path, strokePaint);
           }
         }
+      }
       }
 
       // 2. AFTER drawing the shape, check for and draw text on top.
