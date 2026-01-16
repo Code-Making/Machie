@@ -6,6 +6,69 @@ import '../data/repositories/project/project_repository.dart';
 import '../project/project_models.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 
+/// Defines how a file path should be interpreted when resolving an asset.
+enum AssetPathMode {
+  /// The path is relative to the project root (e.g., "assets/images/sprite.png").
+  /// This is the canonical key format used in the AssetMap.
+  projectRelative,
+
+  /// The path is relative to the document currently being edited (e.g., "../images/sprite.png"
+  /// inside a "maps/level1.tmx" file).
+  relativeToContext,
+}
+
+/// A key used to request an asset through the [resolvedAssetProvider].
+@immutable
+class AssetQuery {
+  final String path;
+  final AssetPathMode mode;
+  
+  /// The project-relative path of the file initiating the request.
+  /// Required if [mode] is [AssetPathMode.relativeToContext].
+  final String? contextPath;
+
+  const AssetQuery({
+    required this.path,
+    this.mode = AssetPathMode.projectRelative,
+    this.contextPath,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AssetQuery &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          mode == other.mode &&
+          contextPath == other.contextPath;
+
+  @override
+  int get hashCode => Object.hash(path, mode, contextPath);
+}
+
+/// Parameter object for the [resolvedAssetProvider] family.
+@immutable
+class ResolvedAssetRequest {
+  final String tabId;
+  final AssetQuery query;
+
+  const ResolvedAssetRequest({
+    required this.tabId,
+    required this.query,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResolvedAssetRequest &&
+          runtimeType == other.runtimeType &&
+          tabId == other.tabId &&
+          query == other.query;
+
+  @override
+  int get hashCode => Object.hash(tabId, query);
+}
+
 /// A sealed class representing the state of a cached asset.
 @immutable
 abstract class AssetData {
