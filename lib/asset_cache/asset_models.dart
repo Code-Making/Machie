@@ -63,11 +63,11 @@ class TexturePackerSpriteData {
   final ui.Image sourceImage;
   
   /// The region within [sourceImage] that defines this sprite.
-  final Rect sourceRect;
+  final ui.Rect sourceRect;
   
   /// The logical position where this sprite would be in the packed atlas.
   /// Used for export coordinates or previewing the atlas layout.
-  final Rect packedRect;
+  final ui.Rect packedRect;
   
   /// Whether the sprite is rotated in the pack (not fully implemented in Phase 1).
   final bool rotated;
