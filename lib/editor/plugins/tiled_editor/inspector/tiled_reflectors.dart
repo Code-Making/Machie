@@ -33,7 +33,7 @@ class TiledReflector {
     if (obj == null) return [];
     
     if (obj is TiledMap) return obj.getDescriptors();
-    if (obj is Layer) return obj.getDescriptors();
+    if (obj is Layer) return obj.getDescriptors(); 
     if (obj is Tileset) return obj.getDescriptors();
     if (obj is TiledObject) return obj.getDescriptors();
     if (obj is TiledImage) return obj.getDescriptors(null);
@@ -54,7 +54,7 @@ extension TiledMapReflector on TiledMap {
       IntPropertyDescriptor(name: 'tileHeight', label: 'Tile Height (px)', getter: () => tileHeight, setter: (v) => tileHeight = v),
       ColorPropertyDescriptor(name: 'backgroundColor', label: 'Background Color', getter: () => backgroundColorHex, setter: (v) => backgroundColorHex = v),
       
-      // --- Texture Packer Sources ---
+      // --- NEW: Texture Packer Sources ---
       FileListPropertyDescriptor(
         name: 'tp_atlases', 
         label: 'Linked Atlases (.tpacker)', 
@@ -66,10 +66,8 @@ extension TiledMapReflector on TiledMap {
           return [];
         }, 
         setter: (List<String> files) {
-          // Fix: Create new map, modify, reassign CustomProperties
-          final newProps = Map<String, Property>.from(properties.byName);
-          newProps['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
-          properties = CustomProperties(newProps);
+          // FIX: Access .byName to set the property
+          properties.byName['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
         }
       ),
 
@@ -142,7 +140,7 @@ extension TiledObjectReflector on TiledObject {
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => rotation, setter: (v) => rotation = v),
       IntPropertyDescriptor(name: 'gid', label: 'GID (Tile)', getter: () => gid ?? 0, setter: (v) => gid = v > 0 ? v : null),
       
-      // --- Texture Packer Sprite Reference ---
+      // --- NEW: Sprite Reference ---
       SpriteReferencePropertyDescriptor(
         name: 'tp_sprite',
         label: 'Texture Packer Sprite',
@@ -151,14 +149,13 @@ extension TiledObjectReflector on TiledObject {
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
-          // Fix: Create new map, modify, reassign CustomProperties
-          final newProps = Map<String, Property>.from(properties.byName);
           if (val.isEmpty) {
-            newProps.remove('tp_sprite');
+            // FIX: Access .byName to remove the property
+            properties.byName.remove('tp_sprite');
           } else {
-            newProps['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+            // FIX: Access .byName to set the property
+            properties.byName['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
           }
-          properties = CustomProperties(newProps);
         },
       ),
 
