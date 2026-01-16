@@ -18,6 +18,7 @@ import 'widgets/slicing_properties_dialog.dart';
 import '../../../command/command_widgets.dart';
 import 'widgets/texture_packer_settings_widget.dart';
 import 'texture_packer_settings.dart';
+import 'texture_packer_loader.dart'; // Import the new file
 
 class TexturePackerPlugin extends EditorPlugin {
   // --- COMMAND SYSTEM REFACTOR ---
@@ -45,6 +46,11 @@ class TexturePackerPlugin extends EditorPlugin {
   bool supportsFile(DocumentFile file) {
     return file.name.toLowerCase().endsWith('.tpacker');
   }
+
+  @override
+  List<AssetLoader> get assetLoaders => [
+    TexturePackerAssetLoader(),
+  ];
 
   @override
   PluginSettings? get settings => TexturePackerSettings();
