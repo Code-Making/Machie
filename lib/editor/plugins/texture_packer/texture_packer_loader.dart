@@ -1,4 +1,12 @@
-// ... imports
+import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/asset_cache/asset_models.dart';
+import 'package:machine/asset_cache/asset_providers.dart';
+import 'package:machine/data/file_handler/file_handler.dart';
+import 'package:machine/data/repositories/project/project_repository.dart';
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
+import 'package:machine/utils/texture_packer_algo.dart';
 
 class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAssetData> {
   @override
