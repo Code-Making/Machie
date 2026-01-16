@@ -9,6 +9,221 @@ import '../../../../widgets/dialogs/folder_picker_dialog.dart';
 import '../image_load_result.dart';
 import '../../../../utils/toast.dart';
 import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
+import 'package:machine/asset_cache/asset_models.dart';
+
+class PropertyFileListEditor extends StatelessWidget {
+  final FileListPropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final GlobalKey<TiledEditorWidgetState> editorKey;
+
+  const PropertyFileListEditor({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.editorKey,
+  });
+
+  Future<void> _addFile(BuildContext context) async {
+    // We reuse logic from the editor widget to resolve paths, or we do it here.
+    // Ideally, we ask the user for a file, then convert it to a relative path relative to the TMX.
+    
+    // Note: To implement this cleanly, we need access to the repo and current TMX path.
+    // Since we are inside the InspectorDialog which is inside the Editor, we can pass context or
+    // use a callback. For now, let's assume standard file picker dialog returning relative path.
+    
+    // Simplification: We assume the user picks a file, and we get the path.
+    // In a real implementation, we'd need to calculate the relative path from the TMX location.
+    // Here we will rely on the standard "FileOrFolderPickerDialog" returning a project-relative path
+    // and then we might need to adjust it if the TMX is in a subdirectory.
+    
+    // Getting the TMX folder requires access to the tab metadata or repo.
+    // For this implementation, we will assume paths are stored relative to Project Root for display
+    // in this specific widget, but the Tiled spec requires relative to TMX. 
+    // *Correction*: The TiledEditorWidget logic we wrote expects paths relative to TMX.
+    // We will let the user type/paste or pick, and assume the picker returns project-relative.
+    // A robust "make relative" function would be needed here.
+    
+    // Placeholder for "Add" logic:
+    final paths = List<String>.from(descriptor.currentValue);
+    final newPath = await showDialog<String>(
+      context: context,
+      builder: (_) => const FileOrFolderPickerDialog(), // Returns project-relative path
+    );
+    
+    if (newPath != null) {
+      // TODO: Convert 'newPath' (project relative) to TMX-relative if TMX is not at root.
+      // For Phase 3 MVP, we just add it.
+      paths.add(newPath); 
+      descriptor.updateValue(paths);
+      onUpdate();
+    }
+  }
+
+  void _removeFile(int index) {
+    final paths = List<String>.from(descriptor.currentValue);
+    paths.removeAt(index);
+    descriptor.updateValue(paths);
+    onUpdate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final files = descriptor.currentValue;
+    
+    return ExpansionTile(
+      title: Text(descriptor.label),
+      subtitle: Text('${files.length} linked'),
+      children: [
+        for (int i = 0; i < files.length; i++)
+          ListTile(
+            title: Text(files[i]),
+            trailing: IconButton(
+              icon: const Icon(Icons.close, size: 16),
+              onPressed: () => _removeFile(i),
+            ),
+          ),
+        ListTile(
+          leading: const Icon(Icons.add),
+          title: const Text('Link Texture Packer File'),
+          onTap: () => _addFile(context),
+        ),
+      ],
+    );
+  }
+}
+
+class PropertySpriteSelector extends StatelessWidget {
+  final SpriteReferencePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final Map<String, AssetData> assetDataMap;
+
+  const PropertySpriteSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.assetDataMap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Aggregate all available sprites from loaded TexturePacker assets
+    final Map<String, TexturePackerAssetData> availableAtlases = {};
+    final List<String> allSpriteNames = [];
+
+    assetDataMap.forEach((key, value) {
+      if (value is TexturePackerAssetData) {
+        availableAtlases[key] = value;
+        allSpriteNames.addAll(value.frames.keys);
+        // We could also add animations: value.animations.keys
+      }
+    });
+    
+    allSpriteNames.sort();
+
+    final currentVal = descriptor.currentValue;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(currentVal.isEmpty ? 'None' : currentVal),
+      trailing: const Icon(Icons.arrow_drop_down),
+      onTap: () async {
+        if (allSpriteNames.isEmpty) {
+          MachineToast.info('No .tpacker files linked or loaded.');
+          return;
+        }
+
+        final selected = await showDialog<String>(
+          context: context,
+          builder: (ctx) => _SpritePickerDialog(spriteNames: allSpriteNames),
+        );
+
+        if (selected != null) {
+          descriptor.updateValue(selected);
+          onUpdate();
+        }
+      },
+    );
+  }
+}
+
+class _SpritePickerDialog extends StatefulWidget {
+  final List<String> spriteNames;
+  const _SpritePickerDialog({required this.spriteNames});
+
+  @override
+  State<_SpritePickerDialog> createState() => _SpritePickerDialogState();
+}
+
+class _SpritePickerDialogState extends State<_SpritePickerDialog> {
+  late List<String> _filtered;
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.spriteNames;
+  }
+
+  void _filter(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filtered = widget.spriteNames;
+      } else {
+        _filtered = widget.spriteNames
+            .where((s) => s.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Sprite'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: _filter,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _filtered.length,
+                itemBuilder: (context, index) {
+                  final name = _filtered[index];
+                  return ListTile(
+                    title: Text(name),
+                    onTap: () => Navigator.of(context).pop(name),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(), // Cancel
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(''), // Clear selection
+          child: const Text('Clear'),
+        ),
+      ],
+    );
+  }
+}
 
 class PropertyIntInput extends StatelessWidget {
   final IntPropertyDescriptor descriptor;

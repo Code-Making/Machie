@@ -58,6 +58,20 @@ extension TiledMapReflector on TiledMap {
       IntPropertyDescriptor(name: 'tileWidth', label: 'Tile Width (px)', getter: () => tileWidth, setter: (v) => tileWidth = v),
       IntPropertyDescriptor(name: 'tileHeight', label: 'Tile Height (px)', getter: () => tileHeight, setter: (v) => tileHeight = v),
       ColorPropertyDescriptor(name: 'backgroundColor', label: 'Background Color', getter: () => backgroundColorHex, setter: (v) => backgroundColorHex = v),
+      FileListPropertyDescriptor(
+        name: 'tp_atlases', 
+        label: 'Linked Atlases (.tpacker)', 
+        getter: () {
+          final prop = properties['tp_atlases'];
+          if (prop is StringProperty) {
+            return prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          }
+          return [];
+        }, 
+        setter: (List<String> files) {
+          properties['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
+        }
+      ),
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
   }
@@ -126,6 +140,21 @@ extension TiledObjectReflector on TiledObject {
       DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => height, setter: (v) => height = v),
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => rotation, setter: (v) => rotation = v),
       IntPropertyDescriptor(name: 'gid', label: 'GID (Tile)', getter: () => gid ?? 0, setter: (v) => gid = v > 0 ? v : null),
+            SpriteReferencePropertyDescriptor(
+        name: 'tp_sprite',
+        label: 'Texture Packer Sprite',
+        getter: () {
+          final prop = properties['tp_sprite'];
+          return (prop is StringProperty) ? prop.value : '';
+        },
+        setter: (val) {
+          if (val.isEmpty) {
+            properties.remove('tp_sprite');
+          } else {
+            properties['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+          }
+        },
+      ),
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
 

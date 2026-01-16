@@ -286,61 +286,59 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
-    // Use a temp map to avoid race conditions, then merge
     final newMappings = <String, String>{};
     
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
     
-    // Get the URI of the TMX file itself
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
 
-    // Helper to resolve a path relative to a specific parent URI
     Future<void> resolveAndAdd(String? rawPath, String parentUri) async {
       if (rawPath == null || rawPath.isEmpty) return;
-
       try {
-        // 1. Resolve the absolute URI using the FileHandler's logic (handles '..' and SAF structure)
         final resolvedFile = await repo.fileHandler.resolvePath(parentUri, rawPath);
-        
         if (resolvedFile != null) {
-          // 2. Convert absolute URI to Project-Relative path for the AssetMap
           final displayPath = repo.fileHandler.getPathForDisplay(
             resolvedFile.uri,
             relativeTo: project.rootUri,
           );
           uris.add(displayPath);
-          // 3. Map the raw path from TMX to the canonical Project Path
           newMappings[rawPath] = displayPath;
         }
       } catch (e) {
-        ref.read(talkerProvider).warning('Failed to resolve asset path: $rawPath relative to $parentUri');
+        ref.read(talkerProvider).warning('Failed to resolve path: $rawPath');
       }
     }
 
-    // 1. Process Tilesets
+    // 1. Process Tilesets & Image Layers (Existing logic)
     for (final tileset in map.tilesets) {
-      // Default base is TMX folder
       var currentBaseUri = tmxParentUri;
-
-      // If it's an external tileset (.tsx), resolve relative to the .tsx file
       if (tileset.source != null) {
         final tsxFile = await repo.fileHandler.resolvePath(tmxParentUri, tileset.source!);
         if (tsxFile != null) {
           currentBaseUri = repo.fileHandler.getParentUri(tsxFile.uri);
         }
       }
-      
       await resolveAndAdd(tileset.image?.source, currentBaseUri);
     }
-
-    // 2. Process Image Layers
     for (final layer in map.layers) {
       if (layer is ImageLayer) {
         await resolveAndAdd(layer.image.source, tmxParentUri);
       }
     }
+
+    // --- NEW: Process Linked Texture Packer Atlases ---
+    // Property: tp_atlases (String, comma-separated relative paths)
+    final tpAtlasesProp = map.properties['tp_atlases'];
+    if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
+      final paths = tpAtlasesProp.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      for (final path in paths) {
+        // These paths are relative to the TMX file
+        await resolveAndAdd(path, tmxParentUri);
+      }
+    }
+    // --------------------------------------------------
     
     _tmxToProjectPaths.addAll(newMappings);
     return uris;
