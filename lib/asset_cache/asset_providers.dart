@@ -9,6 +9,45 @@ import 'package:machine/project/project_settings_notifier.dart';
 import '../data/repositories/project/project_repository.dart';
 import 'asset_models.dart';
 import 'asset_loader_registry.dart';
+import 'package:path/path.dart' as p;
+
+/// Resolves an [AssetQuery] into a loaded [AssetData].
+///
+/// This provider handles the translation from context-relative paths (used by editors
+/// like Tiled or Texture Packer) to the canonical project-relative paths used by the AssetMap.
+final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAssetRequest>((ref, request) {
+  // Watch the asset map for the specific tab
+  final assetMapAsync = ref.watch(assetMapProvider(request.tabId));
+  final assetMap = assetMapAsync.valueOrNull;
+  
+  if (assetMap == null) return null;
+
+  String lookupKey;
+
+  if (request.query.mode == AssetPathMode.projectRelative) {
+    // If it's already project relative, use it as is (ensuring separators are consistent)
+    lookupKey = request.query.path.replaceAll(r'\', '/');
+  } else {
+    // Resolve relative to context
+    if (request.query.contextPath == null) {
+      // If we don't have context, we can't resolve a relative path. 
+      // Fallback to treating it as project relative or fail.
+      return null;
+    }
+
+    final contextDir = p.dirname(request.query.contextPath!);
+    final rawPath = request.query.path;
+    
+    // Join and normalize to remove '..' segments
+    final combined = p.join(contextDir, rawPath);
+    final normalized = p.normalize(combined);
+    
+    // Ensure forward slashes for map keys
+    lookupKey = normalized.replaceAll(r'\', '/');
+  }
+
+  return assetMap[lookupKey];
+});
 
 /// A provider that fetches, decodes, and caches a single asset by its
 /// project-relative URI.
