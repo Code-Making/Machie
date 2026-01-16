@@ -1259,7 +1259,13 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       case ObjectTool.addPolyline:
           _handlePolygonTool(mapPosition, isStart: isStart);
         break;
-    }
+      case ObjectTool.addSprite:
+        if (isStart) {
+           // Capture the tap position. The picker logic runs in _handleObjectInteractionEnd.
+           setState(() => _dragStartMapPosition = _snapOffsetToGrid(mapPosition));
+        }
+        break;
+     }
   }
 
   void _handleObjectInteractionEnd() {
