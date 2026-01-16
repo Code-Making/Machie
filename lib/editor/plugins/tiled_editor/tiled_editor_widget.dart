@@ -284,12 +284,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-  Future<Set<String>> _collectAssetUris(TiledMap map) async {
+Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final newMappings = <String, String>{};
     
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
+    final talker = ref.read(talkerProvider);
     
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
     final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
@@ -305,9 +306,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           );
           uris.add(displayPath);
           newMappings[rawPath] = displayPath;
+        } else {
+          talker.warning('TiledEditor: Could not resolve path "$rawPath" relative to "$parentUri"');
         }
       } catch (e) {
-        ref.read(talkerProvider).warning('Failed to resolve path: $rawPath');
+        talker.warning('TiledEditor: Failed to resolve path: $rawPath ($e)');
       }
     }
 
@@ -328,17 +331,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
 
-    // --- NEW: Process Linked Texture Packer Atlases ---
+    // --- FIX: Access properties using .byName ---
     // Property: tp_atlases (String, comma-separated relative paths)
-    final tpAtlasesProp = map.properties['tp_atlases'];
-    if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
-      final paths = tpAtlasesProp.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
-      for (final path in paths) {
-        // These paths are relative to the TMX file
-        await resolveAndAdd(path, tmxParentUri);
+    // Check if property exists first
+    if (map.properties.byName.containsKey('tp_atlases')) {
+      final prop = map.properties.byName['tp_atlases'];
+      if (prop is StringProperty && prop.value.isNotEmpty) {
+        talker.info('TiledEditor: Found linked atlases: ${prop.value}');
+        final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final path in paths) {
+          await resolveAndAdd(path, tmxParentUri);
+        }
       }
     }
-    // --------------------------------------------------
     
     _tmxToProjectPaths.addAll(newMappings);
     return uris;
