@@ -51,14 +51,26 @@ class SlicingView extends ConsumerWidget {
       return const Center(child: Text('Source image not found in hierarchy.'));
     }
 
+    // *** FIX: Watch the resolver provider, not the raw asset map provider. ***
     final resolverAsync = ref.watch(texturePackerAssetResolverProvider(tabId));
 
     return resolverAsync.when(
       data: (resolver) {
+        // *** FIX: Use the resolver to get the image from the local path. ***
         final image = resolver.getImage(sourceConfig.path);
         
         if (image == null) {
-           return Center(child: Text('Failed to load image: ${sourceConfig.path}'));
+           return Center(
+            child: Column(
+              mainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 32),
+                const SizedBox(height: 8),
+                Text('Image not found at path:\n${sourceConfig.path}', textAlign: TextAlign.center),
+                const Text('(relative to the .tpacker file)'),
+              ],
+            )
+          );
         }
         
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
@@ -108,11 +120,12 @@ class SlicingView extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error loading assets: $err')),
+      error: (err, stack) => Center(child: Text('Error resolving assets: $err')),
     );
   }
 }
 
+// ... (The rest of the file, _SlicingPainter, remains unchanged)
 class _SlicingPainter extends CustomPainter {
   final ui.Image image;
   final SlicingConfig slicing;
