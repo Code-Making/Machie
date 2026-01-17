@@ -119,15 +119,20 @@ void _updateAndLoadAssetUris() {
 
     if (project == null || repo == null || tpackerFileMetadata == null) return;
     
-    // GET the project-relative path of the .tpacker file's parent directory, this is our context for relative asset paths.
-    // We assume tpackerFileMetadata.file.path provides the project-relative path of the .tpacker file.
-    final tpackerFilePath = tpackerFileMetadata.file.path;
-    final tpackerPath = p.dirname(tpackerFilePath); // This is the project-relative path of the .tpacker file's directory.
+    // GET the full path of the .tpacker file's parent directory, this is our context for relative asset paths.
+    final tpackerFileUri = tpackerFileMetadata.file.uri;
+    // Use the repository's file handler for path operations.
+    final tpackerDirectoryUri = repo.fileHandler.getParentUri(tpackerFileUri); 
+    final tpackerPath = repo.fileHandler.getPathForDisplay(
+      tpackerDirectoryUri,
+      relativeTo: project.rootUri
+    );
     final resolvedUris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
           // Resolve relative paths of source images relative to the .tpacker file's directory.
+          // Use the repository's path resolution method.
           final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
           resolvedUris.add(resolvedPath);
         }
