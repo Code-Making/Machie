@@ -110,7 +110,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
 
   /// Traverses the SourceImage tree to find all file paths and tells the
-  void _updateAndLoadAssetUris() {
+void _updateAndLoadAssetUris() {
     if (!mounted) return;
 
     final project = ref.read(appNotifierProvider).value?.currentProject;
@@ -119,9 +119,11 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     if (project == null || repo == null || tpackerFileMetadata == null) return;
     
-    // GET the full path of the .tpacker file, this is our context.
+    // GET the full path of the .tpacker file's parent directory, this is our context for relative asset paths.
+    final tpackerFileUri = tpackerFileMetadata.file.uri;
+    final tpackerDirectoryUri = tpackerFileUri.resolve('.'); // Get the directory URI
     final tpackerPath = repo.fileHandler.getPathForDisplay(
-      tpackerFileMetadata.file.uri, 
+      tpackerDirectoryUri, 
       relativeTo: project.rootUri
     );
 
@@ -129,7 +131,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // FIX: Pass the full tpackerPath as the context.
+          // Resolve relative paths of source images relative to the .tpacker file's directory.
           final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
           resolvedUris.add(resolvedPath);
         }
