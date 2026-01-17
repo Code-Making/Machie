@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/texture_packer/widgets/slicing_view.dart
+
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_settings.dart';
 import 'package:machine/settings/settings_notifier.dart';
+import '../texture_packer_asset_resolver.dart';
 
 class SlicingView extends ConsumerWidget {
   final String tabId;
@@ -15,7 +18,6 @@ class SlicingView extends ConsumerWidget {
   final TransformationController transformationController;
   final GridRect? dragSelection;
   final bool isPanZoomMode;
-  // Gestures pass the position back to the controller
   final Function(Offset localPosition) onGestureStart;
   final Function(Offset localPosition) onGestureUpdate;
   final VoidCallback onGestureEnd;
@@ -34,10 +36,8 @@ class SlicingView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Get Active Source Image ID
     final activeSourceId = ref.watch(activeSourceImageIdProvider);
     
-    // 2. Read Settings
     final settings = ref.watch(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
         ?? TexturePackerSettings();
@@ -46,33 +46,23 @@ class SlicingView extends ConsumerWidget {
       return const Center(child: Text('Select a source image from the panel.'));
     }
 
-    // 3. Find Configuration in Tree
     final sourceConfig = notifier.findSourceImageConfig(activeSourceId);
     if (sourceConfig == null) {
       return const Center(child: Text('Source image not found in hierarchy.'));
     }
 
-    // 4. Load Asset
-    final assetMap = ref.watch(assetMapProvider(tabId));
+    final resolverAsync = ref.watch(texturePackerAssetResolverProvider(tabId));
 
-    return assetMap.when(
-      data: (assets) {
-        final imageAsset = assets[sourceConfig.path];
+    return resolverAsync.when(
+      data: (resolver) {
+        final image = resolver.getImage(sourceConfig.path);
         
-        if (imageAsset is ErrorAssetData) {
-           return Center(child: Text('Failed to load image:\n${imageAsset.error}'));
+        if (image == null) {
+           return Center(child: Text('Failed to load image: ${sourceConfig.path}'));
         }
         
-        if (imageAsset is! ImageAssetData) {
-          // Still loading specific asset or not found in map yet
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final image = imageAsset.image;
         final imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
-        // 5. Determine Active Selection (Green Box)
-        // We look at the selected OUTPUT node (Sprite). If it references this source, highlight it.
         final selectedNodeId = ref.watch(selectedNodeIdProvider);
         GridRect? activeSelection;
         
@@ -83,7 +73,6 @@ class SlicingView extends ConsumerWidget {
           }
         }
 
-        // 6. Build UI
         return SizedBox.expand(
           child: GestureDetector(
             onPanStart: (details) => onGestureStart(details.localPosition),
@@ -98,7 +87,7 @@ class SlicingView extends ConsumerWidget {
                 maxScale: 16.0,
                 panEnabled: isPanZoomMode,
                 scaleEnabled: isPanZoomMode,
-                constrained: false, // <--- THE FIX: Allow content to be larger than viewport
+                constrained: false,
                 child: SizedBox(
                   width: imageSize.width,
                   height: imageSize.height,
@@ -141,17 +130,13 @@ class _SlicingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Checkerboard (Background)
     _drawCheckerboard(canvas, size);
 
-    // 2. Source Image
     final imagePaint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImage(image, Offset.zero, imagePaint);
 
-    // 3. Grid Lines (Overlay)
     _drawGrid(canvas, size);
 
-    // 4. Highlights
     if (activeSelection != null) {
       final paint = Paint()..color = Colors.green.withOpacity(0.5);
       _drawHighlight(canvas, activeSelection!, paint);
@@ -182,7 +167,6 @@ class _SlicingPainter extends CustomPainter {
     return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
 
-  // --- FIX 2: Correct Grid Shader Logic ---
   void _drawGrid(Canvas canvas, Size size) {
     if (slicing.tileWidth <= 0 || slicing.tileHeight <= 0) return;
 
@@ -195,10 +179,8 @@ class _SlicingPainter extends CustomPainter {
 
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // Helper to build stops for [Line]...[Space]...[Optional Line]
     List<Color> buildColors() {
       final c = [gridColor, gridColor, Colors.transparent, Colors.transparent];
-      // If padding exists, add a second line at the end of the tile (start of gutter)
       if (slicing.padding > 0) {
         c.addAll([Colors.transparent, Colors.transparent, gridColor, gridColor, Colors.transparent, Colors.transparent]);
       }
@@ -210,11 +192,9 @@ class _SlicingPainter extends CustomPainter {
       final s = [0.0, r1, r1, 1.0];
       
       if (slicing.padding > 0) {
-        // Line 2 starts after the tile content
         final double r2Start = (tileDim / period).clamp(0.0, 1.0);
         final double r2End = ((tileDim + thickness) / period).clamp(0.0, 1.0);
         
-        // Insert second line stops in the middle
         return [
           0.0, r1, 
           r1, r2Start, 
@@ -225,7 +205,6 @@ class _SlicingPainter extends CustomPainter {
       return s;
     }
 
-    // Vertical Lines Shader
     paint.shader = ui.Gradient.linear(
       Offset.zero,
       Offset(periodX, 0),
@@ -236,7 +215,6 @@ class _SlicingPainter extends CustomPainter {
     );
     canvas.drawRect(Offset.zero & size, paint);
 
-    // Horizontal Lines Shader
     paint.shader = ui.Gradient.linear(
       Offset.zero,
       Offset(0, periodY),
@@ -252,13 +230,11 @@ class _SlicingPainter extends CustomPainter {
     final c1 = Color(settings.checkerBoardColor1);
     final c2 = Color(settings.checkerBoardColor2);
 
-    // Draw base color
     canvas.drawColor(c1, BlendMode.src);
 
     final paint = Paint()..color = c2;
     const double checkerSize = 16.0;
 
-    // Batch draw the alternating squares using a Path
     final path = Path();
     final cols = (size.width / checkerSize).ceil();
     final rows = (size.height / checkerSize).ceil();
