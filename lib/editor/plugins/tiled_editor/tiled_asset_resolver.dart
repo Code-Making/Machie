@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/tiled_editor/tiled_asset_resolver.dart
+
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tiled/tiled.dart';
@@ -15,6 +17,15 @@ class TiledAssetResolver {
   final String _tmxPath; // The project-relative path of the current map
 
   TiledAssetResolver(this._assets, this._repo, this._tmxPath);
+
+  /// Exposes the raw asset map for widgets that need to iterate all assets (e.g. Sprite Picker).
+  Map<String, AssetData> get rawAssets => _assets;
+  
+  /// Exposes the path of the current TMX file.
+  String get tmxPath => _tmxPath;
+
+  /// Exposes the repository for calculation operations.
+  ProjectRepository get repo => _repo;
 
   /// Resolves and returns the image for a given [source] path.
   /// 
@@ -40,8 +51,6 @@ class TiledAssetResolver {
     return null;
   }
 
-  /// Helper to lookup TexturePacker data (which is usually keyed by absolute/canonical path anyway)
-  /// or we can implement specific resolution logic if needed later.
   AssetData? getAsset(String canonicalKey) => _assets[canonicalKey];
 }
 
