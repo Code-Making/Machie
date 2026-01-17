@@ -1157,7 +1157,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       width: width,
       height: height,
       properties: CustomProperties({
-        'tp_sprite': tiled.Property(name: 'tp_sprite', type: tiled.PropertyType.string, value: selectedSprite)
+        'tp_sprite': Property(name: 'tp_sprite', type: PropertyType.string, value: selectedSprite)
       }),
     );
 
