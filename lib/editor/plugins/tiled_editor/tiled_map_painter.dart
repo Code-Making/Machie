@@ -5,12 +5,14 @@ import 'package:flutter/material.dart' hide StringProperty; // FIX: Hide conflic
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'tiled_editor_settings_model.dart';
-import '../../../asset_cache/asset_models.dart';import 'package:path/path.dart' as p;
+import '../../../asset_cache/asset_models.dart';
+import 'package:path/path.dart' as p;
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
-  final AssetResolver assetResolver;
-  final TexturePackerSpriteData? Function(String name) spriteResolver;
+  final Map<String, AssetData> assetDataMap;
+  /// The project-relative path of the TMX file being edited.
+  /// Used to resolve relative paths found in the map data.
   final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
@@ -28,8 +30,7 @@ class TiledMapPainter extends CustomPainter {
 
   TiledMapPainter({
     required this.map,
-    required this.assetResolver,
-    required this.spriteResolver, // Add this
+    required this.assetDataMap,
     required this.mapContextPath,
     required this.showGrid,
     required this.transform,
@@ -44,10 +45,23 @@ class TiledMapPainter extends CustomPainter {
   
   ui.Image? _getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
-    final asset = assetResolver(sourcePath);
+    
+    // Resolve the relative path from the TMX file location to a project-relative canonical path
+    final contextDir = p.dirname(mapContextPath);
+    final combined = p.join(contextDir, sourcePath);
+    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
+    
+    final asset = assetDataMap[canonicalKey];
     if (asset is ImageAssetData) {
       return asset.image;
     }
+
+    // Fallback: try direct lookup in case it was stored as absolute/canonical
+    if (assetDataMap.containsKey(sourcePath)) {
+        final fallbackAsset = assetDataMap[sourcePath];
+        if (fallbackAsset is ImageAssetData) return fallbackAsset.image;
+    }
+
     return null;
   }
 
@@ -72,7 +86,22 @@ class TiledMapPainter extends CustomPainter {
   }
   
   TexturePackerSpriteData? _findSpriteData(String spriteName) {
-    return spriteResolver(spriteName);
+    // TexturePacker assets are self-contained, so looking them up by sprite name
+    // across all loaded assets is acceptable for now, though ideally we'd link to a specific atlas.
+    for (final asset in assetDataMap.values) {
+      if (asset is TexturePackerAssetData) {
+        if (asset.frames.containsKey(spriteName)) {
+          return asset.frames[spriteName];
+        }
+        if (asset.animations.containsKey(spriteName)) {
+          final firstFrame = asset.animations[spriteName]!.firstOrNull;
+          if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
+            return asset.frames[firstFrame];
+          }
+        }
+      }
+    }
+    return null;
   }
   
   void _paintFloatingSelection(Canvas canvas) {

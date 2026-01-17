@@ -6,11 +6,6 @@ import '../data/repositories/project/project_repository.dart';
 import '../project/project_models.dart';
 import 'package:machine/data/file_handler/file_handler.dart';
 
-/// A function signature for resolving assets synchronously,
-/// typically used inside CustomPainters where ref.watch is not available.
-typedef AssetResolver = AssetData? Function(String path);
-
-
 /// Defines how a file path should be interpreted when resolving an asset.
 enum AssetPathMode {
   /// The path is relative to the project root (e.g., "assets/images/sprite.png").
