@@ -138,6 +138,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         descriptor: descriptor,
         onUpdate: _onUpdate,
         editorKey: widget.editorKey,
+        contextPath: widget.contextPath, // Pass the context path here
       );
     }
     if (descriptor is SpriteReferencePropertyDescriptor) {

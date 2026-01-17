@@ -17,45 +17,31 @@ class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
   final GlobalKey<TiledEditorWidgetState> editorKey;
+  final String contextPath; // Add this field
 
   const PropertyFileListEditor({
     super.key,
     required this.descriptor,
     required this.onUpdate,
     required this.editorKey,
+    required this.contextPath, // Add this parameter
   });
 
   Future<void> _addFile(BuildContext context) async {
-    // We reuse logic from the editor widget to resolve paths, or we do it here.
-    // Ideally, we ask the user for a file, then convert it to a relative path relative to the TMX.
-    
-    // Note: To implement this cleanly, we need access to the repo and current TMX path.
-    // Since we are inside the InspectorDialog which is inside the Editor, we can pass context or
-    // use a callback. For now, let's assume standard file picker dialog returning relative path.
-    
-    // Simplification: We assume the user picks a file, and we get the path.
-    // In a real implementation, we'd need to calculate the relative path from the TMX location.
-    // Here we will rely on the standard "FileOrFolderPickerDialog" returning a project-relative path
-    // and then we might need to adjust it if the TMX is in a subdirectory.
-    
-    // Getting the TMX folder requires access to the tab metadata or repo.
-    // For this implementation, we will assume paths are stored relative to Project Root for display
-    // in this specific widget, but the Tiled spec requires relative to TMX. 
-    // *Correction*: The TiledEditorWidget logic we wrote expects paths relative to TMX.
-    // We will let the user type/paste or pick, and assume the picker returns project-relative.
-    // A robust "make relative" function would be needed here.
-    
-    // Placeholder for "Add" logic:
     final paths = List<String>.from(descriptor.currentValue);
+    
+    // Returns a project-relative path (e.g. "assets/atlases/items.tpacker")
     final newPath = await showDialog<String>(
       context: context,
-      builder: (_) => const FileOrFolderPickerDialog(), // Returns project-relative path
+      builder: (_) => const FileOrFolderPickerDialog(),
     );
     
     if (newPath != null) {
-      // TODO: Convert 'newPath' (project relative) to TMX-relative if TMX is not at root.
-      // For Phase 3 MVP, we just add it.
-      paths.add(newPath); 
+      // Calculate path relative to the TMX file (e.g. "../atlases/items.tpacker")
+      final contextDir = p.dirname(contextPath);
+      final relativePath = p.relative(newPath, from: contextDir).replaceAll(r'\', '/');
+
+      paths.add(relativePath); 
       descriptor.updateValue(paths);
       onUpdate();
     }
