@@ -1532,6 +1532,24 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           contextPath: _getMapContextPath(),
         )));
 
+        // 2. Create the Sprite Resolver closure using the available assetDataMap
+        TexturePackerSpriteData? resolveSprite(String spriteName) {
+          for (final asset in assetDataMap.values) {
+            if (asset is TexturePackerAssetData) {
+              if (asset.frames.containsKey(spriteName)) {
+                return asset.frames[spriteName];
+              }
+              if (asset.animations.containsKey(spriteName)) {
+                final firstFrame = asset.animations[spriteName]!.firstOrNull;
+                if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
+                  return asset.frames[firstFrame];
+                }
+              }
+            }
+          }
+          return null;
+        }
+
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
@@ -1553,7 +1571,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               size: Size(mapPixelWidth, mapPixelHeight),
               painter: TiledMapPainter(
                 map: map,
-                assetResolver: assetResolver, 
+                assetResolver: assetResolver,
+                spriteResolver: resolveSprite, // Pass the closure here
                 mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,

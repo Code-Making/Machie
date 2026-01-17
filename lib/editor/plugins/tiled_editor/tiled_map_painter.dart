@@ -9,7 +9,8 @@ import '../../../asset_cache/asset_models.dart';import 'package:path/path.dart' 
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
-  final AssetResolver assetResolver; // NEW: Replaces assetDataMap + contextPath
+  final AssetResolver assetResolver;
+  final TexturePackerSpriteData? Function(String name) spriteResolver;
   final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
@@ -28,6 +29,7 @@ class TiledMapPainter extends CustomPainter {
   TiledMapPainter({
     required this.map,
     required this.assetResolver,
+    required this.spriteResolver, // Add this
     required this.mapContextPath,
     required this.showGrid,
     required this.transform,
@@ -42,8 +44,6 @@ class TiledMapPainter extends CustomPainter {
   
   ui.Image? _getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
-    
-    // Delegate strictly to the resolver
     final asset = assetResolver(sourcePath);
     if (asset is ImageAssetData) {
       return asset.image;
@@ -72,22 +72,7 @@ class TiledMapPainter extends CustomPainter {
   }
   
   TexturePackerSpriteData? _findSpriteData(String spriteName) {
-    // TexturePacker assets are self-contained, so looking them up by sprite name
-    // across all loaded assets is acceptable for now, though ideally we'd link to a specific atlas.
-    for (final asset in assetDataMap.values) {
-      if (asset is TexturePackerAssetData) {
-        if (asset.frames.containsKey(spriteName)) {
-          return asset.frames[spriteName];
-        }
-        if (asset.animations.containsKey(spriteName)) {
-          final firstFrame = asset.animations[spriteName]!.firstOrNull;
-          if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
-            return asset.frames[firstFrame];
-          }
-        }
-      }
-    }
-    return null;
+    return spriteResolver(spriteName);
   }
   
   void _paintFloatingSelection(Canvas canvas) {
