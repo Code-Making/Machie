@@ -11,6 +11,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/utils/texture_packer_algo.dart';
 import 'package:machine/app/app_notifier.dart';
 import 'package:machine/project/project_settings_notifier.dart';
+import 'package:path/path.dart' as p;
 
 class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAssetData> {
   @override
@@ -26,6 +27,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     try {
       final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
       final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
+      final tpackerDir = p.dirname(tpackerPath);
 
       final json = jsonDecode(content);
       final project = TexturePackerProject.fromJson(json);
@@ -35,7 +37,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       void collectPaths(SourceImageNode node) {
         if (node.type == SourceNodeType.image && node.content != null) {
           if (node.content!.path.isNotEmpty) {
-            final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
+            final resolvedPath = repo.resolveRelativePath(tpackerDir, node.content!.path);
             dependencies.add(resolvedPath);
           }
         }
@@ -56,6 +58,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     
     final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
     final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
+    final tpackerDir = p.dirname(tpackerPath);
 
     final Map<String, ui.Image> sourceImages = {};
     
@@ -73,7 +76,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       final relativePath = node.content!.path;
       if (relativePath.isNotEmpty) {
         try {
-          final resolvedPath = repo.resolveRelativePath(tpackerPath, relativePath);
+          final resolvedPath = repo.resolveRelativePath(tpackerDir, relativePath);
           final assetData = await ref.read(assetDataProvider(resolvedPath).future);
           if (assetData is ImageAssetData) {
             sourceImages[node.id] = assetData.image;

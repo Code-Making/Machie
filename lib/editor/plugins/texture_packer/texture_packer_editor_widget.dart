@@ -122,12 +122,13 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       tpackerFileMetadata.file.uri, 
       relativeTo: project.rootUri
     );
+    final tpackerDir = p.dirname(tpackerPath);
 
     final uris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
+          final resolvedPath = repo.resolveRelativePath(tpackerDir, node.content!.path);
           uris.add(resolvedPath);
         }
       }
