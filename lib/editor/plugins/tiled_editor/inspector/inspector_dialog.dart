@@ -17,7 +17,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final String title;
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
-  final Map<String, AssetData> assetDataMap;
+  final TiledAssetResolver resolver; // CHANGED
   /// The project-relative path of the TMX file, for resolving relative assets.
   final String contextPath;
 
@@ -27,7 +27,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.title,
     required this.notifier,
     required this.editorKey,
-    required this.assetDataMap,
+    required this.resolver,
     required this.contextPath,
   });
 
@@ -116,14 +116,18 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
       
-      // Resolve path
+      // CHANGED: Use resolver logic to find the asset for preview
       final rawPath = descriptor.currentValue;
-      final contextDir = p.dirname(widget.contextPath);
-      final combined = p.join(contextDir, rawPath);
-      final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
       
-      final imageAsset = widget.assetDataMap[canonicalKey];
-      final parentObject = (parentDescriptor as ObjectPropertyDescriptor).target;
+      // Determine context based on parent object (Layer vs Tileset)
+      Tileset? contextTileset;
+      if (parentDescriptor is ObjectPropertyDescriptor && parentDescriptor.target is Tileset) {
+        contextTileset = parentDescriptor.target as Tileset;
+      }
+      
+      final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
+      // Wrap in ImageAssetData for existing widget compatibility or update widget
+      final imageAsset = image != null ? ImageAssetData(image: image) : null; 
       
       return PropertyImagePathInput(
         descriptor: descriptor,
@@ -145,7 +149,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        assetDataMap: widget.assetDataMap,
+        resolver: widget.resolver,
       );
     }
     if (descriptor is BoolPropertyDescriptor) {

@@ -10,9 +10,7 @@ import 'package:path/path.dart' as p;
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
-  final Map<String, AssetData> assetDataMap;
-  /// The project-relative path of the TMX file being edited.
-  /// Used to resolve relative paths found in the map data.
+  final TiledAssetResolver resolver; // CHANGED: Replaces assetDataMap & contextPath
   final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
@@ -30,7 +28,7 @@ class TiledMapPainter extends CustomPainter {
 
   TiledMapPainter({
     required this.map,
-    required this.assetDataMap,
+    required this.resolver, // CHANGED
     required this.mapContextPath,
     required this.showGrid,
     required this.transform,
@@ -43,27 +41,6 @@ class TiledMapPainter extends CustomPainter {
     this.floatingSelectionPosition,
   });
   
-  ui.Image? _getImage(String? sourcePath) {
-    if (sourcePath == null || sourcePath.isEmpty) return null;
-    
-    // Resolve the relative path from the TMX file location to a project-relative canonical path
-    final contextDir = p.dirname(mapContextPath);
-    final combined = p.join(contextDir, sourcePath);
-    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
-    
-    final asset = assetDataMap[canonicalKey];
-    if (asset is ImageAssetData) {
-      return asset.image;
-    }
-
-    // Fallback: try direct lookup in case it was stored as absolute/canonical
-    if (assetDataMap.containsKey(sourcePath)) {
-        final fallbackAsset = assetDataMap[sourcePath];
-        if (fallbackAsset is ImageAssetData) return fallbackAsset.image;
-    }
-
-    return null;
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -124,7 +101,7 @@ class TiledMapPainter extends CustomPainter {
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
 
-        final image = _getImage(imageSource);
+    final image = resolver.getImage(imageSource, tileset: tileset);
         if (image == null) continue;
 
         final srcRect = tileset.computeDrawRect(tile);
@@ -310,7 +287,7 @@ class TiledMapPainter extends CustomPainter {
         final tileset = map.tilesetByTileGId(gid.tile);
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
-        final image = _getImage(imageSource);
+        final image = resolver.getImage(imageSource, tileset: tileset);
         
         final srcRect = tileset.computeDrawRect(tile);
         final source = Rect.fromLTWH(
@@ -410,7 +387,7 @@ class TiledMapPainter extends CustomPainter {
   
   void _paintImageLayer(Canvas canvas, ImageLayer layer, Rect visibleRect) {
     if (layer.image.source == null) return;
-    final image = _getImage(layer.image.source);
+    final image = resolver.getImage(layer.image.source); 
 
     if (image == null) {
         _drawMissingImagePlaceholder(canvas, Rect.fromLTWH(layer.offsetX, layer.offsetY, (layer.image.width ?? 100).toDouble(), (layer.image.height ?? 100).toDouble()), layer.image.source ?? 'Unknown');
@@ -643,7 +620,7 @@ Matrix4 applyParallax(
     final imageSource = tile.image?.source ?? tileset.image?.source;
     if (imageSource == null) return;
 
-    final image = _getImage(imageSource);
+    final image = resolver.getImage(imageSource, tileset: tileset);
     
 
     final rect = tileset.computeDrawRect(tile);
