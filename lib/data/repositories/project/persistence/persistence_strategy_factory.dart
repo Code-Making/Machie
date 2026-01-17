@@ -67,6 +67,16 @@ class UnimplementedFileHandler implements FileHandler {
       'This FileHandler is a placeholder and should not be used for operations.',
     );
   }
+  
+    @override
+  String resolveRelativePath(String basePath, String relativePath) => '';
+
+  @override
+  String makePathRelative(String basePath, String targetPath) => '';
+
+  @override
+  String getDirectoryName(String path) => '';
+  
 }
 
 /// A placeholder SharedPreferences used only to get descriptive info.

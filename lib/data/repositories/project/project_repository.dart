@@ -201,4 +201,24 @@ class ProjectRepository {
     _eventController.add(FileModifyEvent(modifiedFile: newFile));
     return newFile;
   }
+  
+  /// Resolves a path relative to another path within the project.
+  /// Useful for converting Tiled's relative paths (e.g. "../img.png") to
+  /// Canonical Project URIs (e.g. "assets/img.png") for the Asset System.
+  /// 
+  /// [basePath] is typically the folder containing the source file (e.g. map folder).
+  String resolveRelativePath(String basePath, String relativePath) {
+    return fileHandler.resolveRelativePath(basePath, relativePath);
+  }
+
+  /// Calculates the relative path string required to go FROM [basePath] TO [targetPath].
+  /// Useful when saving references into a file (e.g. creating a new image reference in a TMX).
+  String toRelativePath(String basePath, String targetPath) {
+    return fileHandler.makePathRelative(basePath, targetPath);
+  }
+
+  /// Helper to get the directory of a project-relative path.
+  String getDirectoryName(String path) {
+    return fileHandler.getDirectoryName(path);
+  }
 }
