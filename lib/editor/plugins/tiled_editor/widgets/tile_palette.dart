@@ -8,6 +8,7 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 import 'package:path/path.dart' as p;
 
 import 'package:machine/asset_cache/asset_models.dart';
+import '../tiled_asset_resolver.dart';
 
 class TilePalette extends StatefulWidget {
   final TiledMap map;
