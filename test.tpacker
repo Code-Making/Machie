@@ -1,0 +1,78 @@
+{
+  "sourceImagesRoot": {
+    "id": "root",
+    "name": "root",
+    "type": "folder",
+    "children": [
+      {
+        "id": "5890a055-65c2-46c6-90e5-c4831773d825",
+        "name": "play_store_512.png",
+        "type": "image",
+        "children": [],
+        "content": {
+          "path": "assets/icons/android/play_store_512.png",
+          "slicing": {
+            "tileWidth": 16,
+            "tileHeight": 16,
+            "margin": 0,
+            "padding": 0
+          }
+        }
+      },
+      {
+        "id": "5fe32fc4-5e60-402f-880c-988e54ee666c",
+        "name": "15_Christmas_48x48.png",
+        "type": "image",
+        "children": [],
+        "content": {
+          "path": "Theme_Sorter_48x48/15_Christmas_48x48.png",
+          "slicing": {
+            "tileWidth": 16,
+            "tileHeight": 16,
+            "margin": 0,
+            "padding": 0
+          }
+        }
+      }
+    ]
+  },
+  "tree": {
+    "id": "root",
+    "name": "root",
+    "type": "folder",
+    "children": [
+      {
+        "id": "090e2592-f1ab-47c6-82fe-a23d55fbf27e",
+        "name": "gg",
+        "type": "sprite",
+        "children": []
+      },
+      {
+        "id": "c1584153-0d5d-4cda-95da-dc30076f0d0d",
+        "name": "gift",
+        "type": "sprite",
+        "children": []
+      }
+    ]
+  },
+  "definitions": {
+    "090e2592-f1ab-47c6-82fe-a23d55fbf27e": {
+      "sourceImageId": "5890a055-65c2-46c6-90e5-c4831773d825",
+      "gridRect": {
+        "x": 8,
+        "y": 10,
+        "width": 1,
+        "height": 1
+      }
+    },
+    "c1584153-0d5d-4cda-95da-dc30076f0d0d": {
+      "sourceImageId": "a56dce1a-5b3f-4cee-a8bf-c4e6a85e7d87",
+      "gridRect": {
+        "x": 1,
+        "y": 0,
+        "width": 1,
+        "height": 2
+      }
+    }
+  }
+}

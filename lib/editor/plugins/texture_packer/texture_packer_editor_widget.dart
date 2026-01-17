@@ -1,6 +1,5 @@
 // FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -123,12 +122,14 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       tpackerFileMetadata.file.uri, 
       relativeTo: project.rootUri
     );
+    // *** FIX: Use the parent directory for resolution context ***
     final tpackerDir = p.dirname(tpackerPath);
 
     final uris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
+          // *** FIX: Resolve the relative path to a project-relative path ***
           final resolvedPath = repo.resolveRelativePath(tpackerDir, node.content!.path);
           uris.add(resolvedPath);
         }
