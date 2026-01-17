@@ -284,44 +284,18 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     
-    final repo = ref.read(projectRepositoryProvider)!;
-    final project = ref.read(currentProjectProvider)!;
-    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
-    
-    final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
-    final tmxDir = p.dirname(tmxDisplayPath);
-
-    // Helper to resolve a relative path from TMX to a project-relative canonical path
+    // Helper to resolve paths relative to the TMX file
     String resolve(String relativePath) {
-      final combined = p.join(tmxDir, relativePath);
-      return p.normalize(combined).replaceAll(r'\', '/');
+      return _resolveToProjectRelative(relativePath);
     }
 
     for (final tileset in map.tilesets) {
-      // If tileset is external (.tsx), its images are relative to the TSX file.
-      // Current Tiled parser handles TSX merging, but we need to know the base.
-      // For now, assuming embedded tilesets or images relative to TMX.
-      // NOTE: Properly supporting external TSX paths requires calculating the TSX directory.
-      // Since map.tilesets is flattened, we might treat them relative to TMX 
-      // unless we parse the source attribute again.
-      // For simplicity in this phase, we assume images are reachable relative to the TMX
-      // or we check if the tileset has a source path.
-      
-      String baseDir = tmxDir;
-      if (tileset.source != null) {
-         // This is an external tileset. The image source inside it is relative to the TSX.
-         // We need to resolve TSX path relative to TMX first.
-         final tsxPath = resolve(tileset.source!);
-         baseDir = p.dirname(tsxPath);
-      }
-
       if (tileset.image?.source != null) {
-        final imagePath = tileset.image!.source!;
-        // Resolve image relative to baseDir
-        final canonical = p.normalize(p.join(baseDir, imagePath)).replaceAll(r'\', '/');
-        uris.add(canonical);
+        uris.add(resolve(tileset.image!.source!));
       }
+      // Note: External TSX handling usually happens during parsing, 
+      // but if we needed to load the TSX image manually:
+      // if (tileset.source != null) { ... resolve relative to TSX ... }
     }
 
     for (final layer in map.layers) {
@@ -479,33 +453,30 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     map.nextLayerId = nextAvailableId;
   }
   
-  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
-    // We need the project-relative path of the TMX to resolve relative paths in tilesets
+    String _resolveToProjectRelative(String relativePath) {
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
     final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
+    
     final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
     final tmxDir = p.dirname(tmxDisplayPath);
-
-    String resolve(String relativePath) {
-      final combined = p.join(tmxDir, relativePath);
-      return p.normalize(combined).replaceAll(r'\', '/');
-    }
+    
+    final combined = p.join(tmxDir, relativePath);
+    return p.normalize(combined).replaceAll(r'\', '/');
+  }
+  
+  void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
+    // Uses the AssetResolver logic explicitly to match the map keys
+    final resolver = ref.read(assetResolverProvider((
+      tabId: widget.tab.id, 
+      contextPath: _getMapContextPath()
+    )));
 
     for (final tileset in map.tilesets) {
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
-        final rawSource = tileset.image!.source!;
+        // Resolve using the standard resolver
+        final asset = resolver(tileset.image!.source!);
         
-        // Use the resolution logic to find the key in the map
-        String baseDir = tmxDir;
-        if (tileset.source != null) {
-           final tsxPath = resolve(tileset.source!);
-           baseDir = p.dirname(tsxPath);
-        }
-        
-        final canonicalKey = p.normalize(p.join(baseDir, rawSource)).replaceAll(r'\', '/');
-        
-        final asset = assetDataMap[canonicalKey];
         if (asset is ImageAssetData) {
           final loadedImage = asset.image;
           final currentTiledImage = tileset.image!;
@@ -808,10 +779,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   
-  void _showLayerInspector(Layer layer) {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || assetMap == null) return;
-    
+  void _showLayerInspector(Layer layer, Map<String, AssetData> assetDataMap) {
+    if (_notifier == null) return;
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
@@ -819,7 +788,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        assetDataMap: assetMap,
+        assetDataMap: assetDataMap, // Kept for list enumeration
+        tabId: widget.tab.id, // NEW: Passed for specific resolution
         contextPath: _getMapContextPath(),
       ),
     );
@@ -1553,6 +1523,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     return assetMapAsync.when(
       skipLoadingOnReload: true,
       data: (assetDataMap) {
+        final assetResolver = ref.watch(assetResolverProvider((
+          tabId: widget.tab.id,
+          contextPath: _getMapContextPath(),
+        )));
+
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
@@ -1574,7 +1549,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               size: Size(mapPixelWidth, mapPixelHeight),
               painter: TiledMapPainter(
                 map: map,
-                assetDataMap: assetDataMap,
+                assetResolver: assetResolver, 
                 mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,

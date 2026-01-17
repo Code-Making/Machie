@@ -11,7 +11,7 @@ import 'package:machine/asset_cache/asset_models.dart';
 
 class TilePalette extends StatefulWidget {
   final TiledMap map;
-  final Map<String, AssetData> assetDataMap; 
+  final AssetResolver assetResolver; // NEW
   final Tileset? selectedTileset;
   final Rect? selectedTileRect;
   final ValueChanged<Tileset?> onTilesetChanged;
@@ -26,7 +26,7 @@ class TilePalette extends StatefulWidget {
   const TilePalette({
     super.key,
     required this.map,
-    required this.assetDataMap,
+    required this.assetResolver,
     required this.selectedTileset,
     required this.selectedTileRect,
     required this.onTilesetChanged,
@@ -253,22 +253,10 @@ class _TilePaletteState extends State<TilePalette> {
     }
     final tileset = widget.selectedTileset!;
     final imageSource = tileset.image?.source;
-    if (imageSource == null) {
-      return const Center(child: Text('Tileset has no image.'));
-    }
     
-    // Resolve asset
-    final contextDir = p.dirname(widget.mapContextPath);
-    final combined = p.join(contextDir, imageSource);
-    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
-    
-    final asset = widget.assetDataMap[canonicalKey];
-    final ui.Image? image;
-    if (asset is ImageAssetData) {
-      image = asset.image;
-    } else {
-      image = null;
-    }
+    // Use resolver
+    final asset = widget.assetResolver(imageSource ?? '');
+    final ui.Image? image = (asset is ImageAssetData) ? asset.image : null;
     
     if (image == null) {
       return Center(
