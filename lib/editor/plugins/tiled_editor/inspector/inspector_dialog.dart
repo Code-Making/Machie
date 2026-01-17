@@ -18,7 +18,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
   final Map<String, AssetData> assetDataMap;
-  final Map<String, String> assetLookup; // <--- NEW PARAMETER
   /// The project-relative path of the TMX file, for resolving relative assets.
   final String contextPath;
 
@@ -29,7 +28,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.notifier,
     required this.editorKey,
     required this.assetDataMap,
-    required this.assetLookup, // <--- REQUIRED
     required this.contextPath,
   });
 
@@ -118,11 +116,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
       
-      // REFACTORED: Use lookup map for O(1) resolution
+      // Resolve path
       final rawPath = descriptor.currentValue;
-      final canonicalKey = widget.assetLookup[rawPath]; 
-      final imageAsset = canonicalKey != null ? widget.assetDataMap[canonicalKey] : null;
+      final contextDir = p.dirname(widget.contextPath);
+      final combined = p.join(contextDir, rawPath);
+      final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
       
+      final imageAsset = widget.assetDataMap[canonicalKey];
       final parentObject = (parentDescriptor as ObjectPropertyDescriptor).target;
       
       return PropertyImagePathInput(

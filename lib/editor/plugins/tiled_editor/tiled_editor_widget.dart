@@ -71,7 +71,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   String? _baseContentHash;
   
-  final Map<String, String> _assetLookup = {}; 
   Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
@@ -310,47 +309,35 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   // --- REFACTORED: Uses repository path logic instead of path package ---
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
-    _assetLookup.clear(); // Reset lookup on reload
-
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
-    // Helper to register path and populate lookup
-    void registerAsset(String contextPath, String? rawPath) {
-      if (rawPath != null && rawPath.isNotEmpty) {
-        final canonical = repo.resolveRelativePath(contextPath, rawPath);
-        uris.add(canonical);
-        // Store the mapping: "..\tiles.png" -> "assets/tiles.png"
-        _assetLookup[rawPath] = canonical;
-      }
-    }
-
     for (final tileset in map.tilesets) {
+      // 1. Determine the context (is it TMX or TSX?)
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
-      
-      // Handle Tileset Image
-      registerAsset(contextPath, tileset.image?.source);
 
-      // Handle Individual Tile Images (Collection of Images)
-      for (final tile in tileset.tiles) {
-        registerAsset(contextPath, tile.image?.source);
+      if (tileset.image?.source != null) {
+        // 2. Resolve image relative to that context
+        final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
+        uris.add(assetUri);
       }
     }
 
     for (final layer in map.layers) {
-      if (layer is ImageLayer) {
-        // Image layers are always relative to the TMX
-        registerAsset(tmxPath, layer.image.source);
+      if (layer is ImageLayer && layer.image.source != null) {
+        // Image layers are always inside the TMX, so context is TMX.
+        final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
+        uris.add(assetUri);
       }
     }
 
-    // Handle Texture Packer custom properties
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
       if (prop is StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
-          registerAsset(tmxPath, path);
+          // Custom properties on map are relative to map
+          uris.add(repo.resolveRelativePath(tmxPath, path));
         }
       }
     }
@@ -1599,7 +1586,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               painter: TiledMapPainter(
                 map: map,
                 assetDataMap: assetDataMap,
-                assetLookup: _assetLookup, // <--- PASS THE LOOKUP MAP
                 mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,
@@ -1644,8 +1630,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 height: _paletteHeight,
                 child: TilePalette(
                   map: notifier!.map,
-                assetDataMap: assetDataMap,
-                assetLookup: _assetLookup, // <--- PASS THE LOOKUP MAP
+                  assetDataMap: assetDataMap, 
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
                   onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
