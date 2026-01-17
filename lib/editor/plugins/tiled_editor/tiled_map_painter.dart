@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
   final Map<String, AssetData> assetDataMap;
+  final Map<String, String> assetLookup; // <--- NEW FIELD
   /// The project-relative path of the TMX file being edited.
   /// Used to resolve relative paths found in the map data.
   final String mapContextPath;
@@ -31,6 +32,7 @@ class TiledMapPainter extends CustomPainter {
   TiledMapPainter({
     required this.map,
     required this.assetDataMap,
+    required this.assetLookup, // <--- REQUIRED
     required this.mapContextPath,
     required this.showGrid,
     required this.transform,
@@ -46,22 +48,17 @@ class TiledMapPainter extends CustomPainter {
   ui.Image? _getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
     
-    // Resolve the relative path from the TMX file location to a project-relative canonical path
-    final contextDir = p.dirname(mapContextPath);
-    final combined = p.join(contextDir, sourcePath);
-    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
+    // 1. Try O(1) lookup from the pre-calculated map
+    final canonicalKey = assetLookup[sourcePath];
     
-    final asset = assetDataMap[canonicalKey];
-    if (asset is ImageAssetData) {
-      return asset.image;
+    // 2. If found, get the asset data
+    if (canonicalKey != null) {
+      final asset = assetDataMap[canonicalKey];
+      if (asset is ImageAssetData) {
+        return asset.image;
+      }
     }
-
-    // Fallback: try direct lookup in case it was stored as absolute/canonical
-    if (assetDataMap.containsKey(sourcePath)) {
-        final fallbackAsset = assetDataMap[sourcePath];
-        if (fallbackAsset is ImageAssetData) return fallbackAsset.image;
-    }
-
+    
     return null;
   }
 
