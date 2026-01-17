@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
-// REMOVED: import 'package:path/path.dart' as p; -- Logic moved to Repo
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:tiled/tiled.dart' as tiled show Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,7 +46,7 @@ import 'widgets/export_dialog.dart';
 
 import 'widgets/sprite_picker_dialog.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'tiled_asset_resolver.dart';
+import 'tiled_asset_resolver.dart'; // Import the resolver
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -61,10 +60,8 @@ class TiledEditorWidget extends EditorWidget {
 }
 
 class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
-  // ... (Keep state variables: _notifier, _selectedLayerId, etc. unchanged) ...
   TiledMapNotifier? get notifier => _notifier;
   TiledMapNotifier? _notifier;
-
 
   int _selectedLayerId = -1;
   Tileset? _selectedTileset;
@@ -72,7 +69,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   String? _baseContentHash;
   
-  Set<String> _requiredAssetUris = const {};
   bool _isLoading = true;
   Object? _loadingError;
 
@@ -102,7 +98,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   late final TransformationController _transformationController;
   String? _lastTilesetParentUri;
 
-  // ... (Keep simple getters/setters: editMapProperties, addLayer, toggleGrid, etc.) ...
   void editMapProperties() => _editMapProperties();
   void addTileset() => _addTileset();
   void addLayer() => _addLayer();
@@ -163,7 +158,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   @override
   void syncCommandContext() {
-    // ... (Keep existing implementation) ...
     final isPolyToolActive = _activeObjectTool == ObjectTool.addPolygon ||
         _activeObjectTool == ObjectTool.addPolyline;
 
@@ -237,7 +231,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     super.dispose();
   }
 
-  // --- REFACTORED: Helper to get the Project-Relative Path of the TMX ---
   String _getTmxProjectRelativePath() {
     final repo = ref.read(projectRepositoryProvider)!;
     final project = ref.read(currentProjectProvider)!;
@@ -265,10 +258,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
       final uris = await _collectAssetUris(map);
       
-      // Update AssetMap so files are loaded into memory
       final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
 
-      // Pass map and resolved data to fixup (only for width/height loading)
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
       if (!mounted) return;
@@ -294,31 +285,24 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-  // --- REFACTORED: Determine the context path for a specific tileset ---
   String _determineTilesetContext(String tmxPath, Tileset tileset, ProjectRepository repo) {
     if (tileset.source != null) {
-      // It's an external tileset. Its context is the folder containing the TSX file.
-      // The TSX path itself is relative to the TMX.
       final tsxPath = repo.resolveRelativePath(tmxPath, tileset.source!);
       return tsxPath;
     } else {
-      // It's an embedded tileset. Its context is the TMX file itself.
       return tmxPath;
     }
   }
 
-  // --- REFACTORED: Uses repository path logic instead of path package ---
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
     for (final tileset in map.tilesets) {
-      // 1. Determine the context (is it TMX or TSX?)
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
 
       if (tileset.image?.source != null) {
-        // 2. Resolve image relative to that context
         final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
         uris.add(assetUri);
       }
@@ -326,7 +310,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     for (final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
-        // Image layers are always inside the TMX, so context is TMX.
         final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
         uris.add(assetUri);
       }
@@ -334,10 +317,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
-      if (prop is StringProperty && prop.value.isNotEmpty) {
+      if (prop is tiled.StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
-          // Custom properties on map are relative to map
           uris.add(repo.resolveRelativePath(tmxPath, path));
         }
       }
@@ -352,7 +334,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
   }
   
-  // --- REFACTORED: Uses calculateRelativePath for saving ---
   Future<void> reloadImageSource({
     required Object parentObject,
     required String oldSourcePath,
@@ -364,23 +345,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final repo = ref.read(projectRepositoryProvider)!;
       final tmxPath = _getTmxProjectRelativePath();
 
-      // Ensure the new asset is loaded
       final assetData = await ref.read(assetDataProvider(newProjectPath).future);
       if (assetData is! ImageAssetData) {
         throw (assetData as ErrorAssetData).error;
       }
       final newImage = assetData.image;
 
-      // Determine context for relative calculation
       String contextPath;
       if (parentObject is Tileset) {
         contextPath = _determineTilesetContext(tmxPath, parentObject, repo);
       } else {
-        // Layers, etc. are relative to TMX
         contextPath = tmxPath;
       }
 
-      // Calculate path relative to the context (TMX or TSX)
       final newRelativePath = repo.calculateRelativePath(contextPath, newProjectPath);
 
       _notifier!.updateImageSource(
@@ -400,7 +377,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void _fixupParsedMap(TiledMap map, String tmxContent) {
-    // ... (Keep existing fixup logic for GIDs and Objects unchanged) ...
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
     final objectGroupElements = xmlDocument.rootElement.findAllElements('objectgroup');
@@ -489,7 +465,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     map.nextLayerId = nextAvailableId;
   }
   
-  // --- REFACTORED: Uses repository resolution logic ---
   void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
@@ -533,20 +508,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  // --- REFACTORED: Helper to pass correct context path to inspectors ---
-  // The inspector needs the context to resolve relative paths in properties (like images)
-  // For the map itself, the context is the TMX path.
-  // For external tilesets, it's the TSX path.
-  String _getMapContextPath() {
-    return _getTmxProjectRelativePath();
-  }
-
-  String _getTilesetContextPath(Tileset tileset) {
-    final repo = ref.read(projectRepositoryProvider)!;
-    return _determineTilesetContext(_getTmxProjectRelativePath(), tileset, repo);
-  }
-
-  // ... (Keep existing methods: _onMapChanged, _editMapProperties, _getAssetDataMap, showExportDialog) ...
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
     
@@ -598,8 +559,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }  
 
   void inspectMapProperties() {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || assetMap == null) return;
+    // Check if resolver is ready
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final resolver = resolverState.valueOrNull;
+    
+    if (_notifier == null || resolver == null) return;
 
     showDialog(
       context: context,
@@ -608,8 +572,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        assetDataMap: assetMap,
-        contextPath: _getMapContextPath(),
+        resolver: resolver, // CHANGED: Passed resolver
       ),
     );
   }
@@ -683,7 +646,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
-  // ... (Keep deleteSelectedTileset, clearUnusedTilesets unchanged) ...
   void _deleteSelectedTileset() async {
     if (_notifier == null || _selectedTileset == null) return;
 
@@ -737,28 +699,23 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  // --- REFACTORED: Pass specific context to inspector ---
   void _inspectSelectedTileset() {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || _selectedTileset == null || assetMap == null) return;
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final resolver = resolverState.valueOrNull;
+    if (_notifier == null || _selectedTileset == null || resolver == null) return;
     
-    // Determine if this tileset is external or embedded to give correct context
-    final contextPath = _getTilesetContextPath(_selectedTileset!);
-
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
         target: _selectedTileset!,
-        assetDataMap: assetMap,
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        contextPath: contextPath,
+        resolver: resolver, // CHANGED: Passed resolver
       ),
     );
   }
 
-  // ... (Keep addLayer, deleteLayer, onLayerSelect unchanged) ...
   void _addLayer() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -814,9 +771,9 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     syncCommandContext();
   }
 
-  // --- REFACTORED: Layers always have the TMX context ---
   void _showLayerInspector(Layer layer, TiledAssetResolver resolver) {
     if (_notifier == null) return;
+    
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
@@ -824,29 +781,30 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED
+        resolver: resolver, // CHANGED: Passed resolver
       ),
     );
   }
   
-  void _inspectObject(TiledObject object, TiledAssetResolver resolver) { 
+  void _inspectObject(TiledObject object, TiledAssetResolver resolver) {
     if (_notifier == null) return;
+    
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
         target: object,
-        resolver: resolver,
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        contextPath: _getMapContextPath(),
+        resolver: resolver, // CHANGED: Passed resolver
       ),
     );
   }
   
   void _inspectSelectedObject() {
-    final assetMap = _getAssetDataMap();
-    if(assetMap==null) return;
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final resolver = resolverState.valueOrNull;
+    if(resolver==null) return;
     if (_notifier == null) return;
     final selection = _notifier!.selectedObjects;
     if (selection.length != 1) return;
@@ -856,19 +814,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: target,
-        assetDataMap: assetMap,
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        contextPath: _getMapContextPath(),
+        resolver: resolver, // CHANGED: Passed resolver
       ),
     );
   }
-  
-  // ... (Keep rest of the file: deleteObject, interactions, build method, etc. unchanged) ...
-  // Note: The build method uses TilePalette, which will also need updates in Phase 4.
-  // For now, we pass mapContextPath which is correct for embedded tilesets but will need tweaking in Phase 4
-  // for mixed contexts in the palette.
   
     void _deleteSelectedObject() async {
     if (_notifier == null || _notifier!.selectedObjects.isEmpty) return;
@@ -1205,7 +1157,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       width: width,
       height: height,
       properties: CustomProperties({
-        'tp_sprite': Property(name: 'tp_sprite', type: PropertyType.string, value: selectedSprite)
+        'tp_sprite': tiled.Property(name: 'tp_sprite', type: tiled.PropertyType.string, value: selectedSprite)
       }),
     );
 
@@ -1554,11 +1506,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
+    // CHANGED: Watch the resolver provider instead of the raw map
     final resolverAsync = ref.watch(tiledAssetResolverProvider(widget.tab.id));
 
     return resolverAsync.when(
       skipLoadingOnReload: true,
-      data: (resolver) {
+      data: (resolver) { // We now receive the TiledAssetResolver
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
@@ -1581,7 +1534,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               painter: TiledMapPainter(
                 map: map,
                 resolver: resolver, // CHANGED: Pass resolver
-                mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,
                 selectedObjects: notifier!.selectedObjects,
@@ -1636,7 +1588,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   onInspectSelectedTileset: _inspectSelectedTileset,
                   onDeleteSelectedTileset: _deleteSelectedTileset,
                   onClearUnusedTilesets: _clearUnusedTilesets,
-                  mapContextPath: _getMapContextPath(),
                 ),
               ),
             ),
@@ -1677,8 +1628,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   notifier!.deleteObject(layerId, objectId);
                 },
                 
-                onLayerInspect: (layer) => _showLayerInspector(layer, resolver), // CHANGED: Pass resolver
-                onObjectInspect: (obj) => _inspectObject(obj, resolver), // CHANGED: Pass resolver
+                onLayerInspect: (layer) => _showLayerInspector(layer, resolver), // CHANGED
+                onObjectInspect: (obj) => _inspectObject(obj, resolver), // CHANGED
               ),
             ),
           ],
