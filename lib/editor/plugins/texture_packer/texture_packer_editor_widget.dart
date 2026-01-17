@@ -111,7 +111,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   /// Traverses the SourceImage tree to find all file paths and tells the
   void _updateAndLoadAssetUris() {
     if (!mounted) return;
-    
+
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
     final tpackerFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
@@ -122,25 +122,25 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       tpackerFileMetadata.file.uri, 
       relativeTo: project.rootUri
     );
-    // *** FIX: Use the parent directory for resolution context ***
     final tpackerDir = p.dirname(tpackerPath);
 
-    final uris = <String>{};
+    final resolvedUris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // *** FIX: Resolve the relative path to a project-relative path ***
+          // Resolve the local path against the .tpacker's directory
           final resolvedPath = repo.resolveRelativePath(tpackerDir, node.content!.path);
-          uris.add(resolvedPath);
+          resolvedUris.add(resolvedPath);
         }
       }
       for (final child in node.children) collectPaths(child);
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
-    if (!const SetEquality().equals(uris, _requiredAssetUris)) {
-      _requiredAssetUris = uris;
-      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+    if (!const SetEquality().equals(resolvedUris, _requiredAssetUris)) {
+      _requiredAssetUris = resolvedUris;
+      // Pass the fully resolved, project-relative paths to the asset system.
+      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(resolvedUris);
     }
   }
 
