@@ -424,10 +424,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     for (final file in result.files) {
       final imageProjectRelativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
       
-      final pathRelativeToTpacker = repo.calculateRelativePath(
-        fromContext: tpackerProjectRelativePath, 
-        toTarget: imageProjectRelativePath
-      );
+      final pathRelativeToTpacker = p.relative(imageProjectRelativePath, from: tpackerDirectory).replaceAll(r'\', '/');
 
       SlicingConfig config = const SlicingConfig();
       if (result.asSprites) {

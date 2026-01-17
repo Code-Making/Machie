@@ -429,10 +429,20 @@ class SafFileHandler implements LocalFileHandler {
   
   @override
   String resolveRelativePath(String contextPath, String relativePath) {
-    // 1. Get directory of the context file (e.g., "maps/level1.tmx" -> "maps")
-    final contextDir = _pathContext.dirname(contextPath);
+    String contextDir;
+
+    // STEP 1: Check if the context path has a file extension.
+    if (_pathContext.extension(contextPath).isNotEmpty) {
+      // If it has an extension (e.g., ".tmx", ".tpacker"), it's a file.
+      // We get its parent directory.
+      contextDir = _pathContext.dirname(contextPath);
+    } else {
+      // If it has no extension, we assume it's already a directory path.
+      // We use it directly.
+      contextDir = contextPath;
+    }
     
-    // 2. Join and normalize to handle ".." segments
+    // The rest of the logic remains the same.
     final combined = _pathContext.join(contextDir, relativePath);
     return _pathContext.normalize(combined);
   }
