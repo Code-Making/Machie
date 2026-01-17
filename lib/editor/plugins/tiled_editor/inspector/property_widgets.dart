@@ -28,9 +28,8 @@ class PropertyFileListEditor extends StatelessWidget {
     required this.contextPath, // Add this parameter
   });
 
-  Future<void> _addFile(BuildContext context, WidgetRef ref) async { // Added ref
+  Future<void> _addFile(BuildContext context) async {
     final paths = List<String>.from(descriptor.currentValue);
-    final repo = ref.read(projectRepositoryProvider)!; // Access Repo
     
     // Returns a project-relative path (e.g. "assets/atlases/items.tpacker")
     final newPath = await showDialog<String>(
@@ -39,8 +38,9 @@ class PropertyFileListEditor extends StatelessWidget {
     );
     
     if (newPath != null) {
-      // REFACTORED: Use repository to calculate the relative path from the TMX to the Atlas
-      final relativePath = repo.calculateRelativePath(contextPath, newPath);
+      // Calculate path relative to the TMX file (e.g. "../atlases/items.tpacker")
+      final contextDir = p.dirname(contextPath);
+      final relativePath = p.relative(newPath, from: contextDir).replaceAll(r'\', '/');
 
       paths.add(relativePath); 
       descriptor.updateValue(paths);
@@ -74,7 +74,7 @@ class PropertyFileListEditor extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.add),
           title: const Text('Link Texture Packer File'),
-          onTap: () => _addFile(context, ref), // Pass ref
+          onTap: () => _addFile(context),
         ),
       ],
     );
