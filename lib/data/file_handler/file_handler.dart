@@ -89,15 +89,20 @@ abstract class FileHandler {
   String getParentUri(String uri);
   String getFileName(String uri);
   String getPathForDisplay(String uri, {String? relativeTo});
-  /// Resolves a [relativePath] against a [basePath].
-  /// Both paths should be project-relative "display paths" (e.g. "assets/images").
-  /// Returns a normalized, canonical project-relative path.
-  String resolveRelativePath(String basePath, String relativePath);
+ 
+  /// Resolves a [relativePath] (e.g. "../img.png") relative to a [contextPath]
+  /// (e.g. "maps/level1.tmx") to return a canonical project-relative path
+  /// (e.g. "assets/img.png").
+  ///
+  /// Both paths should be relative to the project root.
+  String resolveRelativePath(String contextPath, String relativePath);
 
-  /// Calculates the relative path from [basePath] to [targetPath].
-  /// Used to generate the string stored in TMX files (e.g. "../tilesets/wall.tsx").
-  String makePathRelative(String basePath, String targetPath);
-
-  /// Returns the directory part of a project-relative path.
-  String getDirectoryName(String path);
+  /// Calculates the relative string needed to navigate from [fromContext]
+  /// to [toTarget].
+  ///
+  /// Example:
+  /// fromContext: "maps/level1.tmx"
+  /// toTarget: "assets/img.png"
+  /// Returns: "../assets/img.png"
+  String calculateRelativePath(String fromContext, String toTarget);
 }

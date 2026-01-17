@@ -51,6 +51,8 @@ class SafFileHandler implements LocalFileHandler {
   final SafUtil _safUtil = SafUtil();
   final SafStream _safStream = SafStream();
 
+  // Use POSIX context to ensure forward slashes are used for internal path logic,
+  // which is standard for Tiled and cross-platform asset references.
   final p.Context _pathContext = p.Context(style: p.Style.posix);
 
   SafFileHandler(this.rootUri);
@@ -426,21 +428,21 @@ class SafFileHandler implements LocalFileHandler {
   }
   
   @override
-  String resolveRelativePath(String basePath, String relativePath) {
-    // 1. Join the base path (e.g., "maps/") and the relative path (e.g., "../tiles/t.png")
-    final combined = _pathContext.join(basePath, relativePath);
-    // 2. Normalize to remove redundant separators and '..' segments
+  String resolveRelativePath(String contextPath, String relativePath) {
+    // 1. Get directory of the context file (e.g., "maps/level1.tmx" -> "maps")
+    final contextDir = _pathContext.dirname(contextPath);
+    
+    // 2. Join and normalize to handle ".." segments
+    final combined = _pathContext.join(contextDir, relativePath);
     return _pathContext.normalize(combined);
   }
 
   @override
-  String makePathRelative(String basePath, String targetPath) {
-    // Calculate path from base to target
-    return _pathContext.relative(targetPath, from: basePath);
-  }
-
-  @override
-  String getDirectoryName(String path) {
-    return _pathContext.dirname(path);
+  String calculateRelativePath(String fromContext, String toTarget) {
+    // 1. Get directory of the context file
+    final contextDir = _pathContext.dirname(fromContext);
+    
+    // 2. Calculate relative path
+    return _pathContext.relative(toTarget, from: contextDir);
   }
 }
