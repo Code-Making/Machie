@@ -8,6 +8,7 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/app/app_notifier.dart';
+import '../../../project/project_settings_notifier.dart';
 
 /// A wrapper around the raw AssetMap that handles Tiled-specific
 /// path resolution logic (Contextual lookup for TMX vs TSX).
