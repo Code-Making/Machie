@@ -20,7 +20,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final Map<String, AssetData> assetDataMap;
   /// The project-relative path of the TMX file, for resolving relative assets.
   final String contextPath;
-  final String tabId; // NEW
 
   const InspectorDialog({
     super.key,
@@ -30,7 +29,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.editorKey,
     required this.assetDataMap,
     required this.contextPath,
-    required this.tabId,
   });
 
   @override
@@ -117,15 +115,22 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
+      
+      // Resolve path
+      final rawPath = descriptor.currentValue;
+      final contextDir = p.dirname(widget.contextPath);
+      final combined = p.join(contextDir, rawPath);
+      final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
+      
+      final imageAsset = widget.assetDataMap[canonicalKey];
       final parentObject = (parentDescriptor as ObjectPropertyDescriptor).target;
       
       return PropertyImagePathInput(
         descriptor: descriptor,
         onUpdate: _onUpdate,
+        imageAsset: imageAsset,
         editorKey: widget.editorKey,
         parentObject: parentObject!,
-        tabId: widget.tabId,
-        contextPath: widget.contextPath,
       );
     }
     if (descriptor is FileListPropertyDescriptor) {
