@@ -13,6 +13,7 @@ import 'package:machine/app/app_notifier.dart';
 import 'package:machine/project/project_settings_notifier.dart';
 import 'package:path/path.dart' as p;
 import 'texture_packer_asset_resolver.dart'; // Make sure this is imported
+import '../../../logs/logs_provider.dart';
 
 class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAssetData> {
   @override
