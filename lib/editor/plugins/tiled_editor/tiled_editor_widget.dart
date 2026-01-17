@@ -47,6 +47,7 @@ import 'widgets/export_dialog.dart';
 
 import 'widgets/sprite_picker_dialog.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
+import 'tiled_asset_resolver.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -814,10 +815,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   // --- REFACTORED: Layers always have the TMX context ---
-  void _showLayerInspector(Layer layer) {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || assetMap == null) return;
-    
+  void _showLayerInspector(Layer layer, TiledAssetResolver resolver) {
+    if (_notifier == null) return;
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
@@ -825,21 +824,18 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        assetDataMap: assetMap,
-        contextPath: _getMapContextPath(),
+        resolver: resolver, // CHANGED
       ),
     );
   }
   
-  void _inspectObject(TiledObject object) {
-    final assetMap = _getAssetDataMap();
-    if (assetMap == null || _notifier == null) return;
-    
+  void _inspectObject(TiledObject object, TiledAssetResolver resolver) { 
+    if (_notifier == null) return;
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
         target: object,
-        assetDataMap: assetMap,
+        resolver: resolver,
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
@@ -1558,12 +1554,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    final AsyncValue<Map<String, AssetData>> assetMapAsync =
-        ref.watch(assetMapProvider(widget.tab.id));
+    final resolverAsync = ref.watch(tiledAssetResolverProvider(widget.tab.id));
 
-    return assetMapAsync.when(
+    return resolverAsync.when(
       skipLoadingOnReload: true,
-      data: (assetDataMap) {
+      data: (resolver) {
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
@@ -1585,7 +1580,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               size: Size(mapPixelWidth, mapPixelHeight),
               painter: TiledMapPainter(
                 map: map,
-                assetDataMap: assetDataMap,
+                resolver: resolver, // CHANGED: Pass resolver
                 mapContextPath: _getMapContextPath(),
                 showGrid: _showGrid,
                 transform: _transformationController.value,
@@ -1630,7 +1625,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 height: _paletteHeight,
                 child: TilePalette(
                   map: notifier!.map,
-                  assetDataMap: assetDataMap, 
+                  resolver: resolver, // CHANGED: Pass resolver
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
                   onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
@@ -1682,8 +1677,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   notifier!.deleteObject(layerId, objectId);
                 },
                 
-                onLayerInspect: _showLayerInspector,
-                onObjectInspect: _inspectObject,
+                onLayerInspect: (layer) => _showLayerInspector(layer, resolver), // CHANGED: Pass resolver
+                onObjectInspect: (obj) => _inspectObject(obj, resolver), // CHANGED: Pass resolver
               ),
             ),
           ],
