@@ -62,7 +62,6 @@ class SlicingView extends ConsumerWidget {
         if (image == null) {
            return Center(
             child: Column(
-              mainAxisAlignment.center,
               children: [
                 const Icon(Icons.error_outline, color: Colors.red, size: 32),
                 const SizedBox(height: 8),
