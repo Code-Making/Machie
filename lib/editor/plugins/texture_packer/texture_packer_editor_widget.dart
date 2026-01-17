@@ -120,7 +120,8 @@ void _updateAndLoadAssetUris() {
     if (project == null || repo == null || tpackerFileMetadata == null) return;
     
     // GET the full path of the .tpacker file's parent directory, this is our context for relative asset paths.
-    final tpackerFileUri = tpackerFileMetadata.file.uri;
+    // The .uri property is a String, so we need to parse it into a Uri object to use the resolve method.
+    final tpackerFileUri = Uri.parse(tpackerFileMetadata.file.uri);
     final tpackerDirectoryUri = tpackerFileUri.resolve('.'); // Get the directory URI
     final tpackerPath = repo.fileHandler.getPathForDisplay(
       tpackerDirectoryUri, 
