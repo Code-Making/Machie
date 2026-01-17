@@ -22,7 +22,6 @@ class TilePalette extends StatefulWidget {
   final VoidCallback? onInspectSelectedTileset;
   final VoidCallback? onDeleteSelectedTileset;
   final VoidCallback? onClearUnusedTilesets;
-  final String mapContextPath;
 
   const TilePalette({
     super.key,
@@ -37,7 +36,6 @@ class TilePalette extends StatefulWidget {
     this.onInspectSelectedTileset,
     this.onDeleteSelectedTileset,
     this.onClearUnusedTilesets,
-    required this.mapContextPath,
   });
 
   @override

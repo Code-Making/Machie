@@ -317,7 +317,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
-      if (prop is tiled.StringProperty && prop.value.isNotEmpty) {
+      if (prop is StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
           uris.add(repo.resolveRelativePath(tmxPath, path));
