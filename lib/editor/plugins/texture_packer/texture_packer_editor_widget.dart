@@ -34,6 +34,7 @@ import 'widgets/slicing_view.dart';
 import 'widgets/slicing_properties_dialog.dart';
 import 'widgets/source_images_panel.dart';
 import 'widgets/texture_packer_file_dialog.dart';
+import 'texture_packer_asset_resolver.dart';
 
 final activeSourceImageIdProvider = StateProvider.autoDispose<String?>((ref) => null);
 final selectedNodeIdProvider = StateProvider.autoDispose<String?>((ref) => null);
@@ -122,14 +123,16 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       tpackerFileMetadata.file.uri, 
       relativeTo: project.rootUri
     );
-    final tpackerDir = p.dirname(tpackerPath);
+
+    // STEP 1: Create an instance of our new resolver.
+    final pathResolver = TexturePackerPathResolver(tpackerPath);
 
     final resolvedUris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // Resolve the local path against the .tpacker's directory
-          final resolvedPath = repo.resolveRelativePath(tpackerDir, node.content!.path);
+          // STEP 2: Use the resolver to get the canonical path.
+          final resolvedPath = pathResolver.resolve(node.content!.path);
           resolvedUris.add(resolvedPath);
         }
       }
@@ -137,9 +140,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
+    // This part remains the same. If the set of required URIs has changed,
+    // it notifies the provider to load them.
     if (!const SetEquality().equals(resolvedUris, _requiredAssetUris)) {
       _requiredAssetUris = resolvedUris;
-      // Pass the fully resolved, project-relative paths to the asset system.
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(resolvedUris);
     }
   }
