@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
+// REMOVED: import 'package:path/path.dart' as p; -- Logic moved to Repo
 import 'package:tiled/tiled.dart' hide Text;
 import 'package:tiled/tiled.dart' as tiled show Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +60,7 @@ class TiledEditorWidget extends EditorWidget {
 }
 
 class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
+  // ... (Keep state variables: _notifier, _selectedLayerId, etc. unchanged) ...
   TiledMapNotifier? get notifier => _notifier;
   TiledMapNotifier? _notifier;
 
@@ -99,6 +100,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   late final TransformationController _transformationController;
   String? _lastTilesetParentUri;
+
+  // ... (Keep simple getters/setters: editMapProperties, addLayer, toggleGrid, etc.) ...
   void editMapProperties() => _editMapProperties();
   void addTileset() => _addTileset();
   void addLayer() => _addLayer();
@@ -159,6 +162,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
   @override
   void syncCommandContext() {
+    // ... (Keep existing implementation) ...
     final isPolyToolActive = _activeObjectTool == ObjectTool.addPolygon ||
         _activeObjectTool == ObjectTool.addPolyline;
 
@@ -232,6 +236,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     super.dispose();
   }
 
+  // --- REFACTORED: Helper to get the Project-Relative Path of the TMX ---
+  String _getTmxProjectRelativePath() {
+    final repo = ref.read(projectRepositoryProvider)!;
+    final project = ref.read(currentProjectProvider)!;
+    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
+    return repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
+  }
+
   Future<void> _initializeAndLoadMap() async {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
@@ -281,52 +293,41 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
+  // --- REFACTORED: Determine the context path for a specific tileset ---
+  String _determineTilesetContext(String tmxPath, Tileset tileset, ProjectRepository repo) {
+    if (tileset.source != null) {
+      // It's an external tileset. Its context is the folder containing the TSX file.
+      // The TSX path itself is relative to the TMX.
+      final tsxPath = repo.resolveRelativePath(tmxPath, tileset.source!);
+      return tsxPath;
+    } else {
+      // It's an embedded tileset. Its context is the TMX file itself.
+      return tmxPath;
+    }
+  }
+
+  // --- REFACTORED: Uses repository path logic instead of path package ---
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
-    
     final repo = ref.read(projectRepositoryProvider)!;
-    final project = ref.read(currentProjectProvider)!;
-    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    final tmxParentUri = repo.fileHandler.getParentUri(tmxFile.uri);
-    
-    final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
-    final tmxDir = p.dirname(tmxDisplayPath);
-
-    // Helper to resolve a relative path from TMX to a project-relative canonical path
-    String resolve(String relativePath) {
-      final combined = p.join(tmxDir, relativePath);
-      return p.normalize(combined).replaceAll(r'\', '/');
-    }
+    final tmxPath = _getTmxProjectRelativePath();
 
     for (final tileset in map.tilesets) {
-      // If tileset is external (.tsx), its images are relative to the TSX file.
-      // Current Tiled parser handles TSX merging, but we need to know the base.
-      // For now, assuming embedded tilesets or images relative to TMX.
-      // NOTE: Properly supporting external TSX paths requires calculating the TSX directory.
-      // Since map.tilesets is flattened, we might treat them relative to TMX 
-      // unless we parse the source attribute again.
-      // For simplicity in this phase, we assume images are reachable relative to the TMX
-      // or we check if the tileset has a source path.
-      
-      String baseDir = tmxDir;
-      if (tileset.source != null) {
-         // This is an external tileset. The image source inside it is relative to the TSX.
-         // We need to resolve TSX path relative to TMX first.
-         final tsxPath = resolve(tileset.source!);
-         baseDir = p.dirname(tsxPath);
-      }
+      // 1. Determine the context (is it TMX or TSX?)
+      final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
 
       if (tileset.image?.source != null) {
-        final imagePath = tileset.image!.source!;
-        // Resolve image relative to baseDir
-        final canonical = p.normalize(p.join(baseDir, imagePath)).replaceAll(r'\', '/');
-        uris.add(canonical);
+        // 2. Resolve image relative to that context
+        final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
+        uris.add(assetUri);
       }
     }
 
     for (final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
-        uris.add(resolve(layer.image.source!));
+        // Image layers are always inside the TMX, so context is TMX.
+        final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
+        uris.add(assetUri);
       }
     }
 
@@ -335,7 +336,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       if (prop is StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
-          uris.add(resolve(path));
+          // Custom properties on map are relative to map
+          uris.add(repo.resolveRelativePath(tmxPath, path));
         }
       }
     }
@@ -349,6 +351,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
   }
   
+  // --- REFACTORED: Uses calculateRelativePath for saving ---
   Future<void> reloadImageSource({
     required Object parentObject,
     required String oldSourcePath,
@@ -358,8 +361,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         
     try {
       final repo = ref.read(projectRepositoryProvider)!;
-      final project = ref.read(currentProjectProvider)!;
-      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
+      final tmxPath = _getTmxProjectRelativePath();
 
       // Ensure the new asset is loaded
       final assetData = await ref.read(assetDataProvider(newProjectPath).future);
@@ -368,15 +370,21 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
       final newImage = assetData.image;
 
-      final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
-      final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
-      
-      // Calculate path relative to the TMX file to store in the map data
-      final newRelativePathForTmx = p.relative(newProjectPath, from: tmxDirDisplayPath).replaceAll(r'\', '/');
+      // Determine context for relative calculation
+      String contextPath;
+      if (parentObject is Tileset) {
+        contextPath = _determineTilesetContext(tmxPath, parentObject, repo);
+      } else {
+        // Layers, etc. are relative to TMX
+        contextPath = tmxPath;
+      }
+
+      // Calculate path relative to the context (TMX or TSX)
+      final newRelativePath = repo.calculateRelativePath(contextPath, newProjectPath);
 
       _notifier!.updateImageSource(
         parentObject: parentObject,
-        newSourcePath: newRelativePathForTmx,
+        newSourcePath: newRelativePath,
         newWidth: newImage.width,
         newHeight: newImage.height,
       );
@@ -391,6 +399,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void _fixupParsedMap(TiledMap map, String tmxContent) {
+    // ... (Keep existing fixup logic for GIDs and Objects unchanged) ...
     final xmlDocument = XmlDocument.parse(tmxContent);
     final layerElements = xmlDocument.rootElement.findAllElements('layer');
     final objectGroupElements = xmlDocument.rootElement.findAllElements('objectgroup');
@@ -479,31 +488,17 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     map.nextLayerId = nextAvailableId;
   }
   
+  // --- REFACTORED: Uses repository resolution logic ---
   void _fixupTilesetsAfterImageLoad(TiledMap map, Map<String, AssetData> assetDataMap) {
-    // We need the project-relative path of the TMX to resolve relative paths in tilesets
     final repo = ref.read(projectRepositoryProvider)!;
-    final project = ref.read(currentProjectProvider)!;
-    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
-    final tmxDir = p.dirname(tmxDisplayPath);
-
-    String resolve(String relativePath) {
-      final combined = p.join(tmxDir, relativePath);
-      return p.normalize(combined).replaceAll(r'\', '/');
-    }
+    final tmxPath = _getTmxProjectRelativePath();
 
     for (final tileset in map.tilesets) {
       if (tileset.tiles.isEmpty && tileset.image?.source != null) {
         final rawSource = tileset.image!.source!;
         
-        // Use the resolution logic to find the key in the map
-        String baseDir = tmxDir;
-        if (tileset.source != null) {
-           final tsxPath = resolve(tileset.source!);
-           baseDir = p.dirname(tsxPath);
-        }
-        
-        final canonicalKey = p.normalize(p.join(baseDir, rawSource)).replaceAll(r'\', '/');
+        final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
+        final canonicalKey = repo.resolveRelativePath(contextPath, rawSource);
         
         final asset = assetDataMap[canonicalKey];
         if (asset is ImageAssetData) {
@@ -537,6 +532,20 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
+  // --- REFACTORED: Helper to pass correct context path to inspectors ---
+  // The inspector needs the context to resolve relative paths in properties (like images)
+  // For the map itself, the context is the TMX path.
+  // For external tilesets, it's the TSX path.
+  String _getMapContextPath() {
+    return _getTmxProjectRelativePath();
+  }
+
+  String _getTilesetContextPath(Tileset tileset) {
+    final repo = ref.read(projectRepositoryProvider)!;
+    return _determineTilesetContext(_getTmxProjectRelativePath(), tileset, repo);
+  }
+
+  // ... (Keep existing methods: _onMapChanged, _editMapProperties, _getAssetDataMap, showExportDialog) ...
   void _onMapChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
     
@@ -586,14 +595,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       ),
     );
   }  
-  
-  // Gets the current TMX file path (project relative) to pass to inspectors/painters
-  String _getMapContextPath() {
-    final repo = ref.read(projectRepositoryProvider)!;
-    final project = ref.read(currentProjectProvider)!;
-    final tmxFile = ref.read(tabMetadataProvider)[widget.tab.id]!.file;
-    return repo.fileHandler.getPathForDisplay(tmxFile.uri, relativeTo: project.rootUri);
-  }
 
   void inspectMapProperties() {
     final assetMap = _getAssetDataMap();
@@ -613,6 +614,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   Future<void> _addTileset() async {
+    // Picker returns a project-relative path
     final relativeImagePath = await showDialog<String>(
       context: context,
       builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
@@ -628,21 +630,18 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     try {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
-      final tmxFileUri = ref.read(tabMetadataProvider)[widget.tab.id]!.file.uri;
-
+      
+      // Update last picked folder for convenience
       final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
       if (imageFile != null) {
         _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
       }
 
-      final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
-      final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
-      
-      final imagePathRelativeToTmx = p.relative(
-        relativeImagePath,
-        from: tmxDirDisplayPath,
-      ).replaceAll(r'\', '/');
+      // Calculate path relative to the TMX
+      final tmxPath = _getTmxProjectRelativePath();
+      final imagePathRelativeToTmx = repo.calculateRelativePath(tmxPath, relativeImagePath);
 
+      // We need image dimensions
       final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
       if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
@@ -683,6 +682,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
   
+  // ... (Keep deleteSelectedTileset, clearUnusedTilesets unchanged) ...
   void _deleteSelectedTileset() async {
     if (_notifier == null || _selectedTileset == null) return;
 
@@ -735,23 +735,29 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       MachineToast.info("Removed ${unused.length} tileset(s).");
     }
   }
-  
+
+  // --- REFACTORED: Pass specific context to inspector ---
   void _inspectSelectedTileset() {
     final assetMap = _getAssetDataMap();
-    if (_notifier == null || _selectedTileset == null ||assetMap==null) return;
+    if (_notifier == null || _selectedTileset == null || assetMap == null) return;
+    
+    // Determine if this tileset is external or embedded to give correct context
+    final contextPath = _getTilesetContextPath(_selectedTileset!);
+
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
         target: _selectedTileset!,
-        assetDataMap: assetMap!,
+        assetDataMap: assetMap,
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        contextPath: _getMapContextPath(),
+        contextPath: contextPath,
       ),
     );
   }
 
+  // ... (Keep addLayer, deleteLayer, onLayerSelect unchanged) ...
   void _addLayer() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -807,7 +813,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     syncCommandContext();
   }
 
-  
+  // --- REFACTORED: Layers always have the TMX context ---
   void _showLayerInspector(Layer layer) {
     final assetMap = _getAssetDataMap();
     if (_notifier == null || assetMap == null) return;
@@ -854,7 +860,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: target,
-        assetDataMap: assetMap!,
+        assetDataMap: assetMap,
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
@@ -862,6 +868,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       ),
     );
   }
+  
+  // ... (Keep rest of the file: deleteObject, interactions, build method, etc. unchanged) ...
+  // Note: The build method uses TilePalette, which will also need updates in Phase 4.
+  // For now, we pass mapContextPath which is correct for embedded tilesets but will need tweaking in Phase 4
+  // for mixed contexts in the palette.
   
     void _deleteSelectedObject() async {
     if (_notifier == null || _notifier!.selectedObjects.isEmpty) return;
