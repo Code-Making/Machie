@@ -5,14 +5,11 @@ import 'package:flutter/material.dart' hide StringProperty; // FIX: Hide conflic
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'tiled_editor_settings_model.dart';
-import '../../../asset_cache/asset_models.dart';
-import 'package:path/path.dart' as p;
+import '../../../asset_cache/asset_models.dart';import 'package:path/path.dart' as p;
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
-  final Map<String, AssetData> assetDataMap;
-  /// The project-relative path of the TMX file being edited.
-  /// Used to resolve relative paths found in the map data.
+  final AssetResolver assetResolver; // NEW: Replaces assetDataMap + contextPath
   final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
@@ -30,7 +27,7 @@ class TiledMapPainter extends CustomPainter {
 
   TiledMapPainter({
     required this.map,
-    required this.assetDataMap,
+    required this.assetResolver,
     required this.mapContextPath,
     required this.showGrid,
     required this.transform,
@@ -46,22 +43,11 @@ class TiledMapPainter extends CustomPainter {
   ui.Image? _getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
     
-    // Resolve the relative path from the TMX file location to a project-relative canonical path
-    final contextDir = p.dirname(mapContextPath);
-    final combined = p.join(contextDir, sourcePath);
-    final canonicalKey = p.normalize(combined).replaceAll(r'\', '/');
-    
-    final asset = assetDataMap[canonicalKey];
+    // Delegate strictly to the resolver
+    final asset = assetResolver(sourcePath);
     if (asset is ImageAssetData) {
       return asset.image;
     }
-
-    // Fallback: try direct lookup in case it was stored as absolute/canonical
-    if (assetDataMap.containsKey(sourcePath)) {
-        final fallbackAsset = assetDataMap[sourcePath];
-        if (fallbackAsset is ImageAssetData) return fallbackAsset.image;
-    }
-
     return null;
   }
 
