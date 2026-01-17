@@ -13,7 +13,6 @@ import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
-import 'package:machine/asset_cache/asset_providers.dart';
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
@@ -295,33 +294,22 @@ class PropertyBoolSwitch extends StatelessWidget {
 class PropertyImagePathInput extends ConsumerWidget {
   final ImagePathPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
+  final AssetData? imageAsset;
   final GlobalKey<TiledEditorWidgetState> editorKey;
-  final Object parentObject;
-  final String tabId; // NEW
-  final String contextPath; // NEW
+  final Object parentObject; // <-- CHANGED: Now required
 
   const PropertyImagePathInput({
     super.key,
     required this.descriptor,
     required this.onUpdate,
+    required this.imageAsset,
     required this.editorKey,
     required this.parentObject,
-    required this.tabId,
-    required this.contextPath,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asset = ref.watch(resolvedAssetProvider(ResolvedAssetRequest(
-      tabId: tabId,
-      query: AssetQuery(
-        path: descriptor.currentValue,
-        mode: AssetPathMode.relativeToContext,
-        contextPath: contextPath,
-      ),
-    )));
-
-    final hasError = asset?.hasError ?? (descriptor.currentValue.isNotEmpty && asset == null); 
+    final hasError = imageAsset?.hasError ?? false; 
     final theme = Theme.of(context);
 
     return ListTile(
@@ -332,7 +320,7 @@ class PropertyImagePathInput extends ConsumerWidget {
         style: TextStyle(color: hasError ? theme.colorScheme.error : null),
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: _buildTrailingIcon(asset, hasError),
+      trailing: Icon(hasError ? Icons.error_outline : Icons.folder_open_outlined),
       onTap: () async {
         final newPath = await showDialog<String>(
           context: context,
@@ -350,15 +338,6 @@ class PropertyImagePathInput extends ConsumerWidget {
         }
       },
     );
-  }
-  
-  Widget _buildTrailingIcon(AssetData? asset, bool hasError) {
-    if (hasError) return const Icon(Icons.error_outline, color: Colors.red);
-    if (asset is ImageAssetData) {
-       // Optional: Small thumbnail preview could go here
-       return const Icon(Icons.image, color: Colors.green);
-    }
-    return const Icon(Icons.folder_open_outlined);
   }
 }
 
