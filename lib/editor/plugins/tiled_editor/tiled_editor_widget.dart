@@ -574,6 +574,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: _notifier!.map,
+        tabId: widget.tab.id, 
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
@@ -714,6 +715,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       context: context,
       builder: (_) => InspectorDialog(
         target: _selectedTileset!,
+      tabId: widget.tab.id, 
         assetDataMap: assetMap!,
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
@@ -789,7 +791,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
         assetDataMap: assetDataMap, // Kept for list enumeration
-        tabId: widget.tab.id, // NEW: Passed for specific resolution
+        tabId: widget.tab.id,
         contextPath: _getMapContextPath(),
       ),
     );
@@ -802,6 +804,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
+      tabId: widget.tab.id, 
         target: object,
         assetDataMap: assetMap,
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
@@ -823,6 +826,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     showDialog(
       context: context,
       builder: (_) => InspectorDialog(
+      tabId: widget.tab.id, 
         target: target,
         assetDataMap: assetMap!,
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
@@ -1594,7 +1598,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 height: _paletteHeight,
                 child: TilePalette(
                   map: notifier!.map,
-                  assetDataMap: assetDataMap, 
+                assetResolver: assetResolver,
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
                   onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
