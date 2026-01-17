@@ -7,6 +7,7 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 import 'tiled_editor_settings_model.dart';
 import '../../../asset_cache/asset_models.dart';
 import 'package:path/path.dart' as p;
+import 'tiled_asset_resolver.dart';
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
@@ -63,9 +64,8 @@ class TiledMapPainter extends CustomPainter {
   }
   
   TexturePackerSpriteData? _findSpriteData(String spriteName) {
-    // TexturePacker assets are self-contained, so looking them up by sprite name
-    // across all loaded assets is acceptable for now, though ideally we'd link to a specific atlas.
-    for (final asset in assetDataMap.values) {
+    // CHANGED: Use resolver.rawAssets instead of assetDataMap
+    for (final asset in resolver.rawAssets.values) {
       if (asset is TexturePackerAssetData) {
         if (asset.frames.containsKey(spriteName)) {
           return asset.frames[spriteName];
