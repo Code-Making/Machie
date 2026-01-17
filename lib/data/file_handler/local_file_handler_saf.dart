@@ -429,30 +429,28 @@ class SafFileHandler implements LocalFileHandler {
   
   @override
   String resolveRelativePath(String contextPath, String relativePath) {
-    String contextDir;
-
-    // STEP 1: Check if the context path has a file extension.
-    if (_pathContext.extension(contextPath).isNotEmpty) {
-      // If it has an extension (e.g., ".tmx", ".tpacker"), it's a file.
-      // We get its parent directory.
-      contextDir = _pathContext.dirname(contextPath);
-    } else {
-      // If it has no extension, we assume it's already a directory path.
-      // We use it directly.
-      contextDir = contextPath;
-    }
+    // --- THIS IS THE FIX ---
+    // REMOVE the dirname() call. The method now expects contextPath to be the
+    // base directory from which to resolve, not a file within it.
+    // This removes ambiguity and fixes the "double folder" issue.
     
-    // The rest of the logic remains the same.
-    final combined = _pathContext.join(contextDir, relativePath);
+    // OLD FLAWED CODE:
+    // final contextDir = _pathContext.dirname(contextPath);
+    // final combined = _pathContext.join(contextDir, relativePath);
+
+    // NEW CORRECT CODE:
+    final combined = _pathContext.join(contextPath, relativePath);
+
+    // Normalizing is still crucial to handle '..' and '.' segments.
     return _pathContext.normalize(combined);
   }
 
   @override
   String calculateRelativePath(String fromContext, String toTarget) {
-    // 1. Get directory of the context file
+    // This method was correct, but for consistency, we ensure it also
+    // explicitly uses the directory name as its base.
     final contextDir = _pathContext.dirname(fromContext);
     
-    // 2. Calculate relative path
     return _pathContext.relative(toTarget, from: contextDir);
   }
 }

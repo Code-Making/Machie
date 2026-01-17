@@ -54,31 +54,41 @@ class TexturePackerPathResolver {
 
 class TexturePackerAssetResolver {
   final Map<String, AssetData> _assets;
-  
-  // It now holds an instance of our new helper class.
-  final TexturePackerPathResolver _pathResolver;
+  final ProjectRepository _repo;
+  final String _tpackerProjectRelativePath;
+  late final String _tpackerDirectory;
 
-  TexturePackerAssetResolver(this._assets, this._pathResolver);
+  TexturePackerAssetResolver(this._assets, this._repo, this._tpackerProjectRelativePath) {
+    // The plugin-specific logic of getting the directory from a file path
+    // now lives solely within the resolver that needs it.
+    _tpackerDirectory = _repo.fileHandler.getPathForDisplay(
+      _repo.fileHandler.getParentUri(_tpackerProjectRelativePath),
+    );
+
+    // Handle root case
+    if (_tpackerDirectory == _tpackerProjectRelativePath) {
+      _tpackerDirectory = '.';
+    }
+  }
+
+  String _resolve(String fileRelativeAssetPath) {
+    // Now we call the corrected, unambiguous FileHandler method.
+    return _repo.fileHandler.resolveRelativePath(_tpackerDirectory, fileRelativeAssetPath);
+  }
   
   ui.Image? getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
 
-    // STEP 1: Use the helper to resolve the path to a canonical key.
-    final canonicalKey = _pathResolver.resolve(sourcePath);
-    
-    // STEP 2: Look up the asset using that key.
+    final canonicalKey = _resolve(sourcePath);
     final asset = _assets[canonicalKey];
 
     if (asset is ImageAssetData) {
       return asset.image;
     }
-    
-    // If the asset is not found or is an error, this correctly returns null.
     return null;
   }
 }
 
-// Update the provider to create and inject both the helper and the main resolver.
 final texturePackerAssetResolverProvider = Provider.family.autoDispose<AsyncValue<TexturePackerAssetResolver>, String>((ref, tabId) {
   final assetMapAsync = ref.watch(assetMapProvider(tabId));
   final repo = ref.watch(projectRepositoryProvider);
@@ -92,10 +102,7 @@ final texturePackerAssetResolverProvider = Provider.family.autoDispose<AsyncValu
     
     final tpackerPath = repo.fileHandler.getPathForDisplay(metadata.file.uri, relativeTo: project.rootUri);
     
-    // Create an instance of our new helper.
-    final pathResolver = TexturePackerPathResolver(tpackerPath);
-
-    // Provide both the asset map and the new helper to the main resolver.
-    return TexturePackerAssetResolver(assetMap, pathResolver);
+    // The provider now constructs the resolver with the repository and the tpacker file path.
+    return TexturePackerAssetResolver(assetMap, repo, tpackerPath);
   });
 });
