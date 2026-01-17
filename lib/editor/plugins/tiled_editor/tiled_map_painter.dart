@@ -12,7 +12,6 @@ import 'tiled_asset_resolver.dart';
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
   final TiledAssetResolver resolver; // CHANGED: Replaces assetDataMap & contextPath
-  final String mapContextPath;
   final bool showGrid;
   final Matrix4 transform;
   
@@ -30,7 +29,6 @@ class TiledMapPainter extends CustomPainter {
   TiledMapPainter({
     required this.map,
     required this.resolver, // CHANGED
-    required this.mapContextPath,
     required this.showGrid,
     required this.transform,
     this.selectedObjects = const [],
