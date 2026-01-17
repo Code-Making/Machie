@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' as tiled;
+import 'package:tiled/tiled.dart' as tiled; // Alias to avoid conflict with Flutter Text
 import 'package:path/path.dart' as p;
 
 import 'property_descriptors.dart';
@@ -11,16 +11,16 @@ import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
-import '../tiled_asset_resolver.dart';
+import '../tiled_asset_resolver.dart'; // Import the new resolver
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
   final String title;
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
-  final TiledAssetResolver resolver; // CHANGED
-  /// The project-relative path of the TMX file, for resolving relative assets.
-  final String contextPath;
+  
+  // Replaced assetDataMap and contextPath with resolver
+  final TiledAssetResolver resolver;
 
   const InspectorDialog({
     super.key,
@@ -29,7 +29,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.notifier,
     required this.editorKey,
     required this.resolver,
-    required this.contextPath,
   });
 
   @override
@@ -117,25 +116,40 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
       
-      // CHANGED: Use resolver logic to find the asset for preview
       final rawPath = descriptor.currentValue;
       
-      // Determine context based on parent object (Layer vs Tileset)
-      Tileset? contextTileset;
-      if (parentDescriptor is ObjectPropertyDescriptor && parentDescriptor.target is Tileset) {
-        contextTileset = parentDescriptor.target as Tileset;
+      // Determine context based on parent object (to handle external tilesets correctly)
+      tiled.Tileset? contextTileset;
+      Object? parentObject;
+
+      // If we are inside an ObjectPropertyDescriptor (like 'image' on a Tileset),
+      // the target of that descriptor is the parent object (the Tileset).
+      if (parentDescriptor is ObjectPropertyDescriptor) {
+         parentObject = parentDescriptor.target;
+         if (parentObject is tiled.Tileset) {
+           contextTileset = parentObject;
+         }
+      } else {
+        // Fallback: if inspecting the Tileset directly (though usually we inspect properties of it)
+        if (widget.target is tiled.Tileset) {
+          contextTileset = widget.target as tiled.Tileset;
+          parentObject = widget.target;
+        }
       }
       
+      // Use resolver to get the image for preview
       final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
-      // Wrap in ImageAssetData for existing widget compatibility or update widget
-      final imageAsset = image != null ? ImageAssetData(image: image) : null; 
+      final imageAsset = image != null ? ImageAssetData(image: image) : null;
+      
+      // Ensure we have a valid parent object for the reload callback
+      final actualParentObject = parentObject ?? widget.target;
       
       return PropertyImagePathInput(
         descriptor: descriptor,
         onUpdate: _onUpdate,
         imageAsset: imageAsset,
         editorKey: widget.editorKey,
-        parentObject: parentObject!,
+        parentObject: actualParentObject,
       );
     }
     if (descriptor is FileListPropertyDescriptor) {
@@ -143,14 +157,14 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         descriptor: descriptor,
         onUpdate: _onUpdate,
         editorKey: widget.editorKey,
-        contextPath: widget.contextPath, // Pass the context path here
+        contextPath: widget.resolver.tmxPath, // Pass the TMX path from resolver
       );
     }
     if (descriptor is SpriteReferencePropertyDescriptor) {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        resolver: widget.reso,
+        assetDataMap: widget.resolver.rawAssets, // Pass raw assets map
       );
     }
     if (descriptor is BoolPropertyDescriptor) {
