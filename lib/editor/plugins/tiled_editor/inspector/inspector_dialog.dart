@@ -11,6 +11,7 @@ import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
+import '../tiled_asset_resolver.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
@@ -149,7 +150,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        resolver: widget.resolver,
+        resolver: widget.reso,
       );
     }
     if (descriptor is BoolPropertyDescriptor) {
