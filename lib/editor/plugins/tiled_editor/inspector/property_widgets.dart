@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide ColorProperty;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flex_color_picker/flex_color_picker.dart'; // <-- IMPORT THE PACKAGE
 import 'package:machine/asset_cache/asset_models.dart';
+import 'package:path/path.dart' as p; // Add path import
 
 import 'property_descriptors.dart';
 import '../tiled_editor_widget.dart';
