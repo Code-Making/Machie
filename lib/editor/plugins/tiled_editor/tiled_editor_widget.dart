@@ -638,11 +638,13 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final tmxDisplayPath = repo.fileHandler.getPathForDisplay(tmxFileUri, relativeTo: project.rootUri);
       final tmxDirDisplayPath = p.dirname(tmxDisplayPath);
       
+      // Calculate path relative to the TMX file
       final imagePathRelativeToTmx = p.relative(
         relativeImagePath,
         from: tmxDirDisplayPath,
       ).replaceAll(r'\', '/');
 
+      // Ensure asset is loaded in the provider cache
       final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
       if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
@@ -672,7 +674,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         ),
       );
 
+      // Add to map logic
       await _notifier!.addTileset(newTileset);
+      
+      // Force rebuild URIs immediately so the new tileset image is in the asset map
+      await _rebuildAssetUriSet();
+      if (mounted) setState(() {});
 
     } catch (e, st) {
       MachineToast.error('Failed to add tileset: $e');
