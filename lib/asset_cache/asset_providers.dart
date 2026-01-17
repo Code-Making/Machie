@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 ///
 /// This provider handles the translation from context-relative paths (used by editors
 /// like Tiled or Texture Packer) to the canonical project-relative paths used by the AssetMap.
+/// Resolves an [AssetQuery] into a loaded [AssetData].
 final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAssetRequest>((ref, request) {
   // Watch the asset map for the specific tab
   final assetMapAsync = ref.watch(assetMapProvider(request.tabId));
@@ -22,28 +23,21 @@ final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAs
   
   if (assetMap == null) return null;
 
+  final repo = ref.watch(projectRepositoryProvider);
+  // We cannot resolve paths if the repository isn't ready.
+  if (repo == null) return null;
+
   String lookupKey;
 
   if (request.query.mode == AssetPathMode.projectRelative) {
     // If it's already project relative, use it as is (ensuring separators are consistent)
     lookupKey = request.query.path.replaceAll(r'\', '/');
   } else {
-    // Resolve relative to context
-    if (request.query.contextPath == null) {
-      // If we don't have context, we can't resolve a relative path. 
-      // Fallback to treating it as project relative or fail.
-      return null;
-    }
-
-    final contextDir = p.dirname(request.query.contextPath!);
-    final rawPath = request.query.path;
-    
-    // Join and normalize to remove '..' segments
-    final combined = p.join(contextDir, rawPath);
-    final normalized = p.normalize(combined);
-    
-    // Ensure forward slashes for map keys
-    lookupKey = normalized.replaceAll(r'\', '/');
+    // Delegate resolution logic to the repository
+    lookupKey = repo.resolveRelativePath(
+      request.query.contextPath!, // Safe due to assertion in AssetQuery
+      request.query.path,
+    );
   }
 
   return assetMap[lookupKey];

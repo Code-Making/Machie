@@ -31,7 +31,10 @@ class AssetQuery {
     required this.path,
     this.mode = AssetPathMode.projectRelative,
     this.contextPath,
-  });
+  }) : assert(
+          mode != AssetPathMode.relativeToContext || contextPath != null,
+          'Context path must be provided when resolving relative to context.',
+        );
 
   @override
   bool operator ==(Object other) =>
