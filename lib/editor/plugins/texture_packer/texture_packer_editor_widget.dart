@@ -1,4 +1,4 @@
-// lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
+// FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
 
 import 'dart:convert';
 import 'dart:math';
@@ -18,6 +18,7 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/project/project_settings_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
+import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_models.dart';
@@ -34,7 +35,6 @@ import 'widgets/slicing_properties_dialog.dart';
 import 'widgets/source_images_panel.dart';
 import 'widgets/texture_packer_file_dialog.dart';
 
-// Providers for UI state
 final activeSourceImageIdProvider = StateProvider.autoDispose<String?>((ref) => null);
 final selectedNodeIdProvider = StateProvider.autoDispose<String?>((ref) => null);
 
@@ -54,18 +54,14 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   late final TexturePackerNotifier _notifier;
   TexturePackerNotifier get notifier => _notifier;
   
-  // Cache for asset loading
   Set<String> _requiredAssetUris = const {};
 
-  // View State
   TexturePackerMode _mode = TexturePackerMode.panZoom;
   bool _isSourceImagesPanelVisible = false;
   bool _isHierarchyPanelVisible = false;
   
-  // Transformation Controller for the Slicing View
   late final TransformationController _transformationController;
   
-  // Temporary Slicing State
   Offset? _dragStart;
   GridRect? _selectionRect;
 
@@ -76,13 +72,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     _notifier.addListener(_onNotifierUpdate);
   }
   
-  /// Called whenever the data model changes (add/move/delete)
   void _onNotifierUpdate() {
     if (!mounted) return;
 
-    // 1. Sanitize Selection State
-    // If the currently selected node or source image was deleted, clear the selection
-    // to prevent the UI from trying to render a null object.
     final currentSourceId = ref.read(activeSourceImageIdProvider);
     if (currentSourceId != null) {
       if (_notifier.findSourceImageConfig(currentSourceId) == null) {
@@ -90,13 +82,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       }
     }
 
-    // 2. Mark Dirty
     ref.read(editorServiceProvider).markCurrentTabDirty();
     
-    // 3. Sync Commands
     syncCommandContext();
     
-    // 4. Refresh Asset Dependencies
     _updateAndLoadAssetUris();
     
     setState(() {});
@@ -120,35 +109,41 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
 
   /// Traverses the SourceImage tree to find all file paths and tells the
-  /// asset system to load them.
   void _updateAndLoadAssetUris() {
     if (!mounted) return;
+    
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final repo = ref.read(projectRepositoryProvider);
+    final tpackerFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
+
+    if (project == null || repo == null || tpackerFileMetadata == null) return;
+    
+    final tpackerPath = repo.fileHandler.getPathForDisplay(
+      tpackerFileMetadata.file.uri, 
+      relativeTo: project.rootUri
+    );
 
     final uris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          uris.add(node.content!.path);
+          final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
+          uris.add(resolvedPath);
         }
       }
       for (final child in node.children) collectPaths(child);
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
-    // Only trigger a reload if the set of URIs actually changed
     if (!const SetEquality().equals(uris, _requiredAssetUris)) {
       _requiredAssetUris = uris;
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // UI Commands
-  // ---------------------------------------------------------------------------
 
   void setMode(TexturePackerMode newMode) {
     if (_mode == newMode) {
-      // Toggle back to default
       setState(() => _mode = TexturePackerMode.panZoom);
     } else {
       setState(() => _mode = newMode);
@@ -180,11 +175,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     syncCommandContext();
   }
 
-  // ---------------------------------------------------------------------------
-  // Slicing Logic
-  // ---------------------------------------------------------------------------
 
-  // ... (Slicing logic remains mostly same, but ensures null safety) ...
   Point<int>? _pixelToGridPoint(Offset positionInImage, SlicingConfig slicing) {
     if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) return null;
     
@@ -251,7 +242,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     if (_selectionRect == null) return;
     final rect = _selectionRect!;
     
-    // Check if we actually have an active source image to attach this sprite to
     final activeImageId = ref.read(activeSourceImageIdProvider);
     if (activeImageId == null) {
       MachineToast.error("No source image selected.");
@@ -271,11 +261,8 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   Future<void> _createSingleSprite(GridRect rect, String activeImageId) async {
     final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
     if (spriteName != null && spriteName.trim().isNotEmpty) {
-      // Determine parent from current selection, falling back to root
       String parentId = ref.read(selectedNodeIdProvider) ?? 'root';
       
-      // Ensure we don't try to parent into a sprite (which can't have children)
-      // This logic relies on the notifier's safety checks, but good to check here for UX
       
       final newNode = _notifier.createNode(
         type: PackerItemType.sprite,
@@ -293,7 +280,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
 
   Future<void> _handleMultiSelection(GridRect rect, String activeImageId) async {
-    // ... (Dialog logic same as Phase 1) ...
     const optionAnim = 'Create Animation';
     const optionBatch = 'Batch Sprites';
     const optionSingle = 'Single Sprite (Merged)';
@@ -331,7 +317,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     
     final parentId = ref.read(selectedNodeIdProvider); 
 
-    // Generate definitions
     final definitions = <SpriteDefinition>[];
     final names = <String>[];
     
@@ -355,7 +340,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
         parentId: parentId,
       );
     } else if (choice == optionAnim) {
-      // 1. Create sprites
       final nodes = _notifier.createBatchSprites(
         names: names,
         definitions: definitions,
@@ -365,7 +349,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       final settings = ref.read(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?));
       
-      // 2. Create animation container and move sprites into it
       _notifier.createAnimationFromExistingSprites(
         name: baseName.trim(),
         frameNodeIds: nodes.map((n) => n.id).toList(),
@@ -379,9 +362,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     if (_mode != TexturePackerMode.slicing) return;
   }
   
-  // ---------------------------------------------------------------------------
-  // Import Logic
-  // ---------------------------------------------------------------------------
 
   Future<void> _promptAndAddSourceImages() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
@@ -397,12 +377,17 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final repo = ref.read(projectRepositoryProvider)!;
     final outputParentId = ref.read(selectedNodeIdProvider); 
 
-    // Logic for "Import as Animation" vs "Batch"
+    final tpackerFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id]!;
+    final tpackerProjectRelativePath = repo.fileHandler.getPathForDisplay(
+      tpackerFileMetadata.file.uri, 
+      relativeTo: project.rootUri
+    );
+    final tpackerDirectory = p.dirname(tpackerProjectRelativePath);
+
     String mode = 'batch'; 
     String? baseName;
     
     if (result.asSprites && result.files.length > 1) {
-      // ... (Show dialog to choose 'anim' or 'batch', same as Phase 1) ...
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => SimpleDialog(
@@ -430,28 +415,27 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final List<String> createdSpriteNodeIds = [];
 
     for (final file in result.files) {
-      final relativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+      final imageProjectRelativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
+      
+      final pathRelativeToTpacker = p.relative(imageProjectRelativePath, from: tpackerDirectory).replaceAll(r'\', '/');
 
-      // Load dimensions eagerly if importing as sprites
       SlicingConfig config = const SlicingConfig();
       if (result.asSprites) {
         try {
-          final assetData = await ref.read(assetDataProvider(relativePath).future);
+          final assetData = await ref.read(assetDataProvider(imageProjectRelativePath).future);
           if (assetData is ImageAssetData) {
             config = SlicingConfig(tileWidth: assetData.image.width, tileHeight: assetData.image.height);
           }
         } catch (_) {}
       }
 
-      // 1. Add Source Node
       final sourceNode = _notifier.addSourceNode(
-        name: p.basename(relativePath),
+        name: p.basename(imageProjectRelativePath),
         type: SourceNodeType.image,
-        content: SourceImageConfig(path: relativePath, slicing: config),
-        parentId: null, // Add to root
+        content: SourceImageConfig(path: pathRelativeToTpacker, slicing: config),
+        parentId: null,
       );
 
-      // 2. Create Linked Sprite if requested
       if (result.asSprites) {
         final spriteName = p.basenameWithoutExtension(file.name);
         final spriteNode = _notifier.createNode(
@@ -467,7 +451,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       }
     }
 
-    // 3. Convert to Animation if needed
     if (mode == 'anim' && baseName != null && createdSpriteNodeIds.isNotEmpty) {
        _notifier.createAnimationFromExistingSprites(
         name: baseName,
@@ -476,13 +459,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
        );
     }
     
-    // Explicitly refresh assets to ensure the new images appear
     _updateAndLoadAssetUris();
   }
 
-  // ---------------------------------------------------------------------------
-  // Framework Overrides
-  // ---------------------------------------------------------------------------
 
   @override
   void syncCommandContext() {
@@ -513,9 +492,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   }
   
   @override
-  void undo() {} // Not implemented in this phase
+  void undo() {}
   @override
-  void redo() {} // Not implemented in this phase
+  void redo() {}
   
   @override
   Future<EditorContent> getContent() async {
@@ -531,9 +510,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   @override
   Future<TabHotStateDto?> serializeHotState() async => null;
 
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -541,8 +517,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       if (next != null) {
         final def = _notifier.project.definitions[next];
         if (def is SpriteDefinition) {
-          // If a sprite is selected, switch the active source image to match it.
-          // This allows the user to immediately see where the sprite comes from.
           ref.read(activeSourceImageIdProvider.notifier).state = def.sourceImageId;
         }
       }
@@ -550,10 +524,8 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     return Stack(
       children: [
-        // 1. Main Content Area (Slicing or Preview)
         _buildMainContent(),
         
-        // 2. Floating Toolbar
         Positioned(
           top: 8,
           right: 8,
@@ -565,7 +537,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           ),
         ),
         
-        // 3. Left Panel (Source Images) - Uses New Flat List Widget
         AnimatedPositioned(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
@@ -580,7 +551,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
           ),
         ),
         
-        // 4. Right Panel (Hierarchy) - Uses New Flat List Widget
         AnimatedPositioned(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
@@ -602,12 +572,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
       return PreviewView(tabId: widget.tab.id, notifier: _notifier);
     }
     
-    // Robust Empty State Check
     if (_notifier.getAllSourceImages().isEmpty) {
         return _buildEmptyState();
     }
 
-    // Ensure we have a valid active image to slice
     final activeId = ref.watch(activeSourceImageIdProvider);
     if (activeId == null) {
       return const Center(
@@ -624,7 +592,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     final sourceConfig = _notifier.findSourceImageConfig(activeId);
     if (sourceConfig == null) {
-      // Cleanup happens in listener, but if we hit this, just show fallback
       return const Center(child: Text('Source image not found.'));
     }
     
