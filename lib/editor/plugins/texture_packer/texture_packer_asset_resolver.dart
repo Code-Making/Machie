@@ -54,31 +54,26 @@ class TexturePackerPathResolver {
 
 class TexturePackerAssetResolver {
   final Map<String, AssetData> _assets;
-  
-  // It now holds an instance of our new helper class.
-  final TexturePackerPathResolver _pathResolver;
+  final ProjectRepository _repo;
+  // STORE the full tpacker path as the context.
+  final String _tpackerPath;
 
-  TexturePackerAssetResolver(this._assets, this._pathResolver);
+  TexturePackerAssetResolver(this._assets, this._repo, this._tpackerPath);
   
   ui.Image? getImage(String? sourcePath) {
     if (sourcePath == null || sourcePath.isEmpty) return null;
 
-    // STEP 1: Use the helper to resolve the path to a canonical key.
-    final canonicalKey = _pathResolver.resolve(sourcePath);
-    
-    // STEP 2: Look up the asset using that key.
+    // FIX: Use the stored tpacker file path as the context.
+    final canonicalKey = _repo.resolveRelativePath(_tpackerPath, sourcePath);
     final asset = _assets[canonicalKey];
 
     if (asset is ImageAssetData) {
       return asset.image;
     }
-    
-    // If the asset is not found or is an error, this correctly returns null.
     return null;
   }
 }
 
-// Update the provider to create and inject both the helper and the main resolver.
 final texturePackerAssetResolverProvider = Provider.family.autoDispose<AsyncValue<TexturePackerAssetResolver>, String>((ref, tabId) {
   final assetMapAsync = ref.watch(assetMapProvider(tabId));
   final repo = ref.watch(projectRepositoryProvider);
@@ -90,12 +85,8 @@ final texturePackerAssetResolverProvider = Provider.family.autoDispose<AsyncValu
       throw Exception("Project context not available for TexturePackerAssetResolver");
     }
     
+    // GET the full path to provide to the resolver's constructor.
     final tpackerPath = repo.fileHandler.getPathForDisplay(metadata.file.uri, relativeTo: project.rootUri);
-    
-    // Create an instance of our new helper.
-    final pathResolver = TexturePackerPathResolver(tpackerPath);
-
-    // Provide both the asset map and the new helper to the main resolver.
-    return TexturePackerAssetResolver(assetMap, pathResolver);
+    return TexturePackerAssetResolver(assetMap, repo, tpackerPath);
   });
 });

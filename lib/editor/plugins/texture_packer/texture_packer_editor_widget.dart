@@ -119,20 +119,18 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     if (project == null || repo == null || tpackerFileMetadata == null) return;
     
+    // GET the full path of the .tpacker file, this is our context.
     final tpackerPath = repo.fileHandler.getPathForDisplay(
       tpackerFileMetadata.file.uri, 
       relativeTo: project.rootUri
     );
 
-    // STEP 1: Create an instance of our new resolver.
-    final pathResolver = TexturePackerPathResolver(tpackerPath);
-
     final resolvedUris = <String>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // STEP 2: Use the resolver to get the canonical path.
-          final resolvedPath = pathResolver.resolve(node.content!.path);
+          // FIX: Pass the full tpackerPath as the context.
+          final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
           resolvedUris.add(resolvedPath);
         }
       }
@@ -140,8 +138,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
-    // This part remains the same. If the set of required URIs has changed,
-    // it notifies the provider to load them.
     if (!const SetEquality().equals(resolvedUris, _requiredAssetUris)) {
       _requiredAssetUris = resolvedUris;
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(resolvedUris);

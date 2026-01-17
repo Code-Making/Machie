@@ -28,11 +28,9 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
 
     try {
       final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
+      // GET the full path of the .tpacker file, this is our context.
       final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
       
-      // STEP 1: Create an instance of our new resolver.
-      final pathResolver = TexturePackerPathResolver(tpackerPath);
-
       final json = jsonDecode(content);
       final project = TexturePackerProject.fromJson(json);
       
@@ -41,8 +39,9 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       void collectPaths(SourceImageNode node) {
         if (node.type == SourceNodeType.image && node.content != null) {
           if (node.content!.path.isNotEmpty) {
-            // STEP 2: Use the resolver to get the canonical path.
-            final resolvedPath = pathResolver.resolve(node.content!.path);
+            // FIX: Pass the full tpackerPath as the context.
+            // The fileHandler will extract the directory internally.
+            final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
             dependencies.add(resolvedPath);
           }
         }
@@ -52,9 +51,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       
       return dependencies;
     } catch (e) {
-      // It's important to return an empty set on error so a broken .tpacker
-      // file doesn't break the entire asset loading system.
-      ref.read(talkerProvider).handle(e, StackTrace.current, 'Failed to parse .tpacker for dependencies');
       return {};
     }
   }
@@ -65,13 +61,12 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     final project = TexturePackerProject.fromJson(jsonDecode(content));
     
     final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
+    // GET the full path of the .tpacker file, this is our context.
     final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
-
-    // STEP 3: Create another instance of the resolver here as well.
-    final pathResolver = TexturePackerPathResolver(tpackerPath);
 
     final Map<String, ui.Image> sourceImages = {};
     
+    // ... collectNodes logic is unchanged ...
     final sourceNodes = <SourceImageNode>[];
     void collectNodes(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
@@ -85,23 +80,19 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       final relativePath = node.content!.path;
       if (relativePath.isNotEmpty) {
         try {
-          // STEP 4: Use the resolver to generate the key for asset lookup.
-          final resolvedPath = pathResolver.resolve(relativePath);
+          // FIX: Pass the full tpackerPath as the context to resolve the asset key.
+          final resolvedPath = repo.resolveRelativePath(tpackerPath, relativePath);
           final assetData = await ref.read(assetDataProvider(resolvedPath).future);
           if (assetData is ImageAssetData) {
             sourceImages[node.id] = assetData.image;
           }
         } catch (e) {
-          // It's safe to ignore here; a missing image won't be packed.
-          // The UI will show a warning if the user tries to use it.
           print('TexturePackerLoader: Failed to load source image $relativePath: $e');
         }
       }
     }
     
-    // ... the rest of the method (packing logic) remains the same ...
-    // NOTE: NO CHANGES ARE NEEDED BELOW THIS LINE IN THIS METHOD
-
+    // ... the rest of the packing logic remains unchanged ...
     final packerItems = <PackerInputItem<SpriteDefinition>>[];
     final spriteNames = <String, String>{}; 
 
