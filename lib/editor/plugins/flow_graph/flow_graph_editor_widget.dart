@@ -11,7 +11,7 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart'; // Import FilePicker
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 
 import 'asset/flow_asset_models.dart';
 import 'flow_graph_editor_tab.dart';
@@ -54,42 +54,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
       widget.tab.onReady.complete(this);
     }
   }
-  
-  Future<void> linkSchema() async {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    final repo = ref.read(projectRepositoryProvider);
-    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
-
-    if (project == null || repo == null || metadata == null) return;
-
-    // 1. Open File Picker
-    // We start browsing from the project root or current file location
-    final parentUri = repo.fileHandler.getParentUri(metadata.file.uri);
-    final initialPath = repo.fileHandler.getPathForDisplay(parentUri, relativeTo: project.rootUri);
-
-    final selectedPath = await showDialog<String>(
-      context: context,
-      builder: (_) => FileOrFolderPickerDialog(initialUri: initialPath),
-    );
-
-    if (selectedPath == null) return;
-
-    // 2. Calculate path relative to the .fg file
-    // The .fg file is our "Context".
-    final contextPath = repo.fileHandler.getPathForDisplay(
-      metadata.file.uri, 
-      relativeTo: project.rootUri
-    );
-    
-    // We need the relative path from the .fg file to the selected schema
-    // AssetQuery handles logic "relativeToContext", so we just need the project-relative path of the schema
-    // effectively, or relative to the .fg if we want portable files.
-    
-    // Let's assume we store the path relative to the .fg file for portability.
-    final relativeToGraph = repo.calculateRelativePath(contextPath, selectedPath);
-
-    _notifier.setSchemaPath(relativeToGraph);
-  }
 
   /// Updates the asset map based on the current graph's schema requirement.
   void _updateAssetDependencies() {
@@ -128,7 +92,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
   void _onGraphChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    // If graph logic changes dependencies (e.g. changing schema path), update assets
     _updateAssetDependencies(); 
     setState(() {});
   }
@@ -137,15 +100,44 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     setState(() => _isPaletteVisible = !_isPaletteVisible);
   }
 
+  // --- Link Schema Logic ---
+  Future<void> linkSchema() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final repo = ref.read(projectRepositoryProvider);
+    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
+
+    if (project == null || repo == null || metadata == null) return;
+
+    // 1. Open File Picker
+    // Start browsing from the folder containing the current file
+    final parentUri = repo.fileHandler.getParentUri(metadata.file.uri);
+    
+    // ERROR FIX: Pass 'parentUri' (valid URI), NOT 'initialPath' (display string)
+    final selectedPath = await showDialog<String>(
+      context: context,
+      builder: (_) => FileOrFolderPickerDialog(initialUri: parentUri),
+    );
+
+    if (selectedPath == null) return;
+
+    // 2. Calculate path relative to the .fg file
+    final contextPath = repo.fileHandler.getPathForDisplay(
+      metadata.file.uri, 
+      relativeTo: project.rootUri
+    );
+    
+    final relativeToGraph = repo.calculateRelativePath(contextPath, selectedPath);
+
+    _notifier.setSchemaPath(relativeToGraph);
+  }
+
   @override
   void syncCommandContext() {}
 
   @override
   Widget build(BuildContext context) {
-    // 1. Ensure AssetMap is alive and updated
     ref.watch(assetMapProvider(widget.tab.id));
 
-    // 2. Resolve the Schema Asset
     FlowSchemaAssetData? schemaData;
     final schemaPath = _notifier.graph.schemaPath;
     
@@ -166,7 +158,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
           contextPath: contextPath,
         );
 
-        // Helper to get resolved asset from the map using the query
         final asset = ref.watch(resolvedAssetProvider(
           ResolvedAssetRequest(tabId: widget.tab.id, query: query)
         ));
@@ -179,13 +170,11 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
     return Stack(
       children: [
-        // Canvas
         FlowGraphCanvas(
           notifier: _notifier,
           schemaMap: schemaData?.typeMap ?? {},
         ),
 
-        // Palette
         if (_isPaletteVisible && schemaData != null)
           Positioned(
             right: 0,
@@ -195,7 +184,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
             child: NodePalette(
               schema: schemaData,
               onNodeSelected: (type) {
-                // Approximate center based on viewport
                 final center = _notifier.graph.viewportPosition * -1 + const Offset(400, 300);
                 _notifier.addNode(type.type, center);
                 togglePalette();
@@ -213,7 +201,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
               borderRadius: BorderRadius.circular(4),
               child: const Padding(
                 padding: EdgeInsets.all(8.0),
-                child: Text("No Schema Loaded.\nCreate or link a flow_schema.json", style: TextStyle(color: Colors.white)),
+                child: Text("No Schema Loaded.\nLink a flow_schema.json via toolbar.", style: TextStyle(color: Colors.white)),
               ),
             ),
            )
