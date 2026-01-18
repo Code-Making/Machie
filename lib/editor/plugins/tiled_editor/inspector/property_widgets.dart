@@ -13,6 +13,7 @@ import 'package:tiled/tiled.dart' hide Text; // <--- ADD THIS IMPORT
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
+import 'package:machine/app/app_notifier.dart'; // For opening files
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
@@ -77,6 +78,59 @@ class PropertyFileListEditor extends StatelessWidget {
           onTap: () => _addFile(context),
         ),
       ],
+    );
+  }
+}
+
+
+class PropertyFileLinkWithAction extends StatelessWidget {
+  final StringPropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final WidgetRef ref; // Need ref to trigger open action
+
+  const PropertyFileLinkWithAction({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.ref,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final path = descriptor.currentValue;
+    final isFlowGraph = path.endsWith('.fg');
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(path.isEmpty ? 'No file' : path),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isFlowGraph && path.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.hub_outlined, color: Colors.orange),
+              tooltip: 'Open Flow Graph',
+              onPressed: () {
+                ref.read(appNotifierProvider.notifier).openFile(path);
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            onPressed: () async {
+              // Existing file picker logic...
+              final newPath = await showDialog<String>(
+                context: context,
+                builder: (_) => const FileOrFolderPickerDialog(),
+              );
+              if (newPath != null) {
+                descriptor.updateValue(newPath);
+                onUpdate();
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }
