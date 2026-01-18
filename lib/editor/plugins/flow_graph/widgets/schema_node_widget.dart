@@ -16,7 +16,7 @@ class SchemaNodeWidget extends StatelessWidget {
   final bool isSelected;
   final FlowGraphNotifier notifier;
   final Offset Function(Offset) globalToLocal;
-  final double canvasScale; // NEW: To fix drag lag
+  final double canvasScale;
 
   const SchemaNodeWidget({
     super.key,
@@ -25,7 +25,7 @@ class SchemaNodeWidget extends StatelessWidget {
     required this.isSelected,
     required this.notifier,
     required this.globalToLocal,
-    required this.canvasScale, // NEW
+    required this.canvasScale,
   });
 
   bool _isInputConnected(String portKey) {
@@ -43,13 +43,12 @@ class SchemaNodeWidget extends StatelessWidget {
 
     return GestureDetector(
       onPanUpdate: (details) {
-        // FIX: Divide delta by scale to map screen movement to canvas movement
         notifier.moveNode(node.id, node.position + (details.delta / canvasScale));
       },
       onSecondaryTapUp: (details) => _showNodeContextMenu(context, details.globalPosition),
       onTap: () => notifier.selectNode(node.id),
       child: Container(
-        width: 200, // Fixed width matching painter assumption
+        width: 200, 
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           borderRadius: BorderRadius.circular(8),
@@ -63,9 +62,9 @@ class SchemaNodeWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header (Height 32)
+            // Header
             Container(
-              height: 32,
+              height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: _getCategoryColor(schema!.category),
@@ -87,9 +86,9 @@ class SchemaNodeWidget extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8), // Spacing (Height 8)
+            const SizedBox(height: 8),
 
-            // Rows (Height 32 each)
+            // Rows
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -127,7 +126,6 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
-  // ... _showNodeContextMenu ...
   void _showNodeContextMenu(BuildContext context, Offset globalPos) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
@@ -146,8 +144,8 @@ class SchemaNodeWidget extends StatelessWidget {
     });
   }
 
+  // --- Input Row ---
   Widget _buildInputRow(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
-    // Enforce fixed height for painter sync
     return SizedBox(
       height: 32, 
       child: Row(
@@ -162,8 +160,31 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildInputContent(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
+    if (isConnected || prop == null) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 0), // Adjusted padding since Target is larger
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            port.label,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: _buildInlineProperty(context, prop),
+      ),
+    );
+  }
+
+  // --- Output Row ---
   Widget _buildOutputRow(BuildContext context, FlowPortDefinition port) {
-    // Enforce fixed height for painter sync
     return SizedBox(
       height: 32,
       child: Row(
@@ -172,7 +193,7 @@ class SchemaNodeWidget extends StatelessWidget {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(right: 6, left: 4),
+              padding: const EdgeInsets.only(right: 0, left: 4),
               child: Text(
                 port.label,
                 style: const TextStyle(fontSize: 12, color: Colors.white70),
@@ -187,34 +208,12 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
-  // ... _buildInputContent, _buildPortSource, _buildPortTarget, _buildPropertyField, _buildInlineProperty ...
-  // (These methods remain largely the same, just ensured they fit in the 32px height logic)
-
-  Widget _buildInputContent(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
-    if (isConnected || prop == null) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            port.label,
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: _buildInlineProperty(context, prop),
-      ),
-    );
-  }
+  // --- Port Widgets (Expanded Hit Areas) ---
 
   Widget _buildPortSource(BuildContext context, FlowPortDefinition port) {
     final color = _getPortColor(port);
+    
+    // Transparent wrapper for larger touch area, visual dot centered
     return Draggable<String>(
       data: node.id,
       feedback: const SizedBox.shrink(),
@@ -226,13 +225,18 @@ class SchemaNodeWidget extends StatelessWidget {
       },
       onDragEnd: (_) => notifier.endConnectionDrag(null, null),
       child: Container(
-        width: 12,
-        height: 12,
-        margin: const EdgeInsets.only(right: 6),
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black87, width: 1.5),
+        width: 30, // Larger width for touch
+        height: 30, // Larger height for touch
+        alignment: Alignment.center,
+        color: Colors.transparent, // Debug: Set to Colors.blue.withOpacity(0.2) to see hit area
+        child: Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black87, width: 1.5),
+          ),
         ),
       ),
     );
@@ -240,6 +244,7 @@ class SchemaNodeWidget extends StatelessWidget {
 
   Widget _buildPortTarget(BuildContext context, FlowPortDefinition port, bool isConnected) {
     final color = _getPortColor(port);
+
     return GestureDetector(
       onSecondaryTap: () {
         if (isConnected) notifier.deleteConnection(node.id, port.key);
@@ -248,22 +253,34 @@ class SchemaNodeWidget extends StatelessWidget {
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
           final finalColor = isHovering ? Colors.white : (isConnected ? Colors.white : color);
+          
           return Container(
-            width: 12,
-            height: 12,
-            margin: const EdgeInsets.only(left: 6),
-            decoration: BoxDecoration(
-              color: finalColor,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isHovering ? Colors.greenAccent : Colors.black87, 
-                width: 1.5
+            width: 30, // Larger hit area
+            height: 30, // Larger hit area
+            alignment: Alignment.center,
+            color: Colors.transparent,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: finalColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isHovering ? Colors.white : Colors.black87, 
+                  width: isHovering ? 2.5 : 1.5 // Thicker border on hover
+                ),
+                boxShadow: isHovering ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.8),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  )
+                ] : null,
               ),
             ),
           );
         },
         onWillAccept: (data) {
-          // Same type check logic as previous phase
           final draggingType = notifier.draggingPortType;
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;
@@ -277,6 +294,8 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
+  // ... (buildPropertyField, buildInlineProperty, dialogs, colors - UNCHANGED) ...
+  
   Widget _buildPropertyField(BuildContext context, FlowPropertyDefinition prop) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -358,8 +377,7 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
-  // Helpers: _showEditDialog, _buildErrorNode, _getPortColor, _getCategoryColor, _parseColor
-  // (Copy these from previous version, they are unchanged)
+  // Helper methods copied for completeness if full file replace
   Future<void> _showEditDialog(BuildContext context, FlowPropertyDefinition prop, dynamic currentValue) async {
     dynamic result;
     switch (prop.type) {
