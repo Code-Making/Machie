@@ -18,6 +18,7 @@ import 'package:machine/asset_cache/asset_models.dart';
 
 import 'tiled_map_notifier.dart';
 import '../../../data/repositories/project/project_repository.dart';
+import 'tiled_asset_resolver.dart';
 
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);

@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
+
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -53,9 +55,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   late final TexturePackerNotifier _notifier;
   TexturePackerNotifier get notifier => _notifier;
   
-  // START OF CHANGES
   Set<AssetQuery> _requiredAssetQueries = const {};
-  // END OF CHANGES
 
   TexturePackerMode _mode = TexturePackerMode.panZoom;
   bool _isSourceImagesPanelVisible = false;
@@ -87,6 +87,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     
     syncCommandContext();
     
+    // Ensure asset queries are updated whenever the project structure changes
     _updateAndLoadAssetUris();
     
     setState(() {});
@@ -109,7 +110,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     syncCommandContext();
   }
 
-  // START OF CHANGES
   /// Traverses the SourceImage tree to find all file paths and tells the
   /// AssetMapNotifier to load them, using the .tpacker file as context.
   void _updateAndLoadAssetUris() {
@@ -128,10 +128,12 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     );
     
     final newQueries = <AssetQuery>{};
+    
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // Describe the asset we need relative to our context file.
+          // KEY CHANGE: Use AssetPathMode.relativeToContext
+          // This tells the asset system that 'path' is relative to 'contextPath'
           newQueries.add(AssetQuery(
             path: node.content!.path,
             mode: AssetPathMode.relativeToContext,
@@ -143,14 +145,19 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
+    // Only update if the set of queries has actually changed
     if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
       _requiredAssetQueries = newQueries;
+      
+      // Update the asset map. The AssetSystem will now fetch and cache these files.
+      // This ensures that when PixiExportService runs, the assets are ready.
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
     }
   }
-  // END OF CHANGES
 
-
+  // ... (Rest of the class methods: setMode, togglePanels, gesture handling, etc. remain unchanged)
+  // Included purely for context completeness of the widget structure.
+  
   void setMode(TexturePackerMode newMode) {
     if (_mode == newMode) {
       setState(() => _mode = TexturePackerMode.panZoom);
@@ -183,7 +190,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     });
     syncCommandContext();
   }
-
 
   Point<int>? _pixelToGridPoint(Offset positionInImage, SlicingConfig slicing) {
     if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) return null;
@@ -271,7 +277,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
     if (spriteName != null && spriteName.trim().isNotEmpty) {
       String parentId = ref.read(selectedNodeIdProvider) ?? 'root';
-      
       
       final newNode = _notifier.createNode(
         type: PackerItemType.sprite,
@@ -371,7 +376,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     if (_mode != TexturePackerMode.slicing) return;
   }
   
-
   Future<void> _promptAndAddSourceImages() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null) return;
@@ -426,11 +430,14 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     for (final file in result.files) {
       final imageProjectRelativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
       
+      // Calculate path relative to the .tpacker file location
       final pathRelativeToTpacker = p.relative(imageProjectRelativePath, from: tpackerDirectory).replaceAll(r'\', '/');
 
       SlicingConfig config = const SlicingConfig();
       if (result.asSprites) {
         try {
+          // Note: Here we still load by project path for dimensions check, 
+          // but the node stores the relative path.
           final assetData = await ref.read(assetDataProvider(imageProjectRelativePath).future);
           if (assetData is ImageAssetData) {
             config = SlicingConfig(tileWidth: assetData.image.width, tileHeight: assetData.image.height);
@@ -468,9 +475,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
        );
     }
     
+    // IMPORTANT: Refresh queries after adding new sources
     _updateAndLoadAssetUris();
   }
-
 
   @override
   void syncCommandContext() {
@@ -519,9 +526,12 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   @override
   Future<TabHotStateDto?> serializeHotState() async => null;
 
-
   @override
   Widget build(BuildContext context) {
+    // This watcher ensures the widget rebuilds when assets change (load/reload),
+    // which triggers the UI updates for the SlicingView and PreviewView.
+    ref.watch(assetMapProvider(widget.tab.id));
+
     ref.listen(selectedNodeIdProvider, (previous, next) {
       if (next != null) {
         final def = _notifier.project.definitions[next];
