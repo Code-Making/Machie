@@ -9,15 +9,17 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
-import 'package:machine/editor/models/editor_command_context.dart'; // Import for provider
+import 'package:machine/editor/models/editor_command_context.dart';
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+import 'package:machine/settings/settings_notifier.dart'; // Import for effectiveSettingsProvider
 
 import 'asset/flow_asset_models.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_notifier.dart';
-import 'flow_graph_command_context.dart'; // NEW Import
+import 'flow_graph_command_context.dart';
+import 'flow_graph_settings_model.dart'; // Import for FlowGraphSettings
 import 'widgets/flow_graph_canvas.dart';
 import 'widgets/node_palette.dart';
 
@@ -35,7 +37,6 @@ class FlowGraphEditorWidget extends EditorWidget {
 class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget> {
   late final FlowGraphNotifier _notifier;
   
-  // NEW: Expose notifier for Plugin commands
   FlowGraphNotifier get notifier => _notifier;
 
   bool _isPaletteVisible = false;
@@ -48,7 +49,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateAssetDependencies();
-      syncCommandContext(); // Initial sync
+      syncCommandContext();
     });
   }
 
@@ -93,7 +94,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
   void _onGraphChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
     _updateAssetDependencies();
-    syncCommandContext(); // Update selection state in toolbar
+    syncCommandContext();
     setState(() {});
   }
 
@@ -127,7 +128,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     _notifier.setSchemaPath(relativeToGraph);
   }
 
-  // NEW: Implement SyncCommandContext
   @override
   void syncCommandContext() {
     final hasSelection = _notifier.selectedNodeIds.isNotEmpty;
@@ -139,6 +139,11 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
   @override
   Widget build(BuildContext context) {
     ref.watch(assetMapProvider(widget.tab.id));
+
+    // 1. Get Settings from Provider
+    final settings = ref.watch(effectiveSettingsProvider.select(
+      (s) => s.pluginSettings[FlowGraphSettings] as FlowGraphSettings?
+    )) ?? FlowGraphSettings();
 
     FlowSchemaAssetData? schemaData;
     final schemaPath = _notifier.graph.schemaPath;
@@ -175,11 +180,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
         FlowGraphCanvas(
           notifier: _notifier,
           schemaMap: schemaData?.typeMap ?? {},
-          // Assuming settings are passed here from Phase 4 update (omitted for brevity, assume passed or defaults)
-          settings: ref.watch(
-            package:machine/settings/settings_notifier.dart:effectiveSettingsProvider
-            .select((s) => s.pluginSettings[package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings] as package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings?)
-          ) ?? package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings(), 
+          settings: settings, // 2. Pass settings to canvas
         ),
 
         if (_isPaletteVisible && schemaData != null)
