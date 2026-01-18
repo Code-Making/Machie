@@ -41,6 +41,8 @@ class FlowGraphNotifier extends ChangeNotifier {
   final Set<String> _selectedNodeIds = {};
   FlowConnection? _pendingConnection; // Dragging a wire
   Offset? _pendingConnectionPointer;
+ 
+  FlowPortType? _draggingPortType;
 
   FlowGraphNotifier(this._graph);
 
@@ -48,6 +50,7 @@ class FlowGraphNotifier extends ChangeNotifier {
   Set<String> get selectedNodeIds => _selectedNodeIds;
   FlowConnection? get pendingConnection => _pendingConnection;
   Offset? get pendingConnectionPointer => _pendingConnectionPointer;
+  FlowPortType? get draggingPortType => _draggingPortType;
 
   // --- Actions ---
 
@@ -86,29 +89,28 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startConnectionDrag(String nodeId, String portKey, bool isInput) {
-    // We create a temporary connection object to represent the drag
-    // If isInput is true, we are dragging *from* an input (backwards), but usually UI drags from Output.
-    // For simplicity, let's assume dragging from Output -> Input.
+    void startConnectionDrag(String nodeId, String portKey, bool isInput, FlowPortType type) {
     _pendingConnection = FlowConnection(
       outputNodeId: nodeId, 
       outputPortKey: portKey, 
       inputNodeId: 'CURSOR', 
       inputPortKey: 'CURSOR',
     );
+    _draggingPortType = type;
     notifyListeners();
   }
 
   void updateConnectionDrag(Offset globalPosition, Matrix4 transform) {
-    // Convert global pointer to local graph space
     final inv = Matrix4.tryInvert(transform) ?? Matrix4.identity();
     final local = MatrixUtils.transformPoint(inv, globalPosition);
     _pendingConnectionPointer = local;
     notifyListeners();
   }
 
+  // UPDATED: Clear type on end
   void endConnectionDrag(String? targetNodeId, String? targetPortKey) {
     if (_pendingConnection != null && targetNodeId != null && targetPortKey != null) {
+      // Logic assumes dragging from Output -> Input
       final newConnection = FlowConnection(
         outputNodeId: _pendingConnection!.outputNodeId,
         outputPortKey: _pendingConnection!.outputPortKey,
@@ -116,16 +118,21 @@ class FlowGraphNotifier extends ChangeNotifier {
         inputPortKey: targetPortKey,
       );
       
-      // Validate uniqueness
+      // Prevent duplicates
       if (!_graph.connections.contains(newConnection)) {
-        _addConnection(newConnection);
-        _record(_ConnectionAction(newConnection, isAdd: true));
+        // Prevent self-connection (basic check)
+        if (newConnection.outputNodeId != newConnection.inputNodeId) {
+           _addConnection(newConnection);
+           _record(_ConnectionAction(newConnection, isAdd: true));
+        }
       }
     }
     _pendingConnection = null;
     _pendingConnectionPointer = null;
+    _draggingPortType = null;
     notifyListeners();
   }
+
 
   void removeConnection(FlowConnection connection) {
     _removeConnection(connection);
