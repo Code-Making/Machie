@@ -20,6 +20,7 @@ import 'widgets/flow_graph_settings_widget.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import '../../../command/command_widgets.dart';
+import 'flow_graph_command_context.dart'; // NEW Import
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
@@ -106,7 +107,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   List<Command> getCommands() {
     return [
-      // --- Standard Save Commands ---
       BaseCommand(
         id: 'flow_save',
         label: 'Save',
@@ -117,20 +117,24 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         canExecute: (ref) {
           final tabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
           if (tabId == null) return false;
-          // Only enable if dirty
           return ref.watch(tabMetadataProvider.select((m) => m[tabId]))?.isDirty ?? false;
         },
       ),
+      
+      // NEW: Delete Command
       BaseCommand(
-        id: 'flow_save_as',
-        label: 'Save As...',
-        icon: const Icon(Icons.save_as),
+        id: 'flow_delete',
+        label: 'Delete',
+        icon: const Icon(Icons.delete_outline),
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
-        execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTabAs(),
+        execute: (ref) async => _getEditorState(ref)?.notifier.deleteSelection(),
+        canExecute: (ref) {
+           final ctx = ref.watch(activeCommandContextProvider);
+           return ctx is FlowGraphCommandContext && ctx.hasSelection;
+        }
       ),
 
-      // --- Graph Specific Commands ---
       BaseCommand(
         id: 'flow_link_schema',
         label: 'Link Schema',
@@ -152,7 +156,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         },
       ),
       
-      // --- Undo/Redo ---
       BaseCommand(
         id: 'flow_undo',
         label: 'Undo',
@@ -160,10 +163,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.undo(),
-        canExecute: (ref) {
-           // Ideally check notifier.canUndo, but requires exposing state via provider
-           return true; 
-        }
       ),
       BaseCommand(
         id: 'flow_redo',
@@ -172,9 +171,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         defaultPositions: [AppCommandPositions.appBar],
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.redo(),
-        canExecute: (ref) {
-           return true; 
-        }
       ),
     ];
   }
