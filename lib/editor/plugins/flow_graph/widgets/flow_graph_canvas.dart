@@ -25,18 +25,19 @@ class FlowGraphCanvas extends StatefulWidget {
 
 class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
   final TransformationController _transformCtrl = TransformationController();
-  final GlobalKey _stackKey = GlobalKey(); // Key to find the local coordinate space
+  final GlobalKey _stackKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     final initialPos = widget.notifier.graph.viewportPosition;
     final initialScale = widget.notifier.graph.viewportScale;
-    
-    final matrix = Matrix4.identity()
-      ..translate(initialPos.dx, initialPos.dy)
-      ..scale(initialScale);
+    final matrix = Matrix4.identity()..translate(initialPos.dx, initialPos.dy)..scale(initialScale);
     _transformCtrl.value = matrix;
+    // Listen to changes to rebuild and update scale for drag logic
+    _transformCtrl.addListener(() {
+      if (mounted) setState(() {}); 
+    });
   }
 
   @override
@@ -45,24 +46,21 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     super.dispose();
   }
 
-  // Conversion helper
   Offset _globalToLocal(Offset global) {
     final RenderBox? box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null) {
-      return box.globalToLocal(global);
-    }
+    if (box != null) return box.globalToLocal(global);
     return global;
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get current scale to pass to nodes for drag correction
+    final currentScale = _transformCtrl.value.getMaxScaleOnAxis();
+
     return ListenableBuilder(
       listenable: widget.notifier,
       builder: (context, _) {
         final graph = widget.notifier.graph;
-        final nodes = graph.nodes;
-        final connections = graph.connections;
-
         return Stack(
           children: [
             GestureDetector(
@@ -77,35 +75,30 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                   width: 50000,
                   height: 50000,
                   child: Stack(
-                    key: _stackKey, // Key placed here
+                    key: _stackKey,
                     clipBehavior: Clip.none,
                     children: [
-                      // Grid
                       Positioned.fill(
                         child: CustomPaint(
                           painter: GridPainter(
-                            scale: _transformCtrl.value.getMaxScaleOnAxis(),
+                            scale: currentScale,
                             offset: Offset.zero,
                             settings: widget.settings,
                           ),
                         ),
                       ),
-
-                      // Connections
                       Positioned.fill(
                         child: CustomPaint(
                           painter: FlowConnectionPainter(
-                            connections: connections,
-                            nodes: nodes,
+                            connections: graph.connections,
+                            nodes: graph.nodes,
                             schemaMap: widget.schemaMap,
                             pendingConnection: widget.notifier.pendingConnection,
                             pendingCursor: widget.notifier.pendingConnectionPointer,
                           ),
                         ),
                       ),
-
-                      // Nodes
-                      ...nodes.map((node) {
+                      ...graph.nodes.map((node) {
                         return Positioned(
                           left: node.position.dx,
                           top: node.position.dy,
@@ -114,8 +107,8 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                             schema: widget.schemaMap[node.type],
                             isSelected: widget.notifier.selectedNodeIds.contains(node.id),
                             notifier: widget.notifier,
-                            // Pass the converter
                             globalToLocal: _globalToLocal,
+                            canvasScale: currentScale, // NEW: Pass scale
                           ),
                         );
                       }),

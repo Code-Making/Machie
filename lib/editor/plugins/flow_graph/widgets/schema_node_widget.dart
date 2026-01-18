@@ -15,7 +15,8 @@ class SchemaNodeWidget extends StatelessWidget {
   final FlowNodeType? schema;
   final bool isSelected;
   final FlowGraphNotifier notifier;
-  final Offset Function(Offset) globalToLocal; // NEW
+  final Offset Function(Offset) globalToLocal;
+  final double canvasScale; // NEW: To fix drag lag
 
   const SchemaNodeWidget({
     super.key,
@@ -24,6 +25,7 @@ class SchemaNodeWidget extends StatelessWidget {
     required this.isSelected,
     required this.notifier,
     required this.globalToLocal,
+    required this.canvasScale, // NEW
   });
 
   bool _isInputConnected(String portKey) {
@@ -41,18 +43,13 @@ class SchemaNodeWidget extends StatelessWidget {
 
     return GestureDetector(
       onPanUpdate: (details) {
-        // Drag node logic
-        // We assume 1:1 scale for node drag here for simplicity, 
-        // but InteractiveViewer scale affects details.delta.
-        // For precise node moving under zoom, we should divide delta by scale.
-        // We can get scale if we pass it, but standard delta often works 'okay' visually if not perfectly 1:1.
-        notifier.moveNode(node.id, node.position + details.delta);
+        // FIX: Divide delta by scale to map screen movement to canvas movement
+        notifier.moveNode(node.id, node.position + (details.delta / canvasScale));
       },
       onSecondaryTapUp: (details) => _showNodeContextMenu(context, details.globalPosition),
       onTap: () => notifier.selectNode(node.id),
       child: Container(
-        // Set fixed width for painter calculation consistency
-        width: 200, 
+        width: 200, // Fixed width matching painter assumption
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           borderRadius: BorderRadius.circular(8),
@@ -66,9 +63,9 @@ class SchemaNodeWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            // Header (Height 32)
             Container(
-              height: 40,
+              height: 32,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: _getCategoryColor(schema!.category),
@@ -90,9 +87,9 @@ class SchemaNodeWidget extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 8), // Spacing (Height 8)
 
-            // Inputs/Outputs
+            // Rows (Height 32 each)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -130,6 +127,7 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
+  // ... _showNodeContextMenu ...
   void _showNodeContextMenu(BuildContext context, Offset globalPos) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
@@ -141,22 +139,17 @@ class SchemaNodeWidget extends StatelessWidget {
       context: context,
       position: position,
       items: [
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Delete Node'),
-        ),
+        const PopupMenuItem(value: 'delete', child: Text('Delete Node')),
       ],
     ).then((value) {
-      if (value == 'delete') {
-        notifier.deleteNode(node.id);
-      }
+      if (value == 'delete') notifier.deleteNode(node.id);
     });
   }
 
   Widget _buildInputRow(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 32),
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    // Enforce fixed height for painter sync
+    return SizedBox(
+      height: 32, 
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -169,27 +162,10 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildInputContent(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
-    if (isConnected || prop == null) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 4),
-        child: Text(
-          port.label,
-          style: const TextStyle(fontSize: 12, color: Colors.white70),
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: _buildInlineProperty(context, prop),
-    );
-  }
-
   Widget _buildOutputRow(BuildContext context, FlowPortDefinition port) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 32),
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    // Enforce fixed height for painter sync
+    return SizedBox(
+      height: 32,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.end,
@@ -211,27 +187,47 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
+  // ... _buildInputContent, _buildPortSource, _buildPortTarget, _buildPropertyField, _buildInlineProperty ...
+  // (These methods remain largely the same, just ensured they fit in the 32px height logic)
+
+  Widget _buildInputContent(BuildContext context, FlowPortDefinition port, FlowPropertyDefinition? prop, bool isConnected) {
+    if (isConnected || prop == null) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            port.label,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: _buildInlineProperty(context, prop),
+      ),
+    );
+  }
+
   Widget _buildPortSource(BuildContext context, FlowPortDefinition port) {
     final color = _getPortColor(port);
-    
     return Draggable<String>(
       data: node.id,
       feedback: const SizedBox.shrink(),
       hitTestBehavior: HitTestBehavior.opaque,
-      onDragStarted: () {
-        notifier.startConnectionDrag(node.id, port.key, false, port.type);
-      },
+      onDragStarted: () => notifier.startConnectionDrag(node.id, port.key, false, port.type),
       onDragUpdate: (details) {
-        // CONVERT global position to canvas local
         final localPos = globalToLocal(details.globalPosition);
         notifier.updateConnectionDrag(localPos);
       },
-      onDragEnd: (_) {
-        notifier.endConnectionDrag(null, null);
-      },
+      onDragEnd: (_) => notifier.endConnectionDrag(null, null),
       child: Container(
-        width: 14,
-        height: 14,
+        width: 12,
+        height: 12,
         margin: const EdgeInsets.only(right: 6),
         decoration: BoxDecoration(
           color: color,
@@ -244,21 +240,17 @@ class SchemaNodeWidget extends StatelessWidget {
 
   Widget _buildPortTarget(BuildContext context, FlowPortDefinition port, bool isConnected) {
     final color = _getPortColor(port);
-
     return GestureDetector(
       onSecondaryTap: () {
-        if (isConnected) {
-          notifier.deleteConnection(node.id, port.key);
-        }
+        if (isConnected) notifier.deleteConnection(node.id, port.key);
       },
       child: DragTarget<String>(
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
           final finalColor = isHovering ? Colors.white : (isConnected ? Colors.white : color);
-          
           return Container(
-            width: 14,
-            height: 14,
+            width: 12,
+            height: 12,
             margin: const EdgeInsets.only(left: 6),
             decoration: BoxDecoration(
               color: finalColor,
@@ -268,11 +260,10 @@ class SchemaNodeWidget extends StatelessWidget {
                 width: 1.5
               ),
             ),
-            // Show a tiny 'x' inside if connected to hint at right-click delete?
-            // Or just rely on color change.
           );
         },
         onWillAccept: (data) {
+          // Same type check logic as previous phase
           final draggingType = notifier.draggingPortType;
           if (draggingType == null) return false;
           if (draggingType == port.type) return true;
@@ -281,15 +272,11 @@ class SchemaNodeWidget extends StatelessWidget {
           if (draggingType == FlowPortType.any || port.type == FlowPortType.any) return true;
           return false;
         },
-        onAccept: (data) {
-          notifier.endConnectionDrag(node.id, port.key);
-        },
+        onAccept: (data) => notifier.endConnectionDrag(node.id, port.key),
       ),
     );
   }
 
-  // ... (Rest of properties logic, colors, dialogs: same as before) ...
-  
   Widget _buildPropertyField(BuildContext context, FlowPropertyDefinition prop) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -328,10 +315,7 @@ class SchemaNodeWidget extends StatelessWidget {
                 color: boolValue ? Colors.greenAccent : Colors.grey,
               ),
               const SizedBox(width: 4),
-              Text(
-                boolValue ? "True" : "False",
-                style: const TextStyle(fontSize: 11, color: Colors.white),
-              )
+              Text(boolValue ? "True" : "False", style: const TextStyle(fontSize: 11, color: Colors.white))
             ],
           ),
         ),
@@ -343,8 +327,7 @@ class SchemaNodeWidget extends StatelessWidget {
       return GestureDetector(
         onTap: () => _showEditDialog(context, prop, val),
         child: Container(
-          height: 16,
-          width: 30,
+          height: 16, width: 30,
           decoration: BoxDecoration(
             color: color,
             border: Border.all(color: Colors.white30),
@@ -375,9 +358,10 @@ class SchemaNodeWidget extends StatelessWidget {
     );
   }
 
+  // Helpers: _showEditDialog, _buildErrorNode, _getPortColor, _getCategoryColor, _parseColor
+  // (Copy these from previous version, they are unchanged)
   Future<void> _showEditDialog(BuildContext context, FlowPropertyDefinition prop, dynamic currentValue) async {
     dynamic result;
-
     switch (prop.type) {
       case FlowPropertyType.string:
       case FlowPropertyType.integer:
@@ -394,7 +378,6 @@ class SchemaNodeWidget extends StatelessWidget {
         if (result != null && prop.type == FlowPropertyType.integer) result = int.tryParse(result);
         if (result != null && prop.type == FlowPropertyType.float) result = double.tryParse(result);
         break;
-
       case FlowPropertyType.select:
         result = await showDialog(
           context: context,
@@ -402,45 +385,26 @@ class SchemaNodeWidget extends StatelessWidget {
             title: Text("Select ${prop.label}"),
             children: (prop.options ?? []).map((opt) => SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, opt),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(opt),
-              ),
+              child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(opt)),
             )).toList(),
           ),
         );
         break;
-        
       case FlowPropertyType.color:
         final Color current = _parseColor(currentValue) ?? Colors.white;
         final newColor = await showColorPickerDialog(context, current, enableOpacity: true);
         result = '#${newColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
         break;
-        
-      default:
-        break;
+      default: break;
     }
-
-    if (result != null) {
-      notifier.updateNodeProperty(node.id, prop.key, result);
-    }
+    if (result != null) notifier.updateNodeProperty(node.id, prop.key, result);
   }
 
   Widget _buildErrorNode() {
     return Container(
-      width: 150,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.red.shade900,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red),
-      ),
-      child: Column(
-        children: [
-          Text(node.type, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          const Text("Missing Schema", style: TextStyle(fontSize: 10, color: Colors.white70)),
-        ],
-      ),
+      width: 150, padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: Colors.red.shade900, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
+      child: Column(children: [Text(node.type, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), const Text("Missing Schema", style: TextStyle(fontSize: 10, color: Colors.white70))]),
     );
   }
 
@@ -469,13 +433,7 @@ class SchemaNodeWidget extends StatelessWidget {
   }
   
   Color? _parseColor(dynamic val) {
-    if (val is String) {
-      try {
-        var hex = val.replaceAll('#', '');
-        if (hex.length == 6) hex = 'FF$hex';
-        return Color(int.parse(hex, radix: 16));
-      } catch (_) {}
-    }
+    if (val is String) { try { var hex = val.replaceAll('#', ''); if (hex.length == 6) hex = 'FF$hex'; return Color(int.parse(hex, radix: 16)); } catch (_) {} }
     return null;
   }
 }
@@ -485,44 +443,25 @@ class _ValueEditDialog extends StatefulWidget {
   final String initialValue;
   final bool isNumeric;
   final bool isFloat;
-
-  const _ValueEditDialog({
-    required this.title,
-    required this.initialValue,
-    this.isNumeric = false,
-    this.isFloat = false,
-  });
-
+  const _ValueEditDialog({required this.title, required this.initialValue, this.isNumeric = false, this.isFloat = false});
   @override
   State<_ValueEditDialog> createState() => _ValueEditDialogState();
 }
 
 class _ValueEditDialogState extends State<_ValueEditDialog> {
   late TextEditingController _ctrl;
-
   @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.initialValue);
-  }
-
+  void initState() { super.initState(); _ctrl = TextEditingController(text: widget.initialValue); }
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _ctrl.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text("Edit ${widget.title}"),
       content: TextField(
-        controller: _ctrl,
-        autofocus: true,
+        controller: _ctrl, autofocus: true,
         keyboardType: widget.isNumeric ? TextInputType.numberWithOptions(decimal: widget.isFloat) : TextInputType.text,
-        inputFormatters: widget.isNumeric 
-            ? [widget.isFloat ? FilteringTextInputFormatter.allow(RegExp(r'[0-9.-]')) : FilteringTextInputFormatter.digitsOnly] 
-            : null,
+        inputFormatters: widget.isNumeric ? [widget.isFloat ? FilteringTextInputFormatter.allow(RegExp(r'[0-9.-]')) : FilteringTextInputFormatter.digitsOnly] : null,
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
