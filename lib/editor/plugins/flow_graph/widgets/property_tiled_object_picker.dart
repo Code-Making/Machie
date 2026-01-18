@@ -2,10 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart';
+import 'package:tiled/tiled.dart' hide Text; // Hide Text from Tiled to avoid collision with Flutter's Text widget
 import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import 'package:machine/widgets/dialogs/folder_picker_dialog.dart'; // Reusing existing picker
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../models/flow_references.dart';
 import '../models/flow_schema_models.dart';
 
@@ -229,7 +228,10 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
 
   List<TiledObject> _getObjectsInLayer(int layerId) {
     if (_parsedMap == null) return [];
-    final layer = _parsedMap!.layers.firstWhere((l) => l.id == layerId, orElse: () => ObjectGroup(id: -1));
+    final layer = _parsedMap!.layers.firstWhere(
+      (l) => l.id == layerId, 
+      orElse: () => ObjectGroup(id: -1, name: 'dummy', objects: []),
+    );
     if (layer is ObjectGroup) {
       return layer.objects;
     }
