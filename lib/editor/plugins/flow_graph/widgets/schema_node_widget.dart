@@ -129,9 +129,8 @@ class SchemaNodeWidget extends StatelessWidget {
   Widget _buildPortCircle(FlowPortDefinition port) {
     Color color = port.customColor ?? Colors.grey;
     if (port.type == FlowPortType.execution) color = Colors.white;
-    if (port.type == FlowPortType.string) color = Colors.magenta;
+if (port.type == FlowPortType.string) color = Colors.pink;
     if (port.type == FlowPortType.number) color = Colors.cyan;
-
     // Use DragTarget to accept connections
     return DragTarget<String>(
       builder: (context, candidate, rejected) {
