@@ -160,6 +160,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         contextPath: widget.resolver.tmxPath, // Pass the TMX path from resolver
       );
     }
+    if (descriptor is FlowGraphReferencePropertyDescriptor) {
+      return PropertyFlowGraphSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        contextPath: widget.resolver.tmxPath,
+      );
+    }
     if (descriptor is SpriteReferencePropertyDescriptor) {
       return PropertySpriteSelector(
         descriptor: descriptor,

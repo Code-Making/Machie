@@ -158,7 +158,21 @@ extension TiledObjectReflector on TiledObject {
           }
         },
       ),
-
+      FlowGraphReferencePropertyDescriptor(
+        name: 'flowGraph',
+        label: 'Flow Graph (.fg)',
+        getter: () {
+          final prop = properties['flowGraph'];
+          return (prop is StringProperty) ? prop.value : '';
+        },
+        setter: (val) {
+          if (val.isEmpty) {
+            properties.byName.remove('flowGraph');
+          } else {
+            properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+          }
+        },
+      ),
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
 

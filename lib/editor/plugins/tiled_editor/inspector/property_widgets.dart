@@ -15,6 +15,90 @@ import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 import 'package:machine/app/app_notifier.dart'; // For opening files
 import '../../../services/editor_service.dart';
+import 'package:machine/editor/services/editor_service.dart';
+
+class PropertyFlowGraphSelector extends ConsumerWidget {
+  final FlowGraphReferencePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final String contextPath; // Path of the TMX file for relative calculation
+
+  const PropertyFlowGraphSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.contextPath,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentPath = descriptor.currentValue;
+    final theme = Theme.of(context);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(
+        currentPath.isEmpty ? 'None' : currentPath,
+        style: TextStyle(
+          color: currentPath.isEmpty ? theme.disabledColor : null,
+          fontStyle: currentPath.isEmpty ? FontStyle.italic : null,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.hub_outlined, color: Colors.orange),
+              tooltip: 'Open Graph',
+              onPressed: () {
+                // Calculate absolute path or let EditorService handle relative path from root
+                // Here we assume the path is relative to the TMX location
+                final repo = ref.read(projectRepositoryProvider);
+                if (repo != null) {
+                   final dir = p.dirname(contextPath);
+                   final fullRelativePath = p.normalize(p.join(dir, currentPath));
+                   ref.read(editorServiceProvider).openOrCreate(fullRelativePath);
+                }
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Select File',
+            onPressed: () async {
+              final newPath = await showDialog<String>(
+                context: context,
+                builder: (_) => const FileOrFolderPickerDialog(),
+              );
+              
+              if (newPath != null && newPath.endsWith('.fg')) {
+                final repo = ref.read(projectRepositoryProvider);
+                if (repo != null) {
+                  // Calculate relative path from TMX to selected FG file
+                  final tmxDir = p.dirname(contextPath);
+                  final relativePath = repo.calculateRelativePath(tmxDir, newPath);
+                  descriptor.updateValue(relativePath);
+                  onUpdate();
+                }
+              } else if (newPath != null) {
+                MachineToast.error("Please select a .fg file");
+              }
+            },
+          ),
+          if (currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                descriptor.updateValue('');
+                onUpdate();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
