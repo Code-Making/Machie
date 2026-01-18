@@ -13,7 +13,7 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'asset/flow_loaders.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_editor_widget.dart';
-import '../../../data/cache/type_adapters.dart';
+import 'models/flow_graph_models.dart';
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
@@ -38,7 +38,8 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   List<AssetLoader> get assetLoaders => [
     FlowSchemaLoader(),
-    FlowGraphLoader(),
+    // FlowGraphLoader is removed from here as we load content via EditorService/createTab
+    // unless we want to support nested graphs as assets later.
   ];
 
   @override
@@ -55,11 +56,13 @@ class FlowGraphEditorPlugin extends EditorPlugin {
     String? id,
     Completer<EditorWidgetState>? onReadyCompleter,
   }) async {
-    // We don't parse the content string here because the Widget handles 
-    // hot-loading via the AssetLoader system.
+    final content = (initData.initialContent as EditorContentString).content;
+    final graph = FlowGraph.deserialize(content);
+
     return FlowGraphEditorTab(
       plugin: this,
       id: id,
+      initialGraph: graph,
       onReadyCompleter: onReadyCompleter,
     );
   }
@@ -114,8 +117,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
     return null;
   }
 
-  // --- Boilerplate for settings/serialization ---
-  
   @override
   String? get hotStateDtoType => null;
   @override
