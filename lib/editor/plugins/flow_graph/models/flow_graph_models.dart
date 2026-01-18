@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import 'flow_schema_models.dart';
 
 /// Represents a single connection wire between two nodes.
 @immutable
@@ -54,14 +53,9 @@ class FlowConnection {
 /// Represents an instance of a node in the graph.
 class FlowNode {
   final String id;
-  final String type; // Must match a FlowNodeType.type in the schema
+  final String type;
   final Offset position;
-  
-  /// Values for properties defined in the schema (e.g., "speed": 50)
   final Map<String, dynamic> properties;
-
-  /// Holds data for nodes that might not exist in the current schema
-  /// ensuring we don't delete data if a schema definition is temporarily missing.
   final Map<String, dynamic> customData;
 
   FlowNode({
@@ -116,12 +110,8 @@ class FlowGraph {
   final List<FlowNode> nodes;
   final List<FlowConnection> connections;
   
-  // Viewport state
   final Offset viewportPosition;
   final double viewportScale;
-
-  /// Relative path to the schema definition file (e.g. "schemas/logic.json").
-  /// This allows the graph to carry its blueprint reference portably.
   final String? schemaPath;
 
   const FlowGraph({
@@ -148,7 +138,11 @@ class FlowGraph {
 
   factory FlowGraph.deserialize(String jsonString) {
     if (jsonString.trim().isEmpty) {
-      return const FlowGraph(nodes: [], connections: []);
+      // CORRECTED: Return mutable lists (removed const)
+      return FlowGraph(
+        nodes: <FlowNode>[], 
+        connections: <FlowConnection>[]
+      );
     }
 
     final json = jsonDecode(jsonString);
@@ -165,11 +159,11 @@ class FlowGraph {
       nodes: (json['nodes'] as List?)
               ?.map((e) => FlowNode.fromJson(e))
               .toList() ??
-          [],
+          <FlowNode>[], // Ensure fallback is a mutable list
       connections: (json['connections'] as List?)
               ?.map((e) => FlowConnection.fromJson(e))
               .toList() ??
-          [],
+          <FlowConnection>[], // Ensure fallback is a mutable list
       viewportPosition: viewportPos,
       viewportScale: viewportZoom,
     );
