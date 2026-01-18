@@ -15,6 +15,7 @@ import 'tiled_editor/tiled_editor_plugin.dart';
 import 'texture_packer/texture_packer_plugin.dart';
 
 export '../models/editor_plugin_models.dart';
+import 'flow_graph/flow_graph_editor_plugin.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
@@ -25,6 +26,7 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     RefactorEditorPlugin(),
     TiledEditorPlugin(),
     TexturePackerPlugin(),
+    FlowGraphEditorPlugin(),    
   },
 );
 
