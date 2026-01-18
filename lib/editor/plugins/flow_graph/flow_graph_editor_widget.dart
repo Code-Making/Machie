@@ -9,6 +9,7 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
+import 'package:machine/editor/models/editor_command_context.dart'; // Import for provider
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
@@ -16,6 +17,7 @@ import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import 'asset/flow_asset_models.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_notifier.dart';
+import 'flow_graph_command_context.dart'; // NEW Import
 import 'widgets/flow_graph_canvas.dart';
 import 'widgets/node_palette.dart';
 
@@ -32,9 +34,11 @@ class FlowGraphEditorWidget extends EditorWidget {
 
 class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget> {
   late final FlowGraphNotifier _notifier;
-  bool _isPaletteVisible = false;
   
-  // Track asset queries to avoid redundant updates
+  // NEW: Expose notifier for Plugin commands
+  FlowGraphNotifier get notifier => _notifier;
+
+  bool _isPaletteVisible = false;
   Set<AssetQuery> _requiredAssetQueries = {};
 
   @override
@@ -42,9 +46,9 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     _notifier = FlowGraphNotifier(widget.tab.initialGraph);
     _notifier.addListener(_onGraphChanged);
     
-    // Trigger initial dependency calculation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateAssetDependencies();
+      syncCommandContext(); // Initial sync
     });
   }
 
@@ -55,7 +59,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     }
   }
 
-  /// Updates the asset map based on the current graph's schema requirement.
   void _updateAssetDependencies() {
     if (!mounted) return;
 
@@ -65,7 +68,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
     if (project == null || repo == null || tabMetadata == null) return;
 
-    // 1. Calculate Context Path (project-relative path of .fg file)
     final contextPath = repo.fileHandler.getPathForDisplay(
       tabMetadata.file.uri,
       relativeTo: project.rootUri,
@@ -73,7 +75,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
     final newQueries = <AssetQuery>{};
     
-    // 2. Add Schema dependency if it exists
     final schemaPath = _notifier.graph.schemaPath;
     if (schemaPath != null && schemaPath.isNotEmpty) {
       newQueries.add(AssetQuery(
@@ -83,7 +84,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
       ));
     }
 
-    // 3. Update AssetMap if queries changed
     if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
       _requiredAssetQueries = newQueries;
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
@@ -92,7 +92,8 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
   void _onGraphChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    _updateAssetDependencies(); 
+    _updateAssetDependencies();
+    syncCommandContext(); // Update selection state in toolbar
     setState(() {});
   }
 
@@ -100,7 +101,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     setState(() => _isPaletteVisible = !_isPaletteVisible);
   }
 
-  // --- Link Schema Logic ---
   Future<void> linkSchema() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     final repo = ref.read(projectRepositoryProvider);
@@ -108,11 +108,8 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
     if (project == null || repo == null || metadata == null) return;
 
-    // 1. Open File Picker
-    // Start browsing from the folder containing the current file
     final parentUri = repo.fileHandler.getParentUri(metadata.file.uri);
     
-    // ERROR FIX: Pass 'parentUri' (valid URI), NOT 'initialPath' (display string)
     final selectedPath = await showDialog<String>(
       context: context,
       builder: (_) => FileOrFolderPickerDialog(initialUri: parentUri),
@@ -120,7 +117,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
     if (selectedPath == null) return;
 
-    // 2. Calculate path relative to the .fg file
     final contextPath = repo.fileHandler.getPathForDisplay(
       metadata.file.uri, 
       relativeTo: project.rootUri
@@ -131,8 +127,14 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     _notifier.setSchemaPath(relativeToGraph);
   }
 
+  // NEW: Implement SyncCommandContext
   @override
-  void syncCommandContext() {}
+  void syncCommandContext() {
+    final hasSelection = _notifier.selectedNodeIds.isNotEmpty;
+    
+    ref.read(commandContextProvider(widget.tab.id).notifier).state = 
+      FlowGraphCommandContext(hasSelection: hasSelection);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +175,11 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
         FlowGraphCanvas(
           notifier: _notifier,
           schemaMap: schemaData?.typeMap ?? {},
+          // Assuming settings are passed here from Phase 4 update (omitted for brevity, assume passed or defaults)
+          settings: ref.watch(
+            package:machine/settings/settings_notifier.dart:effectiveSettingsProvider
+            .select((s) => s.pluginSettings[package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings] as package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings?)
+          ) ?? package:machine/editor/plugins/flow_graph/flow_graph_settings_model.dart:FlowGraphSettings(), 
         ),
 
         if (_isPaletteVisible && schemaData != null)
