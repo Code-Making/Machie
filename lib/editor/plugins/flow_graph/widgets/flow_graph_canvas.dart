@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import '../flow_graph_notifier.dart';
 import '../models/flow_schema_models.dart';
+import '../models/flow_graph_models.dart';
 import '../flow_graph_settings_model.dart';
+import '../utils/flow_layout_utils.dart'; // Import Utils
 import 'schema_node_widget.dart';
 import 'flow_connection_painter.dart';
 
@@ -34,7 +36,6 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     final initialScale = widget.notifier.graph.viewportScale;
     final matrix = Matrix4.identity()..translate(initialPos.dx, initialPos.dy)..scale(initialScale);
     _transformCtrl.value = matrix;
-    // Listen to changes to rebuild and update scale for drag logic
     _transformCtrl.addListener(() {
       if (mounted) setState(() {}); 
     });
@@ -52,9 +53,36 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
     return global;
   }
 
+  void _handleDoubleTap(TapDownDetails details) {
+    // 1. Get click position in Canvas Space
+    final localPos = _globalToLocal(details.globalPosition);
+    
+    // 2. Iterate connections and check collision
+    final graph = widget.notifier.graph;
+    final nodes = graph.nodes;
+    
+    for (final conn in graph.connections) {
+      final outNode = nodes.firstWhere((n) => n.id == conn.outputNodeId, orElse: () => FlowNode(id: '', type: '', position: Offset.zero));
+      final inNode = nodes.firstWhere((n) => n.id == conn.inputNodeId, orElse: () => FlowNode(id: '', type: '', position: Offset.zero));
+      
+      if (outNode.id.isEmpty || inNode.id.isEmpty) continue;
+
+      final outPos = FlowLayoutUtils.getPortPosition(outNode, conn.outputPortKey, false, widget.schemaMap[outNode.type]);
+      final inPos = FlowLayoutUtils.getPortPosition(inNode, conn.inputPortKey, true, widget.schemaMap[inNode.type]);
+
+      if (outPos != null && inPos != null) {
+        final path = FlowLayoutUtils.generateConnectionPath(outPos, inPos);
+        // Check if tap is near this path (10px threshold)
+        if (FlowLayoutUtils.isPointNearPath(localPos, path, threshold: 12.0)) {
+          widget.notifier.removeConnection(conn);
+          return; // Stop after deleting one
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get current scale to pass to nodes for drag correction
     final currentScale = _transformCtrl.value.getMaxScaleOnAxis();
 
     return ListenableBuilder(
@@ -65,6 +93,8 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
           children: [
             GestureDetector(
               onTap: () => widget.notifier.clearSelection(),
+              // NEW: Handle Double Tap
+              onDoubleTapDown: _handleDoubleTap, 
               child: InteractiveViewer(
                 transformationController: _transformCtrl,
                 boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -108,7 +138,7 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
                             isSelected: widget.notifier.selectedNodeIds.contains(node.id),
                             notifier: widget.notifier,
                             globalToLocal: _globalToLocal,
-                            canvasScale: currentScale, // NEW: Pass scale
+                            canvasScale: currentScale,
                           ),
                         );
                       }),
@@ -124,37 +154,21 @@ class _FlowGraphCanvasState extends State<FlowGraphCanvas> {
   }
 }
 
+// GridPainter remains unchanged
 class GridPainter extends CustomPainter {
   final double scale;
   final Offset offset;
   final FlowGraphSettings settings;
-
-  GridPainter({
-    required this.scale,
-    required this.offset,
-    required this.settings,
-  });
-
+  GridPainter({required this.scale, required this.offset, required this.settings});
   @override
   void paint(Canvas canvas, Size size) {
     final bgPaint = Paint()..color = Color(settings.backgroundColorValue);
     canvas.drawRect(Offset.zero & size, bgPaint);
-
-    final linePaint = Paint()
-      ..color = Color(settings.gridColorValue)
-      ..strokeWidth = settings.gridThickness;
-
+    final linePaint = Paint()..color = Color(settings.gridColorValue)..strokeWidth = settings.gridThickness;
     final gridSize = settings.gridSpacing;
-
-    for (double x = 0; x < size.width; x += gridSize) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-    }
-    for (double y = 0; y < size.height; y += gridSize) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
-    }
+    for (double x = 0; x < size.width; x += gridSize) canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
+    for (double y = 0; y < size.height; y += gridSize) canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
   }
-
   @override
-  bool shouldRepaint(covariant GridPainter old) =>
-      old.scale != scale || old.settings != settings;
+  bool shouldRepaint(covariant GridPainter old) => old.scale != scale || old.settings != settings;
 }
