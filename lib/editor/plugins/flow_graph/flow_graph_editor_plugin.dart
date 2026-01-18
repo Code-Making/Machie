@@ -14,6 +14,7 @@ import 'asset/flow_loaders.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_editor_widget.dart';
 import 'models/flow_graph_models.dart';
+import '../../../data/cache/type_adapters.dart';
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
