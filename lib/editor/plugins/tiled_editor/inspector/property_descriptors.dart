@@ -20,6 +20,20 @@ abstract class PropertyDescriptor {
   void updateValue(dynamic newValue);
 }
 
+// FILE: lib/editor/plugins/tiled_editor/inspector/property_descriptors.dart
+
+// ... (keep existing imports and classes)
+
+class FlowGraphReferencePropertyDescriptor extends StringPropertyDescriptor {
+  const FlowGraphReferencePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+    super.isReadOnly,
+  });
+}
+
 // === Concrete Descriptor Types ===
 
 class IntPropertyDescriptor extends PropertyDescriptor {
