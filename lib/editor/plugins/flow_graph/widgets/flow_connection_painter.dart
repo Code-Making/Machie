@@ -32,8 +32,8 @@ class FlowConnectionPainter extends CustomPainter {
       final inPos = _getPortPosition(conn.inputNodeId, conn.inputPortKey, isInput: true);
 
       if (outPos != null && inPos != null) {
-        paint.color = Colors.white; // TODO: Get color from schema type
-        _drawBezier(canvas, outPos, inPos, paint);
+        paint.color = Colors.white70;
+        _drawFixedBezier(canvas, outPos, inPos, paint);
       }
     }
 
@@ -42,58 +42,64 @@ class FlowConnectionPainter extends CustomPainter {
       final startPos = _getPortPosition(
         pendingConnection!.outputNodeId, 
         pendingConnection!.outputPortKey, 
-        isInput: false // Assuming dragging from Output
+        isInput: false 
       );
       
       if (startPos != null) {
-        paint.color = Colors.yellow;
-        _drawBezier(canvas, startPos, pendingCursor!, paint);
+        paint.color = Colors.yellowAccent;
+        _drawFixedBezier(canvas, startPos, pendingCursor!, paint);
       }
     }
   }
 
-  void _drawBezier(Canvas canvas, Offset p1, Offset p2, Paint paint) {
+  void _drawFixedBezier(Canvas canvas, Offset p1, Offset p2, Paint paint) {
     final path = Path();
     path.moveTo(p1.dx, p1.dy);
 
-    final distance = (p2.dx - p1.dx).abs();
-    final controlOffset = distance * 0.5;
+    // Fixed horizontal curvature
+    // Ensure the line always goes OUT horizontally first
+    final dx = (p2.dx - p1.dx).abs();
+    final curvature = (dx / 2).clamp(30.0, 150.0);
 
-    // Cubic bezier for smooth 'S' curve
     path.cubicTo(
-      p1.dx + controlOffset, p1.dy, // Control point 1 (right of start)
-      p2.dx - controlOffset, p2.dy, // Control point 2 (left of end)
-      p2.dx, p2.dy,                 // End point
+      p1.dx + curvature, p1.dy, // Control 1: Right of Start
+      p2.dx - curvature, p2.dy, // Control 2: Left of End
+      p2.dx, p2.dy,             // End
     );
 
     canvas.drawPath(path, paint);
   }
 
-  // NOTE: This assumes a fixed layout logic for nodes. 
-  // Ideally, widgets report their positions.
   Offset? _getPortPosition(String nodeId, String portKey, {required bool isInput}) {
+    // Basic estimation based on standard node layout.
+    // In a production app, nodes should report their port positions via RenderBox.
+    
     final node = nodes.firstWhere((n) => n.id == nodeId, orElse: () => FlowNode(id: '', type: '', position: Offset.zero));
     if (node.id.isEmpty) return null;
 
     final schema = schemaMap[node.type];
-    if (schema == null) return node.position + const Offset(10, 10); // Fallback
+    if (schema == null) return node.position + const Offset(10, 10);
 
-    const headerHeight = 40.0;
-    const portRowHeight = 24.0;
-    const portOffsetY = 12.0; // Center of row
+    const headerHeight = 32.0 + 8.0; // Header + spacing
+    const rowHeight = 28.0 + 4.0; // Height + padding
+    const portOffsetY = 14.0; // Half row height
 
     final list = isInput ? schema.inputs : schema.outputs;
     final index = list.indexWhere((p) => p.key == portKey);
     
-    if (index == -1) return node.position; // Error fallback
+    if (index == -1) return node.position;
 
-    final y = node.position.dy + headerHeight + (index * portRowHeight) + portOffsetY;
+    final y = node.position.dy + headerHeight + (index * rowHeight) + portOffsetY;
     
-    // Width is tricky without measurement. Assume standard width or specific logic.
-    // Let's assume standard 150 width for now.
+    // NOTE: This width must match the constraints in SchemaNodeWidget
+    // We used min 160, max 240. Let's assume an average or measure text.
+    // For now, hardcoding an estimated width or passing it would be ideal.
+    // Let's assume standard width for calculation. 
+    const nodeWidth = 200.0; 
+    
     final x = isInput 
-        ? node.position.dx 
-        : node.position.dx + 150.0; 
+        ? node.position.dx + 6.0 // Padding left
+        : node.position.dx + nodeWidth - 6.0; // Padding right
 
     return Offset(x, y);
   }
