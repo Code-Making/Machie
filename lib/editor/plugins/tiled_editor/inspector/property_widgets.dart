@@ -14,6 +14,7 @@ import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart
 import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 import 'package:machine/app/app_notifier.dart'; // For opening files
+import '../../../services/editor_service.dart';
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;

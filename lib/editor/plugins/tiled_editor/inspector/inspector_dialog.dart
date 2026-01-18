@@ -180,6 +180,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertyDoubleInput(descriptor: descriptor, onUpdate: _onUpdate);
     }
     if (descriptor is StringPropertyDescriptor) {
+      // Check for file link convention (e.g. ends with .fg or specific property name)
+      if (descriptor.currentValue.endsWith('.fg') || descriptor.name.contains('graph')) {
+        return PropertyFileLinkWithAction(
+          descriptor: descriptor,
+          onUpdate: _onUpdate,
+        );
+      }
       return PropertyStringInput(descriptor: descriptor, onUpdate: _onUpdate);
     }
     if (descriptor is EnumPropertyDescriptor<tiled.RenderOrder>) {
