@@ -1,5 +1,3 @@
-// FILE: lib/editor/plugins/tiled_editor/tiled_editor_widget.dart
-
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:math';
@@ -46,7 +44,7 @@ import 'widgets/export_dialog.dart';
 
 import 'widgets/sprite_picker_dialog.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
-import 'tiled_asset_resolver.dart'; // Import the resolver
+import 'tiled_asset_resolver.dart';
 
 class TiledEditorWidget extends EditorWidget {
   @override
@@ -258,7 +256,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
 
       final uris = await _collectAssetUris(map);
       
-      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+      // START OF CHANGES
+      final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
+      final assetDataMap = await ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
+      // END OF CHANGES
 
       _fixupTilesetsAfterImageLoad(map, assetDataMap);
 
@@ -331,7 +332,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   Future<void> _rebuildAssetUriSet() async {
     if (_notifier == null) return;
     final uris = await _collectAssetUris(_notifier!.map);
-    ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(uris);
+    // START OF CHANGES
+    final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
+    ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
+    // END OF CHANGES
   }
   
   Future<void> reloadImageSource({
@@ -559,7 +563,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }  
 
   void inspectMapProperties() {
-    // Check if resolver is ready
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
     
@@ -572,13 +575,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED: Passed resolver
+        resolver: resolver,
       ),
     );
   }
 
   Future<void> _addTileset() async {
-    // Picker returns a project-relative path
     final relativeImagePath = await showDialog<String>(
       context: context,
       builder: (_) => FileOrFolderPickerDialog(initialUri: _lastTilesetParentUri),
@@ -595,17 +597,14 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       final repo = ref.read(projectRepositoryProvider)!;
       final project = ref.read(currentProjectProvider)!;
       
-      // Update last picked folder for convenience
       final imageFile = await repo.fileHandler.resolvePath(project.rootUri, relativeImagePath);
       if (imageFile != null) {
         _lastTilesetParentUri = repo.fileHandler.getParentUri(imageFile.uri);
       }
 
-      // Calculate path relative to the TMX
       final tmxPath = _getTmxProjectRelativePath();
       final imagePathRelativeToTmx = repo.calculateRelativePath(tmxPath, relativeImagePath);
 
-      // We need image dimensions
       final assetData = await ref.read(assetDataProvider(relativeImagePath).future);
       if (assetData is! ImageAssetData) throw Exception("Failed to load image asset");
       final image = assetData.image;
@@ -711,7 +710,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED: Passed resolver
+        resolver: resolver,
       ),
     );
   }
@@ -781,7 +780,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED: Passed resolver
+        resolver: resolver,
       ),
     );
   }
@@ -796,7 +795,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED: Passed resolver
+        resolver: resolver,
       ),
     );
   }
@@ -817,7 +816,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver, // CHANGED: Passed resolver
+        resolver: resolver,
       ),
     );
   }
@@ -1506,12 +1505,11 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     final mapPixelWidth = (map.width * map.tileWidth).toDouble();
     final mapPixelHeight = (map.height * map.tileHeight).toDouble();
 
-    // CHANGED: Watch the resolver provider instead of the raw map
     final resolverAsync = ref.watch(tiledAssetResolverProvider(widget.tab.id));
 
     return resolverAsync.when(
       skipLoadingOnReload: true,
-      data: (resolver) { // We now receive the TiledAssetResolver
+      data: (resolver) {
         final editorContent = GestureDetector(
           onTapDown: (details) =>
               _onInteractionUpdate(details.localPosition, isStart: true),
@@ -1533,7 +1531,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
               size: Size(mapPixelWidth, mapPixelHeight),
               painter: TiledMapPainter(
                 map: map,
-                resolver: resolver, // CHANGED: Pass resolver
+                resolver: resolver,
                 showGrid: _showGrid,
                 transform: _transformationController.value,
                 selectedObjects: notifier!.selectedObjects,
@@ -1577,7 +1575,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 height: _paletteHeight,
                 child: TilePalette(
                   map: notifier!.map,
-                  resolver: resolver, // CHANGED: Pass resolver
+                  resolver: resolver,
                   selectedTileset: _selectedTileset,
                   selectedTileRect: _selectedTileRect,
                   onTilesetChanged: (ts) => setState(() => _selectedTileset = ts),
@@ -1628,8 +1626,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                   notifier!.deleteObject(layerId, objectId);
                 },
                 
-                onLayerInspect: (layer) => _showLayerInspector(layer, resolver), // CHANGED
-                onObjectInspect: (obj) => _inspectObject(obj, resolver), // CHANGED
+                onLayerInspect: (layer) => _showLayerInspector(layer, resolver),
+                onObjectInspect: (obj) => _inspectObject(obj, resolver),
               ),
             ),
           ],

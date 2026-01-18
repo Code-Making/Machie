@@ -1,4 +1,5 @@
-// lib/asset_cache/asset_providers.dart
+// FILE: lib/asset_cache/asset_providers.dart
+
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
@@ -11,31 +12,22 @@ import 'asset_models.dart';
 import 'asset_loader_registry.dart';
 import 'package:path/path.dart' as p;
 
-/// Resolves an [AssetQuery] into a loaded [AssetData].
-///
-/// This provider handles the translation from context-relative paths (used by editors
-/// like Tiled or Texture Packer) to the canonical project-relative paths used by the AssetMap.
-/// Resolves an [AssetQuery] into a loaded [AssetData].
 final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAssetRequest>((ref, request) {
-  // Watch the asset map for the specific tab
   final assetMapAsync = ref.watch(assetMapProvider(request.tabId));
   final assetMap = assetMapAsync.valueOrNull;
   
   if (assetMap == null) return null;
 
   final repo = ref.watch(projectRepositoryProvider);
-  // We cannot resolve paths if the repository isn't ready.
   if (repo == null) return null;
 
   String lookupKey;
 
   if (request.query.mode == AssetPathMode.projectRelative) {
-    // If it's already project relative, use it as is (ensuring separators are consistent)
     lookupKey = request.query.path.replaceAll(r'\', '/');
   } else {
-    // Delegate resolution logic to the repository
     lookupKey = repo.resolveRelativePath(
-      request.query.contextPath!, // Safe due to assertion in AssetQuery
+      request.query.contextPath!,
       request.query.path,
     );
   }
@@ -43,9 +35,6 @@ final resolvedAssetProvider = Provider.family.autoDispose<AssetData?, ResolvedAs
   return assetMap[lookupKey];
 });
 
-/// A provider that fetches, decodes, and caches a single asset by its
-/// project-relative URI.
-///
 /// It automatically listens for file system events and invalidates itself if the
 /// underlying file is modified or deleted, ensuring the UI stays reactive.
 final assetDataProvider =
@@ -58,7 +47,6 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
 
   @override
   Future<AssetData> build(String projectRelativeUri) async {
-    // --- Keep-alive logic remains the same ---
     final keepAliveLink = ref.keepAlive();
     ref.onDispose(() {
       _timer?.cancel();
@@ -75,7 +63,6 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       _timer?.cancel();
     });
 
-    // --- Initial setup remains the same ---
     final repo = ref.watch(projectRepositoryProvider);
     final projectRoot = ref.watch(currentProjectProvider.select((p) => p?.rootUri));
 
@@ -122,37 +109,24 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
       }
     });
 
-    // --- NEW: Dependency-aware loading logic ---
     if (loader is IDependentAssetLoader) {
-      // This is a composite asset that depends on other assets.
       
-      // 1. First, get the list of dependency URIs.
       final dependencyUris = await loader.getDependencies(ref, file, repo);
 
-      // 2. Reactively watch all dependencies.
       final dependencyValues = [
         for (final uri in dependencyUris) ref.watch(assetDataProvider(uri)),
       ];
 
-      // 3. Check the state of dependencies. If any are loading or have errored,
-      //    this asset inherits that state.
       final firstError = dependencyValues.firstWhereOrNull((v) => v.hasError);
       if (firstError != null) {
         throw firstError.error!;
       }
       if (dependencyValues.any((v) => !v.hasValue)) {
-        // One of the dependencies is still loading. We wait.
-        // Riverpod will automatically re-run this build method when it's ready.
-        // We return a Loading state that never completes.
         return await Completer<AssetData>().future;
       }
       
-      // If we reach here, all dependencies are loaded and available via ref.read().
     }
 
-    // --- Original loading logic ---
-    // This part now runs for both simple assets, and for dependent assets
-    // *after* their dependencies have been successfully loaded and watched.
     try {
       return await loader.load(ref, file, repo);
     } catch (e, st) {
@@ -162,11 +136,6 @@ class AssetNotifier extends AutoDisposeFamilyAsyncNotifier<AssetData, String> {
   }
 }
 
-/// A NotifierProvider that manages a map of multiple assets for a specific consumer.
-///
-/// Its family parameter is a stable identifier for the consumer (e.g., a tab ID),
-/// ensuring the provider instance itself persists. The set of assets it manages is
-/// updated imperatively by calling the `updateUris` method.
 final assetMapProvider = NotifierProvider.autoDispose
     .family<AssetMapNotifier, AsyncValue<Map<String, AssetData>>, String>(
   AssetMapNotifier.new,
@@ -175,18 +144,17 @@ final assetMapProvider = NotifierProvider.autoDispose
 class AssetMapNotifier
     extends AutoDisposeFamilyNotifier<AsyncValue<Map<String, AssetData>>, String> {
   
-  /// The set of URIs this notifier is currently responsible for.
+  // This still stores the canonical project-relative URIs
   Set<String> _uris = {};
+  
+  Set<AssetQuery> _queries = {};
 
-  /// Store subscriptions to asset providers for proper lifecycle management.
   final List<ProviderSubscription> _assetSubscriptions = [];
   
-  /// Keep-alive timer to prevent flickering on quick tab switches.
   Timer? _keepAliveTimer;
 
   @override
   AsyncValue<Map<String, AssetData>> build(String consumerId) {
-    // --- Keep-Alive Logic ---
     final link = ref.keepAlive();
     ref.onDispose(() {
       _cleanupSubscriptions();
@@ -200,12 +168,10 @@ class AssetMapNotifier
     ref.onResume(() {
       _keepAliveTimer?.cancel();
     });
-    // ------------------------
 
     return const AsyncValue.data({});
   }
 
-  /// Clean up all existing asset provider subscriptions.
   void _cleanupSubscriptions() {
     for (final subscription in _assetSubscriptions) {
       subscription.close();
@@ -213,27 +179,38 @@ class AssetMapNotifier
     _assetSubscriptions.clear();
   }
 
-  /// Imperatively updates the set of asset URIs this provider should manage.
-  /// Returns a Future that completes when the initial load of these assets is done.
-  Future<Map<String, AssetData>> updateUris(Set<String> newUris) async {
-    // Optimization: If the set hasn't changed, do nothing.
-    if (const SetEquality().equals(newUris, _uris)) {
+  Future<Map<String, AssetData>> updateUris(Set<AssetQuery> newQueries) async {
+    if (const SetEquality().equals(newQueries, _queries)) {
       return state.valueOrNull ?? const {};
     }
 
-    _uris = newUris;
+    _queries = newQueries;
     
-    // Stop listening to old assets immediately.
+    // START OF CHANGES
+    final repo = ref.read(projectRepositoryProvider);
+    if (repo == null) {
+      state = AsyncValue.error('Project repository not available', StackTrace.current);
+      return {};
+    }
+
+    final newUris = <String>{};
+    for (final query in newQueries) {
+      if (query.mode == AssetPathMode.projectRelative) {
+        newUris.add(query.path);
+      } else {
+        newUris.add(repo.resolveRelativePath(query.contextPath!, query.path));
+      }
+    }
+    _uris = newUris;
+    // END OF CHANGES
+    
     _cleanupSubscriptions();
 
-    // 1. Enter loading state, but keep previous data to prevent UI flicker.
     state = const AsyncValue<Map<String, AssetData>>.loading().copyWithPrevious(state);
 
-    // 2. Perform the initial fetch and setup listeners.
     return await _fetchAndSetupListeners();
   }
 
-  /// Fetches all current URIs and then establishes listeners for future changes.
   Future<Map<String, AssetData>> _fetchAndSetupListeners() async {
     if (_uris.isEmpty) {
       state = const AsyncValue.data({});
@@ -243,13 +220,8 @@ class AssetMapNotifier
     try {
       final results = <String, AssetData>{};
 
-      // 3. Fetch all assets concurrently using read(... .future).
-      // We do NOT use ref.listen here yet. We want the initial snapshot.
       final futures = _uris.map((uri) async {
         try {
-          // We assume assetDataProvider returns AssetData (or throws).
-          // ErrorAssetData is a subtype of AssetData, so we check for it manually if needed,
-          // or catch actual Exceptions thrown by the provider.
           final data = await ref.read(assetDataProvider(uri).future);
           results[uri] = data;
         } catch (e, st) {
@@ -259,10 +231,8 @@ class AssetMapNotifier
 
       await Future.wait(futures);
 
-      // 4. Update state with the fully loaded map.
       state = AsyncValue.data(results);
 
-      // 5. Now that we have data, set up listeners for *reactive* updates.
       // If a file changes on disk later, these listeners will fire.
       for (final uri in _uris) {
         final sub = ref.listen<AsyncValue<AssetData>>(
@@ -275,8 +245,6 @@ class AssetMapNotifier
       }
       return results;
     } catch (e, st) {
-      // If the batch fetch fails completely (rare, as we catch individual errors above),
-      // set the whole map state to error.
       state = AsyncValue<Map<String, AssetData>>.error(e, st).copyWithPrevious(state);
       rethrow;
     }
@@ -284,8 +252,6 @@ class AssetMapNotifier
 
   /// Callback when a single underlying asset changes (e.g. file modified on disk).
   void _onAssetChanged(String uri, AsyncValue<AssetData> nextAssetValue) {
-    // We only care about data or specific error states. 
-    // We generally ignore 'loading' states from individual assets to prevent partial map flickers.
     
     AssetData? newData;
     
@@ -299,11 +265,8 @@ class AssetMapNotifier
     }
 
     if (newData != null) {
-      // Gracefully update the map.
-      // We use .valueOrNull because we established the data in _fetchAndSetupListeners.
       final currentMap = state.valueOrNull ?? {};
       
-      // Create a shallow copy of the map to ensure immutability
       final newMap = Map<String, AssetData>.from(currentMap);
       newMap[uri] = newData;
       
