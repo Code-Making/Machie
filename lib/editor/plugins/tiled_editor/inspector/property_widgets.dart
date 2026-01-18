@@ -83,20 +83,19 @@ class PropertyFileListEditor extends StatelessWidget {
 }
 
 
-class PropertyFileLinkWithAction extends StatelessWidget {
+class PropertyFileLinkWithAction extends ConsumerWidget {
   final StringPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  final WidgetRef ref; // Need ref to trigger open action
+  // We don't need to pass 'ref' in constructor since we extend ConsumerWidget
 
   const PropertyFileLinkWithAction({
     super.key,
     required this.descriptor,
     required this.onUpdate,
-    required this.ref,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final path = descriptor.currentValue;
     final isFlowGraph = path.endsWith('.fg');
 
@@ -112,13 +111,13 @@ class PropertyFileLinkWithAction extends StatelessWidget {
               icon: const Icon(Icons.hub_outlined, color: Colors.orange),
               tooltip: 'Open Flow Graph',
               onPressed: () {
-                ref.read(appNotifierProvider.notifier).openFile(path);
+                // CORRECTED: Use EditorService to open the file by path
+                ref.read(editorServiceProvider).openOrCreate(path);
               },
             ),
           IconButton(
             icon: const Icon(Icons.folder_open),
             onPressed: () async {
-              // Existing file picker logic...
               final newPath = await showDialog<String>(
                 context: context,
                 builder: (_) => const FileOrFolderPickerDialog(),
