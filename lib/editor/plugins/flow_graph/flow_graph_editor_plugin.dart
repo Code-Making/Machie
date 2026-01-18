@@ -13,6 +13,7 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'asset/flow_loaders.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_editor_widget.dart';
+import '../../../data/cache/type_adapters.dart';
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
