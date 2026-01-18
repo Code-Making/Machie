@@ -10,8 +10,6 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/project/project_settings_notifier.dart';
-import 'package:path/path.dart' as p;
 import 'texture_packer_asset_resolver.dart';
 import '../../../logs/logs_provider.dart';
 
@@ -21,7 +19,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     return file.name.toLowerCase().endsWith('.tpacker');
   }
 
-  // START OF CHANGES
   @override
   Future<Set<String>> getDependencies(Ref ref, ProjectDocumentFile file, ProjectRepository repo) async {
     final content = await repo.readFile(file.uri);
@@ -29,7 +26,8 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
 
     try {
       final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
-      // Get the project-relative path of the .tpacker file to use as a context.
+      
+      // 1. Get the project-relative path of the .tpacker file (the Context)
       final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
       
       final json = jsonDecode(content);
@@ -37,10 +35,11 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       
       final dependencies = <String>{};
       
+      // 2. Traverse source images and resolve their paths relative to the .tpacker file
       void collectPaths(SourceImageNode node) {
         if (node.type == SourceNodeType.image && node.content != null) {
           if (node.content!.path.isNotEmpty) {
-            // Use the repository to resolve the path relative to the .tpacker file.
+            // This is the key logic: convert "relative string" to "canonical project key"
             final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
             dependencies.add(resolvedPath);
           }
@@ -51,7 +50,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       
       return dependencies;
     } catch (e) {
-      // If parsing fails, return no dependencies.
       return {};
     }
   }
@@ -62,11 +60,11 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     final project = TexturePackerProject.fromJson(jsonDecode(content));
     
     final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
-    // Get the project-relative path of the .tpacker file to use as a context.
     final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
 
     final Map<String, ui.Image> sourceImages = {};
     
+    // Collect all source nodes to load
     final sourceNodes = <SourceImageNode>[];
     void collectNodes(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
@@ -76,12 +74,15 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     }
     collectNodes(project.sourceImagesRoot);
 
+    // Load actual image data using the Asset System
     for (final node in sourceNodes) {
       final relativePath = node.content!.path;
       if (relativePath.isNotEmpty) {
         try {
-          // Use the repository to resolve the path, which gives us the canonical key for the asset provider.
+          // Resolve the path exactly as getDependencies did
           final resolvedPath = repo.resolveRelativePath(tpackerPath, relativePath);
+          
+          // Request the asset from the cache
           final assetData = await ref.read(assetDataProvider(resolvedPath).future);
           if (assetData is ImageAssetData) {
             sourceImages[node.id] = assetData.image;
@@ -91,6 +92,10 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
         }
       }
     }
+    
+    // Perform the packing for the "Asset" representation (used for previews in other editors)
+    // Note: This is separate from the "Export" logic which generates files.
+    // This generates the in-memory representation for Tiled/ECS usage.
     
     final packerItems = <PackerInputItem<SpriteDefinition>>[];
     final spriteNames = <String, String>{}; 
@@ -120,6 +125,10 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     }
     collectSprites(project.tree);
 
+    if (packerItems.isEmpty) {
+      return TexturePackerAssetData(frames: {}, animations: {}, metaSize: ui.Size.zero);
+    }
+
     final packer = MaxRectsPacker(padding: 2);
     final result = packer.pack(packerItems);
 
@@ -133,7 +142,13 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
           
       final name = spriteNames[nodeId] ?? 'unknown';
       final def = item.data as SpriteDefinition;
-      final sourceImage = sourceImages[def.sourceImageId]!;
+      
+      // We still need the source image reference for the in-memory asset
+      // In a real game engine, this would point to the packed atlas, 
+      // but in the editor, we point to the source so we can render it without exporting.
+      final sourceImage = sourceImages[def.sourceImageId];
+      if (sourceImage == null) continue;
+
       final sourceConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId)!;
       final sourceRect = _calculatePixelRect(sourceConfig, def.gridRect);
 
@@ -166,7 +181,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       metaSize: ui.Size(result.width, result.height),
     );
   }
-  // END OF CHANGES
   
   SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
     if (node.id == id && node.type == SourceNodeType.image) return node.content;
