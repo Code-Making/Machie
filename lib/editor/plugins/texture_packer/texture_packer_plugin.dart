@@ -126,6 +126,27 @@ class TexturePackerPlugin extends EditorPlugin {
   List<Command> getCommands() {
     return [
       BaseCommand(
+        id: 'packer_save',
+        label: 'Save Atlas',
+        icon: const Icon(Icons.save),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTab(),
+        canExecute: (ref) {
+          final tabId = ref.watch(appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab?.id));
+          if (tabId == null) return false;
+          return ref.watch(tabMetadataProvider.select((m) => m[tabId]))?.isDirty ?? false;
+        },
+      ),
+      BaseCommand(
+        id: 'packer_save_as',
+        label: 'Save As...',
+        icon: const Icon(Icons.save_as),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute: (ref) async => ref.read(editorServiceProvider).saveCurrentTabAs(),
+      ),      // END OF CHANGES
+      BaseCommand(
         id: 'packer_toggle_pan_zoom_mode',
         label: 'Pan/Zoom',
         icon: Consumer(builder: (context, ref, _) {
