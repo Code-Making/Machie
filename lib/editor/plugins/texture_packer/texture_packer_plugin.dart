@@ -10,6 +10,8 @@ import 'package:machine/editor/models/editor_command_context.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/editor/models/editor_plugin_models.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
+import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'texture_packer_command_context.dart';
 import 'texture_packer_editor_models.dart';
 import 'texture_packer_editor_widget.dart';
@@ -18,9 +20,8 @@ import 'widgets/slicing_properties_dialog.dart';
 import '../../../command/command_widgets.dart';
 import 'widgets/texture_packer_settings_widget.dart';
 import 'texture_packer_settings.dart';
-import 'texture_packer_loader.dart'; // Import the new file
-import 'widgets/texture_packer_export_dialog.dart'; // Add this import
-import 'texture_packer_loader.dart'; // Add this import from Phase 1
+import 'texture_packer_loader.dart';
+import 'widgets/texture_packer_export_dialog.dart';
 
 class TexturePackerPlugin extends EditorPlugin {
   // --- COMMAND SYSTEM REFACTOR ---
