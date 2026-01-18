@@ -557,7 +557,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       builder: (_) => ExportDialog(
         notifier: _notifier!,
         talker: ref.read(talkerProvider),
-        assetDataMap: assetMap,
+        tabId: widget.tab.id, // FIX
       ),
     );
   }  
