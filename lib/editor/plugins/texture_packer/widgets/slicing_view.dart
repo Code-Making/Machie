@@ -51,13 +51,13 @@ class SlicingView extends ConsumerWidget {
       return const Center(child: Text('Source image not found in hierarchy.'));
     }
 
-    // This provider now returns the corrected resolver instance.
+    // START OF CHANGES
+    // Watch the new resolver provider.
     final resolverAsync = ref.watch(texturePackerAssetResolverProvider(tabId));
 
     return resolverAsync.when(
       data: (resolver) {
-        // This call now works correctly because the resolver's internal logic is fixed.
-        // `sourceConfig.path` is the file-relative path, which the resolver now handles.
+        // Get the image directly from the resolver using the raw relative path.
         final image = resolver.getImage(sourceConfig.path);
         
         if (image == null) {
@@ -113,6 +113,7 @@ class SlicingView extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error loading assets: $err')),
     );
+    // END OF CHANGES
   }
 }
 

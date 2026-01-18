@@ -1,6 +1,5 @@
 // FILE: lib/editor/plugins/texture_packer/widgets/preview_view.dart
 
-
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -166,7 +165,9 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
       }
     });
 
+    // START OF CHANGES
     final resolverAsync = ref.watch(texturePackerAssetResolverProvider(widget.tabId));
+    // END OF CHANGES
     final previewState = ref.watch(previewStateProvider(widget.tabId));
     final settings = ref.watch(effectiveSettingsProvider
         .select((s) => s.pluginSettings[TexturePackerSettings] as TexturePackerSettings?)) 
@@ -284,7 +285,9 @@ class _PreviewViewState extends ConsumerState<PreviewView> with TickerProviderSt
     final sourceConfig = _findSourceConfig(spriteDef.sourceImageId);
     if (sourceConfig == null) return const Icon(Icons.broken_image, size: 48);
 
+    // START OF CHANGES
     final image = resolver.getImage(sourceConfig.path);
+    // END OF CHANGES
     if (image == null) return const Icon(Icons.broken_image, size: 48);
 
     final srcRect = _calculateSourceRect(sourceConfig, spriteDef.gridRect);
