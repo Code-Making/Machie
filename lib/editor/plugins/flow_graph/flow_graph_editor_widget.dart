@@ -11,6 +11,7 @@ import 'package:machine/asset_cache/asset_providers.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart'; // Import FilePicker
 
 import 'asset/flow_asset_models.dart';
 import 'flow_graph_editor_tab.dart';
@@ -52,6 +53,42 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     if (mounted && !widget.tab.onReady.isCompleted) {
       widget.tab.onReady.complete(this);
     }
+  }
+  
+  Future<void> linkSchema() async {
+    final project = ref.read(appNotifierProvider).value?.currentProject;
+    final repo = ref.read(projectRepositoryProvider);
+    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
+
+    if (project == null || repo == null || metadata == null) return;
+
+    // 1. Open File Picker
+    // We start browsing from the project root or current file location
+    final parentUri = repo.fileHandler.getParentUri(metadata.file.uri);
+    final initialPath = repo.fileHandler.getPathForDisplay(parentUri, relativeTo: project.rootUri);
+
+    final selectedPath = await showDialog<String>(
+      context: context,
+      builder: (_) => FileOrFolderPickerDialog(initialUri: initialPath),
+    );
+
+    if (selectedPath == null) return;
+
+    // 2. Calculate path relative to the .fg file
+    // The .fg file is our "Context".
+    final contextPath = repo.fileHandler.getPathForDisplay(
+      metadata.file.uri, 
+      relativeTo: project.rootUri
+    );
+    
+    // We need the relative path from the .fg file to the selected schema
+    // AssetQuery handles logic "relativeToContext", so we just need the project-relative path of the schema
+    // effectively, or relative to the .fg if we want portable files.
+    
+    // Let's assume we store the path relative to the .fg file for portability.
+    final relativeToGraph = repo.calculateRelativePath(contextPath, selectedPath);
+
+    _notifier.setSchemaPath(relativeToGraph);
   }
 
   /// Updates the asset map based on the current graph's schema requirement.
