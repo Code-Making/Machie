@@ -1,5 +1,3 @@
-// FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
-
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -55,7 +53,9 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   late final TexturePackerNotifier _notifier;
   TexturePackerNotifier get notifier => _notifier;
   
-  Set<String> _requiredAssetUris = const {};
+  // START OF CHANGES
+  Set<AssetQuery> _requiredAssetQueries = const {};
+  // END OF CHANGES
 
   TexturePackerMode _mode = TexturePackerMode.panZoom;
   bool _isSourceImagesPanelVisible = false;
@@ -109,8 +109,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     syncCommandContext();
   }
 
+  // START OF CHANGES
   /// Traverses the SourceImage tree to find all file paths and tells the
-void _updateAndLoadAssetUris() {
+  /// AssetMapNotifier to load them, using the .tpacker file as context.
+  void _updateAndLoadAssetUris() {
     if (!mounted) return;
 
     final project = ref.read(appNotifierProvider).value?.currentProject;
@@ -118,34 +120,35 @@ void _updateAndLoadAssetUris() {
     final tpackerFileMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
 
     if (project == null || repo == null || tpackerFileMetadata == null) return;
-    
-    // GET the full path of the .tpacker file's parent directory, this is our context for relative asset paths.
-    final tpackerFileUri = tpackerFileMetadata.file.uri;
-    // Use the repository's file handler for path operations.
-    final tpackerDirectoryUri = repo.fileHandler.getParentUri(tpackerFileUri); 
+
+    // GET the project-relative path of the .tpacker file. This is our context.
     final tpackerPath = repo.fileHandler.getPathForDisplay(
-      tpackerDirectoryUri,
-      relativeTo: project.rootUri
+      tpackerFileMetadata.file.uri,
+      relativeTo: project.rootUri,
     );
-    final resolvedUris = <String>{};
+    
+    final newQueries = <AssetQuery>{};
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // Resolve relative paths of source images relative to the .tpacker file's directory.
-          // Use the repository's path resolution method.
-          final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
-          resolvedUris.add(resolvedPath);
+          // Describe the asset we need relative to our context file.
+          newQueries.add(AssetQuery(
+            path: node.content!.path,
+            mode: AssetPathMode.relativeToContext,
+            contextPath: tpackerPath,
+          ));
         }
       }
       for (final child in node.children) collectPaths(child);
     }
     collectPaths(_notifier.project.sourceImagesRoot);
 
-    if (!const SetEquality().equals(resolvedUris, _requiredAssetUris)) {
-      _requiredAssetUris = resolvedUris;
-      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(resolvedUris);
+    if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
+      _requiredAssetQueries = newQueries;
+      ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
     }
   }
+  // END OF CHANGES
 
 
   void setMode(TexturePackerMode newMode) {
