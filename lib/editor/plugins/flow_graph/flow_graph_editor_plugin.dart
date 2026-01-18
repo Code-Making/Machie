@@ -19,6 +19,7 @@ import 'flow_graph_settings_model.dart';
 import 'widgets/flow_graph_settings_widget.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
+import '../../../command/command_widgets.dart';
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
@@ -93,6 +94,12 @@ class FlowGraphEditorPlugin extends EditorPlugin {
       tab: tab,
     );
   }
+  
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    return const BottomToolbar();
+  }
+
 
   // --- Commands (Toolbar) ---
 

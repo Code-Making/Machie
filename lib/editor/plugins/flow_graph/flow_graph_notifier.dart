@@ -89,7 +89,7 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-    void startConnectionDrag(String nodeId, String portKey, bool isInput, FlowPortType type) {
+  void startConnectionDrag(String nodeId, String portKey, bool isInput, FlowPortType type) {
     _pendingConnection = FlowConnection(
       outputNodeId: nodeId, 
       outputPortKey: portKey, 
@@ -100,17 +100,14 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateConnectionDrag(Offset globalPosition, Matrix4 transform) {
-    final inv = Matrix4.tryInvert(transform) ?? Matrix4.identity();
-    final local = MatrixUtils.transformPoint(inv, globalPosition);
-    _pendingConnectionPointer = local;
+  // UPDATED: Now takes pre-calculated local coordinates
+  void updateConnectionDrag(Offset localPosition) {
+    _pendingConnectionPointer = localPosition;
     notifyListeners();
   }
 
-  // UPDATED: Clear type on end
   void endConnectionDrag(String? targetNodeId, String? targetPortKey) {
     if (_pendingConnection != null && targetNodeId != null && targetPortKey != null) {
-      // Logic assumes dragging from Output -> Input
       final newConnection = FlowConnection(
         outputNodeId: _pendingConnection!.outputNodeId,
         outputPortKey: _pendingConnection!.outputPortKey,
@@ -118,9 +115,11 @@ class FlowGraphNotifier extends ChangeNotifier {
         inputPortKey: targetPortKey,
       );
       
-      // Prevent duplicates
+      // Remove existing connection to the same input (single input rule)
+      _graph.connections.removeWhere((c) => 
+          c.inputNodeId == targetNodeId && c.inputPortKey == targetPortKey);
+
       if (!_graph.connections.contains(newConnection)) {
-        // Prevent self-connection (basic check)
         if (newConnection.outputNodeId != newConnection.inputNodeId) {
            _addConnection(newConnection);
            _record(_ConnectionAction(newConnection, isAdd: true));
@@ -130,6 +129,23 @@ class FlowGraphNotifier extends ChangeNotifier {
     _pendingConnection = null;
     _pendingConnectionPointer = null;
     _draggingPortType = null;
+    notifyListeners();
+  }
+
+  void deleteConnection(String inputNodeId, String inputPortKey) {
+    final toRemove = _graph.connections.where((c) => 
+      c.inputNodeId == inputNodeId && c.inputPortKey == inputPortKey
+    ).toList();
+    
+    for (final c in toRemove) {
+      removeConnection(c);
+    }
+  }
+  
+  void deleteNode(String nodeId) {
+    _graph.nodes.removeWhere((n) => n.id == nodeId);
+    _graph.connections.removeWhere((c) => c.inputNodeId == nodeId || c.outputNodeId == nodeId);
+    _selectedNodeIds.remove(nodeId);
     notifyListeners();
   }
 
