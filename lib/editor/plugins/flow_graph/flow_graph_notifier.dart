@@ -62,6 +62,23 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
     // TODO: Add to history
   }
+  
+    void setSchemaPath(String path) {
+    if (_graph.schemaPath == path) return;
+    
+    // Create new graph state with updated schema path
+    _graph = FlowGraph(
+      nodes: _graph.nodes,
+      connections: _graph.connections,
+      viewportPosition: _graph.viewportPosition,
+      viewportScale: _graph.viewportScale,
+      schemaPath: path,
+    );
+    
+    // We don't record history for setting schema typically, 
+    // or we could if we want undo support for it.
+    notifyListeners();
+  }
 
   void moveNode(String nodeId, Offset newPosition) {
     // Only record history on drag end (logic usually in UI), this sets state directly
