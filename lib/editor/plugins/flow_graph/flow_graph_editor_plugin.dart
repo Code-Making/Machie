@@ -21,6 +21,7 @@ import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import '../../../command/command_widgets.dart';
 import 'flow_graph_command_context.dart'; // NEW Import
+import '../../models/editor_command_context.dart';
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
