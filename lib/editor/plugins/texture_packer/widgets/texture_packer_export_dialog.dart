@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_export_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
@@ -5,10 +7,8 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/texture_packer/services/pixi_export_service.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 import 'package:machine/utils/toast.dart';
-import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import '../../../../widgets/dialogs/folder_picker_dialog.dart';
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+import '../texture_packer_asset_resolver.dart';
 
 class TexturePackerExportDialog extends ConsumerStatefulWidget {
   final String tabId;
@@ -41,7 +41,6 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
 
-    // Use existing picker to select a folder (technically selects a file/folder, we take parent if file)
     final path = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
@@ -71,16 +70,16 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
     setState(() => _isExporting = true);
 
     try {
-      // 1. Ensure assets are ready (synchronously accessible via ref.read for the export service)
-      final assetMapAsync = ref.read(assetMapProvider(widget.tabId));
+      // KEY CHANGE: Use resolver provider instead of raw map
+      final resolverAsync = ref.read(texturePackerAssetResolverProvider(widget.tabId));
       
-      if (!assetMapAsync.hasValue) {
+      if (!resolverAsync.hasValue) {
         throw Exception('Assets are not fully loaded. Please wait and try again.');
       }
 
       await ref.read(pixiExportServiceProvider).export(
         project: widget.notifier.project,
-        assetDataMap: assetMapAsync.value!,
+        resolver: resolverAsync.value!,
         destinationFolderUri: _destinationUri!,
         fileName: _nameController.text.trim(),
       );
@@ -96,6 +95,7 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
 
   @override
   Widget build(BuildContext context) {
+    // ... (UI code remains exactly the same as original)
     return AlertDialog(
       title: const Text('Export Texture Atlas (PixiJS)'),
       content: Column(

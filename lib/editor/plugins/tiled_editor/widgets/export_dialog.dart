@@ -1,35 +1,37 @@
+// FILE: lib/editor/plugins/tiled_editor/widgets/export_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_export_service.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_map_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../../../../logs/logs_provider.dart';
-import 'package:machine/asset_cache/asset_models.dart';
+import '../tiled_asset_resolver.dart';
 
 class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final Talker talker;
-  final Map<String, AssetData> assetDataMap;
+  final String tabId;
+
   const ExportDialog({
     super.key,
     required this.notifier,
     required this.talker,
-    required this.assetDataMap,
+    required this.tabId,
   });
   @override
   ConsumerState<ExportDialog> createState() => _ExportDialogState();
 }
 
 class _ExportDialogState extends ConsumerState<ExportDialog> {
-  // State variables for our options
+  // ... (State variables same as before)
   bool _removeUnusedTilesets = true;
   bool _exportAsJson = false;
   bool _packInAtlas = false;
-  String? _destinationFolderUri; // Store the URI now
+  String? _destinationFolderUri;
   String _destinationFolderDisplay = 'Not selected';
   bool _isExporting = false;
 
@@ -51,12 +53,11 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     super.dispose();
   }
 
-
+  // ... (_pickDestinationFolder same as before)
   Future<void> _pickDestinationFolder() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
     final repo = ref.read(projectRepositoryProvider)!;
 
-    // We can re-use the file/folder picker, but we only care about the path URI.
     final selectedRelativePath = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
@@ -66,7 +67,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       final file = await repo.fileHandler.resolvePath(project.rootUri, selectedRelativePath);
       if (file != null) {
         setState(() {
-          // If the user selected a file, use its parent folder. Otherwise, use the selected folder.
           _destinationFolderUri = file.isDirectory ? file.uri : repo.fileHandler.getParentUri(file.uri);
           _destinationFolderDisplay = selectedRelativePath;
         });
@@ -83,9 +83,15 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     setState(() => _isExporting = true);
 
     try {
+      // KEY CHANGE: Use resolver provider
+      final resolverAsync = ref.read(tiledAssetResolverProvider(widget.tabId));
+      if (!resolverAsync.hasValue) {
+         throw Exception("Assets not fully loaded");
+      }
+
       await ref.read(tiledExportServiceProvider).exportMap(
             map: widget.notifier.map,
-            assetDataMap: widget.assetDataMap,
+            resolver: resolverAsync.value!, // Pass resolver
             destinationFolderUri: _destinationFolderUri!,
             mapFileName: _mapNameController.text.trim(),
             atlasFileName: _atlasNameController.text.trim(),
@@ -107,6 +113,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // UI Code same as original
     return AlertDialog(
       title: const Text('Export Map'),
       content: SingleChildScrollView(
@@ -124,7 +131,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 trailing: const Icon(Icons.folder_open_outlined),
                 onTap: _pickDestinationFolder,
               ),
-              // --- Filename Section (NEW) ---
               const Divider(height: 24),
               const Text('Filenames', style: TextStyle(fontWeight: FontWeight.bold)),
               TextFormField(
@@ -134,7 +140,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                   suffixText: _exportAsJson ? '.tmj' : '.tmx',
                 ),
               ),
-              // Conditionally show the atlas filename field
               if (_packInAtlas)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -162,7 +167,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
               SwitchListTile(
                 title: const Text('Pack into a single atlas'),
-                subtitle: const Text('Combines all tiles into one image (Not implemented)'),
+                subtitle: const Text('Combines all tiles into one image'),
                 value: _packInAtlas,
                 onChanged: (value) => setState(() => _packInAtlas = value),
               ),
