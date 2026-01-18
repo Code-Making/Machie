@@ -77,7 +77,8 @@ class TiledExportService {
     }
     
     if (packInAtlas) {
-      final result = await _packAtlas(mapToExport, assetDataMap, atlasFileName);
+      // Pass resolver to packAtlas
+      final result = await _packAtlas(mapToExport, resolver, atlasFileName);
       mapToExport = result.modifiedMap;
       atlasImageBytes = result.atlasImageBytes;
       finalAtlasImageName = result.atlasImageName;
@@ -226,11 +227,12 @@ class TiledExportService {
         tiledRect.width.toDouble(),
         tiledRect.height.toDouble(),
       );      
-      final asset = assetDataMap[source.tileset.image!.source!];
-      final sourceImage = asset is ImageAssetData ? asset.image : null;
-
-      if (sourceImage != null) {
-        canvas.drawImageRect(sourceImage, sourceRect, destRect, paint);
+      final imageSource = source.tileset.image?.source;
+      if (imageSource != null) {
+        final sourceImage = resolver.getImage(imageSource, tileset: source.tileset);
+        if (sourceImage != null) {
+          canvas.drawImageRect(sourceImage, sourceRect, destRect, paint);
+        }
       }
     }
     
