@@ -16,6 +16,7 @@ import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 import 'package:machine/app/app_notifier.dart'; // For opening files
 import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
+import '../../../../data/repositories/project/project_repository.dart';
 
 class PropertyFlowGraphSelector extends ConsumerWidget {
   final FlowGraphReferencePropertyDescriptor descriptor;
