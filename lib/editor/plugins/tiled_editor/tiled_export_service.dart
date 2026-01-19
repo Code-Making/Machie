@@ -472,60 +472,7 @@ Future<_ExportCollection> _collectUnifiedAssets(TiledMap map, TiledAssetResolver
   // START: PHASE 3 CODE
 
   /// Phase 3: Rewrites the TiledMap data to use the newly created atlas.
-  void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
-    final newTiles = <Tile>[];
-    final gidRemap = <int, int>{}; // Maps old GID -> new GID
-    final spriteRemap = <String, int>{}; // Maps sprite name -> new GID
 
-    int currentLocalId = 0;
-
-    // Sort keys for deterministic GID assignment
-    final sortedKeys = result.packedRects.keys.toList()..sort();
-
-    // 1. Create a new Tile entry in the tileset for each packed asset.
-    for (final uniqueId in sortedKeys) {
-      final rect = result.packedRects[uniqueId]!;
-      // This tile doesn't need its own image; it's just a reference
-      // to a region of the main tileset image.
-      final newTile = Tile(
-        localId: currentLocalId,
-        // Custom property to store the source rect, which some engines might use.
-        properties: CustomProperties({'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')}),
-      );
-      newTiles.add(newTile);
-
-      // 2. Populate the remapping tables.
-      // The new GID is the tile's local ID + the tileset's firstGid (which is 1).
-      final newGid = currentLocalId + 1;
-      if (uniqueId.startsWith('gid_')) {
-        final oldGid = int.parse(uniqueId.substring(4));
-        gidRemap[oldGid] = newGid;
-      } else {
-        spriteRemap[uniqueId] = newGid;
-      }
-      currentLocalId++;
-    }
-
-    // 3. Create the single, unified Tileset.
-    final newTileset = Tileset(
-      name: atlasName,
-      firstGid: 1, // It's the only tileset, so it starts at 1.
-      tileWidth: map.tileWidth, // Use the map's original tile dimensions.
-      tileHeight: map.tileHeight,
-      tileCount: newTiles.length,
-      columns: result.atlasWidth ~/ map.tileWidth, // Calculate columns based on atlas width.
-      image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
-    )..tiles = newTiles;
-
-    // 4. Replace all old tilesets with the new one.
-    map.tilesets..clear()..add(newTileset);
-    
-    // 5. Rewrite all GIDs in the map's layers and objects.
-    _remapMapGids(map, gidRemap, spriteRemap);
-
-    // 6. Clean up obsolete properties.
-    map.properties.byName.remove('tp_atlases');
-  }
 
   /// Helper for Phase 3 that iterates through layers and objects to update their GIDs.
   void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
