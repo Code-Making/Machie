@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/exporter/widgets/source_file_tree.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
@@ -25,6 +27,7 @@ class SourceFileTree extends ConsumerWidget {
       selectedFiles: selectedFiles,
       onSelectionChanged: onSelectionChanged,
       isRoot: true,
+      displayName: 'Project Root',
     );
   }
 }
@@ -35,6 +38,7 @@ class _FolderNode extends ConsumerStatefulWidget {
   final Set<String> selectedFiles;
   final ValueChanged<Set<String>> onSelectionChanged;
   final bool isRoot;
+  final String? displayName;
 
   const _FolderNode({
     required this.uri,
@@ -42,6 +46,7 @@ class _FolderNode extends ConsumerStatefulWidget {
     required this.selectedFiles,
     required this.onSelectionChanged,
     this.isRoot = false,
+    this.displayName,
   });
 
   @override
@@ -49,7 +54,7 @@ class _FolderNode extends ConsumerStatefulWidget {
 }
 
 class _FolderNodeState extends ConsumerState<_FolderNode> {
-  bool _isExpanded = true; // Default expanded for visibility
+  bool _isExpanded = true;
   List<ProjectDocumentFile>? _children;
   bool _isLoading = false;
 
@@ -67,7 +72,6 @@ class _FolderNodeState extends ConsumerState<_FolderNode> {
       
       if (mounted) {
         setState(() {
-          // Sort folders first, then files
           _children = files..sort((a, b) {
             if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
             return a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -103,11 +107,11 @@ class _FolderNodeState extends ConsumerState<_FolderNode> {
 
     final repo = ref.read(projectRepositoryProvider)!;
 
-    // Filter list to only show Directories and Supported Files (.tmx, .tpacker)
     final visibleChildren = _children!.where((f) {
       if (f.isDirectory) return true;
       final ext = f.name.split('.').last.toLowerCase();
-      return ext == 'tmx' || ext == 'tpacker';
+      // Allow maps, packer files, and images
+      return {'tmx', 'tpacker', 'png', 'jpg', 'jpeg'}.contains(ext);
     }).toList();
 
     if (visibleChildren.isEmpty && !widget.isRoot) return const SizedBox.shrink();
@@ -121,6 +125,7 @@ class _FolderNodeState extends ConsumerState<_FolderNode> {
           projectRoot: widget.projectRoot,
           selectedFiles: widget.selectedFiles,
           onSelectionChanged: widget.onSelectionChanged,
+          displayName: file.name, 
         );
       } else {
         final isSelected = widget.selectedFiles.contains(relativePath);
@@ -132,6 +137,11 @@ class _FolderNodeState extends ConsumerState<_FolderNode> {
             onChanged: (val) => _toggleSelection(relativePath, val),
           ),
           title: Text(file.name),
+          subtitle: Text(
+            relativePath, 
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10, color: Colors.grey),
+            overflow: TextOverflow.ellipsis,
+          ),
           onTap: () => _toggleSelection(relativePath, !isSelected),
         );
       }
@@ -141,8 +151,7 @@ class _FolderNodeState extends ConsumerState<_FolderNode> {
       return ListView(children: nodes);
     }
 
-    // Get folder name from URI relative to root or parent
-    final folderName = widget.uri.split('/').lastWhere((element) => element.isNotEmpty);
+    final folderName = widget.displayName ?? 'Unknown Folder';
 
     return ExpansionTile(
       title: Text(folderName, style: const TextStyle(fontWeight: FontWeight.bold)),

@@ -3,17 +3,25 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/utils/toast.dart';
-import 'package:machine/export_core/export_service.dart';
+import 'package:machine/logs/logs_provider.dart';
 
+import '../models/editor_command_context.dart';
 import 'exporter_models.dart';
 import 'exporter_plugin.dart';
 import 'widgets/source_file_tree.dart';
 import 'widgets/exporter_settings_panel.dart';
-import '../../../command/command_widgets.dart'; // For CommandToolbar
-import '../../models/editor_command_context.dart';
+
+// Unified Export Imports
+import '../../unified_export/unified_export_service.dart';
+import '../../unified_export/unified_export_models.dart';
+import '../../tiled_editor/tiled_asset_resolver.dart';
+import '../../../asset_cache/asset_providers.dart';
+import '../../../asset_cache/asset_models.dart';
+import '../../../command/command_widgets.dart';
 
 class ExporterEditorWidget extends EditorWidget {
   @override
@@ -62,7 +70,7 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
-  void runExport() async {
+  Future<void> runExport() async {
     if (_config.includedFiles.isEmpty) {
       MachineToast.error("No source files selected.");
       return;
@@ -71,19 +79,98 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
     setState(() => _isBuilding = true);
     syncCommandContext();
 
+    final talker = ref.read(talkerProvider);
+    talker.info("Starting Export Job...");
+
     try {
       await ref.read(editorServiceProvider).saveCurrentTab();
 
-      final service = ref.read(exportServiceProvider);
-      await service.runExportJob(
-        sourceFilePaths: _config.includedFiles,
-        outputFolder: _config.outputFolder,
-        maxSize: _config.atlasSize,
-        padding: _config.padding,
+      final repo = ref.read(projectRepositoryProvider);
+      if (repo == null) throw Exception("Project repository not found");
+
+      final exportService = ref.read(unifiedExportServiceProvider);
+      
+      // 1. Prepare Root Nodes from Config
+      final rootChildren = <DependencyNode>[];
+      
+      // Dummy resolver for scanning phase (assets not needed yet)
+      final dummyResolver = TiledAssetResolver({}, repo, "");
+
+      for (final relPath in _config.includedFiles) {
+         final file = await repo.fileHandler.resolvePath(repo.rootUri, relPath);
+         if (file != null) {
+           // Scan individual files
+           final node = await exportService.scanDependencies(file.uri, repo, dummyResolver);
+           rootChildren.add(node);
+         }
+      }
+      
+      final rootNode = DependencyNode(
+        sourcePath: "Root", 
+        destinationPath: "", 
+        type: ExportNodeType.unknown, 
+        children: rootChildren
       );
 
-      MachineToast.info("Export Build Successful!");
-    } catch (e) {
+      // 2. Identify Assets to Load
+      final assetsToLoad = <AssetQuery>{};
+      void collectAssets(DependencyNode node) {
+        if (node.type == ExportNodeType.image) {
+           assetsToLoad.add(AssetQuery(path: node.sourcePath, mode: AssetPathMode.projectRelative));
+        }
+        for(var c in node.children) collectAssets(c);
+      }
+      collectAssets(rootNode);
+      talker.info("Found ${assetsToLoad.length} assets to load.");
+
+      // 3. Load Assets into this Tab's AssetMap
+      // ExporterTab doesn't auto-load, so we force it here
+      final assetNotifier = ref.read(assetMapProvider(widget.tab.id).notifier);
+      await assetNotifier.updateUris(assetsToLoad);
+      
+      // 4. Construct Real Resolver
+      final assetMap = ref.read(assetMapProvider(widget.tab.id)).value ?? {};
+      final resolver = TiledAssetResolver(assetMap, repo, "");
+
+      // 5. Build Atlas
+      talker.info("Packing Atlas...");
+      final result = await exportService.buildAtlas(
+        rootNode, 
+        resolver,
+        maxAtlasSize: _config.atlasSize,
+        stripUnused: _config.removeUnused
+      );
+
+      // 6. Ensure Output Directory
+      ProjectDocumentFile? destDir = await repo.fileHandler.resolvePath(repo.rootUri, _config.outputFolder);
+      if (destDir == null) {
+         // Naive creation of one level
+         final creation = await repo.fileHandler.createDirectoryAndFile(
+           repo.rootUri, 
+           "${_config.outputFolder}/.marker"
+         );
+         destDir = await repo.fileHandler.resolvePath(repo.rootUri, _config.outputFolder);
+         // Cleanup marker
+         if (creation.file.name == '.marker') {
+           await repo.deleteFile(creation.file.uri);
+         }
+      }
+
+      if (destDir == null) throw Exception("Could not create output directory");
+
+      // 7. Write Export
+      talker.info("Writing files to ${destDir.uri}...");
+      await exportService.writeExport(
+        rootNode, 
+        result, 
+        destDir.uri, 
+        repo,
+        exportAsJson: true 
+      );
+
+      MachineToast.info("Export Successful!");
+    } catch (e, st) {
+      talker.handle(e, st, "Export Failed");
       MachineToast.error("Build Failed: $e");
     } finally {
       if (mounted) {
@@ -95,13 +182,12 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
 
   @override
   Widget build(BuildContext context) {
-    // Calculate panel height: usually ~55% of screen height is good for settings
     final panelHeight = MediaQuery.of(context).size.height * 0.55;
     final bottomOffset = _isSettingsVisible ? 0.0 : -panelHeight;
 
     return Stack(
       children: [
-        // 1. Background: Source File Tree
+        // Background: Source File Tree
         Positioned.fill(
           child: Column(
             children: [
@@ -113,7 +199,6 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
                   },
                 ),
               ),
-              // Spacer to ensure list items scroll above the panel when it opens
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -123,7 +208,7 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
           ),
         ),
 
-        // 2. Floating Command Toolbar (Top Right)
+        // Floating Command Toolbar
         Positioned(
           top: 8,
           right: 8,
@@ -144,7 +229,7 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
           ),
         ),
 
-        // 3. Settings Panel sliding up from bottom
+        // Settings Panel
         AnimatedPositioned(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
@@ -161,7 +246,7 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
           ),
         ),
         
-        // 4. Loading Overlay
+        // Loading Overlay
         if (_isBuilding)
            Positioned(
              top: 0, left: 0, right: 0,
