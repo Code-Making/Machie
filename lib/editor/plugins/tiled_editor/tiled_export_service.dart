@@ -192,6 +192,64 @@ Future<void> exportMap({
     talker.info('Export complete: $mapFileName.$fileExtension');
   }
   
+    void _finalizeTilesets(
+    TiledMap map, 
+    _UnifiedPackResult result, 
+    String atlasName, 
+    List<_UnifiedAssetSource> sortedAssets
+  ) {
+    final newTiles = <Tile>[];
+    
+    // Create tile definitions for the new Tileset
+    for (int i = 0; i < sortedAssets.length; i++) {
+      final asset = sortedAssets[i];
+      final rect = result.packedRects[asset.hashCode.toString()]!;
+      
+      // We store the original source info in properties for debugging/reverse mapping
+      final newTile = Tile(
+        localId: i,
+        properties: CustomProperties({
+          'atlas_coords': StringProperty(
+            name: 'atlas_coords', 
+            value: '${rect.left.toInt()},${rect.top.toInt()},${rect.width.toInt()},${rect.height.toInt()}'
+          ),
+          'original_source': StringProperty(name: 'original_source', value: asset.sourcePath),
+        }),
+      );
+      
+      // Tiled Image Collection support:
+      // If we wanted to strictly support Tiled visualization of irregular atlases, 
+      // we would set `image` on this Tile individually. 
+      // However, since we generated a single Big Image, we set that on the Tileset.
+      // NOTE: Tiled DOES NOT support irregular grids on a single image tileset easily. 
+      // The map will look correct in Engine (using JSON data), but might look jumbled in Tiled 
+      // if opened directly unless we forced a grid (which MaxRects doesn't do).
+      // For this implementation, we assume Engine priority.
+      
+      newTiles.add(newTile);
+    }
+
+    final newTileset = Tileset(
+      name: atlasName,
+      firstGid: 1,
+      // We set tileWidth/Height to the smallest unit or map default to satisfy Tiled schema
+      tileWidth: map.tileWidth, 
+      tileHeight: map.tileHeight,
+      tileCount: newTiles.length,
+      columns: 0, // 0 implies Image Collection or irregular
+      image: TiledImage(
+        source: '$atlasName.png', 
+        width: result.atlasWidth, 
+        height: result.atlasHeight
+      ),
+    )..tiles = newTiles;
+
+    map.tilesets..clear()..add(newTileset);
+    
+    // Clean up development-only properties
+    map.properties.byName.remove('tp_atlases');
+  }
+  
   void _remapAndFinalizeMap(
     TiledMap map, 
     _UnifiedPackResult result, 
