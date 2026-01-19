@@ -528,29 +528,25 @@ Future<_ExportCollection> _collectUnifiedAssets(TiledMap map, TiledAssetResolver
   }
 
   /// Helper for Phase 3 that iterates through layers and objects to update their GIDs.
-void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
+  void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
     for (final layer in map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
           for (int x = 0; x < layer.width; x++) {
-            final rawGid = layer.tileData![y][x].tile; // .tile property in this library usually holds the full int including flags? 
-            // Note: The 'tiled' library Gid object splits index and flags. 
-            // However, to ensure binary accuracy during export re-mapping, we often treat it as raw int.
-            // If the library provides .tile as the raw ID (flags stripped) and .flips separately:
-            
-            final oldCleanId = layer.tileData![y][x].tile;
+            final rawGid = layer.tileData![y][x].tile;
             final flips = layer.tileData![y][x].flips;
             
-            if (oldCleanId != 0 && gidRemap.containsKey(oldCleanId)) {
-              final newCleanId = gidRemap[oldCleanId]!;
-              // We construct a new Gid object with the new ID but existing flips
-              layer.tileData![y][x] = Gid(newCleanId, flips);
+            // Map keys are "Clean GIDs" (no flags)
+            if (rawGid != 0 && gidRemap.containsKey(rawGid)) {
+              final newGid = gidRemap[rawGid]!;
+              layer.tileData![y][x] = Gid(newGid, flips);
             }
           }
         }
       } 
       else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
+          // Handle standard Tile Objects
           if (object.gid != null) {
             final rawGid = object.gid!;
             final oldCleanId = _getCleanGid(rawGid);
@@ -558,25 +554,22 @@ void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> sprite
 
             if (gidRemap.containsKey(oldCleanId)) {
               final newCleanId = gidRemap[oldCleanId]!;
+              // Re-apply flags to the new ID
               object.gid = newCleanId | flags;
             }
           }
           
-          // Handle Texture Packer sprites referenced by custom property
+          // Handle Texture Packer Sprites (Custom Property -> Tile Object)
           final spriteProp = object.properties['tp_sprite'];
           if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
             final newGid = spriteRemap[spriteProp.value];
             if (newGid != null) {
-              // Sprites from TP usually default to no flags unless the object was rotated, 
-              // but Tiled objects store rotation separately from GID flags usually.
-              // We preserve existing flags if any were set on the placeholder object.
+              // Preserve existing flags if this was already a tile object, else 0
               final flags = object.gid != null ? _getGidFlags(object.gid!) : 0;
               object.gid = newGid | flags;
               
-              // Clean up the property since it's now a native GID
+              // Remove the property as it is now baked into the GID
               object.properties.byName.remove('tp_sprite');
-              // Ensure dimensions match the new packed sprite if width/height were 0
-              // (This part is handled during object loading/rendering usually, but good to reset for export if needed)
             }
           }
         }
