@@ -153,7 +153,7 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
          destDir = await repo.fileHandler.resolvePath(repo.rootUri, _config.outputFolder);
          // Cleanup marker
          if (creation.file.name == '.marker') {
-           await repo.deleteFile(creation.file.uri);
+           await repo.deleteDocumentFile(creation.file.uri);
          }
       }
 
