@@ -16,13 +16,13 @@ import 'widgets/source_file_tree.dart';
 import 'widgets/exporter_settings_panel.dart';
 
 // Unified Export Imports
-import '../../tiled_editor/tiled_asset_resolver.dart';
 import '../../../asset_cache/asset_providers.dart';
 import '../../../asset_cache/asset_models.dart';
 import '../../../command/command_widgets.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../unified_export/unified_export_service.dart';
 import '../unified_export/unified_export_models.dart';
+import '../tiled_editor/tiled_asset_resolver.dart';
 
 class ExporterEditorWidget extends EditorWidget {
   @override
