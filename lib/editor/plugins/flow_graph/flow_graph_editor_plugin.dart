@@ -20,8 +20,9 @@ import 'widgets/flow_graph_settings_widget.dart';
 import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import '../../../command/command_widgets.dart';
-import 'flow_graph_command_context.dart'; // NEW Import
+import 'flow_graph_command_context.dart';
 import '../../models/editor_command_context.dart';
+import 'widgets/flow_graph_export_dialog.dart'; // Import the new dialog
 
 class FlowGraphEditorPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.flow_graph';
@@ -41,7 +42,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
-  // --- Asset Management ---
   
     @override
   PluginSettings? get settings => FlowGraphSettings();
@@ -60,8 +60,7 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   List<AssetLoader> get assetLoaders => [
     FlowSchemaLoader(),
-    // FlowGraphLoader is removed from here as we load content via EditorService/createTab
-    // unless we want to support nested graphs as assets later.
+    FlowGraphLoader(), // FIX: Add FlowGraphLoader to assetLoaders
   ];
 
   @override
@@ -69,7 +68,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
     return file.name.toLowerCase().endsWith('.fg');
   }
 
-  // --- Tab Creation ---
 
   @override
   Future<EditorTab> createTab(
@@ -103,7 +101,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   }
 
 
-  // --- Commands (Toolbar) ---
 
   @override
   List<Command> getCommands() {
@@ -122,7 +119,27 @@ class FlowGraphEditorPlugin extends EditorPlugin {
         },
       ),
       
-      // NEW: Delete Command
+      // NEW: Export Command
+      BaseCommand(
+        id: 'flow_export',
+        label: 'Export Graph',
+        icon: const Icon(Icons.output),
+        defaultPositions: [AppCommandPositions.appBar],
+        sourcePlugin: id,
+        execute: (ref) async {
+          final editor = _getEditorState(ref);
+          if (editor?.mounted == true) {
+            await showDialog(
+              context: editor!.context,
+              builder: (_) => FlowGraphExportDialog(
+                tabId: editor.widget.tab.id,
+                notifier: editor.notifier,
+              ),
+            );
+          }
+        },
+      ),
+      
       BaseCommand(
         id: 'flow_delete',
         label: 'Delete',
