@@ -64,28 +64,18 @@ class TiledExportService {
   TiledExportService(this._ref);
 
   // --- Tiled Flag Constants ---
-  static const int _flippedHorizontallyFlag = 0x80000000;
+    static const int _flippedHorizontallyFlag = 0x80000000;
   static const int _flippedVerticallyFlag = 0x40000000;
   static const int _flippedDiagonallyFlag = 0x20000000;
   static const int _flagMask = _flippedHorizontallyFlag | _flippedVerticallyFlag | _flippedDiagonallyFlag;
   static const int _gidMask = ~_flagMask;
 
-  /// Extracts the pure ID without flags.
   int _getCleanGid(int gid) => gid & _gidMask;
-
-  /// Extracts only the flags.
   int _getGidFlags(int gid) => gid & _flagMask;
 
-  /// Calculates the next power of two for a given number.
   int _nextPowerOfTwo(int v) {
     if (v <= 0) return 2;
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
+    v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++;
     return v;
   }
 
@@ -321,9 +311,11 @@ class TiledExportService {
       data: asset,
     )).toList();
 
+    // Pack using MaxRects
     final packer = MaxRectsPacker(padding: 2);
     final packedResult = packer.pack(items);
 
+    // Enforce Power of Two dimensions for the final atlas
     final maxDim = max(packedResult.width, packedResult.height).toInt();
     final potSize = _nextPowerOfTwo(maxDim);
     
@@ -354,44 +346,61 @@ class TiledExportService {
     );
   }
 
-  void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
+void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
     final newTiles = <Tile>[];
-    final keyToNewGid = <String, int>{}; 
+    final keyToNewGid = <String, int>{};
+    final keyToRect = <String, ui.Rect>{};
 
     int currentLocalId = 0;
+    // Sort keys to ensure deterministic GID assignment
     final sortedKeys = result.packedRects.keys.toList()..sort();
 
     for (final uniqueId in sortedKeys) {
       final rect = result.packedRects[uniqueId]!;
+      
       final newTile = Tile(
         localId: currentLocalId,
         properties: CustomProperties({
           'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
+          // Storing coords helps engines that might parse the TMX directly
+          'atlas_rect': StringProperty(name: 'atlas_rect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'),
         }),
       );
       newTiles.add(newTile);
-      keyToNewGid[uniqueId] = currentLocalId + 1; // +1 for GID
+
+      final newGid = currentLocalId + 1; // FirstGID will be 1
+      keyToNewGid[uniqueId] = newGid;
+      keyToRect[uniqueId] = rect;
+      
       currentLocalId++;
     }
 
-    // Keep reference to old tilesets for lookup
+    // Capture old tilesets for lookup during remapping
     final oldTilesets = List<Tileset>.from(map.tilesets);
 
-    // Create New Tileset
+    // Create the Unified Tileset
+    // Fix: Calculate columns safely. Even if MaxRects isn't a grid, setting columns=1 prevents DivisionByZero.
+    // If tiles are uniform size, we can try to calculate real columns, but MaxRects implies chaos.
+    // Setting columns = atlasWidth ~/ standardTileWidth is a safe bet for 'Sheet' interpretation.
+    int safeColumns = 1;
+    if (map.tileWidth > 0) {
+      safeColumns = result.atlasWidth ~/ map.tileWidth;
+    }
+
     final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
       tileWidth: map.tileWidth,
       tileHeight: map.tileHeight,
       tileCount: newTiles.length,
-      columns: 0,
+      columns: safeColumns, // PREVENTS CRASH
       image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
     )..tiles = newTiles;
 
-    // Perform Remap using OLD tilesets reference
-    _performSafeRemap(map, oldTilesets, keyToNewGid);
+    // Perform remapping logic
+    _performSafeRemap(map, oldTilesets, keyToNewGid, keyToRect);
 
-    // Now safe to replace tilesets
+    // Replace tilesets
     map.tilesets..clear()..add(newTileset);
     map.properties.byName.remove('tp_atlases');
   }
@@ -457,14 +466,17 @@ class TiledExportService {
   // Revised _remapAndFinalizeMap to handle the Tileset swap safely
 
 
-  void _performSafeRemap(TiledMap map, List<Tileset> oldTilesets, Map<String, int> keyToNewGid) {
-    // Helper to find tileset in the OLD list
-    Tileset? findTileset(int gid) {
-      // Tilesets are sorted by firstGid usually
+void _performSafeRemap(
+    TiledMap map, 
+    List<Tileset> oldTilesets, 
+    Map<String, int> keyToNewGid,
+    Map<String, ui.Rect> keyToRect,
+  ) {
+    // Helper to find which old tileset a GID belongs to
+    Tileset? findOldTileset(int gid) {
       for (var i = oldTilesets.length - 1; i >= 0; i--) {
-        if (oldTilesets[i].firstGid != null && oldTilesets[i].firstGid! <= gid) {
-          return oldTilesets[i];
-        }
+        final ts = oldTilesets[i];
+        if (ts.firstGid != null && ts.firstGid! <= gid) return ts;
       }
       return null;
     }
@@ -481,9 +493,10 @@ class TiledExportService {
             final cleanGid = _getCleanGid(rawGid);
             final flags = _getGidFlags(rawGid);
 
-            final oldTileset = findTileset(cleanGid);
+            final oldTileset = findOldTileset(cleanGid);
             if (oldTileset != null) {
               final localId = cleanGid - oldTileset.firstGid!;
+              // Reconstruct key used in collection phase
               final key = 'tile_${oldTileset.name}_$localId';
 
               if (keyToNewGid.containsKey(key)) {
@@ -497,24 +510,30 @@ class TiledExportService {
       // 2. Remap Object Layers
       else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
-          // Tile Objects
+          // A. Existing Tile Objects
           if (object.gid != null) {
             final rawGid = object.gid!;
             final cleanGid = _getCleanGid(rawGid);
             final flags = _getGidFlags(rawGid);
             
-            final oldTileset = findTileset(cleanGid);
+            final oldTileset = findOldTileset(cleanGid);
             if (oldTileset != null) {
               final localId = cleanGid - oldTileset.firstGid!;
               final key = 'tile_${oldTileset.name}_$localId';
               
               if (keyToNewGid.containsKey(key)) {
                 object.gid = keyToNewGid[key]! | flags;
+                // Update size to match packed sprite if it was 0/0 or changed
+                if (keyToRect.containsKey(key)) {
+                  final r = keyToRect[key]!;
+                  object.width = r.width;
+                  object.height = r.height;
+                }
               }
             }
           }
 
-          // Sprite Objects
+          // B. Texture Packer Sprites (Custom Property)
           final spriteProp = object.properties['tp_sprite'];
           if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
             final key = 'sprite_${spriteProp.value}';
@@ -522,7 +541,23 @@ class TiledExportService {
             if (keyToNewGid.containsKey(key)) {
               final newGid = keyToNewGid[key]!;
               final currentFlags = object.gid != null ? _getGidFlags(object.gid!) : 0;
+              
               object.gid = newGid | currentFlags;
+              
+              // Coordinate Fix:
+              // Rectangles (what tp_sprite usually is) are Top-Left anchored.
+              // Tile Objects (what we just turned it into) are Bottom-Left anchored.
+              // We must shift Y down by the object's height.
+              
+              // 1. Get dimensions from packed rect
+              final rect = keyToRect[key]!;
+              object.width = rect.width;
+              object.height = rect.height;
+              
+              // 2. Shift Y
+              object.y += object.height;
+
+              // Clean up property
               object.properties.byName.remove('tp_sprite');
             }
           }
