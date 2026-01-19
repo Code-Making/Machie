@@ -6,6 +6,7 @@ import 'services/asset_loader_service.dart';
 import 'processors/tiled_processor.dart';
 import 'processors/texture_packer_processor.dart';
 import 'processors/flow_graph_processor.dart';
+import '../project/project_settings_notifier.dart';
 
 final exportCollectionServiceProvider = Provider((ref) => ExportCollectionService(ref));
 

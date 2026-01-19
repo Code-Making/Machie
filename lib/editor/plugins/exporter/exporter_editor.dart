@@ -29,6 +29,10 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
   void init() {
     _config = widget.tab.initialConfig;
   }
+  @override
+  void syncCommandContext() {
+    // No specific command context needed for this plugin yet
+  }
 
   @override
   void onFirstFrameReady() {
