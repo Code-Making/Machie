@@ -19,6 +19,7 @@ import 'package:machine/utils/texture_packer_algo.dart';
 import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
 
 import 'unified_export_models.dart';
+import '../../../asset_cache/asset_models.dart';
 
 final unifiedExportServiceProvider = Provider((ref) => UnifiedExportService(ref));
 
