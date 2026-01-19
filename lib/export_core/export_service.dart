@@ -9,6 +9,7 @@ import 'export_collection_service.dart';
 import 'writers/tiled_writer.dart';
 import 'writers/texture_packer_writer.dart';
 import 'writers/flow_graph_writer.dart'; // Added import
+import '../project/project_settings_notifier.dart';
 
 final exportServiceProvider = Provider((ref) => ExportService(ref));
 
