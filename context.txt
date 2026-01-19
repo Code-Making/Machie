@@ -1,4 +1,4 @@
-.
+/data/data/com.termux/files/home/machine
 ├── README.md
 ├── analysis_options.yaml
 ├── analyze.sh
@@ -188,102 +188,285 @@
 ├── build.sh
 ├── context.txt
 ├── lib
-│   └── editor
-│       ├── models
-│       │   ├── editor_command_context.dart
-│       │   ├── editor_plugin_models.dart
-│       │   ├── editor_tab_models.dart
-│       │   └── text_editing_capability.dart
-│       ├── plugins
-│       │   ├── editor_plugin_registry.dart
-│       │   ├── flow_graph
-│       │   │   ├── asset
-│       │   │   │   ├── flow_asset_models.dart
-│       │   │   │   └── flow_loaders.dart
-│       │   │   ├── flow_graph_command_context.dart
-│       │   │   ├── flow_graph_editor_plugin.dart
-│       │   │   ├── flow_graph_editor_tab.dart
-│       │   │   ├── flow_graph_editor_widget.dart
-│       │   │   ├── flow_graph_notifier.dart
-│       │   │   ├── flow_graph_settings_model.dart
-│       │   │   ├── models
-│       │   │   │   ├── flow_graph_models.dart
-│       │   │   │   ├── flow_references.dart
-│       │   │   │   └── flow_schema_models.dart
-│       │   │   ├── utils
-│       │   │   │   └── flow_layout_utils.dart
-│       │   │   └── widgets
-│       │   │       ├── flow_connection_painter.dart
-│       │   │       ├── flow_graph_canvas.dart
-│       │   │       ├── flow_graph_settings_widget.dart
-│       │   │       ├── node_palette.dart
-│       │   │       ├── property_tiled_object_picker.dart
-│       │   │       └── schema_node_widget.dart
-│       │   ├── texture_packer
-│       │   │   ├── services
-│       │   │   │   └── pixi_export_service.dart
-│       │   │   ├── texture_packer_asset_resolver.dart
-│       │   │   ├── texture_packer_command_context.dart
-│       │   │   ├── texture_packer_editor_models.dart
-│       │   │   ├── texture_packer_editor_widget.dart
-│       │   │   ├── texture_packer_loader.dart
-│       │   │   ├── texture_packer_models.dart
-│       │   │   ├── texture_packer_notifier.dart
-│       │   │   ├── texture_packer_plugin.dart
-│       │   │   ├── texture_packer_preview_state.dart
-│       │   │   ├── texture_packer_settings.dart
-│       │   │   └── widgets
-│       │   │       ├── hierarchy_panel.dart
-│       │   │       ├── preview_app_bar.dart
-│       │   │       ├── preview_view.dart
-│       │   │       ├── slicing_app_bar.dart
-│       │   │       ├── slicing_properties_dialog.dart
-│       │   │       ├── slicing_view.dart
-│       │   │       ├── source_images_panel.dart
-│       │   │       ├── texture_packer_export_dialog.dart
-│       │   │       ├── texture_packer_file_dialog.dart
-│       │   │       └── texture_packer_settings_widget.dart
-│       │   └── tiled_editor
-│       │       ├── image_load_result.dart
-│       │       ├── inspector
-│       │       │   ├── inspector_dialog.dart
-│       │       │   ├── property_descriptors.dart
-│       │       │   ├── property_widgets.dart
-│       │       │   └── tiled_reflectors.dart
-│       │       ├── project_tsx_provider.dart
-│       │       ├── tiled_asset_resolver.dart
-│       │       ├── tiled_command_context.dart
-│       │       ├── tiled_editor_models.dart
-│       │       ├── tiled_editor_plugin.dart
-│       │       ├── tiled_editor_settings_model.dart
-│       │       ├── tiled_editor_widget.dart
-│       │       ├── tiled_export_service.dart
-│       │       ├── tiled_map_notifier.dart
-│       │       ├── tiled_map_painter.dart
-│       │       ├── tiled_paint_tools.dart
-│       │       ├── tmj_writer.dart
-│       │       ├── tmx_writer.dart
-│       │       ├── tmx_writer_extensions.dart
-│       │       └── widgets
-│       │           ├── export_dialog.dart
-│       │           ├── layers_panel.dart
-│       │           ├── map_properties_dialog.dart
-│       │           ├── new_layer_dialog.dart
-│       │           ├── new_tileset_dialog.dart
-│       │           ├── object_editor_app_bar.dart
-│       │           ├── paint_editor_app_bar.dart
-│       │           ├── sprite_picker_dialog.dart
-│       │           ├── tile_palette.dart
-│       │           └── tiled_editor_settings_widget.dart
-│       ├── services
-│       │   ├── editor_service.dart
-│       │   └── language
-│       │       ├── language_models.dart
-│       │       └── language_registry.dart
-│       ├── tab_context_commands.dart
-│       ├── tab_metadata_notifier.dart
-│       └── widgets
-│           └── editor_widgets.dart
+│   ├── app
+│   │   ├── app_commands.dart
+│   │   ├── app_notifier.dart
+│   │   ├── app_screen.dart
+│   │   ├── app_state.dart
+│   │   └── lifecycle.dart
+│   ├── asset_cache
+│   │   ├── asset_loader_registry.dart
+│   │   ├── asset_models.dart
+│   │   ├── asset_providers.dart
+│   │   └── core_asset_loaders.dart
+│   ├── command
+│   │   ├── command_models.dart
+│   │   ├── command_notifier.dart
+│   │   └── command_widgets.dart
+│   ├── data
+│   │   ├── cache
+│   │   │   ├── background_task
+│   │   │   │   ├── android_foreground_cache_service.dart
+│   │   │   │   ├── background_cache_service.dart
+│   │   │   │   ├── hot_state_task_handler.dart
+│   │   │   │   ├── isolate_cache_service.dart
+│   │   │   │   └── web_concurrent_cache_service.dart
+│   │   │   ├── hot_state_cache_service.dart
+│   │   │   ├── type_adapter_registry.dart
+│   │   │   └── type_adapters.dart
+│   │   ├── content_provider
+│   │   │   ├── file_content_provider.dart
+│   │   │   └── internal_file_content_provider.dart
+│   │   ├── dto
+│   │   │   ├── app_state_dto.dart
+│   │   │   ├── project_dto.dart
+│   │   │   └── tab_hot_state_dto.dart
+│   │   ├── file_handler
+│   │   │   ├── file_handler.dart
+│   │   │   ├── local_file_handler.dart
+│   │   │   └── local_file_handler_saf.dart
+│   │   ├── repositories
+│   │   │   ├── app_state_repository.dart
+│   │   │   ├── cache
+│   │   │   │   ├── cache_repository.dart
+│   │   │   │   └── hive_cache_repository.dart
+│   │   │   └── project
+│   │   │       ├── local_folder_persistence_strategy.dart
+│   │   │       ├── persistence
+│   │   │       │   ├── persistence_strategy_factory.dart
+│   │   │       │   └── persistence_strategy_registry.dart
+│   │   │       ├── project_repository.dart
+│   │   │       ├── project_state_persistence_strategy.dart
+│   │   │       └── simple_state_persistence_strategy.dart
+│   │   └── shared_preferences.dart
+│   ├── editor
+│   │   ├── models
+│   │   │   ├── editor_command_context.dart
+│   │   │   ├── editor_plugin_models.dart
+│   │   │   ├── editor_tab_models.dart
+│   │   │   └── text_editing_capability.dart
+│   │   ├── plugins
+│   │   │   ├── code_editor
+│   │   │   │   ├── code_editor_hot_state_adapter.dart
+│   │   │   │   ├── code_editor_hot_state_dto.dart
+│   │   │   │   ├── code_editor_models.dart
+│   │   │   │   ├── code_editor_plugin.dart
+│   │   │   │   ├── code_editor_settings_widget.dart
+│   │   │   │   ├── code_editor_widgets.dart
+│   │   │   │   ├── logic
+│   │   │   │   │   ├── code_editor_logic.dart
+│   │   │   │   │   ├── code_editor_types.dart
+│   │   │   │   │   └── code_editor_utils.dart
+│   │   │   │   └── widgets
+│   │   │   │       ├── code_editor_ui.dart
+│   │   │   │       ├── code_find_panel_view.dart
+│   │   │   │       ├── custom_code_line_number.dart
+│   │   │   │       └── goto_line_dialog.dart
+│   │   │   ├── editor_plugin_registry.dart
+│   │   │   ├── flow_graph
+│   │   │   │   ├── asset
+│   │   │   │   │   ├── flow_asset_models.dart
+│   │   │   │   │   └── flow_loaders.dart
+│   │   │   │   ├── flow_graph_asset_resolver.dart
+│   │   │   │   ├── flow_graph_command_context.dart
+│   │   │   │   ├── flow_graph_editor_plugin.dart
+│   │   │   │   ├── flow_graph_editor_tab.dart
+│   │   │   │   ├── flow_graph_editor_widget.dart
+│   │   │   │   ├── flow_graph_notifier.dart
+│   │   │   │   ├── flow_graph_settings_model.dart
+│   │   │   │   ├── models
+│   │   │   │   │   ├── flow_graph_models.dart
+│   │   │   │   │   ├── flow_references.dart
+│   │   │   │   │   └── flow_schema_models.dart
+│   │   │   │   ├── services
+│   │   │   │   │   └── flow_export_service.dart
+│   │   │   │   ├── utils
+│   │   │   │   │   └── flow_layout_utils.dart
+│   │   │   │   └── widgets
+│   │   │   │       ├── flow_connection_painter.dart
+│   │   │   │       ├── flow_graph_canvas.dart
+│   │   │   │       ├── flow_graph_settings_widget.dart
+│   │   │   │       ├── node_palette.dart
+│   │   │   │       ├── property_tiled_object_picker.dart
+│   │   │   │       └── schema_node_widget.dart
+│   │   │   ├── glitch_editor
+│   │   │   │   ├── glitch_editor_hot_state_adapter.dart
+│   │   │   │   ├── glitch_editor_hot_state_dto.dart
+│   │   │   │   ├── glitch_editor_math.dart
+│   │   │   │   ├── glitch_editor_models.dart
+│   │   │   │   ├── glitch_editor_plugin.dart
+│   │   │   │   ├── glitch_editor_state.dart
+│   │   │   │   ├── glitch_editor_widget.dart
+│   │   │   │   └── glitch_toolbar.dart
+│   │   │   ├── llm_editor
+│   │   │   │   ├── llm_editor_controller.dart
+│   │   │   │   ├── llm_editor_hot_state.dart
+│   │   │   │   ├── llm_editor_models.dart
+│   │   │   │   ├── llm_editor_plugin.dart
+│   │   │   │   ├── llm_editor_settings_widget.dart
+│   │   │   │   ├── llm_editor_types.dart
+│   │   │   │   ├── llm_editor_widget.dart
+│   │   │   │   ├── providers
+│   │   │   │   │   ├── llm_provider.dart
+│   │   │   │   │   └── llm_provider_factory.dart
+│   │   │   │   └── widgets
+│   │   │   │       ├── chat_bubble.dart
+│   │   │   │       ├── context_widgets.dart
+│   │   │   │       ├── editing_chat_bubble.dart
+│   │   │   │       ├── llm_editor_dialogs.dart
+│   │   │   │       └── streaming_chat_bubble.dart
+│   │   │   ├── recipe_tex
+│   │   │   │   ├── recipe_editor_widget.dart
+│   │   │   │   ├── recipe_tex_command_context.dart
+│   │   │   │   ├── recipe_tex_hot_state.dart
+│   │   │   │   ├── recipe_tex_hot_state_adapter.dart
+│   │   │   │   ├── recipe_tex_models.dart
+│   │   │   │   └── recipe_tex_plugin.dart
+│   │   │   ├── refactor_editor
+│   │   │   │   ├── occurrence_list_item.dart
+│   │   │   │   ├── refactor_editor_controller.dart
+│   │   │   │   ├── refactor_editor_hot_state.dart
+│   │   │   │   ├── refactor_editor_models.dart
+│   │   │   │   ├── refactor_editor_plugin.dart
+│   │   │   │   ├── refactor_editor_settings_widget.dart
+│   │   │   │   └── refactor_editor_widget.dart
+│   │   │   ├── texture_packer
+│   │   │   │   ├── services
+│   │   │   │   │   └── pixi_export_service.dart
+│   │   │   │   ├── texture_packer_asset_resolver.dart
+│   │   │   │   ├── texture_packer_command_context.dart
+│   │   │   │   ├── texture_packer_editor_models.dart
+│   │   │   │   ├── texture_packer_editor_widget.dart
+│   │   │   │   ├── texture_packer_loader.dart
+│   │   │   │   ├── texture_packer_models.dart
+│   │   │   │   ├── texture_packer_notifier.dart
+│   │   │   │   ├── texture_packer_plugin.dart
+│   │   │   │   ├── texture_packer_preview_state.dart
+│   │   │   │   ├── texture_packer_settings.dart
+│   │   │   │   └── widgets
+│   │   │   │       ├── hierarchy_panel.dart
+│   │   │   │       ├── preview_app_bar.dart
+│   │   │   │       ├── preview_view.dart
+│   │   │   │       ├── slicing_app_bar.dart
+│   │   │   │       ├── slicing_properties_dialog.dart
+│   │   │   │       ├── slicing_view.dart
+│   │   │   │       ├── source_images_panel.dart
+│   │   │   │       ├── texture_packer_export_dialog.dart
+│   │   │   │       ├── texture_packer_file_dialog.dart
+│   │   │   │       └── texture_packer_settings_widget.dart
+│   │   │   └── tiled_editor
+│   │   │       ├── image_load_result.dart
+│   │   │       ├── inspector
+│   │   │       │   ├── inspector_dialog.dart
+│   │   │       │   ├── property_descriptors.dart
+│   │   │       │   ├── property_widgets.dart
+│   │   │       │   └── tiled_reflectors.dart
+│   │   │       ├── project_tsx_provider.dart
+│   │   │       ├── tiled_asset_resolver.dart
+│   │   │       ├── tiled_command_context.dart
+│   │   │       ├── tiled_editor_models.dart
+│   │   │       ├── tiled_editor_plugin.dart
+│   │   │       ├── tiled_editor_settings_model.dart
+│   │   │       ├── tiled_editor_widget.dart
+│   │   │       ├── tiled_export_service.dart
+│   │   │       ├── tiled_map_notifier.dart
+│   │   │       ├── tiled_map_painter.dart
+│   │   │       ├── tiled_paint_tools.dart
+│   │   │       ├── tmj_writer.dart
+│   │   │       ├── tmx_writer.dart
+│   │   │       ├── tmx_writer_extensions.dart
+│   │   │       └── widgets
+│   │   │           ├── export_dialog.dart
+│   │   │           ├── layers_panel.dart
+│   │   │           ├── map_properties_dialog.dart
+│   │   │           ├── new_layer_dialog.dart
+│   │   │           ├── new_tileset_dialog.dart
+│   │   │           ├── object_editor_app_bar.dart
+│   │   │           ├── paint_editor_app_bar.dart
+│   │   │           ├── sprite_picker_dialog.dart
+│   │   │           ├── tile_palette.dart
+│   │   │           └── tiled_editor_settings_widget.dart
+│   │   ├── services
+│   │   │   ├── editor_service.dart
+│   │   │   └── language
+│   │   │       ├── language_models.dart
+│   │   │       └── language_registry.dart
+│   │   ├── tab_context_commands.dart
+│   │   ├── tab_metadata_notifier.dart
+│   │   └── widgets
+│   │       └── editor_widgets.dart
+│   ├── explorer
+│   │   ├── common
+│   │   │   ├── file_explorer_commands.dart
+│   │   │   ├── file_explorer_widgets.dart
+│   │   │   └── file_operations_footer.dart
+│   │   ├── explorer_plugin_models.dart
+│   │   ├── explorer_plugin_registry.dart
+│   │   ├── explorer_workspace_state.dart
+│   │   ├── plugins
+│   │   │   ├── file_explorer
+│   │   │   │   ├── file_explorer_plugin.dart
+│   │   │   │   ├── file_explorer_state.dart
+│   │   │   │   └── file_explorer_view.dart
+│   │   │   ├── git_explorer
+│   │   │   │   ├── git_explorer_plugin.dart
+│   │   │   │   ├── git_explorer_state.dart
+│   │   │   │   ├── git_explorer_view.dart
+│   │   │   │   ├── git_file_content_provider.dart
+│   │   │   │   ├── git_object_file.dart
+│   │   │   │   ├── git_provider.dart
+│   │   │   │   └── git_storage_provider.dart
+│   │   │   └── search_explorer
+│   │   │       ├── search_explorer_plugin.dart
+│   │   │       ├── search_explorer_settings.dart
+│   │   │       ├── search_explorer_settings_widget.dart
+│   │   │       ├── search_explorer_state.dart
+│   │   │       └── search_explorer_view.dart
+│   │   ├── services
+│   │   │   └── explorer_service.dart
+│   │   └── widgets
+│   │       ├── explorer_host_drawer.dart
+│   │       ├── new_project_screen.dart
+│   │       └── persistence_selection_screen.dart
+│   ├── logs
+│   │   ├── logs_models.dart
+│   │   └── logs_provider.dart
+│   ├── main.dart
+│   ├── platform
+│   │   ├── platform_file_service.dart
+│   │   └── saf_platform_file_service.dart
+│   ├── project
+│   │   ├── handlers
+│   │   │   ├── local_project_settings.dart
+│   │   │   ├── local_project_settings_ui.dart
+│   │   │   └── local_project_type_handler.dart
+│   │   ├── project_models.dart
+│   │   ├── project_settings_models.dart
+│   │   ├── project_settings_notifier.dart
+│   │   ├── project_type_handler.dart
+│   │   ├── project_type_handler_registry.dart
+│   │   └── services
+│   │       ├── project_hierarchy_service.dart
+│   │       └── project_service.dart
+│   ├── settings
+│   │   ├── setting_override_widget.dart
+│   │   ├── settings_models.dart
+│   │   ├── settings_notifier.dart
+│   │   └── settings_screen.dart
+│   ├── utils
+│   │   ├── clipboard.dart
+│   │   ├── code_themes.dart
+│   │   ├── file_traversal_util.dart
+│   │   ├── llm_highlight_util.dart
+│   │   ├── texture_packer_algo.dart
+│   │   └── toast.dart
+│   └── widgets
+│       ├── dialogs
+│       │   ├── file_explorer_dialogs.dart
+│       │   ├── folder_picker_dialog.dart
+│       │   └── save_as_dialog.dart
+│       ├── file_list_view.dart
+│       └── markdown_builders.dart
 ├── pubspec.yaml
 ├── sandbox
 │   ├── Room_Builder_48x48.png
@@ -325,28 +508,31 @@
 │   │   ├── 7_Art_48x48.png
 │   │   ├── 8_Gym_48x48.png
 │   │   └── 9_Fishing_48x48.png
+│   ├── aaa.tmx
 │   ├── ecs_schema.json
+│   ├── export.llm
 │   ├── flow.llm
 │   ├── flow2.llm
 │   ├── flow_schema.json
 │   ├── old
+│   │   ├── aaa.tmx
 │   │   ├── asset.llm
 │   │   ├── asset2.llm
 │   │   ├── asset3.llm
-│   │   ├── map.tmx
-│   │   ├── mapa.tmx
+│   │   ├── packed_atlas.json
 │   │   ├── packed_atlas.png
-│   │   ├── packed_atlasa.png
 │   │   ├── res.llm
 │   │   ├── resolver.llm
-│   │   └── test.tpacker
-│   ├── test.fg
-│   ├── test.tmx
-│   └── test.tpacker
+│   │   ├── test.json
+│   │   ├── test.png
+│   │   └── test.tmx
+│   ├── tast.fg
+│   └── toast.tpacker
 └── test
     └── widget_test.dart
 
-74 directories, 273 files
+114 directories, 418 files
+
 // FILE: analysis_options.yaml
 
 # This file configures the analyzer, which statically analyzes Dart code to
@@ -380,7 +566,6 @@ linter:
 analyzer:
   plugins:
     - custom_lint
-
 // FILE: lib/editor/models/editor_command_context.dart
 
 
@@ -427,7 +612,6 @@ final activeCommandContextProvider = Provider<CommandContext>((ref) {
   }
   return ref.watch(commandContextProvider(activeTabId));
 });
-
 
 // FILE: lib/editor/models/editor_plugin_models.dart
 
@@ -533,7 +717,6 @@ abstract class EditorPlugin {
 }
 
 abstract class PluginSettings extends MachineSettings {}
-
 
 // FILE: lib/editor/models/editor_tab_models.dart
 
@@ -679,7 +862,6 @@ abstract class EditorTab extends WorkspaceTab {
     return EditorTabDto(id: id, pluginType: plugin.id);
   }
 }
-
 
 // FILE: lib/editor/models/text_editing_capability.dart
 
@@ -865,7 +1047,6 @@ class BaseTextEditableCommand extends Command {
   }
 }
 
-
 // FILE: lib/editor/plugins/editor_plugin_registry.dart
 
 
@@ -921,7 +1102,6 @@ class PluginManager extends StateNotifier<List<EditorPlugin>> {
   }
 }
 
-
 // FILE: lib/editor/plugins/flow_graph/asset/flow_asset_models.dart
 
 // FILE: lib/editor/plugins/flow_graph/asset/flow_asset_models.dart
@@ -952,7 +1132,6 @@ class FlowGraphAssetData extends AssetData {
     this.schema,
   });
 }
-
 // FILE: lib/editor/plugins/flow_graph/asset/flow_loaders.dart
 
 // FILE: lib/editor/plugins/flow_graph/asset/flow_loaders.dart
@@ -1047,7 +1226,6 @@ class FlowGraphLoader implements AssetLoader<FlowGraphAssetData>, IDependentAsse
     );
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_command_context.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_command_context.dart
@@ -1075,7 +1253,6 @@ class FlowGraphCommandContext extends CommandContext {
   @override
   int get hashCode => Object.hash(super.hashCode, hasSelection);
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_plugin.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_plugin.dart
@@ -1265,7 +1442,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
   @override
   TypeAdapter<TabHotStateDto>? get hotStateAdapter => null;
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_tab.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_tab.dart
@@ -1293,7 +1469,6 @@ class FlowGraphEditorTab extends EditorTab {
   void dispose() {
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_widget.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_editor_widget.dart
@@ -1538,7 +1713,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     super.dispose();
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_notifier.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_notifier.dart
@@ -1755,7 +1929,6 @@ class FlowGraphNotifier extends ChangeNotifier {
     notifyListeners();
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/flow_graph_settings_model.dart
 
 // FILE: lib/editor/plugins/flow_graph/flow_graph_settings_model.dart
@@ -1815,7 +1988,6 @@ class FlowGraphSettings extends PluginSettings {
     );
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/models/flow_graph_models.dart
 
 // FILE: lib/editor/plugins/flow_graph/models/flow_graph_models.dart
@@ -1986,7 +2158,6 @@ class FlowGraph {
     );
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/models/flow_references.dart
 
 // FILE: lib/editor/plugins/flow_graph/models/flow_references.dart
@@ -2046,7 +2217,6 @@ class TiledObjectReference extends Equatable {
   @override
   String toString() => 'Ref(Map: $sourceMapPath, L:$layerId, Obj:$objectId)';
 }
-
 // FILE: lib/editor/plugins/flow_graph/models/flow_schema_models.dart
 
 // FILE: lib/editor/plugins/flow_graph/models/flow_schema_models.dart
@@ -2182,7 +2352,6 @@ Color _parseColor(String hex) {
   if (hex.length == 6) hex = 'FF$hex';
   return Color(int.parse(hex, radix: 16));
 }
-
 // FILE: lib/editor/plugins/flow_graph/utils/flow_layout_utils.dart
 
 // FILE: lib/editor/plugins/flow_graph/utils/flow_layout_utils.dart
@@ -2252,7 +2421,6 @@ class FlowLayoutUtils {
     return false;
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_connection_painter.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_connection_painter.dart
@@ -2325,7 +2493,6 @@ class FlowConnectionPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant FlowConnectionPainter old) => true;
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_canvas.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_canvas.dart
@@ -2497,7 +2664,6 @@ class GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant GridPainter old) => old.scale != scale || old.settings != settings;
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_settings_widget.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/flow_graph_settings_widget.dart
@@ -2582,7 +2748,6 @@ class FlowGraphSettingsWidget extends StatelessWidget {
     );
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/node_palette.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/node_palette.dart
@@ -2683,7 +2848,6 @@ class _NodePaletteState extends State<NodePalette> {
     );
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/property_tiled_object_picker.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/property_tiled_object_picker.dart
@@ -2921,7 +3085,6 @@ class _TiledObjectSelectionDialogState extends State<_TiledObjectSelectionDialog
     return [];
   }
 }
-
 // FILE: lib/editor/plugins/flow_graph/widgets/schema_node_widget.dart
 
 // FILE: lib/editor/plugins/flow_graph/widgets/schema_node_widget.dart
@@ -3406,18 +3569,150 @@ class _ValueEditDialogState extends State<_ValueEditDialog> {
     );
   }
 }
+// FILE: lib/editor/plugins/flow_graph/flow_graph_asset_resolver.dart
+
+// FILE: lib/editor/plugins/flow_graph/flow_graph_asset_resolver.dart
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/asset_cache/asset_models.dart';
+import 'package:machine/asset_cache/asset_providers.dart';
+import 'package:machine/data/repositories/project/project_repository.dart';
+import 'package:machine/editor/tab_metadata_notifier.dart';
+import 'package:machine/app/app_notifier.dart';
+import 'package:machine/project/project_settings_notifier.dart';
+import 'asset/flow_asset_models.dart';
+
+class FlowGraphAssetResolver {
+  final Map<String, AssetData> _assets;
+  final ProjectRepository _repo;
+  final String _fgPath; // project-relative path of the .fg file
+
+  FlowGraphAssetResolver(this._assets, this._repo, this._fgPath);
+
+  FlowSchemaAssetData? getSchema(String? schemaRelativePath) {
+    if (schemaRelativePath == null || schemaRelativePath.isEmpty) return null;
+    
+    final canonicalKey = _repo.resolveRelativePath(_fgPath, schemaRelativePath);
+    final asset = _assets[canonicalKey];
+    
+    if (asset is FlowSchemaAssetData) {
+      return asset;
+    }
+    return null;
+  }
+  
+}
+
+final flowGraphAssetResolverProvider = Provider.family.autoDispose<AsyncValue<FlowGraphAssetResolver>, String>((ref, tabId) {
+  final assetMapAsync = ref.watch(assetMapProvider(tabId));
+  final repo = ref.watch(projectRepositoryProvider);
+  final project = ref.watch(currentProjectProvider);
+  final metadata = ref.watch(tabMetadataProvider)[tabId];
+
+  return assetMapAsync.whenData((assetMap) {
+    if (repo == null || project == null || metadata == null) {
+      throw Exception("Project context is not available for FlowGraphAssetResolver.");
+    }
+    
+    final fgPath = repo.fileHandler.getPathForDisplay(metadata.file.uri, relativeTo: project.rootUri);
+    return FlowGraphAssetResolver(assetMap, repo, fgPath);
+  });
+});
+// FILE: lib/editor/plugins/flow_graph/services/flow_export_service.dart
+
+// FILE: lib/editor/plugins/flow_graph/services/flow_export_service.dart
+
+import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:machine/data/repositories/project/project_repository.dart';
+import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
+import 'package:machine/logs/logs_provider.dart';
+import '../flow_graph_asset_resolver.dart';
+
+final flowExportServiceProvider = Provider<FlowExportService>((ref) {
+  return FlowExportService(ref);
+});
+
+class FlowExportService {
+  final Ref _ref;
+
+  FlowExportService(this._ref);
+
+  Future<void> export({
+    required FlowGraph graph,
+    required FlowGraphAssetResolver resolver,
+    required String destinationFolderUri,
+    required String fileName,
+    bool embedSchema = false,
+  }) async {
+    final talker = _ref.read(talkerProvider);
+    final repo = _ref.read(projectRepositoryProvider)!;
+
+    talker.info('Starting Flow Graph export for $fileName...');
+
+    Map<String, dynamic> exportData = jsonDecode(graph.serialize());
+
+    if (graph.schemaPath != null) {
+      final schema = resolver.getSchema(graph.schemaPath);
+      
+      if (schema == null) {
+        talker.warning('Exporting: Schema at ${graph.schemaPath} could not be resolved via Asset System.');
+      } else {
+        if (embedSchema) {
+          talker.info('Embedding schema definition into export.');
+          final schemaJson = schema.nodeTypes.map((t) => {
+            'type': t.type,
+            'category': t.category,
+            'inputs': t.inputs.map((i) => {
+              'key': i.key, 
+              'type': i.type.name
+            }).toList(),
+            'outputs': t.outputs.map((o) => {
+              'key': o.key, 
+              'type': o.type.name
+            }).toList(),
+            'properties': t.properties.map((p) => {
+              'key': p.key, 
+              'type': p.type.name, 
+              'default': p.defaultValue
+            }).toList(),
+          }).toList();
+          
+          exportData['schema_definition'] = schemaJson;
+          
+          exportData.remove('schema'); 
+        }
+      }
+    }
+
+    if (exportData.containsKey('viewport')) {
+      exportData.remove('viewport');
+    }
+
+    final finalContent = const JsonEncoder.withIndent('  ').convert(exportData);
+
+    await repo.createDocumentFile(
+      destinationFolderUri,
+      '$fileName.json',
+      initialContent: finalContent,
+      overwrite: true,
+    );
+
+    talker.info('Flow Graph export completed: $fileName.json');
+  }
+}
+// FILE: lib/editor/plugins/texture_packer/services/pixi_export_service.dart
 
 // FILE: lib/editor/plugins/texture_packer/services/pixi_export_service.dart
 
 import 'dart:convert';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
 import 'package:machine/logs/logs_provider.dart';
+import '../texture_packer_asset_resolver.dart';
 
 final pixiExportServiceProvider = Provider<PixiExportService>((ref) {
   return PixiExportService(ref);
@@ -3430,7 +3725,7 @@ class PixiExportService {
 
   Future<void> export({
     required TexturePackerProject project,
-    required Map<String, AssetData> assetDataMap,
+    required TexturePackerAssetResolver resolver,
     required String destinationFolderUri,
     required String fileName,
   }) async {
@@ -3460,9 +3755,9 @@ class PixiExportService {
         if (def is SpriteDefinition) {
           final sourceConfig = findSourceConfig(def.sourceImageId);
           if (sourceConfig != null) {
-            if (assetDataMap.containsKey(sourceConfig.path) &&
-                assetDataMap[sourceConfig.path] is ImageAssetData) {
-              
+            final image = resolver.getImage(sourceConfig.path);
+            
+            if (image != null) {
               final pxRect = _calculatePixelRect(sourceConfig, def.gridRect);
               
               packerItems.add(PackerInputItem(
@@ -3472,7 +3767,7 @@ class PixiExportService {
               ));
               spriteNames[node.id] = node.name;
             } else {
-              talker.warning('Skipping sprite ${node.name}: Asset not loaded (${sourceConfig.path})');
+              talker.warning('Skipping sprite ${node.name}: Image not found for path "${sourceConfig.path}"');
             }
           }
         }
@@ -3483,7 +3778,7 @@ class PixiExportService {
     collectSprites(project.tree);
 
     if (packerItems.isEmpty) {
-      throw Exception('No valid sprites found to export.');
+      throw Exception('No valid sprites found to export. Check source image paths.');
     }
 
     final packer = MaxRectsPacker(padding: 2);
@@ -3491,7 +3786,6 @@ class PixiExportService {
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
-    
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
     final framesData = <String, Map<String, dynamic>>{};
@@ -3499,12 +3793,13 @@ class PixiExportService {
     for (final item in packedResult.items) {
       final def = item.data;
       final sourceConfig = findSourceConfig(def.sourceImageId)!;
-      final asset = assetDataMap[sourceConfig.path] as ImageAssetData;
+      
+      final image = resolver.getImage(sourceConfig.path)!;
       
       final srcRect = _calculatePixelRect(sourceConfig, def.gridRect);
       final dstRect = ui.Rect.fromLTWH(item.x, item.y, item.width, item.height);
 
-      canvas.drawImageRect(asset.image, srcRect, dstRect, paint);
+      canvas.drawImageRect(image, srcRect, dstRect, paint);
 
       final nodeId = project.definitions.entries.firstWhere((e) => e.value == def).key;
       final name = spriteNames[nodeId] ?? 'unknown';
@@ -3515,7 +3810,7 @@ class PixiExportService {
         "trimmed": false,
         "spriteSourceSize": {"x": 0, "y": 0, "w": item.width.toInt(), "h": item.height.toInt()},
         "sourceSize": {"w": item.width.toInt(), "h": item.height.toInt()},
-        "anchor": {"x": 0.5, "y": 0.5} 
+        "anchor": {"x": 0.5, "y": 0.5}
       };
     }
 
@@ -3528,7 +3823,6 @@ class PixiExportService {
     }
 
     final animationsData = <String, List<String>>{};
-    
     void collectAnimations(PackerItemNode node) {
       if (node.type == PackerItemType.animation) {
         final frameNames = node.children
@@ -3584,7 +3878,6 @@ class PixiExportService {
     return ui.Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_asset_resolver.dart
 
 // FILE: lib/editor/plugins/texture_packer/texture_packer_asset_resolver.dart
@@ -3639,7 +3932,6 @@ final texturePackerAssetResolverProvider = Provider.family.autoDispose<AsyncValu
   });
 });
 
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_command_context.dart
 
 import 'package:flutter/material.dart';
@@ -3687,7 +3979,6 @@ class TexturePackerCommandContext extends CommandContext {
       isHierarchyPanelVisible.hashCode ^
       hasSelection.hashCode;
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_editor_models.dart
 
 import 'package:flutter/material.dart';
@@ -3714,6 +4005,7 @@ class TexturePackerTab extends EditorTab {
   void dispose() {
   }
 }
+// FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
 
 // FILE: lib/editor/plugins/texture_packer/texture_packer_editor_widget.dart
 
@@ -3844,10 +4136,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     );
     
     final newQueries = <AssetQuery>{};
+    
     void collectPaths(SourceImageNode node) {
       if (node.type == SourceNodeType.image && node.content != null) {
         if (node.content!.path.isNotEmpty) {
-          // Describe the asset we need relative to our context file.
           newQueries.add(AssetQuery(
             path: node.content!.path,
             mode: AssetPathMode.relativeToContext,
@@ -3861,11 +4153,12 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
 
     if (!const SetEquality().equals(newQueries, _requiredAssetQueries)) {
       _requiredAssetQueries = newQueries;
+      
       ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(newQueries);
     }
   }
 
-
+  
   void setMode(TexturePackerMode newMode) {
     if (_mode == newMode) {
       setState(() => _mode = TexturePackerMode.panZoom);
@@ -3898,7 +4191,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     });
     syncCommandContext();
   }
-
 
   Point<int>? _pixelToGridPoint(Offset positionInImage, SlicingConfig slicing) {
     if (positionInImage.dx < slicing.margin || positionInImage.dy < slicing.margin) return null;
@@ -3986,7 +4278,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     final spriteName = await showTextInputDialog(context, title: 'Create New Sprite');
     if (spriteName != null && spriteName.trim().isNotEmpty) {
       String parentId = ref.read(selectedNodeIdProvider) ?? 'root';
-      
       
       final newNode = _notifier.createNode(
         type: PackerItemType.sprite,
@@ -4086,7 +4377,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     if (_mode != TexturePackerMode.slicing) return;
   }
   
-
   Future<void> _promptAndAddSourceImages() async {
     final project = ref.read(appNotifierProvider).value?.currentProject;
     if (project == null) return;
@@ -4141,6 +4431,7 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     for (final file in result.files) {
       final imageProjectRelativePath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: project.rootUri);
       
+      // Calculate path relative to the .tpacker file location
       final pathRelativeToTpacker = p.relative(imageProjectRelativePath, from: tpackerDirectory).replaceAll(r'\', '/');
 
       SlicingConfig config = const SlicingConfig();
@@ -4185,7 +4476,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     
     _updateAndLoadAssetUris();
   }
-
 
   @override
   void syncCommandContext() {
@@ -4234,9 +4524,10 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
   @override
   Future<TabHotStateDto?> serializeHotState() async => null;
 
-
   @override
   Widget build(BuildContext context) {
+    ref.watch(assetMapProvider(widget.tab.id));
+
     ref.listen(selectedNodeIdProvider, (previous, next) {
       if (next != null) {
         final def = _notifier.project.definitions[next];
@@ -4356,7 +4647,6 @@ class TexturePackerEditorWidgetState extends EditorWidgetState<TexturePackerEdit
     );
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_loader.dart
 
 // FILE: lib/editor/plugins/texture_packer/texture_packer_loader.dart
@@ -4371,10 +4661,9 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/project/project_settings_notifier.dart';
-import 'package:path/path.dart' as p;
 import 'texture_packer_asset_resolver.dart';
 import '../../../logs/logs_provider.dart';
+import '../../../project/project_settings_notifier.dart';
 
 class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAssetData> {
   @override
@@ -4389,7 +4678,8 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
 
     try {
       final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
-      // Get the project-relative path of the .tpacker file to use as a context.
+      
+      // 1. Get the project-relative path of the .tpacker file (the Context)
       final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
       
       final json = jsonDecode(content);
@@ -4397,10 +4687,10 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       
       final dependencies = <String>{};
       
+      // 2. Traverse source images and resolve their paths relative to the .tpacker file
       void collectPaths(SourceImageNode node) {
         if (node.type == SourceNodeType.image && node.content != null) {
           if (node.content!.path.isNotEmpty) {
-            // Use the repository to resolve the path relative to the .tpacker file.
             final resolvedPath = repo.resolveRelativePath(tpackerPath, node.content!.path);
             dependencies.add(resolvedPath);
           }
@@ -4421,7 +4711,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     final project = TexturePackerProject.fromJson(jsonDecode(content));
     
     final projectRootUri = ref.read(currentProjectProvider)!.rootUri;
-    // Get the project-relative path of the .tpacker file to use as a context.
     final tpackerPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: projectRootUri);
 
     final Map<String, ui.Image> sourceImages = {};
@@ -4440,6 +4729,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
       if (relativePath.isNotEmpty) {
         try {
           final resolvedPath = repo.resolveRelativePath(tpackerPath, relativePath);
+          
           final assetData = await ref.read(assetDataProvider(resolvedPath).future);
           if (assetData is ImageAssetData) {
             sourceImages[node.id] = assetData.image;
@@ -4449,6 +4739,7 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
         }
       }
     }
+    
     
     final packerItems = <PackerInputItem<SpriteDefinition>>[];
     final spriteNames = <String, String>{}; 
@@ -4478,6 +4769,10 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     }
     collectSprites(project.tree);
 
+    if (packerItems.isEmpty) {
+      return TexturePackerAssetData(frames: {}, animations: {}, metaSize: ui.Size.zero);
+    }
+
     final packer = MaxRectsPacker(padding: 2);
     final result = packer.pack(packerItems);
 
@@ -4491,7 +4786,10 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
           
       final name = spriteNames[nodeId] ?? 'unknown';
       final def = item.data as SpriteDefinition;
-      final sourceImage = sourceImages[def.sourceImageId]!;
+      
+      final sourceImage = sourceImages[def.sourceImageId];
+      if (sourceImage == null) continue;
+
       final sourceConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId)!;
       final sourceRect = _calculatePixelRect(sourceConfig, def.gridRect);
 
@@ -4543,7 +4841,6 @@ class TexturePackerAssetLoader implements IDependentAssetLoader<TexturePackerAss
     return ui.Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_models.dart
 
 import 'package:flutter/foundation.dart';
@@ -4945,7 +5242,6 @@ class TexturePackerProject {
     );
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_notifier.dart
 
 
@@ -5407,7 +5703,6 @@ class TexturePackerNotifier extends ChangeNotifier {
     return images;
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_plugin.dart
 
 import 'dart:async';
@@ -5657,7 +5952,6 @@ class TexturePackerPlugin extends EditorPlugin {
   @override
   TypeAdapter<TabHotStateDto>? get hotStateAdapter => null;
 }
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_preview_state.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5693,7 +5987,6 @@ class PreviewState {
 final previewStateProvider = StateProvider.family.autoDispose<PreviewState, String>(
   (ref, tabId) => const PreviewState(),
 );
-
 // FILE: lib/editor/plugins/texture_packer/texture_packer_settings.dart
 
 import 'package:flutter/material.dart';
@@ -5753,7 +6046,6 @@ class TexturePackerSettings extends PluginSettings {
     return copyWith();
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/hierarchy_panel.dart
 
 
@@ -6181,7 +6473,6 @@ class _DropIndicatorPainter extends CustomPainter {
     return oldDelegate.position != position || oldDelegate.color != color;
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/preview_app_bar.dart
 
 import 'package:flutter/material.dart';
@@ -6252,7 +6543,6 @@ class PreviewAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/preview_view.dart
 
 // FILE: lib/editor/plugins/texture_packer/widgets/preview_view.dart
@@ -6681,7 +6971,6 @@ class _SpritePainter extends CustomPainter {
   @override
   bool shouldRepaint(_SpritePainter old) => old.image != image || old.srcRect != srcRect;
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/slicing_app_bar.dart
 
 import 'package:flutter/material.dart';
@@ -6731,7 +7020,6 @@ class SlicingAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/slicing_properties_dialog.dart
 
 import 'package:flutter/material.dart';
@@ -6828,7 +7116,6 @@ class _SlicingPropertiesDialogState extends ConsumerState<SlicingPropertiesDialo
     );
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/slicing_view.dart
 
 // FILE: lib/editor/plugins/texture_packer/widgets/slicing_view.dart
@@ -7096,7 +7383,6 @@ class _SlicingPainter extends CustomPainter {
         oldDelegate.settings != settings;
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/source_images_panel.dart
 
 
@@ -7464,6 +7750,7 @@ class _SourceDropPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SourceDropPainter old) => old.position != position || old.color != color;
 }
+// FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_export_dialog.dart
 
 // FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_export_dialog.dart
 
@@ -7474,10 +7761,8 @@ import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/texture_packer/services/pixi_export_service.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_notifier.dart';
 import 'package:machine/utils/toast.dart';
-import 'package:machine/widgets/dialogs/file_explorer_dialogs.dart';
-import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/asset_cache/asset_providers.dart';
-import '../../../../widgets/dialogs/folder_picker_dialog.dart';
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
+import '../texture_packer_asset_resolver.dart';
 
 class TexturePackerExportDialog extends ConsumerStatefulWidget {
   final String tabId;
@@ -7510,7 +7795,6 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
     final repo = ref.read(projectRepositoryProvider);
     if (project == null || repo == null) return;
 
-    // Use existing picker to select a folder (technically selects a file/folder, we take parent if file)
     final path = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
@@ -7540,15 +7824,15 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
     setState(() => _isExporting = true);
 
     try {
-      final assetMapAsync = ref.read(assetMapProvider(widget.tabId));
+      final resolverAsync = ref.read(texturePackerAssetResolverProvider(widget.tabId));
       
-      if (!assetMapAsync.hasValue) {
+      if (!resolverAsync.hasValue) {
         throw Exception('Assets are not fully loaded. Please wait and try again.');
       }
 
       await ref.read(pixiExportServiceProvider).export(
         project: widget.notifier.project,
-        assetDataMap: assetMapAsync.value!,
+        resolver: resolverAsync.value!,
         destinationFolderUri: _destinationUri!,
         fileName: _nameController.text.trim(),
       );
@@ -7608,7 +7892,6 @@ class _TexturePackerExportDialogState extends ConsumerState<TexturePackerExportD
     );
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_file_dialog.dart
 
 import 'package:flutter/material.dart';
@@ -7828,7 +8111,6 @@ class _TexturePackerFilePickerDialogState extends ConsumerState<TexturePackerFil
     );
   }
 }
-
 // FILE: lib/editor/plugins/texture_packer/widgets/texture_packer_settings_widget.dart
 
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -7924,7 +8206,6 @@ class TexturePackerSettingsWidget extends StatelessWidget {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/image_load_result.dart
 
 import 'dart:ui' as ui;
@@ -7938,7 +8219,6 @@ class ImageLoadResult {
 
   bool get hasError => error != null;
 }
-
 // FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
 
 // FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
@@ -8096,6 +8376,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         contextPath: widget.resolver.tmxPath,
       );
     }
+    if (descriptor is FlowGraphReferencePropertyDescriptor) {
+      return PropertyFlowGraphSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        contextPath: widget.resolver.tmxPath,
+      );
+    }
     if (descriptor is SpriteReferencePropertyDescriptor) {
       return PropertySpriteSelector(
         descriptor: descriptor,
@@ -8160,7 +8447,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     return ListTile(title: Text('${descriptor.label}: ${descriptor.currentValue}'));
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/inspector/property_descriptors.dart
 
 import 'package:flutter/material.dart';
@@ -8182,6 +8468,19 @@ abstract class PropertyDescriptor {
 
   dynamic get currentValue;
   void updateValue(dynamic newValue);
+}
+
+// FILE: lib/editor/plugins/tiled_editor/inspector/property_descriptors.dart
+
+
+class FlowGraphReferencePropertyDescriptor extends StringPropertyDescriptor {
+  const FlowGraphReferencePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+    super.isReadOnly,
+  });
 }
 
 
@@ -8380,7 +8679,6 @@ class SpriteReferencePropertyDescriptor extends StringPropertyDescriptor {
     super.isReadOnly,
   });
 }
-
 // FILE: lib/editor/plugins/tiled_editor/inspector/property_widgets.dart
 
 import 'package:flutter/material.dart' hide ColorProperty;
@@ -8400,6 +8698,89 @@ import 'package:machine/asset_cache/asset_models.dart';
 import '../widgets/sprite_picker_dialog.dart'; // Import the new file
 import 'package:machine/app/app_notifier.dart';
 import '../../../services/editor_service.dart';
+import 'package:machine/editor/services/editor_service.dart';
+import '../../../../data/repositories/project/project_repository.dart';
+
+class PropertyFlowGraphSelector extends ConsumerWidget {
+  final FlowGraphReferencePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final String contextPath; // Path of the TMX file for relative calculation
+
+  const PropertyFlowGraphSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.contextPath,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentPath = descriptor.currentValue;
+    final theme = Theme.of(context);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(
+        currentPath.isEmpty ? 'None' : currentPath,
+        style: TextStyle(
+          color: currentPath.isEmpty ? theme.disabledColor : null,
+          fontStyle: currentPath.isEmpty ? FontStyle.italic : null,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.hub_outlined, color: Colors.orange),
+              tooltip: 'Open Graph',
+              onPressed: () {
+                final repo = ref.read(projectRepositoryProvider);
+                if (repo != null) {
+                   final dir = p.dirname(contextPath);
+                   final fullRelativePath = p.normalize(p.join(dir, currentPath));
+                   ref.read(editorServiceProvider).openOrCreate(fullRelativePath);
+                }
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Select File',
+            onPressed: () async {
+              final newPath = await showDialog<String>(
+                context: context,
+                builder: (_) => const FileOrFolderPickerDialog(),
+              );
+              
+              if (newPath != null && newPath.endsWith('.fg')) {
+                final repo = ref.read(projectRepositoryProvider);
+                if (repo != null) {
+                  // Calculate relative path from TMX to selected FG file
+                  final tmxDir = p.dirname(contextPath);
+                  final relativePath = repo.calculateRelativePath(tmxDir, newPath);
+                  descriptor.updateValue(relativePath);
+                  onUpdate();
+                }
+              } else if (newPath != null) {
+                MachineToast.error("Please select a .fg file");
+              }
+            },
+          ),
+          if (currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                descriptor.updateValue('');
+                onUpdate();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class PropertyFileListEditor extends StatelessWidget {
   final FileListPropertyDescriptor descriptor;
@@ -9167,7 +9548,6 @@ ColorData colorDataFromHex(String hex) {
   }
   return const ColorData.argb(255, 0, 0, 0);
 }
-
 // FILE: lib/editor/plugins/tiled_editor/inspector/tiled_reflectors.dart
 
 import 'package:tiled/tiled.dart';
@@ -9322,7 +9702,21 @@ extension TiledObjectReflector on TiledObject {
           }
         },
       ),
-
+      FlowGraphReferencePropertyDescriptor(
+        name: 'flowGraph',
+        label: 'Flow Graph (.fg)',
+        getter: () {
+          final prop = properties['flowGraph'];
+          return (prop is StringProperty) ? prop.value : '';
+        },
+        setter: (val) {
+          if (val.isEmpty) {
+            properties.byName.remove('flowGraph');
+          } else {
+            properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+          }
+        },
+      ),
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
     ];
 
@@ -9369,7 +9763,6 @@ extension TiledImageReflector on TiledImage {
     ];
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/project_tsx_provider.dart
 
 import 'dart:async';
@@ -9435,7 +9828,6 @@ class ProjectTsxProvider extends TsxProvider {
     );
   }
 }
-
 
 // FILE: lib/editor/plugins/tiled_editor/tiled_asset_resolver.dart
 
@@ -9503,7 +9895,6 @@ final tiledAssetResolverProvider = Provider.family.autoDispose<AsyncValue<TiledA
     return TiledAssetResolver(assetMap, repo, tmxPath);
   });
 });
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_command_context.dart
 
 
@@ -9581,7 +9972,6 @@ class TiledEditorCommandContext extends CommandContext {
       isObjectSelected.hashCode ^
       hasFloatingTileSelection.hashCode;
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_editor_models.dart
 
 
@@ -9609,7 +9999,6 @@ class TiledEditorTab extends EditorTab {
   void dispose() {
   }
 }
-
 
 // FILE: lib/editor/plugins/tiled_editor/tiled_editor_plugin.dart
 
@@ -10157,7 +10546,6 @@ commandIds: ObjectTool.values
   TypeAdapter<TabHotStateDto>? get hotStateAdapter => null;
 }
 
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_editor_settings_model.dart
 
 import 'package:flutter/material.dart';
@@ -10202,7 +10590,6 @@ class TiledEditorSettings extends PluginSettings {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_editor_widget.dart
 
 import 'dart:async';
@@ -10222,6 +10609,7 @@ import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../utils/toast.dart';
+import 'package:path/path.dart' as p;
 
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
@@ -10752,15 +11140,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void showExportDialog() {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || assetMap == null) return;
+    if (_notifier == null) return;
+
+    // FIX: Get the initial name from the file metadata associated with the tab.
+    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
+    final initialName = metadata != null ? p.basenameWithoutExtension(metadata.file.name) : 'map';
 
     showDialog(
       context: context,
       builder: (_) => ExportDialog(
         notifier: _notifier!,
         talker: ref.read(talkerProvider),
-        assetDataMap: assetMap,
+        tabId: widget.tab.id,
+        initialMapName: initialName,
       ),
     );
   }  
@@ -11874,47 +12266,69 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   @override
   Future<TabHotStateDto?> serializeHotState() async => null;
 }
+// FILE: lib/editor/plugins/tiled_editor/tiled_export_service.dart
 
 // FILE: lib/editor/plugins/tiled_editor/tiled_export_service.dart
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:math';
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/editor/plugins/tiled_editor/tiled_editor_plugin.dart';
 import 'package:machine/editor/plugins/tiled_editor/tmj_writer.dart';
 import 'package:machine/editor/plugins/tiled_editor/tmx_writer.dart';
-import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/logs/logs_provider.dart';
 import 'package:tiled/tiled.dart';
-import 'package:machine/editor/plugins/tiled_editor/image_load_result.dart';
 import 'package:machine/asset_cache/asset_models.dart';
+import 'package:machine/utils/texture_packer_algo.dart';
 
-import 'tiled_map_notifier.dart';
-import '../../../data/repositories/project/project_repository.dart';
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerProject, SourceImageNode, SourceImageConfig, GridRect, PackerItemType;
+import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
+import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
+import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
+
+import 'tiled_asset_resolver.dart';
 
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);
 });
 
+class _UnifiedAssetSource {
+  final String uniqueId;
+  final ui.Image sourceImage;
+  final ui.Rect sourceRect;
+  final int width;
+  final int height;
 
-class _TileSourceInfo {
-  final int oldGid;
-  final Tile tile;
-  final Tileset tileset;
-  _TileSourceInfo(this.oldGid, this.tile, this.tileset);
+  _UnifiedAssetSource({
+    required this.uniqueId,
+    required this.sourceImage,
+    required this.sourceRect,
+  }) : width = sourceRect.width.toInt(),
+       height = sourceRect.height.toInt();
+
+  @override
+  bool operator ==(Object other) => other is _UnifiedAssetSource && other.uniqueId == uniqueId;
+  @override
+  int get hashCode => uniqueId.hashCode;
 }
 
-class _PackAtlasResult {
-  final TiledMap modifiedMap;
+class _UnifiedPackResult {
   final Uint8List atlasImageBytes;
-  final String atlasImageName;
-  _PackAtlasResult(this.modifiedMap, this.atlasImageBytes, this.atlasImageName);
+  final int atlasWidth;
+  final int atlasHeight;
+  final Map<String, ui.Rect> packedRects;
+
+  _UnifiedPackResult({
+    required this.atlasImageBytes,
+    required this.atlasWidth,
+    required this.atlasHeight,
+    required this.packedRects,
+  });
 }
 
 class TiledExportService {
@@ -11923,212 +12337,250 @@ class TiledExportService {
 
   Future<void> exportMap({
     required TiledMap map,
-    required Map<String, AssetData> assetDataMap,
+    required TiledAssetResolver resolver,
     required String destinationFolderUri,
     required String mapFileName,
     required String atlasFileName,
-    required bool removeUnused,
-    required bool asJson,
-    required bool packInAtlas,
+    bool removeUnused = true, 
+    bool asJson = false,
+    bool packInAtlas = true,
   }) async {
     final talker = _ref.read(talkerProvider);
-    talker.info('Starting map export...');
-    final repo = _ref.read(projectRepositoryProvider)!;
-    final project = _ref.read(appNotifierProvider).value!.currentProject!;
+    final repo = resolver.repo;
+    talker.info('Starting unified map export...');
 
     TiledMap mapToExport = _deepCopyMap(map);
-    Uint8List? atlasImageBytes;
-    String? finalAtlasImageName;
 
-    if (removeUnused) {
-      final usedGids = _findUsedGids(mapToExport);
-      mapToExport.tilesets.removeWhere((tileset) {
-        final firstGid = tileset.firstGid ?? 0;
-        final lastGid = firstGid + (tileset.tileCount ?? 0) - 1;
-        final isUsed = usedGids.any((gid) => gid >= firstGid && gid <= lastGid);
-        if (!isUsed) {
-          talker.info('Removing unused tileset: ${tileset.name}');
-        }
-        return !isUsed;
-      });
-    }
-    
+    await _processFlowGraphDependencies(mapToExport, resolver, destinationFolderUri);
+
     if (packInAtlas) {
-      final result = await _packAtlas(mapToExport, assetDataMap, atlasFileName);
-      mapToExport = result.modifiedMap;
-      atlasImageBytes = result.atlasImageBytes;
-      finalAtlasImageName = result.atlasImageName;
-    }
+      final assetsToPack = await _collectUnifiedAssets(mapToExport, resolver);
 
-    final sourceMapFile = _ref.read(tabMetadataProvider)[_ref.read(appNotifierProvider).value!.currentProject!.session.currentTab!.id]!.file;
-    final sourceMapFolderUri = repo.fileHandler.getParentUri(sourceMapFile.uri);
+      if (assetsToPack.isNotEmpty) {
+        final packResult = await _packUnifiedAtlas(assetsToPack, atlasFileName);
 
-    final assetsToCopy = <String>{};
-    if (packInAtlas) {
-      for (final layer in mapToExport.layers) {
-        if (layer is ImageLayer && layer.image.source != null) {
-          assetsToCopy.add(layer.image.source!);
-        }
-      }
-    } else {
-      for (final tileset in mapToExport.tilesets) {
-        if (tileset.image?.source != null) {
-          assetsToCopy.add(tileset.image!.source!);
-        }
-      }
-      for (final layer in mapToExport.layers) {
-        if (layer is ImageLayer && layer.image.source != null) {
-          assetsToCopy.add(layer.image.source!);
-        }
-      }
-    }
-    
-    talker.info('Found ${assetsToCopy.length} external assets to copy.');
-
-    for (final relativeAssetPath in assetsToCopy) {
-      try {
-        // in the TMX is relative to the TMX file itself.
-        final assetFile = await repo.fileHandler.resolvePath(sourceMapFolderUri, relativeAssetPath);
+        _remapAndFinalizeMap(mapToExport, packResult, atlasFileName);
         
-        if (assetFile != null) {
-          talker.info('Copying asset: ${assetFile.name}');
-          await repo.copyDocumentFile(assetFile, destinationFolderUri);
-        } else {
-          talker.warning('Could not find asset to copy: $relativeAssetPath');
-        }
-      } catch (e, st) {
-        talker.handle(e, st, 'Failed to copy asset: $relativeAssetPath');
+        await repo.createDocumentFile(
+          destinationFolderUri,
+          '$atlasFileName.png',
+          initialBytes: packResult.atlasImageBytes,
+          overwrite: true,
+        );
+        await repo.createDocumentFile(
+          destinationFolderUri,
+          '$atlasFileName.json',
+          initialContent: _generatePixiJson(packResult, atlasFileName),
+          overwrite: true,
+        );
+      } else {
+        talker.info("No tiles or sprites found to pack into an atlas.");
+        mapToExport.tilesets.clear();
       }
-    }
-
-
-    // 4. Generate the map file content.
-    String fileContent;
-    String fileExtension;
-    if (asJson) {
-      fileContent = TmjWriter(mapToExport).toTmj();
-      fileExtension = 'json';
     } else {
-      fileContent = TmxWriter(mapToExport).toTmx();
-      fileExtension = 'tmx';
+      await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
     
-    final finalMapFileName = '$mapFileName.$fileExtension';
-
-    if (atlasImageBytes != null && finalAtlasImageName != null) {
-      final atlasFile = await repo.createDocumentFile(
-        destinationFolderUri,
-        finalAtlasImageName!,
-        initialBytes: atlasImageBytes,
-        overwrite: true,
-      );
-
-    }
-    
-    final mapFile = await repo.createDocumentFile(
+    // 6. Write the final map file
+    String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
+    String fileExtension = asJson ? 'json' : 'tmx';
+    await repo.createDocumentFile(
       destinationFolderUri,
-      finalMapFileName,
+      '$mapFileName.$fileExtension',
       initialContent: fileContent,
       overwrite: true,
     );
-    
 
-
-    talker.info('Export complete: $mapFileName');
+    talker.info('Unified export complete: $mapFileName.$fileExtension');
   }
 
-  Future<_PackAtlasResult> _packAtlas(TiledMap map, Map<String, AssetData> assetDataMap, String atlasBaseName) async {
-    _ref.read(talkerProvider).info('Starting atlas packing...');
+  Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetResolver resolver) async {
+    final talker = _ref.read(talkerProvider);
+    final assets = <_UnifiedAssetSource>{};
+    final repo = resolver.repo;
+
     final usedGids = _findUsedGids(map);
-    final uniqueTileSources = <int, _TileSourceInfo>{};
-
     for (final gid in usedGids) {
-      if (uniqueTileSources.containsKey(gid)) continue;
       final tile = map.tileByGid(gid);
-      if (tile != null && !tile.isEmpty) {
-        final tileset = map.tilesetByTileGId(gid);
-        uniqueTileSources[gid] = _TileSourceInfo(gid, tile, tileset);
+      final tileset = map.tilesetByTileGId(gid);
+      if (tile == null || tile.isEmpty) continue;
+      
+      final imageSource = tile.image?.source ?? tileset.image?.source;
+      if (imageSource != null) {
+        final image = resolver.getImage(imageSource, tileset: tileset);
+        if (image != null) {
+          final rect = tileset.computeDrawRect(tile);
+          assets.add(_UnifiedAssetSource(
+            uniqueId: 'gid_$gid',
+            sourceImage: image,
+            sourceRect: ui.Rect.fromLTWH(rect.left.toDouble(), rect.top.toDouble(), rect.width.toDouble(), rect.height.toDouble()),
+          ));
+        }
       }
     }
-    final sortedTiles = uniqueTileSources.values.toList();
 
-    final int atlasWidth = 1024;
-    final Map<int, ui.Rect> packedLayout = {};
-    int currentX = 0;
-    int currentY = 0;
-    int maxYinRow = 0;
-    for (final source in sortedTiles) {
-      final tileWidth = source.tileset.tileWidth ?? map.tileWidth;
-      final tileHeight = source.tileset.tileHeight ?? map.tileHeight;
+    final tpAtlasesProp = map.properties['tp_atlases'];
+    if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
+      final tpackerFiles = tpAtlasesProp.value.split(',').map((e) => e.trim());
 
-      if (currentX + tileWidth > atlasWidth) {
-        currentX = 0;
-        currentY += maxYinRow;
-        maxYinRow = 0;
+      for (final layer in map.layers) {
+        if (layer is ObjectGroup) {
+          for (final obj in layer.objects) {
+            final spriteProp = obj.properties['tp_sprite'];
+            if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
+              final spriteName = spriteProp.value;
+              final spriteData = _findSpriteDataInAtlases(spriteName, tpackerFiles, resolver);
+              if (spriteData != null) {
+                assets.add(_UnifiedAssetSource(
+                  uniqueId: spriteName,
+                  sourceImage: spriteData.sourceImage,
+                  sourceRect: spriteData.sourceRect,
+                ));
+              } else {
+                talker.warning('Could not find source for tp_sprite "$spriteName" during export.');
+              }
+            }
+          }
+        }
       }
-      packedLayout[source.oldGid] = ui.Rect.fromLTWH(
-          currentX.toDouble(), currentY.toDouble(), tileWidth.toDouble(), tileHeight.toDouble());
-
-      currentX += tileWidth;
-      maxYinRow = max(maxYinRow, tileHeight);
     }
-    final int atlasHeight = currentY + maxYinRow;
+
+    return assets;
+  }
+
+  TexturePackerSpriteData? _findSpriteDataInAtlases(String spriteName, Iterable<String> tpackerFiles, TiledAssetResolver resolver) {
+    for (final path in tpackerFiles) {
+      final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, path);
+      final asset = resolver.getAsset(canonicalKey);
+      if (asset is TexturePackerAssetData) {
+        if (asset.frames.containsKey(spriteName)) return asset.frames[spriteName]!;
+      }
+    }
+    return null;
+  }
+
+  Future<_UnifiedPackResult> _packUnifiedAtlas(Set<_UnifiedAssetSource> assets, String atlasName) async {
+    final items = assets.map((asset) => PackerInputItem(
+      width: asset.width.toDouble(),
+      height: asset.height.toDouble(),
+      data: asset,
+    )).toList();
+
+    final packer = MaxRectsPacker(padding: 2);
+    final packedResult = packer.pack(items);
+
+    final potWidth = _nextPowerOfTwo(packedResult.width.toInt());
+    final potHeight = _nextPowerOfTwo(packedResult.height.toInt());
     
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
-    final allSourceImages = sortedTiles.map((e) => e.tileset.image?.source).toSet();
-    
-    for (final source in sortedTiles) {
-      final destRect = packedLayout[source.oldGid]!;
-      final tiledRect = source.tileset.computeDrawRect(source.tile);
-      final sourceRect = ui.Rect.fromLTWH(
-        tiledRect.left.toDouble(),
-        tiledRect.top.toDouble(),
-        tiledRect.width.toDouble(),
-        tiledRect.height.toDouble(),
-      );      
-      final asset = assetDataMap[source.tileset.image!.source!];
-      final sourceImage = asset is ImageAssetData ? asset.image : null;
+    final packedRects = <String, ui.Rect>{};
 
-      if (sourceImage != null) {
-        canvas.drawImageRect(sourceImage, sourceRect, destRect, paint);
-      }
+    for (final item in packedResult.items) {
+      final source = item.data as _UnifiedAssetSource;
+      final destRect = ui.Rect.fromLTWH(item.x, item.y, item.width, item.height);
+      canvas.drawImageRect(source.sourceImage, source.sourceRect, destRect, paint);
+      packedRects[source.uniqueId] = destRect;
     }
-    
+
     final picture = recorder.endRecording();
-    final image = await picture.toImage(atlasWidth, atlasHeight);
+    final image = await picture.toImage(potWidth, potHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final atlasImageBytes = byteData!.buffer.asUint8List();
+    
+    return _UnifiedPackResult(
+      atlasImageBytes: byteData!.buffer.asUint8List(),
+      atlasWidth: potWidth,
+      atlasHeight: potHeight,
+      packedRects: packedRects,
+    );
+  }
 
-    final atlasName = atlasBaseName;
-    final atlasFileName = '$atlasName.png';
-    final Map<int, int> gidRemapTable = {};
-    int newLocalId = 0;
+  void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
+    final newTiles = <Tile>[];
+    final gidRemap = <int, int>{};
+    final spriteRemap = <String, int>{};
 
-    final atlasTileset = Tileset(
+    int currentLocalId = 0;
+
+    final sortedKeys = result.packedRects.keys.toList()..sort();
+
+    for (final uniqueId in sortedKeys) {
+      final rect = result.packedRects[uniqueId]!;
+      final newTile = Tile(
+        localId: currentLocalId,
+        image: TiledImage(
+          source: '$atlasName.png',
+          width: result.atlasWidth,
+          height: result.atlasHeight,
+        ),
+        properties: CustomProperties({'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')}),
+      );
+      newTiles.add(newTile);
+
+      if (uniqueId.startsWith('gid_')) {
+        final oldGid = int.parse(uniqueId.substring(4));
+        gidRemap[oldGid] = currentLocalId + 1;
+      } else {
+        spriteRemap[uniqueId] = currentLocalId + 1;
+      }
+      currentLocalId++;
+    }
+
+    final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
       tileWidth: map.tileWidth,
       tileHeight: map.tileHeight,
-      tileCount: sortedTiles.length,
-      columns: atlasWidth ~/ map.tileWidth,
-      image: TiledImage(source: atlasFileName, width: atlasWidth, height: atlasHeight),
-    );
+      tileCount: newTiles.length,
+      columns: result.atlasWidth ~/ map.tileWidth,
+      image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
+    )..tiles = newTiles;
 
-    for (final source in sortedTiles) {
-      gidRemapTable[source.oldGid] = atlasTileset.firstGid! + newLocalId;
-      newLocalId++;
+    map.tilesets..clear()..add(newTileset);
+    
+    _remapMapGids(map, gidRemap, spriteRemap);
+
+    map.properties.byName.remove('tp_atlases');
+  }
+
+  String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
+    final frames = <String, dynamic>{};
+    for (final entry in result.packedRects.entries) {
+      final uniqueId = entry.key;
+      final rect = entry.value;
+      if (!uniqueId.startsWith('gid_')) {
+        frames[uniqueId] = {
+          "frame": {"x": rect.left.toInt(), "y": rect.top.toInt(), "w": rect.width.toInt(), "h": rect.height.toInt()},
+          "rotated": false, "trimmed": false,
+          "spriteSourceSize": {"x": 0, "y": 0, "w": rect.width.toInt(), "h": rect.height.toInt()},
+          "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
+        };
+      }
     }
+    
+    final jsonOutput = {
+      "frames": frames,
+      "meta": {
+        "app": "Machine Editor - Unified Export",
+        "version": "1.0",
+        "image": "$atlasName.png",
+        "size": {"w": result.atlasWidth, "h": result.atlasHeight},
+        "scale": "1"
+      }
+    };
+    return const JsonEncoder.withIndent('  ').convert(jsonOutput);
+  }
 
+  void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
     for (final layer in map.layers) {
-      if (layer is TileLayer) {
+      if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
           for (int x = 0; x < layer.width; x++) {
             final oldGid = layer.tileData![y][x];
             if (oldGid.tile != 0) {
-              final newGidTile = gidRemapTable[oldGid.tile];
+              final newGidTile = gidRemap[oldGid.tile];
               if (newGidTile != null) {
                 layer.tileData![y][x] = Gid(newGidTile, oldGid.flips);
               }
@@ -12138,34 +12590,111 @@ class TiledExportService {
       } else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
           if (object.gid != null) {
-            final newGid = gidRemapTable[object.gid];
+            final newGid = gidRemap[object.gid];
+            if (newGid != null) object.gid = newGid;
+          }
+          final spriteProp = object.properties['tp_sprite'];
+          if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
+            final newGid = spriteRemap[spriteProp.value];
             if (newGid != null) {
               object.gid = newGid;
+              object.properties.byName.remove('tp_sprite');
             }
           }
         }
       }
     }
-    
-    map.tilesets..clear()..add(atlasTileset);
+  }
 
-    _ref.read(talkerProvider).info('Atlas packing complete.');
-    return _PackAtlasResult(map, atlasImageBytes, atlasFileName);
+
+  int _nextPowerOfTwo(int v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+  }
+
+  Future<void> _processFlowGraphDependencies(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri) async {
+    final talker = _ref.read(talkerProvider);
+    final repo = resolver.repo;
+    final flowService = _ref.read(flowExportServiceProvider);
+
+    for (final layer in mapToExport.layers) {
+      if (layer is ObjectGroup) {
+        for (final obj in layer.objects) {
+          final prop = obj.properties['flowGraph'];
+          if (prop is StringProperty && prop.value.isNotEmpty) {
+            try {
+              final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, prop.value);
+              final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
+              if (fgFile == null) continue;
+              
+              final content = await repo.readFile(fgFile.uri);
+              final graph = FlowGraph.deserialize(content);
+              final fgPath = repo.fileHandler.getPathForDisplay(fgFile.uri, relativeTo: repo.rootUri);
+              final fgResolver = FlowGraphAssetResolver(resolver.rawAssets, repo, fgPath);
+              final exportName = p.basenameWithoutExtension(fgFile.name);
+
+              await flowService.export(
+                graph: graph,
+                resolver: fgResolver,
+                destinationFolderUri: destinationFolderUri,
+                fileName: exportName,
+                embedSchema: true,
+              );
+              obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: '$exportName.json');
+            } catch (e) {
+              talker.warning('Failed to export Flow Graph ${prop.value}: $e');
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _copyAndRelinkAssets(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri) async {
+    final repo = resolver.repo;
+    for (final tileset in mapToExport.tilesets) {
+      if (tileset.image?.source != null) {
+        final rawSource = tileset.image!.source!;
+        final contextPath = (tileset.source != null) 
+            ? repo.resolveRelativePath(resolver.tmxPath, tileset.source!) 
+            : resolver.tmxPath;
+        final canonicalKey = repo.resolveRelativePath(contextPath, rawSource);
+        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        if (file != null) {
+          await repo.copyDocumentFile(file, destinationFolderUri);
+          final oldImage = tileset.image!;
+          tileset.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
+          tileset.source = null; 
+        }
+      }
+    }
+    for (final layer in mapToExport.layers) {
+      if (layer is ImageLayer && layer.image.source != null) {
+        final rawSource = layer.image.source!;
+        final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, rawSource);
+        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        if (file != null) {
+          await repo.copyDocumentFile(file, destinationFolderUri);
+          final oldImage = layer.image;
+          layer.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
+        }
+      }
+    }
   }
 
   Set<int> _findUsedGids(TiledMap map) {
     final usedGids = <int>{};
     for (final layer in map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
-        for (final row in layer.tileData!) {
-          for (final gid in row) {
-            if (gid.tile != 0) usedGids.add(gid.tile);
-          }
-        }
+        for (final row in layer.tileData!) for (final gid in row) if (gid.tile != 0) usedGids.add(gid.tile);
       } else if (layer is ObjectGroup) {
-        for (final object in layer.objects) {
-          if (object.gid != null) usedGids.add(object.gid!);
-        }
+        for (final object in layer.objects) if (object.gid != null) usedGids.add(object.gid!);
       }
     }
     return usedGids;
@@ -12177,14 +12706,6 @@ class TiledExportService {
     return TileMapParser.parseTmx(tmxString);
   }
 }
-
-
-extension TiledMapNameExtension on TiledMap {
-  String? get name {
-    return 'map';
-  }
-}
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_map_notifier.dart
 
 import 'dart:math';
@@ -13271,7 +13792,6 @@ Tileset deepCopyTileset(Tileset other) {
     tiles: other.tiles.map((t) => Tile(localId: t.localId)).toList(),
   );
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_map_painter.dart
 
 import 'dart:ui' as ui;
@@ -13981,7 +14501,6 @@ extension on HAlign {
     }
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tiled_paint_tools.dart
 
 
@@ -13999,7 +14518,6 @@ enum ObjectTool {
   addText,
   addSprite,
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tmj_writer.dart
 
 import 'dart:convert';
@@ -14173,7 +14691,6 @@ class TmjWriter {
     };
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tmx_writer.dart
 
 
@@ -14195,7 +14712,6 @@ class TmxWriter {
     return builder.buildDocument().toXmlString(pretty: true, indent: ' ');
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/tmx_writer_extensions.dart
 
 import 'package:tiled/tiled.dart';
@@ -14512,30 +15028,33 @@ extension PropertyWriter on Property {
     });
   }
 }
+// FILE: lib/editor/plugins/tiled_editor/widgets/export_dialog.dart
 
 // FILE: lib/editor/plugins/tiled_editor/widgets/export_dialog.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/app/app_notifier.dart';
-import 'package:machine/data/file_handler/file_handler.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_export_service.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_map_notifier.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../../../../logs/logs_provider.dart';
-import 'package:machine/asset_cache/asset_models.dart';
+import '../tiled_asset_resolver.dart';
 
 class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final Talker talker;
-  final Map<String, AssetData> assetDataMap;
+  final String tabId;
+  final String initialMapName;
+
   const ExportDialog({
     super.key,
     required this.notifier,
     required this.talker,
-    required this.assetDataMap,
+    required this.tabId,
+    required this.initialMapName,
   });
   @override
   ConsumerState<ExportDialog> createState() => _ExportDialogState();
@@ -14555,8 +15074,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   @override
   void initState() {
     super.initState();
-    final mapName = widget.notifier.map.name ?? 'exported_map';
-    _mapNameController = TextEditingController(text: mapName);
+    _mapNameController = TextEditingController(text: widget.initialMapName);
     _atlasNameController = TextEditingController(text: 'packed_atlas');
   }
   
@@ -14572,7 +15090,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
     final repo = ref.read(projectRepositoryProvider)!;
 
-    // We can re-use the file/folder picker, but we only care about the path URI.
     final selectedRelativePath = await showDialog<String>(
       context: context,
       builder: (_) => const FileOrFolderPickerDialog(),
@@ -14582,7 +15099,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       final file = await repo.fileHandler.resolvePath(project.rootUri, selectedRelativePath);
       if (file != null) {
         setState(() {
-          // If the user selected a file, use its parent folder. Otherwise, use the selected folder.
           _destinationFolderUri = file.isDirectory ? file.uri : repo.fileHandler.getParentUri(file.uri);
           _destinationFolderDisplay = selectedRelativePath;
         });
@@ -14599,9 +15115,14 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     setState(() => _isExporting = true);
 
     try {
+      final resolverAsync = ref.read(tiledAssetResolverProvider(widget.tabId));
+      if (!resolverAsync.hasValue) {
+        throw Exception("Assets are not yet loaded. Please wait a moment and try again.");
+      }
+
       await ref.read(tiledExportServiceProvider).exportMap(
             map: widget.notifier.map,
-            assetDataMap: widget.assetDataMap,
+            resolver: resolverAsync.value!,
             destinationFolderUri: _destinationFolderUri!,
             mapFileName: _mapNameController.text.trim(),
             atlasFileName: _atlasNameController.text.trim(),
@@ -14646,7 +15167,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 controller: _mapNameController,
                 decoration: InputDecoration(
                   labelText: 'Map filename',
-                  suffixText: _exportAsJson ? '.tmj' : '.tmx',
+                  suffixText: _exportAsJson ? '.json' : '.tmx',
                 ),
               ),
               if (_packInAtlas)
@@ -14676,7 +15197,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
               SwitchListTile(
                 title: const Text('Pack into a single atlas'),
-                subtitle: const Text('Combines all tiles into one image (Not implemented)'),
+                subtitle: const Text('Combines all tiles into one image'),
                 value: _packInAtlas,
                 onChanged: (value) => setState(() => _packInAtlas = value),
               ),
@@ -14701,7 +15222,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/layers_panel.dart
 
 
@@ -15165,7 +15685,6 @@ class _DropIndicatorPainter extends CustomPainter {
   bool shouldRepaint(covariant _DropIndicatorPainter old) =>
       old.position != position || old.color != color;
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/map_properties_dialog.dart
 
 import 'package:flutter/material.dart';
@@ -15268,7 +15787,6 @@ class _MapPropertiesDialogState extends State<MapPropertiesDialog> {
     );
   }
 }
-
 
 // FILE: lib/editor/plugins/tiled_editor/widgets/new_layer_dialog.dart
 
@@ -15407,7 +15925,6 @@ class _NewLayerDialogState extends State<NewLayerDialog> {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/new_tileset_dialog.dart
 
 import 'package:flutter/material.dart';
@@ -15514,7 +16031,6 @@ class _NewTilesetDialogState extends State<NewTilesetDialog> {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/object_editor_app_bar.dart
 
 
@@ -15595,7 +16111,6 @@ class ObjectEditorAppBar extends StatelessWidget implements PreferredSizeWidget 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/paint_editor_app_bar.dart
 
 
@@ -15633,7 +16148,6 @@ class PaintEditorAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/sprite_picker_dialog.dart
 
 import 'package:flutter/material.dart';
@@ -15717,7 +16231,6 @@ class _SpritePickerDialogState extends State<SpritePickerDialog> {
     );
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/tile_palette.dart
 
 // FILE: lib/editor/plugins/tiled_editor/widgets/tile_palette.dart
@@ -16107,7 +16620,6 @@ class _TilesetPainter extends CustomPainter {
         oldDelegate.selection != selection;
   }
 }
-
 // FILE: lib/editor/plugins/tiled_editor/widgets/tiled_editor_settings_widget.dart
 
 import 'package:flex_color_picker/flex_color_picker.dart';
@@ -16168,7 +16680,6 @@ class TiledEditorSettingsWidget extends StatelessWidget {
     );
   }
 }
-
 // FILE: lib/editor/services/editor_service.dart
 
 import 'dart:async';
@@ -16802,7 +17313,6 @@ class OpenFileError extends OpenFileResult {
   OpenFileError(this.message);
 }
 
-
 // FILE: lib/editor/services/language/language_models.dart
 
 import 'package:re_highlight/re_highlight.dart';
@@ -16840,7 +17350,6 @@ class CommentConfig {
     this.blockEnd,
   });
 }
-
 // FILE: lib/editor/services/language/language_registry.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17083,7 +17592,6 @@ class Languages {
     ),
   ];
 }
-
 // FILE: lib/editor/tab_context_commands.dart
 
 // NEW FILE: lib/editor/tab_context_commands.dart
@@ -17124,7 +17632,6 @@ class AppTabContextCommands {
     ];
   }
 }
-
 
 // FILE: lib/editor/tab_metadata_notifier.dart
 
@@ -17208,7 +17715,6 @@ class TabMetadataNotifier extends StateNotifier<Map<String, TabMetadata>> {
     state = {};
   }
 }
-
 
 // FILE: lib/editor/widgets/editor_widgets.dart
 
@@ -17482,6 +17988,263 @@ class EditorView extends ConsumerWidget {
   }
 }
 
+// FILE: lib/data/shared_preferences.dart
+
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
+  ref,
+) async {
+  return await SharedPreferences.getInstance();
+});
+
+// FILE: lib/main.dart
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'app/app_notifier.dart';
+import 'app/app_screen.dart';
+import 'app/lifecycle.dart';
+import 'data/shared_preferences.dart';
+import 'logs/logs_provider.dart';
+import 'settings/settings_screen.dart';
+
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+
+import 'command/command_notifier.dart'; 
+import 'data/cache/background_task/background_cache_service.dart'; 
+import 'data/cache/hot_state_cache_service.dart'; 
+import 'settings/settings_notifier.dart'; 
+import 'project/project_settings_notifier.dart'; 
+
+
+final appStartupProvider = FutureProvider<void>((ref) async {
+  final talker = ref.read(talkerProvider);
+  talker.info('appStartupProvider: Starting async initialization...');
+
+
+  await ref.read(cacheRepositoryProvider).init();
+  await ref.read(hotStateCacheServiceProvider).initializeAndStart();
+  await ref.read(sharedPreferencesProvider.future);
+
+  ref.read(settingsProvider);
+  ref.read(commandProvider);
+  await ref.read(appNotifierProvider.future);
+
+  talker.info('appStartupProvider: Async initialization complete.');
+});
+
+ThemeData _createThemeData(Color seedColor, Brightness brightness) {
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    ).copyWith(
+      surface: brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor:
+          brightness == Brightness.dark ? const Color(0xFF2B2B29) : null,
+      elevation: 1,
+      scrolledUnderElevation: 1,
+      centerTitle: true,
+      titleTextStyle: const TextStyle(fontSize: 14),
+      toolbarHeight: 48,
+    ),
+    tabBarTheme: TabBarThemeData(
+      indicator: UnderlineTabIndicator(
+        borderSide: BorderSide(color: seedColor, width: 2.0),
+      ),
+      unselectedLabelColor: Colors.grey[400],
+      indicatorSize: TabBarIndicatorSize.tab,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8.0),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            brightness == Brightness.dark ? const Color(0xFF3A3A3A) : null,
+      ),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor:
+          brightness == Brightness.dark ? const Color(0xFF212121) : null,
+    ),
+  );
+}
+
+final themeConfigProvider = Provider((ref) {
+  final settings = ref.watch(effectiveSettingsProvider);
+  final generalSettings =
+      settings.pluginSettings[GeneralSettings] as GeneralSettings;
+
+  final seedColor = Color(generalSettings.accentColorValue);
+  final themeMode = generalSettings.themeMode;
+
+  final lightTheme = _createThemeData(seedColor, Brightness.light);
+  final darkTheme = _createThemeData(seedColor, Brightness.dark);
+
+  return (light: lightTheme, dark: darkTheme, mode: themeMode);
+});
+
+void main() {
+  final talker = TalkerFlutter.init(
+    logger: TalkerLogger(settings: TalkerLoggerSettings()),
+    settings: TalkerSettings(
+      enabled: true,
+      useConsoleLogs: true,
+      colors: {FileOperationLog.getKey: FileOperationLog.getPen},
+    ),
+  );
+
+  final riverpodObserver = TalkerRiverpodObserver(
+    talker: talker,
+    settings: TalkerRiverpodLoggerSettings(
+      enabled: true,
+      printProviderDisposed: true,
+      printStateFullData: false,
+    ),
+  );
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      systemNavigationBarColor: Color(0xFF2B2B29),
+
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+
+  runZonedGuarded(
+    () {
+      FlutterError.onError = (details) {
+        talker.handle(
+          details.exception,
+          details.stack,
+          'Flutter framework error',
+        );
+      };
+
+      runApp(
+        ProviderScope(
+          overrides: [talkerProvider.overrideWithValue(talker)],
+          observers: [riverpodObserver],
+          child: LifecycleHandler(
+            talker: talker,
+            child: Consumer(
+              builder: (context, ref, child) {
+                final themeConfig = ref.watch(themeConfigProvider);
+
+                return MaterialApp(
+                  navigatorKey: ref.watch(navigatorKeyProvider),
+                  scaffoldMessengerKey: ref.watch(
+                    rootScaffoldMessengerKeyProvider,
+                  ),
+                  theme: themeConfig.light,
+                  darkTheme: themeConfig.dark,
+                  themeMode: ThemeMode.dark,
+                  home: AppStartupWidget(
+                    onLoaded: (context) => const AppScreen(),
+                  ),
+                  routes: {
+                    '/settings': (_) => const SettingsScreen(),
+                    '/command-settings': (_) => const CommandSettingsScreen(),
+                    '/logs':
+                        (_) => TalkerScreen(talker: ref.read(talkerProvider)),
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    },
+    (error, stack) {
+      talker.handle(error, stack, 'Unhandled error');
+    },
+  );
+}
+
+
+class AppStartupWidget extends ConsumerWidget {
+  final WidgetBuilder onLoaded;
+
+  const AppStartupWidget({super.key, required this.onLoaded});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final startupState = ref.watch(appStartupProvider);
+
+    return startupState.when(
+      loading: () => const AppStartupLoadingWidget(),
+      error: (error, stack) {
+        ref.read(talkerProvider).handle(error, stack, 'Startup error');
+        return AppStartupErrorWidget(
+          error: error,
+          onRetry: () => ref.invalidate(appStartupProvider),
+        );
+      },
+      data: (_) => onLoaded(context),
+    );
+  }
+}
+
+class AppStartupLoadingWidget extends StatelessWidget {
+  const AppStartupLoadingWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text('Initializing application...'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppStartupErrorWidget extends StatelessWidget {
+  final Object error;
+  final VoidCallback onRetry;
+
+  const AppStartupErrorWidget({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 50),
+            const SizedBox(height: 20),
+            Text('Initialization failed: $error', textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // FILE: pubspec.yaml
 
@@ -17665,326 +18428,3 @@ flutter_native_splash:
     # color_dark: "#042a49"
 
     image: 'assets/icons/android/play_store_512.png'
-
-// FILE: sandbox/flow_schema.json
-
-[
-  {
-    "type": "DestroySelfNode",
-    "label": "Destroy Self",
-    "category": "Object",
-    "inputs": [
-      {
-        "key": "exec",
-        "name": "In",
-        "type": "execution"
-      }
-    ],
-    "outputs": [],
-    "properties": []
-  },
-  {
-    "type": "SetEnabledNode",
-    "label": "Set Enabled",
-    "category": "Object",
-    "inputs": [
-      {
-        "key": "exec",
-        "name": "In",
-        "type": "execution"
-      }
-    ],
-    "outputs": [
-      {
-        "key": "out",
-        "name": "Out",
-        "type": "execution"
-      }
-    ],
-    "properties": [
-      {
-        "name": "Enabled",
-        "type": "boolean",
-        "default": true,
-        "key": "enabled"
-      }
-    ]
-  },
-  {
-    "type": "SetIntegerNode",
-    "label": "Set Integer",
-    "category": "Logic",
-    "inputs": [
-      {
-        "key": "exec",
-        "name": "In",
-        "type": "execution"
-      }
-    ],
-    "outputs": [
-      {
-        "key": "out",
-        "name": "Out",
-        "type": "execution"
-      }
-    ],
-    "properties": [
-      {
-        "name": "Variable",
-        "type": "string",
-        "key": "variable"
-      },
-      {
-        "name": "Value",
-        "type": "integer",
-        "default": 0,
-        "key": "value"
-      }
-    ]
-  },
-  {
-    "type": "CompareNode",
-    "label": "Compare Int",
-    "category": "Logic",
-    "inputs": [
-      {
-        "key": "valB",
-        "name": "B",
-        "type": "integer"
-      },
-      {
-        "key": "valA",
-        "name": "A",
-        "type": "integer"
-      },
-      {
-        "key": "exec",
-        "name": "In",
-        "type": "execution"
-      }
-    ],
-    "outputs": [
-      {
-        "key": "less",
-        "name": "A < B",
-        "type": "execution"
-      },
-      {
-        "key": "greater",
-        "name": "A > B",
-        "type": "execution"
-      },
-      {
-        "key": "equal",
-        "name": "A == B",
-        "type": "execution"
-      }
-    ],
-    "properties": [
-      {
-        "name": "Variable (A)",
-        "type": "string",
-        "key": "variable"
-      },
-      {
-        "name": "Default B",
-        "type": "integer",
-        "default": 0,
-        "key": "valB"
-      }
-    ]
-  },
-  {
-    "type": "OnLoadNode",
-    "label": "On Level Load",
-    "category": "Events",
-    "inputs": [],
-    "outputs": [
-      {
-        "key": "exec",
-        "name": "Flow",
-        "type": "execution"
-      }
-    ],
-    "properties": []
-  },
-  {
-    "type": "OnInteractNode",
-    "label": "On Interact",
-    "category": "Events",
-    "inputs": [],
-    "outputs": [
-      {
-        "key": "exec",
-        "name": "Flow",
-        "type": "execution"
-      }
-    ],
-    "properties": []
-  },
-  {
-    "type": "OnEnterZoneNode",
-    "label": "On Enter Zone",
-    "category": "Events",
-    "inputs": [],
-    "outputs": [
-      {
-        "key": "exec",
-        "name": "Flow",
-        "type": "execution"
-      }
-    ],
-    "properties": []
-  },
-  {
-    "type": "StartNode",
-    "label": "Start",
-    "category": "Events",
-    "inputs": [],
-    "outputs": [
-      {
-        "key": "exec",
-        "name": "Flow",
-        "type": "execution"
-      }
-    ],
-    "properties": []
-  },
-  {
-    "type": "LogNode",
-    "label": "Print Log",
-    "category": "Debug",
-    "inputs": [
-      {
-        "key": "msgIn",
-        "name": "Message",
-        "type": "string"
-      },
-      {
-        "key": "exec",
-        "name": "In",
-        "type": "execution"
-      }
-    ],
-    "outputs": [
-      {
-        "key": "out",
-        "name": "Out",
-        "type": "execution"
-      }
-    ],
-    "properties": [
-      {
-        "name": "Message",
-        "type": "string",
-        "default": "Hello",
-        "key": "message"
-      }
-    ]
-  }
-]
-
-// FILE: sandbox/ecs_schema.json
-
-[
-  {
-    "name": "Visual",
-    "label": "Visual Sprite",
-    "description": "Renders an animated sprite",
-    "properties": [
-      {
-        "key": "assetKey",
-        "label": "Atlas Name",
-        "type": "string"
-      },
-      {
-        "key": "initialAnim",
-        "label": "Initial Animation",
-        "type": "string",
-        "default": "idle"
-      },
-      {
-        "key": "offsetX",
-        "label": "Offset X",
-        "type": "number",
-        "default": 0
-      },
-      {
-        "key": "offsetY",
-        "label": "Offset Y",
-        "type": "number",
-        "default": 0
-      }
-    ]
-  },
-  {
-    "name": "Trigger",
-    "label": "Zone Trigger",
-    "description": "Detects entity entry/exit",
-    "properties": [
-      {
-        "key": "boundsType",
-        "label": "Type",
-        "type": "select",
-        "options": [
-          "Self",
-          "Radius"
-        ],
-        "default": "Self"
-      },
-      {
-        "key": "value",
-        "label": "Value",
-        "type": "string"
-      },
-      {
-        "key": "offsetX",
-        "label": "Offset X",
-        "type": "number",
-        "default": 0
-      },
-      {
-        "key": "offsetY",
-        "label": "Offset Y",
-        "type": "number",
-        "default": 0
-      }
-    ]
-  },
-  {
-    "name": "Collider",
-    "label": "Physics Collider",
-    "description": "Blocks player movement",
-    "properties": [
-      {
-        "key": "boundsType",
-        "label": "Bounds Type",
-        "type": "select",
-        "options": [
-          "Self",
-          "Radius",
-          "Object"
-        ],
-        "default": "Self"
-      },
-      {
-        "key": "value",
-        "label": "Value (Radius/ID)",
-        "type": "string"
-      },
-      {
-        "key": "offsetX",
-        "label": "Offset X",
-        "type": "number",
-        "default": 0
-      },
-      {
-        "key": "offsetY",
-        "label": "Offset Y",
-        "type": "number",
-        "default": 0
-      }
-    ]
-  }
-]
-
