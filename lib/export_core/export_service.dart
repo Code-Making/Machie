@@ -7,6 +7,7 @@ import 'services/atlas_gen_service.dart';
 import 'export_collection_service.dart';
 import 'writers/tiled_writer.dart';
 import 'writers/texture_packer_writer.dart';
+import 'writers/flow_graph_writer.dart';
 
 final exportServiceProvider = Provider((ref) => ExportService(ref));
 

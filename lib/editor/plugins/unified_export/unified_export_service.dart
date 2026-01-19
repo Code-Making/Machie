@@ -215,7 +215,7 @@ class UnifiedExportService {
                slices.add(PackableSlice(
                  id: "${tileset.name}_$i",
                  sourceImage: imgAsset.image,
-                 sourceRect: Rect.fromLTWH(x.toDouble(), y.toDouble(), tileset.tileWidth!.toDouble(), tileset.tileHeight!.toDouble()),
+                 sourceRect: ui.Rect.fromLTWH(x.toDouble(), y.toDouble(), tileset.tileWidth!.toDouble(), tileset.tileHeight!.toDouble()),
                  originalName: "${tileset.name}_$i",
                  isGridTile: true,
                  originalGid: tileset.firstGid! + i, 
@@ -248,11 +248,11 @@ class UnifiedExportService {
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint();
 
-    final packedRects = <String, Rect>{};
+    final packedRects = <String, ui.Rect>{};
 
     for(final item in packedResult.items) {
       final slice = item.data as PackableSlice;
-      final destRect = Rect.fromLTWH(item.x, item.y, item.width, item.height);
+      final destRect = ui.Rect.fromLTWH(item.x, item.y, item.width, item.height);
       canvas.drawImageRect(slice.sourceImage, slice.sourceRect, destRect, paint);
       packedRects[slice.id] = destRect;
     }
@@ -345,12 +345,12 @@ class UnifiedExportService {
     return null;
   }
 
-  Rect _calculateTpackerRect(SourceImageConfig config, GridRect grid) {
+  ui.Rect _calculateTpackerRect(SourceImageConfig config, GridRect grid) {
     final s = config.slicing;
     final left = s.margin + grid.x * (s.tileWidth + s.padding);
     final top = s.margin + grid.y * (s.tileHeight + s.padding);
     final width = grid.width * s.tileWidth + (grid.width - 1) * s.padding;
     final height = grid.height * s.tileHeight + (grid.height - 1) * s.padding;
-    return Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
+    return ui.Rect.fromLTWH(left.toDouble(), top.toDouble(), width.toDouble(), height.toDouble());
   }
 }
