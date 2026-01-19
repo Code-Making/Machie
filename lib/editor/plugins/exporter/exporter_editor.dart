@@ -1,15 +1,19 @@
+// FILE: lib/editor/plugins/exporter/exporter_editor.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:machine/app/app_notifier.dart';
 import 'package:machine/editor/models/editor_tab_models.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/utils/toast.dart';
-import 'package:machine/export_core/export_service.dart'; // From Phase 3
+import 'package:machine/export_core/export_service.dart';
 
+import '../models/editor_command_context.dart';
 import 'exporter_models.dart';
 import 'exporter_plugin.dart';
 import 'widgets/source_file_tree.dart';
+import 'widgets/exporter_settings_panel.dart';
+import '../../../command/command_widgets.dart'; // For CommandToolbar
 
 class ExporterEditorWidget extends EditorWidget {
   @override
@@ -24,14 +28,20 @@ class ExporterEditorWidget extends EditorWidget {
 class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> {
   late ExportConfig _config;
   bool _isBuilding = false;
+  bool _isSettingsVisible = false;
 
   @override
   void init() {
     _config = widget.tab.initialConfig;
   }
+  
   @override
   void syncCommandContext() {
-    // No specific command context needed for this plugin yet
+    ref.read(commandContextProvider(widget.tab.id).notifier).state =
+        ExporterCommandContext(
+      isSettingsVisible: _isSettingsVisible,
+      isBuilding: _isBuilding,
+    );
   }
 
   @override
@@ -39,6 +49,12 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
     if (mounted && !widget.tab.onReady.isCompleted) {
       widget.tab.onReady.complete(this);
     }
+    syncCommandContext();
+  }
+
+  void toggleSettings() {
+    setState(() => _isSettingsVisible = !_isSettingsVisible);
+    syncCommandContext();
   }
 
   void _updateConfig(ExportConfig newConfig) {
@@ -46,19 +62,18 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
     ref.read(editorServiceProvider).markCurrentTabDirty();
   }
 
-  Future<void> _runExport() async {
+  void runExport() async {
     if (_config.includedFiles.isEmpty) {
       MachineToast.error("No source files selected.");
       return;
     }
 
     setState(() => _isBuilding = true);
+    syncCommandContext();
 
     try {
-      // 1. Auto-save current config before running
       await ref.read(editorServiceProvider).saveCurrentTab();
 
-      // 2. Call the Export Pipeline (Phase 3 Service)
       final service = ref.read(exportServiceProvider);
       await service.runExportJob(
         sourceFilePaths: _config.includedFiles,
@@ -71,122 +86,94 @@ class ExporterEditorWidgetState extends EditorWidgetState<ExporterEditorWidget> 
     } catch (e) {
       MachineToast.error("Build Failed: $e");
     } finally {
-      if (mounted) setState(() => _isBuilding = false);
+      if (mounted) {
+        setState(() => _isBuilding = false);
+        syncCommandContext();
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    // Calculate panel height: usually ~55% of screen height is good for settings
+    final panelHeight = MediaQuery.of(context).size.height * 0.55;
+    final bottomOffset = _isSettingsVisible ? 0.0 : -panelHeight;
+
+    return Stack(
       children: [
-        // Left Panel: Source Tree
-        Expanded(
-          flex: 4,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: Theme.of(context).dividerColor)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text('Source Files', style: Theme.of(context).textTheme.titleMedium),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: SourceFileTree(
-                    selectedFiles: _config.includedFiles.toSet(),
-                    onSelectionChanged: (newSet) {
-                      _updateConfig(_config.copyWith(includedFiles: newSet.toList()));
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Right Panel: Settings
-        Expanded(
-          flex: 3,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+        // 1. Background: Source File Tree
+        Positioned.fill(
+          child: Column(
             children: [
-              Text('Configuration', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 24),
-              
-              TextFormField(
-                initialValue: _config.outputFolder,
-                decoration: const InputDecoration(
-                  labelText: 'Output Folder',
-                  helperText: 'Relative to project root',
-                  prefixIcon: Icon(Icons.folder_open),
-                  border: OutlineInputBorder(),
+              Expanded(
+                child: SourceFileTree(
+                  selectedFiles: _config.includedFiles.toSet(),
+                  onSelectionChanged: (newSet) {
+                    _updateConfig(_config.copyWith(includedFiles: newSet.toList()));
+                  },
                 ),
-                onChanged: (val) => _updateConfig(_config.copyWith(outputFolder: val)),
               ),
-              const SizedBox(height: 24),
-
-              Text('Atlas Settings', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 16),
-              
-              DropdownButtonFormField<int>(
-                value: _config.atlasSize,
-                decoration: const InputDecoration(labelText: 'Max Atlas Size', border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(value: 512, child: Text('512x512')),
-                  DropdownMenuItem(value: 1024, child: Text('1024x1024')),
-                  DropdownMenuItem(value: 2048, child: Text('2048x2048')),
-                  DropdownMenuItem(value: 4096, child: Text('4096x4096')),
-                ],
-                onChanged: (val) {
-                  if (val != null) _updateConfig(_config.copyWith(atlasSize: val));
-                },
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                initialValue: _config.padding.toString(),
-                decoration: const InputDecoration(
-                  labelText: 'Padding (px)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  final p = int.tryParse(val);
-                  if (p != null) _updateConfig(_config.copyWith(padding: p));
-                },
-              ),
-              
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Remove Unused Tilesets'),
-                subtitle: const Text('Strip empty tilesets from TMX output'),
-                value: _config.removeUnused,
-                onChanged: (val) => _updateConfig(_config.copyWith(removeUnused: val)),
-                contentPadding: EdgeInsets.zero,
-              ),
-
-              const SizedBox(height: 48),
-              SizedBox(
-                height: 50,
-                child: FilledButton.icon(
-                  onPressed: _isBuilding ? null : _runExport,
-                  icon: _isBuilding 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.build),
-                  label: Text(_isBuilding ? 'Building Atlas...' : 'Build Export'),
-                ),
+              // Spacer to ensure list items scroll above the panel when it opens
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                height: _isSettingsVisible ? panelHeight : 0,
               ),
             ],
           ),
         ),
+
+        // 2. Floating Command Toolbar (Top Right)
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Card(
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: const SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: CommandToolbar(
+                    position: ExporterPlugin.exporterFloatingToolbar,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 3. Settings Panel sliding up from bottom
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          left: 0,
+          right: 0,
+          bottom: bottomOffset,
+          height: panelHeight,
+          child: ExporterSettingsPanel(
+            config: _config,
+            onChanged: _updateConfig,
+            onClose: toggleSettings,
+            onBuild: runExport,
+            isBuilding: _isBuilding,
+          ),
+        ),
+        
+        // 4. Loading Overlay
+        if (_isBuilding)
+           Positioned(
+             top: 0, left: 0, right: 0,
+             child: LinearProgressIndicator(
+               backgroundColor: Colors.transparent, 
+               color: Theme.of(context).colorScheme.secondary,
+             ),
+           ),
       ],
     );
   }
 
-  // Boilerplate implementation
   @override
   void undo() {}
   @override
