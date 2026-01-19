@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
-import 'package:machine/app/app_notifier.dart';
+import 'package:machine/app/app_notifier.dart'; // Fixed import
 
 final exportAssetLoaderProvider = Provider((ref) => ExportAssetLoaderService(ref));
 
@@ -15,7 +15,6 @@ class ExportAssetLoaderService {
   ProjectRepository get _repo => _ref.read(projectRepositoryProvider)!;
   String get _rootUri => _ref.read(currentProjectProvider)!.rootUri;
 
-  /// Loads an image given a project-relative path.
   Future<ui.Image?> loadImage(String relativePath) async {
     if (_cache.containsKey(relativePath)) return _cache[relativePath];
 
@@ -30,13 +29,11 @@ class ExportAssetLoaderService {
       _cache[relativePath] = frame.image;
       return frame.image;
     } catch (e) {
-      // Log error but don't crash export
       return null;
     }
   }
 
   void clearCache() {
-    // Dispose images if necessary, though Dart GC handles ui.Image mostly.
     _cache.clear();
   }
 }
