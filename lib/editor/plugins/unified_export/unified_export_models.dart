@@ -24,7 +24,7 @@ class DependencyNode {
 class PackableSlice {
   final String id; // Unique ID (e.g., "tileset_name::gid::15" or "sprite_name")
   final ui.Image sourceImage;
-  final Rect sourceRect;
+  final ui.Rect sourceRect;
   final String originalName; // For metadata (frame name)
   
   // Alignment info if this slice comes from a grid
@@ -45,7 +45,7 @@ class AtlasPage {
   final int width;
   final int height;
   final Uint8List pngBytes;
-  final Map<String, Rect> packedRects; // SliceID -> Destination Rect
+  final Map<String, ui.Rect> packedRects; // SliceID -> Destination Rect
 
   AtlasPage({
     required this.width,
