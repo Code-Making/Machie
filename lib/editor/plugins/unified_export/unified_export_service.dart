@@ -16,7 +16,7 @@ import 'package:machine/editor/plugins/tiled_editor/tmj_writer.dart';
 import 'package:machine/editor/plugins/tiled_editor/tmx_writer.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
-import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
+// import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
 
 import 'unified_export_models.dart';
 import '../../../asset_cache/asset_models.dart';
@@ -27,55 +27,78 @@ class UnifiedExportService {
   final Ref _ref;
   UnifiedExportService(this._ref);
 
+  /// Scans the file at [rootUri] and recursively finds all dependencies.
+  /// 
+  /// [rootUri] MUST be a valid SAF URI (content://...).
   Future<DependencyNode> scanDependencies(
     String rootUri, 
     ProjectRepository repo, 
     TiledAssetResolver resolver
   ) async {
+    // Convert the start URI to a project-relative display path (e.g. "maps/level1.tmx")
+    // This ensures our dependency graph uses clean, logical paths.
+    final rootPath = repo.fileHandler.getPathForDisplay(rootUri, relativeTo: repo.rootUri);
     final visited = <String>{};
-    return _scanRecursive(rootUri, repo, resolver, visited);
+    
+    return _scanRecursive(rootPath, repo, resolver, visited);
   }
 
   Future<DependencyNode> _scanRecursive(
-    String uri, 
+    String path, 
     ProjectRepository repo, 
     TiledAssetResolver resolver,
     Set<String> visited
   ) async {
-    if (visited.contains(uri)) return _createNode(uri, [], visited: true);
-    visited.add(uri);
+    if (visited.contains(path)) return _createNode(path, [], visited: true);
+    visited.add(path);
 
-    final ext = p.extension(uri).toLowerCase();
+    // Resolve the display path back to a SAF URI for reading
+    final file = await repo.fileHandler.resolvePath(repo.rootUri, path);
+    if (file == null) {
+      // File missing
+      return _createNode(path, []);
+    }
+
+    final ext = p.extension(path).toLowerCase();
     final children = <DependencyNode>[];
     
-    final relativePath = repo.fileHandler.getPathForDisplay(uri, relativeTo: repo.rootUri);
-
     try {
       if (ext == '.tmx') {
-        final content = await repo.readFile(uri);
-        final tsxProvider = ProjectTsxProvider(repo, repo.fileHandler.getParentUri(uri));
+        final content = await repo.readFile(file.uri);
+        // Use the file's parent URI for relative TSX resolution
+        final parentUri = repo.fileHandler.getParentUri(file.uri);
+        final tsxProvider = ProjectTsxProvider(repo, parentUri);
         final tsxProviders = await ProjectTsxProvider.parseFromTmx(content, tsxProvider.getProvider);
+        
         final map = TileMapParser.parseTmx(content, tsxList: tsxProviders);
 
         for (final ts in map.tilesets) {
           final imgSource = ts.image?.source;
           if (imgSource != null) {
-            final assetUri = repo.resolveRelativePath(relativePath, imgSource);
-            children.add(await _scanRecursive(assetUri, repo, resolver, visited));
+            // Determine context path for the image.
+            // If it's an external tileset (ts.source != null), the image is relative to that TSX.
+            // Otherwise, it's relative to the TMX (path).
+            String contextPath = path;
+            if (ts.source != null) {
+              contextPath = repo.resolveRelativePath(path, ts.source!);
+            }
+            
+            final assetPath = repo.resolveRelativePath(contextPath, imgSource);
+            children.add(await _scanRecursive(assetPath, repo, resolver, visited));
           }
         }
         
         void scanProperties(CustomProperties props) async {
           final fgProp = props['flowGraph'];
           if (fgProp is StringProperty && fgProp.value.isNotEmpty) {
-             final assetUri = repo.resolveRelativePath(relativePath, fgProp.value);
-             children.add(await _scanRecursive(assetUri, repo, resolver, visited));
+             final assetPath = repo.resolveRelativePath(path, fgProp.value);
+             children.add(await _scanRecursive(assetPath, repo, resolver, visited));
           }
           final tpProp = props['tp_atlases'];
           if (tpProp is StringProperty && tpProp.value.isNotEmpty) {
-            for(var path in tpProp.value.split(',')) {
-               final assetUri = repo.resolveRelativePath(relativePath, path.trim());
-               children.add(await _scanRecursive(assetUri, repo, resolver, visited));
+            for(var atlasPath in tpProp.value.split(',')) {
+               final assetPath = repo.resolveRelativePath(path, atlasPath.trim());
+               children.add(await _scanRecursive(assetPath, repo, resolver, visited));
             }
           }
         }
@@ -89,30 +112,27 @@ class UnifiedExportService {
         }
 
       } else if (ext == '.tpacker') {
-        final content = await repo.readFile(uri);
+        final content = await repo.readFile(file.uri);
         final project = TexturePackerProject.fromJson(jsonDecode(content));
         
         void scanSource(SourceImageNode node) async {
           if (node.type == SourceNodeType.image && node.content != null) {
-             final assetUri = repo.resolveRelativePath(relativePath, node.content!.path);
-             children.add(await _scanRecursive(assetUri, repo, resolver, visited));
+             final assetPath = repo.resolveRelativePath(path, node.content!.path);
+             children.add(await _scanRecursive(assetPath, repo, resolver, visited));
           }
           for(var c in node.children) scanSource(c);
         }
         scanSource(project.sourceImagesRoot);
-
-      } else if (ext == '.fg') {
-        // Flow graph scanning logic if needed
       }
     } catch (e) {
-      print("Scan error on $uri: $e");
+      print("Scan error on $path: $e");
     }
 
-    return _createNode(uri, children);
+    return _createNode(path, children);
   }
 
-  DependencyNode _createNode(String uri, List<DependencyNode> children, {bool visited = false}) {
-    final ext = p.extension(uri).toLowerCase();
+  DependencyNode _createNode(String path, List<DependencyNode> children, {bool visited = false}) {
+    final ext = p.extension(path).toLowerCase();
     ExportNodeType type = ExportNodeType.unknown;
     if (ext == '.tmx') type = ExportNodeType.tmx;
     else if (ext == '.tpacker') type = ExportNodeType.tpacker;
@@ -120,8 +140,8 @@ class UnifiedExportService {
     else if (['.png', '.jpg', '.jpeg'].contains(ext)) type = ExportNodeType.image;
 
     return DependencyNode(
-      sourcePath: uri, 
-      destinationPath: uri,
+      sourcePath: path, // This is now a display path
+      destinationPath: path,
       type: type,
       children: children,
       included: !visited,
@@ -135,18 +155,20 @@ class UnifiedExportService {
   ) async {
     final slices = <PackableSlice>[];
     final repo = resolver.repo;
-    final projectRoot = repo.rootUri;
-
-    final processedUris = <String>{};
+    
+    // We use a Set to avoid processing the same file multiple times in the dependency graph
+    final processedPaths = <String>{};
     
     Future<void> processNode(DependencyNode node) async {
-      if (processedUris.contains(node.sourcePath) || !node.included) return;
-      processedUris.add(node.sourcePath);
+      if (processedPaths.contains(node.sourcePath) || !node.included) return;
+      processedPaths.add(node.sourcePath);
 
-      final relativePath = repo.fileHandler.getPathForDisplay(node.sourcePath, relativeTo: projectRoot);
+      // Resolve SAF URI to read file
+      final file = await repo.fileHandler.resolvePath(repo.rootUri, node.sourcePath);
+      if (file == null) return;
 
       if (node.type == ExportNodeType.tpacker) {
-        final content = await repo.readFile(node.sourcePath);
+        final content = await repo.readFile(file.uri);
         final proj = TexturePackerProject.fromJson(jsonDecode(content));
         
         void collectSprites(PackerItemNode itemNode) {
@@ -155,7 +177,8 @@ class UnifiedExportService {
             if (def is SpriteDefinition) {
               final sourceConfig = _findSourceInTpacker(proj.sourceImagesRoot, def.sourceImageId);
               if (sourceConfig != null) {
-                final imgPath = repo.resolveRelativePath(relativePath, sourceConfig.path);
+                // Ensure asset is loaded. sourceConfig.path is relative to tpacker file.
+                final imgPath = repo.resolveRelativePath(node.sourcePath, sourceConfig.path);
                 final imgAsset = resolver.rawAssets[imgPath]; 
                 
                 if (imgAsset is ImageAssetData) {
@@ -175,19 +198,21 @@ class UnifiedExportService {
         collectSprites(proj.tree);
 
       } else if (node.type == ExportNodeType.tmx) {
-        final content = await repo.readFile(node.sourcePath);
-        final tsxProvider = ProjectTsxProvider(repo, repo.fileHandler.getParentUri(node.sourcePath));
+        final content = await repo.readFile(file.uri);
+        final parentUri = repo.fileHandler.getParentUri(file.uri);
+        final tsxProvider = ProjectTsxProvider(repo, parentUri);
         final tsxProviders = await ProjectTsxProvider.parseFromTmx(content, tsxProvider.getProvider);
         final map = TileMapParser.parseTmx(content, tsxList: tsxProviders);
 
         for (final tileset in map.tilesets) {
           if (tileset.image?.source == null) continue;
           
-          final tsPath = tileset.source != null 
-              ? repo.resolveRelativePath(relativePath, tileset.source!)
-              : relativePath;
+          String contextPath = node.sourcePath;
+          if (tileset.source != null) {
+            contextPath = repo.resolveRelativePath(node.sourcePath, tileset.source!);
+          }
               
-          final imgPath = repo.resolveRelativePath(tsPath, tileset.image!.source!);
+          final imgPath = repo.resolveRelativePath(contextPath, tileset.image!.source!);
           final imgAsset = resolver.rawAssets[imgPath];
 
           if (imgAsset is ImageAssetData) {
@@ -221,6 +246,7 @@ class UnifiedExportService {
 
     await processNode(rootNode);
 
+    // Sort slices by ID to ensure deterministic output
     slices.sort((a, b) => a.id.compareTo(b.id));
 
     final packerItems = slices.map((s) => PackerInputItem(
@@ -284,6 +310,9 @@ class UnifiedExportService {
     );
   }
 
+  /// Writes the export to the [destinationUri].
+  /// 
+  /// [destinationUri] MUST be a valid SAF URI to a directory.
   Future<void> writeExport(
     DependencyNode rootNode,
     ExportResult exportData,
@@ -291,10 +320,11 @@ class UnifiedExportService {
     ProjectRepository repo,
     {bool exportAsJson = true}
   ) async {
-    final processed = <String>{};
+    final processedPaths = <String>{};
     final atlasFileName = "atlas.png";
     final atlasJsonName = "atlas.json";
 
+    // Write Atlas
     final atlasPage = exportData.atlases.first;
     await repo.createDocumentFile(
       destinationUri, 
@@ -312,16 +342,20 @@ class UnifiedExportService {
     final atlasTileset = _createAtlasTileset(exportData, atlasFileName);
 
     Future<void> writeNode(DependencyNode node) async {
-      if (processed.contains(node.sourcePath) || !node.included) return;
-      processed.add(node.sourcePath);
+      if (processedPaths.contains(node.sourcePath) || !node.included) return;
+      processedPaths.add(node.sourcePath);
 
       final originalName = p.basenameWithoutExtension(node.sourcePath);
       final newExt = exportAsJson ? '.json' : p.extension(node.sourcePath);
       final newName = "$originalName$newExt";
 
       if (node.type == ExportNodeType.tmx) {
-        final content = await repo.readFile(node.sourcePath);
-        final parentUri = repo.fileHandler.getParentUri(node.sourcePath);
+        // Resolve SAF URI to read
+        final file = await repo.fileHandler.resolvePath(repo.rootUri, node.sourcePath);
+        if (file == null) return;
+
+        final content = await repo.readFile(file.uri);
+        final parentUri = repo.fileHandler.getParentUri(file.uri);
         final tsxProvider = ProjectTsxProvider(repo, parentUri);
         final tsxProviders = await ProjectTsxProvider.parseFromTmx(content, tsxProvider.getProvider);
         
@@ -365,9 +399,8 @@ class UnifiedExportService {
           overwrite: true
         );
 
-      } else if (node.type == ExportNodeType.flowGraph) {
-         // TODO: Implement FlowGraph rewrite to point to exported assets if necessary
-      }
+      } 
+      // Add other types like flowGraph processing if needed here
 
       for(var c in node.children) await writeNode(c);
     }
@@ -384,13 +417,14 @@ class UnifiedExportService {
 
     for (final id in sortedKeys) {
       final rect = packedRects[id]!;
-      // CORRECTED: Pass properties via constructor
+      // Fixed: Using properties.byName assignment or CustomProperties constructor
+      final props = CustomProperties({});
+      props.byName['originalId'] = StringProperty(name: 'originalId', value: id);
+      props.byName['sourceRect'] = StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}');
+      
       final tile = Tile(
         localId: localId,
-        properties: CustomProperties({
-          'originalId': StringProperty(name: 'originalId', value: id),
-          'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'),
-        }),
+        properties: props,
       );
       newTiles.add(tile);
       localId++;
