@@ -234,7 +234,7 @@ class TiledExportService {
     
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
-    final paint = ui.Paint()..filterQuality = FilterQuality.none;
+    final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
     final packedRects = <String, ui.Rect>{};
 
