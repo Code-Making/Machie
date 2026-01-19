@@ -21,6 +21,10 @@ import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart
 
 import 'tiled_asset_resolver.dart';
 
+final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
+  return TiledExportService(ref);
+});
+
 class _UnifiedAssetSource {
   /// Canonical path to the source image file
   final String sourcePath;
