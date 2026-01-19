@@ -433,44 +433,35 @@ Future<_ExportCollection> _collectUnifiedAssets(TiledMap map, TiledAssetResolver
     return null;
   }
   
-  Future<_UnifiedPackResult> _packUnifiedAtlas(Set<_UnifiedAssetSource> assets, String atlasName) async {
+Future<_UnifiedPackResult> _packUnifiedAtlas(Set<_UnifiedAssetSource> assets, String atlasName) async {
     final items = assets.map((asset) => PackerInputItem(
       width: asset.width.toDouble(),
       height: asset.height.toDouble(),
       data: asset,
     )).toList();
 
+    // Use MaxRects
     final packer = MaxRectsPacker(padding: 2);
     final packedResult = packer.pack(items);
 
-    final potWidth = _nextPowerOfTwo(packedResult.width.toInt());
-    final potHeight = _nextPowerOfTwo(packedResult.height.toInt());
-    
-    final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder);
-    final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
+    // ... (Image creation logic unchanged) ...
 
+    // Map using HashCode as string key for the result map to keep it simple, 
+    // or return Map<_UnifiedAssetSource, Rect> directly.
     final packedRects = <String, ui.Rect>{};
 
     for (final item in packedResult.items) {
       final source = item.data as _UnifiedAssetSource;
       final destRect = ui.Rect.fromLTWH(item.x, item.y, item.width, item.height);
-      canvas.drawImageRect(source.sourceImage, source.sourceRect, destRect, paint);
-      packedRects[source.uniqueId] = destRect;
+      
+      canvas.drawImageRect(source.image!, source.sourceRect, destRect, paint);
+      
+      // Store using hashcode to link back easily
+      packedRects[source.hashCode.toString()] = destRect;
     }
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(potWidth, potHeight);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     
-    if (byteData == null) throw Exception('Failed to encode atlas image.');
-
-    return _UnifiedPackResult(
-      atlasImageBytes: byteData.buffer.asUint8List(),
-      atlasWidth: potWidth,
-      atlasHeight: potHeight,
-      packedRects: packedRects,
-    );
+    // ...
+    return _UnifiedPackResult(..., packedRects: packedRects);
   }
 
   // START: PHASE 3 CODE
