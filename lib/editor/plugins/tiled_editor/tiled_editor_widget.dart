@@ -15,6 +15,7 @@ import '../../services/editor_service.dart';
 import '../../tab_metadata_notifier.dart';
 import '../../../logs/logs_provider.dart';
 import '../../../utils/toast.dart';
+import 'package:path/path.dart' as p;
 
 import 'tiled_command_context.dart';
 import 'tiled_editor_models.dart';
