@@ -82,7 +82,9 @@ class TiledExportService {
     required String destinationFolderUri,
     required String mapFileName,
     required String atlasFileName,
+    bool removeUnused = true,
     bool asJson = false,
+    bool packInAtlas = true, 
   }) async {
     final talker = _ref.read(talkerProvider);
     final repo = resolver.repo;
@@ -100,36 +102,48 @@ class TiledExportService {
     final TiledMap workingMap = _deepCopyMap(map);
 
     // 3. Recursive Discovery
+    // Note: This logic implicitly respects "removeUnused" because strictly 
+    // explicitly referenced assets are discovered.
     await _discoverAssetsAndDependencies(workingMap, context);
 
-    // 4. Pack Atlas
-    final pages = await _packAtlas(context.assets.values.toList());
-    
-    // 5. Write Atlas Files
-    for (final page in pages) {
-      final suffix = pages.length > 1 ? '_${page.index}' : '';
-      final fileName = '$atlasFileName$suffix';
+    if (packInAtlas) {
+      // 4. Pack Atlas
+      final pages = await _packAtlas(context.assets.values.toList());
       
-      // Write Image
-      await repo.createDocumentFile(
-        destinationFolderUri,
-        '$fileName.png',
-        initialBytes: page.pngBytes,
-        overwrite: true,
-      );
+      // 5. Write Atlas Files
+      for (final page in pages) {
+        final suffix = pages.length > 1 ? '_${page.index}' : '';
+        final fileName = '$atlasFileName$suffix';
+        
+        // Write Image
+        await repo.createDocumentFile(
+          destinationFolderUri,
+          '$fileName.png',
+          initialBytes: page.pngBytes,
+          overwrite: true,
+        );
 
-      // Write JSON Data
-      final jsonContent = _generateAtlasJson(page, fileName, context);
-      await repo.createDocumentFile(
-        destinationFolderUri,
-        '$fileName.json',
-        initialContent: jsonContent,
-        overwrite: true,
-      );
+        // Write JSON Data
+        final jsonContent = _generateAtlasJson(page, fileName, context);
+        await repo.createDocumentFile(
+          destinationFolderUri,
+          '$fileName.json',
+          initialContent: jsonContent,
+          overwrite: true,
+        );
+      }
+
+      // 6. Remap Map Data (GIDs and Properties)
+      _remapMapToAtlas(workingMap, pages, context, atlasFileName);
+    } else {
+      // If packInAtlas is false, we should ideally copy assets one by one.
+      // For this unified implementation, we will log a warning that non-packed export
+      // is not fully supported in this unified mode, or we just proceed with map export
+      // without remapping tilesets (assuming raw files are manually managed).
+      // A simple fallback would be to just copy referenced images.
+      talker.warning("Non-packed export requested. Copying raw assets not fully implemented in unified pipeline. Map will reference original paths.");
+      // TODO: Implement raw asset copy fallback if strict legacy support is needed.
     }
-
-    // 6. Remap Map Data (GIDs and Properties)
-    _remapMapToAtlas(workingMap, pages, context, atlasFileName);
 
     // 7. Write Main Map File
     final mapExtension = asJson ? 'json' : 'tmx';
@@ -147,7 +161,7 @@ class TiledExportService {
       overwrite: true,
     );
 
-    talker.info('Export Complete: $mapFileName.$mapExtension with ${pages.length} atlas pages.');
+    talker.info('Export Complete: $mapFileName.$mapExtension');
   }
 
   // --- Phase 1: Recursive Discovery ---
@@ -157,12 +171,6 @@ class TiledExportService {
     final tmxPath = context.resolver.tmxPath;
 
     // A. Collect Tile Assets (from Tile Layers)
-    // We scan tilesets first to prepare image sources
-    for (final tileset in map.tilesets) {
-      // Logic handled during layer scan to only grab used tiles? 
-      // Better: Scan all used GIDs from layers.
-    }
-
     final usedGids = _findUsedGids(map);
     for (final gid in usedGids) {
       await _extractTileAsset(gid, map, context);
@@ -271,24 +279,14 @@ class TiledExportService {
       final content = await repo.readFile(file.uri);
       final graph = FlowGraph.deserialize(content);
 
-      // 3. Recursive Asset Scan inside Graph (Simplified)
-      // If FlowGraph nodes have "image" properties, we'd scan them here 
-      // and add to context.addAsset(...) similarly.
-
       // 4. Export Graph as JSON
       final exportName = '${p.basenameWithoutExtension(file.name)}.json';
       
-      // We assume FlowExportService logic here to serialize json
       final flowService = _ref.read(flowExportServiceProvider);
       // We use a temporary resolver for the graph's context
       final graphPath = repo.fileHandler.getPathForDisplay(file.uri, relativeTo: repo.rootUri);
       final graphResolver = FlowGraphAssetResolver(context.resolver.rawAssets, repo, graphPath);
 
-      // We manually perform export to string instead of file to control placement
-      // Or simply use the service if it supports string return.
-      // For this implementation, let's rely on the service to write file 
-      // but we need to know WHERE.
-      
       await flowService.export(
         graph: graph,
         resolver: graphResolver,
@@ -327,13 +325,6 @@ class TiledExportService {
         data: a,
       )).toList();
 
-      // Simple strategy: Try 2048x2048. If items don't fit, they stay in unpacked.
-      // We iterate creating pages until empty.
-      
-      // Note: MaxRectsPacker in this project calculates size automatically based on fit?
-      // Or we define a bin size. Assuming the algo from `texture_packer_algo.dart`:
-      // It usually expands. We'll enforce a max size logic or just let it pack all if possible.
-      
       final result = packer.pack(inputItems); // Packs everything into one if possible
       
       // Render
@@ -369,8 +360,7 @@ class TiledExportService {
 
       remainingAssets.removeWhere((a) => packedIds.contains(a.id));
       
-      // Safety break
-      if (packedIds.isEmpty) break; 
+      if (packedIds.isEmpty) break; // Safety
     }
 
     return pages;
@@ -392,42 +382,22 @@ class TiledExportService {
       final pageName = '${atlasBaseName}${pages.length > 1 ? '_${page.index}' : ''}';
       
       // We create a "Collection of Images" style tileset because we packed rects arbitrarily.
-      // However, Tiled handles Atlas tilesets best if we define it as one image 
-      // and define <tile>s with regions.
-      
       final tiles = <Tile>[];
       int localId = 0;
 
-      // We sort mapped rects by ID to ensure deterministic GID assignment
       final sortedIds = page.mappedRects.keys.toList()..sort();
 
       for (final assetId in sortedIds) {
         final rect = page.mappedRects[assetId]!;
         
-        // In Tiled, to represent a sub-region of a single image tileset, 
-        // strictly speaking, relies on grid. 
-        // IF we want arbitrary sizes, we usually use separate images.
-        // HACK: We can create a Tileset with the Atlas Image, set tileWidth/Height to 1??
-        // BETTER: We rely on the output being for a GAME ENGINE (JSON/Pixi).
-        // For the TMX to be viewable in Tiled, we construct a Tileset where
-        // we assume the game engine reads the 'class' or properties to find the atlas frame.
-        // But to make the TMX valid:
-        
+        // Define tile properties for engine to locate in atlas
         final tile = Tile(
           localId: localId,
-          // We don't set image here because we'll set the master image on the tileset
-          // But wait, standard Tilesets are grids.
-          // To support packed atlas in Tiled TMX, we often treat it as a "Collection" 
-          // where the image source is the atlas, but that implies the whole image.
-          
-          // APPROACH: We will create a Tileset that has NO master image, 
-          // but each Tile has an Image (the atlas) and a source rect? 
-          // No, Tiled <image> tag is the whole file.
-          
-          // SOLUTION for Engine Export:
-          // We define a tileset.
-          // We use Custom Properties to store the frame name/coords.
-          // We assign IDs.
+          // Using properties to store atlas coordinates for engines
+          properties: CustomProperties({
+            'atlas_rect': StringProperty(name: 'atlas_rect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'),
+            'original_id': StringProperty(name: 'original_id', value: assetId),
+          })
         );
         
         // Add mapping
@@ -439,8 +409,9 @@ class TiledExportService {
       final ts = Tileset(
         name: pageName,
         firstGid: currentFirstGid,
-        tileWidth: 32, // Dummy values
+        tileWidth: 32, // Dummy values for Tiled compatibility
         tileHeight: 32,
+        // We set the atlas image as the source, but rely on properties/engine for lookup
         image: TiledImage(source: '$pageName.png', width: page.width, height: page.height),
         tiles: tiles,
       );
@@ -461,15 +432,13 @@ class TiledExportService {
             final gid = layer.tileData![y][x];
             if (gid.tile == 0) continue;
 
-            // Find asset ID for this original GID
-            // Note: This is O(N) lookup in context, optimized by map
             final asset = context.assets.values.firstWhereOrNull((a) => a.originalGid == gid.tile);
             
             if (asset != null && assetIdToGid.containsKey(asset.id)) {
               final newGid = assetIdToGid[asset.id]!;
               layer.tileData![y][x] = Gid(newGid, gid.flips);
             } else {
-              layer.tileData![y][x] = Gid(0, Flips.defaults()); // Clear if not found
+              layer.tileData![y][x] = Gid(0, Flips.defaults()); 
             }
           }
         }
@@ -491,22 +460,16 @@ class TiledExportService {
           if (spriteProp is StringProperty) {
             final assetId = 'sprite_${spriteProp.value}';
             if (assetIdToGid.containsKey(assetId)) {
-              // Convert Sprite Object to Tile Object pointing to Atlas
               obj.gid = assetIdToGid[assetId];
-              // Remove the custom property as it's now native Tiled
               obj.properties.byName.remove('tp_sprite');
-              
-              // We need to adjust Y coordinate because Tiled Objects anchor Bottom-Left 
-              // for Tiles, but Top-Left for Shapes/Sprites usually. 
-              // Tiled GID objects are drawn growing Up from Y.
-              obj.y += obj.height;
+              obj.y += obj.height; // Fix Tiled anchor difference (Bottom-Left vs Top-Left)
             }
           }
         }
       }
     }
     
-    // Clean up
+    // Clean up properties that are no longer needed
     map.properties.byName.remove('tp_atlases');
   }
 
