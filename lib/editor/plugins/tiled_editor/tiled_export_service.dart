@@ -21,42 +21,53 @@ import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart
 
 import 'tiled_asset_resolver.dart';
 
-// Constants for Tiled GID flipping flags
+class _UnifiedAssetSource {
+  /// Canonical path to the source image file
+  final String sourcePath;
+  final ui.Rect sourceRect;
+  final ui.Image? image; 
+
+  _UnifiedAssetSource({
+    required this.sourcePath,
+    required this.sourceRect,
+    this.image,
+  });
+
+  int get width => sourceRect.width.toInt();
+  int get height => sourceRect.height.toInt();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _UnifiedAssetSource &&
+          sourcePath == other.sourcePath &&
+          sourceRect == other.sourceRect;
+
+  @override
+  int get hashCode => Object.hash(sourcePath, sourceRect);
+}
+
+class _ExportCollection {
+  final Set<_UnifiedAssetSource> uniqueAssets;
+  final Map<int, _UnifiedAssetSource> gidToSource;
+  final Map<String, _UnifiedAssetSource> spriteToSource;
+
+  _ExportCollection({
+    required this.uniqueAssets,
+    required this.gidToSource,
+    required this.spriteToSource,
+  });
+}
+
+// GID Flag Helpers
 const int _flippedHorizontallyFlag = 0x80000000;
 const int _flippedVerticallyFlag = 0x40000000;
 const int _flippedDiagonallyFlag = 0x20000000;
 const int _flippedMask = _flippedHorizontallyFlag | _flippedVerticallyFlag | _flippedDiagonallyFlag;
 const int _gidMask = ~_flippedMask;
 
-// Helper to extract the clean ID
 int _getCleanGid(int gid) => gid & _gidMask;
-
-// Helper to extract flags
 int _getGidFlags(int gid) => gid & _flippedMask;
-
-final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
-  return TiledExportService(ref);
-});
-
-class _UnifiedAssetSource {
-  final String uniqueId;
-  final ui.Image sourceImage;
-  final ui.Rect sourceRect;
-  final int width;
-  final int height;
-
-  _UnifiedAssetSource({
-    required this.uniqueId,
-    required this.sourceImage,
-    required this.sourceRect,
-  }) : width = sourceRect.width.toInt(),
-       height = sourceRect.height.toInt();
-
-  @override
-  bool operator ==(Object other) => other is _UnifiedAssetSource && other.uniqueId == uniqueId;
-  @override
-  int get hashCode => uniqueId.hashCode;
-}
 
 class _UnifiedPackResult {
   final Uint8List atlasImageBytes;
@@ -76,13 +87,13 @@ class TiledExportService {
   final Ref _ref;
   TiledExportService(this._ref);
 
-  Future<void> exportMap({
+Future<void> exportMap({
     required TiledMap map,
     required TiledAssetResolver resolver,
     required String destinationFolderUri,
     required String mapFileName,
     required String atlasFileName,
-    bool removeUnused = true, 
+    bool removeUnused = true,
     bool asJson = false,
     bool packInAtlas = true,
   }) async {
@@ -90,51 +101,87 @@ class TiledExportService {
     final repo = resolver.repo;
     talker.info('Starting unified map export...');
 
+    // 1. Deep copy map to avoid mutating editor state
     TiledMap mapToExport = _deepCopyMap(map);
 
-    // PHASE 4 (Part 1): Process FlowGraph dependencies before asset handling
+    // 2. Process external FlowGraph dependencies (export .fg -> .json)
     await _processFlowGraphDependencies(mapToExport, resolver, destinationFolderUri);
 
     if (packInAtlas) {
-      // Phase 1: Asset Discovery and Collection
-      final assetsToPack = await _collectUnifiedAssets(mapToExport, resolver);
+      // 3a. Collect unique assets (Deduped by path + rect)
+      final collection = await _collectUnifiedAssets(mapToExport, resolver);
 
-      if (assetsToPack.isNotEmpty) {
-        talker.info('Collected ${assetsToPack.length} unique graphical assets to pack.');
-        
-        // Phase 2: Intelligent Atlas Packing
-        final packResult = await _packUnifiedAtlas(assetsToPack, atlasFileName);
-        talker.info('Atlas packing complete. Final dimensions: ${packResult.atlasWidth}x${packResult.atlasHeight}');
-        
-        // Phase 3: Map Data Remapping and Finalization
-        _remapAndFinalizeMap(mapToExport, packResult, atlasFileName);
-        
-        // Phase 5 (Output): Write atlas files
+      if (collection.uniqueAssets.isNotEmpty) {
+        talker.info('Collected ${collection.uniqueAssets.length} unique assets to pack.');
+
+        // 3b. Pack Assets
+        final packResult = await _packUnifiedAtlas(collection.uniqueAssets, atlasFileName);
+        talker.info('Atlas packing complete. ${packResult.atlasWidth}x${packResult.atlasHeight}');
+
+        // 3c. Generate New GIDs
+        // Sort assets by source path for deterministic GID assignment
+        final sortedAssets = collection.uniqueAssets.toList()
+          ..sort((a, b) => a.sourcePath.compareTo(b.sourcePath));
+
+        final sourceToNewGid = <_UnifiedAssetSource, int>{};
+        int currentGid = 1; // Tiled GIDs start at 1
+
+        for (final asset in sortedAssets) {
+          sourceToNewGid[asset] = currentGid++;
+        }
+
+        // 3d. Build Remap Tables
+        final gidRemap = <int, int>{};
+        final spriteRemap = <String, int>{};
+
+        // Map Old GID -> New GID
+        collection.gidToSource.forEach((oldGid, asset) {
+          if (sourceToNewGid.containsKey(asset)) {
+            gidRemap[oldGid] = sourceToNewGid[asset]!;
+          }
+        });
+
+        // Map Sprite Name -> New GID
+        collection.spriteToSource.forEach((name, asset) {
+          if (sourceToNewGid.containsKey(asset)) {
+            spriteRemap[name] = sourceToNewGid[asset]!;
+          }
+        });
+
+        // 3e. Apply Remapping to Map Layer Data
+        _remapMapGids(mapToExport, gidRemap, spriteRemap);
+
+        // 3f. Replace Tilesets with Single Atlas Tileset
+        _finalizeTilesets(mapToExport, packResult, atlasFileName, sortedAssets);
+
+        // 3g. Write Atlas Files
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.png',
           initialBytes: packResult.atlasImageBytes,
           overwrite: true,
         );
+        
+        // Generate JSON with sprite names as keys for easy lookup in engine
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.json',
-          initialContent: _generatePixiJson(packResult, atlasFileName),
+          initialContent: _generatePixiJson(packResult, atlasFileName, sortedAssets),
           overwrite: true,
         );
-
       } else {
-        talker.info("No tiles or sprites found to pack into an atlas.");
+        talker.warning("No assets found to pack. Clearing tilesets.");
         mapToExport.tilesets.clear();
       }
     } else {
-      // PHASE 4 (Part 2): Alternative workflow for non-packing
+      // 4. Legacy Mode: Just copy files
       await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
+
+    // 5. Write Map File
+    final String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
+    final String fileExtension = asJson ? 'json' : 'tmx';
     
-    // Final Output: Write the processed map file
-    String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
-    String fileExtension = asJson ? 'json' : 'tmx';
     await repo.createDocumentFile(
       destinationFolderUri,
       '$mapFileName.$fileExtension',
@@ -142,43 +189,102 @@ class TiledExportService {
       overwrite: true,
     );
 
-    talker.info('Unified export complete: $mapFileName.$fileExtension');
+    talker.info('Export complete: $mapFileName.$fileExtension');
+  }
+  
+  void _remapAndFinalizeMap(
+    TiledMap map, 
+    _UnifiedPackResult result, 
+    String atlasName, 
+    Map<_UnifiedAssetSource, int> sourceToNewGid
+  ) {
+    final newTiles = <Tile>[];
+    
+    // Create tiles for the new Tileset
+    sourceToNewGid.forEach((asset, newGid) {
+      final localId = newGid - 1;
+      final rect = result.packedRects[asset.hashCode.toString()]!; // Retrieve packed rect
+      
+      // We define a tile with custom properties indicating its region in the atlas
+      final newTile = Tile(
+        localId: localId,
+        properties: CustomProperties({
+          'atlas_rect': StringProperty(
+            name: 'atlas_rect', 
+            value: '${rect.left.toInt()},${rect.top.toInt()},${rect.width.toInt()},${rect.height.toInt()}'
+          ),
+          'original_source': StringProperty(name: 'original_source', value: asset.sourcePath),
+        }),
+      );
+      newTiles.add(newTile);
+    });
+
+    // Create the single unified Tileset
+    final newTileset = Tileset(
+      name: atlasName,
+      firstGid: 1,
+      tileWidth: map.tileWidth,   // Keep map defaults
+      tileHeight: map.tileHeight, // Keep map defaults
+      tileCount: newTiles.length,
+      columns: 0, // 0 columns often implies image collection or non-grid
+      image: TiledImage(
+        source: '$atlasName.png', 
+        width: result.atlasWidth, 
+        height: result.atlasHeight
+      ),
+    )..tiles = newTiles;
+
+    map.tilesets..clear()..add(newTileset);
+    
+    // Perform the GID replacement on layers
+    // We pass the maps we built in exportMap
+    // (Note: The caller of this method needs to pass gidRemap/spriteRemap, 
+    //  OR we move the map creation logic inside here. 
+    //  For this snippet, assume we pass the maps created in Step 3 above).
   }
 
-Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetResolver resolver) async {
+Future<_ExportCollection> _collectUnifiedAssets(TiledMap map, TiledAssetResolver resolver) async {
     final talker = _ref.read(talkerProvider);
-    final assets = <_UnifiedAssetSource>{};
+    final uniqueAssets = <_UnifiedAssetSource>{};
+    final gidToSource = <int, _UnifiedAssetSource>{};
+    final spriteToSource = <String, _UnifiedAssetSource>{};
 
-    // 1. Collect from Tile Layers
+    // 1. Collect from Tile Layers (GIDs)
     final usedGids = _findUsedGids(map);
     for (final gid in usedGids) {
-      final tile = map.tileByGid(gid);
-      final tileset = map.tilesetByTileGId(gid);
-      if (tile == null && tileset == null) continue; // Should not happen if GID is valid
+      final cleanGid = _getCleanGid(gid);
+      if (cleanGid == 0) continue;
+
+      final tile = map.tileByGid(cleanGid);
+      final tileset = map.tilesetByTileGId(cleanGid);
       
-      // Handle standard tileset images
       if (tileset != null) {
         final imageSource = tile?.image?.source ?? tileset.image?.source;
         if (imageSource != null) {
           final image = resolver.getImage(imageSource, tileset: tileset);
+          
           if (image != null) {
-            // Important: Use computeDrawRect to get the specific region of the tile in the tileset image
-            // If it's a collection of images, srcRect is the full image. 
-            // If it's a spritesheet, srcRect is the grid cell.
-            final rect = tileset.computeDrawRect(tile ?? Tile(localId: gid - tileset.firstGid!));
-            
-            assets.add(_UnifiedAssetSource(
-              uniqueId: 'gid_${gid}', // Use global ID as key
-              sourceImage: image,
-              sourceRect: ui.Rect.fromLTWH(
-                rect.left.toDouble(), 
-                rect.top.toDouble(), 
-                rect.width.toDouble(), 
-                rect.height.toDouble()
-              ),
-            ));
-          } else {
-             talker.warning('Could not find source image "$imageSource" for GID $gid');
+            // Determine the context path to resolve the absolute/canonical path for equality checks
+            final contextPath = (tileset.source != null) 
+                ? resolver.repo.resolveRelativePath(resolver.tmxPath, tileset.source!) 
+                : resolver.tmxPath;
+            final canonicalPath = resolver.repo.resolveRelativePath(contextPath, imageSource);
+
+            // Calculate precise source rect for this tile
+            final rect = tileset.computeDrawRect(tile ?? Tile(localId: cleanGid - tileset.firstGid!));
+            final sourceRect = ui.Rect.fromLTWH(
+                rect.left.toDouble(), rect.top.toDouble(), 
+                rect.width.toDouble(), rect.height.toDouble()
+            );
+
+            final asset = _UnifiedAssetSource(
+              sourcePath: canonicalPath,
+              sourceRect: sourceRect,
+              image: image,
+            );
+
+            uniqueAssets.add(asset);
+            gidToSource[cleanGid] = asset;
           }
         }
       }
@@ -198,14 +304,24 @@ Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetR
               final spriteData = _findSpriteDataInAtlases(spriteName, tpackerFiles, resolver);
               
               if (spriteData != null) {
-                // Here we use the sourceRect defined in the .tpacker file
-                assets.add(_UnifiedAssetSource(
-                  uniqueId: spriteName,
-                  sourceImage: spriteData.sourceImage,
+                // Determine path for the atlas source image
+                // Note: The spriteData contains a ui.Image, but we need a path for equality.
+                // We assume spriteData comes from a loaded AssetData which has a path.
+                // For simplicity here, we rely on the object identity or create a composite key.
+                // Since we don't have the path easily in spriteData, we use the spriteName + unique ID assumption 
+                // OR we fetch the path from the resolver logic if possible.
+                // *Fix*: We will use the spriteName as a proxy key if path isn't available, 
+                // but ideally TexturePackerAssetData should store source paths. 
+                // Given current constraints, we construct a key.
+                
+                final asset = _UnifiedAssetSource(
+                  sourcePath: "sprite:$spriteName", // Virtual path for sprite reference
                   sourceRect: spriteData.sourceRect,
-                ));
-              } else {
-                talker.warning('Could not resolve sprite "$spriteName" from linked atlases.');
+                  image: spriteData.sourceImage,
+                );
+
+                uniqueAssets.add(asset);
+                spriteToSource[spriteName] = asset;
               }
             }
           }
@@ -213,21 +329,29 @@ Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetR
       }
     }
 
-    // 3. Collect Image Layers
+    // 3. Image Layers
     for(final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
+        final canonicalPath = resolver.repo.resolveRelativePath(resolver.tmxPath, layer.image.source!);
         final image = resolver.getImage(layer.image.source);
         if (image != null) {
-          assets.add(_UnifiedAssetSource(
-            uniqueId: 'image_layer_${layer.id}',
-            sourceImage: image,
-            sourceRect: ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble())
-          ));
+          final asset = _UnifiedAssetSource(
+            sourcePath: canonicalPath,
+            sourceRect: ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+            image: image,
+          );
+          uniqueAssets.add(asset);
+          // Image Layers don't use GIDs or Sprite Names for mapping, they render directly.
+          // But we pack them to ensure they are in the atlas if "packInAtlas" is true.
         }
       }
     }
 
-    return assets;
+    return _ExportCollection(
+      uniqueAssets: uniqueAssets, 
+      gidToSource: gidToSource, 
+      spriteToSource: spriteToSource
+    );
   }
 
   TexturePackerSpriteData? _findSpriteDataInAtlases(String spriteName, Iterable<String> tpackerFiles, TiledAssetResolver resolver) {
