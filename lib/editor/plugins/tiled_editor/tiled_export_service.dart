@@ -1,5 +1,3 @@
-// lib/editor/plugins/tiled_editor/tiled_export_service.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -16,8 +14,7 @@ import 'package:tiled/tiled.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
 
-// FIX #1: Added SourceImageNode and SourceNodeType to the import to resolve undefined class errors.
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerProject, SourceImageNode, SourceNodeType;
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerProject, SourceImageNode, SourceImageConfig, GridRect, PackerItemType;
 import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
 import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
 import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
@@ -34,11 +31,14 @@ class _UnifiedAssetSource {
   final ui.Rect sourceRect;
   final int width;
   final int height;
+  /// Differentiates between grid-based tiles and free-form sprites.
+  final bool isTile;
 
   _UnifiedAssetSource({
     required this.uniqueId,
     required this.sourceImage,
     required this.sourceRect,
+    required this.isTile,
   }) : width = sourceRect.width.toInt(),
        height = sourceRect.height.toInt();
 
@@ -82,21 +82,29 @@ class TiledExportService {
 
     TiledMap mapToExport = _deepCopyMap(map);
 
-    if (asJson) {
-      await _processFlowGraphDependencies(mapToExport, resolver, destinationFolderUri, asJson: true);
-    }
+    // 1. Process Dependencies (.fg, .tpacker)
+    await _processDependencies(
+      mapToExport, 
+      resolver, 
+      destinationFolderUri, 
+      asJson: asJson
+    );
 
     if (packInAtlas) {
+      // 2. Asset Discovery
       final assetsToPack = await _collectUnifiedAssets(mapToExport, resolver);
 
       if (assetsToPack.isNotEmpty) {
         talker.info('Collected ${assetsToPack.length} unique graphical assets to pack.');
         
+        // 3. Atlas Packing
         final packResult = await _packUnifiedAtlas(assetsToPack, atlasFileName);
         talker.info('Atlas packing complete. Final dimensions: ${packResult.atlasWidth}x${packResult.atlasHeight}');
         
+        // 4. Remap Map Data
         _remapAndFinalizeMap(mapToExport, packResult, atlasFileName);
         
+        // 5. Output Atlas Files
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.png',
@@ -115,9 +123,11 @@ class TiledExportService {
         mapToExport.tilesets.clear();
       }
     } else {
+      // Alternative: Copy assets without packing
       await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
     
+    // 6. Write Final Map File
     String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
     String fileExtension = asJson ? 'json' : 'tmx';
     await repo.createDocumentFile(
@@ -134,6 +144,7 @@ class TiledExportService {
     final talker = _ref.read(talkerProvider);
     final assets = <_UnifiedAssetSource>{};
 
+    // 1. Collect Tiles (Tagged as isTile = true)
     final usedGids = _findUsedGids(map);
     for (final gid in usedGids) {
       final tile = map.tileByGid(gid);
@@ -149,13 +160,15 @@ class TiledExportService {
             uniqueId: 'gid_$gid',
             sourceImage: image,
             sourceRect: ui.Rect.fromLTWH(rect.left.toDouble(), rect.top.toDouble(), rect.width.toDouble(), rect.height.toDouble()),
+            isTile: true, // IMPORTANT: Marks this as a tile needing a GID
           ));
         } else {
-           talker.warning('Could not find source image "$imageSource" for GID $gid during export.');
+           talker.warning('Could not find source image "$imageSource" for GID $gid.');
         }
       }
     }
 
+    // 2. Collect Sprites (Tagged as isTile = false)
     final tpAtlasesProp = map.properties['tp_atlases'];
     if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
       final tpackerFiles = tpAtlasesProp.value.split(',').map((e) => e.trim());
@@ -172,27 +185,13 @@ class TiledExportService {
                   uniqueId: spriteName,
                   sourceImage: spriteData.sourceImage,
                   sourceRect: spriteData.sourceRect,
+                  isTile: false, // IMPORTANT: Sprites stay as objects, no GID assignment
                 ));
               } else {
-                talker.warning('Could not find source for tp_sprite "$spriteName" during export.');
+                talker.warning('Could not find source for tp_sprite "$spriteName".');
               }
             }
           }
-        }
-      }
-    }
-
-    for(final layer in map.layers) {
-      if (layer is ImageLayer && layer.image.source != null) {
-        final image = resolver.getImage(layer.image.source);
-        if (image != null) {
-          assets.add(_UnifiedAssetSource(
-            uniqueId: 'image_layer_${layer.id}_${layer.image.source}',
-            sourceImage: image,
-            sourceRect: ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble())
-          ));
-        } else {
-          talker.warning('Could not find source image "${layer.image.source}" for Image Layer "${layer.name}" during export.');
         }
       }
     }
@@ -259,30 +258,43 @@ class TiledExportService {
 
   void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
     final newTiles = <Tile>[];
-    final gidRemap = <int, int>{}; 
+    final gidRemap = <int, int>{}; // Maps old GID -> new GID
 
     int currentLocalId = 0;
+
+    // Sort to ensure deterministic output
     final sortedKeys = result.packedRects.keys.toList()..sort();
 
     for (final uniqueId in sortedKeys) {
-      if (uniqueId.startsWith('gid_')) {
-        final rect = result.packedRects[uniqueId]!;
-        final newTile = Tile(
-          localId: currentLocalId,
-          properties: CustomProperties({'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')}),
-        );
-        newTiles.add(newTile);
-
-        final oldGid = int.parse(uniqueId.substring(4));
-        gidRemap[oldGid] = currentLocalId + 1;
-        currentLocalId++;
+      // We only create Tileset entries for actual Tiles (starting with gid_)
+      // Sprites are handled via JSON metadata lookup, not GIDs.
+      if (!uniqueId.startsWith('gid_')) {
+        continue; 
       }
+
+      final rect = result.packedRects[uniqueId]!;
+      final newTile = Tile(
+        localId: currentLocalId,
+        properties: CustomProperties({
+          'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')
+        }),
+      );
+      newTiles.add(newTile);
+
+      final newGid = currentLocalId + 1;
+      final oldGid = int.parse(uniqueId.substring(4));
+      gidRemap[oldGid] = newGid;
+      
+      currentLocalId++;
     }
 
+    // Create the single, unified Tileset
     final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
-      tileWidth: map.tileWidth,
+      // For the tileset definition, we use the map's grid size.
+      // Note: Irregularly packed sprites won't be in this tileset, avoiding grid conflicts.
+      tileWidth: map.tileWidth, 
       tileHeight: map.tileHeight,
       tileCount: newTiles.length,
       columns: result.atlasWidth ~/ map.tileWidth,
@@ -291,13 +303,15 @@ class TiledExportService {
 
     map.tilesets..clear()..add(newTileset);
     
+    // Remap GIDs, but ignore sprites (they keep their tp_sprite property)
     _remapMapGids(map, gidRemap);
 
-    final prop = map.properties['tp_atlases'];
-    if (prop is StringProperty) {
-        final newAtlasName = '$atlasName.json';
-        map.properties.byName['tp_atlases'] = StringProperty(name: 'tp_atlases', value: newAtlasName);
-    }
+    // If exporting as JSON, we remove the link property.
+    // If exporting as TMX, we keep it so the copied files are still referenced.
+    // However, since we packed the atlas, the original tp_atlases are technically redundant for rendering
+    // but might be needed if the engine wants to load them. 
+    // We will leave them if we didn't export as JSON, but clean up if we did.
+    // (Actually, logic below handles copying for TMX).
   }
 
   void _remapMapGids(TiledMap map, Map<int, int> gidRemap) {
@@ -310,6 +324,9 @@ class TiledExportService {
               final newGidTile = gidRemap[oldGid.tile];
               if (newGidTile != null) {
                 layer.tileData![y][x] = Gid(newGidTile, oldGid.flips);
+              } else {
+                // If a tile wasn't packed (shouldn't happen if logic is correct), clear it
+                layer.tileData![y][x] = Gid(0, oldGid.flips);
               }
             }
           }
@@ -317,10 +334,15 @@ class TiledExportService {
       } 
       else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
+          // Remap Tile Objects
           if (object.gid != null) {
             final newGid = gidRemap[object.gid];
-            if (newGid != null) object.gid = newGid;
+            if (newGid != null) {
+              object.gid = newGid;
+            }
           }
+          // Sprites with 'tp_sprite' are intentionally LEFT ALONE.
+          // They retain the property so the game engine can look them up in the generated JSON.
         }
       }
     }
@@ -331,12 +353,18 @@ class TiledExportService {
     for (final entry in result.packedRects.entries) {
       final uniqueId = entry.key;
       final rect = entry.value;
-      frames[uniqueId] = {
-        "frame": {"x": rect.left.toInt(), "y": rect.top.toInt(), "w": rect.width.toInt(), "h": rect.height.toInt()},
-        "rotated": false, "trimmed": false,
-        "spriteSourceSize": {"x": 0, "y": 0, "w": rect.width.toInt(), "h": rect.height.toInt()},
-        "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
-      };
+      
+      // Include Sprites
+      if (!uniqueId.startsWith('gid_')) {
+        frames[uniqueId] = {
+          "frame": {"x": rect.left.toInt(), "y": rect.top.toInt(), "w": rect.width.toInt(), "h": rect.height.toInt()},
+          "rotated": false, "trimmed": false,
+          "spriteSourceSize": {"x": 0, "y": 0, "w": rect.width.toInt(), "h": rect.height.toInt()},
+          "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
+        };
+      }
+      // Optionally include Tiles if needed by engine?
+      // For now, we only output named sprites as requested.
     }
     
     final jsonOutput = {
@@ -357,165 +385,116 @@ class TiledExportService {
     return v;
   }
 
-  Future<void> _processFlowGraphDependencies(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri, {bool asJson = false}) async {
+  Future<void> _processDependencies(
+    TiledMap mapToExport, 
+    TiledAssetResolver resolver, 
+    String destinationFolderUri,
+    {required bool asJson}
+  ) async {
     final talker = _ref.read(talkerProvider);
     final repo = resolver.repo;
-    
+    final flowService = _ref.read(flowExportServiceProvider);
+
+    // 1. Process FlowGraphs (.fg)
     for (final layer in mapToExport.layers) {
       if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
           final prop = obj.properties['flowGraph'];
           if (prop is StringProperty && prop.value.isNotEmpty) {
-            if (asJson) {
-              try {
-                final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, prop.value);
-                final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
-                if (fgFile == null) continue;
-                
+            try {
+              final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, prop.value);
+              final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
+              if (fgFile == null) continue;
+
+              final exportName = p.basenameWithoutExtension(fgFile.name);
+
+              if (asJson) {
+                // EXPORT to JSON
                 final content = await repo.readFile(fgFile.uri);
                 final graph = FlowGraph.deserialize(content);
                 final fgPath = repo.fileHandler.getPathForDisplay(fgFile.uri, relativeTo: repo.rootUri);
                 final fgResolver = FlowGraphAssetResolver(resolver.rawAssets, repo, fgPath);
-                final exportName = p.basenameWithoutExtension(fgFile.name);
 
-                await _ref.read(flowExportServiceProvider).export(
-                  graph: graph, resolver: fgResolver, destinationFolderUri: destinationFolderUri,
-                  fileName: exportName, embedSchema: true,
+                await flowService.export(
+                  graph: graph,
+                  resolver: fgResolver,
+                  destinationFolderUri: destinationFolderUri,
+                  fileName: exportName,
+                  embedSchema: true,
                 );
                 obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: '$exportName.json');
-              } catch (e) {
-                talker.warning('Failed to export Flow Graph dependency "${prop.value}": $e');
+              } else {
+                // COPY original .fg file
+                await repo.copyDocumentFile(fgFile, destinationFolderUri);
+                // Update reference to point to the copy (simple filename relative path)
+                obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: '$exportName.fg');
               }
-            } else {
-              obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: p.basename(prop.value));
+            } catch (e) {
+              talker.warning('Failed to process Flow Graph dependency "${prop.value}": $e');
             }
           }
         }
       }
+    }
+
+    // 2. Process Texture Packer Files (.tpacker) if NOT exported as JSON
+    if (!asJson) {
+      final tpAtlasesProp = mapToExport.properties['tp_atlases'];
+      if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
+        final rawPaths = tpAtlasesProp.value.split(',').map((e) => e.trim());
+        final newPaths = <String>[];
+
+        for (final path in rawPaths) {
+          try {
+            final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
+            final tpackerFile = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+            if (tpackerFile != null) {
+              await repo.copyDocumentFile(tpackerFile, destinationFolderUri);
+              newPaths.add(tpackerFile.name); // Relative path in output folder
+            }
+          } catch (e) {
+            talker.warning('Failed to copy .tpacker dependency "$path": $e');
+          }
+        }
+        // Update the property to point to copied files
+        mapToExport.properties.byName['tp_atlases'] = StringProperty(name: 'tp_atlases', value: newPaths.join(','));
+      }
+    } else {
+      // If exporting as JSON, we assume the packed atlas handles everything, so we remove this property.
+      mapToExport.properties.byName.remove('tp_atlases');
     }
   }
 
   Future<void> _copyAndRelinkAssets(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri) async {
     final repo = resolver.repo;
-    final talker = _ref.read(talkerProvider);
-    final allDependencies = <String>{};
-
     for (final tileset in mapToExport.tilesets) {
-      if (tileset.source != null) allDependencies.add(repo.resolveRelativePath(resolver.tmxPath, tileset.source!));
       if (tileset.image?.source != null) {
-        final contextPath = tileset.source != null ? repo.resolveRelativePath(resolver.tmxPath, tileset.source!) : resolver.tmxPath;
-        allDependencies.add(repo.resolveRelativePath(contextPath, tileset.image!.source!));
+        final rawSource = tileset.image!.source!;
+        final contextPath = (tileset.source != null) 
+            ? repo.resolveRelativePath(resolver.tmxPath, tileset.source!) 
+            : resolver.tmxPath;
+        
+        final canonicalKey = repo.resolveRelativePath(contextPath, rawSource);
+        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+
+        if (file != null) {
+          await repo.copyDocumentFile(file, destinationFolderUri);
+          final oldImage = tileset.image!;
+          tileset.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
+          tileset.source = null; 
+        }
       }
     }
     for (final layer in mapToExport.layers) {
-      if (layer is ImageLayer && layer.image.source != null) allDependencies.add(repo.resolveRelativePath(resolver.tmxPath, layer.image.source!));
-      if (layer is ObjectGroup) {
-        for (final obj in layer.objects) {
-          final fgProp = obj.properties['flowGraph'];
-          if (fgProp is StringProperty && fgProp.value.isNotEmpty) allDependencies.add(repo.resolveRelativePath(resolver.tmxPath, fgProp.value));
+      if (layer is ImageLayer && layer.image.source != null) {
+        final rawSource = layer.image.source!;
+        final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, rawSource);
+        final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        if (file != null) {
+          await repo.copyDocumentFile(file, destinationFolderUri);
+          final oldImage = layer.image;
+          layer.image = TiledImage(source: file.name, width: oldImage.width, height: oldImage.height);
         }
-      }
-    }
-    final tpProp = mapToExport.properties['tp_atlases'];
-    if (tpProp is StringProperty && tpProp.value.isNotEmpty) {
-      tpProp.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty)
-          .forEach((path) => allDependencies.add(repo.resolveRelativePath(resolver.tmxPath, path)));
-    }
-
-    final indirectDependencies = <String>{};
-    for (final depPath in allDependencies) {
-      if (depPath.toLowerCase().endsWith('.tpacker')) {
-        try {
-          final file = await repo.fileHandler.resolvePath(repo.rootUri, depPath);
-          if (file == null) continue;
-          final content = await repo.readFile(file.uri);
-          final tpackerProject = TexturePackerProject.fromJson(jsonDecode(content));
-          
-          void collectImagePaths(SourceImageNode node) {
-            if (node.type == SourceNodeType.image && node.content != null && node.content!.path.isNotEmpty) {
-              indirectDependencies.add(repo.resolveRelativePath(depPath, node.content!.path));
-            }
-            node.children.forEach(collectImagePaths);
-          }
-          collectImagePaths(tpackerProject.sourceImagesRoot);
-        } catch(e) {
-          talker.warning('Could not parse .tpacker to find indirect dependencies: $depPath');
-        }
-      }
-    }
-    allDependencies.addAll(indirectDependencies);
-
-    for (final path in allDependencies) {
-      try {
-        final file = await repo.fileHandler.resolvePath(repo.rootUri, path);
-        if (file != null) await repo.copyDocumentFile(file, destinationFolderUri);
-      } catch (e) {
-        talker.warning('Failed to copy dependency "$path" to destination.');
-      }
-    }
-
-    mapToExport.tilesets.forEach((ts) {
-      if (ts.source != null) ts.source = p.basename(ts.source!);
-      if (ts.image?.source != null) {
-        // FIX #2: Create a new TiledImage instead of modifying a final field.
-        final oldImage = ts.image!;
-        ts.image = TiledImage(
-          source: p.basename(oldImage.source!),
-          width: oldImage.width,
-          height: oldImage.height,
-        );
-      }
-    });
-    mapToExport.layers.whereType<ImageLayer>().forEach((l) {
-      if (l.image.source != null) {
-        // FIX #2: Create a new TiledImage instead of modifying a final field.
-        final oldImage = l.image;
-        l.image = TiledImage(
-          source: p.basename(oldImage.source!),
-          width: oldImage.width,
-          height: oldImage.height,
-        );
-      }
-    });
-    final newTpAtlasPaths = (mapToExport.properties['tp_atlases'] as StringProperty?)?.value
-      .split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).map((path) => p.basename(path)).join(', ') ?? '';
-    if (newTpAtlasPaths.isNotEmpty) mapToExport.properties.byName['tp_atlases'] = StringProperty(name: 'tp_atlases', value: newTpAtlasPaths);
-    
-    await _relinkTpackerDependencies(allDependencies, repo, destinationFolderUri);
-  }
-
-  Future<void> _relinkTpackerDependencies(Set<String> dependencies, ProjectRepository repo, String destinationFolderUri) async {
-    for (final depPath in dependencies) {
-      if (depPath.toLowerCase().endsWith('.tpacker')) {
-        final fileName = p.basename(depPath);
-        final destFile = await repo.fileHandler.resolvePath(destinationFolderUri, fileName);
-        if (destFile == null) continue;
-
-        final content = await repo.readFile(destFile.uri);
-        final tpackerProject = TexturePackerProject.fromJson(jsonDecode(content));
-
-        // FIX #3: Recursively rebuild the immutable tree with new paths.
-        SourceImageNode relinkNode(SourceImageNode node) {
-          var newContent = node.content;
-          if (node.type == SourceNodeType.image && node.content != null && node.content!.path.isNotEmpty) {
-            newContent = node.content!.copyWith(path: p.basename(node.content!.path));
-          }
-          return node.copyWith(
-            content: newContent,
-            children: node.children.map(relinkNode).toList(),
-          );
-        }
-
-        final relinkedProject = tpackerProject.copyWith(
-          sourceImagesRoot: relinkNode(tpackerProject.sourceImagesRoot),
-        );
-
-        await repo.createDocumentFile(
-          destinationFolderUri,
-          fileName,
-          initialContent: jsonEncode(relinkedProject.toJson()),
-          overwrite: true,
-        );
       }
     }
   }
