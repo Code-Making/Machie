@@ -586,22 +586,27 @@ void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> sprite
 
   // END: PHASE 3 CODE
 
-String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
+  String _generatePixiJson(
+    _UnifiedPackResult result, 
+    String atlasName, 
+    List<_UnifiedAssetSource> sortedAssets
+  ) {
     final frames = <String, dynamic>{};
     
-    // Sort keys for deterministic output
-    final sortedKeys = result.packedRects.keys.toList()..sort();
+    for (int i = 0; i < sortedAssets.length; i++) {
+      final asset = sortedAssets[i];
+      final rect = result.packedRects[asset.hashCode.toString()]!;
+      
+      // Use the sprite name if available (from sourcePath "sprite:name"), otherwise GID index
+      String frameName;
+      if (asset.sourcePath.startsWith('sprite:')) {
+        frameName = asset.sourcePath.substring(7);
+      } else {
+        // Fallback for tiles: use standard name or index
+        frameName = 'tile_$i'; 
+      }
 
-    for (final uniqueId in sortedKeys) {
-      final rect = result.packedRects[uniqueId]!;
-      
-      // For GIDs, we might want to store them simply as "1", "2" etc or keep "gid_1"
-      // Usually engines prefer clean names.
-      // If it's a sprite name (e.g. "hero_run"), use that. 
-      // If it's a GID, stripping "gid_" might be cleaner for array-based lookups, 
-      // but "gid_1" is safer to avoid collisions with sprite names starting with numbers.
-      
-      frames[uniqueId] = {
+      frames[frameName] = {
         "frame": {
           "x": rect.left.toInt(),
           "y": rect.top.toInt(),
@@ -620,8 +625,7 @@ String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
           "w": rect.width.toInt(),
           "h": rect.height.toInt()
         },
-        // Anchor is generic, engines usually override this or read from meta
-        "anchor": {"x": 0.5, "y": 0.5} 
+        "anchor": {"x": 0.5, "y": 0.5}
       };
     }
     
