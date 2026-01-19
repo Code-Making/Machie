@@ -21,6 +21,19 @@ import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart
 
 import 'tiled_asset_resolver.dart';
 
+// Constants for Tiled GID flipping flags
+const int _flippedHorizontallyFlag = 0x80000000;
+const int _flippedVerticallyFlag = 0x40000000;
+const int _flippedDiagonallyFlag = 0x20000000;
+const int _flippedMask = _flippedHorizontallyFlag | _flippedVerticallyFlag | _flippedDiagonallyFlag;
+const int _gidMask = ~_flippedMask;
+
+// Helper to extract the clean ID
+int _getCleanGid(int gid) => gid & _gidMask;
+
+// Helper to extract flags
+int _getGidFlags(int gid) => gid & _flippedMask;
+
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);
 });
@@ -132,32 +145,46 @@ class TiledExportService {
     talker.info('Unified export complete: $mapFileName.$fileExtension');
   }
 
-  Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetResolver resolver) async {
+Future<Set<_UnifiedAssetSource>> _collectUnifiedAssets(TiledMap map, TiledAssetResolver resolver) async {
     final talker = _ref.read(talkerProvider);
     final assets = <_UnifiedAssetSource>{};
 
+    // 1. Collect from Tile Layers
     final usedGids = _findUsedGids(map);
     for (final gid in usedGids) {
       final tile = map.tileByGid(gid);
       final tileset = map.tilesetByTileGId(gid);
-      if (tile == null || tile.isEmpty) continue;
+      if (tile == null && tileset == null) continue; // Should not happen if GID is valid
       
-      final imageSource = tile.image?.source ?? tileset.image?.source;
-      if (imageSource != null) {
-        final image = resolver.getImage(imageSource, tileset: tileset);
-        if (image != null) {
-          final rect = tileset.computeDrawRect(tile);
-          assets.add(_UnifiedAssetSource(
-            uniqueId: 'gid_$gid',
-            sourceImage: image,
-            sourceRect: ui.Rect.fromLTWH(rect.left.toDouble(), rect.top.toDouble(), rect.width.toDouble(), rect.height.toDouble()),
-          ));
-        } else {
-           talker.warning('Could not find source image "$imageSource" for GID $gid during export.');
+      // Handle standard tileset images
+      if (tileset != null) {
+        final imageSource = tile?.image?.source ?? tileset.image?.source;
+        if (imageSource != null) {
+          final image = resolver.getImage(imageSource, tileset: tileset);
+          if (image != null) {
+            // Important: Use computeDrawRect to get the specific region of the tile in the tileset image
+            // If it's a collection of images, srcRect is the full image. 
+            // If it's a spritesheet, srcRect is the grid cell.
+            final rect = tileset.computeDrawRect(tile ?? Tile(localId: gid - tileset.firstGid!));
+            
+            assets.add(_UnifiedAssetSource(
+              uniqueId: 'gid_${gid}', // Use global ID as key
+              sourceImage: image,
+              sourceRect: ui.Rect.fromLTWH(
+                rect.left.toDouble(), 
+                rect.top.toDouble(), 
+                rect.width.toDouble(), 
+                rect.height.toDouble()
+              ),
+            ));
+          } else {
+             talker.warning('Could not find source image "$imageSource" for GID $gid');
+          }
         }
       }
     }
 
+    // 2. Collect from Object Layers (Texture Packer Sprites)
     final tpAtlasesProp = map.properties['tp_atlases'];
     if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
       final tpackerFiles = tpAtlasesProp.value.split(',').map((e) => e.trim());
@@ -169,14 +196,16 @@ class TiledExportService {
             if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
               final spriteName = spriteProp.value;
               final spriteData = _findSpriteDataInAtlases(spriteName, tpackerFiles, resolver);
+              
               if (spriteData != null) {
+                // Here we use the sourceRect defined in the .tpacker file
                 assets.add(_UnifiedAssetSource(
                   uniqueId: spriteName,
                   sourceImage: spriteData.sourceImage,
                   sourceRect: spriteData.sourceRect,
                 ));
               } else {
-                talker.warning('Could not find source for tp_sprite "$spriteName" during export.');
+                talker.warning('Could not resolve sprite "$spriteName" from linked atlases.');
               }
             }
           }
@@ -184,17 +213,16 @@ class TiledExportService {
       }
     }
 
+    // 3. Collect Image Layers
     for(final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
         final image = resolver.getImage(layer.image.source);
         if (image != null) {
           assets.add(_UnifiedAssetSource(
-            uniqueId: 'image_layer_${layer.id}_${layer.image.source}',
+            uniqueId: 'image_layer_${layer.id}',
             sourceImage: image,
             sourceRect: ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble())
           ));
-        } else {
-          talker.warning('Could not find source image "${layer.image.source}" for Image Layer "${layer.name}" during export.');
         }
       }
     }
@@ -318,39 +346,55 @@ class TiledExportService {
   }
 
   /// Helper for Phase 3 that iterates through layers and objects to update their GIDs.
-  void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
+void _remapMapGids(TiledMap map, Map<int, int> gidRemap, Map<String, int> spriteRemap) {
     for (final layer in map.layers) {
-      // Remap Tile Layers
       if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
           for (int x = 0; x < layer.width; x++) {
-            final oldGid = layer.tileData![y][x];
-            if (oldGid.tile != 0) { // Don't remap empty tiles
-              final newGidTile = gidRemap[oldGid.tile];
-              if (newGidTile != null) {
-                // Create a new Gid with the new tile index but preserve the original flips.
-                layer.tileData![y][x] = Gid(newGidTile, oldGid.flips);
-              }
+            final rawGid = layer.tileData![y][x].tile; // .tile property in this library usually holds the full int including flags? 
+            // Note: The 'tiled' library Gid object splits index and flags. 
+            // However, to ensure binary accuracy during export re-mapping, we often treat it as raw int.
+            // If the library provides .tile as the raw ID (flags stripped) and .flips separately:
+            
+            final oldCleanId = layer.tileData![y][x].tile;
+            final flips = layer.tileData![y][x].flips;
+            
+            if (oldCleanId != 0 && gidRemap.containsKey(oldCleanId)) {
+              final newCleanId = gidRemap[oldCleanId]!;
+              // We construct a new Gid object with the new ID but existing flips
+              layer.tileData![y][x] = Gid(newCleanId, flips);
             }
           }
         }
       } 
-      // Remap Object Layers
       else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
-          // Update tile objects
           if (object.gid != null) {
-            final newGid = gidRemap[object.gid];
-            if (newGid != null) object.gid = newGid;
+            final rawGid = object.gid!;
+            final oldCleanId = _getCleanGid(rawGid);
+            final flags = _getGidFlags(rawGid);
+
+            if (gidRemap.containsKey(oldCleanId)) {
+              final newCleanId = gidRemap[oldCleanId]!;
+              object.gid = newCleanId | flags;
+            }
           }
-          // Update and convert sprite objects to tile objects
+          
+          // Handle Texture Packer sprites referenced by custom property
           final spriteProp = object.properties['tp_sprite'];
           if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
             final newGid = spriteRemap[spriteProp.value];
             if (newGid != null) {
-              object.gid = newGid;
-              // Remove the custom property as it's now represented by the GID.
+              // Sprites from TP usually default to no flags unless the object was rotated, 
+              // but Tiled objects store rotation separately from GID flags usually.
+              // We preserve existing flags if any were set on the placeholder object.
+              final flags = object.gid != null ? _getGidFlags(object.gid!) : 0;
+              object.gid = newGid | flags;
+              
+              // Clean up the property since it's now a native GID
               object.properties.byName.remove('tp_sprite');
+              // Ensure dimensions match the new packed sprite if width/height were 0
+              // (This part is handled during object loading/rendering usually, but good to reset for export if needed)
             }
           }
         }
@@ -360,28 +404,52 @@ class TiledExportService {
 
   // END: PHASE 3 CODE
 
-  String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
+String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
     final frames = <String, dynamic>{};
-    // Only include sprites in the JSON, not raw tiles.
-    for (final entry in result.packedRects.entries) {
-      final uniqueId = entry.key;
-      final rect = entry.value;
-      if (!uniqueId.startsWith('gid_')) {
-        frames[uniqueId] = {
-          "frame": {"x": rect.left.toInt(), "y": rect.top.toInt(), "w": rect.width.toInt(), "h": rect.height.toInt()},
-          "rotated": false, "trimmed": false,
-          "spriteSourceSize": {"x": 0, "y": 0, "w": rect.width.toInt(), "h": rect.height.toInt()},
-          "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
-        };
-      }
+    
+    // Sort keys for deterministic output
+    final sortedKeys = result.packedRects.keys.toList()..sort();
+
+    for (final uniqueId in sortedKeys) {
+      final rect = result.packedRects[uniqueId]!;
+      
+      // For GIDs, we might want to store them simply as "1", "2" etc or keep "gid_1"
+      // Usually engines prefer clean names.
+      // If it's a sprite name (e.g. "hero_run"), use that. 
+      // If it's a GID, stripping "gid_" might be cleaner for array-based lookups, 
+      // but "gid_1" is safer to avoid collisions with sprite names starting with numbers.
+      
+      frames[uniqueId] = {
+        "frame": {
+          "x": rect.left.toInt(),
+          "y": rect.top.toInt(),
+          "w": rect.width.toInt(),
+          "h": rect.height.toInt()
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": rect.width.toInt(),
+          "h": rect.height.toInt()
+        },
+        "sourceSize": {
+          "w": rect.width.toInt(),
+          "h": rect.height.toInt()
+        },
+        // Anchor is generic, engines usually override this or read from meta
+        "anchor": {"x": 0.5, "y": 0.5} 
+      };
     }
     
     final jsonOutput = {
       "frames": frames,
       "meta": {
-        "app": "Machine Editor - Unified Export",
+        "app": "Machine Editor",
         "version": "1.0",
         "image": "$atlasName.png",
+        "format": "RGBA8888",
         "size": {"w": result.atlasWidth, "h": result.atlasHeight},
         "scale": "1"
       }
