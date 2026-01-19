@@ -549,15 +549,19 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
   
   void showExportDialog() {
-    final assetMap = _getAssetDataMap();
-    if (_notifier == null || assetMap == null) return;
+    if (_notifier == null) return;
+
+    // FIX: Get the initial name from the file metadata associated with the tab.
+    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
+    final initialName = metadata != null ? p.basenameWithoutExtension(metadata.file.name) : 'map';
 
     showDialog(
       context: context,
       builder: (_) => ExportDialog(
         notifier: _notifier!,
         talker: ref.read(talkerProvider),
-        tabId: widget.tab.id, // FIX
+        tabId: widget.tab.id,
+        initialMapName: initialName, // Pass the corrected name here
       ),
     );
   }  
