@@ -205,8 +205,8 @@ class TiledExportService {
   /// Packs all collected assets into a single Power-of-Two atlas.
   Future<_UnifiedPackResult> _packUnifiedAtlas(Set<_UnifiedAssetSource> assets, String atlasName) async {
     final items = assets.map((asset) => PackerInputItem(
-      width: asset.width.toInt(),
-      height: asset.height.toInt(),
+      width: asset.width.toDouble(),
+      height: asset.height.toDouble(),
       data: asset,
     )).toList();
 
