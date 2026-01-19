@@ -64,7 +64,6 @@ class ExporterPlugin extends EditorPlugin {
     );
   }
 
-  // Boilerplate
   @override
   String? get hotStateDtoType => null;
   @override
@@ -84,4 +83,8 @@ class ExporterTab extends EditorTab {
     super.id,
     super.onReadyCompleter,
   }) : editorKey = GlobalKey<ExporterEditorWidgetState>();
+
+  // --- ADDED MISSING OVERRIDE ---
+  @override
+  void dispose() {}
 }
