@@ -31,7 +31,7 @@ final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
 class _UnifiedAssetSource {
   final String uniqueId; // gid for tiles, sprite name for sprites
   final ui.Image sourceImage;
-  final Rect sourceRect;
+  final ui.Rect sourceRect;
   final int width;
   final int height;
 
@@ -53,7 +53,7 @@ class _UnifiedPackResult {
   final Uint8List atlasImageBytes;
   final int atlasWidth;
   final int atlasHeight;
-  final Map<String, Rect> packedRects; // Map from uniqueId to its new Rect in the atlas
+  final Map<String, ui.Rect> packedRects; // Map from uniqueId to its new ui.Rect in the atlas
 
   _UnifiedPackResult({
     required this.atlasImageBytes,
@@ -154,7 +154,7 @@ class TiledExportService {
           assets.add(_UnifiedAssetSource(
             uniqueId: 'gid_$gid',
             sourceImage: image,
-            sourceRect: Rect.fromLTWH(rect.left.toDouble(), rect.top.toDouble(), rect.width.toDouble(), rect.height.toDouble()),
+            sourceRect: ui.Rect.fromLTWH(rect.left.toDouble(), rect.top.toDouble(), rect.width.toDouble(), rect.height.toDouble()),
           ));
         }
       }
@@ -220,11 +220,11 @@ class TiledExportService {
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
-    final packedRects = <String, Rect>{};
+    final packedRects = <String, ui.Rect>{};
 
     for (final item in packedResult.items) {
       final source = item.data as _UnifiedAssetSource;
-      final destRect = Rect.fromLTWH(item.x, item.y, item.width, item.height);
+      final destRect = ui.Rect.fromLTWH(item.x, item.y, item.width, item.height);
       canvas.drawImageRect(source.sourceImage, source.sourceRect, destRect, paint);
       packedRects[source.uniqueId] = destRect;
     }
