@@ -155,9 +155,6 @@ class UnifiedExportService {
             if (def is SpriteDefinition) {
               final sourceConfig = _findSourceInTpacker(proj.sourceImagesRoot, def.sourceImageId);
               if (sourceConfig != null) {
-                // Ensure asset is loaded
-                // In a real scenario, we might need to pre-load these if they aren't in TiledAssetResolver
-                // Assuming resolver has them for now or we skip
                 final imgPath = repo.resolveRelativePath(relativePath, sourceConfig.path);
                 final imgAsset = resolver.rawAssets[imgPath]; 
                 
@@ -202,12 +199,8 @@ class UnifiedExportService {
                final x = (i % cols) * (tileset.tileWidth! + tileset.spacing) + tileset.margin;
                final y = (i ~/ cols) * (tileset.tileHeight! + tileset.spacing) + tileset.margin;
                
-               // Create a unique ID for this tile slice: "TilesetName_LocalID"
-               // We handle potential naming collisions by prepending map/tileset context if needed, 
-               // but for now relying on tileset name.
                final sliceId = "${tsName}_$i";
                
-               // Check if we already have this slice (deduplication)
                if (!slices.any((s) => s.id == sliceId)) {
                  slices.add(PackableSlice(
                    id: sliceId,
@@ -228,7 +221,6 @@ class UnifiedExportService {
 
     await processNode(rootNode);
 
-    // Sort slices by ID to ensure deterministic output
     slices.sort((a, b) => a.id.compareTo(b.id));
 
     final packerItems = slices.map((s) => PackerInputItem(
@@ -257,10 +249,8 @@ class UnifiedExportService {
     final atlasImage = await picture.toImage(packedResult.width.toInt(), packedResult.height.toInt());
     final pngBytes = (await atlasImage.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
 
-    // Prepare JSON metadata
     final frames = <String, dynamic>{};
     
-    // Sort keys again for JSON stability
     final sortedKeys = packedRects.keys.toList()..sort();
     
     for(final id in sortedKeys) {
@@ -290,7 +280,7 @@ class UnifiedExportService {
         packedRects: packedRects
       )], 
       atlasMetaJson: {"frames": frames, "meta": meta},
-      gidRemapTable: {}, // Will be populated dynamically per map during write
+      gidRemapTable: {},
     );
   }
 
@@ -305,7 +295,6 @@ class UnifiedExportService {
     final atlasFileName = "atlas.png";
     final atlasJsonName = "atlas.json";
 
-    // Write Atlas Image and Metadata
     final atlasPage = exportData.atlases.first;
     await repo.createDocumentFile(
       destinationUri, 
@@ -320,8 +309,6 @@ class UnifiedExportService {
       overwrite: true
     );
 
-    // Prepare the unified Tileset that represents the Atlas
-    // We create a "virtual" tileset where every tile is explicitly defined with its rect in the atlas.
     final atlasTileset = _createAtlasTileset(exportData, atlasFileName);
 
     Future<void> writeNode(DependencyNode node) async {
@@ -333,18 +320,14 @@ class UnifiedExportService {
       final newName = "$originalName$newExt";
 
       if (node.type == ExportNodeType.tmx) {
-        // 1. Read and Parse Original Map
         final content = await repo.readFile(node.sourcePath);
         final parentUri = repo.fileHandler.getParentUri(node.sourcePath);
         final tsxProvider = ProjectTsxProvider(repo, parentUri);
         final tsxProviders = await ProjectTsxProvider.parseFromTmx(content, tsxProvider.getProvider);
         
-        // Deep copy via write/parse to ensure we don't mutate cache
         final originalMap = TileMapParser.parseTmx(content, tsxList: tsxProviders);
         final mapToExport = _deepCopyMap(originalMap);
 
-        // 2. Build GID Remap Table for this specific map
-        // We need to map [Old Gid] -> [Atlas Gid]
         final gidRemap = <int, int>{};
         
         for (final tileset in mapToExport.tilesets) {
@@ -356,27 +339,21 @@ class UnifiedExportService {
              final oldGid = firstGid + i;
              final sliceId = "${tsName}_$i";
              
-             // Find where this slice ended up in the Atlas Tileset
-             // The Atlas Tileset tiles are ordered based on the sorted keys in buildAtlas
              final newTile = atlasTileset.tiles.firstWhereOrNull((t) => 
                t.properties['originalId']?.value == sliceId
              );
              
              if (newTile != null) {
-               // The GID in the map will be: AtlasFirstGid (1) + Tile.localId
                gidRemap[oldGid] = 1 + newTile.localId;
              }
            }
         }
 
-        // 3. Remap Layers and Objects
         _remapGids(mapToExport, gidRemap);
 
-        // 4. Replace Tilesets
         mapToExport.tilesets.clear();
         mapToExport.tilesets.add(atlasTileset);
         
-        // 5. Serialize and Write
         final String resultContent = exportAsJson 
             ? TmjWriter(mapToExport).toTmj()
             : TmxWriter(mapToExport).toTmx();
@@ -407,11 +384,14 @@ class UnifiedExportService {
 
     for (final id in sortedKeys) {
       final rect = packedRects[id]!;
-      // We store the original ID in properties to help mapping later
-      // and the source rect for engines that support it
-      final tile = Tile(localId: localId);
-      tile.properties.add(StringProperty(name: 'originalId', value: id));
-      tile.properties.add(StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'));
+      // CORRECTED: Pass properties via constructor
+      final tile = Tile(
+        localId: localId,
+        properties: CustomProperties({
+          'originalId': StringProperty(name: 'originalId', value: id),
+          'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'),
+        }),
+      );
       newTiles.add(tile);
       localId++;
     }
@@ -422,10 +402,10 @@ class UnifiedExportService {
     return Tileset(
       name: 'Atlas',
       firstGid: 1,
-      tileWidth: 16, // Nominal, individual tiles have specific rects if needed
+      tileWidth: 16, 
       tileHeight: 16,
       tileCount: newTiles.length,
-      columns: 0, // Image collection style
+      columns: 0, 
       image: TiledImage(source: atlasImageName, width: atlasWidth, height: atlasHeight),
       tiles: newTiles,
     );
@@ -434,29 +414,6 @@ class UnifiedExportService {
   void _remapGids(TiledMap map, Map<int, int> gidRemap) {
     for (final layer in map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
-        for (final row in layer.tileData!) {
-          for (final gid in row) {
-            if (gid.tile != 0 && gidRemap.containsKey(gid.tile)) {
-               // We need to construct a new GID preserving flags
-               final newTileId = gidRemap[gid.tile]!;
-               // Tiled package Gid class is immutable-ish for the tile ID usually? 
-               // Actually the Gid object has 'tile' field which is int.
-               // But usually we replace the Gid object in the matrix.
-               
-               // Create a Gid object with the new tile ID and old flags
-               // Note: 'tiled' package Gid constructor takes ID including flags, 
-               // or we can use Gid(tile, flags). 
-               // Looking at tiled package source, Gid(int tile, Flips flips).
-               
-               // We must write back to the row. The row is a List<Gid>.
-               // row[x] = Gid(newTileId, gid.flips);
-               // Wait, Dart 'for-in' loop variable 'gid' is a copy/reference. 
-               // We need index access to modify the list.
-            }
-          }
-        }
-        
-        // Proper iteration for modification
         for (int y = 0; y < layer.tileData!.length; y++) {
           for (int x = 0; x < layer.tileData![y].length; x++) {
              final gid = layer.tileData![y][x];
@@ -465,21 +422,10 @@ class UnifiedExportService {
              }
           }
         }
-        
       } else if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
           if (obj.gid != null && gidRemap.containsKey(obj.gid)) {
             obj.gid = gidRemap[obj.gid!];
-          }
-          
-          // Also handle 'tp_sprite' property if it maps to an atlas frame
-          final spriteProp = obj.properties['tp_sprite'];
-          if (spriteProp is StringProperty) {
-            // If the sprite name matches an ID in our atlas
-            // We need to find the GID for that ID.
-            // But gidRemap is int->int. 
-            // We might need a separate lookup for sprite names if they aren't based on GIDs.
-            // For now assuming existing logic where objects use GIDs or standard tiles.
           }
         }
       }
@@ -487,7 +433,6 @@ class UnifiedExportService {
   }
   
   TiledMap _deepCopyMap(TiledMap original) {
-    // Quick and dirty deep copy via serialization
     final writer = TmxWriter(original);
     final tmxString = writer.toTmx();
     return TileMapParser.parseTmx(tmxString);

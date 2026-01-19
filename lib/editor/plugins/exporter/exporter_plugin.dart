@@ -18,7 +18,6 @@ import 'exporter_editor.dart';
 class ExporterPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.exporter';
 
-  // Define the toolbar location ID
   static const exporterFloatingToolbar = CommandPosition(
     id: 'exporter_floating_toolbar',
     label: 'Exporter Toolbar',
@@ -45,7 +44,6 @@ class ExporterPlugin extends EditorPlugin {
   @override
   List<CommandPosition> getCommandPositions() => [exporterFloatingToolbar];
 
-  // Helper to find the active editor state
   ExporterEditorWidgetState? _getEditorState(WidgetRef ref) {
     final tab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (tab is ExporterTab) {
@@ -60,7 +58,6 @@ class ExporterPlugin extends EditorPlugin {
       BaseCommand(
         id: 'exporter_toggle_settings',
         label: 'Settings',
-        // Highlights the icon when settings panel is open
         icon: Consumer(
           builder: (context, ref, _) {
             final ctx = ref.watch(activeCommandContextProvider);
@@ -78,7 +75,6 @@ class ExporterPlugin extends EditorPlugin {
       BaseCommand(
         id: 'exporter_run',
         label: 'Build Export',
-        // Shows a spinner if building, otherwise a green play button
         icon: Consumer(
           builder: (context, ref, _) {
             final ctx = ref.watch(activeCommandContextProvider);
@@ -100,7 +96,6 @@ class ExporterPlugin extends EditorPlugin {
         defaultPositions: [exporterFloatingToolbar],
         sourcePlugin: id,
         execute: (ref) async => _getEditorState(ref)?.runExport(),
-        // Disable button click while building
         canExecute: (ref) {
            final ctx = ref.watch(activeCommandContextProvider);
            return ctx is ExporterCommandContext && !ctx.isBuilding;
@@ -151,4 +146,21 @@ class ExporterPlugin extends EditorPlugin {
   Type? get hotStateDtoRuntimeType => null;
   @override
   TypeAdapter<TabHotStateDto>? get hotStateAdapter => null;
+}
+
+// Define ExporterTab here so it is visible to this file and importers
+class ExporterTab extends EditorTab {
+  @override
+  final GlobalKey<ExporterEditorWidgetState> editorKey;
+  final ExportConfig initialConfig;
+
+  ExporterTab({
+    required super.plugin,
+    required this.initialConfig,
+    super.id,
+    super.onReadyCompleter,
+  }) : editorKey = GlobalKey<ExporterEditorWidgetState>();
+
+  @override
+  void dispose() {}
 }
