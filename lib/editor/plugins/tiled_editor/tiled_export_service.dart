@@ -1,6 +1,6 @@
 // lib/editor/plugins/tiled_editor/tiled_export_service.dart
 
-import 'dart.async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
