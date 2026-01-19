@@ -14,7 +14,8 @@ import 'package:tiled/tiled.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:machine/utils/texture_packer_algo.dart';
 
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerProject, SourceImageNode, SourceImageConfig, GridRect, PackerItemType, SourceNodeType, SpriteDefinition, PackerItemNode, PackerItemDefinition;
+// FIXED: Added SlicingConfig to the show list
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerProject, SourceImageNode, SourceImageConfig, GridRect, PackerItemType, SourceNodeType, SpriteDefinition, PackerItemNode, PackerItemDefinition, SlicingConfig;
 import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
 import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
 import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
@@ -52,7 +53,6 @@ class _UnifiedPackResult {
   final int atlasWidth;
   final int atlasHeight;
   final Map<String, ui.Rect> packedRects;
-  // Metadata to help reconstruction
   final int tileGridCols;
   final int tileGridRows;
 
@@ -86,7 +86,6 @@ class TiledExportService {
 
     TiledMap mapToExport = _deepCopyMap(map);
     
-    // We store packResult here so dependencies can use it to update their refs
     _UnifiedPackResult? packResult;
 
     if (packInAtlas) {
@@ -95,20 +94,18 @@ class TiledExportService {
       if (assetsToPack.isNotEmpty) {
         talker.info('Collected ${assetsToPack.length} unique graphical assets to pack.');
         
+        // Pass map tile size for grid calculation
         packResult = await _packUnifiedAtlas(assetsToPack, mapToExport.tileWidth, mapToExport.tileHeight);
         talker.info('Atlas packing complete. Dimensions: ${packResult.atlasWidth}x${packResult.atlasHeight}');
         
-        // Remap map data to use the new atlas
         _remapAndFinalizeMap(mapToExport, packResult, atlasFileName);
         
-        // Write Atlas Image
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.png',
           initialBytes: packResult.atlasImageBytes,
           overwrite: true,
         );
-        // Write Atlas JSON (Metadata)
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.json',
@@ -123,8 +120,6 @@ class TiledExportService {
       await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
 
-    // Process Dependencies (.fg, .tpacker)
-    // Pass the packResult so .tpacker files can be rewritten to point to the new atlas
     await _processDependencies(
       mapToExport, 
       resolver, 
@@ -134,7 +129,6 @@ class TiledExportService {
       atlasFileName: atlasFileName,
     );
     
-    // Write Final Map File
     String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
     String fileExtension = asJson ? 'json' : 'tmx';
     await repo.createDocumentFile(
@@ -152,7 +146,6 @@ class TiledExportService {
     final assets = <_UnifiedAssetSource>{};
 
     final usedGids = _findUsedGids(map);
-    // Sort GIDs to ensure deterministic order which is important for the grid layout
     final sortedGids = usedGids.toList()..sort();
 
     for (final gid in sortedGids) {
@@ -204,10 +197,6 @@ class TiledExportService {
       }
     }
     
-    // Also scan .tpacker files for *all* sprites if we want the output .tpacker to be complete?
-    // For now, we only pack what is used in the map to optimize texture space.
-    // The rewritten .tpacker will only contain definitions for sprites present in the atlas.
-
     return assets;
   }
 
@@ -232,35 +221,26 @@ class TiledExportService {
     final tiles = assets.where((a) => a.isTile).toList();
     final sprites = assets.where((a) => !a.isTile).toList();
 
-    // 1. Calculate Grid Layout for Tiles
-    // We attempt to make the grid roughly square or fit standard texture sizes
-    int potWidth = 512;
-    int potHeight = 512;
+    // --- 1. Layout Tiles (Strict Grid) ---
+    // Start with a reasonable power of 2 width
+    int atlasWidth = 512;
+    int atlasHeight = 512;
     
-    // Estimate area needed
     double area = 0;
     for (var a in assets) area += a.width * a.height;
-    
-    // Find approximate square POT
-    while (potWidth * potHeight < area * 1.5) { // 1.5 factor for packing inefficiency
-      if (potWidth <= potHeight) potWidth *= 2; else potHeight *= 2;
+    while (atlasWidth * atlasHeight < area * 1.5) {
+      if (atlasWidth <= atlasHeight) atlasWidth *= 2; else atlasHeight *= 2;
     }
-    if (potWidth < mapTileWidth) potWidth = _nextPowerOfTwo(mapTileWidth);
+    if (atlasWidth < mapTileWidth) atlasWidth = _nextPowerOfTwo(mapTileWidth);
 
-    // Layout Tiles in strict grid at top
     final packedRects = <String, ui.Rect>{};
     
-    final int cols = potWidth ~/ mapTileWidth;
+    final int cols = atlasWidth ~/ mapTileWidth;
     if (cols == 0) throw Exception("Tile width larger than atlas width");
     
     final int rows = (tiles.length / cols).ceil();
     final int tileSectionHeight = rows * mapTileHeight;
     
-    // Ensure height accommodates tiles
-    while (tileSectionHeight > potHeight) {
-      potHeight *= 2;
-    }
-
     for (int i = 0; i < tiles.length; i++) {
       final tile = tiles[i];
       final col = i % cols;
@@ -269,53 +249,48 @@ class TiledExportService {
       final x = col * mapTileWidth;
       final y = row * mapTileHeight;
       
-      // If original tile is smaller than grid cell, center it or align top-left?
-      // Tiled usually aligns bottom-left or simply renders the image.
-      // We will draw it at (x,y). Note: if tile source is larger than mapTileWidth, it might bleed.
-      // Assuming tiles match mapTileWidth/Height roughly.
-      
       packedRects[tile.uniqueId] = ui.Rect.fromLTWH(x.toDouble(), y.toDouble(), tile.width.toDouble(), tile.height.toDouble());
     }
 
-    // 2. Pack Sprites in remaining space
+    // --- 2. Layout Sprites (Packer) ---
+    // We will pack sprites into a separate coordinate space then append them below the tiles
+    int spriteSectionHeight = 0;
+    int finalAtlasWidth = atlasWidth;
+
     if (sprites.isNotEmpty) {
-      // Available space is below the tile grid
       final spriteItems = sprites.map((s) => PackerInputItem(
         width: s.width.toDouble(), 
         height: s.height.toDouble(), 
         data: s
       )).toList();
 
-      // We need a packer that can handle 'growing' or simply fitting into available rects.
-      // MaxRectsPacker implementation usually takes fixed width/height.
-      // We will try to pack into (potWidth x (potHeight - tileSectionHeight)).
-      // If it fails, we double height and try again.
+      // Use basic packer with just padding. It usually grows or picks a size.
+      // Assuming we can't control it easily, we pack and then analyze the result.
+      final packer = MaxRectsPacker(padding: 2); // FIXED: Removed width/height parameters
+      final result = packer.pack(spriteItems);
       
-      while (true) {
-        final availableHeight = potHeight - tileSectionHeight;
-        if (availableHeight > 0) {
-          final packer = MaxRectsPacker(width: potWidth.toDouble(), height: availableHeight.toDouble(), padding: 2);
-          try {
-            final result = packer.pack(spriteItems);
-            // Apply offset
-            for (final item in result.items) {
-              final s = item.data as _UnifiedAssetSource;
-              packedRects[s.uniqueId] = ui.Rect.fromLTWH(item.x, item.y + tileSectionHeight, item.width, item.height);
-            }
-            break; // Success
-          } catch (e) {
-            // Packing failed, grow
-            potHeight *= 2;
-          }
-        } else {
-          potHeight *= 2;
-        }
-        
-        if (potHeight > 8192) throw Exception("Texture Atlas exceeded 8192px height.");
+      spriteSectionHeight = result.height.toInt();
+      // Ensure the atlas is wide enough for the packed sprites too
+      finalAtlasWidth = max(atlasWidth, result.width.toInt());
+
+      for (final item in result.items) {
+        final s = item.data as _UnifiedAssetSource;
+        // Shift Y down by the height of the tile grid
+        packedRects[s.uniqueId] = ui.Rect.fromLTWH(
+          item.x, 
+          item.y + tileSectionHeight, 
+          item.width, 
+          item.height
+        );
       }
     }
 
-    // 3. Draw Atlas
+    // --- 3. Finalize Dimensions ---
+    int totalHeight = tileSectionHeight + spriteSectionHeight;
+    int potWidth = _nextPowerOfTwo(finalAtlasWidth);
+    int potHeight = _nextPowerOfTwo(totalHeight);
+
+    // --- 4. Draw Atlas ---
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     final paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
@@ -344,68 +319,59 @@ class TiledExportService {
   }
 
   void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
-    // 1. Create Tile entries for the GRID section (Tiles)
-    // We only create tileset entries for the items that were packed into the grid.
-    // The sprites (isTile=false) are accessed via sprite objects and don't need GIDs in the tileset 
-    // because they are now effectively distinct objects or will be looked up via JSON.
-    // However, if we want them visible in Tiled (if TMX is opened), they need GIDs.
-    // BUT the prompt says "A sprite... doesn't need to be mapped as gid".
-    // So we ONLY map the 'gid_' assets to the tileset.
-
+    // We only create tileset entries for actual Tiles (starting with gid_)
     final newTiles = <Tile>[];
     final gidRemap = <int, int>{}; 
 
     int currentLocalId = 0;
     
-    // Iterate through GID assets based on the packed grid order
     final sortedGidKeys = result.packedRects.keys
         .where((k) => k.startsWith('gid_'))
         .toList()
         ..sort((a, b) {
-           // Sort by packed position (row major) to ensure GIDs match the visual grid
            final rA = result.packedRects[a]!;
            final rB = result.packedRects[b]!;
+           // Sort strictly top-to-bottom, then left-to-right (Raster scan order)
+           // to align with the Tileset grid assumption
            final rowA = rA.top;
            final rowB = rB.top;
-           if (rowA != rowB) return rowA.compareTo(rowB);
+           if ((rowA - rowB).abs() > 0.1) return rowA.compareTo(rowB);
            return rA.left.compareTo(rB.left);
         });
 
     for (final uniqueId in sortedGidKeys) {
       final rect = result.packedRects[uniqueId]!;
       
-      // Calculate local ID based on grid position
-      // x = col * width -> col = x / width
+      // Calculate local ID based on the atlas grid we established
       final col = (rect.left / map.tileWidth).round();
       final row = (rect.top / map.tileHeight).round();
       final targetLocalId = row * result.tileGridCols + col;
       
-      // Fill gaps if necessary (though our packing logic shouldn't leave gaps in ID sequence)
+      // Fill gaps if any (though loop should be dense based on previous packing)
       while (currentLocalId < targetLocalId) {
-        newTiles.add(Tile(localId: currentLocalId)); // Empty tile
+        newTiles.add(Tile(localId: currentLocalId)); 
         currentLocalId++;
       }
 
       final newTile = Tile(
         localId: currentLocalId,
-        // We store source rect for reference
         properties: CustomProperties({'sourceRect': StringProperty(name: 'sourceRect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')}),
       );
       newTiles.add(newTile);
 
       final oldGid = int.parse(uniqueId.substring(4));
-      gidRemap[oldGid] = currentLocalId + 1; // +1 for firstGid
+      gidRemap[oldGid] = currentLocalId + 1;
       
       currentLocalId++;
     }
 
-    // Create the unified Tileset
     final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
       tileWidth: map.tileWidth, 
       tileHeight: map.tileHeight,
-      tileCount: currentLocalId, // Count covers up to the last used grid cell
+      // Tile count only needs to cover the Grid section
+      tileCount: currentLocalId, 
       columns: result.tileGridCols,
       image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
     )..tiles = newTiles;
@@ -414,7 +380,6 @@ class TiledExportService {
     
     _remapMapGids(map, gidRemap);
 
-    // Clean up
     map.properties.byName.remove('tp_atlases');
   }
 
@@ -443,7 +408,6 @@ class TiledExportService {
               object.gid = newGid;
             }
           }
-          // Sprites (tp_sprite) are ignored here, they don't get GIDs
         }
       }
     }
@@ -537,7 +501,8 @@ class TiledExportService {
     }
 
     // 2. Process .tpacker files if NOT exported as JSON
-    // We need to repack them to point to the new atlas
+    // REPACK Logic: Even when exporting TMX, we want the sprites to point to the new unified atlas.
+    // So we copy the .tpacker file but modify it to reference the new atlas image and new rects.
     if (!asJson && packResult != null && atlasFileName != null) {
       final tpAtlasesProp = mapToExport.properties['tp_atlases'];
       if (tpAtlasesProp is StringProperty && tpAtlasesProp.value.isNotEmpty) {
@@ -550,14 +515,14 @@ class TiledExportService {
             final tpackerFile = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
             if (tpackerFile != null) {
               
-              // Load the original .tpacker
+              // Load original
               final content = await repo.readFile(tpackerFile.uri);
               final project = TexturePackerProject.fromJson(jsonDecode(content));
               
-              // Create REPACKED project
+              // Repack data
               final repackedProject = _repackTpackerProject(project, packResult, atlasFileName);
               
-              // Save to destination
+              // Save
               final newFileName = tpackerFile.name;
               await repo.createDocumentFile(
                 destinationFolderUri, 
@@ -579,14 +544,13 @@ class TiledExportService {
     }
   }
 
-  /// Updates a TexturePackerProject to point to the newly generated atlas.
   TexturePackerProject _repackTpackerProject(
     TexturePackerProject original, 
     _UnifiedPackResult packResult, 
     String atlasFileName
   ) {
-    // 1. Create a new SourceImageNode for the atlas
     final atlasSourceId = 'atlas_source';
+    // Create new Source Root pointing to the generated atlas PNG
     final newSourceRoot = SourceImageNode(
       id: 'root',
       name: 'root',
@@ -596,25 +560,21 @@ class TiledExportService {
           id: atlasSourceId,
           name: '$atlasFileName.png',
           type: SourceNodeType.image,
+          // FIXED: Used SlicingConfig directly
           content: const SourceImageConfig(
-            path: '', // Relative path to same folder effectively, or handled by name
-            slicing: const TexturePackerProjectSlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
+            path: '', 
+            slicing: SlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
           )
         )
       ]
     );
 
-    // 2. Update definitions
     final newDefinitions = <String, PackerItemDefinition>{};
     
-    // We only keep definitions for sprites that are in the pack result
     original.definitions.forEach((nodeId, def) {
       if (def is SpriteDefinition) {
-        // Find this sprite in the packed result.
-        // We need to know the 'name' associated with this nodeId to look it up in packResult.
-        // BUT _UnifiedPackResult keys are the *names* (uniqueIds) passed in.
-        // We need to find the name of the node in the original tree.
         final nodeName = _findNodeName(original.tree, nodeId);
+        // Look up using the uniqueId (sprite name)
         if (nodeName != null && packResult.packedRects.containsKey(nodeName)) {
           final rect = packResult.packedRects[nodeName]!;
           newDefinitions[nodeId] = SpriteDefinition(
@@ -628,7 +588,6 @@ class TiledExportService {
           );
         }
       } else {
-        // Keep animations, folders, etc.
         newDefinitions[nodeId] = def;
       }
     });
@@ -700,7 +659,3 @@ class TiledExportService {
     return TileMapParser.parseTmx(tmxString);
   }
 }
-
-// Temporary alias to fix type error if SlicingConfig name differs in models.
-// Assuming TexturePackerProjectSlicingConfig is SlicingConfig in your project.
-typedef TexturePackerProjectSlicingConfig = SlicingConfig;
