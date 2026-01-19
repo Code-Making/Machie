@@ -207,7 +207,7 @@ class TiledExportService {
                 if (image != null) {
                   // Important: computeDrawRect gets the exact sub-region for spritesheets/collections
                   final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, Rect.fromLTWH(
+                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                     rect.left.toDouble(),
                     rect.top.toDouble(),
                     rect.width.toDouble(),
@@ -244,7 +244,7 @@ class TiledExportService {
                    final image = resolver.getImage(imageSource, tileset: tileset);
                    if (image != null) {
                      final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                     addAsset(uniqueKey, image, Rect.fromLTWH(
+                     addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                        rect.left.toDouble(), 
                        rect.top.toDouble(), 
                        rect.width.toDouble(), 
@@ -356,66 +356,43 @@ class TiledExportService {
 
   void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
     final newTiles = <Tile>[];
-    final keyToNewGid = <String, int>{}; // Maps uniqueKey -> new clean GID
+    final keyToNewGid = <String, int>{}; 
 
     int currentLocalId = 0;
     final sortedKeys = result.packedRects.keys.toList()..sort();
 
-    // Create tiles for the new unified tileset
     for (final uniqueId in sortedKeys) {
       final rect = result.packedRects[uniqueId]!;
-      
-      // We can store original sprite info in properties for debugging or custom engines
       final newTile = Tile(
         localId: currentLocalId,
         properties: CustomProperties({
           'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
-          'source_rect': StringProperty(name: 'source_rect', value: '${rect.left},${rect.top},${rect.width},${rect.height}')
         }),
       );
       newTiles.add(newTile);
-
-      final newGid = currentLocalId + 1; // FirstGID will be 1
-      keyToNewGid[uniqueId] = newGid;
-      
+      keyToNewGid[uniqueId] = currentLocalId + 1; // +1 for GID
       currentLocalId++;
     }
 
-    // Create the unified Tileset (Image Collection style or Single Image)
-    // Here we treat it as a single image tileset where we might need to rely on 
-    // tile properties or specific engine handling if tiles aren't on a grid.
-    // However, Tiled handles 'Image Collection' tilesets by storing image per tile.
-    // Since we packed into one image, we define it as a single image tileset 
-    // but the tiles inside are just logical definitions.
-    // NOTE: Standard Tiled tilesets assume a grid if 'image' is set on the tileset.
-    // If tiles vary in size, Tiled usually uses an Image Collection (no main image, image per tile).
-    // BUT we generated a single PNG. To make this work visually in Tiled:
-    // We should ideally generate an "Image Collection" tileset where every tile 
-    // points to the same big image but with a viewport. Tiled TSX format supports <image> inside <tile>.
-    // HOWEVER, for simple runtime export, a standard tileset def suffices if the runtime ignores 
-    // the Tiled visual representation or if we assume the engine reads the atlas JSON.
-    
+    // Keep reference to old tilesets for lookup
+    final oldTilesets = List<Tileset>.from(map.tilesets);
+
+    // Create New Tileset
     final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
-      // Setting tileWidth/Height to map defaults or max allows Tiled to open it, 
-      // though visual alignment might be off if sizes vary wildly.
-      tileWidth: map.tileWidth, 
+      tileWidth: map.tileWidth,
       tileHeight: map.tileHeight,
       tileCount: newTiles.length,
       columns: 0,
-      image: TiledImage(
-        source: '$atlasName.png', 
-        width: result.atlasWidth, 
-        height: result.atlasHeight
-      ),
+      image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
     )..tiles = newTiles;
 
-    map.tilesets..clear()..add(newTileset);
-    
-    // Remap all layers to use the new GIDs
-    _remapMapGids(map, keyToNewGid);
+    // Perform Remap using OLD tilesets reference
+    _performSafeRemap(map, oldTilesets, keyToNewGid);
 
+    // Now safe to replace tilesets
+    map.tilesets..clear()..add(newTileset);
     map.properties.byName.remove('tp_atlases');
   }
 
@@ -478,47 +455,7 @@ class TiledExportService {
   }
   
   // Revised _remapAndFinalizeMap to handle the Tileset swap safely
-  void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
-    final newTiles = <Tile>[];
-    final keyToNewGid = <String, int>{}; 
 
-    int currentLocalId = 0;
-    final sortedKeys = result.packedRects.keys.toList()..sort();
-
-    for (final uniqueId in sortedKeys) {
-      final rect = result.packedRects[uniqueId]!;
-      final newTile = Tile(
-        localId: currentLocalId,
-        properties: CustomProperties({
-          'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
-        }),
-      );
-      newTiles.add(newTile);
-      keyToNewGid[uniqueId] = currentLocalId + 1; // +1 for GID
-      currentLocalId++;
-    }
-
-    // Keep reference to old tilesets for lookup
-    final oldTilesets = List<Tileset>.from(map.tilesets);
-
-    // Create New Tileset
-    final newTileset = Tileset(
-      name: atlasName,
-      firstGid: 1,
-      tileWidth: map.tileWidth,
-      tileHeight: map.tileHeight,
-      tileCount: newTiles.length,
-      columns: 0,
-      image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
-    )..tiles = newTiles;
-
-    // Perform Remap using OLD tilesets reference
-    _performSafeRemap(map, oldTilesets, keyToNewGid);
-
-    // Now safe to replace tilesets
-    map.tilesets..clear()..add(newTileset);
-    map.properties.byName.remove('tp_atlases');
-  }
 
   void _performSafeRemap(TiledMap map, List<Tileset> oldTilesets, Map<String, int> keyToNewGid) {
     // Helper to find tileset in the OLD list
