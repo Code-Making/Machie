@@ -15,19 +15,20 @@ class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final Talker talker;
   final String tabId;
+  final String initialMapName; // Added parameter
 
   const ExportDialog({
     super.key,
     required this.notifier,
     required this.talker,
     required this.tabId,
+    required this.initialMapName, // Added parameter
   });
   @override
   ConsumerState<ExportDialog> createState() => _ExportDialogState();
 }
 
 class _ExportDialogState extends ConsumerState<ExportDialog> {
-  // ... (State variables same as before)
   bool _removeUnusedTilesets = true;
   bool _exportAsJson = false;
   bool _packInAtlas = false;
@@ -41,8 +42,8 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   @override
   void initState() {
     super.initState();
-    final mapName = widget.notifier.map.name ?? 'exported_map';
-    _mapNameController = TextEditingController(text: mapName);
+    // FIX: Use the initialMapName passed from the widget, not from the map object.
+    _mapNameController = TextEditingController(text: widget.initialMapName);
     _atlasNameController = TextEditingController(text: 'packed_atlas');
   }
   
@@ -53,7 +54,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     super.dispose();
   }
 
-  // ... (_pickDestinationFolder same as before)
+
   Future<void> _pickDestinationFolder() async {
     final project = ref.read(appNotifierProvider).value!.currentProject!;
     final repo = ref.read(projectRepositoryProvider)!;
@@ -83,15 +84,14 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     setState(() => _isExporting = true);
 
     try {
-      // KEY CHANGE: Use resolver provider
       final resolverAsync = ref.read(tiledAssetResolverProvider(widget.tabId));
       if (!resolverAsync.hasValue) {
-         throw Exception("Assets not fully loaded");
+        throw Exception("Assets are not yet loaded. Please wait a moment and try again.");
       }
 
       await ref.read(tiledExportServiceProvider).exportMap(
             map: widget.notifier.map,
-            resolver: resolverAsync.value!, // Pass resolver
+            resolver: resolverAsync.value!,
             destinationFolderUri: _destinationFolderUri!,
             mapFileName: _mapNameController.text.trim(),
             atlasFileName: _atlasNameController.text.trim(),
@@ -113,7 +113,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // UI Code same as original
+    // UI remains unchanged
     return AlertDialog(
       title: const Text('Export Map'),
       content: SingleChildScrollView(
@@ -137,7 +137,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 controller: _mapNameController,
                 decoration: InputDecoration(
                   labelText: 'Map filename',
-                  suffixText: _exportAsJson ? '.tmj' : '.tmx',
+                  suffixText: _exportAsJson ? '.json' : '.tmx',
                 ),
               ),
               if (_packInAtlas)
