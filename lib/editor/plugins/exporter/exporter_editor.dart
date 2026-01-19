@@ -9,7 +9,7 @@ import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/utils/toast.dart';
 import 'package:machine/logs/logs_provider.dart';
 
-import '../models/editor_command_context.dart';
+import '../../models/editor_command_context.dart';
 import 'exporter_models.dart';
 import 'exporter_plugin.dart';
 import 'widgets/source_file_tree.dart';
