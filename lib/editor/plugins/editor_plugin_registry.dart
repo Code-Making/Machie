@@ -1,7 +1,3 @@
-// =========================================
-// UPDATED: lib/editor/plugins/plugin_registry.dart
-// =========================================
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'code_editor/code_editor_plugin.dart';
@@ -16,6 +12,7 @@ import 'texture_packer/texture_packer_plugin.dart';
 
 export '../models/editor_plugin_models.dart';
 import 'flow_graph/flow_graph_editor_plugin.dart';
+import 'exporter/exporter_plugin.dart';
 
 final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
   (_) => {
@@ -26,7 +23,8 @@ final pluginRegistryProvider = Provider<Set<EditorPlugin>>(
     RefactorEditorPlugin(),
     TiledEditorPlugin(),
     TexturePackerPlugin(),
-    FlowGraphEditorPlugin(),    
+    FlowGraphEditorPlugin(),
+    ExporterPlugin(), // <--- Add here
   },
 );
 
