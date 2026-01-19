@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/app/app_notifier.dart'; // Fixed import
+import '../../project/project_settings_notifier.dart';
 
 final exportAssetLoaderProvider = Provider((ref) => ExportAssetLoaderService(ref));
 

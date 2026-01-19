@@ -526,29 +526,6 @@ commandIds: ObjectTool.values
           execute: (ref) async =>
               ref.read(editorServiceProvider).saveCurrentTabAs(),
         ),
-        // Inside tiled_editor_plugin.dart -> 
-BaseCommand(
-  id: 'unified_export',
-  label: 'Unified Export...',
-  icon: const Icon(Icons.account_tree_sharp),
-  defaultPositions: [AppCommandPositions.appBar],
-  sourcePlugin: id,
-  execute: (ref) async {
-    final editor = _getEditorState(ref);
-    if (editor?.mounted == true) {
-      final rootUri = ref.read(tabMetadataProvider)[editor!.widget.tab.id]!.file.uri;
-      
-      Navigator.of(editor.context).push(
-        MaterialPageRoute(
-          builder: (_) => UnifiedExportScreen(
-            rootFileUri: rootUri,
-            tabId: editor.widget.tab.id,
-          ),
-        ),
-      );
-    }
-  },
-),
         BaseCommand(
           id: 'export_map',
           label: 'Export Map...',
