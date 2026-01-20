@@ -213,7 +213,7 @@ class TiledExportService {
                 final image = resolver.getImage(imageSource, tileset: tileset);
                 if (image != null) {
                   final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, Rect.fromLTWH(
+                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                     rect.left.toDouble(),
                     rect.top.toDouble(),
                     rect.width.toDouble(),
@@ -250,7 +250,7 @@ class TiledExportService {
                    final image = resolver.getImage(imageSource, tileset: tileset);
                    if (image != null) {
                      final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                     addAsset(uniqueKey, image, Rect.fromLTWH(
+                     addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                        rect.left.toDouble(), 
                        rect.top.toDouble(), 
                        rect.width.toDouble(), 
