@@ -297,20 +297,21 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  Future<Set<String>> _collectAssetUris(TiledMap map) async {
+Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
+    // 1. Existing checks (Tilesets)
     for (final tileset in map.tilesets) {
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
-
       if (tileset.image?.source != null) {
         final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
         uris.add(assetUri);
       }
     }
 
+    // 2. Existing checks (Image Layers)
     for (final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
         final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
@@ -318,12 +319,28 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
 
+    // 3. Existing checks (Linked Atlases)
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
       if (prop is StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
           uris.add(repo.resolveRelativePath(tmxPath, path));
+        }
+      }
+    }
+
+    // 4. NEW: Scan Object Properties for Schema Files (like 'atlas')
+    // We scan specifically for 'atlas' as per your schema example, 
+    // or generally any string ending in .tpacker/.json if we want to be safe.
+    for (final layer in map.layers) {
+      if (layer is ObjectGroup) {
+        for (final obj in layer.objects) {
+          // Check for 'atlas' property
+          final atlasProp = obj.properties['atlas'];
+          if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+             uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+          }
         }
       }
     }

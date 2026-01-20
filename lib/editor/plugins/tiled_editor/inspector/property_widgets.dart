@@ -18,6 +18,73 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+class PropertySchemaFileSelector extends ConsumerWidget {
+  final SchemaFilePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+  final String contextPath; // The path of the TMX file
+
+  const PropertySchemaFileSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+    required this.contextPath,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentPath = descriptor.currentValue;
+    final theme = Theme.of(context);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(
+        currentPath.isEmpty ? 'None' : currentPath,
+        style: TextStyle(
+          color: currentPath.isEmpty ? theme.disabledColor : null,
+          fontStyle: currentPath.isEmpty ? FontStyle.italic : null,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Select File',
+            onPressed: () async {
+              final repo = ref.read(projectRepositoryProvider);
+              if (repo == null) return;
+
+              final newPath = await showDialog<String>(
+                context: context,
+                builder: (_) => const FileOrFolderPickerDialog(),
+              );
+              
+              if (newPath != null) {
+                // Calculate relative path from TMX to selected file
+                final tmxDir = p.dirname(contextPath);
+                final relativePath = repo.calculateRelativePath(tmxDir, newPath);
+                
+                descriptor.updateValue(relativePath);
+                onUpdate();
+              }
+            },
+          ),
+          if (currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                descriptor.updateValue('');
+                onUpdate();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class PropertyDynamicDropdown extends StatelessWidget {
   final DynamicEnumPropertyDescriptor descriptor;
   final VoidCallback onUpdate;

@@ -55,13 +55,12 @@ class TiledReflector {
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
   ) {
-    // 1. Standard Geometry Properties (Same as before)
+    // 1. Standard Geometry Properties
     final descriptors = <PropertyDescriptor>[
       IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => obj.id, setter: (v) {}, isReadOnly: true),
       StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => obj.name, setter: (v) => obj.name = v),
       
-      // 2. The Class Selector
-      // This allows the user to switch the object "Type" to one defined in the schema
+      // Class Selector
       DynamicEnumPropertyDescriptor(
         name: 'type', 
         label: 'Class', 
@@ -78,8 +77,27 @@ class TiledReflector {
       DoublePropertyDescriptor(name: 'width', label: 'Width', getter: () => obj.width, setter: (v) => obj.width = v),
       DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => obj.height, setter: (v) => obj.height = v),
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => obj.rotation, setter: (v) => obj.rotation = v),
+
+      // --- RESTORED: Legacy tp_sprite picker ---
+      SpriteReferencePropertyDescriptor(
+        name: 'tp_sprite',
+        label: 'Texture Packer Sprite (Legacy)',
+        getter: () {
+          final prop = obj.properties['tp_sprite'];
+          return (prop is StringProperty) ? prop.value : '';
+        },
+        setter: (val) {
+          if (val.isEmpty) {
+            obj.properties.byName.remove('tp_sprite');
+          } else {
+            obj.properties.byName['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+          }
+        },
+      ),
+      // ------------------------------------------
     ];
 
+    // 3. Schema Member Generation (Logic unchanged)
     final currentClass = obj.type;
     if (schema != null && schema.containsKey(currentClass)) {
       final definition = schema[currentClass]!;
@@ -88,7 +106,6 @@ class TiledReflector {
         descriptors.add(_createMemberDescriptor(obj, member, resolver));
       }
     } else {
-      // Fallback: If no class matched, show generic Custom Properties
       descriptors.add(CustomPropertiesDescriptor(
         name: 'properties', 
         label: 'Custom Properties', 
