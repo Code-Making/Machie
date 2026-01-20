@@ -53,6 +53,7 @@ class _UnifiedPackResult {
   final int atlasHeight;
   final int columns;
   final Map<String, ui.Rect> packedRects;
+  final Map<String, int> idToGid;
 
   _UnifiedPackResult({
     required this.atlasImageBytes,
@@ -60,6 +61,7 @@ class _UnifiedPackResult {
     required this.atlasHeight,
     required this.columns,
     required this.packedRects,
+    required this.idToGid,
   });
 }
 
@@ -201,7 +203,7 @@ class TiledExportService {
                 final image = resolver.getImage(imageSource, tileset: tileset);
                 if (image != null) {
                   final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, Rect.fromLTWH(
+                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                     rect.left.toDouble(),
                     rect.top.toDouble(),
                     rect.width.toDouble(),
@@ -238,7 +240,7 @@ class TiledExportService {
                    final image = resolver.getImage(imageSource, tileset: tileset);
                    if (image != null) {
                      final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                     addAsset(uniqueKey, image, Rect.fromLTWH(
+                     addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                        rect.left.toDouble(), 
                        rect.top.toDouble(), 
                        rect.width.toDouble(), 
@@ -503,7 +505,7 @@ class TiledExportService {
                 final newGid = keyToNewGid[key]! | flags;
                 layer.tileData![y][x] = Gid(newGid, g.flips);
               } else {
-                layer.tileData![y][x] = Gid(0);
+                layer.tileData![y][x] = Gid.fromInt(0);
               }
             }
           }
