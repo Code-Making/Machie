@@ -332,6 +332,19 @@ class TiledExportService {
       columns = potSize ~/ tileWidth;
     }
 
+    // *** FIX IS HERE ***
+    int rows = (sortedAssets.length / columns).ceil();
+    int neededHeight = rows * tileHeight;
+    int potHeight = _nextPowerOfTwo(neededHeight);
+
+    while (potHeight > potSize * 2) {
+      potSize *= 2;
+      columns = potSize ~/ tileWidth;
+      rows = (sortedAssets.length / columns).ceil();
+      neededHeight = rows * tileHeight;
+      potHeight = _nextPowerOfTwo(neededHeight);
+    }
+    
     final List<List<bool>> grid = [];
 
     void ensureRows(int rowIndex) {
@@ -391,16 +404,8 @@ class TiledExportService {
     }
 
     int totalRows = grid.length;
-    int neededHeight = totalRows * tileHeight;
-    int potHeight = _nextPowerOfTwo(neededHeight);
-
-    while (potHeight > potSize * 2) {
-      potSize *= 2;
-      columns = potSize ~/ tileWidth;
-      rows = (sortedAssets.length / columns).ceil();
-      neededHeight = rows * tileHeight;
-      potHeight = _nextPowerOfTwo(neededHeight);
-    }
+    int finalNeededHeight = totalRows * tileHeight;
+    int finalPotHeight = _nextPowerOfTwo(finalNeededHeight);
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
@@ -415,7 +420,7 @@ class TiledExportService {
     }
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(potSize, potHeight);
+    final image = await picture.toImage(potSize, finalPotHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     
     if (byteData == null) throw Exception('Failed to encode atlas image.');
@@ -423,7 +428,7 @@ class TiledExportService {
     return _UnifiedPackResult(
       atlasImageBytes: byteData.buffer.asUint8List(),
       atlasWidth: potSize,
-      atlasHeight: potHeight,
+      atlasHeight: finalPotHeight,
       columns: columns,
       packedRects: packedRects,
       idToGid: idToGid,
