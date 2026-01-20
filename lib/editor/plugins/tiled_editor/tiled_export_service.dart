@@ -210,7 +210,7 @@ class TiledExportService {
                 final image = resolver.getImage(imageSource, tileset: tileset);
                 if (image != null) {
                   final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, Rect.fromLTWH(
+                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                     rect.left.toDouble(),
                     rect.top.toDouble(),
                     rect.width.toDouble(),
@@ -247,7 +247,7 @@ class TiledExportService {
                    final image = resolver.getImage(imageSource, tileset: tileset);
                    if (image != null) {
                      final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                     addAsset(uniqueKey, image, Rect.fromLTWH(
+                     addAsset(uniqueKey, image, ui.Rect.fromLTWH(
                        rect.left.toDouble(), 
                        rect.top.toDouble(), 
                        rect.width.toDouble(), 
@@ -535,7 +535,7 @@ class TiledExportService {
               } else {
                 // If not found in atlas (should not happen if collected correctly), keep or clear?
                 // Clear to avoid ghost tiles from old tileset indices pointing to new tileset images
-                layer.tileData![y][x] = Gid(0);
+                layer.tileData![y][x] = Gid.fromInt(0);
               }
             }
           }
