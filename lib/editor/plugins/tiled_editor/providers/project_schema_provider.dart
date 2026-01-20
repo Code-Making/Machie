@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/data/repositories/project/project_repository.dart';
 import 'package:machine/app/app_notifier.dart';
 import '../models/object_class_model.dart';
+import '../../../../project/project_settings_notifier.dart';
 
 /// Loads the schema once per project. 
 /// Assumes 'ecs_schema.json' exists in the root, or returns empty.
