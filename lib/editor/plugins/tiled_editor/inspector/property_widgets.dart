@@ -18,6 +18,55 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+class PropertyDynamicDropdown extends StatelessWidget {
+  final DynamicEnumPropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyDynamicDropdown({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Fetch options dynamically
+    final options = descriptor.fetchOptions();
+    final currentValue = descriptor.currentValue;
+
+    // Ensure current value is in list, or handle empty
+    if (!options.contains(currentValue) && currentValue.isNotEmpty) {
+      options.add(currentValue);
+    }
+    
+    if (options.isEmpty) {
+      return ListTile(
+        title: Text(descriptor.label),
+        subtitle: const Text('No options available (Check Atlas)'),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(labelText: descriptor.label),
+      value: currentValue.isEmpty ? null : currentValue,
+      items: options.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: descriptor.isReadOnly
+          ? null
+          : (String? newValue) {
+              if (newValue != null) {
+                descriptor.updateValue(newValue);
+                onUpdate();
+              }
+            },
+    );
+  }
+}
+
 class PropertyFlowGraphSelector extends ConsumerWidget {
   final FlowGraphReferencePropertyDescriptor descriptor;
   final VoidCallback onUpdate;

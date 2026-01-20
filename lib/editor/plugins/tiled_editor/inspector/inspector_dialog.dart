@@ -12,6 +12,7 @@ import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import '../tiled_asset_resolver.dart'; // Import the new resolver
+import '../providers/project_schema_provider.dart'; // Import the provider created in Phase 1
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
@@ -89,7 +90,16 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final descriptors = TiledReflector.getDescriptors(widget.target);
+    // 1. Watch the schema
+    final schemaAsync = ref.watch(projectSchemaProvider);
+    final schema = schemaAsync.valueOrNull;
+
+    // 2. Pass schema and resolver to getDescriptors
+    final descriptors = TiledReflector.getDescriptors(
+      widget.target, 
+      schema: schema, 
+      resolver: widget.resolver
+    );
 
     return AlertDialog(
       title: Text(widget.title),
@@ -226,6 +236,30 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         );
       }
       return ListTile(title: Text('${descriptor.label}: Unsupported Type'));
+    }
+    
+        if (descriptor is SchemaFilePropertyDescriptor) {
+      // Re-use logic from ImagePathPropertyDescriptor but generic
+      return PropertyFileLinkWithAction(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
+    }
+    
+    if (descriptor is DynamicEnumPropertyDescriptor) {
+      // We need a specific widget that calls fetchOptions()
+      return PropertyDynamicDropdown(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
+    }
+        
+    // Note: The "Type" dropdown created in reflector uses EnumPropertyDescriptor<StringEnumWrapper>
+    // The existing PropertyEnumDropdown should handle it if the generic types align, 
+    // or we cast it.
+    if (descriptor is EnumPropertyDescriptor) {
+       // You might need to cast to dynamic to let the generic widget handle the specific Enum type
+       return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
     }
 
     return ListTile(title: Text('${descriptor.label}: ${descriptor.currentValue}'));

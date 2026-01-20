@@ -20,9 +20,38 @@ abstract class PropertyDescriptor {
   void updateValue(dynamic newValue);
 }
 
-// FILE: lib/editor/plugins/tiled_editor/inspector/property_descriptors.dart
+/// A dropdown descriptor where valid values are fetched asynchronously or 
+/// dynamically based on other object state (e.g. animation names from a selected atlas).
+class DynamicEnumPropertyDescriptor extends PropertyDescriptor {
+  final String Function() getter;
+  final void Function(String) setter;
+  final List<String> Function() fetchOptions;
 
-// ... (keep existing imports and classes)
+  const DynamicEnumPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    required this.fetchOptions,
+    super.isReadOnly,
+  });
+
+  @override
+  String get currentValue => getter();
+
+  @override
+  void updateValue(dynamic newValue) => setter(newValue.toString());
+}
+
+/// A specific descriptor to tag schema-defined file paths
+class SchemaFilePropertyDescriptor extends StringPropertyDescriptor {
+  const SchemaFilePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required super.getter,
+    required super.setter,
+  });
+}
 
 class FlowGraphReferencePropertyDescriptor extends StringPropertyDescriptor {
   const FlowGraphReferencePropertyDescriptor({
