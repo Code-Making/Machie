@@ -62,14 +62,14 @@ class TiledReflector {
       
       // 2. The Class Selector
       // This allows the user to switch the object "Type" to one defined in the schema
-      EnumPropertyDescriptor<StringEnumWrapper>(
+      DynamicEnumPropertyDescriptor(
         name: 'type', 
         label: 'Class', 
-        getter: () => StringEnumWrapper(obj.type.isEmpty ? 'None' : obj.type),
-        setter: (v) => obj.type = (v.value == 'None' ? '' : v.value),
-        allValues: [
-          StringEnumWrapper('None'),
-          if (schema != null) ...schema.keys.map((k) => StringEnumWrapper(k))
+        getter: () => obj.type.isEmpty ? 'None' : obj.type,
+        setter: (v) => obj.type = (v == 'None' ? '' : v),
+        fetchOptions: () => [
+          'None',
+          if (schema != null) ...schema.keys
         ],
       ),
       
@@ -80,7 +80,6 @@ class TiledReflector {
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => obj.rotation, setter: (v) => obj.rotation = v),
     ];
 
-    // 3. Schema Member Generation
     final currentClass = obj.type;
     if (schema != null && schema.containsKey(currentClass)) {
       final definition = schema[currentClass]!;
@@ -106,14 +105,12 @@ class TiledReflector {
     ClassMemberDefinition member,
     TiledAssetResolver? resolver,
   ) {
-    // Helper to get raw property or default
     dynamic getValue() {
       final prop = obj.properties[member.name];
       if (prop != null) return prop.value;
       return member.defaultValue;
     }
 
-    // Helper to set property ensuring correct Tiled Type
     void setValue(dynamic val, PropertyType type) {
       obj.properties.byName[member.name] = Property(
         name: member.name, 
@@ -122,28 +119,23 @@ class TiledReflector {
       );
     }
 
-    // --- Special Case: Atlas Sprite Animation Selector ---
-    // If we are looking at 'initialAnim' or 'initialFrame' and have an 'atlas' property
+    // Special Case: Atlas Sprite Animation Selector
     if ((member.name == 'initialAnim' || member.name == 'initialFrame') && resolver != null) {
       return DynamicEnumPropertyDescriptor(
         name: member.name,
-        label: member.name, // Capitalize first letter if desired
+        label: member.name,
         getter: () => getValue().toString(),
         setter: (v) => setValue(v, PropertyType.string),
         fetchOptions: () {
-          // 1. Find the atlas file path from the sibling property
           final atlasProp = obj.properties['atlas'];
           if (atlasProp is! StringProperty) return [];
           
           final atlasPath = atlasProp.value;
           if (atlasPath.isEmpty) return [];
 
-          // 2. Resolve the asset
-          // Note: we need the TMX path context to resolve the relative atlas path
           final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasPath);
           final asset = resolver.getAsset(canonicalKey);
 
-          // 3. Extract frames/animations
           if (asset is TexturePackerAssetData) {
             final options = <String>[];
             if (member.name == 'initialAnim') {
@@ -158,7 +150,7 @@ class TiledReflector {
       );
     }
 
-    // --- Standard Schema Types ---
+    // Standard Schema Types
     switch (member.type) {
       case ClassMemberType.string:
         return StringPropertyDescriptor(
@@ -194,7 +186,7 @@ class TiledReflector {
           label: member.name,
           getter: () {
             final val = getValue();
-            if (val is String) return val; // Hex string
+            if (val is String) return val;
             return '#FFFFFFFF'; 
           },
           setter: (v) => setValue(v, PropertyType.color),
@@ -389,19 +381,3 @@ extension TiledImageReflector on TiledImage {
 }
 
 // Helper class because EnumPropertyDescriptor expects an Enum
-class StringEnumWrapper extends Enum {
-  final String value;
-  const StringEnumWrapper(this.value);
-  
-  @override
-  int get index => 0; // Dummy
-  
-  @override
-  String get name => value;
-
-  @override
-  bool operator ==(Object other) => other is StringEnumWrapper && other.value == value;
-  
-  @override
-  int get hashCode => value.hashCode;
-}

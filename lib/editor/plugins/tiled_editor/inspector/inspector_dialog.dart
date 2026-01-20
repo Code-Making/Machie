@@ -247,7 +247,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     
     if (descriptor is DynamicEnumPropertyDescriptor) {
-      // We need a specific widget that calls fetchOptions()
       return PropertyDynamicDropdown(
         descriptor: descriptor,
         onUpdate: _onUpdate,
