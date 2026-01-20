@@ -1,0 +1,80 @@
+[
+  {
+    "name": "Spawn",
+    "color": "#00ff00",
+    "members": []
+  },
+  {
+    "name": "Region",
+    "color": "#a0a0a0",
+    "members": [
+      {
+        "name": "regionType",
+        "type": "string",
+        "value": "wall"
+      },
+      {
+        "name": "targetLevelId",
+        "type": "string",
+        "value": ""
+      },
+      {
+        "name": "targetSpawnName",
+        "type": "string",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "name": "Portal",
+    "color": "#00ffff",
+    "members": [
+      {
+        "name": "regionType",
+        "type": "string",
+        "value": "wall"
+      },
+      {
+        "name": "targetLevelId",
+        "type": "string",
+        "value": ""
+      },
+      {
+        "name": "targetSpawnName",
+        "type": "string",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "name": "AtlasSprite",
+    "color": "#9932CC",
+    "members": [
+      {
+        "name": "atlas",
+        "type": "file",
+        "value": ""
+      },
+      {
+        "name": "initialAnim",
+        "type": "string",
+        "value": ""
+      },
+      {
+        "name": "initialFrame",
+        "type": "string",
+        "value": ""
+      },
+      {
+        "name": "loop",
+        "type": "bool",
+        "value": true
+      },
+      {
+        "name": "animationSpeed",
+        "type": "float",
+        "value": 0.2
+      }
+    ]
+  }
+]

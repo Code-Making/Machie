@@ -162,6 +162,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         parentObject: actualParentObject,
       );
     }
+    if (descriptor is SchemaFilePropertyDescriptor) {
+      return PropertySchemaFileSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        contextPath: widget.resolver.tmxPath,
+      );
+    }
     if (descriptor is FileListPropertyDescriptor) {
       return PropertyFileListEditor(
         descriptor: descriptor,
