@@ -47,6 +47,7 @@ import 'widgets/sprite_picker_dialog.dart';
 import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'tiled_asset_resolver.dart';
 
+
 class TiledEditorWidget extends EditorWidget {
   @override
   final TiledEditorTab tab;

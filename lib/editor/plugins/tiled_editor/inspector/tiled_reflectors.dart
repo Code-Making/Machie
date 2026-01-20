@@ -1,5 +1,8 @@
 import 'package:tiled/tiled.dart';
 import 'property_descriptors.dart';
+import '../models/object_class_model.dart';
+import '../tiled_asset_resolver.dart';
+import 'package:machine/asset_cache/asset_models.dart';
 
 // Helper to convert ColorData to and from Hex strings.
 ColorData colorDataFromHex(String hex) {
@@ -29,16 +32,181 @@ extension on ColorData {
 
 // --- THE NEW REFLECTOR CLASS ---
 class TiledReflector {
-  static List<PropertyDescriptor> getDescriptors(Object? obj) {
+  static List<PropertyDescriptor> getDescriptors(
+    Object? obj, {
+    Map<String, ObjectClassDefinition>? schema,
+    TiledAssetResolver? resolver,
+  }) {
     if (obj == null) return [];
     
-    if (obj is TiledMap) return obj.getDescriptors();
-    if (obj is Layer) return obj.getDescriptors(); 
-    if (obj is Tileset) return obj.getDescriptors();
-    if (obj is TiledObject) return obj.getDescriptors();
-    if (obj is TiledImage) return obj.getDescriptors(null);
-
+    if (obj is TiledObject) {
+      return _getTiledObjectDescriptors(obj, schema, resolver);
+    }
+    // ... Pass through for other types (Map, Layer, etc)
+    if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
+    if (obj is Layer) return (obj as Layer).getDescriptors(); 
+    if (obj is Tileset) return (obj as Tileset).getDescriptors();
+    
     return [];
+  }
+
+  static List<PropertyDescriptor> _getTiledObjectDescriptors(
+    TiledObject obj, 
+    Map<String, ObjectClassDefinition>? schema,
+    TiledAssetResolver? resolver,
+  ) {
+    // 1. Standard Geometry Properties (Same as before)
+    final descriptors = <PropertyDescriptor>[
+      IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => obj.id, setter: (v) {}, isReadOnly: true),
+      StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => obj.name, setter: (v) => obj.name = v),
+      
+      // 2. The Class Selector
+      // This allows the user to switch the object "Type" to one defined in the schema
+      EnumPropertyDescriptor<StringEnumWrapper>(
+        name: 'type', 
+        label: 'Class', 
+        getter: () => StringEnumWrapper(obj.type.isEmpty ? 'None' : obj.type),
+        setter: (v) => obj.type = (v.value == 'None' ? '' : v.value),
+        allValues: [
+          StringEnumWrapper('None'),
+          if (schema != null) ...schema.keys.map((k) => StringEnumWrapper(k))
+        ],
+      ),
+      
+      DoublePropertyDescriptor(name: 'x', label: 'X', getter: () => obj.x, setter: (v) => obj.x = v),
+      DoublePropertyDescriptor(name: 'y', label: 'Y', getter: () => obj.y, setter: (v) => obj.y = v),
+      DoublePropertyDescriptor(name: 'width', label: 'Width', getter: () => obj.width, setter: (v) => obj.width = v),
+      DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => obj.height, setter: (v) => obj.height = v),
+      DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => obj.rotation, setter: (v) => obj.rotation = v),
+    ];
+
+    // 3. Schema Member Generation
+    final currentClass = obj.type;
+    if (schema != null && schema.containsKey(currentClass)) {
+      final definition = schema[currentClass]!;
+      
+      for (final member in definition.members) {
+        descriptors.add(_createMemberDescriptor(obj, member, resolver));
+      }
+    } else {
+      // Fallback: If no class matched, show generic Custom Properties
+      descriptors.add(CustomPropertiesDescriptor(
+        name: 'properties', 
+        label: 'Custom Properties', 
+        getter: () => obj.properties, 
+        setter: (v) => obj.properties = v
+      ));
+    }
+
+    return descriptors;
+  }
+
+  static PropertyDescriptor _createMemberDescriptor(
+    TiledObject obj, 
+    ClassMemberDefinition member,
+    TiledAssetResolver? resolver,
+  ) {
+    // Helper to get raw property or default
+    dynamic getValue() {
+      final prop = obj.properties[member.name];
+      if (prop != null) return prop.value;
+      return member.defaultValue;
+    }
+
+    // Helper to set property ensuring correct Tiled Type
+    void setValue(dynamic val, PropertyType type) {
+      obj.properties.byName[member.name] = Property(
+        name: member.name, 
+        type: type, 
+        value: val
+      );
+    }
+
+    // --- Special Case: Atlas Sprite Animation Selector ---
+    // If we are looking at 'initialAnim' or 'initialFrame' and have an 'atlas' property
+    if ((member.name == 'initialAnim' || member.name == 'initialFrame') && resolver != null) {
+      return DynamicEnumPropertyDescriptor(
+        name: member.name,
+        label: member.name, // Capitalize first letter if desired
+        getter: () => getValue().toString(),
+        setter: (v) => setValue(v, PropertyType.string),
+        fetchOptions: () {
+          // 1. Find the atlas file path from the sibling property
+          final atlasProp = obj.properties['atlas'];
+          if (atlasProp is! StringProperty) return [];
+          
+          final atlasPath = atlasProp.value;
+          if (atlasPath.isEmpty) return [];
+
+          // 2. Resolve the asset
+          // Note: we need the TMX path context to resolve the relative atlas path
+          final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasPath);
+          final asset = resolver.getAsset(canonicalKey);
+
+          // 3. Extract frames/animations
+          if (asset is TexturePackerAssetData) {
+            final options = <String>[];
+            if (member.name == 'initialAnim') {
+               options.addAll(asset.animations.keys);
+            } else {
+               options.addAll(asset.frames.keys);
+            }
+            return options;
+          }
+          return [];
+        },
+      );
+    }
+
+    // --- Standard Schema Types ---
+    switch (member.type) {
+      case ClassMemberType.string:
+        return StringPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => getValue().toString(),
+          setter: (v) => setValue(v, PropertyType.string),
+        );
+      case ClassMemberType.int:
+        return IntPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => (getValue() as num?)?.toInt() ?? 0,
+          setter: (v) => setValue(v, PropertyType.int),
+        );
+      case ClassMemberType.float:
+        return DoublePropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => (getValue() as num?)?.toDouble() ?? 0.0,
+          setter: (v) => setValue(v, PropertyType.float),
+        );
+      case ClassMemberType.bool:
+        return BoolPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => getValue() == true,
+          setter: (v) => setValue(v, PropertyType.bool),
+        );
+      case ClassMemberType.color:
+        return ColorPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () {
+            final val = getValue();
+            if (val is String) return val; // Hex string
+            return '#FFFFFFFF'; 
+          },
+          setter: (v) => setValue(v, PropertyType.color),
+        );
+      case ClassMemberType.file:
+        return SchemaFilePropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => getValue().toString(),
+          setter: (v) => setValue(v, PropertyType.file),
+        );
+    }
   }
 }
 
@@ -218,4 +386,22 @@ extension TiledImageReflector on TiledImage {
       IntPropertyDescriptor(name: 'height', label: 'Height', getter: () => height ?? 0, setter: (v) {}, isReadOnly: true),
     ];
   }
+}
+
+// Helper class because EnumPropertyDescriptor expects an Enum
+class StringEnumWrapper extends Enum {
+  final String value;
+  const StringEnumWrapper(this.value);
+  
+  @override
+  int get index => 0; // Dummy
+  
+  @override
+  String get name => value;
+
+  @override
+  bool operator ==(Object other) => other is StringEnumWrapper && other.value == value;
+  
+  @override
+  int get hashCode => value.hashCode;
 }
