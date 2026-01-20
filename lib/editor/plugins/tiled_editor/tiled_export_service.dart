@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/tiled_editor/tiled_export_service.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -12,9 +14,9 @@ import 'package:machine/editor/plugins/tiled_editor/tmx_writer.dart';
 import 'package:machine/logs/logs_provider.dart';
 import 'package:tiled/tiled.dart';
 import 'package:machine/asset_cache/asset_models.dart';
-import 'package:machine/utils/texture_packer_algo.dart'; // Retained for type references if needed
+import 'package:machine/utils/texture_packer_algo.dart';
 
-import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart' show TexturePackerAssetData;
+import 'package:machine/editor/plugins/texture_packer/texture_packer_models.dart';
 import 'package:machine/editor/plugins/flow_graph/services/flow_export_service.dart';
 import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart';
 import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
@@ -51,7 +53,6 @@ class _UnifiedPackResult {
   final int atlasHeight;
   final int columns;
   final Map<String, ui.Rect> packedRects;
-  final Map<String, int> idToGid;
 
   _UnifiedPackResult({
     required this.atlasImageBytes,
@@ -59,7 +60,6 @@ class _UnifiedPackResult {
     required this.atlasHeight,
     required this.columns,
     required this.packedRects,
-    required this.idToGid,
   });
 }
 
@@ -74,13 +74,9 @@ class TiledExportService {
   static const int _flagMask = _flippedHorizontallyFlag | _flippedVerticallyFlag | _flippedDiagonallyFlag;
   static const int _gidMask = ~_flagMask;
 
-  /// Extracts the pure ID without flags.
   int _getCleanGid(int gid) => gid & _gidMask;
-
-  /// Extracts only the flags.
   int _getGidFlags(int gid) => gid & _flagMask;
 
-  /// Calculates the next power of two for a given number.
   int _nextPowerOfTwo(int v) {
     if (v <= 0) return 2;
     v--;
@@ -108,24 +104,19 @@ class TiledExportService {
     final repo = resolver.repo;
     talker.info('Starting map export...');
 
-    // Work on a deep copy so we don't mutate the editor state
     TiledMap mapToExport = _deepCopyMap(map);
 
-    // 1. Process Dependencies (Flow Graphs, etc.)
     await _processFlowGraphDependencies(mapToExport, resolver, destinationFolderUri);
 
     if (packInAtlas) {
-      // 2. Collect Assets
       final assetsToPack = await _collectUnifiedAssets(mapToExport, resolver);
 
       if (assetsToPack.isNotEmpty) {
         talker.info('Collected ${assetsToPack.length} unique graphical assets to pack.');
         
-        // 3. Pack Atlas (Strict Grid for Tiled Compatibility)
         final packResult = await _packUnifiedAtlasGrid(assetsToPack, map.tileWidth, map.tileHeight);
         talker.info('Atlas packing complete. Size: ${packResult.atlasWidth}x${packResult.atlasHeight}, Cols: ${packResult.columns}');
         
-        // 4. Write Atlas Files
         await repo.createDocumentFile(
           destinationFolderUri,
           '$atlasFileName.png',
@@ -139,7 +130,9 @@ class TiledExportService {
           overwrite: true,
         );
 
-        // 5. Update Map Data (Remap GIDs)
+        // Process linked .tpacker files
+        await _processTexturePackerDependencies(mapToExport, resolver, packResult, atlasFileName, destinationFolderUri);
+
         if (!packAssetsOnly) {
           _remapAndFinalizeMap(mapToExport, packResult, atlasFileName);
         }
@@ -151,11 +144,9 @@ class TiledExportService {
         }
       }
     } else {
-      // Non-atlas mode: Copy raw assets
       await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
     
-    // 6. Write the Map File
     if (!packAssetsOnly) {
       String fileContent = asJson ? TmjWriter(mapToExport).toTmj() : TmxWriter(mapToExport).toTmx();
       String fileExtension = asJson ? 'json' : 'tmx';
@@ -210,7 +201,7 @@ class TiledExportService {
                 final image = resolver.getImage(imageSource, tileset: tileset);
                 if (image != null) {
                   final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                  addAsset(uniqueKey, image, ui.Rect.fromLTWH(
+                  addAsset(uniqueKey, image, Rect.fromLTWH(
                     rect.left.toDouble(),
                     rect.top.toDouble(),
                     rect.width.toDouble(),
@@ -247,7 +238,7 @@ class TiledExportService {
                    final image = resolver.getImage(imageSource, tileset: tileset);
                    if (image != null) {
                      final rect = tileset.computeDrawRect(tile ?? Tile(localId: localId));
-                     addAsset(uniqueKey, image, ui.Rect.fromLTWH(
+                     addAsset(uniqueKey, image, Rect.fromLTWH(
                        rect.left.toDouble(), 
                        rect.top.toDouble(), 
                        rect.width.toDouble(), 
@@ -317,40 +308,28 @@ class TiledExportService {
     return null;
   }
   
-  /// Packs assets into a strict grid compatible with Tiled's standard single-image tileset.
-  /// Large assets will span multiple tiles (rows/cols).
   Future<_UnifiedPackResult> _packUnifiedAtlasGrid(Set<_UnifiedAssetSource> assets, int tileWidth, int tileHeight) async {
-    // Sort to prioritize large items (Naive strategy) or ID for determinism.
-    // Deterministic sort with height priority usually gives decent packing.
     final sortedAssets = assets.toList()..sort((a, b) {
-       // Height Descending, then Width Descending, then ID Ascending
        if (a.height != b.height) return b.height.compareTo(a.height);
        if (a.width != b.width) return b.width.compareTo(a.width);
        return a.uniqueId.compareTo(b.uniqueId);
     });
 
-    // Determine initial Atlas width (Power of Two)
-    // Estimate total area
     double totalArea = 0;
     for(var a in sortedAssets) totalArea += (a.width * a.height);
     
-    // Start with sqrt area, min 256
     int potSize = _nextPowerOfTwo(sqrt(totalArea).ceil());
     if (potSize < 256) potSize = 256;
     
-    // Ensure width is at least the widest asset
     int maxAssetWidth = sortedAssets.isEmpty ? 0 : sortedAssets.map((e) => e.width).reduce(max);
     if (potSize < maxAssetWidth) potSize = _nextPowerOfTwo(maxAssetWidth);
 
     int columns = potSize ~/ tileWidth;
     if (columns < 1) {
-      // Should not happen if potSize >= maxAssetWidth >= tileWidth
-      // But safety fallback:
       potSize = _nextPowerOfTwo(tileWidth * sortedAssets.length);
       columns = potSize ~/ tileWidth;
     }
 
-    // Grid tracker: grid[row][col] = isOccupied
     final List<List<bool>> grid = [];
 
     void ensureRows(int rowIndex) {
@@ -388,9 +367,8 @@ class TiledExportService {
       bool placed = false;
       int r = 0;
       
-      // Infinite scroll search for spot
       while (!placed) {
-        ensureRows(r + hCells); // Ensure we have enough rows to check
+        ensureRows(r + hCells); 
         for (int c = 0; c <= columns - wCells; c++) {
           if (checkFit(c, r, wCells, hCells)) {
             markOccupied(c, r, wCells, hCells);
@@ -400,11 +378,7 @@ class TiledExportService {
             
             packedRects[asset.uniqueId] = ui.Rect.fromLTWH(px, py, asset.width.toDouble(), asset.height.toDouble());
             
-            // GID is based on the top-left cell index.
-            // Index = row * columns + col
-            // GID = Index + 1 (since GID 0 is null)
-            int gidIndex = (r * columns) + c + 1;
-            idToGid[asset.uniqueId] = gidIndex;
+            idToGid[asset.uniqueId] = (r * columns) + c + 1;
             
             placed = true;
             break;
@@ -414,13 +388,17 @@ class TiledExportService {
       }
     }
 
-    // Determine final height
     int totalRows = grid.length;
-    // Trim empty rows at the end if any (not strictly necessary but cleaner)
-    // (Omitted for brevity, grid usually grows tightly)
-    
     int neededHeight = totalRows * tileHeight;
     int potHeight = _nextPowerOfTwo(neededHeight);
+
+    while (potHeight > potSize * 2) {
+      potSize *= 2;
+      columns = potSize ~/ tileWidth;
+      rows = (sortedAssets.length / columns).ceil();
+      neededHeight = rows * tileHeight;
+      potHeight = _nextPowerOfTwo(neededHeight);
+    }
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
@@ -451,49 +429,43 @@ class TiledExportService {
   }
 
   void _remapAndFinalizeMap(TiledMap map, _UnifiedPackResult result, String atlasName) {
-    // Generate new tiles for the tileset
-    // We only strictly need to define properties for tiles that correspond to our packed assets.
-    // The Tileset itself is defined by the grid.
     final newTiles = <Tile>[];
     
-    // Sort logic handled in pack? No, idToGid is the truth source now.
-    // But we need to create tile definitions for Tiled XML.
-    // Iterate our assets to create property definitions.
-    result.idToGid.forEach((uniqueId, gid) {
-      // Local ID in tileset = GID - FirstGid(1) = GID - 1
-      final localId = gid - 1;
-      final rect = result.packedRects[uniqueId]!;
-      
-      newTiles.add(Tile(
-        localId: localId,
-        properties: CustomProperties({
-          'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
-          // Store rect so engines know exact sub-region if asset is smaller than tile grid
-          'atlas_rect': StringProperty(name: 'atlas_rect', value: '${rect.left},${rect.top},${rect.width},${rect.height}'),
-        }),
-      ));
-    });
+    final sortedKeys = result.idToGid.keys.toList()..sort();
 
-    // Keep reference to old tilesets for lookup
+    for (final uniqueId in sortedKeys) {
+        final newGid = result.idToGid[uniqueId]!;
+        final localId = newGid - 1;
+
+        newTiles.add(Tile(
+            localId: localId,
+            properties: CustomProperties({
+                'atlas_id': StringProperty(name: 'atlas_id', value: uniqueId),
+            }),
+        ));
+    }
+    newTiles.sort((a, b) => a.localId.compareTo(b.localId));
+    
     final oldTilesets = List<Tileset>.from(map.tilesets);
 
-    // Create New Tileset
+    int safeColumns = 1;
+    if (map.tileWidth > 0) {
+      safeColumns = max(1, result.atlasWidth ~/ map.tileWidth);
+    }
+
     final newTileset = Tileset(
       name: atlasName,
       firstGid: 1,
       tileWidth: map.tileWidth,
       tileHeight: map.tileHeight,
-      tileCount: result.columns * (result.atlasHeight ~/ map.tileHeight), // Approximate total count
-      columns: result.columns,
+      tileCount: result.columns * (result.atlasHeight ~/ map.tileHeight),
+      columns: safeColumns,
       image: TiledImage(source: '$atlasName.png', width: result.atlasWidth, height: result.atlasHeight),
     )..tiles = newTiles;
 
-    // Perform Remap
     _performSafeRemap(map, oldTilesets, result.idToGid, result.packedRects);
 
-    // Now safe to replace tilesets
     map.tilesets..clear()..add(newTileset);
-    map.properties.byName.remove('tp_atlases');
   }
 
   void _performSafeRemap(
@@ -502,7 +474,6 @@ class TiledExportService {
     Map<String, int> keyToNewGid,
     Map<String, ui.Rect> keyToRect,
   ) {
-    // Helper to find tileset in the OLD list
     Tileset? findTileset(int gid) {
       for (var i = oldTilesets.length - 1; i >= 0; i--) {
         if (oldTilesets[i].firstGid != null && oldTilesets[i].firstGid! <= gid) {
@@ -512,7 +483,6 @@ class TiledExportService {
       return null;
     }
 
-    // 1. Remap Tile Layers
     for (final layer in map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
         for (int y = 0; y < layer.height; y++) {
@@ -533,18 +503,14 @@ class TiledExportService {
                 final newGid = keyToNewGid[key]! | flags;
                 layer.tileData![y][x] = Gid(newGid, g.flips);
               } else {
-                // If not found in atlas (should not happen if collected correctly), keep or clear?
-                // Clear to avoid ghost tiles from old tileset indices pointing to new tileset images
-                layer.tileData![y][x] = Gid.fromInt(0);
+                layer.tileData![y][x] = Gid(0);
               }
             }
           }
         }
       } 
-      // 2. Remap Object Layers
       else if (layer is ObjectGroup) {
         for (final object in layer.objects) {
-          // A. Tile Objects
           if (object.gid != null) {
             final rawGid = object.gid!;
             final cleanGid = _getCleanGid(rawGid);
@@ -557,30 +523,7 @@ class TiledExportService {
               
               if (keyToNewGid.containsKey(key)) {
                 object.gid = keyToNewGid[key]! | flags;
-                // Optional: Update size if needed
               }
-            }
-          }
-
-          // B. Sprite Objects
-          final spriteProp = object.properties['tp_sprite'];
-          if (spriteProp is StringProperty && spriteProp.value.isNotEmpty) {
-            final key = 'sprite_${spriteProp.value}';
-            
-            if (keyToNewGid.containsKey(key)) {
-              final newGid = keyToNewGid[key]!;
-              final currentFlags = object.gid != null ? _getGidFlags(object.gid!) : 0;
-              object.gid = newGid | currentFlags;
-              
-              // Coordinate Fix: Top-Left (Rect) to Bottom-Left (Tiled Object)
-              if (keyToRect.containsKey(key)) {
-                final r = keyToRect[key]!;
-                object.width = r.width;
-                object.height = r.height;
-                object.y += object.height;
-              }
-              
-              object.properties.byName.remove('tp_sprite');
             }
           }
         }
@@ -590,7 +533,6 @@ class TiledExportService {
 
   String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
     final frames = <String, dynamic>{};
-    // Sort keys just to have stable JSON output
     final sortedKeys = result.packedRects.keys.toList()..sort();
 
     for (final uniqueId in sortedKeys) {
@@ -608,7 +550,7 @@ class TiledExportService {
     final jsonOutput = {
       "frames": frames,
       "meta": {
-        "app": "Machine Editor - Unified Grid Export",
+        "app": "Machine Editor - Unified Export",
         "version": "1.0",
         "image": "$atlasName.png",
         "format": "RGBA8888",
@@ -617,6 +559,100 @@ class TiledExportService {
       }
     };
     return const JsonEncoder.withIndent('  ').convert(jsonOutput);
+  }
+
+  Future<void> _processTexturePackerDependencies(TiledMap map, TiledAssetResolver resolver, _UnifiedPackResult packResult, String atlasName, String destinationFolderUri) async {
+      final talker = _ref.read(talkerProvider);
+      final repo = resolver.repo;
+      final tpAtlasesProp = map.properties['tp_atlases'];
+      if (tpAtlasesProp is! StringProperty || tpAtlasesProp.value.isEmpty) {
+        return;
+      }
+
+      final originalTpackerPaths = tpAtlasesProp.value.split(',').map((e) => e.trim()).toList();
+      final newTpackerFileNames = <String>[];
+
+      for(final path in originalTpackerPaths) {
+          try {
+              final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
+              final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+              if (file == null) {
+                  talker.warning('Could not find linked .tpacker file: $path');
+                  continue;
+              }
+
+              final content = await repo.readFile(file.uri);
+              final originalProject = TexturePackerProject.fromJson(jsonDecode(content));
+
+              final newSourceImage = SourceImageNode(
+                  id: 'unified_atlas',
+                  name: atlasName,
+                  type: SourceNodeType.image,
+                  content: SourceImageConfig(
+                      path: '$atlasName.png',
+                      slicing: const SlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
+                  ),
+              );
+
+              final newDefinitions = <String, PackerItemDefinition>{};
+              originalProject.definitions.forEach((nodeId, def) {
+                  if (def is SpriteDefinition) {
+                      final node = _findNodeInTree(originalProject.tree, nodeId);
+                      if (node != null) {
+                          final key = 'sprite_${node.name}';
+                          final rect = packResult.packedRects[key];
+                          if (rect != null) {
+                              newDefinitions[nodeId] = SpriteDefinition(
+                                  sourceImageId: newSourceImage.id, 
+                                  gridRect: GridRect(x: rect.left.toInt(), y: rect.top.toInt(), width: rect.width.toInt(), height: rect.height.toInt()),
+                              );
+                          }
+                      }
+                  } else {
+                      newDefinitions[nodeId] = def;
+                  }
+              });
+
+              final newProject = TexturePackerProject(
+                  sourceImagesRoot: SourceImageNode(
+                      id: 'root',
+                      name: 'root',
+                      type: SourceNodeType.folder,
+                      children: [newSourceImage],
+                  ), 
+                  tree: originalProject.tree, // Keep hierarchy
+                  definitions: newDefinitions,
+              );
+              
+              final newFileName = 'export_${p.basename(path)}';
+              newTpackerFileNames.add(newFileName);
+              
+              await repo.createDocumentFile(
+                  destinationFolderUri, 
+                  newFileName,
+                  initialContent: jsonEncode(newProject.toJson()),
+                  overwrite: true,
+              );
+
+          } catch (e, st) {
+              talker.handle(e, st, 'Failed to process .tpacker dependency: $path');
+          }
+      }
+
+      // Update map property to point to new tpacker files
+      map.properties.byName['tp_atlases'] = StringProperty(
+          name: 'tp_atlases',
+          value: newTpackerFileNames.join(','),
+      );
+  }
+  
+  PackerItemNode? _findNodeInTree(PackerItemNode node, String id) {
+      if (node.id == id) return node;
+      for (final child in node.children) {
+          final found = _findNodeInTree(child, id);
+          if (found != null) return found;
+      }
+      return null;
   }
 
   Future<void> _processFlowGraphDependencies(TiledMap mapToExport, TiledAssetResolver resolver, String destinationFolderUri) async {
@@ -697,24 +733,6 @@ class TiledExportService {
     }
   }
 
-  Set<int> _findUsedGids(TiledMap map) {
-    final usedGids = <int>{};
-    for (final layer in map.layers) {
-      if (layer is TileLayer && layer.tileData != null) {
-        for (final row in layer.tileData!) {
-          for (final gid in row) {
-            if (gid.tile != 0) usedGids.add(gid.tile);
-          }
-        }
-      } else if (layer is ObjectGroup) {
-        for (final object in layer.objects) {
-          if (object.gid != null) usedGids.add(object.gid!);
-        }
-      }
-    }
-    return usedGids;
-  }
-  
   TiledMap _deepCopyMap(TiledMap original) {
     final writer = TmxWriter(original);
     final tmxString = writer.toTmx();
