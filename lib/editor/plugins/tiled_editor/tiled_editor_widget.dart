@@ -337,14 +337,10 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
           scanGroup(layer);
         } else if (layer is ObjectGroup) {
           for (final obj in layer.objects) {
-            // Check for 'atlas' property (Texture Packer)
             final atlasProp = obj.properties['atlas'];
-            if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-               uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+            if (atlasProp != null && atlasProp.value is String && (atlasProp.value as String).isNotEmpty) {
+               uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value as String));
             }
-            
-            // Check for 'tp_sprite' property is handled via 'tp_atlases' usually, 
-            // but if you have specific object overrides, add them here.
           }
         }
       }
@@ -357,8 +353,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       } else if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
            final atlasProp = obj.properties['atlas'];
-           if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-              uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+           if (atlasProp != null && atlasProp.value is String && (atlasProp.value as String).isNotEmpty) {
+              uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value as String));
            }
         }
       }
