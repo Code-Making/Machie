@@ -297,103 +297,64 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  Future<Set<AssetQuery>> _collectAssetUris(TiledMap map) async {
-    final queries = <AssetQuery>{};
+Future<Set<String>> _collectAssetUris(TiledMap map) async {
+    final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
-    // 1. Schema File (defined in Map Properties)
-    final schemaProp = map.properties['schema_file'];
-    if (schemaProp is StringProperty && schemaProp.value.isNotEmpty) {
-      queries.add(AssetQuery(
-        path: schemaProp.value, 
-        mode: AssetPathMode.relativeToContext, 
-        contextPath: tmxPath
-      ));
-    }
-
-    // 2. Tilesets
+    // 1. Existing checks (Tilesets)
     for (final tileset in map.tilesets) {
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
       if (tileset.image?.source != null) {
-        queries.add(AssetQuery(
-          path: tileset.image!.source!,
-          mode: AssetPathMode.relativeToContext,
-          contextPath: contextPath
-        ));
+        final assetUri = repo.resolveRelativePath(contextPath, tileset.image!.source!);
+        uris.add(assetUri);
       }
     }
 
-    // 3. Image Layers
+    // 2. Existing checks (Image Layers)
     for (final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
-        queries.add(AssetQuery(
-          path: layer.image.source!,
-          mode: AssetPathMode.relativeToContext,
-          contextPath: tmxPath
-        ));
+        final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
+        uris.add(assetUri);
       }
     }
 
-    // 4. Legacy Linked Atlases
+    // 3. Existing checks (Linked Atlases)
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
       if (prop is StringProperty && prop.value.isNotEmpty) {
         final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
         for (final path in paths) {
-          queries.add(AssetQuery(
-            path: path,
-            mode: AssetPathMode.relativeToContext,
-            contextPath: tmxPath
-          ));
+          uris.add(repo.resolveRelativePath(tmxPath, path));
         }
       }
     }
 
-    // 5. Schema Object Properties (Scan objects for file references)
-    final schemaDefs = ref.read(projectSchemaProvider).valueOrNull;
-    
+    // 4. NEW: Scan Object Properties for Schema Files (like 'atlas')
+    // We scan specifically for 'atlas' as per your schema example, 
+    // or generally any string ending in .tpacker/.json if we want to be safe.
     for (final layer in map.layers) {
       if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
-          // If we have a schema definition for this object's class
-          if (schemaDefs != null && schemaDefs.containsKey(obj.type)) {
-            final def = schemaDefs[obj.type]!;
-            for (final member in def.members) {
-              if (member.type == ClassMemberType.file) {
-                final prop = obj.properties[member.name];
-                if (prop is StringProperty && prop.value.isNotEmpty) {
-                   queries.add(AssetQuery(
-                      path: prop.value,
-                      mode: AssetPathMode.relativeToContext,
-                      contextPath: tmxPath
-                   ));
-                }
-              }
-            }
-          }
-          
-          // Also explicitly scan for 'atlas' property as a fallback or for non-schema compliance
+          // Check for 'atlas' property
           final atlasProp = obj.properties['atlas'];
           if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-             queries.add(AssetQuery(
-                path: atlasProp.value,
-                mode: AssetPathMode.relativeToContext,
-                contextPath: tmxPath
-             ));
+             uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
           }
         }
       }
     }
     
-    return queries;
+    return uris;
   }
   
   Future<void> _rebuildAssetUriSet() async {
     if (_notifier == null) return;
-    // Uses the updated _collectAssetUris which now returns AssetQueries
-    final queries = await _collectAssetUris(_notifier!.map);
+    final uris = await _collectAssetUris(_notifier!.map);
+    // START OF CHANGES
+    final queries = uris.map((uri) => AssetQuery(path: uri)).toSet();
     ref.read(assetMapProvider(widget.tab.id).notifier).updateUris(queries);
+    // END OF CHANGES
   }
   
   Future<void> reloadImageSource({
