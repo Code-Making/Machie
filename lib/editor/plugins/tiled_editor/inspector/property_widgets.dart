@@ -62,9 +62,9 @@ class PropertySchemaFileSelector extends ConsumerWidget {
               );
               
               if (newPath != null) {
-                // Calculate relative path from TMX to selected file
-                final tmxDir = p.dirname(contextPath);
-                final relativePath = repo.calculateRelativePath(tmxDir, newPath);
+                // FIX: Pass contextPath (the TMX file path) directly.
+                // calculateRelativePath handles extracting the directory internally.
+                final relativePath = repo.calculateRelativePath(contextPath, newPath);
                 
                 descriptor.updateValue(relativePath);
                 onUpdate();
