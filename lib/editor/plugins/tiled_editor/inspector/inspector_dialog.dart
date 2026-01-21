@@ -13,6 +13,7 @@ import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import '../tiled_asset_resolver.dart'; // Import the new resolver
 import '../providers/project_schema_provider.dart'; // Import the provider created in Phase 1
+import '../../../../logs/logs_provider.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;

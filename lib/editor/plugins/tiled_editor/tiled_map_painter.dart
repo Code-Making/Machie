@@ -8,6 +8,7 @@ import 'tiled_editor_settings_model.dart';
 import '../../../asset_cache/asset_models.dart';
 import 'package:path/path.dart' as p;
 import 'tiled_asset_resolver.dart';
+import '../../../logs/logs_provider.dart';
 
 class TiledMapPainter extends CustomPainter {
   final TiledMap map;
