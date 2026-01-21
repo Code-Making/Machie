@@ -298,6 +298,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   Future<Set<String>> _collectAssetUris(TiledMap map) async {
+  final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+  talker.debug("TiledEditor: Starting _collectAssetUris scan"); // [DIAGNOSTIC]
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
@@ -331,35 +333,39 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
 
     // 4. NEW: Recursively Scan Layers for Object Assets (e.g. 'atlas')
-    void scanGroup(Group group) {
-      for (final layer in group.layers) {
-        if (layer is Group) {
-          scanGroup(layer);
-        } else if (layer is ObjectGroup) {
-          for (final obj in layer.objects) {
-            final atlasProp = obj.properties['atlas'];
-            if (atlasProp != null && atlasProp.value is String && (atlasProp.value as String).isNotEmpty) {
-               uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value as String));
-            }
-          }
-        }
-      }
-    }
-
-    // Start scan from root layers
-    for (final layer in map.layers) {
+  void scanGroup(Group group) {
+    for (final layer in group.layers) {
       if (layer is Group) {
         scanGroup(layer);
       } else if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
-           final atlasProp = obj.properties['atlas'];
-           if (atlasProp != null && atlasProp.value is String && (atlasProp.value as String).isNotEmpty) {
-              uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value as String));
-           }
+          final atlasProp = obj.properties['atlas'];
+          if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+             final resolved = repo.resolveRelativePath(tmxPath, atlasProp.value); // [DIAGNOSTIC] refactor for log
+             talker.debug("TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'"); // [DIAGNOSTIC]
+             uris.add(resolved);
+          }
         }
       }
     }
-    
+  }
+
+    // Start scan from root layers
+  for (final layer in map.layers) {
+    if (layer is Group) {
+      scanGroup(layer);
+    } else if (layer is ObjectGroup) {
+      for (final obj in layer.objects) {
+         final atlasProp = obj.properties['atlas'];
+         if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+            final resolved = repo.resolveRelativePath(tmxPath, atlasProp.value); // [DIAGNOSTIC] refactor for log
+            talker.debug("TiledEditor: Found Object ${obj.id} with atlas '${atlasProp.value}' -> '$resolved'"); // [DIAGNOSTIC]
+            uris.add(resolved);
+         }
+      }
+    }
+  }
+      talker.info("TiledEditor: _collectAssetUris finished. Total Unique URIs: ${uris.length}"); // [DIAGNOSTIC]
     return uris;
   }
   
@@ -1579,6 +1585,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
                 settings: tiledSettings,
                 floatingSelection: notifier!.floatingSelection,
                 floatingSelectionPosition: notifier!.floatingSelectionPosition,
+    talker: ref.read(talkerProvider), // [DIAGNOSTIC] Inject
               ),
             ),
           ),

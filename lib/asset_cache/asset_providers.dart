@@ -180,11 +180,23 @@ class AssetMapNotifier
   }
 
   Future<Map<String, AssetData>> updateUris(Set<AssetQuery> newQueries) async {
-    if (const SetEquality().equals(newQueries, _queries)) {
-      return state.valueOrNull ?? const {};
-    }
+  final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+  
+  // [DIAGNOSTIC] Log incoming request
+  talker.info('AssetMapNotifier: Update requested. New Query Count: ${newQueries.length}');
+  for (var q in newQueries) {
+    talker.debug('AssetMapNotifier: Query -> ${q.path} (Context: ${q.contextPath})');
+  }
 
-    _queries = newQueries;
+  if (const SetEquality().equals(newQueries, _queries)) {
+    talker.debug('AssetMapNotifier: Queries match existing state. Skipping update.'); // [DIAGNOSTIC]
+    return state.valueOrNull ?? const {};
+  }
+
+  talker.info('AssetMapNotifier: Queries changed. Processing update...'); // [DIAGNOSTIC]
+
+  _queries = newQueries;
+  
     
     // START OF CHANGES
     final repo = ref.read(projectRepositoryProvider);

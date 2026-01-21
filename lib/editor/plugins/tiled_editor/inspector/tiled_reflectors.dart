@@ -48,11 +48,12 @@ class TiledReflector {
     Object? obj, {
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
+    Talker? talker, // [DIAGNOSTIC] Add this
   }) {
     if (obj == null) return [];
     
     if (obj is TiledObject) {
-      return _getTiledObjectDescriptors(obj, schema, resolver);
+      return _getTiledObjectDescriptors(obj, schema, resolver, talker);
     }
     // ... Pass through for other types (Map, Layer, etc)
     if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
@@ -66,6 +67,7 @@ class TiledReflector {
     TiledObject obj, 
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
+    Talker? talker, // [DIAGNOSTIC] Add this
   ) {
     final descriptors = <PropertyDescriptor>[
       IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => obj.id, setter: (v) {}, isReadOnly: true),
@@ -165,7 +167,8 @@ class TiledReflector {
     if (schema != null && schema.containsKey(currentClass)) {
       final definition = schema[currentClass]!;
       for (final member in definition.members) {
-        descriptors.add(_createMemberDescriptor(obj, member, resolver));
+        // Pass talker down
+        descriptors.add(_createMemberDescriptor(obj, member, resolver, talker));
       }
     }
 
@@ -184,6 +187,7 @@ class TiledReflector {
     TiledObject obj, 
     ClassMemberDefinition member,
     TiledAssetResolver? resolver,
+    Talker? talker, // [DIAGNOSTIC] Add this
   ) {
     dynamic getValue() {
       final prop = obj.properties[member.name];
@@ -207,20 +211,26 @@ class TiledReflector {
         getter: () => getValue().toString(),
         setter: (v) => setValue(v, PropertyType.string),
         fetchOptions: () {
-          // 1. Find the sibling 'atlas' property
+          // [DIAGNOSTIC] Log start
+          talker?.debug("[Inspector] fetchOptions for ${member.name}");
+
           final atlasProp = obj.properties['atlas'];
-          if (atlasProp is! StringProperty) return [];
+          if (atlasProp is! StringProperty) {
+             talker?.warning("[Inspector] 'atlas' property missing or invalid on Object ${obj.id}");
+             return [];
+          }
           
           final atlasPath = atlasProp.value;
+          talker?.debug("[Inspector] atlasPath is: '$atlasPath'");
+
           if (atlasPath.isEmpty) return [];
 
-          // 2. Resolve relative to TMX file
           final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasPath);
+          talker?.debug("[Inspector] Resolved key: '$canonicalKey'");
           
-          // 3. Load the Asset
           final asset = resolver.getAsset(canonicalKey);
+          talker?.debug("[Inspector] Asset retrieved: $asset (Type: ${asset.runtimeType})");
 
-          // 4. Return options based on .tpacker data
           if (asset is TexturePackerAssetData) {
             final options = <String>[];
             if (member.name == 'initialAnim') {
@@ -228,8 +238,11 @@ class TiledReflector {
             } else {
                options.addAll(asset.frames.keys);
             }
+            talker?.debug("[Inspector] Returning ${options.length} options");
             return options;
           }
+          
+          talker?.error("[Inspector] Asset was not TexturePackerAssetData or was null");
           return [];
         },
       );
