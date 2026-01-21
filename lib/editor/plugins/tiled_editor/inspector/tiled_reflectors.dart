@@ -67,7 +67,6 @@ class TiledReflector {
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
   ) {
-    // 1. Standard Geometry Properties
     final descriptors = <PropertyDescriptor>[
       IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => obj.id, setter: (v) {}, isReadOnly: true),
       StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => obj.name, setter: (v) => obj.name = v),
@@ -81,29 +80,37 @@ class TiledReflector {
           final newType = (v == 'None' ? '' : v);
           final oldType = obj.type;
 
-          // Handle Display Color Update
+          // Only perform logic if type actually changed and schema is available
           if (schema != null && newType != oldType) {
             final oldDef = schema[oldType];
             final newDef = schema[newType];
             
-            // Get current value from property
+            // Check current 'displayColor' property (raw)
             final currentProp = obj.properties['displayColor'];
             final currentHex = (currentProp is StringProperty) ? currentProp.value : null;
 
             bool shouldUpdateColor = false;
 
             if (currentHex == null || currentHex.isEmpty) {
-              // No color set, safe to update
+              // No explicit color set, always adopt the new class default
               shouldUpdateColor = true;
             } else if (oldDef != null) {
-              // Check if current color matches the OLD default
+              // Explicit color exists. Check if it matches the OLD class default.
               final oldDefaultHex = oldDef.color.toHex(includeAlpha: true);
-              if (currentHex.toLowerCase() == oldDefaultHex.toLowerCase()) {
+              
+              // If current color is the same as the old default, it means the user 
+              // likely didn't customize it (or reset it). We should switch to the new default.
+              if (currentHex.trim().toLowerCase() == oldDefaultHex.toLowerCase()) {
                 shouldUpdateColor = true;
               }
+              // Else: It's a custom color, preserve it.
+            } else {
+              // Old type didn't exist in schema (or was None), but we have a color.
+              // Treat as custom color. Do not update.
+              shouldUpdateColor = false;
             }
 
-            // Apply new default color if criteria met
+            // Apply new default color if conditions met
             if (shouldUpdateColor && newDef != null) {
               obj.properties.byName['displayColor'] = Property(
                 name: 'displayColor',
@@ -120,6 +127,8 @@ class TiledReflector {
           if (schema != null) ...schema.keys
         ],
       ),
+      
+      // Display Color Override
       ColorPropertyDescriptor(
         name: 'displayColor', 
         label: 'Display Color', 
@@ -127,12 +136,12 @@ class TiledReflector {
           final prop = obj.properties['displayColor'];
           if (prop is StringProperty) return prop.value;
           
-          // If not explicitly set, try to return the class default for UI consistency
+          // If no override is set, show the Schema Default for clarity in UI
           if (schema != null && schema.containsKey(obj.type)) {
             return schema[obj.type]!.color.toHex(includeAlpha: true);
           }
           
-          return null; // Will show as "Not set" in UI, effectively using Layer color in painter
+          return null; // Will show as "Not set" / transparent
         }, 
         setter: (v) {
           if (v.isEmpty) {
@@ -146,47 +155,59 @@ class TiledReflector {
           }
         }
       ),
+
       DoublePropertyDescriptor(name: 'x', label: 'X', getter: () => obj.x, setter: (v) => obj.x = v),
       DoublePropertyDescriptor(name: 'y', label: 'Y', getter: () => obj.y, setter: (v) => obj.y = v),
       DoublePropertyDescriptor(name: 'width', label: 'Width', getter: () => obj.width, setter: (v) => obj.width = v),
       DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => obj.height, setter: (v) => obj.height = v),
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => obj.rotation, setter: (v) => obj.rotation = v),
 
-      // --- RESTORED: Legacy tp_sprite picker ---
-      SpriteReferencePropertyDescriptor(
-        name: 'tp_sprite',
-        label: 'Texture Packer Sprite (Legacy)',
+      // --- RESTORED: Flow Graph Property ---
+      FlowGraphReferencePropertyDescriptor(
+        name: 'flowGraph',
+        label: 'Flow Graph (.fg)',
         getter: () {
-          final prop = obj.properties['tp_sprite'];
+          final prop = obj.properties['flowGraph'];
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
           if (val.isEmpty) {
-            obj.properties.byName.remove('tp_sprite');
+            obj.properties.byName.remove('flowGraph');
           } else {
-            obj.properties.byName['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+            obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
           }
         },
       ),
-      // ------------------------------------------
     ];
 
-    // 3. Schema Member Generation (Logic unchanged)
+    // Restore Read-Only properties for specific shapes/text
+    if (obj.isPolygon) {
+      descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
+    }
+    if (obj.isPolyline) {
+      descriptors.add(StringPropertyDescriptor(name: 'polyline', label: 'Polyline Points', getter: () => obj.polyline.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
+    }
+    if (obj.text != null) {
+      // Basic text preview if needed, or expand for full text editing later
+      descriptors.add(StringPropertyDescriptor(name: 'text_content', label: 'Text Content', getter: () => obj.text!.text, setter: (v) => obj.text!.text = v));
+    }
+
+    // 3. Schema Member Generation
     final currentClass = obj.type;
     if (schema != null && schema.containsKey(currentClass)) {
       final definition = schema[currentClass]!;
-      
       for (final member in definition.members) {
         descriptors.add(_createMemberDescriptor(obj, member, resolver));
       }
     }
-    
+
+    // 4. Custom Properties
     descriptors.add(CustomPropertiesDescriptor(
-        name: 'properties', 
-        label: 'Custom Properties', 
-        getter: () => obj.properties, 
-        setter: (v) => obj.properties = v
-      ));
+      name: 'properties', 
+      label: 'Raw Properties', 
+      getter: () => obj.properties, 
+      setter: (v) => obj.properties = v
+    ));
 
     return descriptors;
   }
