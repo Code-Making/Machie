@@ -1,8 +1,10 @@
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:machine/editor/plugins/tiled_editor/tiled_editor_settings_model.dart';
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 
-class TiledEditorSettingsWidget extends StatelessWidget {
+class TiledEditorSettingsWidget extends ConsumerStatefulWidget {
   final TiledEditorSettings settings;
   final void Function(TiledEditorSettings) onChanged;
 
@@ -12,46 +14,97 @@ class TiledEditorSettingsWidget extends StatelessWidget {
     required this.onChanged,
   });
 
+  @override
+  ConsumerState<TiledEditorSettingsWidget> createState() => _TiledEditorSettingsWidgetState();
+}
+
+class _TiledEditorSettingsWidgetState extends ConsumerState<TiledEditorSettingsWidget> {
+  
   Future<void> _showColorPickerDialog(BuildContext context) async {
-    // Show the dialog and wait for a result.
     final newColor = await showColorPickerDialog(
       context,
-      Color(settings.gridColorValue),
+      Color(widget.settings.gridColorValue),
       enableOpacity: true,
     );
 
-    // When the dialog closes, use the result to call the onChanged callback.
-    onChanged(
-      settings.copyWith(gridColorValue: newColor.value),
+    widget.onChanged(
+      widget.settings.copyWith(gridColorValue: newColor.value),
     );
+  }
+
+  Future<void> _pickSchemaFile(BuildContext context) async {
+    final newPath = await showDialog<String>(
+      context: context,
+      builder: (_) => const FileOrFolderPickerDialog(),
+    );
+
+    if (newPath != null) {
+      widget.onChanged(
+        widget.settings.copyWith(schemaFileName: newPath),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final schemaPath = widget.settings.schemaFileName;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListTile(
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: const Text('Schema File'),
+          subtitle: Text(
+            schemaPath.isEmpty ? 'Not set (defaults to ecs_schema.json)' : schemaPath,
+            style: TextStyle(
+              color: schemaPath.isEmpty ? theme.disabledColor : null,
+              fontStyle: schemaPath.isEmpty ? FontStyle.italic : null,
+            ),
+          ),
+          trailing: const Icon(Icons.folder_open_outlined),
+          onTap: () => _pickSchemaFile(context),
+        ),
+        if (schemaPath.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  widget.onChanged(
+                    widget.settings.copyWith(schemaFileName: 'ecs_schema.json'),
+                  );
+                },
+                child: const Text('Reset to Default'),
+              ),
+            ),
+          ),
+        const Divider(),
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
           title: const Text('Grid Color'),
           trailing: ColorIndicator(
-            color: Color(settings.gridColorValue),
+            color: Color(widget.settings.gridColorValue),
             onSelect: () => _showColorPickerDialog(context),
           ),
           onTap: () => _showColorPickerDialog(context),
         ),
         const SizedBox(height: 16),
-        Text('Grid Thickness: ${settings.gridThickness.toStringAsFixed(1)}'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text('Grid Thickness: ${widget.settings.gridThickness.toStringAsFixed(1)}'),
+        ),
         Slider(
-          value: settings.gridThickness,
+          value: widget.settings.gridThickness,
           min: 0.5,
           max: 5.0,
           divisions: 9,
-          label: settings.gridThickness.toStringAsFixed(1),
+          label: widget.settings.gridThickness.toStringAsFixed(1),
           onChanged: (value) {
-            // Call the onChanged callback with the updated settings object.
-            onChanged(
-              settings.copyWith(gridThickness: value),
+            widget.onChanged(
+              widget.settings.copyWith(gridThickness: value),
             );
           },
         ),
