@@ -18,6 +18,88 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+class PropertyStringComboBox extends StatefulWidget {
+  final StringEnumPropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyStringComboBox({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  State<PropertyStringComboBox> createState() => _PropertyStringComboBoxState();
+}
+
+class _PropertyStringComboBoxState extends State<PropertyStringComboBox> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.descriptor.currentValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant PropertyStringComboBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.descriptor.currentValue != _controller.text) {
+      _controller.text = widget.descriptor.currentValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit(String val) {
+    widget.descriptor.updateValue(val);
+    widget.onUpdate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Focus(
+            onFocusChange: (hasFocus) {
+              if (!hasFocus) {
+                _submit(_controller.text);
+              }
+            },
+            child: TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                labelText: widget.descriptor.label,
+                suffixIcon: PopupMenuButton<String>(
+                  icon: const Icon(Icons.arrow_drop_down),
+                  onSelected: (String value) {
+                    _controller.text = value;
+                    _submit(value);
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return widget.descriptor.options.map((String choice) {
+                      return PopupMenuItem<String>(
+                        value: choice,
+                        child: Text(choice),
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+              onSubmitted: _submit,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class PropertyStringEnumDropdown extends StatelessWidget {
   final StringEnumPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
