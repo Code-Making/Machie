@@ -51,7 +51,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     if (_hasChanges) {
       final afterState = _deepCopyTarget(widget.target);
       widget.notifier.recordPropertyChange(_beforeState, afterState);
-      widget.notifier.notifyListeners();
+      // CHANGED: Call public method
+      widget.notifier.notifyChange();
     }
     super.dispose();
   }
@@ -85,7 +86,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     setState(() {
       _hasChanges = true;
     });
-    widget.notifier.notifyListeners();
+    // CHANGED: Call public method
+    widget.notifier.notifyChange();
   }
 
   @override
