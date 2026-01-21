@@ -220,6 +220,14 @@ class TiledReflector {
           getter: () => getValue().toString(),
           setter: (v) => setValue(v, PropertyType.file),
         );
+      case ClassMemberType.enum_:
+        return StringEnumPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => getValue().toString(),
+          setter: (v) => setValue(v, PropertyType.string),
+          options: member.options ?? [],
+        );
     }
   }
 }

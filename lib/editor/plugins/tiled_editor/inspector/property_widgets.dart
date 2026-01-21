@@ -18,6 +18,54 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+class PropertyStringEnumDropdown extends StatelessWidget {
+  final StringEnumPropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyStringEnumDropdown({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    var currentValue = descriptor.currentValue;
+    final options = descriptor.options;
+
+    // Safety: if current value isn't in options (e.g. schema changed), default to first or add it
+    if (currentValue.isEmpty && options.isNotEmpty) {
+      currentValue = options.first;
+    } else if (currentValue.isNotEmpty && !options.contains(currentValue)) {
+      // Option: display invalid value temporarily or switch to default
+      // We'll treat it as a custom value for now to avoid data loss on view
+      // but DropdownButton requires the value to be in the items list.
+      // So we append it temporarily.
+      // Alternatively, force it to options.first
+    }
+
+    // Filter unique items to prevent dropdown errors
+    final displayOptions = {...options, if(currentValue.isNotEmpty) currentValue}.toList();
+
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(labelText: descriptor.label),
+      value: currentValue,
+      items: displayOptions.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: descriptor.isReadOnly ? null : (String? newValue) {
+        if (newValue != null) {
+          descriptor.updateValue(newValue);
+          onUpdate();
+        }
+      },
+    );
+  }
+}
+
 class PropertySchemaFileSelector extends ConsumerWidget {
   final SchemaFilePropertyDescriptor descriptor;
   final VoidCallback onUpdate;
