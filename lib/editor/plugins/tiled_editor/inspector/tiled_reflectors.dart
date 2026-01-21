@@ -78,48 +78,12 @@ class TiledReflector {
         getter: () => obj.type.isEmpty ? 'None' : obj.type,
         setter: (v) {
           final newType = (v == 'None' ? '' : v);
-          final oldType = obj.type;
-
-          // Only perform logic if type actually changed and schema is available
-          if (schema != null && newType != oldType) {
-            final oldDef = schema[oldType];
-            final newDef = schema[newType];
-            
-            // Check current 'displayColor' property (raw)
-            final currentProp = obj.properties['displayColor'];
-            final currentHex = (currentProp is StringProperty) ? currentProp.value : null;
-
-            bool shouldUpdateColor = false;
-
-            if (currentHex == null || currentHex.isEmpty) {
-              // No explicit color set, always adopt the new class default
-              shouldUpdateColor = true;
-            } else if (oldDef != null) {
-              // Explicit color exists. Check if it matches the OLD class default.
-              final oldDefaultHex = oldDef.color.toHex(includeAlpha: true);
-              
-              // If current color is the same as the old default, it means the user 
-              // likely didn't customize it (or reset it). We should switch to the new default.
-              if (currentHex.trim().toLowerCase() == oldDefaultHex.toLowerCase()) {
-                shouldUpdateColor = true;
-              }
-              // Else: It's a custom color, preserve it.
-            } else {
-              // Old type didn't exist in schema (or was None), but we have a color.
-              // Treat as custom color. Do not update.
-              shouldUpdateColor = false;
-            }
-
-            // Apply new default color if conditions met
-            if (shouldUpdateColor && newDef != null) {
-              obj.properties.byName['displayColor'] = Property(
-                name: 'displayColor',
-                type: PropertyType.color,
-                value: newDef.color.toHex(includeAlpha: true),
-              );
-            }
-          }
-
+          
+          // Phase 2 Logic (Simplified for Phase 1 fix):
+          // When class changes, we ONLY set the color if the user hasn't
+          // manually overridden it, or if it was previously set to the old class default.
+          // For now, we simply update the type. The ColorPropertyDescriptor getter handles the priority.
+          
           obj.type = newType;
         },
         options: [
@@ -133,15 +97,19 @@ class TiledReflector {
         name: 'displayColor', 
         label: 'Display Color', 
         getter: () {
+          // 1. Priority: Manual Override on the Object
           final prop = obj.properties['displayColor'];
-          if (prop is StringProperty) return prop.value;
+          if (prop is StringProperty && prop.value.isNotEmpty) {
+            return prop.value;
+          }
           
-          // If no override is set, show the Schema Default for clarity in UI
+          // 2. Priority: Schema Definition
           if (schema != null && schema.containsKey(obj.type)) {
             return schema[obj.type]!.color.toHex(includeAlpha: true);
           }
           
-          return null; // Will show as "Not set" / transparent
+          // 3. Fallback (e.g. Transparent or null to indicate "Not Set")
+          return null; 
         }, 
         setter: (v) {
           if (v.isEmpty) {

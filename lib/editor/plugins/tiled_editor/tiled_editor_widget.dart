@@ -297,12 +297,12 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-Future<Set<String>> _collectAssetUris(TiledMap map) async {
+  Future<Set<String>> _collectAssetUris(TiledMap map) async {
     final uris = <String>{};
     final repo = ref.read(projectRepositoryProvider)!;
     final tmxPath = _getTmxProjectRelativePath();
 
-    // 1. Existing checks (Tilesets)
+    // 1. Collect Tileset Images
     for (final tileset in map.tilesets) {
       final contextPath = _determineTilesetContext(tmxPath, tileset, repo);
       if (tileset.image?.source != null) {
@@ -311,7 +311,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       }
     }
 
-    // 2. Existing checks (Image Layers)
+    // 2. Collect Image Layers
     for (final layer in map.layers) {
       if (layer is ImageLayer && layer.image.source != null) {
         final assetUri = repo.resolveRelativePath(tmxPath, layer.image.source!);
@@ -319,7 +319,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       }
     }
 
-    // 3. Existing checks (Linked Atlases)
+    // 3. Collect Texture Packer Atlases (Map Property)
     if (map.properties.byName.containsKey('tp_atlases')) {
       final prop = map.properties.byName['tp_atlases'];
       if (prop is StringProperty && prop.value.isNotEmpty) {
@@ -330,17 +330,36 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
       }
     }
 
-    // 4. NEW: Scan Object Properties for Schema Files (like 'atlas')
-    // We scan specifically for 'atlas' as per your schema example, 
-    // or generally any string ending in .tpacker/.json if we want to be safe.
-    for (final layer in map.layers) {
-      if (layer is ObjectGroup) {
-        for (final obj in layer.objects) {
-          // Check for 'atlas' property
-          final atlasProp = obj.properties['atlas'];
-          if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-             uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+    // 4. NEW: Recursively Scan Layers for Object Assets (e.g. 'atlas')
+    void scanGroup(Group group) {
+      for (final layer in group.layers) {
+        if (layer is Group) {
+          scanGroup(layer);
+        } else if (layer is ObjectGroup) {
+          for (final obj in layer.objects) {
+            // Check for 'atlas' property (Texture Packer)
+            final atlasProp = obj.properties['atlas'];
+            if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+               uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+            }
+            
+            // Check for 'tp_sprite' property is handled via 'tp_atlases' usually, 
+            // but if you have specific object overrides, add them here.
           }
+        }
+      }
+    }
+
+    // Start scan from root layers
+    for (final layer in map.layers) {
+      if (layer is Group) {
+        scanGroup(layer);
+      } else if (layer is ObjectGroup) {
+        for (final obj in layer.objects) {
+           final atlasProp = obj.properties['atlas'];
+           if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+              uris.add(repo.resolveRelativePath(tmxPath, atlasProp.value));
+           }
         }
       }
     }
