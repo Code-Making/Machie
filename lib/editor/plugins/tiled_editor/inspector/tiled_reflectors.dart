@@ -105,14 +105,14 @@ class TiledReflector {
       for (final member in definition.members) {
         descriptors.add(_createMemberDescriptor(obj, member, resolver));
       }
-    } else {
-      descriptors.add(CustomPropertiesDescriptor(
+    }
+    
+    descriptors.add(CustomPropertiesDescriptor(
         name: 'properties', 
         label: 'Custom Properties', 
         getter: () => obj.properties, 
         setter: (v) => obj.properties = v
       ));
-    }
 
     return descriptors;
   }

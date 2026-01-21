@@ -259,6 +259,14 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         onUpdate: _onUpdate,
       );
     }
+    
+  if (descriptor is StringEnumPropertyDescriptor) {
+      // Changed from PropertyStringEnumDropdown to ComboBox
+      return PropertyStringComboBox(
+        descriptor: descriptor, 
+        onUpdate: _onUpdate
+      );
+    }
         
     // Note: The "Type" dropdown created in reflector uses EnumPropertyDescriptor<StringEnumWrapper>
     // The existing PropertyEnumDropdown should handle it if the generic types align, 
