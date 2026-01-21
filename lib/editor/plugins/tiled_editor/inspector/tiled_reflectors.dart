@@ -3,6 +3,7 @@ import 'property_descriptors.dart';
 import '../models/object_class_model.dart';
 import '../tiled_asset_resolver.dart';
 import 'package:machine/asset_cache/asset_models.dart';
+import 'package:flutter/material.dart' hide StringProperty;
 
 // Helper to convert ColorData to and from Hex strings.
 ColorData colorDataFromHex(String hex) {
