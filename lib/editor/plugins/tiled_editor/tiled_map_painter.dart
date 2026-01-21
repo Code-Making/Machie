@@ -424,17 +424,10 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintObjectGroup(Canvas canvas, ObjectGroup layer, {bool isForTile = false}) {
-    final paint = isForTile
-        ? (Paint()..color = Colors.lightGreen.withOpacity(0.5))
-        : (Paint()..color = layer.color.toFlutterColor().withOpacity(0.5));
-    paint.style = PaintingStyle.fill;
+    // We calculate layer color once
+    final layerColor = layer.color.toFlutterColor();
     
-    final strokePaint = isForTile
-        ? (Paint()..color = Colors.lightGreen)
-        : (Paint()..color = layer.color.toFlutterColor());
-    strokePaint.style = PaintingStyle.stroke;
-    strokePaint.strokeWidth = 2.0;
-
+    // Sort logic
     var objects = layer.objects;
     if (layer.drawOrder == DrawOrder.topDown) {
       objects = List.from(layer.objects)..sort((a, b) => a.y.compareTo(b.y));
@@ -445,6 +438,26 @@ class TiledMapPainter extends CustomPainter {
 
       canvas.save();
       
+      // --- Determine Object Color ---
+      // 1. Start with Layer Color
+      Color objColor = layerColor;
+      
+      // 2. Check for displayColor override on the object
+      final colorProp = object.properties['displayColor'];
+      if (colorProp is StringProperty && colorProp.value.isNotEmpty) {
+        objColor = colorProp.value.toFlutterColor();
+      }
+      
+      // Prepare Paints
+      final paint = Paint()
+        ..color = isForTile ? Colors.lightGreen.withOpacity(0.5) : objColor.withOpacity(0.5)
+        ..style = PaintingStyle.fill;
+      
+      final strokePaint = Paint()
+        ..color = isForTile ? Colors.lightGreen : objColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      
       // Apply rotation
       if (object.rotation != 0) {
         canvas.translate(object.x + object.width / 2, object.y + object.height / 2);
@@ -452,9 +465,8 @@ class TiledMapPainter extends CustomPainter {
         canvas.translate(-(object.x + object.width / 2), -(object.y + object.height / 2));
       }
       
+      // Sprite Rendering
       bool customDrawDone = false;
-      
-      // Look up sprite from schema properties only
       final spriteData = _findSchemaSpriteData(object);
 
       if (spriteData != null) {
@@ -465,6 +477,7 @@ class TiledMapPainter extends CustomPainter {
               ? Rect.fromLTWH(object.x, object.y - srcRect.height, srcRect.width, srcRect.height)
               : dstRect;
 
+          // Draw the sprite
           canvas.drawImageRect(
             spriteData.sourceImage, 
             srcRect, 
@@ -472,14 +485,16 @@ class TiledMapPainter extends CustomPainter {
             Paint()..filterQuality = ui.FilterQuality.none
           );
           
+          // Use the object color for the selection box if selected
           if (selectedObjects.contains(object)) {
+             // You can use a fixed selection color or the object color
              final selectionStroke = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
              canvas.drawRect(drawRect, selectionStroke);
           }
           customDrawDone = true;
       }
 
-      // Fallback Drawing
+      // Shape Rendering
       if (!customDrawDone) {
         if (object.gid != null) {
           _paintTileObject(canvas, object);
