@@ -20,6 +20,27 @@ abstract class PropertyDescriptor {
   void updateValue(dynamic newValue);
 }
 
+/// A descriptor for a fixed list of string options defined in the schema.
+class StringEnumPropertyDescriptor extends PropertyDescriptor {
+  final String Function() getter;
+  final void Function(String) setter;
+  final List<String> options;
+
+  const StringEnumPropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    required this.options,
+  });
+
+  @override
+  String get currentValue => getter();
+
+  @override
+  void updateValue(dynamic newValue) => setter(newValue.toString());
+}
+
 /// A dropdown descriptor where valid values are fetched asynchronously or 
 /// dynamically based on other object state (e.g. animation names from a selected atlas).
 class DynamicEnumPropertyDescriptor extends PropertyDescriptor {
