@@ -53,6 +53,58 @@ class TiledAssetResolver {
   }
 
   AssetData? getAsset(String canonicalKey) => _assets[canonicalKey];
+
+  /// Resolves sprite data for a TiledObject based on its properties.
+  /// It checks for an object-specific 'atlas' property first, then falls back
+  /// to the map-level 'tp_atlases' property.
+  TexturePackerSpriteData? getSpriteDataForObject(TiledObject object, TiledMap map) {
+    // 1. Determine the sprite name from object properties.
+    final frameProp = object.properties['initialFrame'] ?? object.properties['initialAnim'];
+    if (frameProp is! StringProperty || frameProp.value.isEmpty) {
+      return null;
+    }
+    final spriteName = frameProp.value;
+
+    // 2. Determine which atlas files to search in.
+    final atlasProp = object.properties['atlas'];
+    if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+      // Object has a specific atlas override.
+      return _findSpriteInAtlases(spriteName, [atlasProp.value]);
+    } else {
+      // Fallback to map-level linked atlases.
+      final mapAtlasesProp = map.properties['tp_atlases'];
+      if (mapAtlasesProp is StringProperty && mapAtlasesProp.value.isNotEmpty) {
+        final tpackerFiles = mapAtlasesProp.value.split(',').map((e) => e.trim());
+        return _findSpriteInAtlases(spriteName, tpackerFiles);
+      }
+    }
+    
+    return null;
+  }
+
+  /// [NEW HELPER METHOD]
+  /// Searches through a given list of .tpacker file paths to find a specific sprite.
+  TexturePackerSpriteData? _findSpriteInAtlases(String spriteName, Iterable<String> tpackerPaths) {
+    for (final path in tpackerPaths) {
+      final canonicalKey = repo.resolveRelativePath(tmxPath, path);
+      final asset = getAsset(canonicalKey);
+
+      if (asset is TexturePackerAssetData) {
+        // Check for a direct frame match
+        if (asset.frames.containsKey(spriteName)) {
+          return asset.frames[spriteName]!;
+        }
+        // Check if it's an animation name, and return the first frame
+        if (asset.animations.containsKey(spriteName)) {
+          final firstFrameName = asset.animations[spriteName]!.firstOrNull;
+          if (firstFrameName != null && asset.frames.containsKey(firstFrameName)) {
+            return asset.frames[firstFrameName]!;
+          }
+        }
+      }
+    }
+    return null; // Not found in any of the provided atlases
+  }
 }
 
 /// Provider that combines the Repo, the AssetMap, and the TMX location

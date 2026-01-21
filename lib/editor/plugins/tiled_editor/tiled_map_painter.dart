@@ -467,7 +467,8 @@ class TiledMapPainter extends CustomPainter {
       
       // Sprite Rendering
       bool customDrawDone = false;
-      final spriteData = _findSchemaSpriteData(object);
+      // Replace the old internal lookup with a direct call to the resolver.
+      final spriteData = resolver.getSpriteDataForObject(object, map);
 
       if (spriteData != null) {
           final srcRect = spriteData.sourceRect;
@@ -477,7 +478,6 @@ class TiledMapPainter extends CustomPainter {
               ? Rect.fromLTWH(object.x, object.y - srcRect.height, srcRect.width, srcRect.height)
               : dstRect;
 
-          // Draw the sprite
           canvas.drawImageRect(
             spriteData.sourceImage, 
             srcRect, 
@@ -485,9 +485,7 @@ class TiledMapPainter extends CustomPainter {
             Paint()..filterQuality = ui.FilterQuality.none
           );
           
-          // Use the object color for the selection box if selected
           if (selectedObjects.contains(object)) {
-             // You can use a fixed selection color or the object color
              final selectionStroke = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
              canvas.drawRect(drawRect, selectionStroke);
           }
