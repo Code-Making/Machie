@@ -14,7 +14,9 @@ class TiledMapPainter extends CustomPainter {
   final TiledAssetResolver resolver;
   final bool showGrid;
   final Matrix4 transform;
-  
+    final Talker? talker; // [DIAGNOSTIC] Add field
+  final Set<String> _loggedErrors = {}; 
+
   final List<TiledObject> selectedObjects;
   final Rect? previewShape;
   final List<Point> inProgressPoints;
@@ -37,6 +39,7 @@ class TiledMapPainter extends CustomPainter {
     required this.settings,
     this.floatingSelection,
     this.floatingSelectionPosition,
+    this.talker, // [DIAGNOSTIC] Add arg
   });
   
 
@@ -490,8 +493,18 @@ class TiledMapPainter extends CustomPainter {
              canvas.drawRect(drawRect, selectionStroke);
           }
           customDrawDone = true;
+      } else {
+         // [DIAGNOSTIC] Check why it failed
+         final atlasProp = object.properties['atlas'];
+         if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
+            final logKey = "missing_sprite_${object.id}";
+            if (!_loggedErrors.contains(logKey)) {
+                _loggedErrors.add(logKey);
+                talker?.warning("[Painter] Object ${object.id} has atlas '${atlasProp.value}' but getSpriteDataForObject returned null.");
+            }
+         }
       }
-
+      
       // Shape Rendering
       if (!customDrawDone) {
         if (object.gid != null) {

@@ -97,11 +97,15 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     final schema = schemaAsync.valueOrNull;
 
     // 2. Pass schema and resolver to getDescriptors
-    final descriptors = TiledReflector.getDescriptors(
-      widget.target, 
-      schema: schema, 
-      resolver: widget.resolver
-    );
+  final talker = ref.watch(talkerProvider); // [DIAGNOSTIC] Get Talker
+
+  final descriptors = TiledReflector.getDescriptors(
+    widget.target, 
+    schema: schema, 
+    resolver: widget.resolver,
+    talker: talker, // [DIAGNOSTIC] Pass it
+  );
+
 
     return AlertDialog(
       title: Text(widget.title),
