@@ -29,7 +29,18 @@ extension on ColorData {
     return '$prefix$r$g$b';
   }
 }
-
+extension on Color {
+  String toHex({String prefix = '#', bool includeAlpha = true}) {
+    final r = red.toRadixString(16).padLeft(2, '0');
+    final g = green.toRadixString(16).padLeft(2, '0');
+    final b = blue.toRadixString(16).padLeft(2, '0');
+    if (includeAlpha) {
+      final a = alpha.toRadixString(16).padLeft(2, '0');
+      return '$prefix$a$r$g$b';
+    }
+    return '$prefix$r$g$b';
+  }
+}
 // --- THE NEW REFLECTOR CLASS ---
 class TiledReflector {
   static List<PropertyDescriptor> getDescriptors(
