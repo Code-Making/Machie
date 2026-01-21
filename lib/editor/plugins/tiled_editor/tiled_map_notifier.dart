@@ -338,6 +338,11 @@ class TiledMapNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifyChange() {
+    notifyListeners();
+  }
+
+
   void addSelection(TiledObject obj) {
     if (!_selectedObjects.contains(obj)) {
       _selectedObjects.add(obj);

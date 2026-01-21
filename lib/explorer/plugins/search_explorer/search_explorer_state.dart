@@ -129,7 +129,8 @@ class _SearchArgs {
 
 // Top-level function for compute
 List<SearchResult> _performFuzzySearch(_SearchArgs args) {
-  final lowerCaseQuery = args.query.toLowerCase();
+  // Ignore spaces in the search query for comparison
+  final lowerCaseQuery = args.query.toLowerCase().replaceAll(' ', '');
   final List<SearchResult> scoredResults = [];
 
   for (final file in args.files) {
