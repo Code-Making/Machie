@@ -1,8 +1,6 @@
-// FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' as tiled; // Alias to avoid conflict with Flutter Text
+import 'package:tiled/tiled.dart' as tiled;
 import 'package:path/path.dart' as p;
 
 import 'property_descriptors.dart';
@@ -11,17 +9,15 @@ import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
-import '../tiled_asset_resolver.dart'; // Import the new resolver
-import '../providers/project_schema_provider.dart'; // Import the provider created in Phase 1
+import '../tiled_asset_resolver.dart';
+import '../providers/project_schema_provider.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
   final Object target;
   final String title;
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
-  
-  // Replaced assetDataMap and contextPath with resolver
-  final TiledAssetResolver resolver;
+  final String tabId; // CHANGED: Replaces resolver
 
   const InspectorDialog({
     super.key,
@@ -29,7 +25,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
     required this.title,
     required this.notifier,
     required this.editorKey,
-    required this.resolver,
+    required this.tabId,
   });
 
   @override
@@ -51,7 +47,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     if (_hasChanges) {
       final afterState = _deepCopyTarget(widget.target);
       widget.notifier.recordPropertyChange(_beforeState, afterState);
-      // CHANGED: Call public method
       widget.notifier.notifyChange();
     }
     super.dispose();
@@ -86,21 +81,33 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     setState(() {
       _hasChanges = true;
     });
-    // CHANGED: Call public method
     widget.notifier.notifyChange();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Watch the schema
+    // 1. Watch Schema
     final schemaAsync = ref.watch(projectSchemaProvider);
     final schema = schemaAsync.valueOrNull;
 
-    // 2. Pass schema and resolver to getDescriptors
+    // 2. Watch Asset Resolver (Reactive!)
+    final resolverAsync = ref.watch(tiledAssetResolverProvider(widget.tabId));
+    final resolver = resolverAsync.valueOrNull;
+
+    // If resolver isn't ready, we can't properly reflect properties that depend on it
+    if (resolver == null) {
+      return const AlertDialog(
+        content: SizedBox(
+          height: 100,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     final descriptors = TiledReflector.getDescriptors(
       widget.target, 
       schema: schema, 
-      resolver: widget.resolver
+      resolver: resolver
     );
 
     return AlertDialog(
@@ -112,7 +119,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
           itemCount: descriptors.length,
           itemBuilder: (context, index) {
             final descriptor = descriptors[index];
-            return _buildPropertyWidget(descriptor);
+            return _buildPropertyWidget(descriptor, resolver);
           },
         ),
       ),
@@ -125,35 +132,26 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     );
   }
 
-  Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
+  Widget _buildPropertyWidget(PropertyDescriptor descriptor, TiledAssetResolver resolver, {PropertyDescriptor? parentDescriptor}) {
     if (descriptor is ImagePathPropertyDescriptor) {
-      
       final rawPath = descriptor.currentValue;
-      
-      // Determine context based on parent object (to handle external tilesets correctly)
       tiled.Tileset? contextTileset;
       Object? parentObject;
 
-      // If we are inside an ObjectPropertyDescriptor (like 'image' on a Tileset),
-      // the target of that descriptor is the parent object (the Tileset).
       if (parentDescriptor is ObjectPropertyDescriptor) {
          parentObject = parentDescriptor.target;
          if (parentObject is tiled.Tileset) {
            contextTileset = parentObject;
          }
       } else {
-        // Fallback: if inspecting the Tileset directly (though usually we inspect properties of it)
         if (widget.target is tiled.Tileset) {
           contextTileset = widget.target as tiled.Tileset;
           parentObject = widget.target;
         }
       }
       
-      // Use resolver to get the image for preview
-      final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
+      final image = resolver.getImage(rawPath, tileset: contextTileset);
       final imageAsset = image != null ? ImageAssetData(image: image) : null;
-      
-      // Ensure we have a valid parent object for the reload callback
       final actualParentObject = parentObject ?? widget.target;
       
       return PropertyImagePathInput(
@@ -164,35 +162,55 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         parentObject: actualParentObject,
       );
     }
-    if (descriptor is SchemaFilePropertyDescriptor) {
-      return PropertySchemaFileSelector(
-        descriptor: descriptor,
-        onUpdate: _onUpdate,
-        contextPath: widget.resolver.tmxPath,
-      );
-    }
+    
     if (descriptor is FileListPropertyDescriptor) {
       return PropertyFileListEditor(
         descriptor: descriptor,
         onUpdate: _onUpdate,
         editorKey: widget.editorKey,
-        contextPath: widget.resolver.tmxPath, // Pass the TMX path from resolver
+        contextPath: resolver.tmxPath,
       );
     }
     if (descriptor is FlowGraphReferencePropertyDescriptor) {
       return PropertyFlowGraphSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        contextPath: widget.resolver.tmxPath,
+        contextPath: resolver.tmxPath,
       );
     }
     if (descriptor is SpriteReferencePropertyDescriptor) {
+      // Legacy sprite picker
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        assetDataMap: widget.resolver.rawAssets, // Pass raw assets map
+        assetDataMap: resolver.rawAssets,
       );
     }
+    
+    // NEW: Schema File Picker
+    if (descriptor is SchemaFilePropertyDescriptor) {
+      return PropertySchemaFileSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+        contextPath: resolver.tmxPath,
+      );
+    }
+    
+    // NEW: Dynamic Selector (for animations/frames from atlas)
+    if (descriptor is DynamicEnumPropertyDescriptor) {
+      return PropertyDynamicSelector(
+        descriptor: descriptor,
+        onUpdate: _onUpdate,
+      );
+    }
+
+    if (descriptor is StringEnumPropertyDescriptor) {
+      return PropertyStringComboBox(
+        descriptor: descriptor, 
+        onUpdate: _onUpdate
+      );
+    }
+
     if (descriptor is BoolPropertyDescriptor) {
       return PropertyBoolSwitch(descriptor: descriptor, onUpdate: _onUpdate);
     }
@@ -206,7 +224,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertyDoubleInput(descriptor: descriptor, onUpdate: _onUpdate);
     }
     if (descriptor is StringPropertyDescriptor) {
-      // Check for file link convention (e.g. ends with .fg or specific property name)
       if (descriptor.currentValue.endsWith('.fg') || descriptor.name.contains('graph')) {
         return PropertyFileLinkWithAction(
           descriptor: descriptor,
@@ -241,41 +258,10 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         final imageDescriptors = nestedObject.getDescriptors(descriptor.target!);
         return ExpansionTile(
           title: Text(descriptor.label),
-          children: imageDescriptors.map((childDesc) => _buildPropertyWidget(childDesc, parentDescriptor: descriptor)).toList(),
+          children: imageDescriptors.map((childDesc) => _buildPropertyWidget(childDesc, resolver, parentDescriptor: descriptor)).toList(),
         );
       }
       return ListTile(title: Text('${descriptor.label}: Unsupported Type'));
-    }
-    
-    if (descriptor is SchemaFilePropertyDescriptor) {
-      // Re-use logic from ImagePathPropertyDescriptor but generic
-      return PropertyFileLinkWithAction(
-        descriptor: descriptor,
-        onUpdate: _onUpdate,
-      );
-    }
-    
-    if (descriptor is DynamicEnumPropertyDescriptor) {
-      return PropertyDynamicSelector(
-        descriptor: descriptor,
-        onUpdate: _onUpdate,
-      );
-    }
-    
-  if (descriptor is StringEnumPropertyDescriptor) {
-      // Changed from PropertyStringEnumDropdown to ComboBox
-      return PropertyStringComboBox(
-        descriptor: descriptor, 
-        onUpdate: _onUpdate
-      );
-    }
-        
-    // Note: The "Type" dropdown created in reflector uses EnumPropertyDescriptor<StringEnumWrapper>
-    // The existing PropertyEnumDropdown should handle it if the generic types align, 
-    // or we cast it.
-    if (descriptor is EnumPropertyDescriptor) {
-       // You might need to cast to dynamic to let the generic widget handle the specific Enum type
-       return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
     }
 
     return ListTile(title: Text('${descriptor.label}: ${descriptor.currentValue}'));

@@ -598,7 +598,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: 'Map Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver,
+        tabId: widget.tab.id, // CHANGED
       ),
     );
   }
@@ -733,7 +733,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${_selectedTileset!.name ?? 'Tileset'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver,
+        tabId: widget.tab.id, // CHANGED
       ),
     );
   }
@@ -803,7 +803,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${layer.name} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver,
+        tabId: widget.tab.id, // CHANGED
       ),
     );
   }
@@ -818,7 +818,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${object.name.isNotEmpty ? object.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver,
+        tabId: widget.tab.id, // CHANGED
       ),
     );
   }
@@ -839,7 +839,7 @@ Future<Set<String>> _collectAssetUris(TiledMap map) async {
         title: '${target.name.isNotEmpty ? target.name : 'Object'} Properties',
         notifier: _notifier!,
         editorKey: widget.tab.editorKey,
-        resolver: resolver,
+        tabId: widget.tab.id, // CHANGED
       ),
     );
   }
