@@ -61,17 +61,79 @@ class TiledReflector {
       StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => obj.name, setter: (v) => obj.name = v),
       
       // Class Selector
-      DynamicEnumPropertyDescriptor(
+      StringEnumPropertyDescriptor(
         name: 'type', 
         label: 'Class', 
         getter: () => obj.type.isEmpty ? 'None' : obj.type,
-        setter: (v) => obj.type = (v == 'None' ? '' : v),
-        fetchOptions: () => [
+        setter: (v) {
+          final newType = (v == 'None' ? '' : v);
+          final oldType = obj.type;
+
+          // Handle Display Color Update
+          if (schema != null && newType != oldType) {
+            final oldDef = schema[oldType];
+            final newDef = schema[newType];
+            
+            // Get current value from property
+            final currentProp = obj.properties['displayColor'];
+            final currentHex = (currentProp is StringProperty) ? currentProp.value : null;
+
+            bool shouldUpdateColor = false;
+
+            if (currentHex == null || currentHex.isEmpty) {
+              // No color set, safe to update
+              shouldUpdateColor = true;
+            } else if (oldDef != null) {
+              // Check if current color matches the OLD default
+              final oldDefaultHex = oldDef.color.toHex(includeAlpha: true);
+              if (currentHex.toLowerCase() == oldDefaultHex.toLowerCase()) {
+                shouldUpdateColor = true;
+              }
+            }
+
+            // Apply new default color if criteria met
+            if (shouldUpdateColor && newDef != null) {
+              obj.properties.byName['displayColor'] = Property(
+                name: 'displayColor',
+                type: PropertyType.color,
+                value: newDef.color.toHex(includeAlpha: true),
+              );
+            }
+          }
+
+          obj.type = newType;
+        },
+        options: [
           'None',
           if (schema != null) ...schema.keys
         ],
       ),
-      
+      ColorPropertyDescriptor(
+        name: 'displayColor', 
+        label: 'Display Color', 
+        getter: () {
+          final prop = obj.properties['displayColor'];
+          if (prop is StringProperty) return prop.value;
+          
+          // If not explicitly set, try to return the class default for UI consistency
+          if (schema != null && schema.containsKey(obj.type)) {
+            return schema[obj.type]!.color.toHex(includeAlpha: true);
+          }
+          
+          return null; // Will show as "Not set" in UI, effectively using Layer color in painter
+        }, 
+        setter: (v) {
+          if (v.isEmpty) {
+            obj.properties.byName.remove('displayColor');
+          } else {
+            obj.properties.byName['displayColor'] = Property(
+              name: 'displayColor', 
+              type: PropertyType.color, 
+              value: v
+            );
+          }
+        }
+      ),
       DoublePropertyDescriptor(name: 'x', label: 'X', getter: () => obj.x, setter: (v) => obj.x = v),
       DoublePropertyDescriptor(name: 'y', label: 'Y', getter: () => obj.y, setter: (v) => obj.y = v),
       DoublePropertyDescriptor(name: 'width', label: 'Width', getter: () => obj.width, setter: (v) => obj.width = v),
