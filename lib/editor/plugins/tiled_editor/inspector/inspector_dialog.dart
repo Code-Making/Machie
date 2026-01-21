@@ -245,7 +245,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return ListTile(title: Text('${descriptor.label}: Unsupported Type'));
     }
     
-        if (descriptor is SchemaFilePropertyDescriptor) {
+    if (descriptor is SchemaFilePropertyDescriptor) {
       // Re-use logic from ImagePathPropertyDescriptor but generic
       return PropertyFileLinkWithAction(
         descriptor: descriptor,
@@ -254,7 +254,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     
     if (descriptor is DynamicEnumPropertyDescriptor) {
-      return PropertyDynamicDropdown(
+      return PropertyDynamicSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
       );

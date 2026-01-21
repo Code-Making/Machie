@@ -85,11 +85,11 @@ class PropertySchemaFileSelector extends ConsumerWidget {
   }
 }
 
-class PropertyDynamicDropdown extends StatelessWidget {
+class PropertyDynamicSelector extends StatelessWidget {
   final DynamicEnumPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
 
-  const PropertyDynamicDropdown({
+  const PropertyDynamicSelector({
     super.key,
     required this.descriptor,
     required this.onUpdate,
@@ -97,39 +97,45 @@ class PropertyDynamicDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Fetch options dynamically
-    final options = descriptor.fetchOptions();
     final currentValue = descriptor.currentValue;
+    final theme = Theme.of(context);
 
-    // Ensure current value is in list, or handle empty
-    if (!options.contains(currentValue) && currentValue.isNotEmpty) {
-      options.add(currentValue);
-    }
-    
-    if (options.isEmpty) {
-      return ListTile(
-        title: Text(descriptor.label),
-        subtitle: const Text('No options available (Check Atlas)'),
-      );
-    }
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(descriptor.label),
+      subtitle: Text(
+        currentValue.isEmpty ? 'None' : currentValue,
+        style: TextStyle(
+          color: currentValue.isEmpty ? theme.disabledColor : null,
+          fontStyle: currentValue.isEmpty ? FontStyle.italic : null,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.arrow_drop_down),
+      onTap: descriptor.isReadOnly ? null : () async {
+        // 1. Fetch options dynamically when clicked
+        final options = descriptor.fetchOptions();
+        
+        if (options.isEmpty) {
+          MachineToast.info('No options found. Ensure the Atlas file is set and valid.');
+          return;
+        }
 
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(labelText: descriptor.label),
-      value: currentValue.isEmpty ? null : currentValue,
-      items: options.map((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
+        // 2. Sort options alphabetically
+        options.sort();
+
+        // 3. Show searchable dialog (reusing the existing SpritePickerDialog)
+        // We can reuse this dialog because it simply filters a list of strings
+        final selected = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SpritePickerDialog(spriteNames: options),
         );
-      }).toList(),
-      onChanged: descriptor.isReadOnly
-          ? null
-          : (String? newValue) {
-              if (newValue != null) {
-                descriptor.updateValue(newValue);
-                onUpdate();
-              }
-            },
+
+        if (selected != null) {
+          descriptor.updateValue(selected);
+          onUpdate();
+        }
+      },
     );
   }
 }

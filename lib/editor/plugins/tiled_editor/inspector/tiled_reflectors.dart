@@ -144,15 +144,20 @@ class TiledReflector {
         getter: () => getValue().toString(),
         setter: (v) => setValue(v, PropertyType.string),
         fetchOptions: () {
+          // 1. Find the sibling 'atlas' property
           final atlasProp = obj.properties['atlas'];
           if (atlasProp is! StringProperty) return [];
           
           final atlasPath = atlasProp.value;
           if (atlasPath.isEmpty) return [];
 
+          // 2. Resolve relative to TMX file
           final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasPath);
+          
+          // 3. Load the Asset
           final asset = resolver.getAsset(canonicalKey);
 
+          // 4. Return options based on .tpacker data
           if (asset is TexturePackerAssetData) {
             final options = <String>[];
             if (member.name == 'initialAnim') {

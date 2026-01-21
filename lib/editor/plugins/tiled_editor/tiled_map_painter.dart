@@ -23,7 +23,6 @@ class TiledMapPainter extends CustomPainter {
   final List<List<Gid>>? floatingSelection;
   final Point? floatingSelectionPosition;
 
-
   final Map<int, TextPainter> _textPainterCache = {};
 
   TiledMapPainter({
@@ -60,25 +59,6 @@ class TiledMapPainter extends CustomPainter {
       _paintGrid(canvas, startX, startY, endX, endY);
     }
   }
-  
-  /// Legacy lookup: scans ALL loaded assets for a sprite name.
-  /// Used for the old 'tp_sprite' property.
-  TexturePackerSpriteData? _findLegacySpriteData(String spriteName) {
-    for (final asset in resolver.rawAssets.values) {
-      if (asset is TexturePackerAssetData) {
-        if (asset.frames.containsKey(spriteName)) {
-          return asset.frames[spriteName];
-        }
-        if (asset.animations.containsKey(spriteName)) {
-          final firstFrame = asset.animations[spriteName]!.firstOrNull;
-          if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
-            return asset.frames[firstFrame];
-          }
-        }
-      }
-    }
-    return null;
-  }
 
   /// Schema lookup: Uses the object's 'atlas' property to find the specific file,
   /// then looks for 'initialFrame' or 'initialAnim'.
@@ -92,7 +72,7 @@ class TiledMapPainter extends CustomPainter {
     if (frameProp is! StringProperty || frameProp.value.isEmpty) return null;
 
     // 3. Resolve the specific asset
-    // The atlas property is relative to the TMX file (e.g. "../atlases/chars.tpacker")
+    // The atlas property is relative to the TMX file
     final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasProp.value);
     final asset = resolver.getAsset(canonicalKey);
 
@@ -136,7 +116,7 @@ class TiledMapPainter extends CustomPainter {
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
 
-    final image = resolver.getImage(imageSource, tileset: tileset);
+        final image = resolver.getImage(imageSource, tileset: tileset);
         if (image == null) continue;
 
         final srcRect = tileset.computeDrawRect(tile);
@@ -287,8 +267,7 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintTileLayer(Canvas canvas, TileLayer layer) {
-    // ... existing tile layer painting logic ...
-    // (Kept brief for this response as it wasn't modified)
+    // ... [No changes to existing tile logic] ...
     final visibleRect = canvas.getDestinationClipBounds();
     final startX = (visibleRect.left / map.tileWidth - 1).floor().clamp(0, layer.width);
     final startY = (visibleRect.top / map.tileHeight - 1).floor().clamp(0, layer.height);
@@ -405,7 +384,6 @@ class TiledMapPainter extends CustomPainter {
   }
   
   void _paintImageLayer(Canvas canvas, ImageLayer layer, Rect visibleRect) {
-    // ... existing image layer painting logic ...
     if (layer.image.source == null) return;
     final image = resolver.getImage(layer.image.source); 
 
@@ -444,8 +422,6 @@ class TiledMapPainter extends CustomPainter {
 
     canvas.drawPaint(paint);
   }
-  
-  // ... Matrix4 applyParallax() helper ... (kept from previous file)
 
   void _paintObjectGroup(Canvas canvas, ObjectGroup layer, {bool isForTile = false}) {
     final paint = isForTile
@@ -477,20 +453,10 @@ class TiledMapPainter extends CustomPainter {
       }
       
       bool customDrawDone = false;
-      TexturePackerSpriteData? spriteData;
+      
+      // Look up sprite from schema properties only
+      final spriteData = _findSchemaSpriteData(object);
 
-      // 1. Check Legacy tp_sprite (Global lookup)
-      final tpSpriteProp = object.properties['tp_sprite'];
-      if (tpSpriteProp is StringProperty && tpSpriteProp.value.isNotEmpty) {
-         spriteData = _findLegacySpriteData(tpSpriteProp.value);
-      }
-
-      // 2. Check Schema Sprite (Specific atlas lookup)
-      if (spriteData == null) {
-         spriteData = _findSchemaSpriteData(object);
-      }
-
-      // Draw the sprite if found
       if (spriteData != null) {
           final srcRect = spriteData.sourceRect;
           final dstRect = Rect.fromLTWH(object.x, object.y, object.width, object.height);
@@ -507,8 +473,8 @@ class TiledMapPainter extends CustomPainter {
           );
           
           if (selectedObjects.contains(object)) {
-             final strokePaint = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
-             canvas.drawRect(drawRect, strokePaint);
+             final selectionStroke = Paint()..color = Colors.blue ..style=PaintingStyle.stroke ..strokeWidth=2;
+             canvas.drawRect(drawRect, selectionStroke);
           }
           customDrawDone = true;
       }
@@ -564,7 +530,7 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintTileObject(Canvas canvas, TiledObject object) {
-    // ... existing logic ...
+    // ... [Kept existing logic] ...
     final gid = Gid.fromInt(object.gid!);
     if (gid.tile == 0) return;
 
@@ -607,7 +573,7 @@ class TiledMapPainter extends CustomPainter {
   }
 
   void _paintTextObject(Canvas canvas, TiledObject object) {
-    // ... existing logic ...
+    // ... [Kept existing logic] ...
     final textInfo = object.text!;
     var painter = _textPainterCache[object.id];
     
