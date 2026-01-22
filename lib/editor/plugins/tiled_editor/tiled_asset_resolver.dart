@@ -20,7 +20,10 @@ class TiledAssetResolver {
   final String _tmxPath;
   final Talker? _talker;
 
-  // New cache for flow graph parameters
+  // --- START: PHASE 1 IMPLEMENTATION ---
+
+  /// A private cache to store the parsed parameters of a flow graph file.
+  /// The key is the project-relative path to the .fg file.
   final Map<String, List<FlowGraphParameter>> _fgParamCache = {};
 
   TiledAssetResolver(this._assets, this._repo, this._tmxPath, [this._talker]);
@@ -29,51 +32,57 @@ class TiledAssetResolver {
   String get tmxPath => _tmxPath;
   ProjectRepository get repo => _repo;
 
-  // New method to asynchronously load and cache parameters
+  /// Loads the content of a .fg file, parses its input parameters,
+  /// and stores the result in the cache.
   Future<void> loadAndCacheFlowGraphParameters(String? relativeFgPath) async {
-    // === FIX START ===
     if (relativeFgPath == null || relativeFgPath.isEmpty) {
-      // Nothing to load if the path is empty.
       return;
     }
-    // === FIX END ===
 
+    // Resolve the path relative to the TMX file to get a unique, project-wide key.
     final canonicalKey = _repo.resolveRelativePath(_tmxPath, relativeFgPath);
 
-    // Avoid re-fetching if already in cache
+    // If it's already in the cache, we don't need to do anything.
     if (_fgParamCache.containsKey(canonicalKey)) {
       return;
     }
 
     try {
+      // Resolve the full path and read the file content.
       final file = await _repo.fileHandler.resolvePath(_repo.rootUri, canonicalKey);
       if (file != null) {
         final content = await _repo.readFile(file.uri);
+        // Use the existing parser to get the parameters.
         final params = FlowGraphParameterParser.parse(content);
+        // Store the result in the cache.
         _fgParamCache[canonicalKey] = params;
       } else {
         throw Exception("File not found at '$canonicalKey'");
       }
     } catch (e, st) {
       _talker?.handle(e, st, "Failed to load/parse flow graph parameters from '$relativeFgPath'");
-      // Cache an empty list on failure to prevent re-fetching constantly
+      // Cache an empty list on failure to prevent repeated load attempts.
       _fgParamCache[canonicalKey] = [];
     }
   }
 
-  // New synchronous method to get cached parameters
+  /// Retrieves the cached flow graph parameters for a given path.
+  /// Returns an empty list if not found or if the path is invalid.
   List<FlowGraphParameter> getCachedFlowGraphParameters(String? relativeFgPath) {
     if (relativeFgPath == null || relativeFgPath.isEmpty) {
       return [];
     }
+    // Ensure we use the same path resolution logic to find the correct cache key.
     final canonicalKey = _repo.resolveRelativePath(_tmxPath, relativeFgPath);
     return _fgParamCache[canonicalKey] ?? [];
   }
   
-  // New method to clear cache when inspector is closed
+  /// Clears the parameter cache. This is called when the InspectorDialog is closed.
   void clearFlowGraphParameterCache() {
     _fgParamCache.clear();
   }
+
+  // --- END: PHASE 1 IMPLEMENTATION ---
 
 
   ui.Image? getImage(String? source, {Tileset? tileset}) {
