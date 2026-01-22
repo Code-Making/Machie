@@ -202,9 +202,9 @@ class TiledReflector {
           break;
         case PropertyType.color:
           if (val is String) {
-             newProp = ColorProperty(name: member.name, value: colorDataFromHex(val));
+             newProp = ColorProperty(name: member.name, hexValue: colorDataFromHex(val));
           } else {
-             newProp = ColorProperty(name: member.name, value: val as ColorData);
+             newProp = ColorProperty(name: member.name, hexValue: val as ColorData);
           }
           break;
         default:
