@@ -197,11 +197,14 @@ class TiledReflector {
     }
 
     void setValue(dynamic val, PropertyType type) {
-      obj.properties.byName[member.name] = Property(
+      // Fix: Clone the map, update it, and assign a new CustomProperties object
+      final map = Map<String, Property>.from(obj.properties.byName);
+      map[member.name] = Property(
         name: member.name, 
         type: type, 
         value: val
       );
+      obj.properties = CustomProperties(map);
     }
 
     // Special Case: Atlas Sprite Animation Selector
