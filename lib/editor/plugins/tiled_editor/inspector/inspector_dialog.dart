@@ -181,7 +181,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         descriptor: descriptor,
         onUpdate: _onUpdate,
         editorKey: widget.editorKey,
-        contextPath: widget.resolver.tmxPath, // Pass the TMX path from resolver
+        contextPath: widget.resolver.tmxPath,
       );
     }
     if (descriptor is FlowGraphReferencePropertyDescriptor) {
@@ -216,6 +216,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         return PropertyFileLinkWithAction(
           descriptor: descriptor,
           onUpdate: _onUpdate,
+          contextPath: widget.resolver.tmxPath, // Added contextPath
         );
       }
       return PropertyStringInput(descriptor: descriptor, onUpdate: _onUpdate);
@@ -251,14 +252,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       }
       return ListTile(title: Text('${descriptor.label}: Unsupported Type'));
     }
-    
-    if (descriptor is SchemaFilePropertyDescriptor) {
-      // Re-use logic from ImagePathPropertyDescriptor but generic
-      return PropertyFileLinkWithAction(
-        descriptor: descriptor,
-        onUpdate: _onUpdate,
-      );
-    }
+  
     
     if (descriptor is DynamicEnumPropertyDescriptor) {
       return PropertyDynamicSelector(
