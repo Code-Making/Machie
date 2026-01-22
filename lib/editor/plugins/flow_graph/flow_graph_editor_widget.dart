@@ -23,6 +23,7 @@ import 'flow_graph_settings_model.dart';
 import 'widgets/flow_graph_canvas.dart';
 import 'widgets/node_palette.dart';
 import 'core_nodes.dart'; // Import the new core nodes
+import 'models/flow_schema_models.dart';
 
 class FlowGraphEditorWidget extends EditorWidget {
   @override
