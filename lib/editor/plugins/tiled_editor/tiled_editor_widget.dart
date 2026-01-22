@@ -321,17 +321,6 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
       }
     }
 
-    // 3. Collect Texture Packer Atlases (Map Property)
-    if (map.properties.byName.containsKey('tp_atlases')) {
-      final prop = map.properties.byName['tp_atlases'];
-      if (prop is StringProperty && prop.value.isNotEmpty) {
-        final paths = prop.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
-        for (final path in paths) {
-          uris.add(repo.resolveRelativePath(tmxPath, path));
-        }
-      }
-    }
-
     // 4. NEW: Recursively Scan Layers for Object Assets (e.g. 'atlas')
   void scanGroup(Group group) {
     for (final layer in group.layers) {
