@@ -134,7 +134,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
     // The reflector will now get the parameters from the resolver directly
     final descriptors = TiledReflector.getDescriptors(
-      widget.target, 
+      obj: widget.target, // Pass 'widget.target' as the named argument 'obj'
       schema: schema, 
       resolver: widget.resolver,
       talker: talker,
