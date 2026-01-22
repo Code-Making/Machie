@@ -58,12 +58,6 @@ class TiledAssetResolver {
       _talker?.debug("[Resolver] Object ${object.id}: Looking for '$spriteName' in atlas '${atlasProp.value}'");
       return _findSpriteInAtlases(spriteName, [atlasProp.value]);
     } else {
-      // ... tp_atlases logic ...
-      final mapAtlasesProp = map.properties['tp_atlases'];
-      if (mapAtlasesProp is StringProperty && mapAtlasesProp.value.isNotEmpty) {
-        final tpackerFiles = mapAtlasesProp.value.split(',').map((e) => e.trim());
-        return _findSpriteInAtlases(spriteName, tpackerFiles);
-      }
     }
     
     return null;
