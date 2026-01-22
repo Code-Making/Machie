@@ -10,19 +10,20 @@ import 'package:machine/utils/toast.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../../../../logs/logs_provider.dart';
 import '../tiled_asset_resolver.dart';
+import 'package:path/path.dart' as p;
 
 class ExportDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final Talker talker;
   final String tabId;
-  final String initialMapName; // Added parameter
+  final String initialMapName;
 
   const ExportDialog({
     super.key,
     required this.notifier,
     required this.talker,
     required this.tabId,
-    required this.initialMapName, // Added parameter
+    required this.initialMapName,
   });
   @override
   ConsumerState<ExportDialog> createState() => _ExportDialogState();
@@ -32,6 +33,9 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   bool _removeUnusedTilesets = true;
   bool _exportAsJson = false;
   bool _packInAtlas = false;
+  bool _includeAllAtlasSprites = false;
+  bool _exportDependenciesAsJson = true;
+  
   String? _destinationFolderUri;
   String _destinationFolderDisplay = 'Not selected';
   bool _isExporting = false;
@@ -42,7 +46,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   @override
   void initState() {
     super.initState();
-    // FIX: Use the initialMapName passed from the widget, not from the map object.
     _mapNameController = TextEditingController(text: widget.initialMapName);
     _atlasNameController = TextEditingController(text: 'packed_atlas');
   }
@@ -98,6 +101,8 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
             removeUnused: _removeUnusedTilesets,
             asJson: _exportAsJson,
             packInAtlas: _packInAtlas,
+            includeAllAtlasSprites: _includeAllAtlasSprites,
+            exportDependenciesAsJson: _exportDependenciesAsJson,
           );
       MachineToast.info("Export successful!");
       if (mounted) Navigator.of(context).pop();
@@ -113,7 +118,6 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // UI remains unchanged
     return AlertDialog(
       title: const Text('Export Map'),
       content: SingleChildScrollView(
@@ -165,11 +169,26 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
                 value: _removeUnusedTilesets,
                 onChanged: (value) => setState(() => _removeUnusedTilesets = value),
               ),
+              const Divider(),
               SwitchListTile(
                 title: const Text('Pack into a single atlas'),
                 subtitle: const Text('Combines all tiles into one image'),
                 value: _packInAtlas,
                 onChanged: (value) => setState(() => _packInAtlas = value),
+              ),
+              if (_packInAtlas)
+                SwitchListTile(
+                  title: const Text('Include all atlas sprites'),
+                  subtitle: const Text('Includes unused sprites from linked .tpacker files'),
+                  value: _includeAllAtlasSprites,
+                  onChanged: (value) => setState(() => _includeAllAtlasSprites = value),
+                ),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Export dependencies as JSON'),
+                subtitle: const Text('Flow Graphs (.fg) and Atlases (.tpacker) will be exported as .json'),
+                value: _exportDependenciesAsJson,
+                onChanged: (value) => setState(() => _exportDependenciesAsJson = value),
               ),
             ],
           ),
