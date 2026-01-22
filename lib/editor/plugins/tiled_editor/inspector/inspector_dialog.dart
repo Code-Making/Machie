@@ -41,23 +41,51 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   late Object _beforeState;
   bool _hasChanges = false;
 
+  bool _isLoadingParams = false;
+  String? _currentFlowGraphPath;
+
+
   @override
   void initState() {
     super.initState();
     _beforeState = _deepCopyTarget(widget.target);
+    _loadFlowGraphParametersIfNeeded();
+  }
+
+  Future<void> _loadFlowGraphParametersIfNeeded() async {
+    if (widget.target is! tiled.TiledObject) return;
+
+    final object = widget.target as tiled.TiledObject;
+    final flowGraphPath = object.properties.getValue<String>('flowGraph');
+
+    _currentFlowGraphPath = flowGraphPath;
+
+    if (flowGraphPath == null || flowGraphPath.isEmpty) {
+      return; // No need to load anything
+    }
+    
+    setState(() => _isLoadingParams = true);
+    
+    // Use the resolver to load and cache the data
+    await widget.resolver.loadAndCacheFlowGraphParameters(flowGraphPath);
+    
+    if (mounted) {
+      setState(() => _isLoadingParams = false);
+    }
   }
 
   @override
   void dispose() {
+    // Clear the resolver's cache for this inspection session
+    widget.resolver.clearFlowGraphParameterCache();
+
     if (_hasChanges) {
       final afterState = _deepCopyTarget(widget.target);
       widget.notifier.recordPropertyChange(_beforeState, afterState);
-      // CHANGED: Call public method
       widget.notifier.notifyChange();
     }
     super.dispose();
   }
-
   Object _deepCopyTarget(Object target) {
     if (target is tiled.TiledObject) {
       return deepCopyTiledObject(target);
@@ -87,38 +115,45 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     setState(() {
       _hasChanges = true;
     });
-    // CHANGED: Call public method
+
+    if (widget.target is tiled.TiledObject) {
+       final newPath = (widget.target as tiled.TiledObject).properties.getValue<String>('flowGraph');
+       if (newPath != _currentFlowGraphPath) {
+         // The path has changed, so we need to reload the params
+         _loadFlowGraphParametersIfNeeded();
+       }
+    }
     widget.notifier.notifyChange();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Watch the schema
     final schemaAsync = ref.watch(projectSchemaProvider);
     final schema = schemaAsync.valueOrNull;
+    final talker = ref.watch(talkerProvider);
 
-    // 2. Pass schema and resolver to getDescriptors
-  final talker = ref.watch(talkerProvider); // [DIAGNOSTIC] Get Talker
-
-  final descriptors = TiledReflector.getDescriptors(
-    widget.target, 
-    schema: schema, 
-    resolver: widget.resolver,
-    talker: talker, // [DIAGNOSTIC] Pass it
-  );
-
+    // The reflector will now get the parameters from the resolver directly
+    final descriptors = TiledReflector.getDescriptors(
+      widget.target, 
+      schema: schema, 
+      resolver: widget.resolver,
+      talker: talker,
+    );
 
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
         width: double.maxFinite,
-        child: ListView.builder(
+        child: ListView(
           shrinkWrap: true,
-          itemCount: descriptors.length,
-          itemBuilder: (context, index) {
-            final descriptor = descriptors[index];
-            return _buildPropertyWidget(descriptor);
-          },
+          children: [
+            if (_isLoadingParams)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(),
+              )),
+            ...descriptors.map((descriptor) => _buildPropertyWidget(descriptor)),
+          ],
         ),
       ),
       actions: [

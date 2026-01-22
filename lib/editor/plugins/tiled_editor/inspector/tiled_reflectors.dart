@@ -5,6 +5,7 @@ import '../tiled_asset_resolver.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:flutter/material.dart' hide StringProperty, ColorProperty;
 import 'package:machine/logs/logs_provider.dart';
+import '../../flow_graph/models/flow_schema_models.dart';
 
 ColorData colorDataFromHex(String hex) {
   var source = hex.replaceAll('#', '');
@@ -40,6 +41,33 @@ extension on Color {
       return '$prefix$a$r$g$b';
     }
     return '$prefix$r$g$b';
+  }
+}
+
+extension on CustomProperties {
+  T? getValue<T>(String name) {
+    final prop = this[name];
+    if (prop != null && prop.value is T) {
+      return prop.value as T;
+    }
+    return null;
+  }
+  
+  void setValue(String name, dynamic value, PropertyType type) {
+    final map = Map<String, Property<Object>>.from(byName);
+    
+    Property<Object> newProp;
+    switch(type) {
+      case PropertyType.string: newProp = StringProperty(name: name, value: value.toString()); break;
+      case PropertyType.int: newProp = IntProperty(name: name, value: value as int); break;
+      case PropertyType.float: newProp = FloatProperty(name: name, value: value as double); break;
+      case PropertyType.bool: newProp = BoolProperty(name: name, value: value as bool); break;
+      default: newProp = Property(name: name, type: type, value: value); break;
+    }
+
+    map[name] = newProp;
+    properties.clear();
+    properties.addAll(map.values);
   }
 }
 
@@ -125,21 +153,55 @@ class TiledReflector {
       FlowGraphReferencePropertyDescriptor(
         name: 'flowGraph',
         label: 'Flow Graph (.fg)',
-        getter: () {
-          final prop = obj.properties['flowGraph'];
-          return (prop is StringProperty) ? prop.value : '';
-        },
-        setter: (val) {
-          final map = Map<String, Property<Object>>.from(obj.properties.byName);
-          if (val.isEmpty) {
-            map.remove('flowGraph');
-          } else {
-            map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
-          }
-          obj.properties = CustomProperties(map);
-        },
+        getter: () => obj.properties.getValue<String>('flowGraph') ?? '',
+        setter: (val) => obj.properties.setValue('flowGraph', val, PropertyType.string),
       ),
     ];
+    
+     if (resolver != null) {
+      final flowGraphPath = obj.properties.getValue<String>('flowGraph');
+      final flowGraphParameters = resolver.getCachedFlowGraphParameters(flowGraphPath);
+      
+      if (flowGraphParameters.isNotEmpty) {
+        for (final param in flowGraphParameters) {
+          final propName = 'fg_param_${param.name}';
+          final propLabel = '  • ${param.name}'; // Indent for clarity
+
+          switch(param.type) {
+            case FlowPortType.string:
+              descriptors.add(StringPropertyDescriptor(
+                name: propName, label: propLabel,
+                getter: () => obj.properties.getValue<String>(propName) ?? '',
+                setter: (v) => obj.properties.setValue(propName, v, PropertyType.string),
+              ));
+              break;
+            case FlowPortType.number:
+              descriptors.add(DoublePropertyDescriptor(
+                name: propName, label: propLabel,
+                getter: () => obj.properties.getValue<double>(propName) ?? 0.0,
+                setter: (v) => obj.properties.setValue(propName, v, PropertyType.float),
+              ));
+              break;
+            case FlowPortType.boolean:
+              descriptors.add(BoolPropertyDescriptor(
+                name: propName, label: propLabel,
+                getter: () => obj.properties.getValue<bool>(propName) ?? false,
+                setter: (v) => obj.properties.setValue(propName, v, PropertyType.bool),
+              ));
+              break;
+            case FlowPortType.tiledObject:
+              descriptors.add(IntPropertyDescriptor(
+                name: propName, label: '$propLabel (Object ID)',
+                getter: () => obj.properties.getValue<int>(propName) ?? 0,
+                setter: (v) => obj.properties.setValue(propName, v, PropertyType.int),
+              ));
+              break;
+            default:
+              break; 
+          }
+        }
+      }
+    }
 
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
