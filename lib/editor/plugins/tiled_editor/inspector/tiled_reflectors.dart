@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/tiled_editor/inspector/tiled_reflectors.dart
+
 import 'package:tiled/tiled.dart';
 import 'property_descriptors.dart';
 import '../models/object_class_model.dart';
@@ -6,12 +8,22 @@ import 'package:machine/asset_cache/asset_models.dart';
 import 'package:flutter/material.dart' hide StringProperty, ColorProperty;
 import 'package:machine/logs/logs_provider.dart';
 import '../../flow_graph/models/flow_schema_models.dart';
+import '../../flow_graph/flow_graph_parameter_parser.dart';
+
+// Helper extension to simplify getting custom properties
+extension on CustomProperties {
+  T? getValue<T>(String name) {
+    final prop = this[name];
+    if (prop != null && prop.value is T) {
+      return prop.value as T;
+    }
+    return null;
+  }
+}
 
 ColorData colorDataFromHex(String hex) {
   var source = hex.replaceAll('#', '');
-  if (source.length == 6) {
-    source = 'ff$source';
-  }
+  if (source.length == 6) { source = 'ff$source'; }
   if (source.length == 8) {
     final val = int.parse(source, radix: 16);
     return ColorData.hex(val);
@@ -44,19 +56,9 @@ extension on Color {
   }
 }
 
-extension on CustomProperties {
-  T? getValue<T>(String name) {
-    final prop = this[name];
-    if (prop != null && prop.value is T) {
-      return prop.value as T;
-    }
-    return null;
-  }
-}
-
 class TiledReflector {
-  static List<PropertyDescriptor> getDescriptors(
-    Object? obj, {
+  static List<PropertyDescriptor> getDescriptors({
+    required Object? obj,
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
     Talker? talker,
@@ -137,11 +139,16 @@ class TiledReflector {
         name: 'flowGraph',
         label: 'Flow Graph (.fg)',
         getter: () => obj.properties.getValue<String>('flowGraph') ?? '',
-        setter: (val) => obj.properties.setValue('flowGraph', val, PropertyType.string),
+        setter: (val) {
+            final map = Map<String, Property<Object>>.from(obj.properties.byName);
+            map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+            obj.properties = CustomProperties(map);
+        },
       ),
     ];
     
-     if (resolver != null) {
+    // === DYNAMIC PARAMETER GENERATION (now using resolver) START ===
+    if (resolver != null) {
       final flowGraphPath = obj.properties.getValue<String>('flowGraph');
       final flowGraphParameters = resolver.getCachedFlowGraphParameters(flowGraphPath);
       
@@ -150,33 +157,48 @@ class TiledReflector {
           final propName = 'fg_param_${param.name}';
           final propLabel = '  • ${param.name}'; // Indent for clarity
 
+          // Helper to create the correct setter logic
+          void setter(dynamic v, PropertyType type) {
+              final map = Map<String, Property<Object>>.from(obj.properties.byName);
+              Property<Object> newProp;
+              switch(type) {
+                case PropertyType.string: newProp = StringProperty(name: propName, value: v.toString()); break;
+                case PropertyType.int: newProp = IntProperty(name: propName, value: v as int); break;
+                case PropertyType.float: newProp = FloatProperty(name: propName, value: v as double); break;
+                case PropertyType.bool: newProp = BoolProperty(name: propName, value: v as bool); break;
+                default: newProp = Property(name: propName, type: type, value: v); break;
+              }
+              map[propName] = newProp;
+              obj.properties = CustomProperties(map);
+          }
+
           switch(param.type) {
             case FlowPortType.string:
               descriptors.add(StringPropertyDescriptor(
                 name: propName, label: propLabel,
                 getter: () => obj.properties.getValue<String>(propName) ?? '',
-                setter: (v) => obj.properties.setValue(propName, v, PropertyType.string),
+                setter: (v) => setter(v, PropertyType.string),
               ));
               break;
             case FlowPortType.number:
               descriptors.add(DoublePropertyDescriptor(
                 name: propName, label: propLabel,
                 getter: () => obj.properties.getValue<double>(propName) ?? 0.0,
-                setter: (v) => obj.properties.setValue(propName, v, PropertyType.float),
+                setter: (v) => setter(v, PropertyType.float),
               ));
               break;
             case FlowPortType.boolean:
               descriptors.add(BoolPropertyDescriptor(
                 name: propName, label: propLabel,
                 getter: () => obj.properties.getValue<bool>(propName) ?? false,
-                setter: (v) => obj.properties.setValue(propName, v, PropertyType.bool),
+                setter: (v) => setter(v, PropertyType.bool),
               ));
               break;
             case FlowPortType.tiledObject:
               descriptors.add(IntPropertyDescriptor(
                 name: propName, label: '$propLabel (Object ID)',
                 getter: () => obj.properties.getValue<int>(propName) ?? 0,
-                setter: (v) => obj.properties.setValue(propName, v, PropertyType.int),
+                setter: (v) => setter(v, PropertyType.int),
               ));
               break;
             default:
@@ -185,7 +207,8 @@ class TiledReflector {
         }
       }
     }
-
+    // === DYNAMIC PARAMETER GENERATION END ===
+    
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
     }
@@ -213,7 +236,7 @@ class TiledReflector {
 
     return descriptors;
   }
-
+  
   static PropertyDescriptor _createMemberDescriptor(
     TiledObject obj, 
     ClassMemberDefinition member,
@@ -226,7 +249,6 @@ class TiledReflector {
       return member.defaultValue;
     }
 
-    // FIX: Use correct subclass constructors
     void setValue(dynamic val, PropertyType type) {
       final map = Map<String, Property<Object>>.from(obj.properties.byName);
       

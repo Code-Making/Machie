@@ -1,3 +1,5 @@
+// FILE: lib/editor/plugins/tiled_editor/tiled_asset_resolver.dart
+
 import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tiled/tiled.dart';
@@ -16,25 +18,32 @@ class TiledAssetResolver {
   final Map<String, AssetData> _assets;
   final ProjectRepository _repo;
   final String _tmxPath;
-  final Talker? _talker; // Add Talker
+  final Talker? _talker;
 
+  // New cache for flow graph parameters
   final Map<String, List<FlowGraphParameter>> _fgParamCache = {};
 
+  TiledAssetResolver(this._assets, this._repo, this._tmxPath, [this._talker]);
 
-  TiledAssetResolver(this._assets, this._repo, this._tmxPath, [this._talker]); // Update constructor
-
-  // ... (getters) ...
   Map<String, AssetData> get rawAssets => _assets;
   String get tmxPath => _tmxPath;
   ProjectRepository get repo => _repo;
 
+  // New method to asynchronously load and cache parameters
   Future<void> loadAndCacheFlowGraphParameters(String? relativeFgPath) async {
+    // === FIX START ===
     if (relativeFgPath == null || relativeFgPath.isEmpty) {
       // Nothing to load if the path is empty.
       return;
     }
+    // === FIX END ===
 
     final canonicalKey = _repo.resolveRelativePath(p.dirname(_tmxPath), relativeFgPath);
+
+    // Avoid re-fetching if already in cache
+    if (_fgParamCache.containsKey(canonicalKey)) {
+      return;
+    }
 
     try {
       final file = await _repo.fileHandler.resolvePath(_repo.rootUri, canonicalKey);
@@ -65,7 +74,8 @@ class TiledAssetResolver {
   void clearFlowGraphParameterCache() {
     _fgParamCache.clear();
   }
- 
+
+
   ui.Image? getImage(String? source, {Tileset? tileset}) {
     if (source == null || source.isEmpty) return null;
 
@@ -88,7 +98,6 @@ class TiledAssetResolver {
   TexturePackerSpriteData? getSpriteDataForObject(TiledObject object, TiledMap map) {
     final frameProp = object.properties['initialFrame'] ?? object.properties['initialAnim'];
     
-    // [DIAGNOSTIC] Log property state
     if (frameProp is! StringProperty || frameProp.value.isEmpty) {
       _talker?.debug("[Resolver] Object ${object.id}: initialFrame/Anim is empty or missing.");
       return null;
@@ -111,7 +120,6 @@ class TiledAssetResolver {
       final canonicalKey = _repo.resolveRelativePath(_tmxPath, path);
       final asset = getAsset(canonicalKey);
 
-      // [DIAGNOSTIC] Log asset lookup
       if (asset == null) {
          _talker?.warning("[Resolver] Asset not found for key: '$canonicalKey' (Path: $path)");
       } else if (asset is! TexturePackerAssetData) {
@@ -135,13 +143,12 @@ class TiledAssetResolver {
   }
 }
 
-// Update Provider
 final tiledAssetResolverProvider = Provider.family.autoDispose<AsyncValue<TiledAssetResolver>, String>((ref, tabId) {
   final assetMapAsync = ref.watch(assetMapProvider(tabId));
   final repo = ref.watch(projectRepositoryProvider);
   final project = ref.watch(currentProjectProvider);
   final metadata = ref.watch(tabMetadataProvider)[tabId];
-  final talker = ref.watch(talkerProvider); // Get talker
+  final talker = ref.watch(talkerProvider);
 
   return assetMapAsync.whenData((assetMap) {
     if (repo == null || project == null || metadata == null) {
@@ -149,6 +156,6 @@ final tiledAssetResolverProvider = Provider.family.autoDispose<AsyncValue<TiledA
     }
     
     final tmxPath = repo.fileHandler.getPathForDisplay(metadata.file.uri, relativeTo: project.rootUri);
-    return TiledAssetResolver(assetMap, repo, tmxPath, talker); // Pass talker
+    return TiledAssetResolver(assetMap, repo, tmxPath, talker);
   });
 });
