@@ -192,9 +192,9 @@ class PropertySchemaFileSelector extends ConsumerWidget {
               );
               
               if (newPath != null) {
-                // FIX: Pass contextPath (the TMX file path) directly.
-                // calculateRelativePath handles extracting the directory internally.
-                final relativePath = repo.calculateRelativePath(contextPath, newPath);
+                // Ensure we calculate relative to the directory of the context path (TMX file)
+                final contextDir = p.dirname(contextPath);
+                final relativePath = repo.calculateRelativePath(contextDir, newPath);
                 
                 descriptor.updateValue(relativePath);
                 onUpdate();
@@ -424,12 +424,13 @@ class PropertyFileListEditor extends StatelessWidget {
 class PropertyFileLinkWithAction extends ConsumerWidget {
   final StringPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
-  // We don't need to pass 'ref' in constructor since we extend ConsumerWidget
+  final String contextPath; // Added context path for relative calculation
 
   const PropertyFileLinkWithAction({
     super.key,
     required this.descriptor,
     required this.onUpdate,
+    required this.contextPath,
   });
 
   @override
@@ -449,19 +450,32 @@ class PropertyFileLinkWithAction extends ConsumerWidget {
               icon: const Icon(Icons.hub_outlined, color: Colors.orange),
               tooltip: 'Open Flow Graph',
               onPressed: () {
-                // CORRECTED: Use EditorService to open the file by path
-                ref.read(editorServiceProvider).openOrCreate(path);
+                // Use EditorService to open the file by path
+                // If the path is relative (e.g. "../logic/script.fg"), resolve it first
+                final repo = ref.read(projectRepositoryProvider);
+                if (repo != null) {
+                   final dir = p.dirname(contextPath);
+                   final fullRelativePath = p.normalize(p.join(dir, path));
+                   ref.read(editorServiceProvider).openOrCreate(fullRelativePath);
+                }
               },
             ),
           IconButton(
             icon: const Icon(Icons.folder_open),
             onPressed: () async {
+              final repo = ref.read(projectRepositoryProvider);
+              if (repo == null) return;
+
               final newPath = await showDialog<String>(
                 context: context,
                 builder: (_) => const FileOrFolderPickerDialog(),
               );
               if (newPath != null) {
-                descriptor.updateValue(newPath);
+                // Calculate path relative to the TMX file
+                final contextDir = p.dirname(contextPath);
+                final relativePath = repo.calculateRelativePath(contextDir, newPath);
+                
+                descriptor.updateValue(relativePath);
                 onUpdate();
               }
             },
