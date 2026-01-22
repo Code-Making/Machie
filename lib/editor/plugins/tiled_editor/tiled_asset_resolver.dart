@@ -25,12 +25,48 @@ class TiledAssetResolver {
   /// A private cache to store the parsed parameters of a flow graph file.
   /// The key is the project-relative path to the .fg file.
   final Map<String, List<FlowGraphParameter>> _fgParamCache = {};
+final Map<String, TiledMap> _externalMapCache = {};
 
   TiledAssetResolver(this._assets, this._repo, this._tmxPath, [this._talker]);
 
   Map<String, AssetData> get rawAssets => _assets;
   String get tmxPath => _tmxPath;
   ProjectRepository get repo => _repo;
+
+Future<TiledMap?> loadAndCacheExternalMap(String? relativeTmxPath) async {
+  if (relativeTmxPath == null || relativeTmxPath.isEmpty) {
+    return null;
+  }
+
+  final canonicalKey = _repo.resolveRelativePath(_tmxPath, relativeTmxPath);
+  if (_externalMapCache.containsKey(canonicalKey)) {
+    return _externalMapCache[canonicalKey];
+  }
+
+  try {
+    final file = await _repo.fileHandler.resolvePath(_repo.rootUri, canonicalKey);
+    if (file != null) {
+      final content = await _repo.readFile(file.uri);
+      // We need a TsxProvider to parse maps that have external tilesets.
+      final parentUri = _repo.fileHandler.getParentUri(file.uri);
+      final tsxProvider = ProjectTsxProvider(_repo, parentUri);
+      final tsxProviders = await ProjectTsxProvider.parseFromTmx(
+        content,
+        tsxProvider.getProvider,
+      );
+      final map = TileMapParser.parseTmx(content, tsxList: tsxProviders);
+      _externalMapCache[canonicalKey] = map;
+      return map;
+    }
+  } catch (e, st) {
+    _talker?.handle(e, st, "Failed to load/parse external map: $relativeTmxPath");
+  }
+  return null;
+}
+
+void clearExternalMapCache() {
+  _externalMapCache.clear();
+}
 
   /// Loads the content of a .fg file, parses its input parameters,
   /// and stores the result in the cache.

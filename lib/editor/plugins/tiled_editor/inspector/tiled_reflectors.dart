@@ -263,6 +263,7 @@ class TiledReflector {
           newProp = StringProperty(name: member.name, value: val.toString());
           break;
         case PropertyType.int:
+        case PropertyType.object: // Treat object refs as ints for storage
           newProp = IntProperty(name: member.name, value: val as int);
           break;
         case PropertyType.float:
@@ -279,14 +280,41 @@ class TiledReflector {
              newProp = ColorProperty(name: member.name, value: colorData, hexValue: colorData.toHex(includeAlpha: true));
           }
           break;
-        default:
-          newProp = Property(name: member.name, type: type, value: val);
-          break;
       }
 
       map[member.name] = newProp;
       obj.properties = CustomProperties(map);
     }
+
+    // --- MODIFICATION: Handle the new 'object' type from the schema ---
+    if (member.type == ClassMemberType.object) {
+      if (resolver == null) {
+        // Fallback if the resolver isn't available for some reason.
+        return IntPropertyDescriptor(
+            name: member.name,
+            label: member.name,
+            getter: () => (getValue() as num?)?.toInt() ?? 0,
+            setter: (v) => setValue(v, PropertyType.object),
+          );
+      }
+      
+      // By convention, the map property is named by removing "Spawn" or "Target"
+      // from the object property name and adding "Map". e.g., "targetSpawn" -> "targetMap".
+      final mapPropertyName = member.name.replaceFirst('Spawn', 'Map').replaceFirst('Target', 'Map');
+
+      return ExternalObjectReferencePropertyDescriptor(
+        name: member.name,
+        label: member.name,
+        getter: () => (getValue() as num?)?.toInt() ?? 0,
+        setter: (v) => setValue(v, PropertyType.object),
+        mapFilePropertyName: mapPropertyName,
+        resolver: resolver,
+        target: obj,
+      );
+    }
+    
+    // ... (rest of the method is the same)
+    // --- END MODIFICATION ---
 
     if ((member.name == 'initialAnim' || member.name == 'initialFrame') && resolver != null) {
       return DynamicEnumPropertyDescriptor(

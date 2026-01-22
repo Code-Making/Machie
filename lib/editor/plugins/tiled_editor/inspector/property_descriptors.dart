@@ -3,6 +3,32 @@ import 'package:tiled/tiled.dart' hide Image;
 
 // Add this new class to the file
 
+class ExternalObjectReferencePropertyDescriptor extends PropertyDescriptor {
+  final int Function() getter;
+  final void Function(int) setter;
+  // This holds the name of the property that contains the path to the external .tmx file.
+  final String mapFilePropertyName;
+  // We need the resolver to load the external map.
+  final TiledAssetResolver resolver;
+
+  const ExternalObjectReferencePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    required this.mapFilePropertyName,
+    required this.resolver,
+    super.target, // The target is the TiledObject being inspected.
+    super.isReadOnly,
+  });
+
+  @override
+  int get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) =>
+      setter(int.tryParse(newValue.toString()) ?? 0);
+}
+
 class TiledObjectReferencePropertyDescriptor extends PropertyDescriptor {
   final int Function() getter;
   final void Function(int) setter;
