@@ -210,7 +210,10 @@ class TiledReflector {
         name: member.name,
         label: member.name,
         getter: () => getValue().toString(),
-        setter: (v) => setValue(v, PropertyType.string),
+        setter: (v) {
+           talker?.info("[Reflector] Setting ${member.name} to '$v' for Object ${obj.id}"); // [DIAGNOSTIC]
+           setValue(v, PropertyType.string);
+        },
         fetchOptions: () {
           // [DIAGNOSTIC] Log start
           talker?.debug("[Inspector] fetchOptions for ${member.name}");
