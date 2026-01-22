@@ -95,9 +95,7 @@ class _BulkTilesetRemovalHistoryAction implements _HistoryAction {
 
   @override
   void undo(TiledMap map) {
-    // Re-insert in the correct order by zipping indices and tilesets
     final items = IterableZip([originalIndices, removedTilesets]);
-    // Sort by index to insert from the beginning of the list
     final sortedItems = items.sorted((a, b) => (a[0] as int).compareTo(a[1] as int));
     for (final item in sortedItems) {
       map.tilesets.insert(item[0] as int, deepCopyTileset(item[1] as Tileset));
@@ -106,7 +104,6 @@ class _BulkTilesetRemovalHistoryAction implements _HistoryAction {
 
   @override
   void redo(TiledMap map) {
-    // Remove by name, since indices are now invalid
     final namesToRemove = removedTilesets.map((ts) => ts.name).toSet();
     map.tilesets.removeWhere((ts) => namesToRemove.contains(ts.name));
   }
@@ -129,7 +126,6 @@ class _LayerStructureHistoryAction implements _HistoryAction {
   }
 }
 
-// New history action for adding a layer
 class _LayerAddHistoryAction implements _HistoryAction {
   final Layer layer;
   final int index;
@@ -138,18 +134,15 @@ class _LayerAddHistoryAction implements _HistoryAction {
 
   @override
   void undo(TiledMap map) {
-    // The reverse of adding is removing
     map.layers.removeAt(index);
   }
 
   @override
   void redo(TiledMap map) {
-    // Redo the addition by inserting it back
     map.layers.insert(index, deepCopyLayer(layer));
   }
 }
 
-// New history action for reordering layers
 class _LayerReorderHistoryAction implements _HistoryAction {
   final int oldIndex;
   final int newIndex;
@@ -158,14 +151,12 @@ class _LayerReorderHistoryAction implements _HistoryAction {
 
   @override
   void undo(TiledMap map) {
-    // To undo, move the item from newIndex back to oldIndex
     final item = map.layers.removeAt(newIndex);
     map.layers.insert(oldIndex, item);
   }
 
   @override
   void redo(TiledMap map) {
-    // To redo, perform the original move again
     final item = map.layers.removeAt(oldIndex);
     map.layers.insert(newIndex, item);
   }
@@ -217,7 +208,6 @@ void _applyState(TiledMap map, Object state) {
     if (state is TiledMap) {
       map.backgroundColorHex = state.backgroundColorHex;
       map.renderOrder = state.renderOrder;
-      // Copy other map properties as needed
     } else if (state is Layer) {
       final index = map.layers.indexWhere((l) => l.id == state.id);
       if (index != -1) {
@@ -234,7 +224,6 @@ void _applyState(TiledMap map, Object state) {
         }
       }
     } else if (state is Tileset) {
-      // Tilesets lack a stable ID, so we rely on the name. This is fragile but the best option.
       final index = map.tilesets.indexWhere((ts) => ts.name == state.name);
       if (index != -1) {
         map.tilesets[index] = deepCopyTileset(state);
@@ -281,7 +270,6 @@ class _TilesetHistoryAction implements _HistoryAction {
 
   @override
   void undo(TiledMap map) {
-    // In TiledMapNotifier, we will also handle the image cache
     if (wasAddOperation) {
       map.tilesets.removeAt(index);
     } else {
@@ -301,7 +289,6 @@ class _TilesetHistoryAction implements _HistoryAction {
 
 class TiledMapNotifier extends ChangeNotifier {
   TiledMap _map;
-  // final Map<String, ImageLoadResult> _tilesetImages;
 
   final _undoStack = <_HistoryAction>[];
   final _redoStack = <_HistoryAction>[];
@@ -318,7 +305,6 @@ class TiledMapNotifier extends ChangeNotifier {
 
   TiledMapNotifier(this._map);
   TiledMap get map => _map;
-  // Map<String, ImageLoadResult> get tilesetImages => _tilesetImages;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
   List<TiledObject> get selectedObjects => List.unmodifiable(_selectedObjects);
@@ -401,7 +387,6 @@ class TiledMapNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- All other methods remain unchanged ---
 
     void beginTileStroke(int layerId) {
     if (_tileStrokeBeforeData != null) return;
@@ -577,7 +562,6 @@ class TiledMapNotifier extends ChangeNotifier {
   
     void setTileSelection(Rect? rect, int layerId) {
     if (_floatingSelection != null) {
-      // If a selection is floating, setting a new selection should stamp it first.
       stampFloatingSelection(layerId, cancelFloat: false);
     }
     _tileSelectionRect = rect;
@@ -588,7 +572,7 @@ class TiledMapNotifier extends ChangeNotifier {
     final layer =_map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
     if (layer?.tileData == null || _tileSelectionRect == null) return;
 
-    beginTileStroke(layerId); // Use existing stroke mechanism to save "before" state
+    beginTileStroke(layerId);
 
     final rect = _tileSelectionRect!;
     _floatingSelection = [];
@@ -602,7 +586,7 @@ class TiledMapNotifier extends ChangeNotifier {
           continue;
         }
         row.add(layer!.tileData![mapY][mapX]);
-        layer!.tileData![mapY][mapX] = Gid.fromInt(0); // Erase the original tile
+        layer!.tileData![mapY][mapX] = Gid.fromInt(0);
       }
       _floatingSelection!.add(row);
     }
@@ -610,7 +594,7 @@ class TiledMapNotifier extends ChangeNotifier {
     _floatingSelectionPosition = Point(x:rect.left, y:rect.top);
     _tileSelectionRect = null;
     
-    endTileStroke(layerId); // This will save the "after" state with the hole
+    endTileStroke(layerId);
     notifyListeners();
   }
   
@@ -633,13 +617,12 @@ class TiledMapNotifier extends ChangeNotifier {
     for (int y = 0; y < floatData.length; y++) {
       for (int x = 0; x < floatData[y].length; x++) {
         final gid = floatData[y][x];
-        if (gid.tile == 0) continue; // Don't stamp empty parts of the selection
+        if (gid.tile == 0) continue;
 
         final mapX = (position.x + x).toInt();
         final mapY = (position.y + y).toInt();
 
         if (mapX >= 0 && mapX < _map.width && mapY >= 0 && mapY < _map.height) {
-          // Use the null-checked layer variable
           layer!.tileData![mapY][mapX] = gid;
         }
       }
@@ -659,12 +642,10 @@ class TiledMapNotifier extends ChangeNotifier {
     if (layer is ObjectGroup) {
       final object = layer.objects.firstWhereOrNull((o) => o.id == objectId);
       if (object != null) {
-        // Create copies for history
         final before = deepCopyTiledObject(object);
         object.visible = !object.visible;
         final after = deepCopyTiledObject(object);
         
-        // recordPropertyChange handles TiledObject by finding it via ID and replacing it
         recordPropertyChange(before, after);
         notifyListeners();
       }
@@ -675,20 +656,17 @@ class TiledMapNotifier extends ChangeNotifier {
     final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId) as ObjectGroup?;
     if (layer == null) return;
 
-    // Snapshot state before deletion for Undo
     beginObjectChange(layerId);
 
     final object = layer.objects.firstWhereOrNull((o) => o.id == objectId);
     if (object != null) {
       layer.objects.remove(object);
       
-      // Clean up selection if the deleted object was selected
       if (_selectedObjects.contains(object)) {
         _selectedObjects.remove(object);
       }
     }
 
-    // Snapshot state after deletion and push to history
     endObjectChange(layerId);
     notifyListeners();
   }
@@ -731,7 +709,6 @@ void toggleLayerVisibility(int layerId) {
     required int tileWidth,
     required int tileHeight,
   }) {
-    // Keep a reference to the old tile data to copy from
     final oldLayersData = <int, List<List<Gid>>>{};
     for (final layer in _map.layers) {
       if (layer is TileLayer && layer.tileData != null) {
@@ -739,30 +716,25 @@ void toggleLayerVisibility(int layerId) {
       }
     }
 
-    // Update map-level properties
     _map.width = width;
     _map.height = height;
     _map.tileWidth = tileWidth;
     _map.tileHeight = tileHeight;
 
-    // Rebuild tileData for each tile layer
     for (final layer in _map.layers) {
       if (layer is TileLayer) {
         final oldData = oldLayersData[layer.id];
         final oldHeight = oldData?.length ?? 0;
         final oldWidth = oldHeight > 0 ? (oldData?[0].length ?? 0) : 0;
 
-        // Create a new grid of the new size
         layer.width = width;
         layer.height = height;
         layer.tileData = List.generate(
-          height, // New height
-          (y) => List.generate(width, (x) { // New width
-            // If the coordinate (x, y) existed in the old grid, copy it.
+          height,
+          (y) => List.generate(width, (x) {
             if (y < oldHeight && x < oldWidth) {
               return oldData![y][x];
             }
-            // Otherwise, the new space is an empty tile.
             return Gid.fromInt(0);
           }),
         );
@@ -793,7 +765,6 @@ void toggleLayerVisibility(int layerId) {
 
     final tileset = _map.tilesets.removeAt(index);
 
-    // Push the simplified history action. No wrapper needed.
     _pushHistory(_TilesetHistoryAction(
       tileset: tileset,
       index: index,
@@ -945,12 +916,10 @@ void addLayer({required String name, required LayerType type}) {
     final layer = _map.layers.firstWhereOrNull((l) => l.id == layerId);
     if (layer is! ObjectGroup) return;
 
-    // Adjust index if dragging downwards
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
     
-    // Clamp to be safe
     newIndex = newIndex.clamp(0, layer.objects.length - 1);
 
     if (oldIndex == newIndex) return;
@@ -981,8 +950,35 @@ void addLayer({required String name, required LayerType type}) {
   }
 }
 
-// helper functions
+// FIX: Helper to correctly copy properties preserving their subclass types
+Property<Object> deepCopyProperty(Property<dynamic> p) {
+  if (p is StringProperty) {
+    return StringProperty(name: p.name, value: p.value);
+  } else if (p is IntProperty) {
+    return IntProperty(name: p.name, value: p.value);
+  } else if (p is FloatProperty) {
+    return FloatProperty(name: p.name, value: p.value);
+  } else if (p is BoolProperty) {
+    return BoolProperty(name: p.name, value: p.value);
+  } else if (p is ColorProperty) {
+    return ColorProperty(name: p.name, value: p.value, hexValue: p.hexValue);
+  } else if (p is FileProperty) {
+    return FileProperty(name: p.name, value: p.value);
+  } else if (p is ObjectProperty) {
+    return ObjectProperty(name: p.name, value: p.value);
+  }
+  
+  // Fallback if needed, though usually the specific ones cover most cases
+  if (p.value is String) return StringProperty(name: p.name, value: p.value as String);
+  if (p.value is int) return IntProperty(name: p.name, value: p.value as int);
+  if (p.value is double) return FloatProperty(name: p.name, value: p.value as double);
+  if (p.value is bool) return BoolProperty(name: p.name, value: p.value as bool);
+  
+  return Property(name: p.name, type: p.type, value: p.value);
+}
+
 TiledObject deepCopyTiledObject(TiledObject other) {
+  // FIX: Use deepCopyProperty for properties
   return TiledObject(
     id: other.id,
     name: other.name,
@@ -1016,7 +1012,7 @@ TiledObject deepCopyTiledObject(TiledObject other) {
           )
         : null,
     properties: CustomProperties(
-        {for (var p in other.properties) p.name: Property(name: p.name, type: p.type, value: p.value)}),
+        {for (var p in other.properties) p.name: deepCopyProperty(p)}),
   );
 }
 
@@ -1040,7 +1036,8 @@ Layer deepCopyLayer(Layer other) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(Map.from(other.properties.byName)),
+      properties: CustomProperties(
+          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
       compression: other.compression,
       encoding: other.encoding,
       chunks: other.chunks,
@@ -1066,7 +1063,8 @@ if (other is ObjectGroup) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(Map.from(other.properties.byName)),
+      properties: CustomProperties(
+          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
       colorHex: other.colorHex,
     );
   }
@@ -1090,13 +1088,13 @@ if (other is ObjectGroup) {
       tintColor: other.tintColor,
       opacity: other.opacity,
       visible: other.visible,
-      properties: CustomProperties(Map.from(other.properties.byName)),
+      properties: CustomProperties(
+          {for (var p in other.properties) p.name: deepCopyProperty(p)}),
       transparentColorHex: other.transparentColorHex,
       transparentColor: other.transparentColor,
     );
   }
-  // Add other layer types if needed (Group)
-  return other; // Fallback for unsupported types
+  return other;
 }
 
 Tileset deepCopyTileset(Tileset other) {
@@ -1117,6 +1115,6 @@ Tileset deepCopyTileset(Tileset other) {
             height: other.image!.height,
           )
         : null,
-    tiles: other.tiles.map((t) => Tile(localId: t.localId)).toList(), // Simplified tile copy
+    tiles: other.tiles.map((t) => Tile(localId: t.localId)).toList(),
   );
 }
