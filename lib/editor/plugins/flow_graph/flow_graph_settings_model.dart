@@ -7,12 +7,14 @@ class FlowGraphSettings extends PluginSettings {
   int gridColorValue;
   double gridSpacing;
   double gridThickness;
+  String schemaPath; // New property
 
   FlowGraphSettings({
     this.backgroundColorValue = 0xFF1E1E1E,
-    this.gridColorValue = 0x0DFFFFFF, // Approx 5% opacity white
+    this.gridColorValue = 0x0DFFFFFF,
     this.gridSpacing = 20.0,
     this.gridThickness = 1.0,
+    this.schemaPath = '', // Default to empty
   });
 
   @override
@@ -21,6 +23,7 @@ class FlowGraphSettings extends PluginSettings {
     gridColorValue = json['gridColorValue'] ?? 0x0DFFFFFF;
     gridSpacing = (json['gridSpacing'] ?? 20.0).toDouble();
     gridThickness = (json['gridThickness'] ?? 1.0).toDouble();
+    schemaPath = json['schemaPath'] ?? ''; // Load from JSON
   }
 
   @override
@@ -29,6 +32,7 @@ class FlowGraphSettings extends PluginSettings {
         'gridColorValue': gridColorValue,
         'gridSpacing': gridSpacing,
         'gridThickness': gridThickness,
+        'schemaPath': schemaPath, // Save to JSON
       };
 
   FlowGraphSettings copyWith({
@@ -36,12 +40,14 @@ class FlowGraphSettings extends PluginSettings {
     int? gridColorValue,
     double? gridSpacing,
     double? gridThickness,
+    String? schemaPath, // Add to copyWith
   }) {
     return FlowGraphSettings(
       backgroundColorValue: backgroundColorValue ?? this.backgroundColorValue,
       gridColorValue: gridColorValue ?? this.gridColorValue,
       gridSpacing: gridSpacing ?? this.gridSpacing,
       gridThickness: gridThickness ?? this.gridThickness,
+      schemaPath: schemaPath ?? this.schemaPath, // Add to copyWith
     );
   }
 
@@ -52,6 +58,7 @@ class FlowGraphSettings extends PluginSettings {
       gridColorValue: gridColorValue,
       gridSpacing: gridSpacing,
       gridThickness: gridThickness,
+      schemaPath: schemaPath, // Add to clone
     );
   }
 }

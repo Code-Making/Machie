@@ -152,17 +152,6 @@ class FlowGraphEditorPlugin extends EditorPlugin {
            return ctx is FlowGraphCommandContext && ctx.hasSelection;
         }
       ),
-
-      BaseCommand(
-        id: 'flow_link_schema',
-        label: 'Link Schema',
-        icon: const Icon(Icons.link),
-        defaultPositions: [AppCommandPositions.appBar],
-        sourcePlugin: id,
-        execute: (ref) async {
-          await _getEditorState(ref)?.linkSchema();
-        },
-      ),
       BaseCommand(
         id: 'flow_add_node',
         label: 'Add Node',

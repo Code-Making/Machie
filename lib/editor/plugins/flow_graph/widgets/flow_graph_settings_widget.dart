@@ -2,6 +2,7 @@
 
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
 import '../flow_graph_settings_model.dart';
 
 class FlowGraphSettingsWidget extends StatelessWidget {
@@ -24,11 +25,43 @@ class FlowGraphSettingsWidget extends StatelessWidget {
     onSave(newColor.value);
   }
 
+  Future<void> _pickSchemaFile(BuildContext context) async {
+    final newPath = await showDialog<String>(
+      context: context,
+      builder: (_) => const FileOrFolderPickerDialog(),
+    );
+    if (newPath != null && newPath.endsWith('.json')) {
+      onChanged(settings.copyWith(schemaPath: newPath));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Schema File (.json)'),
+          subtitle: Text(settings.schemaPath.isEmpty ? 'Not set' : settings.schemaPath),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.folder_open),
+                tooltip: 'Select Schema File',
+                onPressed: () => _pickSchemaFile(context),
+              ),
+              if (settings.schemaPath.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Clear Schema',
+                  onPressed: () => onChanged(settings.copyWith(schemaPath: '')),
+                ),
+            ],
+          ),
+        ),
+        const Divider(),
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Background Color'),
