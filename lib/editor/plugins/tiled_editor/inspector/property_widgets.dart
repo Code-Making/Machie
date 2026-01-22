@@ -306,8 +306,6 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
               icon: const Icon(Icons.hub_outlined, color: Colors.orange),
               tooltip: 'Open Graph',
               onPressed: () {
-                // Calculate absolute path or let EditorService handle relative path from root
-                // Here we assume the path is relative to the TMX location
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
                    final dir = p.dirname(contextPath);
@@ -328,10 +326,14 @@ class PropertyFlowGraphSelector extends ConsumerWidget {
               if (newPath != null && newPath.endsWith('.fg')) {
                 final repo = ref.read(projectRepositoryProvider);
                 if (repo != null) {
-                  // Calculate relative path from TMX to selected FG file
+                  //
+                  // === FIX STARTS HERE ===
+                  // Calculate the path relative to the TMX file's DIRECTORY, not the project root.
                   final tmxDir = p.dirname(contextPath);
                   final relativePath = repo.calculateRelativePath(tmxDir, newPath);
                   descriptor.updateValue(relativePath);
+                  // === FIX ENDS HERE ===
+                  //
                   onUpdate();
                 }
               } else if (newPath != null) {

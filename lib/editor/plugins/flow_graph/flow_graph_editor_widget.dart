@@ -13,13 +13,13 @@ import 'package:machine/editor/models/editor_command_context.dart';
 import 'package:machine/editor/tab_metadata_notifier.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import 'package:machine/widgets/dialogs/folder_picker_dialog.dart';
-import 'package:machine/settings/settings_notifier.dart'; // Import for effectiveSettingsProvider
+import 'package:machine/settings/settings_notifier.dart';
 
 import 'asset/flow_asset_models.dart';
 import 'flow_graph_editor_tab.dart';
 import 'flow_graph_notifier.dart';
 import 'flow_graph_command_context.dart';
-import 'flow_graph_settings_model.dart'; // Import for FlowGraphSettings
+import 'flow_graph_settings_model.dart';
 import 'widgets/flow_graph_canvas.dart';
 import 'widgets/node_palette.dart';
 
@@ -63,25 +63,16 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
   void _updateAssetDependencies() {
     if (!mounted) return;
 
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    final repo = ref.read(projectRepositoryProvider);
-    final tabMetadata = ref.read(tabMetadataProvider)[widget.tab.id];
-
-    if (project == null || repo == null || tabMetadata == null) return;
-
-    final contextPath = repo.fileHandler.getPathForDisplay(
-      tabMetadata.file.uri,
-      relativeTo: project.rootUri,
-    );
+    // The only asset dependency is the schema file from settings.
+    final settings = ref.read(effectiveSettingsProvider);
+    final flowSettings = settings.pluginSettings[FlowGraphSettings] as FlowGraphSettings?;
+    final schemaPath = flowSettings?.schemaPath ?? '';
 
     final newQueries = <AssetQuery>{};
-    
-    final schemaPath = _notifier.graph.schemaPath;
-    if (schemaPath != null && schemaPath.isNotEmpty) {
+    if (schemaPath.isNotEmpty) {
       newQueries.add(AssetQuery(
         path: schemaPath,
-        mode: AssetPathMode.relativeToContext,
-        contextPath: contextPath,
+        mode: AssetPathMode.projectRelative,
       ));
     }
 
@@ -93,40 +84,18 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
   void _onGraphChanged() {
     ref.read(editorServiceProvider).markCurrentTabDirty();
-    _updateAssetDependencies();
+    // No need to call _updateAssetDependencies here, as it's driven by settings, not graph content.
     syncCommandContext();
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void togglePalette() {
     setState(() => _isPaletteVisible = !_isPaletteVisible);
   }
 
-  Future<void> linkSchema() async {
-    final project = ref.read(appNotifierProvider).value?.currentProject;
-    final repo = ref.read(projectRepositoryProvider);
-    final metadata = ref.read(tabMetadataProvider)[widget.tab.id];
-
-    if (project == null || repo == null || metadata == null) return;
-
-    final parentUri = repo.fileHandler.getParentUri(metadata.file.uri);
-    
-    final selectedPath = await showDialog<String>(
-      context: context,
-      builder: (_) => FileOrFolderPickerDialog(initialUri: parentUri),
-    );
-
-    if (selectedPath == null) return;
-
-    final contextPath = repo.fileHandler.getPathForDisplay(
-      metadata.file.uri, 
-      relativeTo: project.rootUri
-    );
-    
-    final relativeToGraph = repo.calculateRelativePath(contextPath, selectedPath);
-
-    _notifier.setSchemaPath(relativeToGraph);
-  }
+  // linkSchema is no longer needed, it's handled by settings.
 
   @override
   void syncCommandContext() {
@@ -138,40 +107,25 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(assetMapProvider(widget.tab.id));
-
-    // 1. Get Settings from Provider
+    // Watch settings to trigger rebuilds and asset reloads when schema path changes.
     final settings = ref.watch(effectiveSettingsProvider.select(
       (s) => s.pluginSettings[FlowGraphSettings] as FlowGraphSettings?
     )) ?? FlowGraphSettings();
 
+    // Re-evaluate asset dependencies if settings change.
+    _updateAssetDependencies();
+
+    final schemaPath = settings.schemaPath;
     FlowSchemaAssetData? schemaData;
-    final schemaPath = _notifier.graph.schemaPath;
     
-    if (schemaPath != null) {
-      final project = ref.watch(appNotifierProvider).value?.currentProject;
-      final repo = ref.watch(projectRepositoryProvider);
-      final metadata = ref.watch(tabMetadataProvider)[widget.tab.id];
-
-      if (project != null && repo != null && metadata != null) {
-        final contextPath = repo.fileHandler.getPathForDisplay(
-          metadata.file.uri, 
-          relativeTo: project.rootUri
-        );
-        
-        final query = AssetQuery(
-          path: schemaPath,
-          mode: AssetPathMode.relativeToContext,
-          contextPath: contextPath,
-        );
-
-        final asset = ref.watch(resolvedAssetProvider(
-          ResolvedAssetRequest(tabId: widget.tab.id, query: query)
-        ));
-        
-        if (asset is FlowSchemaAssetData) {
-          schemaData = asset;
-        }
+    if (schemaPath.isNotEmpty) {
+      final query = AssetQuery(path: schemaPath, mode: AssetPathMode.projectRelative);
+      final asset = ref.watch(resolvedAssetProvider(
+        ResolvedAssetRequest(tabId: widget.tab.id, query: query)
+      ));
+      
+      if (asset is FlowSchemaAssetData) {
+        schemaData = asset;
       }
     }
 
@@ -180,7 +134,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
         FlowGraphCanvas(
           notifier: _notifier,
           schemaMap: schemaData?.typeMap ?? {},
-          settings: settings, // 2. Pass settings to canvas
+          settings: settings,
         ),
 
         if (_isPaletteVisible && schemaData != null)
@@ -209,7 +163,7 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
               borderRadius: BorderRadius.circular(4),
               child: const Padding(
                 padding: EdgeInsets.all(8.0),
-                child: Text("No Schema Loaded.\nLink a flow_schema.json via toolbar.", style: TextStyle(color: Colors.white)),
+                child: Text("No Schema Loaded.\nConfigure one in App Settings.", style: TextStyle(color: Colors.white)),
               ),
             ),
            )
