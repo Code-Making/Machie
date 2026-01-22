@@ -106,11 +106,12 @@ class TiledExportService {
   }) async {
     final talker = _ref.read(talkerProvider);
     final repo = resolver.repo;
-    talker.info('Starting map export...');
+    talker.info('Starting map export: $mapFileName');
 
     TiledMap mapToExport = _deepCopyMap(map);
 
     // 1. Process and Export Flow Graphs (Dependencies)
+    // This updates the Tiled Objects in mapToExport to point to the new files
     await _processFlowGraphDependencies(
       mapToExport, 
       resolver, 
@@ -144,7 +145,8 @@ class TiledExportService {
           overwrite: true,
         );
 
-        // Export Texture Packer definitions pointing to the new atlas
+        // Export referenced atlases (even if their content is now in the main atlas, 
+        // the metadata/structure might be needed by the engine)
         await _processTexturePackerDependencies(
           mapToExport, 
           resolver, 
@@ -165,6 +167,7 @@ class TiledExportService {
         }
       }
     } else {
+      // Legacy mode: just copy assets
       await _copyAndRelinkAssets(mapToExport, resolver, destinationFolderUri);
     }
     
@@ -192,6 +195,7 @@ class TiledExportService {
     final assets = <_UnifiedAssetSource>{};
     final seenKeys = <String>{};
     
+    // Set of ALL referenced .tpacker files (from Map property OR Object properties)
     final referencedAtlases = <String>{};
 
     void addAsset(String key, ui.Image? image, ui.Rect srcRect) {
@@ -278,20 +282,26 @@ class TiledExportService {
           }
           
           // 2b. Sprite Objects (atlas + initialFrame/initialAnim)
-          final atlasProp = obj.properties['atlas'];
-          if (atlasProp is StringProperty && atlasProp.value.isNotEmpty) {
-            referencedAtlases.add(atlasProp.value);
-            
-            final frameProp = obj.properties['initialFrame'] ?? obj.properties['initialAnim'];
-            if (frameProp is StringProperty && frameProp.value.isNotEmpty) {
-              final spriteName = frameProp.value;
-              final uniqueKey = 'sprite_$spriteName';
+          if (obj.properties.has('atlas')) {
+            final atlasPath = obj.properties.getValue<String>('atlas');
+            if (atlasPath != null && atlasPath.isNotEmpty) {
+              referencedAtlases.add(atlasPath);
               
-              final spriteData = _findSpriteInAtlases(spriteName, [atlasProp.value], resolver);
-              if (spriteData != null) {
-                addAsset(uniqueKey, spriteData.sourceImage, spriteData.sourceRect);
-              } else {
-                talker.warning('Object ${obj.id}: Could not resolve sprite "$spriteName" in atlas "${atlasProp.value}".');
+              String? spriteName;
+              if (obj.properties.has('initialFrame')) {
+                spriteName = obj.properties.getValue<String>('initialFrame');
+              } else if (obj.properties.has('initialAnim')) {
+                spriteName = obj.properties.getValue<String>('initialAnim');
+              }
+
+              if (spriteName != null && spriteName.isNotEmpty) {
+                final uniqueKey = 'sprite_$spriteName';
+                final spriteData = _findSpriteInAtlases(spriteName, [atlasPath], resolver);
+                if (spriteData != null) {
+                  addAsset(uniqueKey, spriteData.sourceImage, spriteData.sourceRect);
+                } else {
+                  talker.warning('Object ${obj.id}: Could not resolve sprite "$spriteName" in atlas "$atlasPath".');
+                }
               }
             }
           }
@@ -327,28 +337,40 @@ class TiledExportService {
 
       for (final tpackerPath in referencedAtlases) {
         try {
+          // Resolve .tpacker file relative to TMX
           final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, tpackerPath);
           final file = await resolver.repo.fileHandler.resolvePath(resolver.repo.rootUri, canonicalKey);
           
           if (file == null) {
-            talker.warning('Referenced atlas file not found: $tpackerPath');
+            talker.warning('Referenced atlas file not found: $tpackerPath (Resolved key: $canonicalKey)');
             continue;
           }
 
           final content = await resolver.repo.readFile(file.uri);
           final project = TexturePackerProject.fromJson(jsonDecode(content));
           
+          // Determine the directory of the .tpacker file (relative to project root)
+          // canonicalKey is like "assets/atlases/hero.tpacker"
           final tpackerDir = p.dirname(canonicalKey); 
           
           final sourceImages = <String, ui.Image>{};
           
           Future<void> collectImages(SourceImageNode node) async {
             if (node.type == SourceNodeType.image && node.content != null) {
-              final imgRelPath = node.content!.path;
+              final imgRelPath = node.content!.path; // Relative to .tpacker
+              
+              // Resolve absolute path (project relative)
               final absoluteImgPath = resolver.repo.resolveRelativePath(tpackerDir, imgRelPath);
-              final asset = await _ref.read(assetDataProvider(absoluteImgPath).future);
-              if (asset is ImageAssetData) {
-                sourceImages[node.id] = asset.image;
+              
+              try {
+                final asset = await _ref.read(assetDataProvider(absoluteImgPath).future);
+                if (asset is ImageAssetData) {
+                  sourceImages[node.id] = asset.image;
+                } else {
+                  talker.warning('Failed to load image asset for atlas at: $absoluteImgPath');
+                }
+              } catch (e) {
+                talker.warning('Error loading image asset for atlas: $absoluteImgPath ($e)');
               }
             }
             for (final child in node.children) {
@@ -698,17 +720,32 @@ class TiledExportService {
       final talker = _ref.read(talkerProvider);
       final repo = resolver.repo;
       
-      // Look for the map property 'atlas' or 'atlases' that lists .tpacker files
-      final tpAtlasesProp = map.properties['atlas'] ?? map.properties['atlases'];
-      
-      if (tpAtlasesProp is! StringProperty || tpAtlasesProp.value.isEmpty) {
-        return;
+      final referencedAtlases = <String>{};
+
+      // 1. Gather all atlas paths from map property
+      if (map.properties.has('atlas')) {
+        final val = map.properties.getValue<String>('atlas');
+        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+      } else if (map.properties.has('atlases')) {
+        final val = map.properties.getValue<String>('atlases');
+        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
       }
 
-      final originalTpackerPaths = tpAtlasesProp.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      final newTpackerFileNames = <String>[];
+      // 2. Gather from objects
+      for (final layer in map.layers) {
+        if (layer is ObjectGroup) {
+          for (final obj in layer.objects) {
+            if (obj.properties.has('atlas')) {
+              final val = obj.properties.getValue<String>('atlas');
+              if (val != null && val.isNotEmpty) referencedAtlases.add(val);
+            }
+          }
+        }
+      }
 
-      for(final path in originalTpackerPaths) {
+      final newAtlasPaths = <String, String>{}; // original -> exported
+
+      for(final path in referencedAtlases) {
           try {
               final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
               final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
@@ -717,70 +754,94 @@ class TiledExportService {
                   continue;
               }
 
-              final content = await repo.readFile(file.uri);
-              final originalProject = TexturePackerProject.fromJson(jsonDecode(content));
-
-              final newSourceImage = SourceImageNode(
-                  id: 'unified_atlas',
-                  name: atlasName,
-                  type: SourceNodeType.image,
-                  content: SourceImageConfig(
-                      path: '$atlasName.png',
-                      slicing: const SlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
-                  ),
-              );
-
-              final newDefinitions = <String, PackerItemDefinition>{};
-              originalProject.definitions.forEach((nodeId, def) {
-                  if (def is SpriteDefinition) {
-                      final node = _findNodeInTree(originalProject.tree, nodeId);
-                      if (node != null) {
-                          final key = 'sprite_${node.name}';
-                          final rect = packResult.packedRects[key];
-                          if (rect != null) {
-                              newDefinitions[nodeId] = SpriteDefinition(
-                                  sourceImageId: newSourceImage.id, 
-                                  gridRect: GridRect(x: rect.left.toInt(), y: rect.top.toInt(), width: rect.width.toInt(), height: rect.height.toInt()),
-                              );
-                          }
-                      }
-                  } else {
-                      newDefinitions[nodeId] = def;
-                  }
-              });
-
-              final newProject = TexturePackerProject(
-                  sourceImagesRoot: SourceImageNode(
-                      id: 'root',
-                      name: 'root',
-                      type: SourceNodeType.folder,
-                      children: [newSourceImage],
-                  ), 
-                  tree: originalProject.tree,
-                  definitions: newDefinitions,
-              );
+              final exportNameBase = 'export_${p.basenameWithoutExtension(path)}';
               
-              final extension = exportAsJson ? '.json' : '.tpacker';
-              final newFileName = 'export_${p.basenameWithoutExtension(path)}$extension';
-              newTpackerFileNames.add(newFileName);
-              
-              await repo.createDocumentFile(
-                  destinationFolderUri, 
-                  newFileName,
-                  initialContent: jsonEncode(newProject.toJson()),
-                  overwrite: true,
-              );
+              if (exportAsJson) {
+                // Convert to JSON definition mapped to new unified atlas
+                final content = await repo.readFile(file.uri);
+                final originalProject = TexturePackerProject.fromJson(jsonDecode(content));
+
+                final newSourceImage = SourceImageNode(
+                    id: 'unified_atlas',
+                    name: atlasName,
+                    type: SourceNodeType.image,
+                    content: SourceImageConfig(
+                        path: '$atlasName.png',
+                        slicing: const SlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
+                    ),
+                );
+
+                final newDefinitions = <String, PackerItemDefinition>{};
+                originalProject.definitions.forEach((nodeId, def) {
+                    if (def is SpriteDefinition) {
+                        final node = _findNodeInTree(originalProject.tree, nodeId);
+                        if (node != null) {
+                            final key = 'sprite_${node.name}';
+                            final rect = packResult.packedRects[key];
+                            if (rect != null) {
+                                newDefinitions[nodeId] = SpriteDefinition(
+                                    sourceImageId: newSourceImage.id, 
+                                    gridRect: GridRect(x: rect.left.toInt(), y: rect.top.toInt(), width: rect.width.toInt(), height: rect.height.toInt()),
+                                );
+                            }
+                        }
+                    } else {
+                        newDefinitions[nodeId] = def;
+                    }
+                });
+
+                final newProject = TexturePackerProject(
+                    sourceImagesRoot: SourceImageNode(
+                        id: 'root',
+                        name: 'root',
+                        type: SourceNodeType.folder,
+                        children: [newSourceImage],
+                    ), 
+                    tree: originalProject.tree,
+                    definitions: newDefinitions,
+                );
+                
+                final newFilename = '$exportNameBase.json';
+                newAtlasPaths[path] = newFilename;
+                
+                await repo.createDocumentFile(
+                    destinationFolderUri, 
+                    newFilename,
+                    initialContent: jsonEncode(newProject.toJson()),
+                    overwrite: true,
+                );
+              } else {
+                // Raw Copy
+                final newFilename = '$exportNameBase.tpacker';
+                newAtlasPaths[path] = newFilename;
+                
+                await repo.copyDocumentFile(file, destinationFolderUri, newName: newFilename);
+              }
 
           } catch (e, st) {
               talker.handle(e, st, 'Failed to process .tpacker dependency: $path');
           }
       }
 
-      // Update the property in the map clone to point to the exported files
+      // Update Map Property
       if (map.properties.has('atlas')) {
-         map.properties.byName['atlas'] = StringProperty(name: 'atlas', value: newTpackerFileNames.join(','));
-      } else if (map.properties.has('atlases')) {
-         map.properties.byName['atlases'] = StringProperty(name: 'atlases', value: newTpackerFileNames.join(','));
+         final oldVals = map.properties.getValue<String>('atlas')!.split(',');
+         final newVals = oldVals.map((v) => newAtlasPaths[v.trim()] ?? v.trim()).join(',');
+         map.properties.byName['atlas'] = StringProperty(name: 'atlas', value: newVals);
+      }
+
+      // Update Object Properties
+      for (final layer in map.layers) {
+        if (layer is ObjectGroup) {
+          for (final obj in layer.objects) {
+             if (obj.properties.has('atlas')) {
+               final oldVal = obj.properties.getValue<String>('atlas')!;
+               if (newAtlasPaths.containsKey(oldVal)) {
+                 obj.properties.byName['atlas'] = StringProperty(name: 'atlas', value: newAtlasPaths[oldVal]!);
+               }
+             }
+          }
+        }
       }
   }
   
@@ -806,43 +867,47 @@ class TiledExportService {
     for (final layer in mapToExport.layers) {
       if (layer is ObjectGroup) {
         for (final obj in layer.objects) {
-          final prop = obj.properties['flowGraph'];
-          if (prop is StringProperty && prop.value.isNotEmpty) {
-            try {
-              final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, prop.value);
-              final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
-              if (fgFile == null) continue;
-              
-              final content = await repo.readFile(fgFile.uri);
-              final graph = FlowGraph.deserialize(content);
-              final fgPath = repo.fileHandler.getPathForDisplay(fgFile.uri, relativeTo: repo.rootUri);
-              final fgResolver = FlowGraphAssetResolver(resolver.rawAssets, repo, fgPath);
-              
-              // Determine new filename
-              final extension = exportAsJson ? '.json' : '.fg';
-              final exportName = p.basenameWithoutExtension(fgFile.name);
-              final fullExportName = '$exportName$extension';
+          if (obj.properties.has('flowGraph')) {
+            final propVal = obj.properties.getValue<String>('flowGraph');
+            if (propVal != null && propVal.isNotEmpty) {
+              try {
+                final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, propVal);
+                final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
+                if (fgFile == null) {
+                  talker.warning("Flow Graph file not found: $propVal");
+                  continue;
+                }
+                
+                final exportName = p.basenameWithoutExtension(fgFile.name);
+                String newFileName;
 
-              await flowService.export(
-                graph: graph,
-                resolver: fgResolver,
-                destinationFolderUri: destinationFolderUri,
-                fileName: exportName, // flowExportService appends .json automatically, need to check that
-                embedSchema: true,
-              );
-              
-              // IMPORTANT: flowExportService forces .json currently. 
-              // If exportAsJson is false, we might need to just copy the file,
-              // BUT we are required to replace internal references. 
-              // Since FlowGraph is JSON-based, exporting it via the service is safer to ensure schema embedding.
-              // We will stick to .json for now as per previous phase logic, or rename if needed.
-              // To respect the flag strictly, we might need to rename the file after export if .fg is desired, 
-              // but .json is usually better for runtime.
-              
-              obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: '$exportName.json');
+                if (exportAsJson) {
+                  // Export as JSON via service (embedded schema)
+                  final content = await repo.readFile(fgFile.uri);
+                  final graph = FlowGraph.deserialize(content);
+                  final fgPath = repo.fileHandler.getPathForDisplay(fgFile.uri, relativeTo: repo.rootUri);
+                  final fgResolver = FlowGraphAssetResolver(resolver.rawAssets, repo, fgPath);
+                  
+                  newFileName = '$exportName.json';
+                  
+                  await flowService.export(
+                    graph: graph,
+                    resolver: fgResolver,
+                    destinationFolderUri: destinationFolderUri,
+                    fileName: exportName, // The service adds extension automatically, assuming .json
+                    embedSchema: true,
+                  );
+                } else {
+                  // Raw Copy
+                  newFileName = '$exportName.fg';
+                  await repo.copyDocumentFile(fgFile, destinationFolderUri, newName: newFileName);
+                }
+                
+                obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: newFileName);
 
-            } catch (e) {
-              talker.warning('Failed to export Flow Graph dependency "${prop.value}": $e');
+              } catch (e) {
+                talker.warning('Failed to export Flow Graph dependency "$propVal": $e');
+              }
             }
           }
         }
