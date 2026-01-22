@@ -30,8 +30,7 @@ class TiledAssetResolver {
 
   Future<void> loadAndCacheFlowGraphParameters(String? relativeFgPath) async {
     if (relativeFgPath == null || relativeFgPath.isEmpty) {
-      // If the path is cleared, ensure the cache is also cleared for it.
-      _fgParamCache.removeWhere((key, value) => key.endsWith(relativeFgPath));
+      // Nothing to load if the path is empty.
       return;
     }
 

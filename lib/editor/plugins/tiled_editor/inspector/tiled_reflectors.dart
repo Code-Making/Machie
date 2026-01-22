@@ -66,8 +66,8 @@ extension on CustomProperties {
     }
 
     map[name] = newProp;
-    properties.clear();
-    properties.addAll(map.values);
+    this.clear();
+    this.addAll(map.values);
   }
 }
 
