@@ -4,9 +4,8 @@ import '../models/object_class_model.dart';
 import '../tiled_asset_resolver.dart';
 import 'package:machine/asset_cache/asset_models.dart';
 import 'package:flutter/material.dart' hide StringProperty;
-import '../../../../logs/logs_provider.dart';
+import 'package:machine/logs/logs_provider.dart';
 
-// Helper to convert ColorData to and from Hex strings.
 ColorData colorDataFromHex(String hex) {
   var source = hex.replaceAll('#', '');
   if (source.length == 6) {
@@ -43,20 +42,19 @@ extension on Color {
     return '$prefix$r$g$b';
   }
 }
-// --- THE NEW REFLECTOR CLASS ---
+
 class TiledReflector {
   static List<PropertyDescriptor> getDescriptors(
     Object? obj, {
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
-    Talker? talker, // [DIAGNOSTIC] Add this
+    Talker? talker,
   }) {
     if (obj == null) return [];
     
     if (obj is TiledObject) {
       return _getTiledObjectDescriptors(obj, schema, resolver, talker);
     }
-    // ... Pass through for other types (Map, Layer, etc)
     if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
     if (obj is Layer) return (obj as Layer).getDescriptors(); 
     if (obj is Tileset) return (obj as Tileset).getDescriptors();
@@ -68,25 +66,18 @@ class TiledReflector {
     TiledObject obj, 
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
-    Talker? talker, // [DIAGNOSTIC] Add this
+    Talker? talker,
   ) {
     final descriptors = <PropertyDescriptor>[
       IntPropertyDescriptor(name: 'id', label: 'ID', getter: () => obj.id, setter: (v) {}, isReadOnly: true),
       StringPropertyDescriptor(name: 'name', label: 'Name', getter: () => obj.name, setter: (v) => obj.name = v),
       
-      // Class Selector
       StringEnumPropertyDescriptor(
         name: 'type', 
         label: 'Class', 
         getter: () => obj.type.isEmpty ? 'None' : obj.type,
         setter: (v) {
           final newType = (v == 'None' ? '' : v);
-          
-          // Phase 2 Logic (Simplified for Phase 1 fix):
-          // When class changes, we ONLY set the color if the user hasn't
-          // manually overridden it, or if it was previously set to the old class default.
-          // For now, we simply update the type. The ColorPropertyDescriptor getter handles the priority.
-          
           obj.type = newType;
         },
         options: [
@@ -95,35 +86,33 @@ class TiledReflector {
         ],
       ),
       
-      // Display Color Override
       ColorPropertyDescriptor(
         name: 'displayColor', 
         label: 'Display Color', 
         getter: () {
-          // 1. Priority: Manual Override on the Object
           final prop = obj.properties['displayColor'];
           if (prop is StringProperty && prop.value.isNotEmpty) {
             return prop.value;
           }
           
-          // 2. Priority: Schema Definition
           if (schema != null && schema.containsKey(obj.type)) {
             return schema[obj.type]!.color.toHex(includeAlpha: true);
           }
           
-          // 3. Fallback (e.g. Transparent or null to indicate "Not Set")
           return null; 
         }, 
         setter: (v) {
+          final map = Map<String, Property<Object>>.from(obj.properties.byName);
           if (v.isEmpty) {
-            obj.properties.byName.remove('displayColor');
+            map.remove('displayColor');
           } else {
-            obj.properties.byName['displayColor'] = Property(
+            map['displayColor'] = Property(
               name: 'displayColor', 
               type: PropertyType.color, 
               value: v
             );
           }
+          obj.properties = CustomProperties(map);
         }
       ),
 
@@ -133,7 +122,6 @@ class TiledReflector {
       DoublePropertyDescriptor(name: 'height', label: 'Height', getter: () => obj.height, setter: (v) => obj.height = v),
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => obj.rotation, setter: (v) => obj.rotation = v),
 
-      // --- RESTORED: Flow Graph Property ---
       FlowGraphReferencePropertyDescriptor(
         name: 'flowGraph',
         label: 'Flow Graph (.fg)',
@@ -142,16 +130,17 @@ class TiledReflector {
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
+          final map = Map<String, Property<Object>>.from(obj.properties.byName);
           if (val.isEmpty) {
-            obj.properties.byName.remove('flowGraph');
+            map.remove('flowGraph');
           } else {
-            obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+            map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
           }
+          obj.properties = CustomProperties(map);
         },
       ),
     ];
 
-    // Restore Read-Only properties for specific shapes/text
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
     }
@@ -159,21 +148,17 @@ class TiledReflector {
       descriptors.add(StringPropertyDescriptor(name: 'polyline', label: 'Polyline Points', getter: () => obj.polyline.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
     }
     if (obj.text != null) {
-      // Basic text preview if needed, or expand for full text editing later
       descriptors.add(StringPropertyDescriptor(name: 'text_content', label: 'Text Content', getter: () => obj.text!.text, setter: (v) => obj.text!.text = v));
     }
 
-    // 3. Schema Member Generation
     final currentClass = obj.type;
     if (schema != null && schema.containsKey(currentClass)) {
       final definition = schema[currentClass]!;
       for (final member in definition.members) {
-        // Pass talker down
         descriptors.add(_createMemberDescriptor(obj, member, resolver, talker));
       }
     }
 
-    // 4. Custom Properties
     descriptors.add(CustomPropertiesDescriptor(
       name: 'properties', 
       label: 'Raw Properties', 
@@ -188,7 +173,7 @@ class TiledReflector {
     TiledObject obj, 
     ClassMemberDefinition member,
     TiledAssetResolver? resolver,
-    Talker? talker, // [DIAGNOSTIC] Add this
+    Talker? talker,
   ) {
     dynamic getValue() {
       final prop = obj.properties[member.name];
@@ -196,47 +181,62 @@ class TiledReflector {
       return member.defaultValue;
     }
 
+    // FIX: Use correct subclass constructors
     void setValue(dynamic val, PropertyType type) {
-      // Fix: Explicitly type the map
       final map = Map<String, Property<Object>>.from(obj.properties.byName);
-      map[member.name] = Property(
-        name: member.name, 
-        type: type, 
-        value: val
-      );
+      
+      Property<Object> newProp;
+      switch (type) {
+        case PropertyType.string:
+        case PropertyType.file: 
+          newProp = StringProperty(name: member.name, value: val.toString());
+          break;
+        case PropertyType.int:
+          newProp = IntProperty(name: member.name, value: val as int);
+          break;
+        case PropertyType.float:
+          newProp = FloatProperty(name: member.name, value: val as double);
+          break;
+        case PropertyType.bool:
+          newProp = BoolProperty(name: member.name, value: val as bool);
+          break;
+        case PropertyType.color:
+          if (val is String) {
+             newProp = ColorProperty(name: member.name, value: colorDataFromHex(val));
+          } else {
+             newProp = ColorProperty(name: member.name, value: val as ColorData);
+          }
+          break;
+        default:
+          newProp = Property(name: member.name, type: type, value: val);
+          break;
+      }
+
+      map[member.name] = newProp;
       obj.properties = CustomProperties(map);
     }
 
-    // Special Case: Atlas Sprite Animation Selector
     if ((member.name == 'initialAnim' || member.name == 'initialFrame') && resolver != null) {
       return DynamicEnumPropertyDescriptor(
         name: member.name,
         label: member.name,
         getter: () => getValue().toString(),
         setter: (v) {
-           talker?.info("[Reflector] Setting ${member.name} to '$v' for Object ${obj.id}"); // [DIAGNOSTIC]
+           talker?.info("[Reflector] Setting ${member.name} to '$v' for Object ${obj.id}");
            setValue(v, PropertyType.string);
         },
         fetchOptions: () {
-          // [DIAGNOSTIC] Log start
-          talker?.debug("[Inspector] fetchOptions for ${member.name}");
-
           final atlasProp = obj.properties['atlas'];
           if (atlasProp is! StringProperty) {
-             talker?.warning("[Inspector] 'atlas' property missing or invalid on Object ${obj.id}");
+             talker?.debug("[Reflector] 'atlas' property is missing or not a string.");
              return [];
           }
           
           final atlasPath = atlasProp.value;
-          talker?.debug("[Inspector] atlasPath is: '$atlasPath'");
-
           if (atlasPath.isEmpty) return [];
 
           final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, atlasPath);
-          talker?.debug("[Inspector] Resolved key: '$canonicalKey'");
-          
           final asset = resolver.getAsset(canonicalKey);
-          talker?.debug("[Inspector] Asset retrieved: $asset (Type: ${asset.runtimeType})");
 
           if (asset is TexturePackerAssetData) {
             final options = <String>[];
@@ -245,17 +245,13 @@ class TiledReflector {
             } else {
                options.addAll(asset.frames.keys);
             }
-            talker?.debug("[Inspector] Returning ${options.length} options");
             return options;
           }
-          
-          talker?.error("[Inspector] Asset was not TexturePackerAssetData or was null");
           return [];
         },
       );
     }
 
-    // Standard Schema Types
     switch (member.type) {
       case ClassMemberType.string:
         return StringPropertyDescriptor(
@@ -315,8 +311,6 @@ class TiledReflector {
   }
 }
 
-// --- EXTENSIONS FOR EACH TILED TYPE ---
-
 extension TiledMapReflector on TiledMap {
   List<PropertyDescriptor> getDescriptors() {
     return [
@@ -327,7 +321,6 @@ extension TiledMapReflector on TiledMap {
       IntPropertyDescriptor(name: 'tileHeight', label: 'Tile Height (px)', getter: () => tileHeight, setter: (v) => tileHeight = v),
       ColorPropertyDescriptor(name: 'backgroundColor', label: 'Background Color', getter: () => backgroundColorHex, setter: (v) => backgroundColorHex = v),
       
-      // --- NEW: Texture Packer Sources ---
       FileListPropertyDescriptor(
         name: 'tp_atlases', 
         label: 'Linked Atlases (.tpacker)', 
@@ -339,8 +332,9 @@ extension TiledMapReflector on TiledMap {
           return [];
         }, 
         setter: (List<String> files) {
-          // FIX: Access .byName to set the property
-          properties.byName['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
+          final map = Map<String, Property<Object>>.from(properties.byName);
+          map['tp_atlases'] = StringProperty(name: 'tp_atlases', value: files.join(','));
+          properties = CustomProperties(map);
         }
       ),
 
@@ -413,7 +407,6 @@ extension TiledObjectReflector on TiledObject {
       DoublePropertyDescriptor(name: 'rotation', label: 'Rotation', getter: () => rotation, setter: (v) => rotation = v),
       IntPropertyDescriptor(name: 'gid', label: 'GID (Tile)', getter: () => gid ?? 0, setter: (v) => gid = v > 0 ? v : null),
       
-      // --- NEW: Sprite Reference ---
       SpriteReferencePropertyDescriptor(
         name: 'tp_sprite',
         label: 'Texture Packer Sprite',
@@ -422,13 +415,13 @@ extension TiledObjectReflector on TiledObject {
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
+          final map = Map<String, Property<Object>>.from(properties.byName);
           if (val.isEmpty) {
-            // FIX: Access .byName to remove the property
-            properties.byName.remove('tp_sprite');
+            map.remove('tp_sprite');
           } else {
-            // FIX: Access .byName to set the property
-            properties.byName['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
+            map['tp_sprite'] = StringProperty(name: 'tp_sprite', value: val);
           }
+          properties = CustomProperties(map);
         },
       ),
       FlowGraphReferencePropertyDescriptor(
@@ -439,11 +432,13 @@ extension TiledObjectReflector on TiledObject {
           return (prop is StringProperty) ? prop.value : '';
         },
         setter: (val) {
+          final map = Map<String, Property<Object>>.from(properties.byName);
           if (val.isEmpty) {
-            properties.byName.remove('flowGraph');
+            map.remove('flowGraph');
           } else {
-            properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
+            map['flowGraph'] = StringProperty(name: 'flowGraph', value: val);
           }
+          properties = CustomProperties(map);
         },
       ),
       CustomPropertiesDescriptor(name: 'properties', label: 'Custom Properties', getter: () => properties, setter: (v) => properties = v),
@@ -492,5 +487,3 @@ extension TiledImageReflector on TiledImage {
     ];
   }
 }
-
-// Helper class because EnumPropertyDescriptor expects an Enum
