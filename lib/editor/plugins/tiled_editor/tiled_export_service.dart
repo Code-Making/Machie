@@ -22,6 +22,7 @@ import 'package:machine/editor/plugins/flow_graph/models/flow_graph_models.dart'
 import 'package:machine/editor/plugins/flow_graph/flow_graph_asset_resolver.dart';
 
 import 'tiled_asset_resolver.dart';
+import '../../../asset_cache/asset_providers.dart';
 
 final tiledExportServiceProvider = Provider<TiledExportService>((ref) {
   return TiledExportService(ref);
@@ -703,7 +704,7 @@ class TiledExportService {
       for (final layer in map.layers) {
         if (layer is ObjectGroup) {
           for (final obj in layer.objects) {
-             if (obj.properties.containsKey('atlas')) {
+             if (obj.properties.has('atlas')) {
                // Update atlas reference to the exported one
                obj.properties.byName['atlas'] = StringProperty(name: 'atlas', value: '$atlasName.json');
              }
