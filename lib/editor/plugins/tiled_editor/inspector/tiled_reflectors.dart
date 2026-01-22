@@ -44,39 +44,13 @@ extension on Color {
   }
 }
 
-extension CustomPropertiesHelpers on CustomProperties {
+extension on CustomProperties {
   T? getValue<T>(String name) {
     final prop = this[name];
     if (prop != null && prop.value is T) {
       return prop.value as T;
     }
     return null;
-  }
-  
-  // FIX: This method now returns a new CustomProperties instance
-  CustomProperties settingValue(String name, dynamic value, PropertyType type) {
-    final map = Map<String, Property<Object>>.from(byName);
-    
-    Property<Object> newProp;
-    switch(type) {
-      case PropertyType.string: newProp = StringProperty(name: name, value: value.toString()); break;
-      case PropertyType.file: newProp = FileProperty(name: name, value: value.toString()); break;
-      case PropertyType.int: newProp = IntProperty(name: name, value: value as int); break;
-      case PropertyType.float: newProp = FloatProperty(name: name, value: value as double); break;
-      case PropertyType.bool: newProp = BoolProperty(name: name, value: value as bool); break;
-      case PropertyType.color:
-          if (value is String) {
-             newProp = ColorProperty(name: name, value: colorDataFromHex(value), hexValue: value);
-          } else {
-             final colorData = value as ColorData;
-             newProp = ColorProperty(name: name, value: colorData, hexValue: colorData.toHex(includeAlpha: true));
-          }
-        break;
-      default: newProp = Property(name: name, type: type, value: value); break;
-    }
-
-    map[name] = newProp;
-    return CustomProperties(map);
   }
 }
 
