@@ -38,7 +38,7 @@ class TiledAssetResolver {
     }
     // === FIX END ===
 
-    final canonicalKey = _repo.resolveRelativePath(p.dirname(_tmxPath), relativeFgPath);
+    final canonicalKey = _repo.resolveRelativePath(_tmxPath, relativeFgPath);
 
     // Avoid re-fetching if already in cache
     if (_fgParamCache.containsKey(canonicalKey)) {
@@ -66,7 +66,7 @@ class TiledAssetResolver {
     if (relativeFgPath == null || relativeFgPath.isEmpty) {
       return [];
     }
-    final canonicalKey = _repo.resolveRelativePath(p.dirname(_tmxPath), relativeFgPath);
+    final canonicalKey = _repo.resolveRelativePath(_tmxPath, relativeFgPath);
     return _fgParamCache[canonicalKey] ?? [];
   }
   
