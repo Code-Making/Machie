@@ -1,6 +1,8 @@
+// FILE: lib/editor/plugins/tiled_editor/inspector/inspector_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' as tiled;
+import 'package:tiled/tiled.dart' as tiled; // Alias to avoid conflict with Flutter Text
 import 'package:path/path.dart' as p;
 
 import 'property_descriptors.dart';
@@ -9,8 +11,8 @@ import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
-import '../tiled_asset_resolver.dart';
-import '../providers/project_schema_provider.dart';
+import '../tiled_asset_resolver.dart'; // Import the new resolver
+import '../providers/project_schema_provider.dart'; // Import the provider created in Phase 1
 import '../../../../logs/logs_provider.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
   
+  // Replaced assetDataMap and contextPath with resolver
   final TiledAssetResolver resolver;
 
   const InspectorDialog({
@@ -37,9 +40,10 @@ class InspectorDialog extends ConsumerStatefulWidget {
 class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   late Object _beforeState;
   bool _hasChanges = false;
-  
+
   bool _isLoadingParams = false;
   String? _currentFlowGraphPath;
+
 
   @override
   void initState() {
@@ -57,11 +61,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     _currentFlowGraphPath = flowGraphPath;
 
     if (flowGraphPath == null || flowGraphPath.isEmpty) {
-      return; 
+      return; // No need to load anything
     }
     
     setState(() => _isLoadingParams = true);
     
+    // Use the resolver to load and cache the data
     await widget.resolver.loadAndCacheFlowGraphParameters(flowGraphPath);
     
     if (mounted) {
@@ -71,6 +76,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   @override
   void dispose() {
+    // Clear the resolver's cache for this inspection session
     widget.resolver.clearFlowGraphParameterCache();
 
     if (_hasChanges) {
@@ -80,14 +86,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     super.dispose();
   }
-
-  // === FIX START ===
   Object _deepCopyTarget(Object target) {
     if (target is tiled.TiledObject) {
-      return deepCopyTiledObject(obj: target);
+      return deepCopyTiledObject(target);
     }
     if (target is tiled.Layer) {
-      return deepCopyLayer(layer: target);
+      return deepCopyLayer(target);
     }
     if (target is tiled.TiledMap) {
       final newMap = tiled.TiledMap(
@@ -97,16 +101,14 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         tileHeight: target.tileHeight,
       )
         ..backgroundColorHex = target.backgroundColorHex
-        ..renderOrder = target.renderOrder
-        ..properties = CustomProperties(Map.from(target.properties.byName));
+        ..renderOrder = target.renderOrder;
       return newMap;
     }
     if (target is tiled.Tileset) {
-      return deepCopyTileset(tileset: target);
+      return deepCopyTileset(target);
     }
     return target;
   }
-  // === FIX END ===
 
   void _onUpdate() {
     if (!mounted) return;
@@ -117,6 +119,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     if (widget.target is tiled.TiledObject) {
        final newPath = (widget.target as tiled.TiledObject).properties.getValue<String>('flowGraph');
        if (newPath != _currentFlowGraphPath) {
+         // The path has changed, so we need to reload the params
          _loadFlowGraphParametersIfNeeded();
        }
     }
@@ -129,8 +132,9 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     final schema = schemaAsync.valueOrNull;
     final talker = ref.watch(talkerProvider);
 
+    // The reflector will now get the parameters from the resolver directly
     final descriptors = TiledReflector.getDescriptors(
-      obj: widget.target, 
+      widget.target, 
       schema: schema, 
       resolver: widget.resolver,
       talker: talker,
@@ -166,24 +170,30 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       
       final rawPath = descriptor.currentValue;
       
+      // Determine context based on parent object (to handle external tilesets correctly)
       tiled.Tileset? contextTileset;
       Object? parentObject;
 
+      // If we are inside an ObjectPropertyDescriptor (like 'image' on a Tileset),
+      // the target of that descriptor is the parent object (the Tileset).
       if (parentDescriptor is ObjectPropertyDescriptor) {
          parentObject = parentDescriptor.target;
          if (parentObject is tiled.Tileset) {
            contextTileset = parentObject;
          }
       } else {
+        // Fallback: if inspecting the Tileset directly (though usually we inspect properties of it)
         if (widget.target is tiled.Tileset) {
           contextTileset = widget.target as tiled.Tileset;
           parentObject = widget.target;
         }
       }
       
+      // Use resolver to get the image for preview
       final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
       final imageAsset = image != null ? ImageAssetData(image: image) : null;
       
+      // Ensure we have a valid parent object for the reload callback
       final actualParentObject = parentObject ?? widget.target;
       
       return PropertyImagePathInput(
@@ -220,7 +230,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        assetDataMap: widget.resolver.rawAssets,
+        assetDataMap: widget.resolver.rawAssets, // Pass raw assets map
       );
     }
     if (descriptor is BoolPropertyDescriptor) {
@@ -241,7 +251,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         return PropertyFileLinkWithAction(
           descriptor: descriptor,
           onUpdate: _onUpdate,
-          contextPath: widget.resolver.tmxPath,
+          contextPath: widget.resolver.tmxPath, // Added contextPath
         );
       }
       return PropertyStringInput(descriptor: descriptor, onUpdate: _onUpdate);
@@ -287,102 +297,21 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     
   if (descriptor is StringEnumPropertyDescriptor) {
+      // Changed from PropertyStringEnumDropdown to ComboBox
       return PropertyStringComboBox(
         descriptor: descriptor, 
         onUpdate: _onUpdate
       );
     }
         
+    // Note: The "Type" dropdown created in reflector uses EnumPropertyDescriptor<StringEnumWrapper>
+    // The existing PropertyEnumDropdown should handle it if the generic types align, 
+    // or we cast it.
     if (descriptor is EnumPropertyDescriptor) {
+       // You might need to cast to dynamic to let the generic widget handle the specific Enum type
        return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
     }
 
     return ListTile(title: Text('${descriptor.label}: ${descriptor.currentValue}'));
   }
-}
-
-// === DEEP COPY HELPERS (Copied from tiled_map_notifier.dart for self-containment) ===
-
-Property<Object> deepCopyProperty(Property<dynamic> p) {
-  if (p is StringProperty) return StringProperty(name: p.name, value: p.value);
-  if (p is IntProperty) return IntProperty(name: p.name, value: p.value);
-  if (p is FloatProperty) return FloatProperty(name: p.name, value: p.value);
-  if (p is BoolProperty) return BoolProperty(name: p.name, value: p.value);
-  if (p is ColorProperty) return ColorProperty(name: p.name, value: p.value, hexValue: p.hexValue);
-  if (p is FileProperty) return FileProperty(name: p.name, value: p.value);
-  if (p is ObjectProperty) return ObjectProperty(name: p.name, value: p.value);
-  if (p.value is String) return StringProperty(name: p.name, value: p.value as String);
-  if (p.value is int) return IntProperty(name: p.name, value: p.value as int);
-  if (p.value is double) return FloatProperty(name: p.name, value: p.value as double);
-  if (p.value is bool) return BoolProperty(name: p.name, value: p.value as bool);
-  return Property(name: p.name, type: p.type, value: p.value);
-}
-
-TiledObject deepCopyTiledObject({required TiledObject obj}) {
-  return TiledObject(
-    id: obj.id, name: obj.name, type: obj.type, x: obj.x, y: obj.y,
-    width: obj.width, height: obj.height, rotation: obj.rotation, gid: obj.gid,
-    visible: obj.visible, rectangle: obj.rectangle, ellipse: obj.ellipse,
-    point: obj.point,
-    polygon: List<Point>.from(obj.polygon.map((p) => Point(x: p.x, y: p.y))),
-    polyline: List<Point>.from(obj.polyline.map((p) => Point(x: p.x, y: p.y))),
-    text: obj.text != null ? Text(
-            text: obj.text!.text, fontFamily: obj.text!.fontFamily,
-            pixelSize: obj.text!.pixelSize, wrap: obj.text!.wrap, color: obj.text!.color,
-            bold: obj.text!.bold, italic: obj.text!.italic, underline: obj.text!.underline,
-            strikeout: obj.text!.strikeout, kerning: obj.text!.kerning,
-            hAlign: obj.text!.hAlign, vAlign: obj.text!.vAlign) : null,
-    properties: CustomProperties({for (var p in obj.properties) p.name: deepCopyProperty(p)}),
-  );
-}
-
-Layer deepCopyLayer({required Layer layer}) {
-  if (layer is TileLayer) {
-    return TileLayer(
-      id: layer.id, name: layer.name, width: layer.width, height: layer.height,
-      class_: layer.class_, x: layer.x, y: layer.y, offsetX: layer.offsetX, offsetY: layer.offsetY,
-      parallaxX: layer.parallaxX, parallaxY: layer.parallaxY, startX: layer.startX, startY: layer.startY,
-      tintColorHex: layer.tintColorHex, tintColor: layer.tintColor, opacity: layer.opacity,
-      visible: layer.visible,
-      properties: CustomProperties({for (var p in layer.properties) p.name: deepCopyProperty(p)}),
-      compression: layer.compression, encoding: layer.encoding, chunks: layer.chunks,
-    )..tileData = layer.tileData?.map((row) => List<Gid>.from(row)).toList();
-  }
-  if (layer is ObjectGroup) {
-    return ObjectGroup(
-      id: layer.id, name: layer.name, objects: layer.objects.map((o) => deepCopyTiledObject(obj: o)).toList(),
-      drawOrder: layer.drawOrder, color: layer.color, class_: layer.class_,
-      x: layer.x, y: layer.y, offsetX: layer.offsetX, offsetY: layer.offsetY,
-      parallaxX: layer.parallaxX, parallaxY: layer.parallaxY, startX: layer.startX,
-      startY: layer.startY, tintColorHex: layer.tintColorHex, tintColor: layer.tintColor,
-      opacity: layer.opacity, visible: layer.visible,
-      properties: CustomProperties({for (var p in layer.properties) p.name: deepCopyProperty(p)}),
-      colorHex: layer.colorHex,
-    );
-  }
-  if (layer is ImageLayer) {
-    return ImageLayer(
-      id: layer.id, name: layer.name, image: layer.image, repeatX: layer.repeatX, repeatY: layer.repeatY,
-      class_: layer.class_, x: layer.x, y: layer.y, offsetX: layer.offsetX, offsetY: layer.offsetY,
-      parallaxX: layer.parallaxX, parallaxY: layer.parallaxY, startX: layer.startX,
-      startY: layer.startY, tintColorHex: layer.tintColorHex, tintColor: layer.tintColor,
-      opacity: layer.opacity, visible: layer.visible,
-      properties: CustomProperties({for (var p in layer.properties) p.name: deepCopyProperty(p)}),
-      transparentColorHex: layer.transparentColorHex, transparentColor: layer.transparentColor,
-    );
-  }
-  return layer;
-}
-
-Tileset deepCopyTileset({required Tileset tileset}) {
-  return Tileset(
-    name: tileset.name, firstGid: tileset.firstGid, tileWidth: tileset.tileWidth,
-    tileHeight: tileset.tileHeight, spacing: tileset.spacing, margin: tileset.margin,
-    tileCount: tileset.tileCount, columns: tileset.columns, objectAlignment: tileset.objectAlignment,
-    image: tileset.image != null ? TiledImage(
-            source: tileset.image!.source, width: tileset.image!.width,
-            height: tileset.image!.height) : null,
-    tiles: tileset.tiles.map((t) => Tile(localId: t.localId)).toList(),
-     properties: CustomProperties(Map.from(tileset.properties.byName)),
-  );
 }
