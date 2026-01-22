@@ -75,6 +75,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   @override
   void dispose() {
     widget.resolver.clearFlowGraphParameterCache();
+    widget.resolver.clearExternalMapCache();
 
     if (_hasChanges) {
       final afterState = _deepCopyTarget(widget.target);
@@ -163,7 +164,9 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   }
 
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
-    // --- MODIFICATION: Add case for our new descriptor ---
+    if (descriptor is ExternalObjectReferencePropertyDescriptor) {
+      return PropertyExternalObjectSelector(descriptor: descriptor, onUpdate: _onUpdate);
+    }
     if (descriptor is TiledObjectReferencePropertyDescriptor) {
       return PropertyTiledObjectSelector(descriptor: descriptor, onUpdate: _onUpdate);
     }

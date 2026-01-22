@@ -18,6 +18,157 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+// Add this new stateful widget to the file.
+
+class PropertyExternalObjectSelector extends StatefulWidget {
+  final ExternalObjectReferencePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyExternalObjectSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  State<PropertyExternalObjectSelector> createState() =>
+      _PropertyExternalObjectSelectorState();
+}
+
+class _PropertyExternalObjectSelectorState
+    extends State<PropertyExternalObjectSelector> {
+  Future<List<TiledObject>>? _objectsFuture;
+  String? _currentMapPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadObjectsForCurrentMap();
+  }
+
+  // This is crucial for reacting when the user changes the targetMap property.
+  @override
+  void didUpdateWidget(covariant PropertyExternalObjectSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final object = widget.descriptor.target as TiledObject?;
+    if (object == null) return;
+
+    final newMapPath =
+        object.properties.getValue<String>(widget.descriptor.mapFilePropertyName);
+
+    if (newMapPath != _currentMapPath) {
+      _loadObjectsForCurrentMap();
+    }
+  }
+
+  void _loadObjectsForCurrentMap() {
+    final object = widget.descriptor.target as TiledObject?;
+    if (object == null) {
+      setState(() => _objectsFuture = Future.value([]));
+      return;
+    }
+    _currentMapPath =
+        object.properties.getValue<String>(widget.descriptor.mapFilePropertyName);
+
+    setState(() {
+      _objectsFuture = _fetchObjectsFromMap(_currentMapPath);
+    });
+  }
+
+  Future<List<TiledObject>> _fetchObjectsFromMap(String? mapPath) async {
+    if (mapPath == null || mapPath.isEmpty) {
+      return [];
+    }
+
+    final map =
+        await widget.descriptor.resolver.loadAndCacheExternalMap(mapPath);
+    if (map == null) {
+      return []; // Return empty list if map fails to load
+    }
+
+    final allObjects = <TiledObject>[];
+    void collectObjects(List<Layer> layers) {
+      for (final layer in layers) {
+        if (layer is ObjectGroup) {
+          allObjects.addAll(layer.objects);
+        } else if (layer is Group) {
+          collectObjects(layer.layers);
+        }
+      }
+    }
+
+    collectObjects(map.layers);
+    // You might want to filter by a specific class, e.g., "Spawn"
+    return allObjects
+        .where((obj) => obj.type == 'Spawn')
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TiledObject>>(
+      future: _objectsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CircularProgressIndicator(),
+            title: Text('Loading objects...'),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.error, color: Colors.red),
+            title: Text('Error loading map: ${_currentMapPath ?? ''}'),
+          );
+        }
+
+        final objects = snapshot.data ?? [];
+        final items = objects.map((obj) {
+          final name = obj.name.isNotEmpty ? obj.name : 'Object';
+          return DropdownMenuItem<int>(
+            value: obj.id,
+            child: Text('$name (ID: ${obj.id})'),
+          );
+        }).toList();
+
+        items.insert(
+            0,
+            const DropdownMenuItem<int>(
+              value: 0,
+              child:
+                  Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
+            ));
+
+        int? currentValue = widget.descriptor.currentValue;
+        if (currentValue != 0 && !items.any((item) => item.value == currentValue)) {
+          items.add(DropdownMenuItem<int>(
+            value: currentValue,
+            child: Text('Invalid ID: $currentValue',
+                style: const TextStyle(color: Colors.red)),
+          ));
+        }
+
+        return DropdownButtonFormField<int>(
+          decoration: InputDecoration(labelText: widget.descriptor.label),
+          value: currentValue,
+          items: items,
+          onChanged: widget.descriptor.isReadOnly
+              ? null
+              : (int? newValue) {
+                  if (newValue != null) {
+                    widget.descriptor.updateValue(newValue);
+                    widget.onUpdate();
+                  }
+                },
+        );
+      },
+    );
+  }
+}
+
 class PropertyTiledObjectSelector extends StatelessWidget {
   final TiledObjectReferencePropertyDescriptor descriptor;
   final VoidCallback onUpdate;
