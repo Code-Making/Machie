@@ -40,8 +40,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   late Object _beforeState;
   bool _hasChanges = false;
 
-  // --- START: PHASE 1 IMPLEMENTATION ---
-
   bool _isLoadingParams = false;
   String? _currentFlowGraphPath;
 
@@ -50,12 +48,9 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   void initState() {
     super.initState();
     _beforeState = _deepCopyTarget(widget.target);
-    // When the dialog is first created, trigger the parameter loading process.
     _loadFlowGraphParametersIfNeeded();
   }
 
-  /// This function identifies the 'flowGraph' property on a TiledObject
-  /// and asks the resolver to load and cache its parameters.
   Future<void> _loadFlowGraphParametersIfNeeded() async {
     if (widget.target is! tiled.TiledObject) return;
 
@@ -68,13 +63,10 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return;
     }
     
-    // Set a loading state to show a spinner in the UI.
     setState(() => _isLoadingParams = true);
     
-    // Call the new method on the resolver.
     await widget.resolver.loadAndCacheFlowGraphParameters(flowGraphPath);
     
-    // Once loading is complete, rebuild the UI to show the new properties.
     if (mounted) {
       setState(() => _isLoadingParams = false);
     }
@@ -82,7 +74,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   @override
   void dispose() {
-    // When the dialog is closed, clear the resolver's cache to free up memory.
     widget.resolver.clearFlowGraphParameterCache();
 
     if (_hasChanges) {
@@ -92,9 +83,6 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     super.dispose();
   }
-
-  // --- END: PHASE 1 IMPLEMENTATION ---
-
   Object _deepCopyTarget(Object target) {
     if (target is tiled.TiledObject) {
       return deepCopyTiledObject(target);
@@ -125,16 +113,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       _hasChanges = true;
     });
 
-    // --- START: PHASE 1 IMPLEMENTATION ---
-    // If a property update occurs, check if the user changed the .fg file path.
     if (widget.target is tiled.TiledObject) {
        final newPath = (widget.target as tiled.TiledObject).properties.getValue<String>('flowGraph');
        if (newPath != _currentFlowGraphPath) {
-         // If the path changed, trigger a reload of the parameters.
          _loadFlowGraphParametersIfNeeded();
        }
     }
-    // --- END: PHASE 1 IMPLEMENTATION ---
     widget.notifier.notifyChange();
   }
 
@@ -144,8 +128,10 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     final schema = schemaAsync.valueOrNull;
     final talker = ref.watch(talkerProvider);
 
+    // --- MODIFICATION: Pass the TiledMap to the reflector ---
     final descriptors = TiledReflector.getDescriptors(
       obj: widget.target,
+      map: widget.notifier.map,
       schema: schema, 
       resolver: widget.resolver,
       talker: talker,
@@ -158,14 +144,11 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            // --- START: PHASE 1 IMPLEMENTATION ---
-            // Show a loading indicator while parsing the .fg file.
             if (_isLoadingParams)
               const Center(child: Padding(
                 padding: EdgeInsets.all(8.0),
                 child: CircularProgressIndicator(),
               )),
-            // --- END: PHASE 1 IMPLEMENTATION ---
             ...descriptors.map((descriptor) => _buildPropertyWidget(descriptor)),
           ],
         ),
@@ -180,6 +163,10 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   }
 
   Widget _buildPropertyWidget(PropertyDescriptor descriptor, {PropertyDescriptor? parentDescriptor}) {
+    // --- MODIFICATION: Add case for our new descriptor ---
+    if (descriptor is TiledObjectReferencePropertyDescriptor) {
+      return PropertyTiledObjectSelector(descriptor: descriptor, onUpdate: _onUpdate);
+    }
     if (descriptor is ImagePathPropertyDescriptor) {
       
       final rawPath = descriptor.currentValue;

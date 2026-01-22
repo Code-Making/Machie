@@ -18,6 +18,83 @@ import '../../../services/editor_service.dart';
 import 'package:machine/editor/services/editor_service.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 
+class PropertyTiledObjectSelector extends StatelessWidget {
+  final TiledObjectReferencePropertyDescriptor descriptor;
+  final VoidCallback onUpdate;
+
+  const PropertyTiledObjectSelector({
+    super.key,
+    required this.descriptor,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final allObjects = <TiledObject>[];
+
+    // Recursive function to find all objects, including those inside groups.
+    void collectObjects(List<Layer> layers) {
+      for (final layer in layers) {
+        if (layer is ObjectGroup) {
+          allObjects.addAll(layer.objects);
+        } else if (layer is Group) {
+          collectObjects(layer.layers);
+        }
+      }
+    }
+
+    collectObjects(descriptor.map.layers);
+
+    // An object cannot reference itself, so remove it from the list.
+    if (descriptor.target is TiledObject) {
+      allObjects
+          .removeWhere((o) => o.id == (descriptor.target as TiledObject).id);
+    }
+
+    // Create a list of dropdown items from the collected objects.
+    final items = allObjects.map((obj) {
+      final name = obj.name.isNotEmpty ? obj.name : 'Object';
+      return DropdownMenuItem<int>(
+        value: obj.id,
+        child: Text('$name (ID: ${obj.id})'),
+      );
+    }).toList();
+
+    // Add a "None" option at the top of the list.
+    items.insert(
+        0,
+        const DropdownMenuItem<int>(
+          value: 0,
+          child: Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
+        ));
+
+    int? currentValue = descriptor.currentValue;
+    // If the currently stored ID points to an object that no longer exists,
+    // add a special "Invalid" item to the list so the user knows.
+    if (currentValue != 0 && !items.any((item) => item.value == currentValue)) {
+      items.add(DropdownMenuItem<int>(
+        value: currentValue,
+        child: Text('Invalid ID: $currentValue',
+            style: const TextStyle(color: Colors.red)),
+      ));
+    }
+
+    return DropdownButtonFormField<int>(
+      decoration: InputDecoration(labelText: descriptor.label),
+      value: currentValue,
+      items: items,
+      onChanged: descriptor.isReadOnly
+          ? null
+          : (int? newValue) {
+              if (newValue != null) {
+                descriptor.updateValue(newValue);
+                onUpdate();
+              }
+            },
+    );
+  }
+}
+
 class PropertyStringComboBox extends StatefulWidget {
   final StringEnumPropertyDescriptor descriptor;
   final VoidCallback onUpdate;
