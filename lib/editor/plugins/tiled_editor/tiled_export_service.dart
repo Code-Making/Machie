@@ -739,18 +739,18 @@ class TiledExportService {
 
       // 1. Gather all atlas paths from map property
       if (map.properties.has('atlas')) {
-        final val = map.properties['atlas'] as StringProperty?;
-        if (val != null) referencedAtlases.addAll(val.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+        final val = map.properties.getValue<String>('atlas');
+        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
       } else if (map.properties.has('atlases')) {
-        final val = map.properties['atlases'] as StringProperty?;
-        if (val != null) referencedAtlases.addAll(val.value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+        final val = map.properties.getValue<String>('atlases');
+        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
       }
 
-      // 2. Gather from objects using recursive helper
+      // 2. Gather from objects
       _traverseMapObjects(map, (obj) {
         if (obj.properties.has('atlas')) {
-          final val = obj.properties['atlas'] as StringProperty?;
-          if (val != null && val.value.isNotEmpty) referencedAtlases.add(val.value);
+          final val = obj.properties.getValue<String>('atlas');
+          if (val != null && val.isNotEmpty) referencedAtlases.add(val);
         }
       });
 
@@ -842,22 +842,20 @@ class TiledExportService {
 
       // Update Map Property
       if (map.properties.has('atlas')) {
-         final val = map.properties['atlas'] as StringProperty;
-         final oldVals = val.value.split(',');
+         final oldVals = map.properties.getValue<String>('atlas')!.split(',');
          final newVals = oldVals.map((v) => newAtlasPaths[v.trim()] ?? v.trim()).join(',');
          
-         final newProps = Map<String, Property>.from(map.properties.byName);
+         final newProps = Map<String, Property<Object>>.from(map.properties.byName);
          newProps['atlas'] = StringProperty(name: 'atlas', value: newVals);
          map.properties = CustomProperties(newProps);
       }
 
-      // Update Object Properties using recursive helper
+      // Update Object Properties
       _traverseMapObjects(map, (obj) {
          if (obj.properties.has('atlas')) {
-           final prop = obj.properties['atlas'] as StringProperty;
-           final oldVal = prop.value;
-           if (newAtlasPaths.containsKey(oldVal)) {
-             final newProps = Map<String, Property>.from(obj.properties.byName);
+           final oldVal = obj.properties.getValue<String>('atlas');
+           if (oldVal != null && newAtlasPaths.containsKey(oldVal)) {
+             final newProps = Map<String, Property<Object>>.from(obj.properties.byName);
              newProps['atlas'] = StringProperty(name: 'atlas', value: newAtlasPaths[oldVal]!);
              obj.properties = CustomProperties(newProps);
            }
@@ -887,9 +885,8 @@ class TiledExportService {
     // Using recursive traversal to find all objects including in nested groups
     _traverseMapObjects(mapToExport, (obj) async {
       if (obj.properties.has('flowGraph')) {
-        final prop = obj.properties['flowGraph'];
-        if (prop is StringProperty && prop.value.isNotEmpty) {
-          final propVal = prop.value;
+        final propVal = obj.properties.getValue<String>('flowGraph');
+        if (propVal != null && propVal.isNotEmpty) {
           try {
             final fgCanonicalKey = repo.resolveRelativePath(resolver.tmxPath, propVal);
             final fgFile = await repo.fileHandler.resolvePath(repo.rootUri, fgCanonicalKey);
@@ -931,7 +928,7 @@ class TiledExportService {
             }
             
             // Update the property using immutable pattern
-            final newProps = Map<String, Property>.from(obj.properties.byName);
+            final newProps = Map<String, Property<Object>>.from(obj.properties.byName);
             newProps['flowGraph'] = StringProperty(name: 'flowGraph', value: newFileName);
             obj.properties = CustomProperties(newProps);
 
