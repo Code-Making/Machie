@@ -197,8 +197,8 @@ class TiledReflector {
     }
 
     void setValue(dynamic val, PropertyType type) {
-      // Fix: Clone the map, update it, and assign a new CustomProperties object
-      final map = Map<String, Property>.from(obj.properties.byName);
+      // Fix: Explicitly type the map
+      final map = Map<String, Property<Object>>.from(obj.properties.byName);
       map[member.name] = Property(
         name: member.name, 
         type: type, 
