@@ -10,7 +10,7 @@ import 'package:machine/logs/logs_provider.dart';
 import '../../flow_graph/models/flow_schema_models.dart';
 import '../../flow_graph/flow_graph_parameter_parser.dart';
 
-// Helper extension to simplify getting custom properties
+// Helper extension to simplify getting/setting custom properties
 extension on CustomProperties {
   T? getValue<T>(String name) {
     final prop = this[name];
@@ -18,6 +18,25 @@ extension on CustomProperties {
       return prop.value as T;
     }
     return null;
+  }
+  
+  void setValue(String name, dynamic value, PropertyType type) {
+    final map = Map<String, Property<Object>>.from(byName);
+    
+    Property<Object> newProp;
+    switch(type) {
+      case PropertyType.string: newProp = StringProperty(name: name, value: value.toString()); break;
+      case PropertyType.int: newProp = IntProperty(name: name, value: value as int); break;
+      case PropertyType.float: newProp = FloatProperty(name: name, value: value as double); break;
+      case PropertyType.bool: newProp = BoolProperty(name: name, value: value as bool); break;
+      default: newProp = Property(name: name, type: type, value: value); break;
+    }
+
+    map[name] = newProp;
+    // CustomProperties is immutable; this creates a new instance.
+    // The assignment must happen on the parent TiledObject.
+    // This helper just prepares the new map.
+    // Let's adjust the logic in the setters directly.
   }
 }
 
@@ -147,7 +166,6 @@ class TiledReflector {
       ),
     ];
     
-    // === DYNAMIC PARAMETER GENERATION (now using resolver) START ===
     if (resolver != null) {
       final flowGraphPath = obj.properties.getValue<String>('flowGraph');
       final flowGraphParameters = resolver.getCachedFlowGraphParameters(flowGraphPath);
@@ -155,9 +173,8 @@ class TiledReflector {
       if (flowGraphParameters.isNotEmpty) {
         for (final param in flowGraphParameters) {
           final propName = 'fg_param_${param.name}';
-          final propLabel = '  • ${param.name}'; // Indent for clarity
+          final propLabel = '  • ${param.name}'; 
 
-          // Helper to create the correct setter logic
           void setter(dynamic v, PropertyType type) {
               final map = Map<String, Property<Object>>.from(obj.properties.byName);
               Property<Object> newProp;
@@ -207,7 +224,6 @@ class TiledReflector {
         }
       }
     }
-    // === DYNAMIC PARAMETER GENERATION END ===
     
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));
