@@ -58,6 +58,8 @@ extension on Color {
 class TiledReflector {
   static List<PropertyDescriptor> getDescriptors({
     required Object? obj,
+    // --- MODIFICATION: Add TiledMap parameter ---
+    required TiledMap map,
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
     Talker? talker,
@@ -65,7 +67,8 @@ class TiledReflector {
     if (obj == null) return [];
     
     if (obj is TiledObject) {
-      return _getTiledObjectDescriptors(obj, schema, resolver, talker);
+      // --- MODIFICATION: Pass map down ---
+      return _getTiledObjectDescriptors(obj, map, schema, resolver, talker);
     }
     if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
     if (obj is Layer) return (obj as Layer).getDescriptors(); 
@@ -76,6 +79,8 @@ class TiledReflector {
 
   static List<PropertyDescriptor> _getTiledObjectDescriptors(
     TiledObject obj, 
+    // --- MODIFICATION: Add TiledMap parameter ---
+    TiledMap map,
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
     Talker? talker,
@@ -146,23 +151,15 @@ class TiledReflector {
       ),
     ];
     
-    // --- START: PHASE 2 IMPLEMENTATION ---
-    // After adding the main 'flowGraph' property, check if we can get its parameters.
     if (resolver != null) {
-      // Get the path from the object's properties.
       final flowGraphPath = obj.properties.getValue<String>('flowGraph');
-      // Ask the resolver for the cached parameters. This is fast because the data was loaded in Phase 1.
       final flowGraphParameters = resolver.getCachedFlowGraphParameters(flowGraphPath);
       
       if (flowGraphParameters.isNotEmpty) {
-        // If parameters were found, create descriptors for them.
         for (final param in flowGraphParameters) {
-          // Define a consistent naming convention for storing parameter values on the Tiled object.
           final propName = 'fg_param_${param.name}';
-          // Create a visually indented label for the UI.
           final propLabel = '  • ${param.name}';
 
-          // A helper function to simplify updating the object's custom properties.
           void setter(dynamic v, PropertyType type) {
               final map = Map<String, Property<Object>>.from(obj.properties.byName);
               Property<Object> newProp;
@@ -177,7 +174,6 @@ class TiledReflector {
               obj.properties = CustomProperties(map);
           }
 
-          // Create the appropriate descriptor based on the parameter type from the .fg file.
           switch(param.type) {
             case FlowPortType.string:
               descriptors.add(StringPropertyDescriptor(
@@ -186,11 +182,12 @@ class TiledReflector {
                 setter: (v) => setter(v, PropertyType.string),
               ));
               break;
+            // --- MODIFICATION: Use IntPropertyDescriptor for numbers ---
             case FlowPortType.number:
-              descriptors.add(DoublePropertyDescriptor(
+              descriptors.add(IntPropertyDescriptor(
                 name: propName, label: propLabel,
-                getter: () => obj.properties.getValue<double>(propName) ?? 0.0,
-                setter: (v) => setter(v, PropertyType.float),
+                getter: () => (obj.properties.getValue<num>(propName))?.toInt() ?? 0,
+                setter: (v) => setter(v, PropertyType.int),
               ));
               break;
             case FlowPortType.boolean:
@@ -200,21 +197,21 @@ class TiledReflector {
                 setter: (v) => setter(v, PropertyType.bool),
               ));
               break;
+            // --- MODIFICATION: Use the new TiledObjectReferencePropertyDescriptor ---
             case FlowPortType.tiledObject:
-              descriptors.add(IntPropertyDescriptor(
-                name: propName, label: '$propLabel (Object ID)',
+              descriptors.add(TiledObjectReferencePropertyDescriptor(
+                name: propName, label: propLabel,
+                map: map,
                 getter: () => obj.properties.getValue<int>(propName) ?? 0,
                 setter: (v) => setter(v, PropertyType.int),
               ));
               break;
             default:
-              // Silently ignore unsupported parameter types for now.
               break; 
           }
         }
       }
     }
-    // --- END: PHASE 2 IMPLEMENTATION ---
     
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));

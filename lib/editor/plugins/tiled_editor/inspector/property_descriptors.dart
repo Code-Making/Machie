@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart' hide Image;
 
+// Add this new class to the file
+
+class TiledObjectReferencePropertyDescriptor extends PropertyDescriptor {
+  final int Function() getter;
+  final void Function(int) setter;
+  final TiledMap map;
+
+  const TiledObjectReferencePropertyDescriptor({
+    required super.name,
+    required super.label,
+    required this.getter,
+    required this.setter,
+    required this.map,
+    super.isReadOnly,
+  });
+
+  @override
+  int get currentValue => getter();
+  @override
+  void updateValue(dynamic newValue) =>
+      setter(int.tryParse(newValue.toString()) ?? 0);
+}
+
 // Base class for any editable property.
 @immutable
 abstract class PropertyDescriptor {
