@@ -815,7 +815,13 @@ class TiledExportService {
                 final newFilename = '$exportNameBase.tpacker';
                 newAtlasPaths[path] = newFilename;
                 
-                await repo.copyDocumentFile(file, destinationFolderUri, newName: newFilename);
+                final bytes = await repo.readFileAsBytes(file.uri);
+                await repo.createDocumentFile(
+                  destinationFolderUri,
+                  newFilename,
+                  initialBytes: bytes,
+                  overwrite: true,
+                );
               }
 
           } catch (e, st) {
@@ -900,7 +906,14 @@ class TiledExportService {
                 } else {
                   // Raw Copy
                   newFileName = '$exportName.fg';
-                  await repo.copyDocumentFile(fgFile, destinationFolderUri, newName: newFileName);
+                  
+                  final bytes = await repo.readFileAsBytes(fgFile.uri);
+                  await repo.createDocumentFile(
+                    destinationFolderUri,
+                    newFileName,
+                    initialBytes: bytes,
+                    overwrite: true,
+                  );
                 }
                 
                 obj.properties.byName['flowGraph'] = StringProperty(name: 'flowGraph', value: newFileName);
