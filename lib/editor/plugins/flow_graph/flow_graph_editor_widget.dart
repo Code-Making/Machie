@@ -22,6 +22,7 @@ import 'flow_graph_command_context.dart';
 import 'flow_graph_settings_model.dart';
 import 'widgets/flow_graph_canvas.dart';
 import 'widgets/node_palette.dart';
+import 'core_nodes.dart'; // Import the new core nodes
 
 class FlowGraphEditorWidget extends EditorWidget {
   @override
@@ -115,9 +116,12 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
     // Re-evaluate asset dependencies if settings change.
     _updateAssetDependencies();
 
+    // === MODIFICATION START: Schema Merging Logic ===
+
     final schemaPath = settings.schemaPath;
-    FlowSchemaAssetData? schemaData;
+    FlowSchemaAssetData? userSchemaData;
     
+    // 1. Attempt to load the user-defined schema from settings
     if (schemaPath.isNotEmpty) {
       final query = AssetQuery(path: schemaPath, mode: AssetPathMode.projectRelative);
       final asset = ref.watch(resolvedAssetProvider(
@@ -125,26 +129,39 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
       ));
       
       if (asset is FlowSchemaAssetData) {
-        schemaData = asset;
+        userSchemaData = asset;
       }
     }
+
+    // 2. Combine core nodes with user-defined nodes
+    final List<FlowNodeType> combinedNodes = getCoreFlowNodes();
+    if (userSchemaData != null) {
+      combinedNodes.addAll(userSchemaData.nodeTypes);
+    }
+    
+    // 3. Create a final schema object for the UI
+    final finalSchemaData = FlowSchemaAssetData(combinedNodes);
+
+    // === MODIFICATION END ===
 
     return Stack(
       children: [
         FlowGraphCanvas(
           notifier: _notifier,
-          schemaMap: schemaData?.typeMap ?? {},
+          // Use the final merged schema map
+          schemaMap: finalSchemaData.typeMap, 
           settings: settings,
         ),
 
-        if (_isPaletteVisible && schemaData != null)
+        if (_isPaletteVisible)
           Positioned(
             right: 0,
             top: 0,
             bottom: 0,
             width: 250,
             child: NodePalette(
-              schema: schemaData,
+              // Pass the final merged schema to the palette
+              schema: finalSchemaData,
               onNodeSelected: (type) {
                 final center = _notifier.graph.viewportPosition * -1 + const Offset(400, 300);
                 _notifier.addNode(type.type, center);
@@ -153,20 +170,6 @@ class FlowGraphEditorWidgetState extends EditorWidgetState<FlowGraphEditorWidget
               onClose: togglePalette,
             ),
           ),
-          
-        if (_isPaletteVisible && schemaData == null)
-           Positioned(
-            right: 10,
-            top: 50,
-            child: Material(
-              color: Colors.red.shade900,
-              borderRadius: BorderRadius.circular(4),
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text("No Schema Loaded.\nConfigure one in App Settings.", style: TextStyle(color: Colors.white)),
-              ),
-            ),
-           )
       ],
     );
   }
