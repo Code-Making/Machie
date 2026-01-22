@@ -607,7 +607,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }  
 
   void inspectMapProperties() {
-    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id, talker));
     final resolver = resolverState.valueOrNull;
     
     if (_notifier == null || resolver == null) return;
@@ -743,7 +744,8 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   void _inspectSelectedTileset() {
-    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
+    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id, talker));
     final resolver = resolverState.valueOrNull;
     if (_notifier == null || _selectedTileset == null || resolver == null) return;
     
