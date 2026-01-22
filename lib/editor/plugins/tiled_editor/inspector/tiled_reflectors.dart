@@ -10,7 +10,6 @@ import 'package:machine/logs/logs_provider.dart';
 import '../../flow_graph/models/flow_schema_models.dart';
 import '../../flow_graph/flow_graph_parameter_parser.dart';
 
-// Helper extension to simplify getting custom properties
 extension on CustomProperties {
   T? getValue<T>(String name) {
     final prop = this[name];
@@ -147,17 +146,23 @@ class TiledReflector {
       ),
     ];
     
-    // === DYNAMIC PARAMETER GENERATION (now using resolver) START ===
+    // --- START: PHASE 2 IMPLEMENTATION ---
+    // After adding the main 'flowGraph' property, check if we can get its parameters.
     if (resolver != null) {
+      // Get the path from the object's properties.
       final flowGraphPath = obj.properties.getValue<String>('flowGraph');
+      // Ask the resolver for the cached parameters. This is fast because the data was loaded in Phase 1.
       final flowGraphParameters = resolver.getCachedFlowGraphParameters(flowGraphPath);
       
       if (flowGraphParameters.isNotEmpty) {
+        // If parameters were found, create descriptors for them.
         for (final param in flowGraphParameters) {
+          // Define a consistent naming convention for storing parameter values on the Tiled object.
           final propName = 'fg_param_${param.name}';
-          final propLabel = '  • ${param.name}'; // Indent for clarity
+          // Create a visually indented label for the UI.
+          final propLabel = '  • ${param.name}';
 
-          // Helper to create the correct setter logic
+          // A helper function to simplify updating the object's custom properties.
           void setter(dynamic v, PropertyType type) {
               final map = Map<String, Property<Object>>.from(obj.properties.byName);
               Property<Object> newProp;
@@ -172,6 +177,7 @@ class TiledReflector {
               obj.properties = CustomProperties(map);
           }
 
+          // Create the appropriate descriptor based on the parameter type from the .fg file.
           switch(param.type) {
             case FlowPortType.string:
               descriptors.add(StringPropertyDescriptor(
@@ -202,12 +208,13 @@ class TiledReflector {
               ));
               break;
             default:
+              // Silently ignore unsupported parameter types for now.
               break; 
           }
         }
       }
     }
-    // === DYNAMIC PARAMETER GENERATION END ===
+    // --- END: PHASE 2 IMPLEMENTATION ---
     
     if (obj.isPolygon) {
       descriptors.add(StringPropertyDescriptor(name: 'polygon', label: 'Polygon Points', getter: () => obj.polygon.map((p) => '${p.x},${p.y}').join(' '), setter: (v) {}, isReadOnly: true));

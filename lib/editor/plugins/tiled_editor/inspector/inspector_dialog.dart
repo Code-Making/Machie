@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tiled/tiled.dart' as tiled; // Alias to avoid conflict with Flutter Text
+import 'package:tiled/tiled.dart' as tiled;
 import 'package:path/path.dart' as p;
 
 import 'property_descriptors.dart';
@@ -11,8 +11,8 @@ import 'property_widgets.dart';
 import '../tiled_editor_widget.dart';
 import '../tiled_map_notifier.dart';
 import 'package:machine/asset_cache/asset_models.dart';
-import '../tiled_asset_resolver.dart'; // Import the new resolver
-import '../providers/project_schema_provider.dart'; // Import the provider created in Phase 1
+import '../tiled_asset_resolver.dart';
+import '../providers/project_schema_provider.dart';
 import '../../../../logs/logs_provider.dart';
 
 class InspectorDialog extends ConsumerStatefulWidget {
@@ -21,7 +21,6 @@ class InspectorDialog extends ConsumerStatefulWidget {
   final TiledMapNotifier notifier;
   final GlobalKey<TiledEditorWidgetState> editorKey;
   
-  // Replaced assetDataMap and contextPath with resolver
   final TiledAssetResolver resolver;
 
   const InspectorDialog({
@@ -41,6 +40,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   late Object _beforeState;
   bool _hasChanges = false;
 
+  // --- START: PHASE 1 IMPLEMENTATION ---
+
   bool _isLoadingParams = false;
   String? _currentFlowGraphPath;
 
@@ -49,9 +50,12 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
   void initState() {
     super.initState();
     _beforeState = _deepCopyTarget(widget.target);
+    // When the dialog is first created, trigger the parameter loading process.
     _loadFlowGraphParametersIfNeeded();
   }
 
+  /// This function identifies the 'flowGraph' property on a TiledObject
+  /// and asks the resolver to load and cache its parameters.
   Future<void> _loadFlowGraphParametersIfNeeded() async {
     if (widget.target is! tiled.TiledObject) return;
 
@@ -61,14 +65,16 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     _currentFlowGraphPath = flowGraphPath;
 
     if (flowGraphPath == null || flowGraphPath.isEmpty) {
-      return; // No need to load anything
+      return;
     }
     
+    // Set a loading state to show a spinner in the UI.
     setState(() => _isLoadingParams = true);
     
-    // Use the resolver to load and cache the data
+    // Call the new method on the resolver.
     await widget.resolver.loadAndCacheFlowGraphParameters(flowGraphPath);
     
+    // Once loading is complete, rebuild the UI to show the new properties.
     if (mounted) {
       setState(() => _isLoadingParams = false);
     }
@@ -76,7 +82,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
 
   @override
   void dispose() {
-    // Clear the resolver's cache for this inspection session
+    // When the dialog is closed, clear the resolver's cache to free up memory.
     widget.resolver.clearFlowGraphParameterCache();
 
     if (_hasChanges) {
@@ -86,6 +92,9 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     super.dispose();
   }
+
+  // --- END: PHASE 1 IMPLEMENTATION ---
+
   Object _deepCopyTarget(Object target) {
     if (target is tiled.TiledObject) {
       return deepCopyTiledObject(target);
@@ -116,13 +125,16 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       _hasChanges = true;
     });
 
+    // --- START: PHASE 1 IMPLEMENTATION ---
+    // If a property update occurs, check if the user changed the .fg file path.
     if (widget.target is tiled.TiledObject) {
        final newPath = (widget.target as tiled.TiledObject).properties.getValue<String>('flowGraph');
        if (newPath != _currentFlowGraphPath) {
-         // The path has changed, so we need to reload the params
+         // If the path changed, trigger a reload of the parameters.
          _loadFlowGraphParametersIfNeeded();
        }
     }
+    // --- END: PHASE 1 IMPLEMENTATION ---
     widget.notifier.notifyChange();
   }
 
@@ -132,9 +144,8 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     final schema = schemaAsync.valueOrNull;
     final talker = ref.watch(talkerProvider);
 
-    // The reflector will now get the parameters from the resolver directly
     final descriptors = TiledReflector.getDescriptors(
-      obj: widget.target, // Pass 'widget.target' as the named argument 'obj'
+      obj: widget.target,
       schema: schema, 
       resolver: widget.resolver,
       talker: talker,
@@ -147,11 +158,14 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            // --- START: PHASE 1 IMPLEMENTATION ---
+            // Show a loading indicator while parsing the .fg file.
             if (_isLoadingParams)
               const Center(child: Padding(
                 padding: EdgeInsets.all(8.0),
                 child: CircularProgressIndicator(),
               )),
+            // --- END: PHASE 1 IMPLEMENTATION ---
             ...descriptors.map((descriptor) => _buildPropertyWidget(descriptor)),
           ],
         ),
@@ -170,30 +184,24 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       
       final rawPath = descriptor.currentValue;
       
-      // Determine context based on parent object (to handle external tilesets correctly)
       tiled.Tileset? contextTileset;
       Object? parentObject;
 
-      // If we are inside an ObjectPropertyDescriptor (like 'image' on a Tileset),
-      // the target of that descriptor is the parent object (the Tileset).
       if (parentDescriptor is ObjectPropertyDescriptor) {
          parentObject = parentDescriptor.target;
          if (parentObject is tiled.Tileset) {
            contextTileset = parentObject;
          }
       } else {
-        // Fallback: if inspecting the Tileset directly (though usually we inspect properties of it)
         if (widget.target is tiled.Tileset) {
           contextTileset = widget.target as tiled.Tileset;
           parentObject = widget.target;
         }
       }
       
-      // Use resolver to get the image for preview
       final image = widget.resolver.getImage(rawPath, tileset: contextTileset);
       final imageAsset = image != null ? ImageAssetData(image: image) : null;
       
-      // Ensure we have a valid parent object for the reload callback
       final actualParentObject = parentObject ?? widget.target;
       
       return PropertyImagePathInput(
@@ -230,7 +238,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
       return PropertySpriteSelector(
         descriptor: descriptor,
         onUpdate: _onUpdate,
-        assetDataMap: widget.resolver.rawAssets, // Pass raw assets map
+        assetDataMap: widget.resolver.rawAssets,
       );
     }
     if (descriptor is BoolPropertyDescriptor) {
@@ -251,7 +259,7 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
         return PropertyFileLinkWithAction(
           descriptor: descriptor,
           onUpdate: _onUpdate,
-          contextPath: widget.resolver.tmxPath, // Added contextPath
+          contextPath: widget.resolver.tmxPath,
         );
       }
       return PropertyStringInput(descriptor: descriptor, onUpdate: _onUpdate);
@@ -297,18 +305,13 @@ class _InspectorDialogState extends ConsumerState<InspectorDialog> {
     }
     
   if (descriptor is StringEnumPropertyDescriptor) {
-      // Changed from PropertyStringEnumDropdown to ComboBox
       return PropertyStringComboBox(
         descriptor: descriptor, 
         onUpdate: _onUpdate
       );
     }
         
-    // Note: The "Type" dropdown created in reflector uses EnumPropertyDescriptor<StringEnumWrapper>
-    // The existing PropertyEnumDropdown should handle it if the generic types align, 
-    // or we cast it.
     if (descriptor is EnumPropertyDescriptor) {
-       // You might need to cast to dynamic to let the generic widget handle the specific Enum type
        return PropertyEnumDropdown(descriptor: descriptor, onUpdate: _onUpdate);
     }
 
