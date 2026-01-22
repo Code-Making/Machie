@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:ui' as ui;
-import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/material.dart' hide Text, ColorProperty;
 import 'package:tiled/tiled.dart';
 import 'package:collection/collection.dart';
 import '../../../asset_cache/asset_models.dart';
