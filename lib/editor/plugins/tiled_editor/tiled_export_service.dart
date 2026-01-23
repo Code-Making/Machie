@@ -146,7 +146,7 @@ class TiledExportService {
     final rootExtension = asJson ? 'json' : 'tmx';
     context.mapRenames[rootPath] = '$mapFileName.$rootExtension';
 
-    // --- Phase 1 & 2: Recursive Discovery Loop ---
+    // --- Recursive Discovery Loop ---
     while (context.mapsToProcess.isNotEmpty) {
       final currentMapPath = context.mapsToProcess.removeAt(0);
 
@@ -160,7 +160,7 @@ class TiledExportService {
       );
     }
 
-    // --- Phase 4: Packing Phase ---
+    // --- Packing Phase ---
     _UnifiedPackResult? packResult;
 
     if (packInAtlas) {
@@ -188,7 +188,7 @@ class TiledExportService {
       }
     }
 
-    // --- Phase 4 & 5: Writing Phase ---
+    // --- Writing Phase ---
     if (!packAssetsOnly) {
       for (final entry in context.loadedMaps.entries) {
         final originalPath = entry.key;
@@ -373,6 +373,7 @@ class TiledExportService {
     }
   }
 
+  /// Loads a .tpacker file and extracts ALL its frames as assets.
   Future<void> _scanTexturePackerFile(
     String relativeTpackerPath,
     String mapContextPath,
@@ -389,60 +390,28 @@ class TiledExportService {
     talker.debug('Deep scanning atlas for export: $tpackerCanonicalPath');
 
     try {
-      final file = await repo.fileHandler.resolvePath(repo.rootUri, tpackerCanonicalPath);
-      if (file == null) {
-        talker.warning('Referenced atlas file not found for scanning: $tpackerCanonicalPath');
-        return;
-      }
-
-      final content = await repo.readFile(file.uri);
-      final project = TexturePackerProject.fromJson(jsonDecode(content));
-      final tpackerDir = p.dirname(tpackerCanonicalPath);
-
-      final sourceImages = <String, ui.Image>{};
-
-      Future<void> loadSourceImages(SourceImageNode node) async {
-        if (node.type == SourceNodeType.image && node.content != null) {
-          final imgRelPath = node.content!.path;
-          if (imgRelPath.isNotEmpty) {
-            final absoluteImgPath = repo.resolveRelativePath(tpackerDir, imgRelPath);
-            try {
-              final asset = await _ref.read(assetDataProvider(absoluteImgPath).future);
-              if (asset is ImageAssetData) {
-                sourceImages[node.id] = asset.image;
-              }
-            } catch (e) {
-              talker.warning('Error loading atlas source image: $absoluteImgPath');
-            }
-          }
+      // Use the AssetProvider system to load the TexturePacker asset properly.
+      // This ensures we get the parsed TexturePackerAssetData with all path resolutions handled.
+      final asset = await _ref.read(assetDataProvider(tpackerCanonicalPath).future);
+      
+      if (asset is TexturePackerAssetData) {
+        talker.debug('Loaded atlas with ${asset.frames.length} frames.');
+        
+        // Iterate all frames in the atlas and add them to the unified assets list
+        for (final entry in asset.frames.entries) {
+          final frameName = entry.key;
+          final spriteData = entry.value;
+          final uniqueKey = 'sprite_$frameName';
+          
+          context.collectedAssets.add(_UnifiedAssetSource(
+            uniqueId: uniqueKey,
+            sourceImage: spriteData.sourceImage,
+            sourceRect: spriteData.sourceRect,
+          ));
         }
-        for (final child in node.children) await loadSourceImages(child);
+      } else {
+        talker.warning('Loaded asset is not TexturePackerAssetData: $tpackerCanonicalPath');
       }
-
-      await loadSourceImages(project.sourceImagesRoot);
-
-      project.definitions.forEach((nodeId, def) {
-        if (def is SpriteDefinition) {
-          final nodeName = _findNodeNameInTree(project.tree, nodeId);
-          if (nodeName != null) {
-            final uniqueKey = 'sprite_$nodeName';
-            
-            final srcImg = sourceImages[def.sourceImageId];
-            final srcConfig = _findSourceConfig(project.sourceImagesRoot, def.sourceImageId);
-
-            if (srcImg != null && srcConfig != null) {
-              final srcRect = _calculatePixelRect(srcConfig, def.gridRect);
-              
-              context.collectedAssets.add(_UnifiedAssetSource(
-                uniqueId: uniqueKey,
-                sourceImage: srcImg,
-                sourceRect: srcRect,
-              ));
-            }
-          }
-        }
-      });
-
     } catch (e, st) {
       talker.handle(e, st, 'Failed to scan atlas file: $tpackerCanonicalPath');
     }
@@ -528,9 +497,7 @@ class TiledExportService {
     final assets = <_UnifiedAssetSource>{};
     final seenKeys = <String>{};
     
-    // Referenced tpacker files to scan if includeAllAtlasSprites is true
-    // (Note: This is partially handled by Phase 3 now, but this local scan 
-    // is kept for consistency if called directly or for immediate Sprite usage detection)
+    // We'll collect all paths here to possibly scan later, or to look up animation frames
     final referencedAtlases = <String>{};
 
     void addAsset(String key, ui.Image? image, ui.Rect srcRect) {
@@ -621,13 +588,39 @@ class TiledExportService {
         final frameProp = obj.properties['initialFrame'] ?? obj.properties['initialAnim'];
         if (frameProp is StringProperty && frameProp.value.isNotEmpty) {
           final spriteName = frameProp.value;
-          final uniqueKey = 'sprite_$spriteName';
           
-          final spriteData = _findSpriteInAtlases(spriteName, [atlasProp.value], resolver);
-          if (spriteData != null) {
-            addAsset(uniqueKey, spriteData.sourceImage, spriteData.sourceRect);
+          // Look up if this is a single sprite or an animation
+          // If it's an animation, we want ALL frames.
+          final spritesToAdd = <TexturePackerSpriteData>[];
+          
+          for (final path in [atlasProp.value]) {
+            final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, path);
+            final asset = resolver.getAsset(canonicalKey);
+            
+            if (asset is TexturePackerAssetData) {
+              // Case A: It's an animation
+              if (asset.animations.containsKey(spriteName)) {
+                final frameNames = asset.animations[spriteName]!;
+                for (final frameName in frameNames) {
+                  if (asset.frames.containsKey(frameName)) {
+                    spritesToAdd.add(asset.frames[frameName]!);
+                  }
+                }
+              } 
+              // Case B: It's a single sprite
+              else if (asset.frames.containsKey(spriteName)) {
+                spritesToAdd.add(asset.frames[spriteName]!);
+              }
+            }
+          }
+
+          if (spritesToAdd.isNotEmpty) {
+            for (final spriteData in spritesToAdd) {
+              final uniqueKey = 'sprite_${spriteData.name}';
+              addAsset(uniqueKey, spriteData.sourceImage, spriteData.sourceRect);
+            }
           } else {
-            talker.warning('Object ${obj.id}: Could not resolve sprite "$spriteName" in atlas "${atlasProp.value}".');
+            talker.warning('Object ${obj.id}: Could not resolve sprite/anim "$spriteName" in atlas "${atlasProp.value}".');
           }
         }
       }
@@ -651,28 +644,7 @@ class TiledExportService {
     }
     for(final layer in map.layers) scanImageLayers(layer);
 
-    // Note: Deep scanning logic has been moved to _findAndScanAtlases in Phase 3
-    // But we can perform a check here if needed for single-file export modes.
-    // In recursive mode, Phase 3 handles the deep inclusion.
-
     return assets;
-  }
-
-  TexturePackerSpriteData? _findSpriteInAtlases(String spriteName, Iterable<String> tpackerPaths, TiledAssetResolver resolver) {
-    for (final path in tpackerPaths) {
-      final canonicalKey = resolver.repo.resolveRelativePath(resolver.tmxPath, path);
-      final asset = resolver.getAsset(canonicalKey);
-      if (asset is TexturePackerAssetData) {
-        if (asset.frames.containsKey(spriteName)) return asset.frames[spriteName]!;
-        if (asset.animations.containsKey(spriteName)) {
-          final firstFrameName = asset.animations[spriteName]!.firstOrNull;
-          if (firstFrameName != null && asset.frames.containsKey(firstFrameName)) {
-            return asset.frames[firstFrameName]!;
-          }
-        }
-      }
-    }
-    return null;
   }
   
   String? _findNodeNameInTree(PackerItemNode node, String id) {
