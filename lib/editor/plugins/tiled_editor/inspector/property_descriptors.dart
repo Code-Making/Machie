@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart' hide Image;
+import '../tiled_asset_resolver.dart';
 
 // Add this new class to the file
 

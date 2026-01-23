@@ -13,6 +13,7 @@ import 'package:machine/logs/logs_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:convert';
 import '../flow_graph/flow_graph_parameter_parser.dart';
+import 'project_tsx_provider.dart';
 
 class TiledAssetResolver {
   final Map<String, AssetData> _assets;

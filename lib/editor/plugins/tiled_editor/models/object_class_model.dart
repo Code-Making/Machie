@@ -8,8 +8,9 @@ enum ClassMemberType {
   bool, 
   color, 
   file,
-  enum_, // 'enum' is a reserved keyword
-}
+  enum_,
+  object,
+} 
 
 @immutable
 class ClassMemberDefinition {
