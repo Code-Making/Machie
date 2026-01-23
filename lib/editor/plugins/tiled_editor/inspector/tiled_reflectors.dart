@@ -407,6 +407,14 @@ class TiledReflector {
           setter: (v) => setValue(v, PropertyType.string),
           options: member.options ?? [],
         );
+      // ADD THIS CASE to satisfy the compiler
+      case ClassMemberType.object:
+        return IntPropertyDescriptor(
+          name: member.name,
+          label: member.name,
+          getter: () => (getValue() as num?)?.toInt() ?? 0,
+          setter: (v) => setValue(v, PropertyType.int),
+        );
     }
   }
 }
