@@ -984,7 +984,7 @@ class PropertyColorInput extends StatelessWidget {
 
   Color _parseColor(String? hex) {
     if (hex == null || hex.isEmpty) {
-      return const Color(0x00000000); // Transparent signifies "not set"
+      return const Color(0x00000000);
     }
     var source = hex.replaceAll('#', '');
     if (source.length == 6) {
@@ -993,12 +993,11 @@ class PropertyColorInput extends StatelessWidget {
     try {
       return Color(int.parse(source, radix: 16));
     } catch (e) {
-      return Colors.pink; // Error color
+      return Colors.pink;
     }
   }
 
   String _formatColor(Color color) {
-    // Format to #AARRGGBB
     return '#${color.value.toRadixString(16).padLeft(8, '0')}';
   }
 
@@ -1039,7 +1038,6 @@ class PropertyColorInput extends StatelessWidget {
               child: const Text('Clear'),
               onPressed: () => Navigator.of(context).pop('clear'),
             ),
-            // The Spacer widget is removed.
             TextButton(
               child: const Text('Cancel'),
               onPressed: () => Navigator.of(context).pop(),
@@ -1071,17 +1069,33 @@ class PropertyColorInput extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(descriptor.label),
       subtitle: isNotSet ? const Text('Not set') : null,
-      trailing: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isNotSet ? Theme.of(context).scaffoldBackgroundColor : currentColor,
-          shape: BoxShape.circle,
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: isNotSet 
-            ? Center(child: Icon(Icons.close, size: 20, color: Theme.of(context).disabledColor))
-            : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isNotSet ? Theme.of(context).scaffoldBackgroundColor : currentColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: isNotSet 
+                ? Center(child: Icon(Icons.close, size: 20, color: Theme.of(context).disabledColor))
+                : null,
+          ),
+          if (!isNotSet && !descriptor.isReadOnly) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Clear Color',
+              onPressed: () {
+                descriptor.updateValue('');
+                onUpdate();
+              },
+            ),
+          ],
+        ],
       ),
       onTap: descriptor.isReadOnly ? null : () => _showColorPickerDialog(context),
     );
