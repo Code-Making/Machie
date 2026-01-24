@@ -1,12 +1,19 @@
 // FILE: lib/editor/plugins/termux_terminal/termux_terminal_models.dart
+// (REVISED)
 
 import 'package:flutter/material.dart';
 import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
+import 'widgets/termux_terminal_widget.dart';
 
-// Forward declaration for the widget state to be created in Phase 4
-// In actual code, you would import 'termux_terminal_widget.dart'
-abstract class TermuxTerminalWidgetState extends EditorWidgetState {}
+// The abstract state for the widget is now fully defined here.
+// Any part of the plugin that needs to interact with the terminal widget
+// can depend on this contract.
+abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
+  /// Sends raw string data directly to the terminal's input handler.
+  /// Useful for control characters like Ctrl+C, Tab, Esc, etc.
+  void sendRawInput(String data);
+}
 
 @immutable
 class TermuxTerminalTab extends EditorTab {
@@ -25,9 +32,7 @@ class TermuxTerminalTab extends EditorTab {
   }) : editorKey = GlobalKey<TermuxTerminalWidgetState>();
 
   @override
-  void dispose() {
-    // Cleanup socket connections if referenced here later
-  }
+  void dispose() {}
 }
 
 class TermuxTerminalSettings extends PluginSettings {
