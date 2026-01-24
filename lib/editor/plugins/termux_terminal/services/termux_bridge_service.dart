@@ -5,8 +5,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package.android_intent_plus/android_intent.dart';
-import 'package.android_intent_plus/flag.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../logs/logs_provider.dart';
