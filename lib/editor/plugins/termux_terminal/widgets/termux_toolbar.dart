@@ -1,25 +1,30 @@
 // FILE: lib/editor/plugins/termux_terminal/widgets/termux_toolbar.dart
+// (REVISED)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Corrected import path
+import '../../../../app/app_notifier.dart';
+
 import '../../../../command/command_widgets.dart';
 import '../../../../command/command_models.dart';
 import '../../../models/editor_tab_models.dart';
-import '../../../app/app_notifier.dart';
 import '../termux_terminal_plugin.dart';
 import '../termux_terminal_models.dart';
 
-// Helper function to get the active terminal state
+
+// Helper function now correctly typed with the abstract class
 TermuxTerminalWidgetState? _getActiveTerminalState(WidgetRef ref) {
   final activeTab = ref.watch(
     appNotifierProvider.select((s) => s.value?.currentProject?.session.currentTab),
   );
   if (activeTab is! TermuxTerminalTab) return null;
-  return activeTab.editorKey.currentState as TermuxTerminalWidgetState?;
+  // The editorKey.currentState is now guaranteed to be of a type that includes `sendRawInput`
+  return activeTab.editorKey.currentState;
 }
 
-// Command Definitions
+// Command Definitions (Unchanged but now valid)
 List<Command> _getTermuxCommands() => [
       BaseCommand(
         id: 'termux_clear',
@@ -27,7 +32,7 @@ List<Command> _getTermuxCommands() => [
         icon: const Icon(Icons.clear_all),
         sourcePlugin: TermuxTerminalPlugin.pluginId,
         defaultPositions: [TermuxTerminalPlugin.termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x0c'), // Ctrl+L (clear)
+        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x0c'), // Ctrl+L
       ),
       BaseCommand(
         id: 'termux_ctrl_c',
@@ -35,7 +40,7 @@ List<Command> _getTermuxCommands() => [
         icon: const Text('^C'),
         sourcePlugin: TermuxTerminalPlugin.pluginId,
         defaultPositions: [TermuxTerminalPlugin.termuxToolbar],
-        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x03'), // Ctrl+C (interrupt)
+        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x03'), // Ctrl+C
       ),
       BaseCommand(
         id: 'termux_tab',
@@ -55,14 +60,12 @@ List<Command> _getTermuxCommands() => [
       ),
 ];
 
-// The Toolbar Widget
+// The Toolbar Widget (Unchanged)
 class TermuxTerminalToolbar extends ConsumerWidget {
   const TermuxTerminalToolbar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This is a temporary way to register commands for the toolbar.
-    // In a full implementation, these commands would be registered in the plugin's `getCommands`.
     final commands = _getTermuxCommands();
 
     return Container(
