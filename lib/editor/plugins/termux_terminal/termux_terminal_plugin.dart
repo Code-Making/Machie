@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart'; // Added missing import
 
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
