@@ -1,13 +1,9 @@
-// FILE: lib/editor/plugins/termux_terminal/widgets/termux_terminal_widget.dart
-// (REVISED)
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../termux_hot_state.dart';
-import '../../../../models/editor_tab_models.dart';
 import '../../../../app/app_notifier.dart';
 import '../../../../data/repositories/project/project_repository.dart';
 import '../../../../editor/services/editor_service.dart';
@@ -21,8 +17,10 @@ import '../../../../project/project_settings_notifier.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
+abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
+  void sendRawInput(String data);
+}
 
-// This is the concrete implementation of the abstract state from the models file.
 class TermuxTerminalWidget extends EditorWidget {
   @override
   final TermuxTerminalTab tab;
@@ -65,18 +63,18 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   void sendRawInput(String data) {
-    _bridge.executeCommand(
-      command: data,
-      workingDirectory: widget.tab.initialWorkingDirectory,
-    );
+    // This is for toolbar actions like Ctrl+C.
+    // It's sent directly to the underlying shell process.
+    _terminal.textInput(data);
   }
 
   void _handleTerminalInput(String data) {
+    // Handle special characters from the keyboard
     for (var charCode in data.runes) {
       final char = String.fromCharCode(charCode);
       switch (char) {
-        case '\r': // Enter
-          _terminal.write('\r\n');
+        case '\r': // Enter key
+          _terminal.write('\r\n'); // Echo newline
           if (_commandBuffer.isNotEmpty) {
             _bridge.executeCommand(
               command: _commandBuffer.toString(),
@@ -89,12 +87,14 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
           if (_commandBuffer.isNotEmpty) {
             _commandBuffer.clear();
             _commandBuffer.write(_commandBuffer.toString().substring(0, _commandBuffer.length - 1));
+            // Let the terminal handle backspace visuals
             _terminal.write('\b \b');
           }
           break;
         default:
+          // Regular character input
           _commandBuffer.write(char);
-          _terminal.write(char);
+          _terminal.write(char); // Echo character
           break;
       }
     }
@@ -117,9 +117,9 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   Future<EditorContent> getContent() async {
-    // FIX: The buffer's `lines` property is an IndexAwareCircularBuffer, not a standard List.
-    // Use the `toStringList()` helper method for conversion.
-    final buffer = _terminal.buffer.lines.toStringList().join('\n');
+    // FIX: The `toStringList` method doesn't exist. We need to iterate
+    // through the buffer lines and convert each `TerminalLine` to a `String`.
+    final buffer = _terminal.buffer.lines.map((line) => line.toString()).join('\n');
     return EditorContentString(buffer);
   }
 
@@ -133,13 +133,13 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   }
 
   @override
-  void onSaveSuccess(String newHash) {}
+  void onSaveSuccess(String newHash) { /* Not applicable */ }
   @override
-  void redo() {}
+  void redo() { /* Not applicable */ }
   @override
-  void undo() {}
+  void undo() { /* Not applicable */ }
   @override
-  void syncCommandContext() {}
+  void syncCommandContext() { /* Not applicable */ }
 
   @override
   Widget build(BuildContext context) {
@@ -147,12 +147,17 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
     ));
 
-    // FIX: `TerminalThemes.white` does not exist. Create a custom theme.
+    // FIX: The `TerminalTheme` constructor now requires more parameters.
     const lightTheme = TerminalTheme(
       cursor: Color(0xFF000000),
       selection: Color(0xFFB0B0B0),
       foreground: Color(0xFF000000),
       background: Color(0xFFFFFFFF),
+      // Add required search hit colors
+      searchHitBackground: Color(0xFFFFFFA0),
+      searchHitBackgroundCurrent: Color(0xFFFFFF00),
+      searchHitForeground: Color(0xFF000000),
+      // Standard ANSI colors
       black: Color(0xFF000000),
       red: Color(0xFFC51E14),
       green: Color(0xFF1DC121),
@@ -174,10 +179,11 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     return TerminalView(
       _terminal,
       theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : lightTheme,
-      // FIX: Use `const` for the constructor call.
-      textStyle: const TerminalTextStyle(
-        fontFamily: 'JetBrainsMono', // Font family from settings is better, but this works
-        fontSize: 14,                // Font size from settings is better
+      // FIX: `TerminalTextStyle` is no longer a class. The `TerminalView` now
+      // accepts a standard Flutter `TextStyle` object directly.
+      textStyle: TextStyle(
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize,
       ),
       autofocus: true,
     );
