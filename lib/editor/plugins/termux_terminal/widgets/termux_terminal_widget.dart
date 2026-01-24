@@ -1,184 +1,157 @@
+// FILE: lib/editor/plugins/termux_terminal/widgets/termux_terminal_widget.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
-import '../termux_hot_state.dart';
-import '../../../../app/app_notifier.dart';
-import '../../../../data/repositories/project/project_repository.dart';
-import '../../../../editor/services/editor_service.dart';
-import '../../../../settings/settings_notifier.dart';
-import '../../../../utils/toast.dart';
-import '../../../tab_metadata_notifier.dart';
-import '../../../../utils/code_themes.dart';
-import '../../../models/editor_command_context.dart';
-import '../../../models/text_editing_capability.dart';
-import '../../../../project/project_settings_notifier.dart';
-import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
-import '../../../models/editor_tab_models.dart';
-// Abstract state for type safety, matching the forward declaration in models.
-abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
-  void sendRawInput(String data);
-}
+import '../termux_terminal_models.dart';
+import '../../../../settings/settings_notifier.dart';
+import '../../../../logs/logs_provider.dart';
+import '../widgets/termux_toolbar.dart'; // Ensure this is imported if used
+import '../../../models/editor_tab_models.dart'; // For EditorWidgetState
 
 class TermuxTerminalWidget extends EditorWidget {
   @override
   final TermuxTerminalTab tab;
 
   const TermuxTerminalWidget({
-    required super.key,
+    required GlobalKey<TermuxTerminalWidgetState> key,
     required this.tab,
-  }) : super(tab: tab);
+  }) : super(key: key, tab: tab);
 
   @override
-  _TermuxTerminalWidgetState createState() => _TermuxTerminalWidgetState();
+  TermuxTerminalWidgetState createState() => TermuxTerminalWidgetState();
 }
 
-class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
+class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
+    implements TermuxTerminalWidgetApi {
   late final Terminal _terminal;
-  late final TermuxBridgeService _bridge;
-  StreamSubscription? _bridgeSubscription;
-  final StringBuffer _commandBuffer = StringBuffer();
+  late final TerminalController _terminalController;
+  StreamSubscription<String>? _outputSubscription;
+  late TermuxBridgeService _bridgeService;
 
   @override
   void init() {
-    _terminal = Terminal(maxLines: 10000);
-    _bridge = ref.read(termuxBridgeServiceProvider);
-    _bridge.initialize();
-
-    _bridgeSubscription = _bridge.outputStream.listen((data) {
-      if (mounted) {
-        _terminal.write(data);
-      }
-    });
-
-    _terminal.onOutput = (data) {
-      _handleTerminalInput(data);
-    };
-
-    if (widget.tab.initialHistory != null && widget.tab.initialHistory!.isNotEmpty) {
-      _terminal.write(widget.tab.initialHistory!);
-    }
-  }
-
-  @override
-  void sendRawInput(String data) {
-    // FIX: Use terminal.textInput() to send control characters and simulate user input.
-    _terminal.textInput(data);
-  }
-
-  void _handleTerminalInput(String data) {
-    for (var charCode in data.runes) {
-      final char = String.fromCharCode(charCode);
-      switch (char) {
-        case '\r': // Enter key
-          _terminal.write('\r\n'); // Echo newline
-          if (_commandBuffer.isNotEmpty) {
-            _bridge.executeCommand(
-              command: _commandBuffer.toString(),
-              workingDirectory: widget.tab.initialWorkingDirectory,
-            );
-            _commandBuffer.clear();
-          }
-          break;
-        case '\x7F': // Backspace
-          if (_commandBuffer.isNotEmpty) {
-            _commandBuffer.clear();
-            _commandBuffer.write(_commandBuffer.toString().substring(0, _commandBuffer.length - 1));
-            // Let the terminal handle backspace visuals
-            _terminal.write('\b \b');
-          }
-          break;
-        default:
-          // Regular character input
-          _commandBuffer.write(char);
-          _terminal.write(char); // Echo character
-          break;
-      }
-    }
+    _terminalController = TerminalController();
+    _terminal = Terminal(
+      controller: _terminalController,
+      maxLines: 10000,
+    );
+    // Asynchronously initialize the bridge and start the terminal session.
+    _initTerminalSession();
   }
 
   @override
   void onFirstFrameReady() {
-    if (!widget.tab.onReady.isCompleted) {
-      widget.tab.onReady.complete(this);
-    }
+     if (!widget.tab.onReady.isCompleted) {
+        widget.tab.onReady.complete(this);
+      }
+  }
+
+  Future<void> _initTerminalSession() async {
+    // We can safely read here because the provider will be kept alive by the watch in build().
+    _bridgeService = ref.read(termuxBridgeServiceProvider);
+    
+    // Ensure the server socket is ready before we do anything else.
+    await _bridgeService.initialize();
+
+    // Subscribe to the output stream to receive data from Termux.
+    _outputSubscription = _bridgeService.outputStream.listen(
+      (data) {
+        // Write incoming data directly to the xterm widget.
+        _terminal.write(data);
+      },
+      onError: (e) {
+        _terminal.write('\r\n[STREAM ERROR]: $e\r\n');
+      },
+    );
+
+    final settings = ref.read(effectiveSettingsProvider)
+        .pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings?;
+    
+    // Execute the initial shell command to start the interactive session.
+    await _bridgeService.executeCommand(
+      command: settings?.shellCommand ?? 'bash',
+      workingDirectory: widget.tab.initialWorkingDirectory,
+      shell: settings?.shellCommand ?? 'bash',
+    );
   }
 
   @override
   void dispose() {
-    _bridgeSubscription?.cancel();
+    // Cancel the stream subscription to prevent memory leaks.
+    _outputSubscription?.cancel();
+    _terminalController.dispose();
     super.dispose();
   }
 
   @override
-  Future<EditorContent> getContent() async {
-    // FIX: Use the documented `getText()` method, which correctly handles the buffer.
-    final buffer = _terminal.buffer.getText();
-    return EditorContentString(buffer);
-  }
-
-  @override
-  Future<TabHotStateDto?> serializeHotState() async {
-    final buffer = await getContent() as EditorContentString;
-    return TermuxHotStateDto(
-      workingDirectory: widget.tab.initialWorkingDirectory,
-      terminalHistory: buffer.content,
+  void sendRawInput(String data) {
+    ref.read(talkerProvider).warning(
+      '[TermuxTerminal] sendRawInput called, but two-way communication is not yet implemented in the bridge.',
     );
+    // TODO: Implement a mechanism in TermuxBridgeService to send data back to the active shell process.
+    // The current `executeCommand` starts a new process each time. We need a way to write to the stdin
+    // of the process started in _initTerminalSession. This typically requires a more advanced
+    // setup on the Termux side (e.g., using `socat` for a persistent two-way socket).
   }
-
-  @override
-  void onSaveSuccess(String newHash) {}
-  @override
-  void redo() {}
-  @override
-  void undo() {}
-  @override
-  void syncCommandContext() {}
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider.select(
-      (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
-    ));
+    // This is the crucial part: `ref.watch` ensures that as long as this widget is visible,
+    // the TermuxBridgeService provider will not be auto-disposed.
+    ref.watch(termuxBridgeServiceProvider);
 
-    // FIX: The `TerminalTheme` constructor now requires search hit colors.
-    const lightTheme = TerminalTheme(
-      cursor: Color(0xFF000000),
-      selection: Color(0xFFB0B0B0),
-      foreground: Color(0xFF000000),
-      background: Color(0xFFFFFFFF),
-      searchHitBackground: Color(0xFFFFFFA0), // Required
-      searchHitBackgroundCurrent: Color(0xFFFFFF00), // Required
-      searchHitForeground: Color(0xFF000000), // Required
-      black: Color(0xFF000000),
-      red: Color(0xFFC51E14),
-      green: Color(0xFF1DC121),
-      yellow: Color(0xFFC7C329),
-      blue: Color(0xFF0A2FC4),
-      magenta: Color(0xFFC8399F),
-      cyan: Color(0xFF20C5C6),
-      white: Color(0xFFC7C7C7),
-      brightBlack: Color(0xFF686868),
-      brightRed: Color(0xFFFD6F6B),
-      brightGreen: Color(0xFF67F86F),
-      brightYellow: Color(0xFFFFFA72),
-      brightBlue: Color(0xFF6A76FB),
-      brightMagenta: Color(0xFFFD7CFC),
-      brightCyan: Color(0xFF68FDFE),
-      brightWhite: Color(0xFFFFFFFF),
+    final settings = ref.watch(
+      effectiveSettingsProvider.select(
+        (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
+      ),
     );
 
     return TerminalView(
       _terminal,
-      theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : lightTheme,
-      // FIX: Use `TerminalStyle` instead of Flutter's `TextStyle`.
-      textStyle: TerminalStyle(
+      controller: _terminalController,
+      autofocus: true,
+      backgroundOpacity: 1.0,
+      theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : TerminalThemes.lightTheme,
+      textStyle: TerminalTextStyle(
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
       ),
-      autofocus: true,
+      onOutput: (data) {
+        // This is where user input from the terminal is captured.
+        // It needs to be sent back to the running shell in Termux.
+        sendRawInput(data);
+      },
     );
   }
+
+  // Implementation of abstract methods from EditorWidgetState
+  @override
+  Future<EditorContent> getContent() async => EditorContentString(_terminal.buffer.toString());
+
+  @override
+  void onSaveSuccess(String newHash) {}
+
+  @override
+  void redo() {}
+
+  @override
+  Future<TabHotStateDto?> serializeHotState() async {
+    // This needs to be implemented to save session state if desired
+    return null;
+  }
+
+  @override
+  void syncCommandContext() {}
+
+  @override
+  void undo() {}
+}
+
+// This abstract class helps with the GlobalKey typing in the plugin.
+abstract class TermuxTerminalWidgetApi extends EditorWidgetState<TermuxTerminalWidget> {
+  void sendRawInput(String data);
 }
