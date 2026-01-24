@@ -14,45 +14,35 @@ import 'termux_terminal_models.dart';
 import 'termux_hot_state.dart';
 import 'termux_hot_state_adapter.dart';
 
-// Placeholder for Phase 4 widget
-class PlaceholderTerminalWidget extends EditorWidget {
-  const PlaceholderTerminalWidget({required super.tab, required super.key});
-  @override
-  ConsumerState<PlaceholderTerminalWidget> createState() => _PlaceholderState();
-}
-
-class _PlaceholderState extends EditorWidgetState<PlaceholderTerminalWidget> implements TermuxTerminalWidgetState {
-  @override
-  void init() {}
-  @override
-  void onFirstFrameReady() {
-    // Notify the system that the tab is ready
-    if (!widget.tab.onReady.isCompleted) {
-      widget.tab.onReady.complete(this);
-    }
-  }
-  @override
-  void syncCommandContext() {}
-  @override
-  void undo() {}
-  @override
-  void redo() {}
-  @override
-  Future<EditorContent> getContent() async => EditorContentString('');
-  @override
-  void onSaveSuccess(String newHash) {}
-  @override
-  Future<TabHotStateDto?> serializeHotState() async => null;
-  
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Termux Terminal (UI Phase 4)"));
-  }
-}
+import 'widgets/termux_terminal_widget.dart';
+import 'widgets/termux_toolbar.dart';
+import 'widgets/termux_settings_widget.dart';
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
   static const String hotStateId = 'com.machine.termux_terminal_state';
+
+  // Define a unique position for the terminal's toolbar
+  static const CommandPosition termuxToolbar = CommandPosition(
+    id: 'com.machine.termux_terminal.toolbar',
+    label: 'Termux Toolbar',
+    icon: Icons.build_circle_outlined,
+  );
+
+  // Define a unique position for the terminal's toolbar
+  static const CommandPosition termuxToolbar = CommandPosition(
+    id: 'com.machine.termux_terminal.toolbar',
+    label: 'Termux Toolbar',
+    icon: Icons.build_circle_outlined,
+  );
+
+  // ... (id, name, icon, priority, settings, etc. remain the same) ...
+
+  @override
+  List<CommandPosition> getCommandPositions() {
+    return [termuxToolbar];
+  }
+
 
   @override
   String get id => pluginId;
@@ -115,40 +105,31 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
-    // In Phase 4, we will return the actual TermuxTerminalWidget
-    // For now, we return a generic placeholder that satisfies the type system
-    return PlaceholderTerminalWidget(
-      key: (tab as TermuxTerminalTab).editorKey, 
-      tab: tab
+    // Return the actual TermuxTerminalWidget now
+    return TermuxTerminalWidget(
+      key: (tab as TermuxTerminalTab).editorKey,
+      tab: tab,
     );
   }
+
+  // ADD the buildToolbar method
+  @override
+  Widget buildToolbar(WidgetRef ref) {
+    // Return the custom toolbar for this plugin
+    return const TermuxTerminalToolbar();
+  }
+  
+  // REPLACE the buildSettingsUI method with the actual settings widget
+
 
   @override
   Widget buildSettingsUI(
     PluginSettings settings,
     void Function(PluginSettings) onChanged,
   ) {
-    // Basic settings UI implementation
-    final current = settings as TermuxTerminalSettings;
-    return Column(
-      children: [
-        TextFormField(
-          initialValue: current.fontSize.toString(),
-          decoration: const InputDecoration(labelText: 'Font Size'),
-          keyboardType: TextInputType.number,
-          onChanged: (val) {
-            final size = double.tryParse(val);
-            if (size != null) {
-              onChanged(current.copyWith(fontSize: size));
-            }
-          },
-        ),
-        TextFormField(
-          initialValue: current.termuxWorkDir,
-          decoration: const InputDecoration(labelText: 'Working Directory'),
-          onChanged: (val) => onChanged(current.copyWith(termuxWorkDir: val)),
-        ),
-      ],
+    return TermuxSettingsWidget(
+      settings: settings as TermuxTerminalSettings,
+      onChanged: (newSettings) => onChanged(newSettings as PluginSettings),
     );
   }
 }
