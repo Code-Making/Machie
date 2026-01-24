@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../termux_terminal_models.dart';
-import '../../services/termux_bridge_service.dart';
-import '../../termux_hot_state.dart';
+import ' ../services/termux_bridge_service.dart';
+import '../termux_hot_state.dart';
 import '../../../../models/editor_tab_models.dart';
 import '../../../../app/app_notifier.dart';
 import '../../../../data/repositories/project/project_repository.dart';
