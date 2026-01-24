@@ -51,7 +51,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   final PluginSettings settings = TermuxTerminalSettings();
 
   @override
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.none;
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
   @override
   String? get hotStateDtoType => hotStateId;
