@@ -58,7 +58,6 @@ extension on Color {
 class TiledReflector {
   static List<PropertyDescriptor> getDescriptors({
     required Object? obj,
-    // --- MODIFICATION: Add TiledMap parameter ---
     required TiledMap map,
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
@@ -67,7 +66,6 @@ class TiledReflector {
     if (obj == null) return [];
     
     if (obj is TiledObject) {
-      // --- MODIFICATION: Pass map down ---
       return _getTiledObjectDescriptors(obj, map, schema, resolver, talker);
     }
     if (obj is TiledMap) return (obj as TiledMap).getDescriptors();
@@ -79,7 +77,6 @@ class TiledReflector {
 
   static List<PropertyDescriptor> _getTiledObjectDescriptors(
     TiledObject obj, 
-    // --- MODIFICATION: Add TiledMap parameter ---
     TiledMap map,
     Map<String, ObjectClassDefinition>? schema,
     TiledAssetResolver? resolver,
@@ -182,7 +179,6 @@ class TiledReflector {
                 setter: (v) => setter(v, PropertyType.string),
               ));
               break;
-            // --- MODIFICATION: Use IntPropertyDescriptor for numbers ---
             case FlowPortType.number:
               descriptors.add(IntPropertyDescriptor(
                 name: propName, label: propLabel,
@@ -197,7 +193,6 @@ class TiledReflector {
                 setter: (v) => setter(v, PropertyType.bool),
               ));
               break;
-            // --- MODIFICATION: Use the new TiledObjectReferencePropertyDescriptor ---
             case FlowPortType.tiledObject:
               descriptors.add(TiledObjectReferencePropertyDescriptor(
                 name: propName, label: propLabel,
@@ -241,6 +236,18 @@ class TiledReflector {
     return descriptors;
   }
   
+  static int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   static PropertyDescriptor _createMemberDescriptor(
     TiledObject obj, 
     ClassMemberDefinition member,
@@ -263,7 +270,7 @@ class TiledReflector {
           newProp = StringProperty(name: member.name, value: val.toString());
           break;
         case PropertyType.int:
-        case PropertyType.object: // Treat object refs as ints for storage
+        case PropertyType.object:
           newProp = IntProperty(name: member.name, value: val as int);
           break;
         case PropertyType.float:
@@ -286,26 +293,22 @@ class TiledReflector {
       obj.properties = CustomProperties(map);
     }
 
-    // --- MODIFICATION: Handle the new 'object' type from the schema ---
     if (member.type == ClassMemberType.object) {
       if (resolver == null) {
-        // Fallback if the resolver isn't available for some reason.
         return IntPropertyDescriptor(
             name: member.name,
             label: member.name,
-            getter: () => (getValue() as num?)?.toInt() ?? 0,
+            getter: () => _toInt(getValue()),
             setter: (v) => setValue(v, PropertyType.object),
           );
       }
       
-      // By convention, the map property is named by removing "Spawn" or "Target"
-      // from the object property name and adding "Map". e.g., "targetSpawn" -> "targetMap".
       final mapPropertyName = member.name.replaceFirst('Spawn', 'Map').replaceFirst('Target', 'Map');
 
       return ExternalObjectReferencePropertyDescriptor(
         name: member.name,
         label: member.name,
-        getter: () => (getValue() as num?)?.toInt() ?? 0,
+        getter: () => _toInt(getValue()),
         setter: (v) => setValue(v, PropertyType.object),
         mapFilePropertyName: mapPropertyName,
         resolver: resolver,
@@ -313,8 +316,6 @@ class TiledReflector {
       );
     }
     
-    // ... (rest of the method is the same)
-    // --- END MODIFICATION ---
 
     if ((member.name == 'initialAnim' || member.name == 'initialFrame') && resolver != null) {
       return DynamicEnumPropertyDescriptor(
@@ -364,21 +365,26 @@ class TiledReflector {
         return IntPropertyDescriptor(
           name: member.name,
           label: member.name,
-          getter: () => (getValue() as num?)?.toInt() ?? 0,
+          getter: () => _toInt(getValue()),
           setter: (v) => setValue(v, PropertyType.int),
         );
       case ClassMemberType.float:
         return DoublePropertyDescriptor(
           name: member.name,
           label: member.name,
-          getter: () => (getValue() as num?)?.toDouble() ?? 0.0,
+          getter: () => _toDouble(getValue()),
           setter: (v) => setValue(v, PropertyType.float),
         );
       case ClassMemberType.bool:
         return BoolPropertyDescriptor(
           name: member.name,
           label: member.name,
-          getter: () => getValue() == true,
+          getter: () {
+            final val = getValue();
+            if (val is bool) return val;
+            if (val is String) return val.toLowerCase() == 'true';
+            return false;
+          },
           setter: (v) => setValue(v, PropertyType.bool),
         );
       case ClassMemberType.color:
@@ -407,12 +413,11 @@ class TiledReflector {
           setter: (v) => setValue(v, PropertyType.string),
           options: member.options ?? [],
         );
-      // ADD THIS CASE to satisfy the compiler
       case ClassMemberType.object:
         return IntPropertyDescriptor(
           name: member.name,
           label: member.name,
-          getter: () => (getValue() as num?)?.toInt() ?? 0,
+          getter: () => _toInt(getValue()),
           setter: (v) => setValue(v, PropertyType.int),
         );
     }
