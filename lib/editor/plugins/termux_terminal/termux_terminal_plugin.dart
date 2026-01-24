@@ -32,14 +32,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
     icon: Icons.build_circle_outlined,
   );
 
-  // Define a unique position for the terminal's toolbar
-  static const CommandPosition termuxToolbar = CommandPosition(
-    id: 'com.machine.termux_terminal.toolbar',
-    label: 'Termux Toolbar',
-    icon: Icons.build_circle_outlined,
-  );
-
-  // ... (id, name, icon, priority, settings, etc. remain the same) ...
 
   @override
   List<CommandPosition> getCommandPositions() {
@@ -63,7 +55,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   final PluginSettings settings = TermuxTerminalSettings();
 
   @override
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.none;
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
 
   @override
   String? get hotStateDtoType => hotStateId;

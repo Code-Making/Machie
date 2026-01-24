@@ -8,6 +8,28 @@ import 'package:xterm/xterm.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../termux_hot_state.dart';
+import '../../../models/editor_tab_models.dart';
+import '../../../app/app_notifier.dart';
+import '../../../data/repositories/project/project_repository.dart';
+import '../../../editor/services/editor_service.dart';
+import '../../../settings/settings_notifier.dart';
+import '../../../utils/toast.dart';
+import '../../models/editor_tab_models.dart';
+import '../../tab_metadata_notifier.dart';
+import 'logic/code_editor_logic.dart';
+import 'code_editor_models.dart';
+import 'widgets/code_find_panel_view.dart';
+import '../../../utils/code_themes.dart';
+import 'widgets/goto_line_dialog.dart';
+import '../../models/editor_command_context.dart';
+import '../../models/text_editing_capability.dart';
+import 'package:machine/editor/services/language/language_models.dart';
+import 'package:machine/editor/services/language/language_registry.dart';
+import 'code_editor_hot_state_dto.dart';
+import 'widgets/code_editor_ui.dart';
+import 'logic/code_editor_types.dart';
+import 'logic/code_editor_utils.dart';
+import '../../../project/project_settings_notifier.dart';
 
 // Abstract state for type safety, matching the forward declaration in models.
 abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
