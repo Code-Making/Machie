@@ -38,7 +38,7 @@ class TermuxBridgeService {
 
     try {
       _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      _talker.good(
+      _talker.info(
         '[TermuxBridge] Server listening on port ${_serverSocket!.port}',
       );
 
@@ -130,7 +130,7 @@ class TermuxBridgeService {
     try {
       _talker.info('[TermuxBridge] Launching Termux intent...');
       await intent.launch();
-      _talker.good('[TermuxBridge] Termux intent launched successfully.');
+      _talker.info('[TermuxBridge] Termux intent launched successfully.');
     } catch (e, st) {
       _talker.handle(e, st, '[TermuxBridge] Error launching Termux intent');
       _addToOutput('\r\n[Error launching Termux intent: $e]\r\n');
