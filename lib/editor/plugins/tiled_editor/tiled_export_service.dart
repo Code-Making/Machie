@@ -177,12 +177,12 @@ class TiledExportService {
           initialBytes: packResult.atlasImageBytes,
           overwrite: true,
         );
-        await repo.createDocumentFile(
-          destinationFolderUri,
-          '$atlasFileName.json',
-          initialContent: _generatePixiJson(packResult, atlasFileName),
-          overwrite: true,
-        );
+        // await repo.createDocumentFile(
+        //   destinationFolderUri,
+        //   '$atlasFileName.json',
+        //   initialContent: _generatePixiJson(packResult, atlasFileName),
+        //   overwrite: true,
+        // );
       } else {
         talker.info("No assets found to pack.");
       }
@@ -936,137 +936,196 @@ class TiledExportService {
     return const JsonEncoder.withIndent('  ').convert(jsonOutput);
   }
 
-  Future<void> _processTexturePackerDependencies(
-    TiledMap map, 
-    TiledAssetResolver resolver, 
-    _UnifiedPackResult packResult, 
-    String atlasName, 
-    String destinationFolderUri,
-    {bool exportAsJson = true}
-  ) async {
-      final talker = _ref.read(talkerProvider);
-      final repo = resolver.repo;
-      
-      final referencedAtlases = <String>{};
+Future<void> _processTexturePackerDependencies(
+    TiledMap map,
+    TiledAssetResolver resolver,
+    _UnifiedPackResult packResult,
+    String atlasName,
+    String destinationFolderUri, {
+    bool exportAsJson = true,
+  }) async {
+    final talker = _ref.read(talkerProvider);
+    final repo = resolver.repo;
 
-      if (map.properties.has('atlas')) {
-        final val = map.properties.getValue<String>('atlas');
-        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
-      } else if (map.properties.has('atlases')) {
-        final val = map.properties.getValue<String>('atlases');
-        if (val != null) referencedAtlases.addAll(val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+    final referencedAtlases = <String>{};
+
+    if (map.properties.has('atlas')) {
+      final val = map.properties.getValue<String>('atlas');
+      if (val != null) {
+        referencedAtlases.addAll(
+            val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
       }
+    } else if (map.properties.has('atlases')) {
+      final val = map.properties.getValue<String>('atlases');
+      if (val != null) {
+        referencedAtlases.addAll(
+            val.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+      }
+    }
 
-      _traverseMapObjects(map, (obj) {
-        if (obj.properties.has('atlas')) {
-          final val = obj.properties.getValue<String>('atlas');
-          if (val != null && val.isNotEmpty) referencedAtlases.add(val);
+    _traverseMapObjects(map, (obj) {
+      if (obj.properties.has('atlas')) {
+        final val = obj.properties.getValue<String>('atlas');
+        if (val != null && val.isNotEmpty) referencedAtlases.add(val);
+      }
+    });
+
+    final newAtlasPaths = <String, String>{};
+
+    for (final path in referencedAtlases) {
+      try {
+        final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
+        final file =
+            await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
+        if (file == null) {
+          talker.warning('Could not find linked .tpacker file: $path');
+          continue;
         }
-      });
 
-      final newAtlasPaths = <String, String>{};
+        final exportNameBase = 'export_${p.basenameWithoutExtension(path)}';
 
-      for(final path in referencedAtlases) {
-          try {
-              final canonicalKey = repo.resolveRelativePath(resolver.tmxPath, path);
-              final file = await repo.fileHandler.resolvePath(repo.rootUri, canonicalKey);
-              if (file == null) {
-                  talker.warning('Could not find linked .tpacker file: $path');
-                  continue;
-              }
+        if (exportAsJson) {
+          final content = await repo.readFile(file.uri);
+          final originalProject =
+              TexturePackerProject.fromJson(jsonDecode(content));
 
-              final exportNameBase = 'export_${p.basenameWithoutExtension(path)}';
+          // --- PIXIJS FORMAT CONVERSION START ---
+          final frames = <String, Map<String, dynamic>>{};
+          final animations = <String, List<String>>{};
+
+          void traverseAndCollect(PackerItemNode node) {
+            if (node.type == PackerItemType.sprite) {
+              // The key used in the Unified Atlas packing process
+              final unifiedKey = 'sprite_${node.name}';
               
-              if (exportAsJson) {
-                final content = await repo.readFile(file.uri);
-                final originalProject = TexturePackerProject.fromJson(jsonDecode(content));
+              // Find the rect in the unified atlas
+              final rect = packResult.packedRects[unifiedKey];
 
-                final newSourceImage = SourceImageNode(
-                    id: 'unified_atlas',
-                    name: atlasName,
-                    type: SourceNodeType.image,
-                    content: SourceImageConfig(
-                        path: '$atlasName.png',
-                        slicing: const SlicingConfig(tileWidth: 1, tileHeight: 1, margin: 0, padding: 0),
-                    ),
-                );
-
-                final newDefinitions = <String, PackerItemDefinition>{};
-                originalProject.definitions.forEach((nodeId, def) {
-                    if (def is SpriteDefinition) {
-                        final node = _findNodeInTree(originalProject.tree, nodeId);
-                        if (node != null) {
-                            final key = 'sprite_${node.name}';
-                            final rect = packResult.packedRects[key];
-                            if (rect != null) {
-                                newDefinitions[nodeId] = SpriteDefinition(
-                                    sourceImageId: newSourceImage.id, 
-                                    gridRect: GridRect(x: rect.left.toInt(), y: rect.top.toInt(), width: rect.width.toInt(), height: rect.height.toInt()),
-                                );
-                            }
-                        }
-                    } else {
-                        newDefinitions[nodeId] = def;
-                    }
-                });
-
-                final newProject = TexturePackerProject(
-                    sourceImagesRoot: SourceImageNode(
-                        id: 'root',
-                        name: 'root',
-                        type: SourceNodeType.folder,
-                        children: [newSourceImage],
-                    ), 
-                    tree: originalProject.tree,
-                    definitions: newDefinitions,
-                );
-                
-                final newFilename = '$exportNameBase.json';
-                newAtlasPaths[path] = newFilename;
-                
-                await repo.createDocumentFile(
-                    destinationFolderUri, 
-                    newFilename,
-                    initialContent: jsonEncode(newProject.toJson()),
-                    overwrite: true,
-                );
+              if (rect != null) {
+                // Construct the standard PixiJS frame object
+                frames[node.name] = {
+                  "frame": {
+                    "x": rect.left.toInt(),
+                    "y": rect.top.toInt(),
+                    "w": rect.width.toInt(),
+                    "h": rect.height.toInt()
+                  },
+                  "rotated": false,
+                  "trimmed": false,
+                  "spriteSourceSize": {
+                    "x": 0,
+                    "y": 0,
+                    "w": rect.width.toInt(),
+                    "h": rect.height.toInt()
+                  },
+                  "sourceSize": {
+                    "w": rect.width.toInt(), 
+                    "h": rect.height.toInt()
+                  },
+                  "anchor": {"x": 0.5, "y": 0.5} // Default anchor
+                };
               } else {
-                final newFilename = '$exportNameBase.tpacker';
-                newAtlasPaths[path] = newFilename;
-                
-                final bytes = await repo.readFileAsBytes(file.uri);
-                await repo.createDocumentFile(
-                  destinationFolderUri,
-                  newFilename,
-                  initialBytes: bytes,
-                  overwrite: true,
-                );
+                talker.warning("Sprite '${node.name}' defined in .tpacker but missing from packed result.");
+              }
+            } else if (node.type == PackerItemType.animation) {
+              // Flatten animation children into a list of names
+              final frameNames = <String>[];
+              
+              void collectFrames(PackerItemNode animChild) {
+                if (animChild.type == PackerItemType.sprite) {
+                  frameNames.add(animChild.name);
+                  // Recurse to ensure the sprite itself is added to 'frames'
+                  traverseAndCollect(animChild);
+                } else {
+                  for (final c in animChild.children) collectFrames(c);
+                }
+              }
+              
+              for(final child in node.children) {
+                collectFrames(child);
               }
 
-          } catch (e, st) {
-              talker.handle(e, st, 'Failed to process .tpacker dependency: $path');
+              if (frameNames.isNotEmpty) {
+                animations[node.name] = frameNames;
+              }
+            } else {
+              // Folder or Root -> Recurse
+              for (final child in node.children) {
+                traverseAndCollect(child);
+              }
+            }
           }
-      }
 
-      if (map.properties.has('atlas')) {
-         final oldVals = map.properties.getValue<String>('atlas')!.split(',');
-         final newVals = oldVals.map((v) => newAtlasPaths[v.trim()] ?? v.trim()).join(',');
-         
-         final newProps = Map<String, Property<Object>>.from(map.properties.byName);
-         newProps['atlas'] = StringProperty(name: 'atlas', value: newVals);
-         map.properties = CustomProperties(newProps);
-      }
+          traverseAndCollect(originalProject.tree);
 
-      _traverseMapObjects(map, (obj) {
-         if (obj.properties.has('atlas')) {
-           final oldVal = obj.properties.getValue<String>('atlas');
-           if (oldVal != null && newAtlasPaths.containsKey(oldVal)) {
-             final newProps = Map<String, Property<Object>>.from(obj.properties.byName);
-             newProps['atlas'] = StringProperty(name: 'atlas', value: newAtlasPaths[oldVal]!);
-             obj.properties = CustomProperties(newProps);
-           }
-         }
-      });
+          final jsonOutput = {
+            "frames": frames,
+            "animations": animations,
+            "meta": {
+              "app": "Machine Editor - PixiJS Compatible",
+              "version": "1.0",
+              "image": "$atlasName.png",
+              "format": "RGBA8888",
+              "size": {
+                "w": packResult.atlasWidth,
+                "h": packResult.atlasHeight
+              },
+              "scale": 1
+            }
+          };
+          // --- PIXIJS FORMAT CONVERSION END ---
+
+          final newFilename = '$exportNameBase.json';
+          newAtlasPaths[path] = newFilename;
+
+          await repo.createDocumentFile(
+            destinationFolderUri,
+            newFilename,
+            initialContent: const JsonEncoder.withIndent('  ').convert(jsonOutput),
+            overwrite: true,
+          );
+        } else {
+          // Standard .tpacker export (raw bytes)
+          final newFilename = '$exportNameBase.tpacker';
+          newAtlasPaths[path] = newFilename;
+
+          final bytes = await repo.readFileAsBytes(file.uri);
+          await repo.createDocumentFile(
+            destinationFolderUri,
+            newFilename,
+            initialBytes: bytes,
+            overwrite: true,
+          );
+        }
+      } catch (e, st) {
+        talker.handle(e, st, 'Failed to process .tpacker dependency: $path');
+      }
+    }
+
+    if (map.properties.has('atlas')) {
+      final oldVals = map.properties.getValue<String>('atlas')!.split(',');
+      final newVals = oldVals
+          .map((v) => newAtlasPaths[v.trim()] ?? v.trim())
+          .join(',');
+
+      final newProps =
+          Map<String, Property<Object>>.from(map.properties.byName);
+      newProps['atlas'] = StringProperty(name: 'atlas', value: newVals);
+      map.properties = CustomProperties(newProps);
+    }
+
+    _traverseMapObjects(map, (obj) {
+      if (obj.properties.has('atlas')) {
+        final oldVal = obj.properties.getValue<String>('atlas');
+        if (oldVal != null && newAtlasPaths.containsKey(oldVal)) {
+          final newProps =
+              Map<String, Property<Object>>.from(obj.properties.byName);
+          newProps['atlas'] =
+              StringProperty(name: 'atlas', value: newAtlasPaths[oldVal]!);
+          obj.properties = CustomProperties(newProps);
+        }
+      }
+    });
   }
   
   PackerItemNode? _findNodeInTree(PackerItemNode node, String id) {
