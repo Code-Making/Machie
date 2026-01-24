@@ -1,14 +1,12 @@
 // FILE: lib/editor/plugins/termux_terminal/termux_terminal_plugin.dart
-// (Additions to the file from the previous phases)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Add these imports for the app command
 import '../../../app/app_notifier.dart';
 import '../../../command/command_models.dart';
-import '../../../project/project_models.dart'; // For VirtualDocumentFile
+import '../../../project/project_models.dart';
 
 import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
@@ -34,7 +32,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
     icon: Icons.build_circle_outlined,
   );
 
-  // ... (id, name, icon, and other properties remain the same) ...
   @override
   String get id => pluginId;
 
@@ -67,7 +64,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
     return [termuxToolbar];
   }
 
-  // --- ADD THIS METHOD ---
   @override
   List<Command> getAppCommands() {
     return [
@@ -78,8 +74,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
           sourcePlugin: 'App',
         defaultPositions: [AppCommandPositions.appBar],
         canExecute: (ref) {
-          // A terminal can only be opened if a project is active,
-          // as it needs a working directory context.
           final project = ref.watch(appNotifierProvider).value?.currentProject;
           return project != null;
         },
@@ -87,14 +81,12 @@ class TermuxTerminalPlugin extends EditorPlugin {
           final notifier = ref.read(appNotifierProvider.notifier);
           
           // Create a virtual file to represent this terminal session.
-          // This allows it to be treated like any other tab in the editor.
           final terminalFile = VirtualDocumentFile(
-            uri: 'termux-session://${DateTime.now().millisecondsSinceEpoch}',
+            uri: 'termux-session://${const Uuid().v4()}', // Unique URI for each session
             name: 'Termux Session',
           );
 
           // Open the virtual file, explicitly telling the editor service
-          // to use this plugin.
           await notifier.openFileInEditor(
             terminalFile,
             explicitPlugin: this,
@@ -103,12 +95,11 @@ class TermuxTerminalPlugin extends EditorPlugin {
       ),
     ];
   }
-  // --- END OF ADDED METHOD ---
 
 
   @override
   bool supportsFile(DocumentFile file) {
-    return file.name.endsWith('.termux') || file.name == 'Termux Session';
+    return file.uri.startsWith('termux-session:');
   }
 
   @override
@@ -138,9 +129,10 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
+    final termuxTab = tab as TermuxTerminalTab;
     return TermuxTerminalWidget(
-      key: (tab as TermuxTerminalTab).editorKey, 
-      tab: tab
+      key: termuxTab.editorKey, // This key type now matches the widget's expected key type
+      tab: termuxTab
     );
   }
 
@@ -156,7 +148,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   ) {
     return TermuxSettingsWidget(
       settings: settings as TermuxTerminalSettings,
-      onChanged: (newSettings) => onChanged(newSettings as PluginSettings),
+      onChanged: (newSettings) => onChanged(newSettings),
     );
   }
 }
