@@ -17,6 +17,7 @@ import '../../../../project/project_settings_notifier.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
+// Abstract state for type safety, matching the forward declaration in models.
 abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
 }
@@ -63,13 +64,11 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   void sendRawInput(String data) {
-    // This is for toolbar actions like Ctrl+C.
-    // It's sent directly to the underlying shell process.
+    // FIX: Use terminal.textInput() to send control characters and simulate user input.
     _terminal.textInput(data);
   }
 
   void _handleTerminalInput(String data) {
-    // Handle special characters from the keyboard
     for (var charCode in data.runes) {
       final char = String.fromCharCode(charCode);
       switch (char) {
@@ -110,16 +109,13 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   @override
   void dispose() {
     _bridgeSubscription?.cancel();
-    // FIX: The `Terminal` object does not have a `dispose` method.
-    // It's managed by its parent widget's lifecycle.
     super.dispose();
   }
 
   @override
   Future<EditorContent> getContent() async {
-    // FIX: The `toStringList` method doesn't exist. We need to iterate
-    // through the buffer lines and convert each `TerminalLine` to a `String`.
-    final buffer = _terminal.buffer.lines.map((line) => line.toString()).join('\n');
+    // FIX: Use the documented `getText()` method, which correctly handles the buffer.
+    final buffer = _terminal.buffer.getText();
     return EditorContentString(buffer);
   }
 
@@ -133,13 +129,13 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   }
 
   @override
-  void onSaveSuccess(String newHash) { /* Not applicable */ }
+  void onSaveSuccess(String newHash) {}
   @override
-  void redo() { /* Not applicable */ }
+  void redo() {}
   @override
-  void undo() { /* Not applicable */ }
+  void undo() {}
   @override
-  void syncCommandContext() { /* Not applicable */ }
+  void syncCommandContext() {}
 
   @override
   Widget build(BuildContext context) {
@@ -147,17 +143,15 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
     ));
 
-    // FIX: The `TerminalTheme` constructor now requires more parameters.
+    // FIX: The `TerminalTheme` constructor now requires search hit colors.
     const lightTheme = TerminalTheme(
       cursor: Color(0xFF000000),
       selection: Color(0xFFB0B0B0),
       foreground: Color(0xFF000000),
       background: Color(0xFFFFFFFF),
-      // Add required search hit colors
-      searchHitBackground: Color(0xFFFFFFA0),
-      searchHitBackgroundCurrent: Color(0xFFFFFF00),
-      searchHitForeground: Color(0xFF000000),
-      // Standard ANSI colors
+      searchHitBackground: Color(0xFFFFFFA0), // Required
+      searchHitBackgroundCurrent: Color(0xFFFFFF00), // Required
+      searchHitForeground: Color(0xFF000000), // Required
       black: Color(0xFF000000),
       red: Color(0xFFC51E14),
       green: Color(0xFF1DC121),
@@ -179,9 +173,8 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     return TerminalView(
       _terminal,
       theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : lightTheme,
-      // FIX: `TerminalTextStyle` is no longer a class. The `TerminalView` now
-      // accepts a standard Flutter `TextStyle` object directly.
-      textStyle: TextStyle(
+      // FIX: Use `TerminalStyle` instead of Flutter's `TextStyle`.
+      style: TerminalStyle(
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
       ),
