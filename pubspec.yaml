@@ -81,7 +81,7 @@ dependencies:
     git:
       url: git@github.com:hommes-doutant/xterm.dart.git
  
- dev_dependencies:
+dev_dependencies:
   flutter_test:
     sdk: flutter
 
