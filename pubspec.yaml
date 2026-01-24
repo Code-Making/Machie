@@ -77,8 +77,10 @@ dependencies:
   meta: any
   flex_color_picker: ^3.7.2
   flutter_native_splash: ^2.4.7
-  xterm: ^4.0.0
-dev_dependencies:
+  xterm:
+    git:
+      url: git@github.com:hommes-doutant/xterm.dart.git
+ dev_dependencies:
   flutter_test:
     sdk: flutter
 
