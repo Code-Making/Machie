@@ -1,8 +1,14 @@
 // FILE: lib/editor/plugins/termux_terminal/termux_terminal_plugin.dart
+// (Additions to the file from the previous phases)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Add these imports for the app command
+import '../../../app/app_notifier.dart';
+import '../../../command/command_models.dart';
+import '../../../project/project_models.dart'; // For VirtualDocumentFile
 
 import '../../models/editor_plugin_models.dart';
 import '../../models/editor_tab_models.dart';
@@ -13,32 +19,22 @@ import '../../../data/dto/tab_hot_state_dto.dart';
 import 'termux_terminal_models.dart';
 import 'termux_hot_state.dart';
 import 'termux_hot_state_adapter.dart';
-
 import 'widgets/termux_terminal_widget.dart';
 import 'widgets/termux_toolbar.dart';
 import 'widgets/termux_settings_widget.dart';
-import '../../../command/command_notifier.dart';
-import '../../../command/command_widgets.dart';
-import '../../../command/command_models.dart';
+
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
   static const String hotStateId = 'com.machine.termux_terminal_state';
 
-  // Define a unique position for the terminal's toolbar
   static const CommandPosition termuxToolbar = CommandPosition(
     id: 'com.machine.termux_terminal.toolbar',
     label: 'Termux Toolbar',
     icon: Icons.build_circle_outlined,
   );
 
-
-  @override
-  List<CommandPosition> getCommandPositions() {
-    return [termuxToolbar];
-  }
-
-
+  // ... (id, name, icon, and other properties remain the same) ...
   @override
   String get id => pluginId;
 
@@ -55,7 +51,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   final PluginSettings settings = TermuxTerminalSettings();
 
   @override
-  PluginDataRequirement get dataRequirement => PluginDataRequirement.string;
+  PluginDataRequirement get dataRequirement => PluginDataRequirement.none;
 
   @override
   String? get hotStateDtoType => hotStateId;
@@ -67,8 +63,51 @@ class TermuxTerminalPlugin extends EditorPlugin {
   TypeAdapter<TabHotStateDto>? get hotStateAdapter => TermuxHotStateAdapter();
 
   @override
+  List<CommandPosition> getCommandPositions() {
+    return [termuxToolbar];
+  }
+
+  // --- ADD THIS METHOD ---
+  @override
+  List<Command> getAppCommands() {
+    return [
+      BaseCommand(
+        id: 'open_termux_terminal',
+        label: 'New Terminal',
+        icon: const Icon(Icons.terminal),
+        sourcePlugin: id,
+        defaultPositions: [AppCommandPositions.appBar],
+        canExecute: (ref) {
+          // A terminal can only be opened if a project is active,
+          // as it needs a working directory context.
+          final project = ref.watch(appNotifierProvider).value?.currentProject;
+          return project != null;
+        },
+        execute: (ref) async {
+          final notifier = ref.read(appNotifierProvider.notifier);
+          
+          // Create a virtual file to represent this terminal session.
+          // This allows it to be treated like any other tab in the editor.
+          final terminalFile = VirtualDocumentFile(
+            uri: 'termux-session://${DateTime.now().millisecondsSinceEpoch}',
+            name: 'Termux Session',
+          );
+
+          // Open the virtual file, explicitly telling the editor service
+          // to use this plugin.
+          await notifier.openFileInEditor(
+            terminalFile,
+            explicitPlugin: this,
+          );
+        },
+      ),
+    ];
+  }
+  // --- END OF ADDED METHOD ---
+
+
+  @override
   bool supportsFile(DocumentFile file) {
-    // Supports specific ".termux" files or virtual files for sessions
     return file.name.endsWith('.termux') || file.name == 'Termux Session';
   }
 
@@ -82,7 +121,6 @@ class TermuxTerminalPlugin extends EditorPlugin {
     String workingDir = '/data/data/com.termux/files/home';
     String? history;
 
-    // Restore state if available
     if (initData.hotState is TermuxHotStateDto) {
       final state = initData.hotState as TermuxHotStateDto;
       workingDir = state.workingDirectory;
@@ -100,23 +138,17 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
   @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
-    // Return the actual TermuxTerminalWidget now
     return TermuxTerminalWidget(
-      key: (tab as TermuxTerminalTab).editorKey,
-      tab: tab,
+      key: (tab as TermuxTerminalTab).editorKey, 
+      tab: tab
     );
   }
 
-  // ADD the buildToolbar method
   @override
   Widget buildToolbar(WidgetRef ref) {
-    // Return the custom toolbar for this plugin
     return const TermuxTerminalToolbar();
   }
   
-  // REPLACE the buildSettingsUI method with the actual settings widget
-
-
   @override
   Widget buildSettingsUI(
     PluginSettings settings,
