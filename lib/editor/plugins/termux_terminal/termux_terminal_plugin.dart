@@ -137,6 +137,18 @@ class TermuxTerminalPlugin extends EditorPlugin {
   }
 
   @override
+  void disposeTab(EditorTab tab) {
+    // This is a bit of a hack to get access to a Ref.
+    // A better long-term solution might involve passing the container
+    // or a callback to the plugin manager.
+    final container = ProviderScope.containerOf(
+      ref.read(navigatorKeyProvider).currentContext!,
+    );
+    // Invalidate the provider associated with this specific tab ID
+    container.invalidate(termuxBridgeServiceProvider(tab.id));
+  }
+
+  @override
   EditorWidget buildEditor(EditorTab tab, WidgetRef ref) {
     return TermuxTerminalWidget(
       key: (tab as TermuxTerminalTab).editorKey, 
