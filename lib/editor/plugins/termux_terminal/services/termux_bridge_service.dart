@@ -11,15 +11,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../logs/logs_provider.dart';
 
+// Change: Convert to a family provider, keyed by a String (the tab ID).
 final termuxBridgeServiceProvider =
-    Provider.autoDispose<TermuxBridgeService>((ref) {
-  final service = TermuxBridgeService(ref.read(talkerProvider));
+    Provider.autoDispose.family<TermuxBridgeService, String>((ref, tabId) {
+  // Change: Add keepAlive to prevent premature disposal.
+  final keepAlive = ref.keepAlive();
+  final service = TermuxBridgeService(ref.read(talkerProvider), keepAlive);
   ref.onDispose(() => service.dispose());
   return service;
 });
 
 class TermuxBridgeService {
   final Talker _talker;
+  // Change: Add keepAlive link.
+  final KeepAliveLink _keepAlive;
   ServerSocket? _serverSocket;
   final StreamController<String> _outputController =
       StreamController.broadcast();
@@ -30,7 +35,8 @@ class TermuxBridgeService {
 
   bool get isListening => _serverSocket != null;
 
-  TermuxBridgeService(this._talker);
+  // Change: Update constructor to accept the KeepAliveLink.
+  TermuxBridgeService(this._talker, this._keepAlive);
 
   Future<void> initialize() async {
     if (_serverSocket != null) return;
@@ -149,6 +155,7 @@ class TermuxBridgeService {
 
   Future<void> dispose() async {
     _talker.info('[TermuxBridge] Disposing service and closing server socket.');
+    _keepAlive.close(); // Change: Close the keepAlive link.
     await _serverSocket?.close();
     await _outputController.close();
     _serverSocket = null;
