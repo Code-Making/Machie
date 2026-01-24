@@ -174,7 +174,7 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       _terminal,
       theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : lightTheme,
       // FIX: Use `TerminalStyle` instead of Flutter's `TextStyle`.
-      style: TerminalStyle(
+      textStyle: TerminalStyle(
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
       ),
