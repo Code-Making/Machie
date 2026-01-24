@@ -75,7 +75,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         id: 'open_termux_terminal',
         label: 'New Terminal',
         icon: const Icon(Icons.terminal),
-        sourcePlugin: id,
+          sourcePlugin: 'App',
         defaultPositions: [AppCommandPositions.appBar],
         canExecute: (ref) {
           // A terminal can only be opened if a project is active,
