@@ -33,6 +33,10 @@ const _lightTheme = TerminalTheme(
   brightMagenta: Color(0xffd670d6),
   brightCyan: Color(0xff29b8db),
   brightWhite: Color(0xffe5e5e5),
+  // Added required search parameters
+  searchHitBackground: Color(0x40e5e510),
+  searchHitBackgroundCurrent: Color(0xffe5e510),
+  searchHitForeground: Colors.black,
 );
 
 class TermuxTerminalWidget extends EditorWidget {
@@ -40,7 +44,7 @@ class TermuxTerminalWidget extends EditorWidget {
   final TermuxTerminalTab tab;
 
   const TermuxTerminalWidget({
-    required GlobalKey<TermuxTerminalWidgetApi> key, // Updated key type
+    required GlobalKey<TermuxTerminalWidgetApi> key,
     required this.tab,
   }) : super(key: key, tab: tab);
 
@@ -56,23 +60,20 @@ class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
 
   @override
   void init() {
-    // onOutput is now a property of the Terminal object itself
     _terminal = Terminal(
       maxLines: 10000,
       onOutput: (data) {
-        // This is where user input from the terminal is captured.
         sendRawInput(data);
       },
     );
-    // Asynchronously initialize the bridge and start the terminal session.
     _initTerminalSession();
   }
 
   @override
   void onFirstFrameReady() {
-     if (!widget.tab.onReady.isCompleted) {
-        widget.tab.onReady.complete(this);
-      }
+    if (!widget.tab.onReady.isCompleted) {
+      widget.tab.onReady.complete(this);
+    }
   }
 
   Future<void> _initTerminalSession() async {
@@ -88,9 +89,10 @@ class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
       },
     );
 
-    final settings = ref.read(effectiveSettingsProvider)
+    final settings = ref
+        .read(effectiveSettingsProvider)
         .pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings?;
-    
+
     await _bridgeService.executeCommand(
       command: settings?.shellCommand ?? 'bash',
       workingDirectory: widget.tab.initialWorkingDirectory,
@@ -101,34 +103,37 @@ class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
   @override
   void dispose() {
     _outputSubscription?.cancel();
-    _terminal.dispose(); // Terminal object must be disposed
+    // _terminal.dispose() is not available in some versions of xterm.dart;
+    // The Terminal instance will be garbage collected with the widget.
     super.dispose();
   }
 
   @override
   void sendRawInput(String data) {
     ref.read(talkerProvider).warning(
-      '[TermuxTerminal] sendRawInput called, but two-way communication is not yet implemented in the bridge.',
-    );
-    // TODO: Implement a mechanism in TermuxBridgeService to send data back to the active shell process.
+          '[TermuxTerminal] sendRawInput called, but two-way communication is not yet implemented in the bridge.',
+        );
+    // TODO: Implement mechanism to send input to Termux
   }
 
   @override
   Widget build(BuildContext context) {
+    // Keep provider alive
     ref.watch(termuxBridgeServiceProvider);
 
     final settings = ref.watch(
       effectiveSettingsProvider.select(
-        (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
+        (s) =>
+            s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
       ),
     );
 
     return TerminalView(
-      _terminal, // Pass the terminal object directly
+      _terminal,
       autofocus: true,
       backgroundOpacity: 1.0,
       theme: settings.useDarkTheme ? TerminalThemes.defaultTheme : _lightTheme,
-      textStyle: TextStyle( // Use standard TextStyle
+      textStyle: TerminalStyle(
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
       ),
@@ -136,7 +141,8 @@ class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
   }
 
   @override
-  Future<EditorContent> getContent() async => EditorContentString(_terminal.buffer.toString());
+  Future<EditorContent> getContent() async =>
+      EditorContentString(_terminal.buffer.toString());
 
   @override
   void onSaveSuccess(String newHash) {}
@@ -156,6 +162,7 @@ class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget>
   void undo() {}
 }
 
-abstract class TermuxTerminalWidgetApi extends EditorWidgetState<TermuxTerminalWidget> {
+abstract class TermuxTerminalWidgetApi
+    extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
 }
