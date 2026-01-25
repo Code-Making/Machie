@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/services.dart'; // Add this import
 
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
@@ -17,6 +18,7 @@ final termuxBridgeServiceProvider = Provider.autoDispose<TermuxBridgeService>((r
 
 class TermuxBridgeService {
   final Talker _talker;
+  static const _channel = MethodChannel('com.machine/termux_service');
   ServerSocket? _serverSocket;
   Socket? _clientSocket;
   
