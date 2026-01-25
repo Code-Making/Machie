@@ -175,7 +175,7 @@ commandIds: ObjectTool.values
   }
 
   @override
-  List<Command> getCommands(){
+  List<Command> getCommands(Ref ref){
     const objectToolIcons = {
       ObjectTool.select: Icons.touch_app_outlined,
       ObjectTool.move: Icons.open_with_outlined,

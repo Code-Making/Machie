@@ -126,7 +126,7 @@ class RecipeTexPlugin extends EditorPlugin {
   List<Command> getAppCommands() => [];
 
   @override
-  List<Command> getCommands() => [
+  List<Command> getCommands(Ref ref) => [
     BaseCommand(
       id: 'save',
       label: 'Save Recipe',

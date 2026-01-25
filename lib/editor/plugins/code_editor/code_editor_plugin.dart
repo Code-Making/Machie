@@ -405,7 +405,7 @@ class CodeEditorPlugin extends EditorPlugin with TextEditablePlugin {
   // editor's State object and call public methods on it. The canExecute
   // logic correctly watches the tabMetadataProvider for changes in dirty status.
   @override
-  List<Command> getCommands() => [
+  List<Command> getCommands(Ref ref) => [
     BaseCommand(
       id: 'save',
       label: 'Save',

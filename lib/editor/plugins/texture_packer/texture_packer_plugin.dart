@@ -124,7 +124,7 @@ class TexturePackerPlugin extends EditorPlugin {
   ];
 
   @override
-  List<Command> getCommands() {
+  List<Command> getCommands(Ref ref) {
     return [
       BaseCommand(
         id: 'packer_save',
