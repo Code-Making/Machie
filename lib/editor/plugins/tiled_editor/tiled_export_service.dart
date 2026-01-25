@@ -751,37 +751,37 @@ class TiledExportService {
     return assets;
   }
 
-  String? _findNodeNameInTree(PackerItemNode node, String id) {
-    if (node.id == id) return node.name;
-    for (final child in node.children) {
-      final name = _findNodeNameInTree(child, id);
-      if (name != null) return name;
-    }
-    return null;
-  }
+  // String? _findNodeNameInTree(PackerItemNode node, String id) {
+  //   if (node.id == id) return node.name;
+  //   for (final child in node.children) {
+  //     final name = _findNodeNameInTree(child, id);
+  //     if (name != null) return name;
+  //   }
+  //   return null;
+  // }
 
-  SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
-    if (node.id == id && node.type == SourceNodeType.image) return node.content;
-    for (final child in node.children) {
-      final res = _findSourceConfig(child, id);
-      if (res != null) return res;
-    }
-    return null;
-  }
+  // SourceImageConfig? _findSourceConfig(SourceImageNode node, String id) {
+  //   if (node.id == id && node.type == SourceNodeType.image) return node.content;
+  //   for (final child in node.children) {
+  //     final res = _findSourceConfig(child, id);
+  //     if (res != null) return res;
+  //   }
+  //   return null;
+  // }
 
-  ui.Rect _calculatePixelRect(SourceImageConfig config, GridRect grid) {
-    final s = config.slicing;
-    final left = s.margin + grid.x * (s.tileWidth + s.padding);
-    final top = s.margin + grid.y * (s.tileHeight + s.padding);
-    final width = grid.width * s.tileWidth + (grid.width - 1) * s.padding;
-    final height = grid.height * s.tileHeight + (grid.height - 1) * s.padding;
-    return ui.Rect.fromLTWH(
-      left.toDouble(),
-      top.toDouble(),
-      width.toDouble(),
-      height.toDouble(),
-    );
-  }
+  // ui.Rect _calculatePixelRect(SourceImageConfig config, GridRect grid) {
+  //   final s = config.slicing;
+  //   final left = s.margin + grid.x * (s.tileWidth + s.padding);
+  //   final top = s.margin + grid.y * (s.tileHeight + s.padding);
+  //   final width = grid.width * s.tileWidth + (grid.width - 1) * s.padding;
+  //   final height = grid.height * s.tileHeight + (grid.height - 1) * s.padding;
+  //   return ui.Rect.fromLTWH(
+  //     left.toDouble(),
+  //     top.toDouble(),
+  //     width.toDouble(),
+  //     height.toDouble(),
+  //   );
+  // }
 
   Future<_UnifiedPackResult> _packUnifiedAtlasGrid(
     Set<_UnifiedAssetSource> assets,
@@ -1048,45 +1048,45 @@ class TiledExportService {
     }
   }
 
-  String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
-    final frames = <String, dynamic>{};
-    final sortedKeys = result.packedRects.keys.toList()..sort();
+  // String _generatePixiJson(_UnifiedPackResult result, String atlasName) {
+  //   final frames = <String, dynamic>{};
+  //   final sortedKeys = result.packedRects.keys.toList()..sort();
 
-    for (final uniqueId in sortedKeys) {
-      final rect = result.packedRects[uniqueId]!;
-      frames[uniqueId] = {
-        "frame": {
-          "x": rect.left.toInt(),
-          "y": rect.top.toInt(),
-          "w": rect.width.toInt(),
-          "h": rect.height.toInt(),
-        },
-        "rotated": false,
-        "trimmed": false,
-        "spriteSourceSize": {
-          "x": 0,
-          "y": 0,
-          "w": rect.width.toInt(),
-          "h": rect.height.toInt(),
-        },
-        "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
-        "anchor": {"x": 0.5, "y": 0.5},
-      };
-    }
+  //   for (final uniqueId in sortedKeys) {
+  //     final rect = result.packedRects[uniqueId]!;
+  //     frames[uniqueId] = {
+  //       "frame": {
+  //         "x": rect.left.toInt(),
+  //         "y": rect.top.toInt(),
+  //         "w": rect.width.toInt(),
+  //         "h": rect.height.toInt(),
+  //       },
+  //       "rotated": false,
+  //       "trimmed": false,
+  //       "spriteSourceSize": {
+  //         "x": 0,
+  //         "y": 0,
+  //         "w": rect.width.toInt(),
+  //         "h": rect.height.toInt(),
+  //       },
+  //       "sourceSize": {"w": rect.width.toInt(), "h": rect.height.toInt()},
+  //       "anchor": {"x": 0.5, "y": 0.5},
+  //     };
+  //   }
 
-    final jsonOutput = {
-      "frames": frames,
-      "meta": {
-        "app": "Machine Editor - Unified Export",
-        "version": "1.0",
-        "image": "$atlasName.png",
-        "format": "RGBA8888",
-        "size": {"w": result.atlasWidth, "h": result.atlasHeight},
-        "scale": "1",
-      },
-    };
-    return const JsonEncoder.withIndent('  ').convert(jsonOutput);
-  }
+  //   final jsonOutput = {
+  //     "frames": frames,
+  //     "meta": {
+  //       "app": "Machine Editor - Unified Export",
+  //       "version": "1.0",
+  //       "image": "$atlasName.png",
+  //       "format": "RGBA8888",
+  //       "size": {"w": result.atlasWidth, "h": result.atlasHeight},
+  //       "scale": "1",
+  //     },
+  //   };
+  //   return const JsonEncoder.withIndent('  ').convert(jsonOutput);
+  // }
 
   Future<void> _processTexturePackerDependencies(
     TiledMap map,
@@ -1292,14 +1292,14 @@ class TiledExportService {
     });
   }
 
-  PackerItemNode? _findNodeInTree(PackerItemNode node, String id) {
-    if (node.id == id) return node;
-    for (final child in node.children) {
-      final found = _findNodeInTree(child, id);
-      if (found != null) return found;
-    }
-    return null;
-  }
+  // PackerItemNode? _findNodeInTree(PackerItemNode node, String id) {
+  //   if (node.id == id) return node;
+  //   for (final child in node.children) {
+  //     final found = _findNodeInTree(child, id);
+  //     if (found != null) return found;
+  //   }
+  //   return null;
+  // }
 
   Future<void> _processFlowGraphDependencies(
     TiledMap mapToExport,

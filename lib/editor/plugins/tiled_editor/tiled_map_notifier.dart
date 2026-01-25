@@ -10,17 +10,17 @@ abstract class _HistoryAction {
   void redo(TiledMap map);
 }
 
-class _WrapperAction implements _HistoryAction {
-  final VoidCallback onUndo;
-  final VoidCallback onRedo;
-  _WrapperAction({required this.onUndo, required this.onRedo});
+// class _WrapperAction implements _HistoryAction {
+//   final VoidCallback onUndo;
+//   final VoidCallback onRedo;
+//   _WrapperAction({required this.onUndo, required this.onRedo});
 
-  @override
-  void undo(TiledMap map) => onUndo();
+//   @override
+//   void undo(TiledMap map) => onUndo();
 
-  @override
-  void redo(TiledMap map) => onRedo();
-}
+//   @override
+//   void redo(TiledMap map) => onRedo();
+// }
 
 class _ObjectReorderHistoryAction implements _HistoryAction {
   final int layerId;
@@ -52,37 +52,37 @@ class _ObjectReorderHistoryAction implements _HistoryAction {
   }
 }
 
-class _TileSelectionHistoryAction implements _HistoryAction {
-  final int layerId;
-  final List<List<Gid>> beforeData;
-  final List<List<Gid>> afterData;
-  final Rect selectionRect;
+// class _TileSelectionHistoryAction implements _HistoryAction {
+//   final int layerId;
+//   final List<List<Gid>> beforeData;
+//   final List<List<Gid>> afterData;
+//   final Rect selectionRect;
 
-  _TileSelectionHistoryAction({
-    required this.layerId,
-    required this.beforeData,
-    required this.afterData,
-    required this.selectionRect,
-  });
+//   _TileSelectionHistoryAction({
+//     required this.layerId,
+//     required this.beforeData,
+//     required this.afterData,
+//     required this.selectionRect,
+//   });
 
-  @override
-  void undo(TiledMap map) {
-    _applyState(map, beforeData);
-  }
+//   @override
+//   void undo(TiledMap map) {
+//     _applyState(map, beforeData);
+//   }
 
-  @override
-  void redo(TiledMap map) {
-    _applyState(map, afterData);
-  }
+//   @override
+//   void redo(TiledMap map) {
+//     _applyState(map, afterData);
+//   }
 
-  void _applyState(TiledMap map, List<List<Gid>> data) {
-    final layer =
-        map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
-    if (layer != null) {
-      layer.tileData = data.map((row) => List<Gid>.from(row)).toList();
-    }
-  }
-}
+//   void _applyState(TiledMap map, List<List<Gid>> data) {
+//     final layer =
+//         map.layers.firstWhereOrNull((l) => l.id == layerId) as TileLayer?;
+//     if (layer != null) {
+//       layer.tileData = data.map((row) => List<Gid>.from(row)).toList();
+//     }
+//   }
+// }
 
 class _BulkTilesetRemovalHistoryAction implements _HistoryAction {
   final List<Tileset> removedTilesets;
@@ -907,8 +907,6 @@ class TiledMapNotifier extends ChangeNotifier {
         break;
       case LayerType.group:
         newLayer = Group(id: newLayerId, name: name, layers: []);
-        break;
-      default:
         break;
     }
 
