@@ -421,16 +421,16 @@ class _SourceDropPainter extends CustomPainter {
           ..style = PaintingStyle.stroke;
     if (position == _SourceDropPos.above) {
       canvas.drawLine(Offset(0, 1), Offset(size.width, 1), p);
-    } else if (position == _SourceDropPos.below)
+    } else if (position == _SourceDropPos.below){
       canvas.drawLine(
         Offset(0, size.height - 1),
         Offset(size.width, size.height - 1),
         p,
       );
-    else
+   } else{
       canvas.drawRect(Rect.fromLTWH(1, 1, size.width - 2, size.height - 2), p);
+    }
   }
-
   @override
   bool shouldRepaint(_SourceDropPainter old) =>
       old.position != position || old.color != color;
