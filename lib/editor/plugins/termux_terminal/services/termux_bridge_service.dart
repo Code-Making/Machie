@@ -108,46 +108,28 @@ class TermuxBridgeService {
   }) async {
     final port = await initialize();
 
-    // The Magic Command:
-    // 1. We use 'bash -c' to run the command string.
-    // 2. We use 'socat' to bridge a PTY (Pseudo-Terminal) to our TCP port.
-    //    EXEC:'...' runs the shell inside the PTY.
-    //    pty,stderr,setsid,sigint,sane configures the PTY for interactive usage.
-    //    TCP:127.0.0.1:$port connects back to this Flutter app.
+    // The socat command to bridge PTY to TCP
     final bridgeCommand = 
         "socat EXEC:'$shell -li',pty,stderr,setsid,sigint,sane TCP:127.0.0.1:$port";
 
-    _talker.info('[TermuxBridge] Launching intent with payload: $bridgeCommand');
-
-    const String runCommandAction = 'com.termux.RUN_COMMAND';
-    const String extraPath = 'com.termux.RUN_COMMAND_PATH';
-    const String extraArguments = 'com.termux.RUN_COMMAND_ARGUMENTS';
-    const String extraWorkDir = 'com.termux.RUN_COMMAND_WORKDIR';
-    const String extraBackground = 'com.termux.RUN_COMMAND_BACKGROUND';
-    const String extraSessionAction = 'com.termux.RUN_COMMAND_SESSION_ACTION';
-
-    final intent = AndroidIntent(
-      action: runCommandAction,
-      package: 'com.termux',
-      arguments: <String, dynamic>{
-        // We actually execute bash, which executes socat, which executes bash.
-        // This ensures the PATH is correct for finding socat.
-        extraPath: '/data/data/com.termux/files/usr/bin/bash', 
-        extraArguments: <String>['-c', bridgeCommand],
-        extraWorkDir: workingDirectory,
-        extraBackground: true, // Run in background service, don't open Termux UI
-        extraSessionAction: '0', // 0 = ONLY_BACKGROUND
-      },
-      flags: <int>[Flag.FLAG_INCLUDE_STOPPED_PACKAGES],
-    );
+    _talker.info('[TermuxBridge] Calling MethodChannel with port: $port');
 
     try {
-      await intent.launch();
-      _addToOutput('\x1b[32m[Initializing Termux Bridge...]\x1b[0m\r\n');
-    } catch (e, st) {
-      _talker.handle(e, st, '[TermuxBridge] Intent launch failed');
-      _addToOutput('\r\n\x1b[31m[Error launching Termux Intent]\x1b[0m\r\n'
-          'Ensure Termux is installed and "allow-external-apps=true" is set in ~/.termux/termux.properties\r\n');
+      final bool success = await _channel.invokeMethod('startTermuxService', {
+        'path': '/data/data/com.termux/files/usr/bin/bash',
+        'arguments': ['-c', bridgeCommand],
+        'workdir': workingDirectory,
+        'background': true,
+        'sessionAction': '0',
+      });
+
+      if (success) {
+        _addToOutput('\x1b[32m[MethodChannel] Service intent sent...\x1b[0m\r\n');
+      }
+    } on PlatformException catch (e, st) {
+      _talker.handle(e, st, '[TermuxBridge] MethodChannel Failed');
+      _addToOutput('\r\n\x1b[31m[Error] ${e.message}\x1b[0m\r\n');
+      _addToOutput('Check if Termux is installed and has "Run Command" permission.\r\n');
     }
   }
 
