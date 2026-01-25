@@ -17,6 +17,7 @@ import '../../../../project/project_settings_notifier.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
+import '../../../../command/command_notifier.dart';
 // Abstract state for type safety, matching the forward declaration in models.
 abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
