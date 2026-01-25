@@ -357,7 +357,7 @@ class TiledMapPainter extends CustomPainter {
         final tileset = map.tilesetByTileGId(gid.tile);
         final imageSource = tile.image?.source ?? tileset.image?.source;
         if (imageSource == null) continue;
-        final image = resolver.getImage(imageSource, tileset: tileset);
+        final Image? image = resolver.getImage(imageSource, tileset: tileset);
 
         final srcRect = tileset.computeDrawRect(tile);
         final source = Rect.fromLTWH(
