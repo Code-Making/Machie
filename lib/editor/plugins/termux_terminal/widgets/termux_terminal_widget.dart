@@ -59,7 +59,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   void init() {
-    super.init();
     
     // Initialize our custom handler
     _inputHandler = TermuxInputHandler();
