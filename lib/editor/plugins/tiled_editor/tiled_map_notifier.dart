@@ -910,12 +910,10 @@ class TiledMapNotifier extends ChangeNotifier {
         break;
     }
 
-    if (newLayer != null) {
       _map.layers.add(newLayer);
       _pushHistory(
         _LayerAddHistoryAction(layer: newLayer, index: _map.layers.length - 1),
       );
-    }
     notifyListeners();
   }
 
