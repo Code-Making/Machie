@@ -215,7 +215,7 @@ class _SourceItemRowState extends ConsumerState<_SourceItemRow> {
       padding: EdgeInsets.only(left: widget.flatNode.depth * 16.0 + 8.0),
       color:
           isSelected
-              ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
               : null,
       child: Row(
         children: [
@@ -396,7 +396,7 @@ class _SourceRootDropZoneState extends State<_SourceRootDropZone> {
             height: 80,
             color:
                 _hover
-                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                     : Colors.transparent,
             alignment: Alignment.center,
             child: _hover ? const Text("Move to Root") : null,

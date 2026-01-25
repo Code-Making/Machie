@@ -272,7 +272,7 @@ class _HierarchyRowState extends State<_HierarchyRow> {
       padding: EdgeInsets.only(left: widget.node.depth * 16.0 + 4.0),
       color:
           isSelected
-              ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
               : null,
       child: Row(
         children: [

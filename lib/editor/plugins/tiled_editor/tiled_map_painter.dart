@@ -205,7 +205,7 @@ class TiledMapPainter extends CustomPainter {
     if (selectedObjects.isNotEmpty) {
       final paint =
           Paint()
-            ..color = Colors.blue.withOpacity(0.3)
+            ..color = Colors.blue.withValues(alpha: 0.3)
             ..style = PaintingStyle.fill;
       final strokePaint =
           Paint()
@@ -223,11 +223,11 @@ class TiledMapPainter extends CustomPainter {
     if (marqueeSelection != null) {
       final paint =
           Paint()
-            ..color = Colors.blue.withOpacity(0.2)
+            ..color = Colors.blue.withValues(alpha: 0.2)
             ..style = PaintingStyle.fill;
       final strokePaint =
           Paint()
-            ..color = Colors.blue.withOpacity(0.8)
+            ..color = Colors.blue.withValues(alpha: 0.8)
             ..strokeWidth = 1.0
             ..style = PaintingStyle.stroke;
       canvas.drawRect(marqueeSelection!, paint);
@@ -251,7 +251,7 @@ class TiledMapPainter extends CustomPainter {
     if (previewShape != null) {
       final paint =
           Paint()
-            ..color = Colors.amber.withOpacity(0.5)
+            ..color = Colors.amber.withValues(alpha: 0.5)
             ..style = PaintingStyle.fill;
       canvas.drawRect(previewShape!, paint);
     }
@@ -557,8 +557,8 @@ class TiledMapPainter extends CustomPainter {
           Paint()
             ..color =
                 isForTile
-                    ? Colors.lightGreen.withOpacity(0.5)
-                    : objColor.withOpacity(0.5)
+                    ? Colors.lightGreen.withValues(alpha: 0.5)
+                    : objColor.withValues(alpha: 0.5)
             ..style = PaintingStyle.fill;
 
       final strokePaint =
@@ -817,7 +817,7 @@ class TiledMapPainter extends CustomPainter {
     Rect destinationRect,
     String path,
   ) {
-    final paint = Paint()..color = Colors.pink.withOpacity(0.8);
+    final paint = Paint()..color = Colors.pink.withValues(alpha: 0.8);
     canvas.drawRect(destinationRect, paint);
 
     final errorPaint = Paint()..color = Colors.white;

@@ -269,7 +269,7 @@ class SchemaNodeWidget extends StatelessWidget {
         alignment: Alignment.center,
         color:
             Colors
-                .transparent, // Debug: Set to Colors.blue.withOpacity(0.2) to see hit area
+                .transparent, // Debug: Set to Colors.blue.withValues(alpha: 0.2) to see hit area
         child: Container(
           width: 12,
           height: 12,
@@ -319,7 +319,7 @@ class SchemaNodeWidget extends StatelessWidget {
                     isHovering
                         ? [
                           BoxShadow(
-                            color: color.withOpacity(0.8),
+                            color: color.withValues(alpha: 0.8),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),

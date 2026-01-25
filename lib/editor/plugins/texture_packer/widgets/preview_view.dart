@@ -412,7 +412,7 @@ class _PreviewViewState extends ConsumerState<PreviewView>
                   final size = _getSpriteSize(spriteDef);
                   return Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                     ),
                     child: _buildSpritePreview(spriteDef, resolver, size),
                   );

@@ -233,7 +233,7 @@ class _HierarchyItemRowState extends ConsumerState<_HierarchyItemRow> {
       padding: EdgeInsets.only(left: widget.flatNode.depth * 16.0 + 8.0),
       color:
           isSelected
-              ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
               : null,
       child: Row(
         children: [
@@ -463,7 +463,7 @@ class _HierarchyRootDropZoneState extends State<_HierarchyRootDropZone> {
           height: 100, // Large hit area at bottom
           color:
               _isHovered
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                   : Colors.transparent,
           alignment: Alignment.center,
           child:

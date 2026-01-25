@@ -152,12 +152,12 @@ class _SlicingPainter extends CustomPainter {
     _drawGrid(canvas, size);
 
     if (activeSelection != null) {
-      final paint = Paint()..color = Colors.green.withOpacity(0.5);
+      final paint = Paint()..color = Colors.green.withValues(alpha: 0.5);
       _drawHighlight(canvas, activeSelection!, paint);
     }
 
     if (dragSelection != null) {
-      final paint = Paint()..color = Colors.blue.withOpacity(0.5);
+      final paint = Paint()..color = Colors.blue.withValues(alpha: 0.5);
       _drawHighlight(canvas, dragSelection!, paint);
     }
   }
@@ -168,7 +168,7 @@ class _SlicingPainter extends CustomPainter {
 
     final stroke =
         Paint()
-          ..color = paint.color.withOpacity(1.0)
+          ..color = paint.color.withValues(alpha: 1.0)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0;
     canvas.drawRect(pixelRect, stroke);

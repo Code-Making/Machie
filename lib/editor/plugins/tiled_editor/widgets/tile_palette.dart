@@ -365,7 +365,7 @@ class _TilesetPainter extends CustomPainter {
     if (tileWidth == 0 || tileHeight == 0) return;
     final gridPaint =
         Paint()
-          ..color = Colors.white.withOpacity(0.3)
+          ..color = Colors.white.withValues(alpha: 0.3)
           ..strokeWidth = 0.5;
     for (double x = 0; x <= size.width; x += tileWidth) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
@@ -376,7 +376,7 @@ class _TilesetPainter extends CustomPainter {
     if (selection != null) {
       final selectionPaint =
           Paint()
-            ..color = Colors.blue.withOpacity(0.5)
+            ..color = Colors.blue.withValues(alpha: 0.5)
             ..style = PaintingStyle.fill;
       final pixelRect = Rect.fromLTWH(
         selection!.left * tileWidth,
