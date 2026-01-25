@@ -205,6 +205,7 @@ class EditorService {
 
     try {
       final editorContent = await editorState.getContent();
+      if (context == null || !context.mounted) return;
       final result = await showDialog<SaveAsDialogResult>(
         context: context,
         builder: (_) => SaveAsDialog(initialFileName: metadata.file.name),
@@ -286,7 +287,7 @@ class EditorService {
       // File exists, open it directly.
       return await appNotifier.openFileInEditor(file);
     } else {
-              if (context == null || !context.mounted) {
+              if (!context.mounted) {
                 return false;
               }
       // File does not exist, ask to create it.
