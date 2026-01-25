@@ -72,10 +72,8 @@ class UnimplementedFileHandler implements FileHandler {
   @override
   String resolveRelativePath(String basePath, String relativePath) => '';
 
-  @override
   String makePathRelative(String basePath, String targetPath) => '';
 
-  @override
   String getDirectoryName(String path) => '';
 }
 
