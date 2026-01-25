@@ -611,31 +611,31 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         if (originalText.length == 7 || originalText.length == 4) {
           // #RRGGBB or #RGB
           newColorString =
-              '#${(result.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+              '#${(result.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
         } else {
           // #AARRGGBB or #RGBA
           newColorString =
-              '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+              '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
         }
       } else if (originalText.startsWith('Color.fromARGB')) {
         newColorString =
-            'Color.fromARGB(${result.alpha}, ${result.red}, ${result.green}, ${result.blue})';
+            'Color.fromARGB(${result.a}, ${result.r}, ${result.g, ${result.b})';
       } else if (originalText.startsWith('Color.fromRGBO')) {
         // Convert alpha to opacity. Format to avoid excessive decimals.
-        String opacity = (result.alpha / 255.0).toStringAsPrecision(2);
+        String opacity = (result.a / 255.0).toStringAsPrecision(2);
         if (opacity.endsWith('.0')) {
           opacity = opacity.substring(0, opacity.length - 2);
         }
         newColorString =
-            'Color.fromRGBO(${result.red}, ${result.green}, ${result.blue}, $opacity)';
+            'Color.fromRGBO(${result.r}, ${result.g}, ${result.b}, $opacity)';
       } else if (originalText.startsWith('Color(')) {
         // Canonical Dart format with an ARGB hex value.
         newColorString =
-            'Color(0x${result.value.toRadixString(16).toUpperCase()})';
+            'Color(0x${result.toARGB32().toRadixString(16).toUpperCase()})';
       } else {
         // Fallback, should not be reached.
         newColorString =
-            '#${result.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+            '#${result.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
       }
       // --- FIX END ---
 
