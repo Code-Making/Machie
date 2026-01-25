@@ -16,6 +16,7 @@ import 'termux_hot_state.dart';
 import 'termux_hot_state_adapter.dart';
 import 'widgets/termux_terminal_widget.dart';
 import 'widgets/termux_settings_widget.dart';
+import '../../../command/command_widgets.dart';
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
