@@ -10,6 +10,7 @@ import '../../../../logs/logs_provider.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
+import '../../../../project/project_settings_notifier.dart';
 
 // Input Handler (Placeholder for Phase 3)
 class TermuxInputHandler implements TerminalInputHandler {
@@ -91,7 +92,7 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   /// 2. Converts Project SAF URI to FS Path.
   /// 3. Checks if that path is accessible by Termux.
   Future<void> _resolveAndStartSession() async {
-    final settings = ref.read(settingsProvider.select(
+    final settings = ref.read(effectiveSettingsProvider.select(
       (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
     ));
 
@@ -267,7 +268,7 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider.select(
+    final settings = ref.watch(effectiveSettingsProvider.select(
       (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
     ));
 

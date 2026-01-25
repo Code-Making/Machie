@@ -10,21 +10,20 @@ import '../../models/editor_tab_models.dart';
 import '../../../data/file_handler/file_handler.dart';
 import '../../../data/cache/type_adapters.dart';
 import '../../../data/dto/tab_hot_state_dto.dart';
+import '../../../settings/settings_notifier.dart';
 
 import 'termux_terminal_models.dart';
 import 'termux_hot_state.dart';
 import 'termux_hot_state_adapter.dart';
 import 'widgets/termux_terminal_widget.dart';
 import 'widgets/termux_settings_widget.dart';
-import '../../../command/command_widgets.dart';
+import '../../../project/project_settings_notifier.dart';
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
   static const String hotStateId = 'com.machine.termux_terminal_state';
   static const String termuxSessionUri = 'internal://termux.terminal';
 
-  // We reuse the standard plugin toolbar position (bottom bar)
-  // This ID maps to AppCommandPositions.pluginToolbar
   static const CommandPosition termuxToolbar = AppCommandPositions.pluginToolbar;
 
   @override
@@ -39,6 +38,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   @override
   int get priority => 50;
 
+  // IMPORTANT: This is the initial default. Updates flow through the SettingsNotifier.
   @override
   final PluginSettings settings = TermuxTerminalSettings();
 
@@ -56,13 +56,9 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
   @override
   List<CommandPosition> getCommandPositions() {
-    // We don't need to define a *new* position, we just use the app's default pluginToolbar.
     return [AppCommandPositions.pluginToolbar];
   }
 
-  // --- COMMAND IMPLEMENTATION ---
-
-  /// Helper to get the active terminal state
   TermuxTerminalWidgetState? _getActiveTerminalState(WidgetRef ref) {
     final activeTab = ref.read(appNotifierProvider).value?.currentProject?.session.currentTab;
     if (activeTab is TermuxTerminalTab) {
@@ -73,14 +69,16 @@ class TermuxTerminalPlugin extends EditorPlugin {
 
   @override
   List<Command> getCommands() {
+    // NOTE: This runs ONCE at startup. 
+    // Shortcuts added here will appear as buttons.
+    // Changes to the shortcut list require an app restart to appear as *buttons*.
     final termuxSettings = settings as TermuxTerminalSettings;
     
-    // 1. Standard Terminal Keys
     final standardCommands = [
-      BaseCommand(
+       BaseCommand(
         id: 'termux_esc',
         label: 'Esc',
-        icon: const Icon(Icons.keyboard_return), // Visual approx for Esc
+        icon: const Icon(Icons.keyboard_return),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
         execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b'),
@@ -95,7 +93,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
       ),
       BaseCommand(
         id: 'termux_ctrl',
-        label: 'Ctrl (Toggle)',
+        label: 'Ctrl',
         icon: const Icon(Icons.keyboard_control_key),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
@@ -103,13 +101,24 @@ class TermuxTerminalPlugin extends EditorPlugin {
       ),
       BaseCommand(
         id: 'termux_alt',
-        label: 'Alt (Toggle)',
+        label: 'Alt',
         icon: const Icon(Icons.alt_route),
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
         execute: (ref) async => _getActiveTerminalState(ref)?.toggleAlt(),
       ),
       BaseCommand(
+        id: 'termux_arrows',
+        label: 'Arrows',
+        icon: const Icon(Icons.open_with),
+        sourcePlugin: pluginId,
+        defaultPositions: [termuxToolbar],
+        execute: (ref) async {
+           // Small popup for arrows if space is tight, or just individual buttons
+           // Here we implement individual buttons in the list below for simplicity
+        }
+      ),
+       BaseCommand(
         id: 'termux_arrow_up',
         label: 'Up',
         icon: const Icon(Icons.arrow_upward),
@@ -124,6 +133,22 @@ class TermuxTerminalPlugin extends EditorPlugin {
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
         execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[B'),
+      ),
+       BaseCommand(
+        id: 'termux_arrow_left',
+        label: 'Left',
+        icon: const Icon(Icons.arrow_back),
+        sourcePlugin: pluginId,
+        defaultPositions: [termuxToolbar],
+        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[D'),
+      ),
+       BaseCommand(
+        id: 'termux_arrow_right',
+        label: 'Right',
+        icon: const Icon(Icons.arrow_forward),
+        sourcePlugin: pluginId,
+        defaultPositions: [termuxToolbar],
+        execute: (ref) async => _getActiveTerminalState(ref)?.sendRawInput('\x1b[C'),
       ),
       BaseCommand(
         id: 'termux_ctrl_c',
@@ -143,7 +168,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
       ),
     ];
 
-    // 2. Dynamic Commands from Settings
+    // 2. Dynamic Commands (Initial Load)
     final customCommands = termuxSettings.customShortcuts.asMap().entries.map((entry) {
       final index = entry.key;
       final shortcut = entry.value;
@@ -155,13 +180,51 @@ class TermuxTerminalPlugin extends EditorPlugin {
         sourcePlugin: pluginId,
         defaultPositions: [termuxToolbar],
         execute: (ref) async {
-          // Send command followed by newline
           _getActiveTerminalState(ref)?.sendRawInput('${shortcut.command}\r');
         },
       );
     }).toList();
 
-    return [...standardCommands, ...customCommands];
+    // 3. The "Run Shortcut..." command (Dynamic Picker)
+    // This allows accessing new shortcuts without restarting the app.
+    final pickerCommand = BaseCommand(
+        id: 'termux_run_shortcut',
+        label: 'Run Shortcut...',
+        icon: const Icon(Icons.list_alt),
+        sourcePlugin: pluginId,
+        defaultPositions: [termuxToolbar],
+        execute: (ref) async {
+           final settings = ref.read(effectiveSettingsProvider).pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings?;
+           if (settings == null) return;
+           
+           final terminal = _getActiveTerminalState(ref);
+           if (terminal == null) return;
+           
+           // Show simple dialog
+           final context = ref.read(navigatorKeyProvider).currentContext;
+           if (context == null) return;
+           
+           await showModalBottomSheet(
+             context: context, 
+             builder: (ctx) => SizedBox(
+               height: 300,
+               child: ListView(
+                 children: settings.customShortcuts.map((s) => ListTile(
+                   leading: Icon(TerminalShortcut.resolveIcon(s.iconName)),
+                   title: Text(s.label),
+                   subtitle: Text(s.command),
+                   onTap: () {
+                     Navigator.pop(ctx);
+                     terminal.sendRawInput('${s.command}\r');
+                   },
+                 )).toList(),
+               ),
+             )
+           );
+        },
+    );
+
+    return [...standardCommands, ...customCommands, pickerCommand];
   }
 
   @override
@@ -178,7 +241,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         },
         execute: (ref) async {
           final notifier = ref.read(appNotifierProvider.notifier);
-          final terminalFile = VirtualDocumentFile(
+          final terminalFile = InternallAppFile(
             uri: termuxSessionUri,
             name: 'Termux Session',
           );
@@ -192,9 +255,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
   }
 
   @override
-  bool supportsFile(DocumentFile file) {
-    return file.uri == termuxSessionUri;
-  }
+  bool supportsFile(DocumentFile file) => file.uri == termuxSessionUri;
 
   @override
   Future<EditorTab> createTab(
@@ -239,6 +300,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
       onChanged: (newSettings) => onChanged(newSettings as PluginSettings),
     );
   }
+  
   @override
   Widget buildToolbar(WidgetRef ref) {
     return const BottomToolbar();
