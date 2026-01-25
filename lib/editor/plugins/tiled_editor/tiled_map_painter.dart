@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
-import '../../../asset_cache/asset_models.dart';
 import '../../../logs/logs_provider.dart';
 import 'tiled_asset_resolver.dart';
 import 'tiled_editor_settings_model.dart';
