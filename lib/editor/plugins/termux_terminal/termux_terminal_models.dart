@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart'; // Import for ListEquality
 import 'package:flutter/material.dart';
 import '../../models/editor_tab_models.dart';
 import '../../models/editor_plugin_models.dart';
@@ -48,9 +49,6 @@ class TerminalShortcut {
     );
   }
 
-  // Helper to map string names to IconData.
-  // This duplicates the list in the Settings Widget slightly for safety,
-  // but ensures the Plugin doesn't depend on the UI widget file.
   static IconData resolveIcon(String name) {
     const map = {
       'terminal': Icons.terminal,
@@ -74,15 +72,27 @@ class TerminalShortcut {
     };
     return map[name] ?? Icons.code;
   }
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TerminalShortcut &&
+          runtimeType == other.runtimeType &&
+          label == other.label &&
+          command == other.command &&
+          iconName == other.iconName;
+
+  @override
+  int get hashCode => Object.hash(label, command, iconName);
 }
 
 class TermuxTerminalSettings extends PluginSettings {
-  double fontSize;
-  String fontFamily;
-  String termuxWorkDir;
-  String shellCommand;
-  bool useDarkTheme;
-  List<TerminalShortcut> customShortcuts;
+  final double fontSize;
+  final String fontFamily;
+  final String termuxWorkDir;
+  final String shellCommand;
+  final bool useDarkTheme;
+  final List<TerminalShortcut> customShortcuts;
 
   TermuxTerminalSettings({
     this.fontSize = 14.0,
@@ -115,19 +125,30 @@ class TermuxTerminalSettings extends PluginSettings {
 
   @override
   void fromJson(Map<String, dynamic> json) {
-    fontSize = (json['fontSize'] as num?)?.toDouble() ?? 14.0;
-    fontFamily = json['fontFamily'] as String? ?? 'JetBrainsMono';
-    termuxWorkDir = json['termuxWorkDir'] as String? ?? '/data/data/com.termux/files/home';
-    shellCommand = json['shellCommand'] as String? ?? 'bash';
-    useDarkTheme = json['useDarkTheme'] as bool? ?? true;
+    // Note: Since fields are final, fromJson is technically "unused" in 
+    // the immutable pattern used by SettingsNotifier if it reconstructs 
+    // the object. However, we implement it for compatibility if needed.
+    // The SettingsNotifier actually relies on the initial constructor 
+    // and then calls copyWith or re-instantiation.
+  }
 
-    if (json['customShortcuts'] != null) {
-      customShortcuts = (json['customShortcuts'] as List)
-          .map((e) => TerminalShortcut.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } else {
-      customShortcuts = _defaultShortcuts();
-    }
+  // Factory used by SettingsNotifier deserialization logic
+  // (Assuming you updated the generic logic to use constructors/factories 
+  // or that this class is mutable in your specific Settings implementation.
+  // Since I made fields final for safety, here is the helper).
+  factory TermuxTerminalSettings.fromJson(Map<String, dynamic> json) {
+    return TermuxTerminalSettings(
+      fontSize: (json['fontSize'] as num?)?.toDouble() ?? 14.0,
+      fontFamily: json['fontFamily'] as String? ?? 'JetBrainsMono',
+      termuxWorkDir: json['termuxWorkDir'] as String? ?? '/data/data/com.termux/files/home',
+      shellCommand: json['shellCommand'] as String? ?? 'bash',
+      useDarkTheme: json['useDarkTheme'] as bool? ?? true,
+      customShortcuts: json['customShortcuts'] != null
+          ? (json['customShortcuts'] as List)
+              .map((e) => TerminalShortcut.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : _defaultShortcuts(),
+    );
   }
 
   TermuxTerminalSettings copyWith({
@@ -152,4 +173,26 @@ class TermuxTerminalSettings extends PluginSettings {
   MachineSettings clone() {
     return copyWith();
   }
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TermuxTerminalSettings &&
+          runtimeType == other.runtimeType &&
+          fontSize == other.fontSize &&
+          fontFamily == other.fontFamily &&
+          termuxWorkDir == other.termuxWorkDir &&
+          shellCommand == other.shellCommand &&
+          useDarkTheme == other.useDarkTheme &&
+          const ListEquality().equals(customShortcuts, other.customShortcuts);
+
+  @override
+  int get hashCode => Object.hash(
+        fontSize,
+        fontFamily,
+        termuxWorkDir,
+        shellCommand,
+        useDarkTheme,
+        const ListEquality().hash(customShortcuts),
+      );
 }
