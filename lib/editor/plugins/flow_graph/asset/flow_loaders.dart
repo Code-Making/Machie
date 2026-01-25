@@ -70,9 +70,9 @@ class FlowGraphLoader
           file.uri,
           relativeTo: repo.rootUri,
         );
-        final parentPath = repo.fileHandler.getParentUri(
-          file.uri,
-        ); // This is absolute URI usually
+        // final parentPath = repo.fileHandler.getParentUri(
+        //   file.uri,
+        // ); // This is absolute URI usually
 
         // We use the repo to calculate the absolute path of the dependency, then convert back to project relative
         // Actually, ProjectRepository.resolveRelativePath handles (ContextPath, RelativePath) -> ProjectRelativePath

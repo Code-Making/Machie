@@ -12,16 +12,16 @@ abstract class _FlowHistoryAction {
   void redo(FlowGraphNotifier notifier);
 }
 
-class _MoveNodeAction implements _FlowHistoryAction {
-  final String nodeId;
-  final Offset from;
-  final Offset to;
-  _MoveNodeAction(this.nodeId, this.from, this.to);
-  @override
-  void undo(n) => n._setNodePosition(nodeId, from);
-  @override
-  void redo(n) => n._setNodePosition(nodeId, to);
-}
+// class _MoveNodeAction implements _FlowHistoryAction {
+//   final String nodeId;
+//   final Offset from;
+//   final Offset to;
+//   _MoveNodeAction(this.nodeId, this.from, this.to);
+//   @override
+//   void undo(n) => n._setNodePosition(nodeId, from);
+//   @override
+//   void redo(n) => n._setNodePosition(nodeId, to);
+// }
 
 class _ConnectionAction implements _FlowHistoryAction {
   final FlowConnection connection;
