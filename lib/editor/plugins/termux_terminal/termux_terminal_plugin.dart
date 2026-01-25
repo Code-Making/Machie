@@ -18,6 +18,7 @@ import 'termux_hot_state_adapter.dart';
 import 'widgets/termux_terminal_widget.dart';
 import 'widgets/termux_settings_widget.dart';
 import '../../../project/project_settings_notifier.dart';
+import '../../../command/command_widgets.dart';
 
 class TermuxTerminalPlugin extends EditorPlugin {
   static const String pluginId = 'com.machine.termux_terminal';
@@ -241,7 +242,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         },
         execute: (ref) async {
           final notifier = ref.read(appNotifierProvider.notifier);
-          final terminalFile = InternallAppFile(
+          final terminalFile = internallAppFile(
             uri: termuxSessionUri,
             name: 'Termux Session',
           );
