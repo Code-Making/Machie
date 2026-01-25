@@ -205,7 +205,7 @@ class EditorService {
 
     try {
       final editorContent = await editorState.getContent();
-      if (context == null || !context.mounted) return;
+      if (!context.mounted) return;
       final result = await showDialog<SaveAsDialogResult>(
         context: context,
         builder: (_) => SaveAsDialog(initialFileName: metadata.file.name),
