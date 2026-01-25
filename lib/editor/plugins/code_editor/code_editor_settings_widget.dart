@@ -130,9 +130,9 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
         // Font Family
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: DropdownButtonFormField<String>(
+child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Font Family'),
-            value: currentSettings.fontFamily,
+            initialValue: currentSettings.fontFamily,
             items: const [
               DropdownMenuItem(value: 'FiraCode', child: Text('Fira Code')),
               DropdownMenuItem(
@@ -198,7 +198,7 @@ class _CodeEditorSettingsUIState extends ConsumerState<CodeEditorSettingsUI> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: DropdownButtonFormField<String>(
             decoration: const InputDecoration(labelText: 'Editor Theme'),
-            value: currentSettings.themeName,
+            initialValue: currentSettings.themeName,
             items:
                 CodeThemes.availableCodeThemes.keys.map((themeName) {
                   return DropdownMenuItem(
