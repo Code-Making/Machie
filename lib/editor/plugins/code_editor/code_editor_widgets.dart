@@ -619,7 +619,7 @@ class CodeEditorMachineState extends EditorWidgetState<CodeEditorMachine>
         }
       } else if (originalText.startsWith('Color.fromARGB')) {
         newColorString =
-            'Color.fromARGB(${result.a}, ${result.r}, ${result.g, ${result.b})';
+            'Color.fromARGB()${result.a}, ${result.r}, ${result.g, ${result.b})';
       } else if (originalText.startsWith('Color.fromRGBO')) {
         // Convert alpha to opacity. Format to avoid excessive decimals.
         String opacity = (result.a / 255.0).toStringAsPrecision(2);
