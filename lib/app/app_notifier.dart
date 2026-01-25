@@ -145,7 +145,7 @@ class AppNotifier extends AsyncNotifier<AppState> {
             'Access to the project folder "${e.metadata.name}" has been lost. Please re-grant access.',
       );
       
-      if (context == null || !context.mounted) {
+      if (!context.mounted) {
         _talker.error(
           "Permission denied for project '${e.metadata.name}', but no UI context was available to ask for permission again. Aborting open.",
         );
