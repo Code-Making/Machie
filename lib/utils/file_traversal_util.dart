@@ -66,10 +66,10 @@ class FileTraversalUtil {
     onFileFound,
   }) async {
     // 1. Load directory (Hydrating state as per your architecture)
-    var directoryState = hierarchyNotifier.state[directoryUri];
+    var directoryState = hierarchyNotifier[directoryUri];
     if (directoryState == null || directoryState is! AsyncData) {
       await hierarchyNotifier.loadDirectory(directoryUri);
-      directoryState = hierarchyNotifier.state[directoryUri];
+      directoryState = hierarchyNotifier[directoryUri];
     }
     final entries =
         directoryState?.valueOrNull?.map((node) => node.file).toList() ?? [];
