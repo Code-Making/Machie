@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../logs/logs_provider.dart';
 
-final termuxBridgeServiceProvider = Provider.autoDispose<TermuxBridgeService>((ref) {
+final termuxBridgeServiceProvider = Provider<TermuxBridgeService>((ref) {
   final service = TermuxBridgeService(ref.read(talkerProvider));
   ref.onDispose(() => service.dispose());
   return service;
