@@ -34,7 +34,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   void init() {
-    super.init();
     _terminal = Terminal(maxLines: 10000);
     _bridge = ref.read(termuxBridgeServiceProvider);
     
