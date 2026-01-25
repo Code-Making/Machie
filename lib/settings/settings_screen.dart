@@ -131,7 +131,6 @@ class _ExpandableSettingsList extends StatelessWidget {
   final List<Widget> items;
 
   const _ExpandableSettingsList({
-    super.key,
     required this.title,
     required this.items,
   });

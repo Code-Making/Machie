@@ -2,17 +2,17 @@ import 'package:tiled/tiled.dart';
 import 'package:xml/xml.dart';
 
 // Helper to convert ColorData to and from Hex strings.
-ColorData _colorDataFromHex(String hex) {
-  var source = hex.replaceAll('#', '');
-  if (source.length == 6) {
-    source = 'ff$source';
-  }
-  if (source.length == 8) {
-    final val = int.parse(source, radix: 16);
-    return ColorData.hex(val);
-  }
-  return const ColorData.argb(255, 0, 0, 0);
-}
+// ColorData _colorDataFromHex(String hex) {
+//   var source = hex.replaceAll('#', '');
+//   if (source.length == 6) {
+//     source = 'ff$source';
+//   }
+//   if (source.length == 8) {
+//     final val = int.parse(source, radix: 16);
+//     return ColorData.hex(val);
+//   }
+//   return const ColorData.argb(255, 0, 0, 0);
+// }
 
 extension on ColorData {
   String toHex({String prefix = '#', bool includeAlpha = true}) {

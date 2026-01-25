@@ -35,7 +35,7 @@ class _NewLayerDialogState extends State<NewLayerDialog> {
         newDefaultName = 'New Image Layer';
         break;
       case LayerType.group:
-      default:
+      // default:
         newDefaultName = 'New Layer';
         break;
       // ------------------------

@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' hide StringProperty;
-import 'package:flutter/material.dart' hide StringProperty;
+import 'package:flutter/material.dart';
 
 import 'package:tiled/tiled.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
@@ -79,44 +79,44 @@ class TiledMapPainter extends CustomPainter {
 
   /// Schema lookup: Uses the object's 'atlas' property to find the specific file,
   /// then looks for 'initialFrame' or 'initialAnim'.
-  TexturePackerSpriteData? _findSchemaSpriteData(TiledObject object) {
-    // 1. Check for file property
-    final atlasProp = object.properties['atlas'];
-    if (atlasProp is! StringProperty || atlasProp.value.isEmpty) return null;
+  // TexturePackerSpriteData? _findSchemaSpriteData(TiledObject object) {
+  //   // 1. Check for file property
+  //   final atlasProp = object.properties['atlas'];
+  //   if (atlasProp is! StringProperty || atlasProp.value.isEmpty) return null;
 
-    // 2. Check for frame/anim property
-    final frameProp =
-        object.properties['initialFrame'] ?? object.properties['initialAnim'];
-    if (frameProp is! StringProperty || frameProp.value.isEmpty) return null;
+  //   // 2. Check for frame/anim property
+  //   final frameProp =
+  //       object.properties['initialFrame'] ?? object.properties['initialAnim'];
+  //   if (frameProp is! StringProperty || frameProp.value.isEmpty) return null;
 
-    // 3. Resolve the specific asset
-    // The atlas property is relative to the TMX file
-    final canonicalKey = resolver.repo.resolveRelativePath(
-      resolver.tmxPath,
-      atlasProp.value,
-    );
-    final asset = resolver.getAsset(canonicalKey);
+  //   // 3. Resolve the specific asset
+  //   // The atlas property is relative to the TMX file
+  //   final canonicalKey = resolver.repo.resolveRelativePath(
+  //     resolver.tmxPath,
+  //     atlasProp.value,
+  //   );
+  //   final asset = resolver.getAsset(canonicalKey);
 
-    if (asset is! TexturePackerAssetData) return null;
+  //   if (asset is! TexturePackerAssetData) return null;
 
-    // 4. Find the sprite within that asset
-    final spriteName = frameProp.value;
+  //   // 4. Find the sprite within that asset
+  //   final spriteName = frameProp.value;
 
-    // Direct frame match
-    if (asset.frames.containsKey(spriteName)) {
-      return asset.frames[spriteName];
-    }
+  //   // Direct frame match
+  //   if (asset.frames.containsKey(spriteName)) {
+  //     return asset.frames[spriteName];
+  //   }
 
-    // Animation match (get first frame)
-    if (asset.animations.containsKey(spriteName)) {
-      final firstFrame = asset.animations[spriteName]!.firstOrNull;
-      if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
-        return asset.frames[firstFrame];
-      }
-    }
+  //   // Animation match (get first frame)
+  //   if (asset.animations.containsKey(spriteName)) {
+  //     final firstFrame = asset.animations[spriteName]!.firstOrNull;
+  //     if (firstFrame != null && asset.frames.containsKey(firstFrame)) {
+  //       return asset.frames[firstFrame];
+  //     }
+  //   }
 
-    return null;
-  }
+  //   return null;
+  // }
 
   void _paintFloatingSelection(Canvas canvas) {
     final selection = floatingSelection!;
@@ -797,7 +797,7 @@ class TiledMapPainter extends CustomPainter {
         yOffset = object.height - painter.height;
         break;
       case VAlign.top:
-      default:
+      // default:
         yOffset = 0;
         break;
     }
@@ -862,7 +862,7 @@ extension on HAlign {
       case HAlign.justify:
         return TextAlign.justify;
       case HAlign.left:
-      default:
+      // default:
         return TextAlign.left;
     }
   }

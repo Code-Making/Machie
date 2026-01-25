@@ -18,7 +18,7 @@ class _LayerPanelDragData {
     : type = 'object';
 }
 
-enum _DropPosition { above, below, inside }
+enum _DropPosition { above, below/*, inside*/ }
 
 class LayersPanel extends StatefulWidget {
   final List<Layer> layers;

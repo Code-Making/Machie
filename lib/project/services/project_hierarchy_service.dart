@@ -112,7 +112,7 @@ class ProjectHierarchyService
           }
         }
         break;
-      case FileModifyEvent(modifiedFile: final modifiedFile):
+      case FileModifyEvent(/*modifiedFile: final modifiedFile*/):
         break;
       case FileDeleteEvent(deletedFile: final file):
         final parentUri = repo.fileHandler.getParentUri(file.uri);
