@@ -378,7 +378,7 @@ class TiledMapPainter extends CustomPainter {
         );
 
         if (image == null) {
-          _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
+          _drawMissingImagePlaceholder(canvas, dst, imageSource);
           continue;
         }
 
@@ -736,7 +736,7 @@ class TiledMapPainter extends CustomPainter {
     );
 
     if (image == null) {
-      _drawMissingImagePlaceholder(canvas, dst, imageSource ?? 'Unknown');
+      _drawMissingImagePlaceholder(canvas, dst, imageSource);
       return;
     }
 

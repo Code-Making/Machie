@@ -129,7 +129,7 @@ class TmjWriter {
       common['data'] = gids ?? [];
     } else if (layer is ObjectGroup) {
       common['type'] = 'objectgroup';
-      common['draworder'] = layer.drawOrder.toJson() ?? 'topdown';
+      common['draworder'] = layer.drawOrder.toJson();
       common['color'] = layer.color.toJson();
           common['objects'] =
           layer.objects.map((o) => _buildObjectJson(o)).toList();
