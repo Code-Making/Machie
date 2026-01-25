@@ -382,23 +382,23 @@ extension PropertyWriter on Property {
       nest: () {
         builder.attribute('name', name);
 
-        switch (runtimeType) {
-          case IntProperty:
-            builder.attribute('TypeName _', 'int');
+        switch (this) {
+          case IntProperty _:
+            builder.attribute('type', 'int');
             break;
-          case BoolProperty:
+          case BoolProperty _:
             builder.attribute('type', 'bool');
             break;
-          case FloatProperty:
+          case FloatProperty _:
             builder.attribute('type', 'float');
             break;
-          case FileProperty:
+          case FileProperty _:
             builder.attribute('type', 'file');
             break;
-          case ObjectProperty:
+          case ObjectProperty _:
             builder.attribute('type', 'object');
             break;
-          case ColorProperty:
+          case ColorProperty _:
             builder.attribute('type', 'color');
             builder.attribute(
               'value',
