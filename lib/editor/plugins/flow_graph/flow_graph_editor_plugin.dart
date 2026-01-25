@@ -103,7 +103,7 @@ class FlowGraphEditorPlugin extends EditorPlugin {
 
 
   @override
-  List<Command> getCommands() {
+  List<Command> getCommands(Ref ref) {
     return [
       BaseCommand(
         id: 'flow_save',

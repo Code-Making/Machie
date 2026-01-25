@@ -186,7 +186,7 @@ class LlmEditorPlugin extends EditorPlugin {
   }
 
   @override
-  List<Command> getCommands() => [
+  List<Command> getCommands(Ref ref) => [
     BaseCommand(
       id: 'save',
       label: 'Save Chat',
