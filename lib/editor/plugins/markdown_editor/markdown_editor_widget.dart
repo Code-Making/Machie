@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/editor_tab_models.dart';
 import '../../services/editor_service.dart';
-import '../../../utils/toast.dart';
 import 'markdown_editor_models.dart';
 import 'markdown_editor_hot_state.dart';
 
@@ -64,8 +63,6 @@ class MarkdownEditorWidgetState extends EditorWidgetState<MarkdownEditorWidget> 
     // 5. Listen for changes to mark tab as dirty
     _editorState.transactionStream.listen((event) {
       if (event.$1 == TransactionTime.after && !_isSaving) {
-        // We only mark dirty on actual changes. 
-        // AppFlowy emits events often, so in a real app you might debounce this.
         if (mounted) {
            ref.read(editorServiceProvider).markCurrentTabDirty();
         }
@@ -89,10 +86,18 @@ class MarkdownEditorWidgetState extends EditorWidgetState<MarkdownEditorWidget> 
 
   @override
   Widget build(BuildContext context) {
-    // We use MobileToolbar to provide formatting options on Android
-    return MobileToolbar(
+    // FIXED: Use MobileToolbarV2 with required items and child parameter
+    return MobileToolbarV2(
       editorState: _editorState,
       toolbarHeight: 48,
+      toolbarItems: [
+        textDecorationMobileToolbarItemV2,
+        buildTextAndBackgroundColorMobileToolbarItem(),
+        blocksMobileToolbarItem,
+        linkMobileToolbarItem,
+        dividerMobileToolbarItem,
+        // You can add more items like list controls here if needed
+      ],
       child: Column(
         children: [
           Expanded(
@@ -175,12 +180,6 @@ class MarkdownEditorWidgetState extends EditorWidgetState<MarkdownEditorWidget> 
   Map<String, BlockComponentBuilder> _buildBlockComponentBuilders() {
     // Start with standard builders (Paragraph, Heading, List, etc.)
     final builders = {...standardBlockComponentBuilderMap};
-
-    // Example: Customize Code Block to look distinct
-    // The default CodeBlockComponentBuilder is good, but we ensure it's registered.
-    // If you need to handle `dataviewjs` specifically visually, you'd subclass it here.
-    // For now, AppFlowy handles code fences natively.
-    
     return builders;
   }
 
@@ -211,7 +210,6 @@ class MarkdownEditorWidgetState extends EditorWidgetState<MarkdownEditorWidget> 
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
-    // Save the internal JSON representation for high-fidelity restoration
     return MarkdownEditorHotStateDto(
       documentJson: _editorState.document.toJson(),
       rawFrontMatter: widget.tab.frontMatter.rawString,
@@ -225,12 +223,14 @@ class MarkdownEditorWidgetState extends EditorWidgetState<MarkdownEditorWidget> 
 
   @override
   void undo() {
-    _editorState.undo();
+    // FIXED: Use the command pattern for undo
+    undoCommand.execute(_editorState);
   }
 
   @override
   void redo() {
-    _editorState.redo();
+    // FIXED: Use the command pattern for redo
+    redoCommand.execute(_editorState);
   }
 
   @override
