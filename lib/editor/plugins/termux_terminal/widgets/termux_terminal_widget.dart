@@ -4,15 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../termux_hot_state.dart';
-import '../../../../app/app_notifier.dart'; // To access current project
+import '../../../../app/app_notifier.dart';
 import '../../../../settings/settings_notifier.dart';
 import '../../../../logs/logs_provider.dart';
 import '../termux_terminal_models.dart';
 import '../services/termux_bridge_service.dart';
 import '../../../models/editor_tab_models.dart';
-import '../../../../project/project_settings_notifier.dart';
 
-// Input Handler (Placeholder for Phase 3)
 class TermuxInputHandler implements TerminalInputHandler {
   final TerminalInputHandler _delegate = defaultInputHandler;
   bool ctrlActive = false;
@@ -20,6 +18,7 @@ class TermuxInputHandler implements TerminalInputHandler {
 
   @override
   String? call(TerminalKeyboardEvent event) {
+    // If modifiers are toggled on, force them into the event
     final effectiveEvent = event.copyWith(
       ctrl: event.ctrl || ctrlActive,
       alt: event.alt || altActive,
@@ -28,7 +27,8 @@ class TermuxInputHandler implements TerminalInputHandler {
   }
 }
 
-abstract class TermuxTerminalWidgetState extends EditorWidgetState<TermuxTerminalWidget> {
+abstract class TermuxTerminalWidgetState
+    extends EditorWidgetState<TermuxTerminalWidget> {
   void sendRawInput(String data);
   void toggleCtrl();
   void toggleAlt();
@@ -54,8 +54,6 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
   late final TermuxBridgeService _bridge;
   late final TermuxInputHandler _inputHandler;
   StreamSubscription? _bridgeSubscription;
-  
-  // Track the actual directory we ended up using for Hot State preservation
   late String _activeWorkingDirectory;
 
   @override
@@ -66,15 +64,14 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       inputHandler: _inputHandler,
     );
     _bridge = ref.read(termuxBridgeServiceProvider);
-    
+
     _bridgeSubscription = _bridge.outputStream.listen((data) {
-      if (mounted) {
-        _terminal.write(data);
-      }
+      if (mounted) _terminal.write(data);
     });
     _terminal.onOutput = _onTerminalOutput;
 
-    if (widget.tab.initialHistory != null && widget.tab.initialHistory!.isNotEmpty) {
+    if (widget.tab.initialHistory != null &&
+        widget.tab.initialHistory!.isNotEmpty) {
       _terminal.write(widget.tab.initialHistory!);
     }
   }
@@ -86,34 +83,31 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
     }
     _resolveAndStartSession();
   }
-  
-  /// Resolves the correct working directory.
-  /// 1. Uses cached WD if available.
-  /// 2. Converts Project SAF URI to FS Path.
-  /// 3. Checks if that path is accessible by Termux.
+
   Future<void> _resolveAndStartSession() async {
-    final settings = ref.read(effectiveSettingsProvider.select(
-      (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
-    ));
+    // IMPORTANT: Watch effectiveSettingsProvider to ensure we get the overrides if they exist
+    // This resolves the issue where settings weren't applying.
+    final effectiveSettings = ref.read(effectiveSettingsProvider);
+    final settings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
+            as TermuxTerminalSettings? ??
+        TermuxTerminalSettings();
 
     String workDir;
 
-    // 1. Check if we have a specific directory passed from createTab (Hot State)
     if (widget.tab.initialWorkingDirectory.isNotEmpty) {
       workDir = widget.tab.initialWorkingDirectory;
     } else {
-      // 2. Resolve from Project
       final project = ref.read(appNotifierProvider).value?.currentProject;
       final String? projectFsPath = _convertSafToFsPath(project?.rootUri);
-      
-      // 3. Determine if we should use the Project path or Default Home
+
       if (projectFsPath != null && _isPathAccessibleByTermux(projectFsPath)) {
         workDir = projectFsPath;
-        _terminal.write('\x1b[32m[Machine] Spawning in project root: $workDir\x1b[0m\r\n');
+        _terminal.write('\x1b[32m[Machine] Spawning in: $workDir\x1b[0m\r\n');
       } else {
         workDir = settings.termuxWorkDir;
         if (projectFsPath != null) {
-           _terminal.write('\x1b[33m[Machine] Project path not strictly inside Termux/SDCard. Defaulting to Home.\x1b[0m\r\n');
+          _terminal.write(
+              '\x1b[33m[Machine] Path "$projectFsPath" not accessible by Termux. Defaulting to Home.\x1b[0m\r\n');
         }
       }
     }
@@ -124,84 +118,65 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
       workingDirectory: workDir,
       shell: settings.shellCommand,
     ).catchError((e, st) {
-      final errorMessage = "\r\n\x1b[31mError starting Termux session: $e\x1b[0m\r\n";
+      final errorMessage =
+          "\r\n\x1b[31mError starting Termux session: $e\x1b[0m\r\n";
       _terminal.write(errorMessage);
       ref.read(talkerProvider).handle(e, st, "Failed to start Termux session");
     });
   }
 
-  /// Converts a SAF URI (content://...) to a raw Filesystem path if possible.
-  /// Specifically handles the 'primary:' volume mapping to /storage/emulated/0/
   String? _convertSafToFsPath(String? uriString) {
     if (uriString == null) return null;
-    
     final uri = Uri.parse(uriString);
+    if (uri.scheme == 'file') return uri.path;
 
-    // Direct file path
-    if (uri.scheme == 'file') {
-      return uri.path;
-    }
+    // Handle standard Android SAF
+    if (uri.scheme == 'content') {
+      final pathSegments = uri.pathSegments;
 
-    // Android Storage Access Framework
-    if (uri.scheme == 'content' && 
-        uri.authority == 'com.android.externalstorage.documents') {
-      
-      // Usually format: .../tree/primary:FolderName
-      // Path segments: ['tree', 'primary:FolderName']
-      
-      // Find the segment containing the volume ID
-      String? treeSegment;
-      for (final segment in uri.pathSegments) {
-        if (segment.contains(':')) {
-            treeSegment = segment;
-            break;
+      for (final segment in pathSegments) {
+        final decoded = Uri.decodeComponent(segment);
+
+        // Strategy 1: "raw:" prefix (common in some file managers)
+        if (decoded.startsWith('raw:')) {
+          return decoded.substring(4); // Remove 'raw:'
+        }
+
+        // Strategy 2: Volume ID parsing (primary: or XXXX-XXXX:)
+        if (decoded.contains(':')) {
+          final parts = decoded.split(':');
+          if (parts.length >= 2) {
+            final volumeId = parts[0];
+            final path = parts.sublist(1).join(':');
+
+            if (volumeId == 'primary') {
+              return '/storage/emulated/0/$path';
+            } else if (volumeId == 'home') {
+              // Heuristic for "Documents" provider
+              return '/storage/emulated/0/Documents/$path';
+            } else {
+              // SD Card or other external storage
+              return '/storage/$volumeId/$path';
+            }
+          }
         }
       }
-
-      if (treeSegment != null) {
-         // Decode URL encoding (e.g. primary%3A -> primary:)
-         final decoded = Uri.decodeComponent(treeSegment);
-         final parts = decoded.split(':');
-         
-         if (parts.length == 2) {
-           final volumeId = parts[0];
-           final path = parts[1];
-
-           if (volumeId == 'primary') {
-             // 'primary' maps to standard internal storage
-             return '/storage/emulated/0/$path';
-           } 
-           // Handle 'home' (Documents provider) heuristic
-           else if (volumeId == 'home') {
-             return '/storage/emulated/0/Documents/$path';
-           }
-           // Other volume IDs (e.g. ABCD-1234) represent SD cards. 
-           // They usually map to /storage/ABCD-1234/
-           else {
-             return '/storage/$volumeId/$path';
-           }
-         }
-      }
     }
-
     return null;
   }
 
-  /// Checks if a filesystem path is likely accessible by Termux.
-  /// Termux can access: 
-  /// 1. Its own private directory: /data/data/com.termux/...
-  /// 2. Shared storage: /storage/emulated/0/... (if permissions granted)
-  /// 3. Physical SD cards: /storage/ABCD-1234/... (if permissions granted)
   bool _isPathAccessibleByTermux(String path) {
     if (path.startsWith('/data/data/com.termux/files/')) return true;
-    if (path.startsWith('/storage/')) return true;
-    if (path.startsWith('/sdcard/')) return true;
+    if (path.startsWith('/storage/emulated/0/')) return true; // Internal Storage
+    if (path.startsWith('/sdcard/')) return true; // Alias
+    if (path.startsWith('/storage/'))
+      return true; // SD Cards (might fail if read-only)
     return false;
   }
 
   void _onTerminalOutput(String data) {
     _bridge.write(data);
-    // Sticky keys logic (Phase 3 placeholder)
+    // Sticky modifiers: turn off after one keypress
     if (_inputHandler.ctrlActive || _inputHandler.altActive) {
       setState(() {
         _inputHandler.ctrlActive = false;
@@ -217,21 +192,16 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   void toggleCtrl() {
-    setState(() {
-      _inputHandler.ctrlActive = !_inputHandler.ctrlActive;
-    });
+    setState(() => _inputHandler.ctrlActive = !_inputHandler.ctrlActive);
   }
 
   @override
   void toggleAlt() {
-    setState(() {
-      _inputHandler.altActive = !_inputHandler.altActive;
-    });
+    setState(() => _inputHandler.altActive = !_inputHandler.altActive);
   }
 
   @override
   bool get isCtrlActive => _inputHandler.ctrlActive;
-
   @override
   bool get isAltActive => _inputHandler.altActive;
 
@@ -243,15 +213,13 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   Future<EditorContent> getContent() async {
-    final buffer = _terminal.buffer.getText();
-    return EditorContentString(buffer);
+    return EditorContentString(_terminal.buffer.getText());
   }
 
   @override
   Future<TabHotStateDto?> serializeHotState() async {
     final buffer = await getContent() as EditorContentString;
     return TermuxHotStateDto(
-      // Save the directory we actually resolved to
       workingDirectory: _activeWorkingDirectory,
       terminalHistory: buffer.content,
     );
@@ -268,11 +236,12 @@ class _TermuxTerminalWidgetState extends TermuxTerminalWidgetState {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(effectiveSettingsProvider.select(
-      (s) => s.pluginSettings[TermuxTerminalSettings] as TermuxTerminalSettings,
-    ));
+    // Visual settings need to update immediately using effective settings
+    final effectiveSettings = ref.watch(effectiveSettingsProvider);
+    final settings = effectiveSettings.pluginSettings[TermuxTerminalSettings]
+            as TermuxTerminalSettings? ??
+        TermuxTerminalSettings();
 
-    // ... (Theme logic unchanged) ...
     const lightTheme = TerminalTheme(
       cursor: Color(0xFF000000),
       selection: Color(0xFFB0B0B0),
