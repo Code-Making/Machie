@@ -245,6 +245,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
           final terminalFile = InternalAppFile(
             uri: termuxSessionUri,
             name: 'Termux Session',
+            modifiedDate: DateTime.now(),      
           );
           await notifier.openFileInEditor(
             terminalFile,
