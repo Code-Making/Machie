@@ -80,6 +80,7 @@ dependencies:
   xterm:
     git:
       url: git@github.com:hommes-doutant/xterm.dart.git
+  android_intent_plus: ^6.0.0
  
 dev_dependencies:
   flutter_test:
