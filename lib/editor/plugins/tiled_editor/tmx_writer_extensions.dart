@@ -384,7 +384,7 @@ extension PropertyWriter on Property {
 
         switch (runtimeType) {
           case IntProperty:
-            builder.attribute('type', 'int');
+            builder.attribute('TypeName _', 'int');
             break;
           case BoolProperty:
             builder.attribute('type', 'bool');
