@@ -242,7 +242,7 @@ class TermuxTerminalPlugin extends EditorPlugin {
         },
         execute: (ref) async {
           final notifier = ref.read(appNotifierProvider.notifier);
-          final terminalFile = internallAppFile(
+          final terminalFile = InternalAppFile(
             uri: termuxSessionUri,
             name: 'Termux Session',
           );
