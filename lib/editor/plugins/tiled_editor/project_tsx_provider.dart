@@ -15,7 +15,6 @@ class ProjectTsxProvider extends TsxProvider {
 
   ProjectTsxProvider(this.repo, this.parentUri, [this.filename = '']);
 
-  @override
   Future<TsxProvider> getProvider(String path) async {
     final tsxFile = await repo.fileHandler.resolvePath(parentUri, path);
     if (tsxFile == null) {

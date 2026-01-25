@@ -655,7 +655,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   void inspectMapProperties() {
-    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    // final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
 
@@ -805,7 +805,7 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
   }
 
   void _inspectSelectedTileset() {
-    final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
+    // final talker = ref.read(talkerProvider); // [DIAGNOSTIC]
     final resolverState = ref.read(tiledAssetResolverProvider(widget.tab.id));
     final resolver = resolverState.valueOrNull;
     if (_notifier == null || _selectedTileset == null || resolver == null) {
@@ -1101,33 +1101,33 @@ class TiledEditorWidgetState extends EditorWidgetState<TiledEditorWidget> {
     }
   }
 
-  void _paintStamp(Offset localPosition) {
-    if (isZoomMode ||
-        _selectedTileset == null ||
-        _selectedTileRect == null ||
-        _selectedLayerId == -1) {
-      return;
-    }
+  // void _paintStamp(Offset localPosition) {
+  //   if (isZoomMode ||
+  //       _selectedTileset == null ||
+  //       _selectedTileRect == null ||
+  //       _selectedLayerId == -1) {
+  //     return;
+  //   }
 
-    final inverseMatrix = _transformationController.value.clone()..invert();
-    final mapPosition = MatrixUtils.transformPoint(
-      inverseMatrix,
-      localPosition,
-    );
+  //   final inverseMatrix = _transformationController.value.clone()..invert();
+  //   final mapPosition = MatrixUtils.transformPoint(
+  //     inverseMatrix,
+  //     localPosition,
+  //   );
 
-    final tileWidth = notifier!.map.tileWidth;
-    final tileHeight = notifier!.map.tileHeight;
-    final startX = (mapPosition.dx / tileWidth).floor();
-    final startY = (mapPosition.dy / tileHeight).floor();
+  //   final tileWidth = notifier!.map.tileWidth;
+  //   final tileHeight = notifier!.map.tileHeight;
+  //   final startX = (mapPosition.dx / tileWidth).floor();
+  //   final startY = (mapPosition.dy / tileHeight).floor();
 
-    notifier!.setStamp(
-      startX,
-      startY,
-      _selectedLayerId,
-      _selectedTileset!,
-      _selectedTileRect!,
-    );
-  }
+  //   notifier!.setStamp(
+  //     startX,
+  //     startY,
+  //     _selectedLayerId,
+  //     _selectedTileset!,
+  //     _selectedTileRect!,
+  //   );
+  // }
 
   void _handleTileSelect(Offset localPosition, {required bool isStart}) {
     final mapPosition = _getMapPosition(localPosition);
