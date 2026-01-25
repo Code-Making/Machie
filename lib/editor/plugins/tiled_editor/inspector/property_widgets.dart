@@ -159,7 +159,7 @@ class _PropertyExternalObjectSelectorState
 
         return DropdownButtonFormField<int>(
           decoration: InputDecoration(labelText: widget.descriptor.label),
-          value: currentValue,
+          initialValue: currentValue,
           items: items,
           onChanged:
               widget.descriptor.isReadOnly
@@ -246,7 +246,7 @@ class PropertyTiledObjectSelector extends StatelessWidget {
 
     return DropdownButtonFormField<int>(
       decoration: InputDecoration(labelText: descriptor.label),
-      value: currentValue,
+      initialValue: currentValue,
       items: items,
       onChanged:
           descriptor.isReadOnly
@@ -375,7 +375,7 @@ class PropertyStringEnumDropdown extends StatelessWidget {
 
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(labelText: descriptor.label),
-      value: currentValue,
+      initialValue: currentValue,
       items:
           displayOptions.map((String value) {
             return DropdownMenuItem<String>(value: value, child: Text(value));
@@ -1062,7 +1062,7 @@ class PropertyColorInput extends StatelessWidget {
   }
 
   String _formatColor(Color color) {
-    return '#${color.value.toRadixString(16).padLeft(8, '0')}';
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
   }
 
   Future<void> _showColorPickerDialog(BuildContext context) async {
@@ -1128,7 +1128,7 @@ class PropertyColorInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentColor = _parseColor(descriptor.currentValue);
     final isNotSet =
-        currentColor.alpha == 0 && descriptor.currentValue != '#00000000';
+        currentColor.a == 0 && descriptor.currentValue != '#00000000';
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -1192,7 +1192,7 @@ class PropertyEnumDropdown<T extends Enum> extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
       decoration: InputDecoration(labelText: descriptor.label),
-      value: descriptor.currentValue,
+      initialValue: descriptor.currentValue,
       items:
           descriptor.allValues.map((T value) {
             return DropdownMenuItem<T>(value: value, child: Text(value.name));
@@ -1401,7 +1401,7 @@ class _AddPropertyDialogState extends State<_AddPropertyDialog> {
                 onSaved: (value) => _name = value!,
               ),
               DropdownButtonFormField<PropertyType>(
-                value: _type,
+                initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items:
                     PropertyType.values
